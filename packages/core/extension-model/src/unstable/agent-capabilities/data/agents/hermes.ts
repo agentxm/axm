@@ -42,6 +42,17 @@ export const hermesAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/skills"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Additional directory precedence and every frontmatter field were not revalidated.",
+          ],
+          claimScope: "User skill library and additional configured sources",
+        },
       },
       axm: {
         status: "supported",
@@ -112,11 +123,28 @@ export const hermesAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native delegate_task workers have isolated contexts, parallel execution and configurable delegation models.",
         docs: [],
-        sources: [],
+        sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation/"],
+
+        scopes: [],
+        locations: [],
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation/"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "No automatically discoverable custom-subagent directory or configuration scope was established.",
+          ],
+          claimScope:
+            "Native delegate_task workers have isolated contexts, parallel execution and configurable delegation models.",
+        },
+
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
@@ -129,11 +157,13 @@ export const hermesAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Hermes supports config-declared shell hooks and Python plugin callbacks. Shell hooks are command-based, accept event data, and are gated by a local allowlist.",
+          "Hermes has profile config.yaml shell hooks, Python plugin hooks, outbound webhooks and Gateway-only HOOK.yaml plus handler.py directories. Gateway hooks do not run in the CLI or Desktop; modeled event mappings cover only part of this surface.",
         docs: [],
-        sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
+        sources: [
+          "https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks",
+          "https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks/",
+        ],
         scopes: ["user"],
-        mechanism: ["command-stdin"],
         locations: [
           {
             id: "user",
@@ -170,67 +200,144 @@ export const hermesAgent = {
             gitignored: false,
           },
         ],
+
+        entryDialect: null,
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks/"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "The existing event mappings and allowlist mechanics were not exhaustively revalidated.",
+          ],
+          claimScope: "Hook system availability and surface boundaries",
+        },
+
+        mechanism: ["command-stdin"],
         events: [
           {
             nativeName: "pre_tool_call",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "terminal|read_file|write_file", notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["deny"] }],
+            matcher: {
+              kind: "regex",
+              example: "terminal|read_file|write_file",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["deny"],
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_tool_call",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "terminal|read_file|write_file", notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "regex",
+              example: "terminal|read_file|write_file",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "pre_llm_call",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "post_llm_call",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "on_session_start",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "subagent_stop",
             canonical: "subagent.stop",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "transform_llm_output",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "modify", operations: ["modify-output"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "modify",
+                operations: ["modify-output"],
+              },
+            ],
             sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks"],
             lastVerified: "2026-08-05",
           },
         ],
         tools: [],
-
-        entryDialect: null,
       },
       axm: {
         status: "unsupported",
@@ -274,9 +381,10 @@ export const hermesAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -285,5 +393,30 @@ export const hermesAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Hermes Agent",
+      surface: "Hermes CLI and Gateway; hook behavior varies by surface",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://hermes-agent.nousresearch.com/docs/user-guide/features/hooks/",
+        "https://hermes-agent.nousresearch.com/docs/user-guide/features/delegation/",
+        "https://hermes-agent.nousresearch.com/docs/user-guide/features/skills",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, instructions, permissions.",
+      ],
+      claimScope: "Hook systems and native subagent delegation",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

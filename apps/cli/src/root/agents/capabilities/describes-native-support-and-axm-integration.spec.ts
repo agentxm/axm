@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/capabilities/describes-native-support-and-axm-integration",
   title: "Agent capabilities distinguish native support from AXM integration",
   statement:
-    "When a person inspects a coding agent’s capabilities, AXM shall report, per extension type, whether the vendor supports it natively and separately whether AXM integrates with it, together with the declared scoped native locations, and shall report the agent’s lifecycle rather than treating a retired agent as unknown.",
+    "When a person inspects a coding agent’s capabilities, AXM shall report native availability separately from AXM integration and qualified installability, distinguish scoped source review from attributable execution verification and legacy record dates, expose missing evidence and its age against the quarterly review budget for every capability, preserve declared native locations and conditions, and report the agent’s lifecycle rather than treating a retired agent as unknown.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "actionable-diagnostics"],
@@ -28,7 +28,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [
-    "Claude Code models native Skill support that AXM integrates with, and a Hook surface AXM writes for it; Pi models a natively-supported, a plugin-only, and an absent surface in one agent.",
+    "Claude Code models native Skill support that AXM integrates with, and a Hook surface AXM writes for it; Pi models natively-supported, plugin-only, and unresolved surfaces in one agent.",
   ],
   openQuestions: [],
   limitations: [
@@ -71,6 +71,20 @@ describe("Coding-agent capability reports", () => {
       // exists only because AXM writes it.
       const skill = report.items.find((item) => item.type === "skill");
       expect(skill).toMatchObject({ native: "native", axm: "supported" });
+      expect(skill?.assessment.axm).toHaveProperty("legacyLastVerified");
+      expect(skill?.assessment.axm).toHaveProperty("verification");
+      expect(skill?.assessment.native).toHaveProperty("review");
+      expect(skill?.assessment.installability).toHaveProperty("conditions");
+      expect(report.asOf).toMatch(/^\d{4}-\d{2}-\d{2}$/u);
+      expect(report.freshness.map((entry) => entry.capability)).toEqual([
+        "skill",
+        "mcp-server",
+        "subagent",
+        "hook",
+        "rule",
+        "permissions",
+      ]);
+      expect(report.freshness.every((entry) => entry.budgetDays === 90)).toBe(true);
       expect(skill?.locations).toEqual(
         expect.arrayContaining([
           expect.objectContaining({ scope: "project", root: "project", path: ".claude/skills" }),
@@ -84,15 +98,14 @@ describe("Coding-agent capability reports", () => {
 
   it.effect("identifies a retired agent without treating it as unknown", () =>
     Effect.gen(function* () {
-      const report = yield* reportFor("gemini-cli");
+      const report = yield* reportFor("codemaker");
 
-      expect(report.agent).toBe("gemini-cli");
+      expect(report.agent).toBe("codemaker");
       expect(report.lifecycle).toBe("retired");
-      expect(report.count).toBeGreaterThan(0);
     }),
   );
 
-  it.effect("distinguishes supported native capability from plugin and absent surfaces", () =>
+  it.effect("distinguishes supported native capability from plugin and unknown surfaces", () =>
     Effect.gen(function* () {
       const report = yield* reportFor("pi");
 
@@ -105,9 +118,12 @@ describe("Coding-agent capability reports", () => {
         axm: "unsupported",
       });
       expect(report.items.find((item) => item.type === "mcp-server")).toMatchObject({
-        native: "none",
+        native: "unknown",
         axm: "unsupported",
       });
+      expect(
+        report.items.find((item) => item.type === "mcp-server")?.assessment.installability.status,
+      ).toBe("unknown");
     }),
   );
 });

@@ -8,6 +8,7 @@ import {
   AGENTS,
   CONFIGURABLE_AGENTS_BY_ID,
   isConfigurableAgentId,
+  McpServersPathSchema,
   type Agent,
   type McpConfig,
   type McpEntryDialect,
@@ -19,6 +20,7 @@ import type { ResolvedMcpConfig, SharedMcpTargetMember } from "./shared-target.j
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import {
   resolveNativeReadLocation,
   captureNativeLocationSet,
@@ -74,7 +76,7 @@ export const declaredMcpWriterTargets = (
     if (!capability.axm.writer.config.locationIds.includes(location.id)) return [];
     const serversPath = location.keyPath;
     const attribution = location.attribution;
-    if (serversPath === undefined || attribution === undefined) return [];
+    if (!Schema.is(McpServersPathSchema)(serversPath) || attribution === undefined) return [];
     return [
       {
         location,
@@ -255,7 +257,7 @@ export const resolveConfiguredMcpTargets = (args: {
           const physicalPath = observed.value;
           if (physicalPath !== group.path) continue;
           const serversPath = location.keyPath;
-          if (native.entryDialect === null || serversPath === undefined) {
+          if (native.entryDialect === null || !Schema.is(McpServersPathSchema)(serversPath)) {
             if (args.agentIds.includes(agent.id))
               unverifiedReaders.push(
                 `${agent.id} has no verified entry dialect for native location '${location.id}'`,

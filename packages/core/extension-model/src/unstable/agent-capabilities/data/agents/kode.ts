@@ -102,9 +102,10 @@ export const kodeAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -119,7 +120,8 @@ export const kodeAgent = {
     native: {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Kode walks repository-root to working-directory instruction files, preferring AGENTS.override.md to AGENTS.md at a level; legacy CLAUDE.md remains readable. The default combined project document cap is 32 KiB.",
       docs: [],
       sources: ["https://github.com/shareAI-lab/Kode-CLI"],
       scopes: ["project"],
@@ -134,12 +136,38 @@ export const kodeAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+        },
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.override.md",
+          shape: "file",
+          role: "additional",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
       importSyntax: null,
+
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://github.com/shareAI-lab/Kode-CLI"],
+        conditions: [],
+        limitations: ["No vendor runtime or AXM writer execution was performed."],
+        claimScope: "Repository-to-cwd AGENTS.md discovery and AGENTS.override.md precedence",
+      },
     },
     axm: {
       status: "supported",
@@ -175,5 +203,26 @@ export const kodeAgent = {
       lastVerified: "2026-08-05",
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Kode",
+      surface: "Kode CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://github.com/shareAI-lab/Kode-CLI"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, permissions.",
+      ],
+      claimScope: "CLI product and AGENTS.md instruction discovery",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

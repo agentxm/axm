@@ -4,7 +4,7 @@ export const aiderDeskAgent = {
   name: "AiderDesk",
   vendor: "HOTOVO",
   homepage: "https://github.com/hotovo/aider-desk",
-  interfaces: ["ide-extension"],
+  interfaces: ["desktop"],
   family: null,
   rootDir: ".aider-desk",
   lifecycle: { state: "active" },
@@ -32,6 +32,7 @@ export const aiderDeskAgent = {
         sources: [
           "https://aiderdesk.hotovo.com/docs/features/skills",
           "https://github.com/hotovo/aider-desk/issues/568",
+          "https://aiderdesk.hotovo.com/docs/agent-mode/skills",
         ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
@@ -44,10 +45,36 @@ export const aiderDeskAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".aider-desk/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://aiderdesk.hotovo.com/docs/agent-mode/skills"],
+          conditions: ["The selected agent profile must enable Use Skills Tools."],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project and home skills; Skills Tools must be enabled",
+        },
       },
       axm: {
         status: "supported",
@@ -82,11 +109,28 @@ export const aiderDeskAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "AiderDesk agent profiles can be enabled as subagents through Settings > Agent. They have isolated context, tool approvals and automatic or on-demand invocation.",
         docs: [],
-        sources: [],
+        sources: ["https://aiderdesk.hotovo.com/docs/agent-mode/subagents"],
+
+        scopes: [],
+        locations: [],
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://aiderdesk.hotovo.com/docs/agent-mode/subagents"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "No automatically discoverable custom-subagent directory or configuration scope was established.",
+          ],
+          claimScope:
+            "AiderDesk agent profiles can be enabled as subagents through Settings > Agent. They have isolated context, tool approvals and automatic or on-demand invocation.",
+        },
+
+        modeling: "native-unmodeled",
       },
       axm: {
         status: "unsupported",
@@ -120,11 +164,44 @@ export const aiderDeskAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes: "The /init command creates an AGENTS.md project rule file.",
       docs: [],
-      sources: [],
+      sources: ["https://aiderdesk.hotovo.com/docs/core/commands"],
+
+      scopes: ["project"],
+      standardsCompliance: "full",
+      convention: "universal",
+      kind: "agents-md",
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: "AGENTS.md",
+          shape: "file",
+          role: "primary",
+          status: "canonical",
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
+        },
+      ],
+      nestedDiscovery: false,
+      importSyntax: null,
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://aiderdesk.hotovo.com/docs/core/commands"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "Global rule locations and nested instruction discovery were not established.",
+        ],
+        claimScope: "The /init command creates an AGENTS.md project rule file.",
+      },
     },
     axm: {
       status: "unsupported",
@@ -137,22 +214,59 @@ export const aiderDeskAgent = {
       availability: { via: "native" },
       vendorStatus: { state: "active" },
       notes:
-        "AiderDesk gates tool execution with a three-state per-tool approval (Always / Ask / Never) configured per agent profile, plus pattern-based allow/deny regex for bash commands. Approvals are persisted in the per-profile JSON, but the exact config file location and grammar are not documented, so AXM has no grant writer.",
+        "Agent profiles configure tool groups and per-tool Ask, Always or Never approval policies.",
       docs: [],
-      sources: ["https://github.com/hotovo/aider-desk"],
-      scopes: ["user", "project"],
-      mechanism: ["config-file"],
+      sources: ["https://aiderdesk.hotovo.com/docs/agent-mode/subagents"],
+      scopes: ["user"],
+      mechanism: ["ui-only"],
       locations: [],
       grammar: null,
       prerequisites: [],
       cliFlags: [],
+
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://aiderdesk.hotovo.com/docs/agent-mode/subagents"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "No AXM permission writer was verified.",
+        ],
+        claimScope:
+          "Agent profiles configure tool groups and per-tool Ask, Always or Never approval policies.",
+      },
     },
     axm: {
       status: "unsupported",
       lastVerified: null,
       writer: null,
       reason:
-        "AiderDesk tool-approval settings live in per-profile JSON without a documented, stable writable path or grammar, so AXM cannot safely write permission grants.",
+        "AXM has not implemented a managed installation target for the documented native surface.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "AiderDesk",
+      surface: "AiderDesk desktop Agent mode",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://aiderdesk.hotovo.com/docs/agent-mode/subagents",
+        "https://aiderdesk.hotovo.com/docs/agent-mode/skills",
+        "https://aiderdesk.hotovo.com/docs/core/commands",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, hook.",
+      ],
+      claimScope: "UI-managed subagent profiles and per-tool approvals",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

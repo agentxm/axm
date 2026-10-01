@@ -39,10 +39,37 @@ export const codeartsAgentAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".codeartsdoer/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0019.html"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope:
+            "Project .codeartsdoer/skills and home .codeartsdoer/skills; project names override user names",
+        },
       },
       axm: {
         status: "supported",
@@ -283,5 +310,26 @@ export const codeartsAgentAgent = {
       writer: null,
       reason: "AXM has not implemented a CodeArts Agent permission-list writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "CodeArts Agent",
+      surface: "CodeArts coding CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://support.huaweicloud.com/usermanual-cli/codeartsagent_cli_0019.html"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "CLI SKILL.md discovery paths",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

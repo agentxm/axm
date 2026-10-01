@@ -64,3 +64,7 @@ export { windsurfAgent } from "./windsurf.js";
 export { zencoderAgent } from "./zencoder.js";
 export { zedAgent } from "./zed.js";
 export { zenflowAgent } from "./zenflow.js";
+export { fxAgent } from "./fx.js";
+export { museCodeAgent } from "./muse-code.js";
+export { mimoCodeAgent } from "./mimo-code.js";
+export { coderAgentsAgent } from "./coder-agents.js";

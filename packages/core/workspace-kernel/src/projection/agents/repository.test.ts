@@ -58,6 +58,8 @@ describe("coding agent repository", () => {
         ["codemaker", "unsupported"],
         ["hermes", "unsupported"],
         ["minimax-code", "unsupported"],
+        ["openclaw", "unverified"],
+        ["roo", "unsupported"],
       ]);
     }).pipe(Effect.provide(withWorkspace([]))),
   );

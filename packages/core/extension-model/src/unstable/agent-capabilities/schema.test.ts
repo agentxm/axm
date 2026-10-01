@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   HooksExtensionCapabilitySchema,
   McpExtensionCapabilitySchema,
+  NativeConfigReadLocationSchema,
   NativeReadLocationSchema,
+  SubagentsExtensionCapabilitySchema,
 } from "./schema.js";
 
 describe("native reader location schema", () => {
@@ -20,6 +22,19 @@ describe("native reader location schema", () => {
     applicability: { kind: "always" },
     provenance: { kind: "capability-sources" },
   };
+  it("describes an unwrapped native configuration root without promising a writer", () => {
+    const rootContainer = {
+      ...location,
+      id: "project",
+      path: ".agent/hooks.json",
+      shape: "file",
+      format: "json",
+      keyPath: [],
+    };
+    expect(Schema.decodeUnknownSync(NativeConfigReadLocationSchema)(rootContainer)).toEqual(
+      rootContainer,
+    );
+  });
   it("retains explicit scope, root, shape, applicability, and provenance", () => {
     expect(decodeLocation(location)).toEqual(location);
     const conditional = {
@@ -70,6 +85,29 @@ describe("native reader location schema", () => {
         configRootRelativePath: "../skills",
       }),
     ).toThrow("configRootRelativePath");
+  });
+});
+
+describe("native delegation without a custom configuration contract", () => {
+  it("records documented presence without inventing a filesystem scope", () => {
+    const capability = {
+      native: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes: "Built-in delegation; no custom configuration contract was established.",
+        docs: [],
+        sources: ["https://example.com/delegation"],
+        modeling: "native-unmodeled",
+        scopes: [],
+        locations: [],
+      },
+      axm: { status: "unsupported", writer: null, lastVerified: null },
+    };
+    expect(
+      Schema.decodeUnknownSync(SubagentsExtensionCapabilitySchema, {
+        onExcessProperty: "error",
+      })(capability),
+    ).toEqual(capability);
   });
 });
 const decodeMcpCapability = Schema.decodeUnknownSync(McpExtensionCapabilitySchema);
@@ -142,6 +180,34 @@ const activeMcpCapability = {
   },
 };
 describe("MCP capability schema", () => {
+  it("records documented MCP presence without inventing transports or configuration", () => {
+    const unmodeled = {
+      native: {
+        availability: { via: "native" },
+        vendorStatus: { state: "active" },
+        notes:
+          "The vendor documents MCP; its transport and configuration contract were not inspected.",
+        docs: [],
+        sources: ["https://example.com/mcp"],
+        scopes: [],
+        modeling: "native-unmodeled",
+        locations: [],
+        entryDialect: null,
+      },
+      axm: { status: "unsupported", lastVerified: null, writer: null },
+    };
+    expect(
+      Schema.decodeUnknownSync(McpExtensionCapabilitySchema, { onExcessProperty: "error" })(
+        unmodeled,
+      ),
+    ).toEqual(unmodeled);
+    expect(() =>
+      decodeMcpCapability({
+        ...unmodeled,
+        axm: { ...unmodeled.axm, writer: activeMcpCapability.axm.writer },
+      }),
+    ).toThrow();
+  });
   it("preserves a native config reader independently of writer support", () => {
     expect(
       decodeMcpCapability({

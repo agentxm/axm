@@ -1,7 +1,7 @@
 import type { Agent } from "../../schema.js";
 export const cortexAgent = {
   id: "cortex",
-  name: "Cortex Code",
+  name: "Snowflake CoCo",
   vendor: "Snowflake",
   homepage: "https://www.snowflake.com/en/product/features/cortex-code",
   interfaces: ["cli"],
@@ -46,6 +46,17 @@ export const cortexAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Detailed existing CLI paths and serialization were not revalidated by this overview.",
+          ],
+          claimScope: "Capability availability and CLI/Desktop/Snowsight boundaries",
+        },
       },
       axm: {
         status: "supported",
@@ -69,6 +80,17 @@ export const cortexAgent = {
         locations: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Detailed existing CLI paths and serialization were not revalidated by this overview.",
+          ],
+          claimScope: "Capability availability and CLI/Desktop/Snowsight boundaries",
+        },
       },
       axm: {
         status: "unsupported",
@@ -96,6 +118,17 @@ export const cortexAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Detailed existing CLI paths and serialization were not revalidated by this overview.",
+          ],
+          claimScope: "Capability availability and CLI/Desktop/Snowsight boundaries",
+        },
       },
       axm: {
         status: "unsupported",
@@ -226,6 +259,17 @@ export const cortexAgent = {
         tools: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Detailed existing CLI paths and serialization were not revalidated by this overview.",
+          ],
+          claimScope: "Capability availability and CLI/Desktop/Snowsight boundaries",
+        },
       },
       axm: {
         status: "unsupported",
@@ -342,5 +386,28 @@ export const cortexAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Snowflake CoCo",
+      surface: "Snowflake CoCo CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.snowflake.com/en/user-guide/cortex-code/extensibility"],
+      conditions: [
+        "This profile models CLI paths. Desktop shares the user configuration root but has distinct workspace paths; Snowsight uses hosted Horizon Catalog skills.",
+      ],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: instructions, permissions.",
+      ],
+      claimScope: "Product naming and CLI/Desktop/Snowsight extensibility boundaries",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

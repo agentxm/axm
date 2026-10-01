@@ -26,7 +26,12 @@ const expectedSkillAgentIdsFor = (
     return skills === undefined
       ? []
       : skills.locations
-          .filter((location) => location.scope === "project" && location.role === "primary")
+          .filter(
+            (location) =>
+              location.scope === "project" &&
+              location.role === "primary" &&
+              location.applicability.kind === "always",
+          )
           .map((location) => location.path);
   });
   return observedDirs
@@ -35,7 +40,10 @@ const expectedSkillAgentIdsFor = (
         const skills = agent.skills;
         return skills !== undefined &&
           skills.locations
-            .filter((location) => location.scope === "project")
+            .filter(
+              (location) =>
+                location.scope === "project" && location.applicability.kind === "always",
+            )
             .map(({ path }) => path)
             .includes(observedDir)
           ? [agent.id]

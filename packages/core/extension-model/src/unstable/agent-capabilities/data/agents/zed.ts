@@ -33,10 +33,42 @@ export const zedAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://zed.dev/docs/ai/skills"],
+          conditions: [
+            "Project skills require a trusted worktree.",
+            "Skills apply to Zed Agent, not automatically to external agents or terminal threads.",
+          ],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Only direct child skill folders are discovered.",
+          ],
+          claimScope: "Built-in Zed Agent skill roots and trust boundary",
+        },
       },
       axm: { status: "supported", lastVerified: "2026-08-05", writer: null },
     },
@@ -66,9 +98,10 @@ export const zedAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -76,9 +109,10 @@ export const zedAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -134,5 +168,26 @@ export const zedAgent = {
       writer: null,
       reason: "AXM has not implemented Zed tool-permission settings.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Zed",
+      surface: "Zed built-in Agent; external agents are separate",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://zed.dev/docs/ai/skills"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Skill scopes, trust conditions and invocation",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

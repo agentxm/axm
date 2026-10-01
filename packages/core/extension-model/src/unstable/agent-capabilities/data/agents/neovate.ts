@@ -38,8 +38,12 @@ export const neovateAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -48,10 +52,50 @@ export const neovateAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://github.com/neovateai/neovate-code/blob/master/src/skill.ts"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Native and Claude-compatible skill discovery",
+        },
       },
       axm: {
         status: "supported",
@@ -170,9 +214,10 @@ export const neovateAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -184,9 +229,10 @@ export const neovateAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -199,9 +245,10 @@ export const neovateAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -213,16 +260,57 @@ export const neovateAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "native" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes: "Native configuration defines approvalMode values default, autoEdit and yolo.",
       docs: [],
-      sources: [],
+      sources: ["https://github.com/neovateai/neovate-code/blob/master/src/config.ts"],
+
+      scopes: ["user"],
+      mechanism: ["config-file"],
+      locations: [],
+      grammar: null,
+      prerequisites: [],
+      cliFlags: [],
+      review: {
+        reviewedAt: "2026-10-01",
+        sources: ["https://github.com/neovateai/neovate-code/blob/master/src/config.ts"],
+        conditions: [],
+        limitations: [
+          "No vendor runtime or AXM writer execution was performed.",
+          "No AXM permission writer was verified.",
+        ],
+        claimScope: "Native configuration defines approvalMode values default, autoEdit and yolo.",
+      },
     },
     axm: {
       status: "unsupported",
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Neovate",
+      surface: "Neovate Code CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://github.com/neovateai/neovate-code/blob/master/src/skill.ts",
+        "https://github.com/neovateai/neovate-code/blob/master/src/config.ts",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions.",
+      ],
+      claimScope: "Skill discovery and native approval modes from vendor source",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

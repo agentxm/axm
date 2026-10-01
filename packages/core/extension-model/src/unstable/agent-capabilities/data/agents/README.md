@@ -20,30 +20,62 @@ capabilities derived from the native event map.
 Capability claims with `axm.status: "supported"` or `"planned"` require:
 
 - `native.sources` with authoritative URLs
-- `axm.lastVerified` in `YYYY-MM-DD`
+- an honest AXM status; an execution claim also requires attributable `axm.verification`
 
 Every agent declares every capability slot. Each capability has three authored
 native axes:
 
-- `native.availability`: whether the surface is native, absent, or available through a
+- `native.availability`: whether the surface is native, absent, unknown, or available through a
   descriptive plugin descriptor
 - `native.vendorStatus`: whether the named surface is active, maintenance,
   deprecated, or removed
-- `axm.status`: whether AXM installs or has verified support for the capability
+- `axm.status`: whether AXM implements delivery for the capability; evidence is separate
 
-## Verification freshness
+## Research and verification maintenance
 
-Verification is tracked per capability, not as one date for the whole agent.
-`capabilityVerificationAgeReport` exposes every agent/capability pair together
-with its age and applicable budget. Supported Skill claims have a 90-day
-budget; the catalog test fails with the complete overdue list. There is no
-allowlist.
+This README is the maintenance entry point. Marketplace maintainers triage
+vendor release notes and documentation changes weekly, review high-churn
+products monthly, and review the full inventory quarterly. Ownership changes,
+renames, new delivery surfaces, deprecation notices, changed file formats and
+approval behavior trigger an earlier review. Follow each record's official
+sources; a homepage check does not recertify its capability claims.
 
-To re-verify a capability, check every existing claim against the linked
-vendor-authoritative sources, correct the entry if the product changed, add or
-replace sources when necessary, and set that capability's `axm.lastVerified`
-to the UTC review date. Do not refresh the date based on another capability's
-review or without checking the source.
+Keep three clocks separate:
+
+- `profile.review` records the scope and limitations of a product/source census.
+- `native.review` records only the capability claims actually checked against
+  primary sources, with `claimScope`, conditions and limitations.
+- `axm.verification` records an exercised boundary (`configuration` or
+  `vendor-runtime`), date, evidence references and limitations. Projection tests
+  do not prove execution by a vendor. `axm.lastVerified` is a historical date
+  whose method was not recorded; do not renew it from document research.
+
+`capabilityVerificationAgeReport` exposes source review age and execution age
+independently, plus the historical date. Missing or expired evidence is visible;
+a newer profile review never resets a capability clock. All capability slots have a 90-day reporting budget. The existing catalog
+test gates overdue recorded Skill reviews at 90 days. Run the owning catalog
+test and inspect the report during each refresh; investigate missing evidence
+without inventing a verification date or requiring live vendor calls on every
+pull request.
+
+Use `availability.via: "unknown"` when evidence is missing or inconclusive.
+`none` needs authoritative evidence of absence, reviewed just like a positive
+claim. Native presence does not imply an AXM writer. Record a known feature
+with an unmodeled grammar explicitly, and keep AXM unsupported until its output,
+ownership and lifecycle semantics have evidence.
+
+Preserve product IDs across evidenced renames. `profile.identity` separates
+product, surface, edition, company/parent and model providers. Unknown ownership
+or an unreviewed provider inventory remains null. `lifecycleQualifications`
+scopes an edition or surface retirement without retiring an entire active
+product. New products get separate IDs only when they have independent identity
+and extension/runtime contracts, not merely a wrapper or a model name.
+
+The versioned release reference is generated from this catalog. It exposes
+native evidence, AXM evidence, and supported/manual/conditional/unsupported/
+unknown delivery separately. Downstream products consume that release rather
+than maintaining another capability inventory. A conditional result is not an
+unconditional compatibility promise.
 
 Native readers are declared in `native.locations`, independently of AXM write
 support. Each location names its scope, root, relative path, artifact shape,
@@ -71,7 +103,7 @@ Use an inactive AXM status entry for unsupported or unknown AXM behavior:
 ```ts
 {
   native: {
-    availability: { via: "none" },
+    availability: { via: "unknown" },
     vendorStatus: { state: "active" },
     notes: null,
     docs: [],
@@ -88,7 +120,9 @@ Use an inactive AXM status entry for unsupported or unknown AXM behavior:
 Unsupported native surfaces may include `axm.reason` to explain why AXM cannot
 write that surface yet.
 
-All values are explicit. Do not rely on optional fields or schema defaults.
+Availability, lifecycle, scopes and integration state are explicit. An omitted
+review or verification means no evidence is recorded; never infer it from a
+profile review, a default, or another capability.
 
 ## Agent lifecycle
 

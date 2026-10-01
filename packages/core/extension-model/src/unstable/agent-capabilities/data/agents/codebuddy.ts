@@ -25,7 +25,10 @@ export const codebuddyAgent = {
         vendorStatus: { state: "active" },
         notes: null,
         docs: [],
-        sources: ["https://www.codebuddy.ai/docs/ide/Introduction"],
+        sources: [
+          "https://www.codebuddy.ai/docs/ide/Introduction",
+          "https://www.codebuddy.ai/docs/cli/skills",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -41,6 +44,19 @@ export const codebuddyAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://www.codebuddy.ai/docs/cli/skills"],
+          conditions: [
+            "Frontmatter hooks require fork context and the untrusted-hook opt-in unless built in.",
+          ],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Reader paths were not independently rechecked in this review.",
+          ],
+          claimScope: "Invocation controls and fork-only skill frontmatter hooks",
+        },
       },
       axm: {
         status: "supported",
@@ -195,9 +211,12 @@ export const codebuddyAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "CodeBuddy hooks are configured under the hooks key in settings.json and use grouped event/matcher command hooks compatible with AXM's command-stdin serializer.",
+          "CLI v1.16+ documents Beta hooks with 27+ events. User, project and local settings are supported; the modeled mappings are a subset of the vendor event surface.",
         docs: [],
-        sources: ["https://www.codebuddy.ai/docs/cli/hooks-guide"],
+        sources: [
+          "https://www.codebuddy.ai/docs/cli/hooks-guide",
+          "https://www.codebuddy.ai/docs/cli/hooks",
+        ],
         scopes: ["user", "project"],
         mechanism: ["command-stdin"],
         locations: [
@@ -339,6 +358,17 @@ export const codebuddyAgent = {
           matcherSerialization: "bare",
           timeoutSerialization: "seconds",
           commandNameSerialization: "omit",
+        },
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://www.codebuddy.ai/docs/cli/hooks"],
+          conditions: ["Hooks are documented as Beta in CLI v1.16+."],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "The pre-existing event mappings and entry dialect cover a subset and were not exhaustively revalidated.",
+          ],
+          claimScope: "Beta hook availability, settings scopes and additional lifecycle events",
         },
       },
       axm: {
@@ -501,5 +531,29 @@ export const codebuddyAgent = {
         },
       },
     },
+  },
+
+  profile: {
+    identity: {
+      product: "CodeBuddy",
+      surface: "CodeBuddy CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://www.codebuddy.ai/docs/cli/hooks",
+        "https://www.codebuddy.ai/docs/cli/skills",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, instructions, permissions.",
+      ],
+      claimScope: "CLI lifecycle hooks and skill invocation controls",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

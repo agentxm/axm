@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const geminiCliAgent = {
   id: "gemini-cli",
   name: "Gemini CLI",
@@ -6,19 +7,64 @@ export const geminiCliAgent = {
   homepage: "https://github.com/google-gemini/gemini-cli",
   interfaces: ["cli"],
   family: "google",
+  profile: {
+    identity: {
+      product: "Gemini CLI",
+      surface: "CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
+      ],
+      conditions: [
+        "Continued availability is for supported enterprise subscriptions or paid API-key usage.",
+      ],
+      limitations: [
+        "Consumer retirement is edition-specific. Standard/Enterprise and paid API-key users continue to receive support.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [
+      {
+        scope: "edition",
+        subject: "Consumer Gemini CLI",
+        state: "retired",
+        since: "2026-06-18",
+        note: "Consumer access transitioned to Antigravity CLI; Standard, Enterprise and paid API access continue.",
+        sources: [
+          "https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/",
+        ],
+      },
+    ],
+  },
   rootDir: ".gemini",
   lifecycle: {
-    state: "retired",
-    since: "2026-06-18",
-    note: "On 2026-06-18 Gemini CLI stopped serving requests for individual/free/AI Pro/Ultra tiers, superseded by Antigravity CLI; enterprise and paid API-key access remains available.",
-    supersededBy: "antigravity",
+    state: "active",
   },
   detection: {
-    project: { markers: [] },
+    project: {
+      markers: [],
+    },
     user: {
       markers: [
-        { kind: "dir", path: "~/.gemini", signal: "definitive", note: null },
-        { kind: "executable", name: "gemini", signal: "definitive", note: "CLI on PATH." },
+        {
+          kind: "dir",
+          path: "~/.gemini",
+          signal: "definitive",
+          note: null,
+        },
+        {
+          kind: "executable",
+          name: "gemini",
+          signal: "definitive",
+          note: "CLI on PATH.",
+        },
       ],
     },
   },
@@ -35,8 +81,12 @@ export const geminiCliAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/skills.md"],
@@ -51,8 +101,12 @@ export const geminiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -61,8 +115,12 @@ export const geminiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -71,8 +129,12 @@ export const geminiCliAgent = {
             shape: "directory",
             role: "additional",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -84,8 +146,12 @@ export const geminiCliAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: [
@@ -99,7 +165,6 @@ export const geminiCliAgent = {
           variables: "braced",
           defaults: true,
         },
-
         locations: [
           {
             id: "project",
@@ -138,19 +203,24 @@ export const geminiCliAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
             accepted: [null],
           },
           stdio: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             command: "split",
             envKey: "env",
           },
           remote: {
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             urlKey: {
               "streamable-http": "httpUrl",
               sse: "url",
@@ -171,8 +241,12 @@ export const geminiCliAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Subagents are Markdown files with YAML frontmatter under .gemini/agents (project) or ~/.gemini/agents (user); shipped in Gemini CLI v0.38.1.\n",
         docs: [],
@@ -186,8 +260,12 @@ export const geminiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -196,8 +274,12 @@ export const geminiCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -209,8 +291,12 @@ export const geminiCliAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Gemini CLI hooks run command hooks from settings files and use JSON on stdin/stdout. Native Gemini CLI exposes additional events such as SessionEnd, BeforeModel, AfterModel, BeforeToolSelection, and Notification; this catalog maps the subset covered by AXM's canonical hook event registry.",
         docs: [],
@@ -269,7 +355,15 @@ export const geminiCliAgent = {
               notes:
                 "Gemini CLI lifecycle matchers are exact strings; AXM serializes raw matcher text.",
             },
-            decision: [{ kind: "observe" }, { kind: "modify", operations: ["inject-context"] }],
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
             ],
@@ -278,11 +372,23 @@ export const geminiCliAgent = {
           {
             nativeName: "BeforeAgent",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["inject-context"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
             ],
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
@@ -292,11 +398,23 @@ export const geminiCliAgent = {
           {
             nativeName: "AfterAgent",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["inject-context"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
             ],
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
@@ -306,11 +424,23 @@ export const geminiCliAgent = {
           {
             nativeName: "BeforeTool",
             canonical: "tool.pre",
-            matcher: { kind: "regex", example: "write_file|replace", notes: null },
+            matcher: {
+              kind: "regex",
+              example: "write_file|replace",
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["modify-input"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["modify-input"],
+              },
             ],
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
@@ -320,11 +450,23 @@ export const geminiCliAgent = {
           {
             nativeName: "AfterTool",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "write_file|replace", notes: null },
+            matcher: {
+              kind: "regex",
+              example: "write_file|replace",
+              notes: null,
+            },
             decision: [
-              { kind: "observe" },
-              { kind: "block", outcomes: ["allow", "deny"] },
-              { kind: "modify", operations: ["inject-context"] },
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
             ],
             sources: [
               "https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/reference.md",
@@ -334,8 +476,16 @@ export const geminiCliAgent = {
           {
             nativeName: "PreCompress",
             canonical: "compaction.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://github.com/google-gemini/gemini-cli/blob/main/docs/hooks/index.md"],
             lastVerified: "2026-08-05",
           },
@@ -390,7 +540,6 @@ export const geminiCliAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-
         entryDialect: {
           serializer: "command-stdin",
           matcherKind: "regex",
@@ -403,7 +552,6 @@ export const geminiCliAgent = {
         status: "supported",
         writer: {
           locationIds: ["project"],
-
           eventMap: "native.events",
         },
         lastVerified: "2026-08-05",
@@ -412,8 +560,12 @@ export const geminiCliAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "Consumer access (free, AI Pro, AI Ultra) ended 2026-06-18; Antigravity CLI succeeded Gemini CLI for those tiers. Enterprise customers on paid API keys retain access. The contextFileName setting can also point Gemini CLI at AGENTS.md.\n",
       docs: [],
@@ -433,8 +585,12 @@ export const geminiCliAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
         {
           scope: "user",
@@ -443,8 +599,13 @@ export const geminiCliAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "sources", sources: ["https://geminicli.com/docs/cli/gemini-md/"] },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "sources",
+            sources: ["https://geminicli.com/docs/cli/gemini-md/"],
+          },
         },
       ],
       nestedDiscovery: true,
@@ -458,8 +619,12 @@ export const geminiCliAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: [
@@ -537,7 +702,10 @@ export const geminiCliAgent = {
       writer: {
         grants: {
           shell: {
-            destination: { kind: "location", locationId: "user" },
+            destination: {
+              kind: "location",
+              locationId: "user",
+            },
             patch: {
               security: {
                 folderTrust: {

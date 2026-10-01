@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const cursorAgent = {
   id: "cursor",
   name: "Cursor",
@@ -6,8 +7,35 @@ export const cursorAgent = {
   homepage: "https://cursor.com",
   interfaces: ["ide-extension", "cli"],
   family: "cursor",
+  profile: {
+    identity: {
+      product: "Cursor",
+      surface: "Desktop IDE and CLI",
+      edition: null,
+      ownership: {
+        company: "Anysphere",
+        parentCompany: "SpaceX",
+        sources: ["https://cursor.com/blog/joining-spacex"],
+      },
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://cursor.com/blog/joining-spacex"],
+      conditions: [],
+      limitations: [
+        "Parent-company acquisition reviewed; the product/operator identity is distinct from parent and model provider. Existing capability paths were not all re-exercised.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".cursor",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
     project: {
       markers: [
@@ -21,7 +49,12 @@ export const cursorAgent = {
     },
     user: {
       markers: [
-        { kind: "dir", path: "~/.cursor", signal: "definitive", note: null },
+        {
+          kind: "dir",
+          path: "~/.cursor",
+          signal: "definitive",
+          note: null,
+        },
         {
           kind: "executable",
           name: "cursor-agent",
@@ -40,8 +73,12 @@ export const cursorAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cursor 2.4 added Agent Skills (SKILL.md) across the editor and the cursor-agent CLI.",
         docs: [],
@@ -57,8 +94,12 @@ export const cursorAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -67,8 +108,12 @@ export const cursorAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -77,8 +122,12 @@ export const cursorAgent = {
             shape: "directory",
             role: "additional",
             status: "compat",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -90,8 +139,12 @@ export const cursorAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: [
@@ -106,7 +159,6 @@ export const cursorAgent = {
           variables: "braced",
           defaults: false,
         },
-
         locations: [
           {
             id: "project",
@@ -145,7 +197,6 @@ export const cursorAgent = {
             attribution: "agent",
           },
         ],
-
         entryDialect: {
           activationField: {
             required: null,
@@ -153,15 +204,27 @@ export const cursorAgent = {
           },
           stdio: {
             typeField: {
-              required: { name: "type", value: "stdio" },
-              accepted: [{ name: "type", value: "stdio" }, null],
+              required: {
+                name: "type",
+                value: "stdio",
+              },
+              accepted: [
+                {
+                  name: "type",
+                  value: "stdio",
+                },
+                null,
+              ],
             },
             command: "split",
             envKey: "env",
           },
           remote: {
             implicitTransport: "http-or-sse",
-            typeField: { required: null, accepted: [null] },
+            typeField: {
+              required: null,
+              accepted: [null],
+            },
             urlKey: {
               "streamable-http": "url",
               sse: "url",
@@ -182,8 +245,12 @@ export const cursorAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Custom subagents are Markdown files with YAML frontmatter under .cursor/agents (project) or ~/.cursor/agents (user); added in Cursor 2.4.\n",
         docs: [],
@@ -197,8 +264,12 @@ export const cursorAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "user",
@@ -207,8 +278,12 @@ export const cursorAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -220,17 +295,19 @@ export const cursorAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Cursor hooks run custom scripts around agent-loop stages. The native hooks.json shape is a direct event-to-command array, not AXM's current grouped command-stdin serializer shape.",
         docs: [],
         sources: ["https://cursor.com/docs/hooks.md"],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -244,8 +321,12 @@ export const cursorAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: ["https://cursor.com/docs/rules.md"],
@@ -261,8 +342,12 @@ export const cursorAgent = {
           shape: "file",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
         {
           scope: "project",
@@ -271,8 +356,12 @@ export const cursorAgent = {
           shape: "directory",
           role: "additional",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: true,
@@ -286,8 +375,12 @@ export const cursorAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: null,
       docs: [],
       sources: [
@@ -415,14 +508,20 @@ export const cursorAgent = {
       writer: {
         grants: {
           shell: {
-            destination: { kind: "location", locationId: "user" },
+            destination: {
+              kind: "location",
+              locationId: "user",
+            },
             patch: {
               terminalAllowlist: ["${tool}"],
             },
             template: null,
           },
           cliShell: {
-            destination: { kind: "location", locationId: "project-additional-1" },
+            destination: {
+              kind: "location",
+              locationId: "project-additional-1",
+            },
             patch: {
               permissions: {
                 allow: ["Shell(${tool})", "Shell(${tool}:*)"],
@@ -431,7 +530,10 @@ export const cursorAgent = {
             template: null,
           },
           filesystem: {
-            destination: { kind: "location", locationId: "project" },
+            destination: {
+              kind: "location",
+              locationId: "project",
+            },
             patch: {
               type: "workspace_readwrite",
               additionalReadwritePaths: [],

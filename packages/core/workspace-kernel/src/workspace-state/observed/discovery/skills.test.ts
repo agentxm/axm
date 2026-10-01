@@ -942,7 +942,12 @@ describe("skillsInDir", () => {
             agent.skills === undefined
               ? []
               : agent.skills.locations
-                  .filter((location) => location.scope === "project" && location.role === "primary")
+                  .filter(
+                    (location) =>
+                      location.scope === "project" &&
+                      location.role === "primary" &&
+                      location.applicability.kind === "always",
+                  )
                   .map((location) => location.path),
           ),
         ),
@@ -953,7 +958,10 @@ describe("skillsInDir", () => {
       for (const readPath of agents.flatMap(
         (agent) =>
           agent.skills?.locations.filter(
-            (location) => location.scope === "project" && location.role === "additional",
+            (location) =>
+              location.scope === "project" &&
+              location.role === "additional" &&
+              location.applicability.kind === "always",
           ) ?? [],
       )) {
         expect(dirs).toContain(readPath.path);
@@ -963,6 +971,13 @@ describe("skillsInDir", () => {
     it("does NOT contain stale .copilot/skills entry", () => {
       const dirs = getPriorityDirectories();
       expect(dirs).not.toContain(".copilot/skills");
+    });
+
+    it("excludes conditional migration paths while retaining unconditional legacy readers", () => {
+      const dirs = getPriorityDirectories();
+      expect(dirs).toContain(".agents/skills");
+      expect(dirs).not.toContain(".mux/skills");
+      expect(dirs).toContain(".zencoder/skills");
     });
 
     it("deduplicates agent dirs that share the same skills.dir", () => {

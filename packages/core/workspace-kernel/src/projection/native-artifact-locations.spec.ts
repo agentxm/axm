@@ -76,11 +76,16 @@ describe("Native artifact location outcomes", () => {
         state: "created",
         ownership: "owned",
         proof: "exact-scoped-managed-region-sources",
-        aliases: [source, alias].sort(),
+        aliases: expect.arrayContaining([source, alias]),
         configuredConsumers: ["claude-code"],
         potentialReaders: expect.arrayContaining(["codex"]),
-        availability: [{ agentId: "claude-code", state: "unverified" }],
+        availability: expect.arrayContaining([
+          expect.objectContaining({ agentId: "claude-code", state: "unverified" }),
+        ]),
       });
+      expect(
+        result[0]?.availability.every((availability) => availability.state === "unverified"),
+      ).toBe(true);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
@@ -118,8 +123,9 @@ describe("Native artifact location outcomes", () => {
         state: "updated",
         ownership: "owned",
         configuredConsumers: [],
-        aliases: [source],
+        aliases: expect.arrayContaining([source]),
       });
+      expect(result[0]?.aliases).not.toContain(alias);
       expect(result[0]?.potentialReaders).not.toContain("claude-code");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

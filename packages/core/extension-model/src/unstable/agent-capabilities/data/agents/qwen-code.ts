@@ -37,10 +37,36 @@ export const qwenCodeAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".qwen/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/"],
+          conditions: ["Bare mode disables discovery watchers."],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Project and user roots, /learn and AutoSkill scopes",
+        },
       },
       axm: {
         status: "supported",
@@ -447,5 +473,26 @@ export const qwenCodeAgent = {
         },
       },
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Qwen Code",
+      surface: "Qwen Code CLI",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://qwenlm.github.io/qwen-code-docs/en/users/features/skills/"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Project and user skills, learning and reload behavior",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

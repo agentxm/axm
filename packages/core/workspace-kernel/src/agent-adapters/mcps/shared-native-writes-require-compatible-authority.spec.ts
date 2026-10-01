@@ -50,6 +50,89 @@ const acceptedOwner = {
 } satisfies AxmMcpMetadata;
 
 describe("authority at shared MCP files", () => {
+  it.effect(
+    "keeps Coder workspace MCP output owned through repeat, update, disable and removal",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".mcp.json");
+        const foreign = { command: "foreign" };
+        yield* fs.writeFileString(
+          file,
+          JSON.stringify({ mcpServers: { foreign }, unrelated: true }),
+        );
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        yield* Effect.gen(function* () {
+          const args = {
+            workspaceRoot: root,
+            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+            scope: "project",
+            serverName: "context",
+            nativeInsertionEligible: true,
+            entry: {
+              kind: "inline",
+              command: "node",
+              args: ["context.js"],
+              env: {},
+              enabled: true,
+            },
+          } as const;
+          expect((yield* syncInlineMcpServerToAgents(["coder-agents"], args))[0]?._tag).toBe(
+            "success",
+          );
+          const first = yield* fs.readFileString(file);
+          yield* syncInlineMcpServerToAgents(["coder-agents"], args);
+          expect(yield* fs.readFileString(file)).toBe(first);
+          yield* syncInlineMcpServerToAgents(["coder-agents"], {
+            ...args,
+            entry: { ...args.entry, args: ["next.js"] },
+          });
+          const updated = (yield* decodeJsonMcpConfig(
+            file,
+            yield* fs.readFileString(file),
+            ["mcpServers"],
+            "json",
+          )).root;
+          expect(updated).toMatchObject({
+            unrelated: true,
+            mcpServers: {
+              foreign,
+              context: { command: "node", args: ["next.js"], "x-axm": acceptedOwner },
+            },
+          });
+          const removal = {
+            workspaceRoot: root,
+            target: { scope: "project", path: ".mcp.json", format: "json", attribution: "shared" },
+            serverName: "context",
+            serversPath: ["mcpServers"],
+            activationField: { required: null, accepted: [null] },
+            expectedManagedEntries: { context: [acceptedOwner] },
+          } as const;
+          yield* removeAgentMcpConfig({ ...removal, disableOnly: true });
+          expect(
+            (yield* decodeJsonMcpConfig(
+              file,
+              yield* fs.readFileString(file),
+              ["mcpServers"],
+              "json",
+            )).root,
+          ).toEqual({ unrelated: true, mcpServers: { foreign } });
+          yield* syncInlineMcpServerToAgents(["coder-agents"], args);
+          yield* removeAgentMcpConfig({ ...removal, disableOnly: false });
+          expect(
+            (yield* decodeJsonMcpConfig(
+              file,
+              yield* fs.readFileString(file),
+              ["mcpServers"],
+              "json",
+            )).root,
+          ).toEqual({ unrelated: true, mcpServers: { foreign } });
+        }).pipe(Effect.provide(authority.layer));
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect.each(["project", "user"] as const)(
     "projects OpenCode secrets into the exact nested %s destination and preserves sibling settings",
     (scope) =>

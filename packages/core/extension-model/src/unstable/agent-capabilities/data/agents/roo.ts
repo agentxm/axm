@@ -136,14 +136,15 @@ export const rooAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: {
           state: "removed",
           since: "2026-05-15",
           note: "Roo Code was archived on 2026-05-15; the surface is frozen and read-only.",
           supersededByType: null,
         },
-        notes: null,
+        notes:
+          "This review did not establish whether Roo Code provided native hooks; its recorded product retirement does not establish feature absence.",
         docs: [],
         sources: [],
       },
@@ -225,5 +226,27 @@ export const rooAgent = {
       writer: null,
       reason: "AXM has not implemented Roo Code permission grant writing.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Roo Code",
+      surface: "Retired Roo Code product; Roomote is a separate product",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://roomote.dev/"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "The existing Roo retirement date was not independently reverified. The former homepage redirects to Roomote, which says it is built by Roo Code creators and currently uses OpenCode; this is not evidence that Roo Code resumed.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Current former homepage destination and distinct successor-team product",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

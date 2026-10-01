@@ -10,13 +10,45 @@ import type * as Scope from "effect/Scope";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, SettingsSchema } from "../workspace-state/index.js";
+import { codingAgentFromDescriptor } from "../agent-adapters/index.js";
 
 import {
   observeAgentOutputs,
   observeWorkspaceOwnershipIssues,
 } from "./agent-output-observation.js";
-import type { CodingAgentRepository } from "./agents/coding-agent-repository.js";
-import { codingAgentRepositoryLayer } from "./testing.js";
+import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
+import { makeCodingAgentRepository } from "./testing.js";
+
+// Ownership scenarios need an unconditional reader at the custom source path,
+// independently of vendor-specific workspace selection or migration conditions.
+const fixtureReader = codingAgentFromDescriptor({
+  id: "openclaw",
+  name: "Fixture Skill reader",
+  detection: { project: { markers: [] }, user: { markers: [] } },
+  skills: {
+    scopes: ["project"],
+    writerSupported: false,
+    locations: [
+      {
+        scope: "project",
+        root: "project",
+        path: "skills",
+        shape: "directory",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+      },
+    ],
+  },
+});
+const repository = makeCodingAgentRepository([]);
+const repositoryLayer = Layer.succeed(CodingAgentRepository, {
+  ...repository,
+  all: Effect.map(repository.all, (agents) =>
+    agents.map((agent) => (agent.id === fixtureReader.id ? fixtureReader : agent)),
+  ),
+});
 
 const expectedNames = {
   skill: new Set<string>(),
@@ -75,10 +107,7 @@ const provide = <A, E>(
     FileSystem.FileSystem | Path.Path | Scope.Scope | CodingAgentRepository
   >,
 ) =>
-  effect.pipe(
-    Effect.provide(Layer.mergeAll(codingAgentRepositoryLayer([]), NodeServices.layer)),
-    Effect.scoped,
-  );
+  effect.pipe(Effect.provide(Layer.mergeAll(repositoryLayer, NodeServices.layer)), Effect.scoped);
 
 describe("authored skill exclusion", () => {
   it.effect("observes scoped Hook aliases as one physical unit", () =>

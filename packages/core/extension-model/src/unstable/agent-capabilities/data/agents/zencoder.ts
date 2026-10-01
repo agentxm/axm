@@ -23,9 +23,13 @@ export const zencoderAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Skills are discovered from project and user .agents/skills and project .claude/skills. Legacy .zencoder/skills remains readable but is deprecated; the agent selects skills automatically.",
         docs: [],
-        sources: ["https://docs.zencoder.ai/llms-full.txt"],
+        sources: [
+          "https://docs.zencoder.ai/llms-full.txt",
+          "https://docs.zencoder.ai/features/skills",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "universal",
@@ -37,8 +41,12 @@ export const zencoderAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
           {
             scope: "project",
@@ -47,10 +55,50 @@ export const zencoderAgent = {
             shape: "directory",
             role: "additional",
             status: "deprecated",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".claude/skills",
+            shape: "directory",
+            role: "additional",
+            status: "compat",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://docs.zencoder.ai/features/skills"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Canonical shared skill roots and deprecated vendor directory",
+        },
       },
       axm: {
         status: "supported",
@@ -88,10 +136,10 @@ export const zencoderAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
         notes:
-          "Zencoder custom agents are created, selected, and shared through its UI; the current catalog schema cannot represent that native UI-only surface as a subagent install target.",
+          "Zencoder documents named AI agents configured and shared through its UI. This alone does not establish autonomous subagent delegation or a portable subagent directory.",
         docs: [],
         sources: ["https://docs.zencoder.ai/llms-full.txt"],
       },
@@ -104,9 +152,10 @@ export const zencoderAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -170,5 +219,26 @@ export const zencoderAgent = {
       writer: null,
       reason: "AXM has not implemented a Zencoder permission grant writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Zencoder",
+      surface: "Zencoder IDE Agents",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://docs.zencoder.ai/features/skills"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Skill discovery and UI-managed agent distinction",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

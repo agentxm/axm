@@ -8,6 +8,10 @@ import type { ConfigurableAgentId, HostedAgentId } from "./identity.js";
 import type { Agent } from "./schema.js";
 import {
   adalAgent,
+  fxAgent,
+  museCodeAgent,
+  mimoCodeAgent,
+  coderAgentsAgent,
   aiderDeskAgent,
   ampAgent,
   antigravityCliAgent,
@@ -82,6 +86,10 @@ const defineCatalog = <const T extends Record<string, Agent>>(
 /** @experimental This API is unstable and may change without notice. */
 export const CONFIGURABLE_AGENTS_BY_ID = defineCatalog({
   adal: adalAgent,
+  fx: fxAgent,
+  "muse-code": museCodeAgent,
+  "mimo-code": mimoCodeAgent,
+  "coder-agents": coderAgentsAgent,
   "aider-desk": aiderDeskAgent,
   amp: ampAgent,
   antigravity: antigravityAgent,

@@ -46,6 +46,8 @@ import { rendered } from "./types.js";
  * Roo Code is also special (mode entry, not file) and is not in this map.
  */
 const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
+  antigravity: renderMarkdownYaml,
+  "antigravity-cli": renderMarkdownYaml,
   "claude-code": renderMarkdownYaml,
   "github-copilot-cli": renderMarkdownYaml,
   cursor: renderMarkdownYaml,

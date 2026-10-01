@@ -13,7 +13,7 @@ import {
 } from "./shared-target.js";
 
 describe("shared MCP writer targets", () => {
-  it("keeps every shared MCP writer target compatible", () => {
+  it("resolves shared transports and refuses transports missing from a configured reader", () => {
     const groups = new Map<string, Array<SharedMcpTargetMember>>();
     for (const agent of AGENTS) {
       const capability = configuredMcpCapability(agent.id);
@@ -46,10 +46,15 @@ describe("shared MCP writer targets", () => {
       }
       for (const transport of transports) {
         const resolution = resolveSharedMcpTarget({ members, transport });
+        const commonTransport = members.every(({ config }) =>
+          transport === "stdio"
+            ? config.stdio !== null
+            : config.remote?.urlKey[transport] !== undefined,
+        );
         expect(
           resolution._tag,
           resolution._tag === "conflict" ? resolution.reason : undefined,
-        ).toBe("resolved");
+        ).toBe(commonTransport ? "resolved" : "conflict");
       }
     }
   });

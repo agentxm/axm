@@ -1,4 +1,5 @@
 import type { Agent } from "../../schema.js";
+
 export const continueAgent = {
   id: "continue",
   name: "Continue",
@@ -6,11 +7,42 @@ export const continueAgent = {
   homepage: "https://www.continue.dev",
   interfaces: ["ide-extension", "cli"],
   family: null,
+  profile: {
+    identity: {
+      product: "Continue",
+      surface: "IDE and CLI",
+      edition: null,
+      ownership: {
+        company: "Continue",
+        parentCompany: "Cursor",
+        sources: ["https://continue.dev", "https://github.com/continuedev"],
+      },
+      modelProviders: null,
+    },
+    review: {
+      claimScope:
+        "Product identity and the specific capability or lifecycle changes described in this review; other capability evidence is retained separately.",
+      reviewedAt: "2026-10-01",
+      sources: ["https://continue.dev", "https://github.com/continuedev"],
+      conditions: [],
+      limitations: [
+        "Acquisition by Cursor reviewed. Acquisition alone does not establish a shutdown date or retirement of every surface.",
+        "This review does not renew historical AXM runtime verification.",
+      ],
+    },
+    lifecycleQualifications: [],
+  },
   rootDir: ".continue",
-  lifecycle: { state: "active" },
+  lifecycle: {
+    state: "active",
+  },
   detection: {
-    project: { markers: [] },
-    user: { markers: [] },
+    project: {
+      markers: [],
+    },
+    user: {
+      markers: [],
+    },
   },
   docs: [
     {
@@ -21,8 +53,12 @@ export const continueAgent = {
   capabilities: {
     skill: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes: null,
         docs: [],
         sources: ["https://docs.continue.dev"],
@@ -37,8 +73,12 @@ export const continueAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
       },
@@ -50,8 +90,12 @@ export const continueAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "Continue agent-mode tools include MCP servers configured as tools in Continue config. AXM does not currently write Continue's YAML/config package format.",
         docs: [],
@@ -67,9 +111,7 @@ export const continueAgent = {
           variables: "none",
           defaults: false,
         },
-
         locations: [],
-
         entryDialect: null,
       },
       axm: {
@@ -81,9 +123,13 @@ export const continueAgent = {
     },
     subagent: {
       native: {
-        availability: { via: "none" },
-        vendorStatus: { state: "active" },
-        notes: null,
+        availability: {
+          via: "unknown",
+        },
+        vendorStatus: {
+          state: "active",
+        },
+        notes: "No scoped primary-source evidence establishes absence of this capability.",
         docs: [],
         sources: [],
       },
@@ -95,8 +141,12 @@ export const continueAgent = {
     },
     hook: {
       native: {
-        availability: { via: "native" },
-        vendorStatus: { state: "active" },
+        availability: {
+          via: "native",
+        },
+        vendorStatus: {
+          state: "active",
+        },
         notes:
           "The Continue CLI ships a Claude Code-compatible hooks system keyed under settings.json hooks, merged across ~/.continue, .continue, and the matching .claude locations. Beyond the events mapped here it also fires PostToolUseFailure, PermissionRequest, SessionEnd, Notification, SubagentStart, ConfigChange, TeammateIdle, TaskCompleted, WorktreeCreate, and WorktreeRemove, which have no canonical AXM event. Command handlers sit beside http, prompt, and agent handler types, and the surface is not yet covered by the published Continue docs.",
         docs: [],
@@ -166,55 +216,119 @@ export const continueAgent = {
               notes:
                 "Matchers select tools by name; an optional per-handler if condition narrows by argument, such as Edit(src/**).",
             },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PostToolUse",
             canonical: "tool.post",
-            matcher: { kind: "regex", example: "Bash", notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "regex",
+              example: "Bash",
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "UserPromptSubmit",
             canonical: "prompt.submit",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "SessionStart",
             canonical: "session.start",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "Stop",
             canonical: "turn.end",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }, { kind: "block", outcomes: ["allow", "deny"] }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "SubagentStop",
             canonical: "subagent.stop",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
           {
             nativeName: "PreCompact",
             canonical: "compaction.pre",
-            matcher: { kind: "none-imperative", example: null, notes: null },
-            decision: [{ kind: "observe" }],
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
             sources: ["https://github.com/continuedev/continue/issues/11678"],
             lastVerified: "2026-08-05",
           },
@@ -245,7 +359,6 @@ export const continueAgent = {
             lastVerified: "2026-08-05",
           },
         ],
-
         entryDialect: null,
       },
       axm: {
@@ -259,8 +372,12 @@ export const continueAgent = {
   },
   instructions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes: "Uses a vendor rule directory under the AGENTS.md-governed rule umbrella.",
       docs: [],
       sources: ["https://docs.continue.dev/guides/configuring-models-rules-tools"],
@@ -276,8 +393,12 @@ export const continueAgent = {
           shape: "directory",
           role: "primary",
           status: "canonical",
-          applicability: { kind: "always" },
-          provenance: { kind: "capability-sources" },
+          applicability: {
+            kind: "always",
+          },
+          provenance: {
+            kind: "capability-sources",
+          },
         },
       ],
       nestedDiscovery: false,
@@ -291,8 +412,12 @@ export const continueAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "native" },
-      vendorStatus: { state: "active" },
+      availability: {
+        via: "native",
+      },
+      vendorStatus: {
+        state: "active",
+      },
       notes:
         "The Continue CLI sorts tool patterns into allow, ask, and exclude lists in a user-scoped permissions.yaml that the TUI writes as approvals are granted; there is no project-scoped permission file.",
       docs: [],

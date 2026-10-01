@@ -1,12 +1,12 @@
 import type { Agent } from "../../schema.js";
 export const muxAgent = {
   id: "mux",
-  name: "Mux",
+  name: "Xum",
   vendor: "Coder",
-  homepage: "https://mux.coder.com",
-  interfaces: ["cli", "ide-extension"],
+  homepage: "https://xum.coder.com",
+  interfaces: ["cli", "desktop", "ide-extension"],
   family: null,
-  rootDir: ".mux",
+  rootDir: ".xum",
   lifecycle: { state: "active" },
   detection: {
     project: { markers: [] },
@@ -14,8 +14,8 @@ export const muxAgent = {
   },
   docs: [
     {
-      label: "Mux documentation",
-      url: "https://mux.coder.com",
+      label: "Xum documentation",
+      url: "https://xum.coder.com",
     },
   ],
   capabilities: {
@@ -23,9 +23,14 @@ export const muxAgent = {
       native: {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "New project skills use .xum/skills. Xum also reads shared .agents/skills and legacy .mux/skills; .xum wins when both canonical and legacy directories exist.",
         docs: [],
-        sources: ["https://mux.coder.com/agents/agent-skills"],
+        sources: [
+          "https://mux.coder.com/agents/agent-skills",
+          "https://xum.coder.com/agents/agent-skills",
+          "https://xum.coder.com/reference/mux-compatibility",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "full",
         convention: "vendor",
@@ -33,14 +38,86 @@ export const muxAgent = {
           {
             scope: "project",
             root: "project",
-            path: ".mux/skills",
+            path: ".xum/skills",
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".xum/skills",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".agents/skills",
+            shape: "directory",
+            role: "additional",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".mux/skills",
+            shape: "directory",
+            role: "additional",
+            status: "deprecated",
+            applicability: {
+              kind: "conditional",
+              condition: "Used when the canonical .xum skills directory is absent.",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: [
+            "https://xum.coder.com/agents/agent-skills",
+            "https://xum.coder.com/reference/mux-compatibility",
+          ],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "Canonical Xum skill roots and documented legacy readers",
+        },
       },
       axm: {
         status: "supported",
@@ -53,9 +130,12 @@ export const muxAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Mux stores stdio command strings under the servers key in ~/.mux/mcp.jsonc, .mux/mcp.jsonc, and .mux/mcp.local.jsonc.",
+          "Xum stores stdio command strings under the servers key in ~/.xum/mcp.jsonc, .xum/mcp.jsonc, and .xum/mcp.local.jsonc.",
         docs: [],
-        sources: ["https://mux.coder.com/config/mcp-servers"],
+        sources: [
+          "https://xum.coder.com/config/mcp-servers",
+          "https://xum.coder.com/reference/mux-compatibility",
+        ],
         scopes: ["user", "project"],
         standardsCompliance: "partial",
         convention: "vendor",
@@ -64,6 +144,17 @@ export const muxAgent = {
         locations: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://xum.coder.com/reference/mux-compatibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Existing detailed protocol and hook behavior were not revalidated.",
+          ],
+          claimScope: "Canonical directory and environment naming after the rename",
+        },
       },
       axm: {
         status: "unsupported",
@@ -77,20 +168,67 @@ export const muxAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://mux.coder.com/agents"],
+        sources: [
+          "https://mux.coder.com/agents",
+          "https://xum.coder.com/reference/mux-compatibility",
+        ],
         scopes: ["user", "project"],
         locations: [
           {
             scope: "project",
             root: "project",
-            path: ".mux/agents",
+            path: ".xum/agents",
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".xum/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "project",
+            root: "project",
+            path: ".mux/agents",
+            shape: "directory",
+            role: "additional",
+            status: "deprecated",
+            applicability: {
+              kind: "conditional",
+              condition: "Used when the corresponding canonical .xum directory is absent.",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://xum.coder.com/reference/mux-compatibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Agent frontmatter and delegation semantics were not revalidated.",
+          ],
+          claimScope: "Canonical project agent directory after the rename",
+        },
       },
       axm: {
         status: "supported",
@@ -103,15 +241,30 @@ export const muxAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Mux executes raw tool_pre, tool_post, tool_env, and init scripts from .mux or ~/.mux. Input is provided through MUX_* environment variables; tool_pre can block with a non-zero exit.",
+          "Xum executes raw tool_pre, tool_post, tool_env, and init scripts from .xum or ~/.xum. Input is provided through XUM_* environment variables; tool_pre can block with a non-zero exit.",
         docs: [],
-        sources: ["https://mux.coder.com/hooks/tools.md", "https://mux.coder.com/hooks/init.md"],
+        sources: [
+          "https://xum.coder.com/hooks/tools.md",
+          "https://xum.coder.com/hooks/init.md",
+          "https://xum.coder.com/reference/mux-compatibility",
+        ],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
 
         locations: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://xum.coder.com/reference/mux-compatibility"],
+          conditions: [],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Existing detailed protocol and hook behavior were not revalidated.",
+          ],
+          claimScope: "Canonical directory and environment naming after the rename",
+        },
       },
       axm: {
         status: "unsupported",
@@ -154,9 +307,10 @@ export const muxAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
-      notes: null,
+      notes:
+        "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
       docs: [],
       sources: [],
     },
@@ -165,5 +319,35 @@ export const muxAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Xum",
+      surface: "Xum CLI and desktop, formerly Mux",
+      edition: null,
+      ownership: {
+        company: "Coder",
+        parentCompany: null,
+        sources: ["https://xum.coder.com/reference/mux-compatibility"],
+      },
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://xum.coder.com/reference/mux-compatibility",
+        "https://xum.coder.com/agents/agent-skills",
+      ],
+      conditions: [
+        "The catalog identifier mux is retained; Xum is the current product name. Vendor compatibility locations are reader facts, not AXM compatibility shims.",
+      ],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: instructions, permissions.",
+      ],
+      claimScope: "Product rename and canonical configuration locations",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

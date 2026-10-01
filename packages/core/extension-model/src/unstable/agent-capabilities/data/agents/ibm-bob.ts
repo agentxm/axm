@@ -151,7 +151,7 @@ export const ibmBobAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Bob custom modes are YAML entries in .bob/custom_modes.yaml (project) or ~/.bob/settings/custom_modes.yaml (user). Entries support slug, name, description, whenToUse, roleDefinition, customInstructions, and read/edit/execute/mcp/skill/workflow/todo/subtask/subagent/mode tool-access groups; edit groups can carry fileRegex restrictions. Subagent-style extensions have no industry spec yet.\n",
+          "Custom modes use .bob/custom_modes.yaml or ~/.bob/settings/custom_modes.yaml. Modes configure tool groups, including subtask/subagent access and allowedSubagents; older JSON mode definitions are converted by the UI.",
         docs: [],
         sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
         scopes: ["user", "project"],
@@ -177,6 +177,14 @@ export const ibmBobAgent = {
             provenance: { kind: "capability-sources" },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
+          conditions: [],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "IDE custom mode YAML and permitted subagents",
+        },
       },
       axm: {
         status: "unsupported",
@@ -187,9 +195,10 @@ export const ibmBobAgent = {
     },
     hook: {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
-        notes: null,
+        notes:
+          "Native availability is not established by this review; absence of a modeled AXM installation target does not establish vendor absence.",
         docs: [],
         sources: [],
       },
@@ -301,5 +310,26 @@ export const ibmBobAgent = {
       writer: null,
       reason: "AXM has not implemented an IBM Bob custom-modes permission writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "IBM Bob",
+      surface: "IBM Bob IDE custom modes",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://bob.ibm.com/docs/ide/configuration/custom-modes"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
+      ],
+      claimScope: "Custom modes, tool groups and instruction discovery",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

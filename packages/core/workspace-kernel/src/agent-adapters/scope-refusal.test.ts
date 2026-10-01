@@ -26,14 +26,16 @@ const withoutUserScope = (): ReadonlyArray<ConfigurableAgentId> =>
   });
 
 describe("userScopeRefusal", () => {
-  it("covers the native Subagent catalog population it claims to", () => {
-    expect({
-      subagentsWithUser: declaringUserScope().length,
-      subagentsWithoutUser: withoutUserScope().length,
-    }).toEqual({
-      subagentsWithUser: 32,
-      subagentsWithoutUser: 0,
-    });
+  it("distinguishes documented user locations from unmodeled delegation scopes", () => {
+    expect(declaringUserScope()).toEqual(
+      expect.arrayContaining(["antigravity", "antigravity-cli", "kiro-cli"]),
+    );
+    expect(withoutUserScope()).toEqual(
+      expect.arrayContaining(["hermes", "minimax-code", "openclaw", "zenflow"]),
+    );
+    for (const id of withoutUserScope()) {
+      expect(declaringUserScope()).not.toContain(id);
+    }
   });
 
   for (const type of ["subagents"] satisfies ReadonlyArray<UserScopedExtension>) {
@@ -46,15 +48,18 @@ describe("userScopeRefusal", () => {
       for (const [id, message] of messages) {
         const name = AGENT_DESCRIPTORS[id].name;
         expect(message).toBe(
-          `AXM manages only the project-scope ${type} directory for ${name}; ${name} supports user-scope ${type} natively but AXM has not modeled that location`,
+          `AXM workspace setup manages only project-scope ${type} for ${name}; ${name} supports user-scope ${type} natively`,
         );
       }
     });
   }
 
-  it("keeps the plain refusal for an agent with no modeled directory", () => {
-    expect(
-      userScopeRefusal({ agentId: "codemaker", agentName: "CodeMaker", type: "subagents" }),
-    ).toBe("CodeMaker does not support user-scope subagents");
+  it("does not turn an unestablished native scope into a claim of native absence", () => {
+    for (const agentId of ["codemaker", ...withoutUserScope()] as const) {
+      const agentName = AGENT_DESCRIPTORS[agentId].name;
+      expect(userScopeRefusal({ agentId, agentName, type: "subagents" })).toBe(
+        `AXM has not established a native user-scope subagents target for ${agentName}`,
+      );
+    }
   });
 });

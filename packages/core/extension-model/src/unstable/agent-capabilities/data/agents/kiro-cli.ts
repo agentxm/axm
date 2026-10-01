@@ -138,7 +138,10 @@ export const kiroCliAgent = {
         vendorStatus: { state: "active" },
         notes: "No industry spec for subagents yet; AXM bridges to the agent's native layout.",
         docs: [],
-        sources: ["https://kiro.dev/docs/cli/custom-agents/configuration-reference/"],
+        sources: [
+          "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
+          "https://kiro.dev/docs/custom-agents/configuration-reference/",
+        ],
         scopes: ["user", "project"],
         locations: [
           {
@@ -148,10 +151,41 @@ export const kiroCliAgent = {
             shape: "directory",
             role: "primary",
             status: "canonical",
-            applicability: { kind: "always" },
-            provenance: { kind: "capability-sources" },
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+          },
+          {
+            scope: "user",
+            root: "home",
+            path: ".kiro/agents",
+            shape: "directory",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
           },
         ],
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://kiro.dev/docs/custom-agents/configuration-reference/"],
+          conditions: [
+            "Legacy CLI 2.x agent files remain visible and can be upgraded with /upgrade-agent.",
+          ],
+          limitations: [
+            "No vendor runtime or AXM writer execution was performed.",
+            "Full V3 permission and MCP dialects were not revalidated.",
+          ],
+          claimScope: "V3 custom agent configuration and project/home discovery",
+        },
       },
       axm: {
         status: "unsupported",
@@ -165,11 +199,12 @@ export const kiroCliAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Kiro CLI hooks are command hooks in agent configuration. AXM models the surface but does not serialize Kiro CLI hooks yet.",
+          "Kiro custom agent configuration V3 requires a hooks array. Legacy CLI 2.x hook objects are migrated by /upgrade-agent; AXM has no Kiro hook writer.",
         docs: [],
         sources: [
           "https://kiro.dev/docs/cli/hooks/",
           "https://kiro.dev/docs/cli/custom-agents/configuration-reference/",
+          "https://kiro.dev/docs/custom-agents/configuration-reference/",
         ],
         scopes: ["user", "project"],
         modeling: "native-unmodeled",
@@ -177,6 +212,14 @@ export const kiroCliAgent = {
         locations: [],
 
         entryDialect: null,
+
+        review: {
+          reviewedAt: "2026-10-01",
+          sources: ["https://kiro.dev/docs/custom-agents/configuration-reference/"],
+          conditions: ["V3 requires hook arrays; /upgrade-agent migrates CLI 2.x hook objects."],
+          limitations: ["No vendor runtime or AXM writer execution was performed."],
+          claimScope: "V3 hook array migration from legacy object form",
+        },
       },
       axm: {
         status: "unsupported",
@@ -282,5 +325,26 @@ export const kiroCliAgent = {
       writer: null,
       reason: "AXM has not implemented a Kiro CLI custom-agent permission grant writer.",
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Kiro CLI",
+      surface: "Kiro CLI custom agent configuration V3",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: ["https://kiro.dev/docs/custom-agents/configuration-reference/"],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, instructions, permissions.",
+      ],
+      claimScope: "Versioned custom-agent configuration and hook migration",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

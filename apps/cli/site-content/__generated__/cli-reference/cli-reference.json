@@ -88,6 +88,10 @@
             "description": "Specify agents to configure (skips auto-detection)",
             "variadic": { "min": 0 },
             "choices": [
+              { "value": "fx" },
+              { "value": "muse-code" },
+              { "value": "mimo-code" },
+              { "value": "coder-agents" },
               { "value": "adal" },
               { "value": "aider-desk" },
               { "value": "amp" },
@@ -420,6 +424,10 @@
                 "description": "Show only skills detected for specific agents",
                 "variadic": { "min": 0 },
                 "choices": [
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
                   { "value": "adal" },
                   { "value": "aider-desk" },
                   { "value": "amp" },
@@ -1679,6 +1687,10 @@
                 "description": "Show only subagents detected for specific agents",
                 "variadic": { "min": 0 },
                 "choices": [
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
                   { "value": "adal" },
                   { "value": "aider-desk" },
                   { "value": "amp" },

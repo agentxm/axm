@@ -81,10 +81,10 @@ export const piAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "none" },
+        availability: { via: "unknown" },
         vendorStatus: { state: "active" },
         notes:
-          'Pi ships a deliberate "no MCP" core. Its built-in tools are read, bash, edit, write, grep, find, and ls; MCP can only be added by installing or building a TypeScript extension.\n',
+          "The historical profile describes MCP through TypeScript extensions. Current reviewed product documentation does not resolve the core MCP boundary.",
         docs: [],
         sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
       },
@@ -215,10 +215,10 @@ export const piAgent = {
   },
   permissions: {
     native: {
-      availability: { via: "none" },
+      availability: { via: "unknown" },
       vendorStatus: { state: "active" },
       notes:
-        "Pi has no per-tool permission-grant surface. It does provide project trust through defaultProjectTrust in settings.json, ~/.pi/agent/trust.json, /trust, and --approve/--no-approve; that gate controls loading project-local resources rather than individual tool calls.\n",
+        "Project trust is documented separately from per-tool grants. The current per-tool permission boundary was not established by this review.",
       docs: [],
       sources: ["https://pi.dev/docs/latest/settings"],
     },
@@ -227,5 +227,30 @@ export const piAgent = {
       lastVerified: null,
       writer: null,
     },
+  },
+
+  profile: {
+    identity: {
+      product: "Pi",
+      surface: "Pi terminal coding agent",
+      edition: null,
+      ownership: null,
+      modelProviders: null,
+    },
+    review: {
+      reviewedAt: "2026-10-01",
+      sources: [
+        "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md",
+        "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/configuration.md",
+      ],
+      conditions: [],
+      limitations: [
+        "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
+        "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+        "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+      ],
+      claimScope: "Current terminal product and configuration entry points",
+    },
+    lifecycleQualifications: [],
   },
 } as const satisfies Agent;

@@ -10,6 +10,7 @@
 
 import {
   CONFIGURABLE_AGENTS_BY_ID,
+  McpServersPathSchema,
   type NativeConfigReadLocation,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Effect from "effect/Effect";
@@ -17,6 +18,7 @@ import * as Equal from "effect/Equal";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import {
   AXM_MCP_METADATA_KEY,
   buildAxmMcpMetadataFromSettingsSource,
@@ -140,7 +142,7 @@ export const collectMcpImportSources = (
         );
         if (resolved === undefined) continue;
         const serversPath = declaration.keyPath;
-        if (serversPath === undefined) {
+        if (!Schema.is(McpServersPathSchema)(serversPath)) {
           const finding = {
             name: resolved.path,
             reason: "This native MCP servers-container path is not supported for import",

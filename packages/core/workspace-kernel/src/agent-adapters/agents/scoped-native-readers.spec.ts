@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { codingAgentForId } from "../index.js";
+import { codingAgentForId, userScopeRefusal } from "../index.js";
 import { resolveNativeReadLocation } from "../../locations/index.js";
 import type { NativeConfigReadLocation } from "@agentxm/extension-model/unstable/agent-capabilities";
 
@@ -25,6 +25,44 @@ export const specification = defineSpecification({
 });
 
 describe("Scoped native locations", () => {
+  it.effect(
+    "resolves emerging targets in their declared filesystem scope and refuses unknown user roots",
+    () =>
+      Effect.gen(function* () {
+        for (const [id, expected] of [
+          ["fx", "/workspace/.fx/skills"],
+          ["muse-code", "/workspace/.agents/skills"],
+          ["mimo-code", "/workspace/.mimocode/skills"],
+          ["coder-agents", "/workspace/.agents/skills"],
+        ] as const) {
+          expect(
+            yield* codingAgentForId(id).resolveEffectiveSkillsDir({
+              workspaceRoot: "/workspace",
+              scope: "project",
+            }),
+          ).toEqual({ _tag: "supported", dir: expected });
+        }
+        expect(
+          yield* codingAgentForId("muse-code", {
+            skillsDirectoryOverrides: {},
+            xdgConfigRoot: "/selected-config",
+          }).resolveEffectiveSkillsDir({ workspaceRoot: "/selected-home", scope: "user" }),
+        ).toEqual({ _tag: "supported", dir: "/selected-config/muse/skills" });
+        expect(
+          (yield* codingAgentForId("mimo-code").resolveEffectiveSkillsDir({
+            workspaceRoot: "/selected-home",
+            scope: "user",
+          }))._tag,
+        ).toBe("unverified");
+        expect(
+          (yield* codingAgentForId("coder-agents").resolveEffectiveSkillsDir({
+            workspaceRoot: "/selected-home",
+            scope: "user",
+          }))._tag,
+        ).toBe("unsupported");
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect(
     "applies captured config roots only to declarations with explicit override semantics",
     () =>
@@ -133,6 +171,25 @@ describe("Scoped native locations", () => {
         ),
       ),
     ),
+  );
+
+  it.effect("keeps a modeled native user reader distinct from workspace setup refusal", () =>
+    Effect.gen(function* () {
+      const agent = codingAgentForId("antigravity");
+      const readers = yield* agent.resolveNativeReadLocations({
+        workspaceRoot: "/selected/home",
+        scope: "user",
+        kind: "subagent",
+      });
+      expect(readers).toEqual([
+        expect.objectContaining({ path: "/selected/home/.gemini/config/agents" }),
+      ]);
+      expect(
+        userScopeRefusal({ agentId: agent.id, agentName: "Antigravity", type: "subagents" }),
+      ).toBe(
+        "AXM workspace setup manages only project-scope subagents for Antigravity; Antigravity supports user-scope subagents natively",
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect("does not invent a user path from a project path", () =>

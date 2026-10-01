@@ -450,7 +450,7 @@ describe("agents add.handler", () => {
   it.effect("does not auto-add a detected retired agent", () => {
     const { provide, rendererState } = makeLayers({ scope: "user" });
     writeWorkspaceFiles(path.join(homeDir, ".axm"), { scope: "user", agents: [] });
-    fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+    fs.mkdirSync(path.join(homeDir, ".codemaker"), { recursive: true });
 
     return provide(
       Effect.gen(function* () {
@@ -465,7 +465,9 @@ describe("agents add.handler", () => {
         expect(rendererState.logs).toContainEqual(
           expect.objectContaining({
             _tag: "warn",
-            message: expect.stringContaining("was not added automatically"),
+            message: expect.stringContaining(
+              "was not added automatically; run `axm agents add codemaker` to opt in",
+            ),
           }),
         );
         expect(rendererState.logs).toContainEqual({
@@ -483,7 +485,7 @@ describe("agents add.handler", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleAgentsAdd({
-          ids: ["gemini-cli"],
+          ids: ["codemaker"],
           detected: false,
           force: false,
           preview: false,
@@ -495,13 +497,13 @@ describe("agents add.handler", () => {
         expect(readConfiguredAgents()).toEqual([]);
 
         yield* handleAgentsAdd({
-          ids: ["gemini-cli"],
+          ids: ["codemaker"],
           detected: false,
           force: true,
           preview: false,
         });
 
-        expect(readConfiguredAgents()).toEqual(["gemini-cli"]);
+        expect(readConfiguredAgents()).toEqual(["codemaker"]);
       }),
     );
   });

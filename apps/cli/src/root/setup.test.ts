@@ -281,7 +281,7 @@ describe("setup.handler", () => {
       const { handleSetup, provide, promptState } = makeSetupTestContext({
         flags: { nonInteractive: true },
       });
-      fs.mkdirSync(path.join(homeDir, ".gemini"), { recursive: true });
+      fs.mkdirSync(path.join(homeDir, ".codemaker"), { recursive: true });
 
       return provide(
         Effect.gen(function* () {
@@ -297,7 +297,9 @@ describe("setup.handler", () => {
           // The retired-agent warning wording lives in the CLI Live; the
           // kernel reports the retirement through the interaction port.
           expect(
-            promptState.presentAgentScanCalls.some((scan) => scan.retiredAgents.length > 0),
+            promptState.presentAgentScanCalls.some((scan) =>
+              scan.retiredAgents.some((agent) => agent.id === "codemaker"),
+            ),
           ).toBe(true);
         }),
       );

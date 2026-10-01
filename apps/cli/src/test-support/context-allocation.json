@@ -750,7 +750,7 @@
       "family": "agent-capabilities",
       "groups": [
         {
-          "members": ["native", "plugin", "none"],
+          "members": ["native", "plugin", "none", "unknown"],
           "bindings": ["capability-report"]
         }
       ],
@@ -790,7 +790,15 @@
       "family": "agent-capabilities",
       "groups": [
         {
-          "members": ["cli", "ide-extension", "chat", "hosted-agent"],
+          "members": [
+            "cli",
+            "ide-extension",
+            "chat",
+            "hosted-agent",
+            "desktop",
+            "embedded",
+            "workspace-agent"
+          ],
           "bindings": ["capability-model"]
         }
       ],

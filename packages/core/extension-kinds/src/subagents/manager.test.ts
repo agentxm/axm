@@ -255,7 +255,7 @@ describe("SubagentManager", () => {
     let tmpDir: string;
 
     beforeEach(() => {
-      tmpDir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-test-"));
+      tmpDir = nodeFs.mkdtempSync(nodePath.join(nodeFs.realpathSync(nodeOs.tmpdir()), "axm-test-"));
     });
 
     afterEach(() => {
@@ -532,7 +532,7 @@ describe("SubagentManager", () => {
       "withdraws proven native files from primary and additional reader locations once",
       () => {
         const tmpDir = nodeFs.mkdtempSync(
-          nodePath.join(nodeOs.tmpdir(), "axm-subagent-additional-"),
+          nodePath.join(nodeFs.realpathSync(nodeOs.tmpdir()), "axm-subagent-additional-"),
         );
         const sourceDir = nodePath.join(tmpDir, "additional-source/planner");
         writeSubagentPackage(sourceDir, "planner", "Plans work");
@@ -633,7 +633,9 @@ describe("SubagentManager", () => {
     });
 
     it.effect("removes registry canonical subagent directories", () => {
-      const tmpDir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-subagent-uninstall-"));
+      const tmpDir = nodeFs.mkdtempSync(
+        nodePath.join(nodeFs.realpathSync(nodeOs.tmpdir()), "axm-subagent-uninstall-"),
+      );
       const axmDir = nodePath.join(tmpDir, "project", ".axm");
       const canonicalDir = nodePath.join(
         tmpDir,

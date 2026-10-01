@@ -13,6 +13,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   readlinkSync,
   rmSync,
   symlinkSync,
@@ -180,7 +181,9 @@ describe("HookManager", () => {
     "refuses an aliased TOML co-reader before settings, canonical content, or native publication",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-cross-kind-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-cross-kind-"),
+        );
         try {
           const packageRoot = nodePath.join(workspaceRoot, "source-hook");
           writeHookPackage(packageRoot, "audit");
@@ -217,7 +220,9 @@ describe("HookManager", () => {
 
   it.effect("grants insertion receipts only to a newly added physical reader route", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-new-route-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-new-route-"),
+      );
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "audit");
@@ -251,7 +256,9 @@ describe("HookManager", () => {
     "does not grant a repair receipt when a newly added alias shares an existing reader",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-existing-route-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-existing-route-"),
+        );
         try {
           const packageRoot = nodePath.join(workspaceRoot, "source-hook");
           writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
@@ -290,7 +297,9 @@ describe("HookManager", () => {
       `${coReader === "devin" ? "coalesces compatible" : "refuses incompatible"} readers of one aliased native Hook file`,
       () =>
         Effect.gen(function* () {
-          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-locations-"));
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-hook-locations-"),
+          );
           try {
             const packageRoot = nodePath.join(workspaceRoot, "source-hook");
             writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
@@ -347,7 +356,7 @@ describe("HookManager", () => {
 
   it.effect("updates Claude Code settings without a workspace backup", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const settingsDir = nodePath.join(workspaceRoot, ".claude");
         mkdirSync(settingsDir, { recursive: true });
@@ -390,7 +399,7 @@ describe("HookManager", () => {
 
   it.effect("serializes structured canonical tool matchers for Claude Code", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "shell-check", {
@@ -418,7 +427,9 @@ describe("HookManager", () => {
 
   it.effect("uses Devin's catalog hook writer dialect", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-devin-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-devin-"),
+      );
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "devin-check");
@@ -450,7 +461,7 @@ describe("HookManager", () => {
 
   it.effect("degrades a hook to a managed advisory rule when an agent has no writer", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const settingsPath = nodePath.join(workspaceRoot, ".windsurf", "settings.json");
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
@@ -502,7 +513,7 @@ describe("HookManager", () => {
 
   it.effect("rejects advisory degradation when fallback is none", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "native-only", { fallback: "none" });
@@ -534,7 +545,9 @@ describe("HookManager", () => {
     "fails before writing settings when a block decision is required on observe-only event",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-hook-manager-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"),
+        );
         try {
           const settingsPath = nodePath.join(workspaceRoot, ".claude", "settings.json");
           const packageRoot = nodePath.join(workspaceRoot, "source-hook");

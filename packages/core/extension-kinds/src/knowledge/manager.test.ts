@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import {
   UNCONSTRAINED_DESIRED_NODE,
   computeSourceHash,
@@ -238,7 +246,9 @@ const managerLayer = (
 describe("KnowledgeManager", () => {
   it.effect("persists the compact source for workspace Knowledge", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
       try {
         const sourceRoot = nodePath.join(workspaceRoot, "knowledges", "handbook");
         writeKnowledgePackage(sourceRoot, "handbook", true);
@@ -326,7 +336,9 @@ describe("KnowledgeManager", () => {
         : "restores the previous canonical bundle when installation is interrupted",
       () =>
         Effect.gen(function* () {
-          const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+          const workspaceRoot = mkdtempSync(
+            nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+          );
           try {
             const sourceRoot = nodePath.join(workspaceRoot, "source");
             writeKnowledgePackage(sourceRoot, "handbook", true);
@@ -397,7 +409,9 @@ describe("KnowledgeManager", () => {
 
   it.effect("materializes a valid OKF bundle and writes its instruction discovery row", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
       try {
         const sourceRoot = nodePath.join(workspaceRoot, "source");
         writeKnowledgePackage(sourceRoot, "handbook", true);
@@ -446,7 +460,9 @@ describe("KnowledgeManager", () => {
     "materializes a recovery target without rewriting discovery while desired state is incomplete",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
         try {
           const sourceRoot = nodePath.join(workspaceRoot, "source");
           writeKnowledgePackage(sourceRoot, "handbook", true);
@@ -512,7 +528,9 @@ describe("KnowledgeManager", () => {
     "materializes one Knowledge closure without rewriting discovery while a sibling is unresolved",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
         try {
           const sourceRoot = nodePath.join(workspaceRoot, "source");
           writeKnowledgePackage(sourceRoot, "handbook", true);
@@ -596,7 +614,9 @@ describe("KnowledgeManager", () => {
 
   it.effect("rejects an invalid concept and removes the partial isolated copy", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
       try {
         const sourceRoot = nodePath.join(workspaceRoot, "source");
         writeKnowledgePackage(sourceRoot, "invalid-handbook", false);
@@ -627,7 +647,9 @@ describe("KnowledgeManager", () => {
 
   it.effect("retains the malformed concept path in package validation", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
       try {
         const sourceRoot = nodePath.join(workspaceRoot, "source");
         writeKnowledgePackage(sourceRoot, "malformed-handbook", true);
@@ -652,7 +674,9 @@ describe("KnowledgeManager", () => {
 
   it.effect("materializes a missing resource warning and rejects an escaping resource", () =>
     Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+      );
       try {
         const warningRoot = nodePath.join(workspaceRoot, "warning-source");
         writeKnowledgePackage(warningRoot, "warning-handbook", true, "./missing.md");
@@ -692,7 +716,9 @@ describe("KnowledgeManager", () => {
     "preserves the previous canonical package and discovery row when replacement validation fails",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
         try {
           const validRoot = nodePath.join(workspaceRoot, "source");
           writeKnowledgePackage(validRoot, "handbook", true);
@@ -737,7 +763,9 @@ describe("KnowledgeManager", () => {
     "fails closed without rewriting discovery when one active locked source is unavailable",
     () =>
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-knowledge-manager-"));
+        const workspaceRoot = mkdtempSync(
+          nodePath.join(realpathSync(tmpdir()), "axm-knowledge-manager-"),
+        );
         try {
           const healthySource = nodePath.join(workspaceRoot, "sources", "healthy");
           const unavailableSource = nodePath.join(workspaceRoot, "sources", "unavailable");

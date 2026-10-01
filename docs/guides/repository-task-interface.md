@@ -315,6 +315,10 @@ change the result, and their outputs have one owner. Git-history checks,
 benchmarks, release mutations, artifact/download operations, external install
 verification, and projection observations run fresh.
 
+The help-topic generator declares prerequisite schemas and generated Markdown
+through `dependentTasksOutputFiles`, so Nx hashes their contents after their
+producers finish.
+
 The root command tests use the runtime prepared by `axm:test` and pass
 `--excludeTaskDependencies` to its nested release metadata target invocation.
 Rebuilding those prerequisites inside a concurrent test wave can

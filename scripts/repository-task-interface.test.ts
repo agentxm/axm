@@ -241,6 +241,17 @@ describe("repository task interface", () => {
     }
   });
 
+  it("hashes generated help inputs after their prerequisite producers finish", () => {
+    const cli = projects.find((project) => project.name === "cli");
+    const help = cli?.data.targets?.["generate:help-topics"];
+    expect(help?.dependsOn).toContain("generate:schemas");
+    expect(help?.dependsOn).toContain("generate:type-enumerations");
+    expect(help?.inputs).toContainEqual({ dependentTasksOutputFiles: "**/*.schema.json" });
+    expect(help?.inputs).toContainEqual({
+      dependentTasksOutputFiles: "**/help/topics/*.md",
+    });
+  });
+
   it("declares transitive release publishing once after inference", () => {
     for (const project of projects) {
       const dependencies = project.data.targets?.["nx-release-publish"]?.dependsOn;

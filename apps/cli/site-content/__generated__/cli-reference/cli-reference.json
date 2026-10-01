@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "cliVersion": "0.37.3",
+  "cliVersion": "0.38.0",
   "command": {
     "name": "axm",
     "aliases": [],

@@ -3,6 +3,11 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { codingAgentFromDescriptor } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/workspace-kernel/projection";
 
 import { fixProject, lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
@@ -33,6 +38,38 @@ const rules = {
   ...isolatedLintRules("workspace/authored-package-declared", undefined),
   "workspace/managed-file-unowned": "warn",
 };
+
+// This explicit reader keeps native/authored overlap independent of vendor
+// workspace selection and avoids reserved agent-directory authoring paths.
+const fixtureReader = codingAgentFromDescriptor({
+  id: "openclaw",
+  name: "Fixture Skill reader",
+  detection: { project: { markers: [] }, user: { markers: [] } },
+  skills: {
+    scopes: ["project"],
+    writerSupported: false,
+    locations: [
+      {
+        scope: "project",
+        root: "project",
+        path: "skills",
+        shape: "directory",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+      },
+    ],
+  },
+});
+const withFixtureReader = (
+  repository: CodingAgentRepositoryService,
+): CodingAgentRepositoryService => ({
+  ...repository,
+  all: Effect.map(repository.all, (agents) =>
+    agents.map((agent) => (agent.id === fixtureReader.id ? fixtureReader : agent)),
+  ),
+});
 
 const settings = {
   owner: "@acme",
@@ -117,7 +154,10 @@ describe("Undeclared authored packages", () => {
             .map((row) => row.file),
         ).toEqual(["skills/bare", "skills/broken", "skills/foreign"]);
         expect(workspace.snapshot()).toEqual(before);
-      }).pipe(Effect.provide(lintServices(workspace)));
+      }).pipe(
+        Effect.updateService(CodingAgentRepository, withFixtureReader),
+        Effect.provide(lintServices(workspace)),
+      );
     },
   );
 
@@ -132,6 +172,9 @@ describe("Undeclared authored packages", () => {
           (row) => row.ruleId === "workspace/authored-package-declared",
         ),
       ).toEqual(expected);
-    }).pipe(Effect.provide(lintServices(workspace)));
+    }).pipe(
+      Effect.updateService(CodingAgentRepository, withFixtureReader),
+      Effect.provide(lintServices(workspace)),
+    );
   });
 });

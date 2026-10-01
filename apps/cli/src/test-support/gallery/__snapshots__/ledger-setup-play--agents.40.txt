@@ -4,13 +4,13 @@ Setting up AXM in ~/code/storefront
                     found 4 agents
  ?   Select agents to configure
  ❯ ◯ AdaL
+   ◯ FX
+   ◯ Muse Code
+   ◯ MiMo Code
+   ◯ Coder Agents
    ◯ AiderDesk
    ◯ Amp
    ◯ Antigravity
    ◯ Antigravity CLI
-   ◯ Augment
-   ◉ Claude Code
-   ◯ Cline
-   ◯ CodeArts Agent
-     ↓ 53 more
+     ↓ 57 more
 2 selected · space · ^a all · enter

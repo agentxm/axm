@@ -2,7 +2,7 @@ Setting up AXM in ~/code/storefront  for this project
 
  ✔   Checked for coding agents     found 4 agents
 
- ✔   Agents                        AdaL, AiderDesk, Amp
+ ✔   Agents                        AdaL, FX, Muse Code
  ✔   Sync instructions             yes
  ✔   Instructions source           AGENTS.md
 

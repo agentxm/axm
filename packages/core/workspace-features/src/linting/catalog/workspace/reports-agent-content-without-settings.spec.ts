@@ -3,6 +3,12 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { codingAgentFromDescriptor } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/workspace-kernel/projection";
+import { makeCodingAgentRepository } from "@agentxm/workspace-kernel/projection/testing";
 
 import { lintProject, lintProjectWithHome, lintServices } from "../../test-helpers.js";
 import { makeLintWorkspace } from "../../testing.js";
@@ -28,6 +34,37 @@ export const specification = defineSpecification({
 const RULE_ID = "workspace/agent-content-has-settings";
 const skill = (name: string) => `---\nname: ${name}\ndescription: Fixture\n---\n# Skill\n`;
 
+// Four explicit readers exercise grouping and count formatting independently
+// of which vendors happen to read a shared directory in the current catalog.
+// Instruction-file discovery separately reads the canonical descriptor catalog.
+const readers = (["claude-code", "cursor", "gemini-cli", "opencode"] as const).map((id) =>
+  codingAgentFromDescriptor({
+    id,
+    name: id,
+    detection: { project: { markers: [] }, user: { markers: [] } },
+    skills: {
+      scopes: ["project"],
+      writerSupported: false,
+      locations: [
+        {
+          scope: "project",
+          root: "project",
+          path: ".fixture/skills",
+          shape: "directory",
+          role: "primary",
+          status: "canonical",
+          applicability: { kind: "always" },
+          provenance: { kind: "capability-sources" },
+        },
+      ],
+    },
+  }),
+);
+const readerRepository = {
+  ...makeCodingAgentRepository([]),
+  all: Effect.succeed(readers),
+} satisfies CodingAgentRepositoryService;
+
 describe("Agent content without settings", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
@@ -36,7 +73,7 @@ describe("Agent content without settings", () => {
 
   it.effect("reports agent content only while the folder has no settings and is not home", () => {
     const project = makeLintWorkspace({
-      files: { "CLAUDE.md": "# Guidance\n", ".claude/skills/foo/SKILL.md": skill("foo") },
+      files: { "CLAUDE.md": "# Guidance\n", ".fixture/skills/foo/SKILL.md": skill("foo") },
     });
     project.remove("axm.json");
     const home = makeLintWorkspace();
@@ -63,8 +100,8 @@ describe("Agent content without settings", () => {
           {
             severity: "warning",
             message:
-              "Agent skills directory .claude/skills with 1 entry for 11 agents exists in a folder without project workspace settings (axm.json).",
-            file: ".claude/skills",
+              "Agent skills directory .fixture/skills with 1 entry for 4 agents exists in a folder without project workspace settings (axm.json).",
+            file: ".fixture/skills",
           },
         ]),
       );
@@ -76,6 +113,9 @@ describe("Agent content without settings", () => {
       project.writeSettings({});
       const configured = yield* lintProjectWithHome(project, home.root);
       expect(ruleFindings(configured.document.findings)).toEqual([]);
-    }).pipe(Effect.provide(lintServices(project)));
+    }).pipe(
+      Effect.provideService(CodingAgentRepository, readerRepository),
+      Effect.provide(lintServices(project)),
+    );
   });
 });

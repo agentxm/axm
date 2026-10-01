@@ -2,13 +2,13 @@ Setting up AXM in ~/code/storefront  for this project
  ✔   Checked for coding agents     found 4 agents
  ?   Select agents to configure  type to filter
  ❯ ◯ AdaL                          skills: .adal/skills
+   ◯ FX                            skills: .fx/skills
+   ◯ Muse Code                     skills: .agents/skills
+   ◯ MiMo Code                     skills: .mimocode/skills
+   ◯ Coder Agents                  skills: .agents/skills
    ◯ AiderDesk                     skills: .aider-desk/skills
-   ◯ Amp                           skills: .agents/skills
+   ◯ Amp                           skills: .agents/skills, .claude/skills
    ◯ Antigravity                   skills: .agents/skills, .agent/skills
    ◯ Antigravity CLI               skills: .agents/skills, .agent/skills
-   ◯ Augment                       skills: .augment/skills
-   ◉ Claude Code                   detected in project · suggested · skills: .claude/skills
-   ◯ Cline                         skills: .cline/skills, .clinerules/skills, .claude/skills
-   ◯ CodeArts Agent                skills: .codeartsdoer/skills
-     ↓ 53 more
+     ↓ 57 more
 2 selected · ↑↓ move · space toggle · ^a all · enter confirm

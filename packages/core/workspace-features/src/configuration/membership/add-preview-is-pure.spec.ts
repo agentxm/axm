@@ -98,7 +98,7 @@ describe("Agent add preview purity", () => {
         .provide(
           Effect.gen(function* () {
             const previewed = yield* runAgentsAdd(
-              { ids: ["gemini-cli"], detected: false },
+              { ids: ["codemaker"], detected: false },
               "preview",
             );
 

@@ -10,11 +10,15 @@ describe("agent id validation", () => {
       expect(error.category).toBe("validation");
       expect(error.detail).toContain("ChatGPT is a hosted agent");
       expect(error.detail).toContain("axm lint");
-      expect(error.detail).toContain("Upload from your computer");
+      expect(error.detail).toContain(
+        "ChatGPT workspace skill administration for an eligible workspace",
+      );
+      expect(error.detail).toContain("ChatGPT plugin for web/mobile distribution");
+      expect(error.detail).toContain("AXM does not upload or publish it");
       expect(error.suggestions).toEqual([
         {
           description: "Open the ChatGPT skill installation guide.",
-          url: "https://help.openai.com/en/articles/20001066-skills-in-chatgpt",
+          url: "https://learn.chatgpt.com/docs/enterprise/skills",
         },
       ]);
     }),

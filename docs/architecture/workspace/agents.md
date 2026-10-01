@@ -72,6 +72,33 @@ actual, and detected projectors are generated from the catalog. Agent-specific
 native configuration belongs in catalog data and captured location inputs,
 not in placeholder per-agent projection modules or phantom configuration types.
 
+## Evidence and product identity
+
+A catalog ID identifies a concrete integration target and survives a product
+rename. Product, interface, edition, responsible company, parent company, and
+model provider are distinct facts. Record relationships only when authoritative
+sources establish them. An edition's retirement does not retire a still-supported
+target; retain the qualification beside its effective lifecycle.
+
+Native capability availability distinguishes documented support, plugin support,
+documented absence, and unknown. A missing source or an unsuccessful search is
+unknown. Source review records its date, sources, conditions, and limitations;
+it does not certify vendor execution. AXM configuration tests and actual vendor
+runtime exercises identify their own boundary, evidence, and date. Historical
+dates without a recorded method remain historical dates.
+
+The release catalog is a versioned public data contract derived from the same
+records. It exposes qualified extension-type integration, delivery, material
+restrictions, and evidence without exporting writer implementation. A type-level
+integration result does not establish compatibility with every package of that
+type. Conditional, manual, unsupported, and unknown outcomes remain visible to
+consumers; a native feature alone never implies an AXM writer.
+
+Native hook mechanisms and events may exceed AXM's canonical vocabulary and
+implemented serializers. Such facts remain descriptive. Only representable,
+implemented mechanics participate in installability; unsupported mechanisms and
+unmapped events must not silently acquire a command representation.
+
 ## Invariants
 
 - Detection, support, and configuration remain distinct facts.

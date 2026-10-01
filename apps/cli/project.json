@@ -151,7 +151,8 @@
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
-        "{projectRoot}/site-content/__generated__/schemas/*.schema.json",
+        { "dependentTasksOutputFiles": "**/*.schema.json" },
+        { "dependentTasksOutputFiles": "**/help/topics/*.md" },
         "{workspaceRoot}/.prettierrc.json",
         "toolchain",
         {

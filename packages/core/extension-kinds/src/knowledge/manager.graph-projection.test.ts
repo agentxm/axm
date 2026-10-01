@@ -96,7 +96,9 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   let baseDir: string;
 
   beforeEach(() => {
-    baseDir = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-knowledge-projection-"));
+    baseDir = nodeFs.mkdtempSync(
+      nodePath.join(nodeFs.realpathSync(nodeOs.tmpdir()), "axm-knowledge-projection-"),
+    );
   });
 
   afterEach(() => {

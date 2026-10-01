@@ -2334,51 +2334,65 @@ describe("root sync handler", () => {
       }),
   );
 
-  it.effect("preserves Roo modes and regenerates only its supported role Skill fallback", () =>
-    Effect.gen(function* () {
-      const first = makeLayers({ machine: true });
-      writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-        agents: ["roo"],
-        subagents: { researcher: "workspace" },
-      });
-      writeSubagentExtension(tempDir, "researcher");
-      const nativePath = path.join(tempDir, ".roomodes");
-      const nativeContent = JSON.stringify({
-        customModes: [{ slug: "researcher", name: "Researcher", roleDefinition: "My native role" }],
-      });
-      fs.writeFileSync(nativePath, nativeContent);
-      yield* first.provide(handleSync({ preview: false }));
+  it.effect(
+    "preserves retired Roo modes while regenerating Zed's supported role Skill fallback",
+    () =>
+      Effect.gen(function* () {
+        const first = makeLayers({ machine: true });
+        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+          agents: ["roo", "zed"],
+          subagents: { researcher: "workspace" },
+        });
+        writeSubagentExtension(tempDir, "researcher");
+        const nativePath = path.join(tempDir, ".roomodes");
+        const nativeContent = JSON.stringify({
+          customModes: [
+            { slug: "researcher", name: "Researcher", roleDefinition: "My native role" },
+          ],
+        });
+        fs.writeFileSync(nativePath, nativeContent);
+        yield* first.provide(handleSync({ preview: false }));
 
-      const projectionPath = path.join(tempDir, ".roo", "skills", "researcher", "SKILL.md");
-      const accepted = fs.readFileSync(projectionPath, "utf8");
-      expect(accepted).toContain("ext=@acme/subagents/researcher");
-      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
+        const projectionPath = path.join(tempDir, ".agents", "skills", "researcher", "SKILL.md");
+        const retiredProjectionPath = path.join(
+          tempDir,
+          ".roo",
+          "skills",
+          "researcher",
+          "SKILL.md",
+        );
+        const accepted = fs.readFileSync(projectionPath, "utf8");
+        expect(accepted).toContain("ext=@acme/subagents/researcher");
+        expect(fs.existsSync(retiredProjectionPath)).toBe(false);
+        expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
 
-      const current = makeLayers({ machine: true });
-      yield* current.provide(handleSync({ preview: true }));
-      expectNoOpPlanResult(current.rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        message: "Workspace materialization is up to date",
-      });
-      fs.writeFileSync(
-        path.join(tempDir, "subagents", "researcher", "src", "researcher.md"),
-        "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated Roo researcher\n",
-      );
+        const current = makeLayers({ machine: true });
+        yield* current.provide(handleSync({ preview: true }));
+        expectNoOpPlanResult(current.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          message: "Workspace materialization is up to date",
+        });
+        fs.writeFileSync(
+          path.join(tempDir, "subagents", "researcher", "src", "researcher.md"),
+          "---\nname: researcher\ndescription: Test subagent\n---\n\n# Updated researcher\n",
+        );
 
-      const preview = makeLayers({ machine: true });
-      yield* preview.provide(handleSync({ preview: true }));
-      expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
-        planName: "Sync workspace",
-        totalSteps: 1,
-      });
-      expect(fs.readFileSync(projectionPath, "utf8")).toBe(accepted);
-      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
+        const preview = makeLayers({ machine: true });
+        yield* preview.provide(handleSync({ preview: true }));
+        expectPreviewedPlanResult(preview.rendererState.results[0]?.data, {
+          planName: "Sync workspace",
+          totalSteps: 1,
+        });
+        expect(fs.readFileSync(projectionPath, "utf8")).toBe(accepted);
+        expect(fs.existsSync(retiredProjectionPath)).toBe(false);
+        expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
 
-      const apply = makeLayers({ machine: true });
-      yield* apply.provide(handleSync({ preview: false }));
-      expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated Roo researcher");
-      expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
-    }),
+        const apply = makeLayers({ machine: true });
+        yield* apply.provide(handleSync({ preview: false }));
+        expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher");
+        expect(fs.existsSync(retiredProjectionPath)).toBe(false);
+        expect(fs.readFileSync(nativePath, "utf8")).toBe(nativeContent);
+      }),
   );
 
   it.effect("removes managed subagent files when the settings entry is disabled", () =>

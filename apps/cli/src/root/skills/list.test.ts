@@ -54,6 +54,7 @@ const createAgentSkill = (baseDir: string, agentId: "claude-code" | "cursor", na
 };
 
 const CLAUDE_SKILL_READERS = [
+  "augment",
   "claude-code",
   "cline",
   "crush",
@@ -62,8 +63,11 @@ const CLAUDE_SKILL_READERS = [
   "github-copilot-cli",
   "goose",
   "kilo",
+  "minimax-code",
+  "neovate",
   "ona",
   "opencode",
+  "zencoder",
   "zenflow",
 ];
 

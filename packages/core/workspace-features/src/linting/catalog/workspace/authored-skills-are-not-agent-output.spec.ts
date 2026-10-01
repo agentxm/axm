@@ -3,6 +3,11 @@ import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { codingAgentFromDescriptor } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  CodingAgentRepository,
+  type CodingAgentRepositoryService,
+} from "@agentxm/workspace-kernel/projection";
 
 import { queryLintWorkspace } from "../../index.js";
 import { lintServices, projectSelection } from "../../test-helpers.js";
@@ -37,6 +42,38 @@ const manifest = (name: string, owner = "@acme") =>
 const skill = (name: string) => `---\nname: ${name}\ndescription: Fixture skill\n---\n# Skill\n`;
 
 const rules = isolatedLintRules("workspace/managed-file-unowned", undefined);
+
+// Keep authored/native overlap explicit without depending on a vendor's
+// conditional workspace convention or using a reserved authoring directory.
+const fixtureReader = codingAgentFromDescriptor({
+  id: "openclaw",
+  name: "Fixture Skill reader",
+  detection: { project: { markers: [] }, user: { markers: [] } },
+  skills: {
+    scopes: ["project"],
+    writerSupported: false,
+    locations: [
+      {
+        scope: "project",
+        root: "project",
+        path: "skills",
+        shape: "directory",
+        role: "primary",
+        status: "canonical",
+        applicability: { kind: "always" },
+        provenance: { kind: "capability-sources" },
+      },
+    ],
+  },
+});
+const withFixtureReader = (
+  repository: CodingAgentRepositoryService,
+): CodingAgentRepositoryService => ({
+  ...repository,
+  all: Effect.map(repository.all, (agents) =>
+    agents.map((agent) => (agent.id === fixtureReader.id ? fixtureReader : agent)),
+  ),
+});
 
 describe("Authored source ownership", () => {
   const cleanups: Array<() => void> = [];
@@ -76,7 +113,10 @@ describe("Authored source ownership", () => {
         expect(result.document.findings).toEqual([]);
       }
       expect(workspace.snapshot()).toEqual(before);
-    }).pipe(Effect.provide(lintServices(workspace)));
+    }).pipe(
+      Effect.updateService(CodingAgentRepository, withFixtureReader),
+      Effect.provide(lintServices(workspace)),
+    );
   });
 
   it.effect(
@@ -115,7 +155,10 @@ describe("Authored source ownership", () => {
           "skills/wrong",
         ]);
         expect(workspace.snapshot()).toEqual(before);
-      }).pipe(Effect.provide(lintServices(workspace)));
+      }).pipe(
+        Effect.updateService(CodingAgentRepository, withFixtureReader),
+        Effect.provide(lintServices(workspace)),
+      );
     },
   );
 });

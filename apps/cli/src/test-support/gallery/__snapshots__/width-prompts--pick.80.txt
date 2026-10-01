@@ -1,7 +1,7 @@
  ?   Select agents to configure  type to filter
  ❯ ◯ AdaL                          skills: .adal/skills
-   ◯ AiderDesk                     skills: .aider-desk/skills
-   ◯ Amp                           skills: .agents/skills
-   ◯ Antigravity                   skills: .agents/skills, .agent/skills
-     ↓ 58 more
+   ◯ FX                            skills: .fx/skills
+   ◯ Muse Code                     skills: .agents/skills
+   ◯ MiMo Code                     skills: .mimocode/skills
+     ↓ 62 more
 2 selected · ↑↓ move · space toggle · ^a all · enter confirm

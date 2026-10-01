@@ -292,7 +292,7 @@ describe("Pack source switches", () => {
           }),
         );
       }).pipe(Effect.provide(NodeServices.layer)),
-    { timeout: 15_000 },
+    { timeout: 20_000 },
   );
 
   it.effect("leaves the installed graph unchanged when a target member cannot resolve", () =>

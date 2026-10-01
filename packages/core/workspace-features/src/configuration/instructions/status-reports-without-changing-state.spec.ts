@@ -220,7 +220,7 @@ describe("Instruction-file status", () => {
   });
 
   it.effect(
-    "distinguishes supported instruction sources from native rules directories it does not write",
+    "distinguishes supported instruction sources from a retired agent without writing",
     () => {
       const fixture = fixtureWith(
         {
@@ -242,7 +242,7 @@ describe("Instruction-file status", () => {
               "roo",
             ]);
             expect(report.items.find((item) => item.agentId === "roo")).toMatchObject({
-              mechanism: "adapter",
+              mechanism: "none",
               health: "unsupported",
               ownership: "absent",
               observedForm: "none",

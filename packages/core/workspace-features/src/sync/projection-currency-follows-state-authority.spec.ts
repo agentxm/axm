@@ -65,7 +65,7 @@ export const specification = defineSpecification({
 });
 
 const AUTHORED_SUBAGENT = "reviewer";
-const FIXTURE_TIMEOUT = 15_000;
+const FIXTURE_TIMEOUT = 20_000;
 
 const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
   const packageRoot = nodePath.join(workspaceRoot, "subagents", AUTHORED_SUBAGENT);

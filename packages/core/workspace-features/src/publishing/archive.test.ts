@@ -79,9 +79,9 @@ describe("buildZipArchive", () => {
   );
 
   // Publish guardrails must only ever reject an archive: rewriting or filtering
-  // entries would change the bytes, and with them the integrity digest that
-  // makes an already-published version verifiable. This pinned digest fails if
-  // the output for a clean source tree ever shifts.
+  // entries would change the bytes, and with them the integrity digest
+  // computed before upload. This pinned digest fails if the output for a clean
+  // source tree ever shifts.
   it.effect("produces the pinned bytes for a clean source tree", () =>
     withNodeContext(
       Effect.gen(function* () {

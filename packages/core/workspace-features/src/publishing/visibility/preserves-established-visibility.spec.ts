@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/preserves-established-visibility",
   title: "Publishing preserves established extension visibility",
   statement:
-    "Publish shall apply an explicit visibility request only when establishing a new extension, preserve existing extension visibility when adding or verifying a version, and report which visibility was established or preserved.",
+    "Publish shall apply an explicit visibility request only when establishing a new extension, preserve existing extension visibility when adding a version or skipping an already published one, and report which visibility was established or preserved.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
@@ -79,7 +79,7 @@ describe("Publication visibility establishment", () => {
   }
 
   it.effect(
-    "preserves the first extension while establishing a second and verifying both releases",
+    "preserves the first extension while establishing a second and skipping both releases",
     () =>
       Effect.gen(function* () {
         const world = twoSkillWorld();
@@ -118,17 +118,17 @@ describe("Publication visibility establishment", () => {
         expect(world.archive("deploy").length).toBeGreaterThan(0);
         const before = world.snapshotRegistry();
 
-        const verified = yield* world.provide(
+        const repeated = yield* world.provide(
           runPublish(requestFor(world, { preview: false, visibility: Option.some("public") })),
         );
 
-        const verifiedDocument = publishDocument(verified);
-        expect(verifiedDocument.counts).toMatchObject({
+        const repeatedDocument = publishDocument(repeated);
+        expect(repeatedDocument.counts).toMatchObject({
           alreadyPublished: 2,
           published: 0,
           failed: 0,
         });
-        for (const item of verifiedDocument.execution.outcomes)
+        for (const item of repeatedDocument.execution.outcomes)
           expect(item.visibility).toEqual({
             value: item.id === "@acme/skills/deploy" ? "private" : "public",
             disposition: "preserve",

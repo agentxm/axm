@@ -2,9 +2,10 @@
  * `PublishExtensions`: the application API for publishing workspace-authored
  * extensions to a Registry.
  *
- * `prepare` resolves the target Registry, selects candidates, validates and
- * builds their archives, settles existing-version policy, and obtains the
- * Registry's authoritative admission of the complete publication set.
+ * `prepare` resolves the target Registry, selects candidates, settles each
+ * version the Registry already has as a skip, validates and builds the
+ * archives of the rest, and obtains the Registry's authoritative admission of
+ * the complete publication set.
  * `previewOrApply` presents that immutable candidate and, on apply, acquires
  * exact authorization, revalidates the sources it planned against, and
  * uploads. Every termination resolves to one `PublishOutcome`.
@@ -95,7 +96,6 @@ import type { PublishSettlement } from "../settlement.js";
 import {
   catalogEntries,
   decodeCandidate,
-  resolveExistingVersionPolicy,
   resolveTargetRegistry,
   selectEntries,
   type PublishCandidate,
@@ -103,6 +103,7 @@ import {
   type PublishRequest,
   type PublishSelection,
   type TargetRegistry,
+  type UploadCandidate,
 } from "./model.js";
 import {
   failedCandidateResult,
@@ -202,7 +203,7 @@ export interface PublishCandidateSet {
   readonly publicationSetOutput: PublishPublicationSet;
   readonly preflightResults: ReadonlyArray<PublishResultItem>;
   readonly candidates: ReadonlyArray<PublishCandidate>;
-  readonly uploadCandidates: ReadonlyArray<PublishCandidate>;
+  readonly uploadCandidates: ReadonlyArray<UploadCandidate>;
   readonly publicationSet: PreviewPublicationSetRequest | undefined;
   readonly packDependencyReachability: ReadonlyArray<PackDependencyReachability>;
   readonly preconditions: ReadonlyArray<OperationPrecondition>;
@@ -277,18 +278,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
       }
       const decoded = yield* Effect.forEach(
         selection.entries,
-        (entry) =>
-          Effect.result(
-            decodeCandidate(
-              entry,
-              resolveExistingVersionPolicy(request.onExisting, {
-                mode: selection.mode,
-                includedDependency: entry.includedDependency === true,
-              }),
-              registry,
-              request.backfill,
-            ),
-          ),
+        (entry) => Effect.result(decodeCandidate(entry, registry, request.backfill)),
         { concurrency: 4 },
       );
       return { selection, decoded };
@@ -340,7 +330,18 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     ),
     reachability: packDependencyReachability,
   });
-  const localFailuresByMember = localPackConstraintFailures(localConstraintFacts);
+  // A constraint excludes a member only from an upload: a member version the
+  // Registry already has stays a successful skip whatever a local Pack declares.
+  const alreadyPublished = new Set(
+    sourceAssessedCandidates.flatMap((candidate) =>
+      candidate.action === "skip" ? [candidate.fqn] : [],
+    ),
+  );
+  const localFailuresByMember = new Map(
+    [...localPackConstraintFailures(localConstraintFacts)].filter(
+      ([member]) => !alreadyPublished.has(member),
+    ),
+  );
   const preflightFailures: ReadonlyArray<PublishFailure> = [
     ...decodedPreflightFailures,
     ...sourceFailuresByMember.values(),
@@ -495,7 +496,15 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
           }
         : result;
     }
-    if (authoritativeFailure === undefined || result.version === undefined) return result;
+    // A version the Registry already has stays a successful skip: a refused
+    // publication set blocks only the versions it would have uploaded.
+    if (
+      authoritativeFailure === undefined ||
+      result.version === undefined ||
+      result.action === "skip"
+    ) {
+      return result;
+    }
     const causalFindings = publicationSetOutput.findings
       .filter((finding) => finding.targetId === result.id)
       .map((finding) => finding.id);
@@ -534,7 +543,9 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     return preparation;
   }
 
-  const uploadCandidates = candidates.filter((candidate) => candidate.action === "publish");
+  const uploadCandidates = candidates.filter(
+    (candidate): candidate is UploadCandidate => candidate.action === "publish",
+  );
   const preconditions = publishAuthenticationPreconditions({
     preview: request.preview,
     remoteRegistry,
@@ -618,7 +629,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
   const unresolvedReasons = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
 
   const candidateStep = (
-    candidate: PublishCandidate,
+    candidate: UploadCandidate,
   ): PlannedJobStep<PublishPlanRequirements, PublishPlanOutput> => {
     const run = Effect.gen(function* () {
       const published = yield* publishCandidate(
@@ -714,7 +725,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
             gerund: "Publishing",
           }),
           description: Option.some(
-            `Publish ${uploadCandidates.length} extension${uploadCandidates.length === 1 ? "" : "s"} to registry "${registry.name}"; ${candidates.length - uploadCandidates.length} already published and integrity-verified`,
+            `Publish ${uploadCandidates.length} extension${uploadCandidates.length === 1 ? "" : "s"} to registry "${registry.name}"; ${candidates.length - uploadCandidates.length} already published`,
           ),
           ...(candidateSet.preconditions.length === 0
             ? {}
@@ -764,8 +775,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
                 ? {}
                 : {
                     recovery: {
-                      description:
-                        "Verify or re-publish the items the interruption left unsettled.",
+                      description: "Re-run publish for the items the interruption left unsettled.",
                       remainingItems: recoverySelection.remainingItems,
                       blockedDependents: recoverySelection.blockedDependents,
                     },
@@ -988,7 +998,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
                 category: "issues",
                 detail: `No publication was confirmed; ${unconfirmed.length} extension${
                   unconfirmed.length === 1 ? "" : "s"
-                } left unsettled. Verify the target registry before re-publishing.`,
+                } left unsettled. Re-run publish; versions the registry committed are reported as already published.`,
               }),
             }
           : { _tag: "Completed" };

@@ -61,7 +61,7 @@ import { PublishFailed } from "../errors.js";
 import { planZipArchive, type ArchivePlan } from "../archive.js";
 import { publishArchiveOptions } from "../publish-ignore.js";
 import { runPublishLintGate } from "../lint-gate.js";
-import { alreadyPublishedVersionConflict, nonMonotonicVersionConflict } from "../preflight.js";
+import { nonMonotonicVersionConflict } from "../preflight.js";
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
 import type { PublishSourceAssessment } from "../source-state.js";
 import type { ResolvedPublishPreview } from "../authorization.js";
@@ -77,26 +77,6 @@ export const selectableTypes: ReadonlyArray<PublishableType> =
 
 /** Whether the run publishes everything authored or an explicit selection. */
 export type PublishSelectionMode = "authored" | "explicit";
-
-/** What to do when the exact version is already published. */
-export const onExistingPolicies = ["error", "verify"] as const;
-export type OnExistingPolicy = (typeof onExistingPolicies)[number];
-
-/**
- * The default is "verify" wherever the selection was not a person naming one
- * extension: a bulk or dependency-expanded run is expected to be idempotent,
- * while naming a version explicitly asserts it is new.
- */
-export const resolveExistingVersionPolicy = (
-  onExisting: Option.Option<OnExistingPolicy>,
-  selection: {
-    readonly mode: PublishSelectionMode;
-    readonly includedDependency: boolean;
-  },
-): OnExistingPolicy =>
-  Option.getOrElse(onExisting, () =>
-    selection.includedDependency || selection.mode === "authored" ? "verify" : "error",
-  );
 
 interface ValidationDetail {
   readonly recover?: string;
@@ -145,25 +125,40 @@ export interface SelectedEntry extends CatalogEntry {
   readonly skipReason?: "not_authored" | "not_publishable";
 }
 
-export interface PublishCandidate extends SelectedEntry {
+/** The manifest facts every selected version carries, uploaded or not. */
+interface CandidateVersion extends SelectedEntry {
   readonly type: PublishableType;
   readonly name: ExtensionName;
   readonly extensionDir: string;
-  readonly manifestJson: unknown;
   readonly version: Version;
-  readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
   readonly dependencies?: PackMemberConstraintMap;
   readonly publishVisibility?: ExtensionVisibility;
+  readonly extensionExists: boolean;
+  readonly publishPreview?: ResolvedPublishPreview;
+}
+
+/**
+ * A selected version the Registry already has. Its presence settles it: no
+ * local content is linted, archived, or compared.
+ */
+export interface ExistingVersionCandidate extends CandidateVersion {
+  readonly action: "skip";
+}
+
+/** A selected version absent from the Registry, prepared for upload. */
+export interface UploadCandidate extends CandidateVersion {
+  readonly action: "publish";
+  readonly manifestJson: unknown;
+  readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
   readonly publishIgnore?: ReadonlyArray<string>;
   readonly archive: Uint8Array;
   readonly archivePlan: ArchivePlan;
   readonly integrity: string;
-  readonly action: "publish" | "skip";
   readonly backfill: boolean;
-  readonly extensionExists: boolean;
-  readonly publishPreview?: ResolvedPublishPreview;
   readonly sourceAssessment?: PublishSourceAssessment;
 }
+
+export type PublishCandidate = ExistingVersionCandidate | UploadCandidate;
 
 /**
  * A preparation failure whose reason the result document reports verbatim,
@@ -171,7 +166,7 @@ export interface PublishCandidate extends SelectedEntry {
  */
 export interface PublishPreparationFailure {
   readonly _tag: "PublishPreparationFailure";
-  readonly reason: "version_exists" | "integrity_drift" | "not_authored";
+  readonly reason: "not_authored";
   readonly failure: PublishFailed;
 }
 
@@ -193,7 +188,6 @@ export interface PublishRequest {
   readonly excludes: ReadonlyArray<string>;
   readonly registry: Option.Option<string>;
   readonly registryUrl: Option.Option<string>;
-  readonly onExisting: Option.Option<OnExistingPolicy>;
   readonly backfill: boolean;
   readonly acceptWarnings: boolean;
   readonly preview: boolean;
@@ -685,13 +679,14 @@ const developmentRootWarning = (
 };
 
 /**
- * Turn one selected entry into an upload candidate: decode its manifest,
- * validate its content, plan and build its archive, and settle the
- * existing-version decision against the Registry index.
+ * Turn one selected entry into a candidate: decode its manifest and settle
+ * whether the Registry already has its version. An existing version is a
+ * successful skip decided here, before any of its content is prepared; only a
+ * version that will upload is validated, archived, and checked against the
+ * Registry's version order.
  */
 export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   selected: SelectedEntry,
-  policy: OnExistingPolicy,
   registry: TargetRegistry,
   backfillRequested: boolean,
 ) {
@@ -751,6 +746,63 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(manifestJson).pipe(
     Effect.mapError((cause) => validation(`Invalid manifest: ${manifestPath}`, { cause })),
   );
+  if (
+    manifest.owner !== selected.owner ||
+    manifest.type !== selected.type ||
+    manifest.name !== selected.name
+  ) {
+    return yield* Effect.fail(
+      validation(`Manifest identity does not match configured extension ${selected.fqn}`),
+    );
+  }
+  const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
+  const index = yield* client.getExtensionIndex({
+    owner: selected.owner,
+    type: selected.type,
+    name: manifest.name,
+  });
+  const version = {
+    ...selected,
+    type: selected.type,
+    name: manifest.name,
+    extensionDir,
+    version: manifest.version,
+    ...(manifest.dependencies === undefined ? {} : { dependencies: manifest.dependencies }),
+    ...(manifest.publish?.visibility === undefined
+      ? {}
+      : { publishVisibility: manifest.publish.visibility }),
+    extensionExists: Option.isSome(index),
+  };
+  // Published versions are immutable, yanked ones included: a version the
+  // Registry already has is settled by its presence, whatever the local
+  // content now holds or whichever checks this CLI now applies.
+  if (
+    Option.isSome(index) &&
+    index.value.versions.some((entry) => entry.version === manifest.version)
+  ) {
+    return { ...version, action: "skip" } satisfies ExistingVersionCandidate;
+  }
+  let backfill = false;
+  if (Option.isSome(index)) {
+    // The registry index is ordered by publish time, not by semver, so the
+    // highest published version has to be reduced over every entry. Yanked
+    // versions count: their version numbers stay burned.
+    const highestPublished = index.value.versions.reduce<Version | undefined>(
+      (highest, entry) =>
+        highest === undefined || semver.gt(entry.version, highest) ? entry.version : highest,
+      undefined,
+    );
+    if (highestPublished !== undefined && semver.lt(manifest.version, highestPublished)) {
+      if (!backfillRequested) {
+        return yield* nonMonotonicVersionConflict({
+          fqn: selected.fqn,
+          version: manifest.version,
+          highestPublished,
+        });
+      }
+      backfill = true;
+    }
+  }
   if (selected.type === "knowledge") {
     const knowledgeManifest = yield* Schema.decodeUnknownEffect(KnowledgeManifestSchema)(
       manifestJson,
@@ -790,15 +842,6 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       );
     }
   }
-  if (
-    manifest.owner !== selected.owner ||
-    manifest.type !== selected.type ||
-    manifest.name !== selected.name
-  ) {
-    return yield* Effect.fail(
-      validation(`Manifest identity does not match configured extension ${selected.fqn}`),
-    );
-  }
   // Total over `PublishableType`: adding a publishable type without a
   // `PublishLintArgs` arm is a compile error here, not a silently skipped gate.
   yield* runPublishLintGate({
@@ -819,9 +862,8 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       ...developmentRootWarning(plannedArchive.plan, manifest.publish?.ignore !== undefined),
     ],
   };
-  // Guardrails run on the built bytes and only ever reject: rewriting the
-  // archive here would change its integrity digest and break republishing an
-  // already-published version under `--on-existing verify`.
+  // Guardrails run on the built bytes and only ever reject: the uploaded
+  // archive is exactly the one these checks and the integrity digest saw.
   const archiveEntries = yield* validateArchive(archive).pipe(
     Effect.mapError((cause) =>
       validation(`Archive validation failed for ${selected.fqn}: ${cause.message}`, { cause }),
@@ -861,82 +903,17 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       ),
     ),
   );
-  const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
-  const index = yield* client.getExtensionIndex({
-    owner: selected.owner,
-    type: selected.type,
-    name: manifest.name,
-  });
-  const existing = Option.isSome(index)
-    ? index.value.versions.find((entry) => entry.version === manifest.version)
-    : undefined;
-  let action: "publish" | "skip" = "publish";
-  let backfill = false;
-  if (existing !== undefined) {
-    if (policy === "error") {
-      return yield* alreadyPublishedVersionConflict({
-        fqn: selected.fqn,
-        version: manifest.version,
-      }).pipe(Effect.mapError((failure) => preparationFailure("version_exists", failure)));
-    }
-    if (policy === "verify" && existing.integrity !== integrity) {
-      return yield* Effect.fail(
-        preparationFailure(
-          "integrity_drift",
-          new PublishFailed({
-            category: "conflict",
-            detail: `Immutable-version integrity drift for ${selected.fqn}@${manifest.version}`,
-            suggestions: [
-              {
-                description: "Bump the manifest version.",
-                cmd: `axm version ${selected.fqn} patch`,
-              },
-            ],
-          }),
-        ),
-      );
-    }
-    action = "skip";
-  } else if (Option.isSome(index)) {
-    // The registry index is ordered by publish time, not by semver, so the
-    // highest published version has to be reduced over every entry. Yanked
-    // versions count: their version numbers stay burned.
-    const highestPublished = index.value.versions.reduce<Version | undefined>(
-      (highest, entry) =>
-        highest === undefined || semver.gt(entry.version, highest) ? entry.version : highest,
-      undefined,
-    );
-    if (highestPublished !== undefined && semver.lt(manifest.version, highestPublished)) {
-      if (!backfillRequested) {
-        return yield* nonMonotonicVersionConflict({
-          fqn: selected.fqn,
-          version: manifest.version,
-          highestPublished,
-        });
-      }
-      backfill = true;
-    }
-  }
   return {
-    ...selected,
-    type: selected.type,
-    name: manifest.name,
-    extensionDir,
+    ...version,
+    action: "publish",
     manifestJson,
-    version: manifest.version,
     ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
-    ...(manifest.dependencies === undefined ? {} : { dependencies: manifest.dependencies }),
-    ...(manifest.publish?.visibility === undefined
-      ? {}
-      : { publishVisibility: manifest.publish.visibility }),
     ...(manifest.publish?.ignore === undefined ? {} : { publishIgnore: manifest.publish.ignore }),
     archive,
     archivePlan,
     integrity,
-    action,
     backfill,
-    extensionExists: Option.isSome(index),
-  } satisfies PublishCandidate;
+  } satisfies UploadCandidate;
 });
 
 /**

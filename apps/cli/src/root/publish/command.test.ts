@@ -53,11 +53,22 @@ import {
   buildPublishJobs,
   findPackPublishDivergenceFindings,
   isPublishableType,
+  normalizeTypePublishSelection,
   publishAuthenticationPreconditions,
   publishRecoverySelection,
   validatePublishOwners,
   PUBLISHABLE_TYPES,
 } from "@agentxm/workspace-features/publishing";
+import { probeFlag } from "../../test-support/parser-probe.js";
+import {
+  writeAuthoredHook,
+  writeAuthoredKnowledge,
+  writeAuthoredMcpServer,
+  writeAuthoredPack,
+  writeAuthoredRule,
+  writeAuthoredSkill,
+  writeAuthoredSubagent,
+} from "../../test-support/publish-harness.js";
 import {
   handleRootPublish,
   makeExactPublishRecovery,
@@ -149,7 +160,6 @@ const args = (
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
-  onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: true,
@@ -460,7 +470,7 @@ describe("root publish", () => {
             Effect.gen(function* () {
               yield* handleRootPublish(args(registryUrl, { preview: false }));
               expect(painted(second.rendererState)).toEqual([
-                " ok  @acme/skills/review@1.0.0 is already published and verified",
+                " ok  @acme/skills/review@1.0.0 is already published",
               ]);
             }),
           ),
@@ -468,7 +478,7 @@ describe("root publish", () => {
       );
     });
 
-    it.effect("keeps an already-published verification quiet under --quiet", () => {
+    it.effect("keeps an already-published skip quiet under --quiet", () => {
       writeReviewSkill();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
       const first = makeContext(false);
@@ -642,7 +652,7 @@ describe("root publish", () => {
               ],
               recovery: {
                 description: "Continue the failed items and their blocked dependents",
-                cmd: "axm publish --on-existing verify @acme/skills/review",
+                cmd: "axm publish @acme/skills/review",
                 remainingItems: ["@acme/skills/review"],
                 blockedDependents: [],
               },
@@ -661,7 +671,7 @@ describe("root publish", () => {
             "Publish failed for 1 extension  1 failed - exit 8",
             "",
             "Next",
-            "     axm publish --on-existing verify @acme/skills/review   Continue the failed items and their blocked dependents",
+            "     axm publish @acme/skills/review   Continue the failed items and their blocked dependents",
           ]);
         }),
       );
@@ -770,7 +780,7 @@ describe("root publish", () => {
     });
   });
 
-  describe("existing version policy", () => {
+  describe("versions the registry already holds", () => {
     const writeSkill = (name: string, version: string) => {
       const skillDir = path.join(tempDir, "skills", name);
       fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
@@ -796,33 +806,204 @@ describe("root publish", () => {
       for (const name of names) writeSkill(name, "1.0.0");
     };
 
-    it.effect("publishes one new version while verifying nineteen existing versions", () => {
-      const existing = Array.from({ length: 19 }, (_, index) => `existing-${index + 1}`);
-      writeSkillSettings(["new-release", ...existing]);
-      const { provide, rendererState } = makeContext(false);
+    /** The rows of one rendered publish result, keyed by extension identity. */
+    const rowsOf = (data: unknown, mode: "preview" | "apply", count: number) => {
+      const result = expectPublishResult(data, { mode, count });
+      const rows = property(result, "results");
+      if (!Array.isArray(rows)) throw new Error("Expected publish results");
+      return new Map(
+        rows.map((row) => {
+          const record = expectRecord(row);
+          return [String(property(record, "id")), record] as const;
+        }),
+      );
+    };
+
+    it.effect(
+      "publishes two new versions and skips eighteen existing versions whatever their local content",
+      () => {
+        const existing = Array.from({ length: 18 }, (_, index) => `existing-${index + 1}`);
+        writeSkillSettings(["first-release", "second-release", ...existing]);
+        const { provide, rendererState } = makeContext();
+        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+        return provide(
+          Effect.gen(function* () {
+            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            writeSkill("first-release", "1.1.0");
+            writeSkill("second-release", "2.0.0");
+            // Local content that no longer matches the published archives.
+            for (const name of existing) {
+              fs.appendFileSync(
+                path.join(tempDir, "skills", name, "src", "SKILL.md"),
+                "\nEdited.\n",
+              );
+            }
+            const exit = yield* handleRootPublish(args(registryUrl, { preview: false }));
+
+            expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
+            const data = at(rendererState.results, 1).data;
+            const counts = expectRecord(
+              property(expectPublishResult(data, { mode: "apply", count: 20 }), "counts"),
+            );
+            expect(counts).toMatchObject({
+              selected: 20,
+              published: 2,
+              alreadyPublished: 18,
+              blocked: 0,
+              failed: 0,
+            });
+            const rows = rowsOf(data, "apply", 20);
+            for (const name of existing) {
+              const row = rows.get(`@acme/skills/${name}`);
+              expect(row).toMatchObject({
+                action: "skip",
+                status: "success",
+                reason: "version_already_published",
+              });
+              expect(Object.keys(row ?? {})).not.toContain("archive");
+            }
+          }),
+        );
+      },
+    );
+
+    it.effect("skips an existing version whose package would now fail the publication gate", () => {
+      writeSkillSettings(["review"]);
+      const { provide, rendererState } = makeContext();
       const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
 
       return provide(
         Effect.gen(function* () {
           yield* handleRootPublish(args(registryUrl, { preview: false }));
-          writeSkill("new-release", "1.1.0");
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          fs.rmSync(path.join(tempDir, "skills", "review", "src", "SKILL.md"));
+          const exit = yield* handleRootPublish(
+            args(registryUrl, { preview: false, selectors: ["@acme/skills/review"] }),
+          );
 
-          const result = expectPublishResult(at(rendererState.results, 1).data, {
-            mode: "apply",
-            count: 20,
-          });
-          const counts = expectRecord(property(result, "counts"));
-          expect(counts).toMatchObject({
-            selected: 20,
-            published: 1,
-            alreadyPublished: 19,
-            blocked: 0,
-            failed: 0,
+          expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
+          expect(
+            rowsOf(at(rendererState.results, 1).data, "apply", 1).get("@acme/skills/review"),
+          ).toMatchObject({
+            action: "skip",
+            status: "success",
+            reason: "version_already_published",
           });
         }),
       );
     });
+
+    describe("explicit selection", () => {
+      const rootSelections = [
+        { name: "fully qualified name", selectors: ["@acme/skills/review"] },
+        { name: "type-qualified name", selectors: ["skills/review"] },
+        { name: "glob", selectors: ["@acme/skills/*"] },
+      ] as const;
+
+      for (const selection of rootSelections) {
+        it.effect(`root publish skips an existing version selected by ${selection.name}`, () => {
+          writeSkillSettings(["review"]);
+          const { provide, rendererState } = makeContext();
+          const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+
+          return provide(
+            Effect.gen(function* () {
+              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              const exit = yield* handleRootPublish(
+                args(registryUrl, { preview: false, selectors: selection.selectors }),
+              );
+
+              expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
+              expect(rendererState.results[1]?.ok).toBe(true);
+              expect(
+                rowsOf(at(rendererState.results, 1).data, "apply", 1).get("@acme/skills/review"),
+              ).toMatchObject({
+                action: "skip",
+                status: "success",
+                reason: "version_already_published",
+              });
+            }),
+          );
+        });
+      }
+
+      const perTypeFixtures = [
+        { type: "skill", settingsKey: "skills", write: writeAuthoredSkill },
+        { type: "mcp-server", settingsKey: "mcpServers", write: writeAuthoredMcpServer },
+        { type: "subagent", settingsKey: "subagents", write: writeAuthoredSubagent },
+        { type: "rule", settingsKey: "rules", write: writeAuthoredRule },
+        { type: "hook", settingsKey: "hooks", write: writeAuthoredHook },
+        { type: "knowledge", settingsKey: "knowledge", write: writeAuthoredKnowledge },
+        { type: "pack", settingsKey: "packs", write: writeAuthoredPack },
+      ] as const;
+
+      for (const fixture of perTypeFixtures) {
+        const plural = extensionTypeToPlural[fixture.type];
+        it.effect(
+          `${plural} publish skips an existing version selected by name, glob or FQN`,
+          () => {
+            fs.writeFileSync(
+              path.join(tempDir, "axm.json"),
+              JSON.stringify({
+                owner: "@acme",
+                agents: [],
+                [fixture.settingsKey]: { review: "workspace" },
+              }),
+            );
+            fixture.write(tempDir, { name: "review" });
+            const { provide, rendererState } = makeContext();
+            const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+            const fqn = `@acme/${plural}/review`;
+
+            return provide(
+              Effect.gen(function* () {
+                yield* handleRootPublish(args(registryUrl, { preview: false }));
+                expect(
+                  rowsOf(at(rendererState.results, 0).data, "apply", 1).get(fqn),
+                ).toMatchObject({ action: "publish", status: "success" });
+
+                const selections = [["review"], ["r*"], [fqn]] as const;
+                for (const [index, selectors] of selections.entries()) {
+                  // The per-type command narrows its selection exactly this
+                  // way before delegating to the root publish handler.
+                  const selection = yield* normalizeTypePublishSelection({
+                    type: fixture.type,
+                    selectors,
+                    owners: [],
+                    excludes: [],
+                  });
+                  const exit = yield* handleRootPublish(
+                    args(registryUrl, { ...selection, preview: false }),
+                  );
+
+                  expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
+                  expect(
+                    rowsOf(at(rendererState.results, index + 1).data, "apply", 1).get(fqn),
+                  ).toMatchObject({
+                    action: "skip",
+                    status: "success",
+                    reason: "version_already_published",
+                  });
+                }
+              }),
+            );
+          },
+        );
+      }
+    });
+
+    it.effect("rejects --on-existing as an unknown flag on every publish command", () =>
+      Effect.gen(function* () {
+        const commands = [
+          ["publish"],
+          ...extensionTypes.map((type) => [extensionTypeToPlural[type], "publish"]),
+        ];
+        expect(commands).toHaveLength(8);
+        for (const command of commands) {
+          expect(yield* probeFlag(command, "--on-existing")).toBe("unrecognized");
+        }
+      }),
+    );
   });
 
   describe("publish safety gates", () => {
@@ -1109,7 +1290,7 @@ describe("publish recovery", () => {
     );
 
     expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
-      "axm publish --registry private --on-existing verify --visibility private @acme/skills/review @acme/packs/toolkit",
+      "axm publish --registry private --visibility private @acme/skills/review @acme/packs/toolkit",
     );
   });
 
@@ -1170,9 +1351,7 @@ describe("publish recovery", () => {
         ),
         { approval: "none" },
       ),
-    ).toBe(
-      "axm publish --registry private --on-existing verify @acme/skills/review @acme/packs/toolkit",
-    );
+    ).toBe("axm publish --registry private @acme/skills/review @acme/packs/toolkit");
   });
 });
 

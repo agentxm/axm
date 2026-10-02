@@ -227,7 +227,7 @@ describe("axm packs publish", () => {
       }
     });
 
-    it("verifies an already-published dependency and continues with the pack", async () => {
+    it("skips an already-published dependency and continues with the pack", async () => {
       const temp = createTempDir();
       const registryDir = createTempDir("axm-registry-");
       try {
@@ -247,17 +247,13 @@ describe("axm packs publish", () => {
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(dependencyResult.exitCode, dependencyResult.stderr).toBe(0);
+        fs.appendFileSync(
+          path.join(temp.path, "skills", "published-dep", "src", "SKILL.md"),
+          "\nChanged after publication.\n",
+        );
 
         const retryResult = await runCli(
-          [
-            "packs",
-            "publish",
-            `${owner}/packs/retry-pack`,
-            "--include-dependencies",
-            "--on-existing",
-            "verify",
-            "--json",
-          ],
+          ["packs", "publish", `${owner}/packs/retry-pack`, "--include-dependencies", "--json"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
         );
         expect(retryResult.exitCode, retryResult.stderr).toBe(0);
@@ -265,6 +261,7 @@ describe("axm packs publish", () => {
           {
             name: "published-dep",
             action: "skip",
+            status: "success",
             reason: "version_already_published",
           },
           { name: "retry-pack", action: "publish", status: "success" },

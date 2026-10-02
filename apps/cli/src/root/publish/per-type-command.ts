@@ -16,7 +16,7 @@ import {
   previewableCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
-import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
+import { backfillFlag } from "../shared/publish-flags.js";
 import { handleRootPublish } from "./command.js";
 
 /** Every publish form distributes authored content to a Registry. */
@@ -46,7 +46,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       Flag.withDescription("Override the target registry URL for automation"),
       Flag.optional,
     ),
-    onExisting: onExistingFlag,
     backfill: backfillFlag,
     acceptWarnings: acceptWarningsFlag,
     visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
@@ -62,7 +61,7 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       description: `Publish every workspace-sourced ${plural} package`,
     },
     {
-      command: `axm ${plural} publish example-* --on-existing verify`,
+      command: `axm ${plural} publish example-*`,
       description: `Publish matching ${plural} packages`,
     },
   ];
@@ -87,7 +86,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           ...selection,
           registry: parsed.registry,
           registryUrl: parsed.registryUrl,
-          onExisting: parsed.onExisting,
           backfill: parsed.backfill,
           acceptWarnings: parsed.acceptWarnings,
           preview: parsed.preview,
@@ -120,7 +118,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         ...selection,
         registry: parsed.registry,
         registryUrl: parsed.registryUrl,
-        onExisting: parsed.onExisting,
         backfill: parsed.backfill,
         acceptWarnings: parsed.acceptWarnings,
         preview: parsed.preview,

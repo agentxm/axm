@@ -1,7 +1,7 @@
 /**
  * Internal verification of when the publish command consults the Git
- * directory comparison: never for an existing version verified as an exact
- * archive match, and once more immediately before upload so an apply whose
+ * directory comparison: never for a version the Registry already holds, and
+ * once more immediately before upload so an apply whose
  * source evidence moved after planning is refused. Counting comparison
  * invocations is an implementation observation, so it lives beside the
  * command rather than in the accepted specification it supports
@@ -44,7 +44,6 @@ const args = (
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
-  onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: true,
@@ -126,10 +125,10 @@ describe("publish source-state comparison scheduling", () => {
     };
   };
 
-  it.effect("does not compare an existing version verified as an exact archive match", () => {
+  it.effect("does not compare a version the Registry already holds", () => {
     const published = makeContext(() => Effect.succeed(Option.none()));
     let comparisonCount = 0;
-    const verifying = makeContext(() =>
+    const skipping = makeContext(() =>
       Effect.sync(() => {
         comparisonCount += 1;
         return Option.none();
@@ -139,12 +138,12 @@ describe("publish source-state comparison scheduling", () => {
     return Effect.gen(function* () {
       yield* published.provide(handleRootPublish(args(registryUrl, { preview: false })));
 
-      yield* verifying.provide(
-        handleRootPublish(args(registryUrl, { onExisting: Option.some("verify") })),
-      );
+      // Local content that differs from the published version is not compared.
+      fs.appendFileSync(path.join(tempDir, "skills", "review", "src", "SKILL.md"), "\nEdited.\n");
+      yield* skipping.provide(handleRootPublish(args(registryUrl)));
 
       expect(comparisonCount).toBe(0);
-      const result = expectPublishResult(at(verifying.rendererState.results, 0).data, {
+      const result = expectPublishResult(at(skipping.rendererState.results, 0).data, {
         mode: "preview",
         count: 1,
       });
@@ -153,6 +152,7 @@ describe("publish source-state comparison scheduling", () => {
         reason: "version_already_published",
         status: "success",
       });
+      expect(Object.keys(firstOutcome(result))).not.toContain("archive");
     });
   });
 

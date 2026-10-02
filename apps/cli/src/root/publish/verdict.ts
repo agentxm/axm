@@ -63,8 +63,8 @@ export interface PublishVerdict {
 const alreadyPublishedVerdict = (existing: ReadonlyArray<PlacedPublication>): string => {
   const [only] = existing;
   return existing.length === 1 && only !== undefined
-    ? `${versionedPublishIdentity(only.item)} is already published and verified`
-    : `All ${String(existing.length)} selected versions are already published and verified`;
+    ? `${versionedPublishIdentity(only.item)} is already published`
+    : `All ${String(existing.length)} selected versions are already published`;
 };
 
 const preflightFailureVerdict = (failed: number): string =>
@@ -166,7 +166,7 @@ export const publishVerdictOf = (
       tone: "error",
       verdict: `Publish did not confirm ${count(unconfirmed.length, "extension")}`,
       aside: problemAside,
-      reason: "Verify the target registry before publishing again.",
+      reason: "Re-run publish; versions the registry committed are reported as already published.",
     };
   }
   if (existing.length > 0) {

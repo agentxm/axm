@@ -12,25 +12,6 @@ import type { RegistryClient, RegistryClientFailure } from "@agentxm/registry-cl
 import { PublishFailed } from "./errors.js";
 import type { PublishableType } from "./publishable-types.js";
 
-export const alreadyPublishedVersionConflict = (args: {
-  readonly fqn: string;
-  readonly version: Version;
-}): PublishFailed =>
-  new PublishFailed({
-    category: "conflict",
-    detail: `Cannot publish: version ${args.version} is already published for ${args.fqn}. Published versions are immutable.`,
-    suggestions: [
-      {
-        description: "Bump the manifest version.",
-        cmd: `axm version ${args.fqn} patch`,
-      },
-      {
-        description:
-          "Re-run with --on-existing verify only when the local archive should be byte-equivalent to the published version.",
-      },
-    ],
-  });
-
 export const nonMonotonicVersionConflict = (args: {
   readonly fqn: string;
   readonly version: Version;

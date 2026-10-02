@@ -21,7 +21,9 @@ Publish:
 - selects explicitly requested authored extensions;
 - expands a pack selection only when the caller explicitly requests dependency
   inclusion, and only for dependencies authored by the same workspace;
-- validates the complete selection before starting immutable uploads;
+- skips, as a successful outcome decided before any preparation, every selected
+  version the Registry already has, yanked included;
+- validates every version that will upload before starting immutable uploads;
 - applies the registry's fixed archive and distribution requirements; and
 - reports the outcome of each selected extension without overstating remote
   rollback.
@@ -85,10 +87,10 @@ before the first upload. Drift abandons the authorized attempt without a remote
 write. After the first upload, the captured archives execute without rereading
 workspace content.
 
-When execution partially succeeds, recovery uses the exact admitted identities
-with existing-version integrity verification. It does not replay broad filters
-or store archive bytes. Repeating recovery against unchanged content converges
-to verified-existing no-ops. Publish writes no local receipt, lockfile,
+When execution partially succeeds, recovery re-runs publish for the exact
+admitted identities. It does not replay broad filters or store archive bytes.
+Versions that uploaded are then already published, so repeating recovery
+converges to successful skips. Publish writes no local receipt, lockfile,
 baseline, or manifest after a successful upload.
 
 ## Authorization and exact resume

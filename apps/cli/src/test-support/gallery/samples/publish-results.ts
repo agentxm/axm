@@ -60,10 +60,18 @@ export const codeReview = candidate("skill", "code-review", "1.4.0", {
 export const reviewer = candidate("subagent", "reviewer", "0.9.0", { files: 3, zipBytes: 4_000 });
 export const reviewKit = candidate("pack", "review-kit", "2.1.0", { files: 1, zipBytes: 900 });
 
-/** A version the registry already holds, verified as an exact archive match. */
+/**
+ * A version the registry already holds. It is skipped without being prepared,
+ * so its row carries no archive or source-state evidence.
+ */
 export const triage: PublishResultItem = {
-  ...candidate("skill", "triage", "2.0.1", { files: 6, zipBytes: 12_000 }),
+  id: "@acme/skills/triage",
+  owner: handle("@acme"),
+  type: "skill",
+  name: extensionName("triage"),
+  version: exactVersion("2.0.1"),
   action: "skip",
+  phase: "authoritative_preflight",
   reason: "version_already_published",
   status: "success",
   visibility: { value: "public", disposition: "preserve", source: "existing" },
@@ -71,7 +79,8 @@ export const triage: PublishResultItem = {
 
 /**
  * The publication set the registry admitted: the pack is published after the
- * two members it contains, and the existing version is verified in place.
+ * two members it contains, and the version the registry already holds is
+ * skipped.
  */
 export const admittedSet = (
   items: ReadonlyArray<PublishResultItem>,

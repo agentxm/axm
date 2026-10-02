@@ -77,8 +77,8 @@ describe("Quiet actionable output", () => {
         mode: "apply",
         results: [published, failed, unconfirmed, blocked],
         recovery: {
-          description: "Verify the unresolved versions before continuing",
-          cmd: "axm publish --on-existing verify @acme/skills/failed @acme/skills/unknown",
+          description: "Continue the failed items and their blocked dependents",
+          cmd: "axm publish @acme/skills/failed @acme/skills/unknown",
           remainingItems: [failed.id, unconfirmed.id],
           blockedDependents: [blocked.id],
         },
@@ -91,7 +91,7 @@ describe("Quiet actionable output", () => {
           expect(stdout).toContain(row.message?.replace(/\s+/gu, ""));
         }
         expect(stdout).toContain("request-visible");
-        expect(stdout).toContain("axmpublish--on-existingverify");
+        expect(stdout).toContain("axmpublish@acme/skills/failed@acme/skills/unknown");
         expect(stdout).not.toContain(published.id);
       }).pipe(
         Effect.provide(

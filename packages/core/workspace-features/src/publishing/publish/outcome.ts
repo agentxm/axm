@@ -27,7 +27,12 @@ import {
   renderPublishFailure,
   type PublishFailure,
 } from "../failure.js";
-import type { PublishCandidate, PublishPreparationFailure, SelectedEntry } from "./model.js";
+import type {
+  PublishCandidate,
+  PublishPreparationFailure,
+  SelectedEntry,
+  UploadCandidate,
+} from "./model.js";
 import { publishItemId } from "./publication.js";
 import type { PublishPublicationSet, PublishResultItem } from "./result.js";
 
@@ -111,7 +116,7 @@ export const interruptedPublishResults = (
         status: "unknown",
         reason: "interrupted",
         message:
-          "The upload was dispatched but no response was recorded; the registry may have committed this version. Re-run publish to verify.",
+          "The upload was dispatched but no response was recorded; the registry may have committed this version. Re-run publish; a version the registry committed is reported as already published.",
       };
     }
     return {
@@ -142,6 +147,18 @@ export const unconfirmedPublishOutcomes = (
     ? []
     : results.filter((result) => result.status === "unknown" || result.status === "pending");
 };
+
+/** The archive and source evidence only a version that will upload carries. */
+const uploadEvidence = (candidate: UploadCandidate) => ({
+  archive: {
+    ...candidate.archivePlan,
+    zipBytes: candidate.archive.length,
+    integrity: candidate.integrity,
+  },
+  ...(candidate.sourceAssessment?.state === undefined
+    ? {}
+    : { sourceState: candidate.sourceAssessment.state }),
+});
 
 export const selectedResult = (
   entry: SelectedEntry,
@@ -179,14 +196,6 @@ export const selectedResult = (
       phase: "authoritative_preflight",
       reason: "version_already_published",
       status: "success",
-      archive: {
-        ...candidate.archivePlan,
-        zipBytes: candidate.archive.length,
-        integrity: candidate.integrity,
-      },
-      ...(candidate.sourceAssessment?.state === undefined
-        ? {}
-        : { sourceState: candidate.sourceAssessment.state }),
       ...(candidate.publishPreview === undefined
         ? {}
         : { visibility: candidate.publishPreview.visibility }),
@@ -204,14 +213,7 @@ export const selectedResult = (
     phase: "authoritative_preflight",
     reason: "selected",
     status: "pending",
-    archive: {
-      ...candidate.archivePlan,
-      zipBytes: candidate.archive.length,
-      integrity: candidate.integrity,
-    },
-    ...(candidate.sourceAssessment?.state === undefined
-      ? {}
-      : { sourceState: candidate.sourceAssessment.state }),
+    ...uploadEvidence(candidate),
     ...(candidate.publishPreview === undefined
       ? {}
       : { visibility: candidate.publishPreview.visibility }),
@@ -260,14 +262,7 @@ export const failedCandidateResult = (
   status: "failed",
   message: publishCause(failure).message,
   cause: publishCause(failure),
-  archive: {
-    ...candidate.archivePlan,
-    zipBytes: candidate.archive.length,
-    integrity: candidate.integrity,
-  },
-  ...(candidate.sourceAssessment?.state === undefined
-    ? {}
-    : { sourceState: candidate.sourceAssessment.state }),
+  ...(candidate.action === "publish" ? uploadEvidence(candidate) : {}),
 });
 
 export const publicationSetResult = (options: {

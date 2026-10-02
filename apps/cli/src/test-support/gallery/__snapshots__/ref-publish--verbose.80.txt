@@ -15,9 +15,6 @@ Previewing publish  as @acme · to agentxm
      dependency order 0
  =   @acme/skills/triage           2.0.1     skip      already published
      visibility public kept from the existing publication
-     source matches Git HEAD a1b2c3d at skills/triage
-     archive 6 included, 0 excluded, 24 KB source, 12 KB ZIP
-     include SKILL.md (2 KB)
      dependency order 0
  +   @acme/packs/review-kit        2.1.0     publish   after its 2 members
      visibility public from the manifest

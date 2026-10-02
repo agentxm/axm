@@ -176,7 +176,7 @@ Extensions publish to the registry in four steps.
 axm skills new my-skill              # 1. Scaffold
 # 2. Author content in the scaffolded directory
 axm lint                             # 3. Check the publish gate locally
-axm publish                          # 4. Publish new authored versions; verify existing ones
+axm publish                          # 4. Publish new authored versions; skip published ones
 ```
 
 Authorship is derived from the exact intrinsic `workspace` settings source,
@@ -186,10 +186,11 @@ publish only workspace-authored packages. Adopt a retained canonical package
 when this workspace should own it, or fork an installed package to publish it
 under a new identity.
 
-AXM builds a deterministic archive from each selected authored package. For an
-existing immutable version, `--on-existing verify` rebuilds that archive and
-requires its SHA-512 digest to match the Registry release before reporting a
-successful no-op. Installed external packages represent the source identity recorded
+AXM builds a deterministic archive from each selected authored package whose
+version the Registry does not have yet. A version the Registry already has,
+yanked included, is skipped as already published without being rebuilt or
+validated, so bump the version (`axm version <fqn> patch`) to ship local edits.
+Installed external packages represent the source identity recorded
 in `axm-lock.yaml`. `axm lint` checks their current contents against that accepted
 identity. Publication reads workspace-authored packages.
 

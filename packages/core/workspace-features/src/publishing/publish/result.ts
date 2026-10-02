@@ -46,7 +46,7 @@ const PublishStatusSchema = Schema.Literals([
   "skipped",
   // The upload request was dispatched but no response was recorded: the
   // registry may have committed the version. Only evidenced states are
-  // reported — recovery verifies before it re-runs.
+  // reported — re-running publish skips a version the registry committed.
   "unknown",
 ] as const).annotate({
   identifier: "PublishStatus",
@@ -78,9 +78,6 @@ const PublishReasonSchema = Schema.Literals([
   "authorization_expired",
   "blocked_by_dependency",
   "interrupted",
-  "version_exists",
-  "integrity_drift",
-  "verify_failed",
   "blocked_by_preflight",
   "source_state_not_accepted",
 ] as const).annotate({

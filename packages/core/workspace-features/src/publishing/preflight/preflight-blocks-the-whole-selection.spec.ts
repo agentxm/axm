@@ -1,3 +1,4 @@
+import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
@@ -133,35 +134,22 @@ describe("Publish preflight over a selection", () => {
   );
 
   it.effect(
-    "blocks an unpublished candidate when another selected immutable version conflicts",
+    "re-running after the failing extension is repaired publishes the whole selection",
     () =>
       Effect.gen(function* () {
-        const world = makePublishWorld({
-          settings: { skills: { review: "workspace", deploy: "workspace" } },
-        });
-        worlds.push(world);
-        world.write("skill", { name: "review" });
-        world.write("skill", { name: "deploy" });
-        yield* world.provide(
-          runPublish(requestFor(world, { selectors: ["@acme/skills/review"], preview: false })),
-        );
-        const before = world.snapshotRegistry();
+        const world = twoSkillWorld();
+        const forbidden = nodePath.join(world.root, "skills", "review", ".env");
+        fs.writeFileSync(forbidden, "SYNTHETIC=1\n");
 
-        const outcome = yield* world.provide(
-          runPublish(requestFor(world, { preview: false, onExisting: Option.some("error") })),
-        );
+        const outcome = yield* world.provide(runPublish(requestFor(world, { preview: false })));
 
         expect(outcome.disposition._tag).toBe("Failed");
-        expect(world.snapshotRegistry()).toEqual(before);
+        expect(world.target.storedFiles()).toEqual([]);
         expect(publishDocument(outcome).execution.outcomes).toEqual(
           expect.arrayContaining([
+            expect.objectContaining({ id: "@acme/skills/review", status: "failed" }),
             expect.objectContaining({
-              id: "@acme/skills/review",
-              status: "failed",
-              reason: "version_exists",
-            }),
-            expect.objectContaining({
-              id: "@acme/skills/deploy",
+              id: "@acme/skills/clean",
               status: "blocked",
               reason: "blocked_by_preflight",
               blockedBy: ["@acme/skills/review"],
@@ -169,10 +157,17 @@ describe("Publish preflight over a selection", () => {
           ]),
         );
 
-        yield* world.provide(
-          runPublish(requestFor(world, { selectors: ["@acme/skills/deploy"], preview: false })),
-        );
-        expect(world.archive("deploy").length).toBeGreaterThan(0);
+        fs.rmSync(forbidden);
+        const retried = yield* world.provide(runPublish(requestFor(world, { preview: false })));
+
+        expect(retried.disposition._tag).toBe("Completed");
+        expect(publishDocument(retried).counts).toMatchObject({
+          published: 2,
+          failed: 0,
+          blocked: 0,
+        });
+        expect(world.archive("review").length).toBeGreaterThan(0);
+        expect(world.archive("clean").length).toBeGreaterThan(0);
       }),
   );
 });

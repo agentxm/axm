@@ -446,9 +446,6 @@ type PublishReason =
   | "authorization_expired"
   | "blocked_by_dependency"
   | "interrupted"
-  | "version_exists"
-  | "integrity_drift"
-  | "verify_failed"
   | "blocked_by_preflight"
   | "source_state_not_accepted";
 
@@ -500,12 +497,6 @@ export const publishReason = (value: PublishReason): string => {
       return "blocked by a dependency";
     case "interrupted":
       return "interrupted";
-    case "version_exists":
-      return "version already exists";
-    case "integrity_drift":
-      return "published integrity differs";
-    case "verify_failed":
-      return "verification failed";
     case "blocked_by_preflight":
       return "blocked by preflight";
     case "source_state_not_accepted":

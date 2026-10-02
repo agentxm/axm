@@ -327,7 +327,6 @@ export const publishArgs = (
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
-  onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: true,

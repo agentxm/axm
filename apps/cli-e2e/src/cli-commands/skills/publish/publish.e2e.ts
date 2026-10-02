@@ -128,20 +128,54 @@ describe("axm skills publish", () => {
         expect(archiveBytes[0]).toBe(0x50);
         expect(archiveBytes[1]).toBe(0x4b);
 
+        // Local content at a published version no longer matches the
+        // registry archive; the version is still skipped as already published.
+        fs.appendFileSync(path.join(srcDir, "SKILL.md"), "\nChanged after publication.\n");
+
         const quietResult = await runCli(
-          [
-            "skills",
-            "publish",
-            "@test/skills/my-publish-skill",
-            "--on-existing",
-            "verify",
-            "--quiet",
-          ],
+          ["skills", "publish", "@test/skills/my-publish-skill", "--quiet"],
           { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
         );
         expect(quietResult.exitCode).toBe(0);
         expect(quietResult.stdout).toBe("");
         expect(quietResult.stderr).toBe("");
+
+        for (const selection of [
+          ["skills", "publish", "@test/skills/my-publish-skill"],
+          ["skills", "publish", "my-publish-skill"],
+          ["skills", "publish", "my-publish-*"],
+          ["publish", "@test/skills/my-publish-skill"],
+          ["publish"],
+        ]) {
+          const skipped = await runCli([...selection, "--json"], {
+            cwd: temp.path,
+            env: { AXM_TOKEN: "e2e-test-token" },
+          });
+          expect(skipped.exitCode, `${selection.join(" ")}\n${skipped.stderr}`).toBe(0);
+          const skippedResult = JSON.parse(skipped.stdout).result;
+          expect(skippedResult.execution.outcomes).toEqual([
+            expect.objectContaining({
+              name: "my-publish-skill",
+              action: "skip",
+              status: "success",
+              reason: "version_already_published",
+            }),
+          ]);
+          expect(skippedResult.execution.outcomes[0]).not.toHaveProperty("archive");
+          expect(skippedResult.counts).toMatchObject({ published: 0, alreadyPublished: 1 });
+        }
+
+        const textResult = await runCli(["skills", "publish", "my-publish-skill"], {
+          cwd: temp.path,
+          env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" },
+        });
+        expect(textResult.exitCode).toBe(0);
+        expect(textResult.stdout).toContain("already published");
+        expect(textResult.stdout).not.toMatch(/verified/u);
+
+        const unchangedIndex = JSON.parse(fs.readFileSync(registryIndexPath, "utf-8"));
+        expect(unchangedIndex.versions).toHaveLength(1);
+        expect(fs.readFileSync(archivePath)).toEqual(archiveBytes);
       } finally {
         temp.cleanup();
         registryDir.cleanup();
@@ -232,6 +266,25 @@ describe("axm skills publish", () => {
         );
         expect(accepted.exitCode, `${accepted.stderr}\n${accepted.stdout}`).toBe(0);
         expect(fs.existsSync(registryIndexPath)).toBe(true);
+
+        // An already-published version is skipped before Git source review, so
+        // further uncommitted edits need no acceptance.
+        fs.appendFileSync(skillPath, "\nChanged after publication.\n");
+        const skipped = await runCli(
+          ["skills", "publish", "@test/skills/git-source-review", "--json"],
+          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token" } },
+        );
+        expect(skipped.exitCode, `${skipped.stderr}\n${skipped.stdout}`).toBe(0);
+        const skippedExecution = JSON.parse(skipped.stdout).result.execution;
+        expect(skippedExecution.riskConditions ?? []).toEqual([]);
+        expect(skippedExecution.outcomes).toEqual([
+          expect.objectContaining({
+            action: "skip",
+            status: "success",
+            reason: "version_already_published",
+          }),
+        ]);
+        expect(skippedExecution.outcomes[0]).not.toHaveProperty("sourceState");
       } finally {
         temp.cleanup();
         registryDir.cleanup();

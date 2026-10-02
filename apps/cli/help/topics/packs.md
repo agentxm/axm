@@ -32,10 +32,10 @@ workspace-authored dependencies of selected packs. A dependency that is not
 workspace-authored remains a Registry reference and is never an upload
 candidate.
 
-Included dependencies publish before packs that reference them. Included
-versions that are already published are integrity-verified and skipped; a
-mismatch blocks the full selection before any upload. An explicitly selected
-already-published pack stays strict unless `--on-existing verify` is supplied.
+Included dependencies publish before packs that reference them. A selected or
+included version the Registry already has is skipped as already published
+without being rebuilt or validated, and a new pack that depends on it still
+uploads. Run `axm help publish` for the complete existing-version rule.
 The Registry validates every declared pack dependency whether or not it is
 included in the local publication selection.
 

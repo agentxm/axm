@@ -102,13 +102,11 @@ describe("Publication version ordering", () => {
         ),
       );
 
-      expect(overwrite.disposition._tag).toBe("Failed");
+      expect(overwrite.disposition._tag).toBe("Completed");
       expect(publishDocument(overwrite).execution.outcomes[0]).toMatchObject({
-        status: "failed",
-        cause: {
-          code: "conflict",
-          message: expect.stringContaining("already published"),
-        },
+        action: "skip",
+        status: "success",
+        reason: "version_already_published",
       });
       expect(world.snapshotRegistry()).toEqual(after);
     }),

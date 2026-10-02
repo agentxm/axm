@@ -107,7 +107,6 @@ const targetedRequest = (overrides: Partial<PublishRequest>): PublishRequest => 
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.none(),
-  onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: false,

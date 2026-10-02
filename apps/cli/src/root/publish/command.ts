@@ -28,7 +28,6 @@ import {
   PublishExtensions,
   normalizePublishResult,
   selectableTypes,
-  type OnExistingPolicy,
   type PublishOutcome,
   type PublishRequest,
 } from "@agentxm/workspace-features/publishing";
@@ -47,7 +46,7 @@ import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 
 import { emitPublishResult } from "./result.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
-import { backfillFlag, onExistingFlag } from "../shared/publish-flags.js";
+import { backfillFlag } from "../shared/publish-flags.js";
 
 /** The CLI-supplied inputs a publish invocation carries beyond the request. */
 export interface RootPublishHandlerArgs {
@@ -57,7 +56,6 @@ export interface RootPublishHandlerArgs {
   readonly excludes: ReadonlyArray<string>;
   readonly registry: Option.Option<string>;
   readonly registryUrl: Option.Option<string>;
-  readonly onExisting: Option.Option<OnExistingPolicy>;
   readonly backfill: boolean;
   readonly acceptWarnings: boolean;
   readonly preview: boolean;
@@ -93,7 +91,6 @@ export const makeExactPublishRecovery = (
           recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
         ],
       }),
-      recoveryOption("--on-existing", publicRecoveryValue("verify")),
       recoverySwitch("--backfill", args.backfill),
       recoverySwitch("--accept-warnings", args.acceptWarnings),
       ...Option.match(args.visibility, {
@@ -111,7 +108,6 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
   excludes: args.excludes,
   registry: args.registry,
   registryUrl: args.registryUrl,
-  onExisting: args.onExisting,
   backfill: args.backfill,
   acceptWarnings: args.acceptWarnings,
   preview: args.preview,
@@ -300,7 +296,6 @@ const publishConfig = {
     Flag.withDescription("Override the target registry URL for automation"),
     Flag.optional,
   ),
-  onExisting: onExistingFlag,
   backfill: backfillFlag,
   acceptWarnings: acceptWarningsFlag,
   visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
@@ -322,7 +317,6 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
     excludes: [...parsed.exclude],
     registry: parsed.registry,
     registryUrl: parsed.registryUrl,
-    onExisting: parsed.onExisting,
     backfill: parsed.backfill,
     acceptWarnings: parsed.acceptWarnings,
     preview: parsed.preview,
@@ -342,8 +336,8 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
   Command.withExamples([
     { command: "axm publish", description: "Publish every workspace-sourced extension" },
     {
-      command: "axm publish --owner @acme --on-existing verify",
-      description: "Idempotently publish an authored catalog",
+      command: "axm publish --owner @acme",
+      description: "Publish an authored catalog; versions already published are skipped",
     },
     {
       command: "axm publish @acme/skills/code-review",

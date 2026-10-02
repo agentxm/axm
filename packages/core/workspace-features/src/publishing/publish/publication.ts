@@ -54,7 +54,7 @@ import { previewPublishUploadBinding, type ResolvedPublishPreview } from "../aut
 import { settlePublish } from "../settlement.js";
 
 import type { PublishFailure } from "../failure.js";
-import type { PublishCandidate, TargetRegistry } from "./model.js";
+import type { PublishCandidate, TargetRegistry, UploadCandidate } from "./model.js";
 
 const internal = (detail: string) => new PublishFailed({ category: "internal", detail });
 
@@ -297,11 +297,11 @@ export type PublishedCandidate =
     };
 
 export const publishCandidate: (
-  candidate: PublishCandidate,
+  candidate: UploadCandidate,
   registry: TargetRegistry,
   onUploadDispatched?: Effect.Effect<void>,
 ) => Effect.Effect<PublishedCandidate, PublishFailure, RegistryClientFactory> = (
-  candidate: PublishCandidate,
+  candidate: UploadCandidate,
   registry: TargetRegistry,
   /**
    * Records that the upload request is being dispatched, before the response
@@ -340,7 +340,8 @@ export const publishCandidate: (
     // The dispatch evidence is recorded before the request can leave the
     // process; the response wait itself stays interruptible. Publication is
     // replay-unsafe, so an unrecorded response is never auto-retried — it is
-    // reported indeterminate and recovery verifies before re-running.
+    // reported indeterminate, and re-running publish skips a version the
+    // registry committed.
     const settlement = yield* Effect.uninterruptibleMask((restore) =>
       onUploadDispatched.pipe(
         Effect.andThen(

@@ -830,14 +830,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -874,7 +866,7 @@
                 "description": "Publish every workspace-sourced skills package"
               },
               {
-                "command": "axm skills publish example-* --on-existing verify",
+                "command": "axm skills publish example-*",
                 "description": "Publish matching skills packages"
               }
             ],
@@ -1483,14 +1475,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -1527,7 +1511,7 @@
                 "description": "Publish every workspace-sourced mcps package"
               },
               {
-                "command": "axm mcps publish example-* --on-existing verify",
+                "command": "axm mcps publish example-*",
                 "description": "Publish matching mcps packages"
               }
             ],
@@ -2002,14 +1986,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -2046,7 +2022,7 @@
                 "description": "Publish every workspace-sourced subagents package"
               },
               {
-                "command": "axm subagents publish example-* --on-existing verify",
+                "command": "axm subagents publish example-*",
                 "description": "Publish matching subagents packages"
               }
             ],
@@ -2582,14 +2558,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -2626,7 +2594,7 @@
                 "description": "Publish every workspace-sourced rules package"
               },
               {
-                "command": "axm rules publish example-* --on-existing verify",
+                "command": "axm rules publish example-*",
                 "description": "Publish matching rules packages"
               }
             ],
@@ -3107,14 +3075,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -3151,7 +3111,7 @@
                 "description": "Publish every workspace-sourced hooks package"
               },
               {
-                "command": "axm hooks publish example-* --on-existing verify",
+                "command": "axm hooks publish example-*",
                 "description": "Publish matching hooks packages"
               }
             ],
@@ -4015,14 +3975,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -4059,7 +4011,7 @@
                 "description": "Publish every workspace-sourced knowledge package"
               },
               {
-                "command": "axm knowledge publish example-* --on-existing verify",
+                "command": "axm knowledge publish example-*",
                 "description": "Publish matching knowledge packages"
               }
             ],
@@ -4532,14 +4484,6 @@
                 "description": "Override the target registry URL for automation"
               },
               {
-                "name": "on-existing",
-                "aliases": [],
-                "type": "choice",
-                "required": false,
-                "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-                "choices": [{ "value": "error" }, { "value": "verify" }]
-              },
-              {
                 "name": "backfill",
                 "aliases": [],
                 "type": "boolean",
@@ -4583,7 +4527,7 @@
                 "description": "Publish every workspace-sourced packs package"
               },
               {
-                "command": "axm packs publish example-* --on-existing verify",
+                "command": "axm packs publish example-*",
                 "description": "Publish matching packs packages"
               }
             ],
@@ -5356,14 +5300,6 @@
             "description": "Override the target registry URL for automation"
           },
           {
-            "name": "on-existing",
-            "aliases": [],
-            "type": "choice",
-            "required": false,
-            "description": "Override existing-version policy (verify rebuilds the authored archive and requires its SHA-512 digest to match)",
-            "choices": [{ "value": "error" }, { "value": "verify" }]
-          },
-          {
             "name": "backfill",
             "aliases": [],
             "type": "boolean",
@@ -5404,8 +5340,8 @@
         "examples": [
           { "command": "axm publish", "description": "Publish every workspace-sourced extension" },
           {
-            "command": "axm publish --owner @acme --on-existing verify",
-            "description": "Idempotently publish an authored catalog"
+            "command": "axm publish --owner @acme",
+            "description": "Publish an authored catalog; versions already published are skipped"
           },
           {
             "command": "axm publish @acme/skills/code-review",

@@ -93,7 +93,9 @@ describe("axm (root command)", () => {
       expect(normalizedOutput).toContain(
         "fails as `not_authored` before AXM constructs an archive",
       );
-      expect(output).toContain("--on-existing");
+      expect(normalizedOutput).toContain("already published");
+      expect(output).not.toContain("--on-existing");
+      expect(normalizedOutput).not.toContain("integrity-verified");
     });
 
     it("emits command help as a formatter-owned machine document", async () => {
@@ -485,6 +487,28 @@ describe("main CLI help", () => {
     expect(result.exitCode).toBe(2);
     expect(output).toContain(removedFlag);
     expect(output).toContain("--name");
+  });
+
+  it.each([
+    "publish",
+    "skills publish",
+    "mcps publish",
+    "subagents publish",
+    "hooks publish",
+    "knowledge publish",
+    "rules publish",
+    "packs publish",
+  ])("has no existing-version policy flag on %s", async (commandPath) => {
+    const command = commandPath.split(" ");
+    const help = await runCli([...command, "--help"]);
+
+    expect(help.exitCode).toBe(0);
+    expect(getOutput(help)).not.toContain("--on-existing");
+
+    const rejected = await runCli([...command, "--on-existing", "verify"]);
+
+    expect(rejected.exitCode).toBe(2);
+    expect(getOutput(rejected)).toContain("Unrecognized flag: --on-existing");
   });
 
   it("does not expose bypass flags on packs unpack", async () => {

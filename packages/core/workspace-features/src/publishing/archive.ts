@@ -29,8 +29,7 @@ export interface BuildZipArchiveOptions {
   /**
    * Glob patterns matched against archive-relative POSIX paths. Absent or
    * empty leaves the archive exactly as it would have been built without this
-   * option — the default path is unchanged, so already-published integrity
-   * digests stay reproducible.
+   * option.
    */
   readonly ignore?: ReadonlyArray<string> | undefined;
 }

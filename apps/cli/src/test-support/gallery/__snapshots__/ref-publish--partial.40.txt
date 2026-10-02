@@ -15,6 +15,6 @@ Partially published
   exit 8
 
 Next
-     axm publish --on-existing verify @acme/subagents/reviewer @acme/packs/review-kit
+     axm publish @acme/subagents/reviewer @acme/packs/review-kit
      Continue the failed items and their
      blocked dependents

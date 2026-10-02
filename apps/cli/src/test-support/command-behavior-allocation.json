@@ -1516,14 +1516,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -1567,6 +1559,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -1606,17 +1599,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -3266,14 +3254,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -3317,6 +3297,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -3356,17 +3337,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -4464,14 +4440,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -4515,6 +4483,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -4554,17 +4523,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -5275,14 +5239,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -5334,6 +5290,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -5373,17 +5330,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -5711,14 +5663,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -5772,6 +5716,7 @@
       "relatedRequirements": [
         "cli/publish/archive-inventory-matches-published-bytes",
         "cli/publish/archives-satisfy-distribution-contract",
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/ignore-patterns-have-declared-path-semantics",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/preflight-blocks-the-whole-selection",
@@ -5823,17 +5768,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -6271,14 +6211,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -6322,6 +6254,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -6361,17 +6294,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -7412,14 +7340,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -7463,6 +7383,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -7502,17 +7423,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]
@@ -8216,14 +8132,6 @@
           }
         },
         {
-          "name": "on-existing",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
           "name": "backfill",
           "rawHelp": {
             "aliases": [],
@@ -8267,6 +8175,7 @@
         }
       ],
       "relatedRequirements": [
+        "cli/publish/existing-versions-skip-before-preparation",
         "cli/publish/outcomes-distinguish-unresolved-uploads",
         "cli/publish/requires-a-signed-in-person"
       ],
@@ -8306,17 +8215,12 @@
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
-          "parameters": ["flag:on-existing"],
-          "requirements": ["cli/publish/existing-versions-require-explicit-policy"],
-          "when": "After candidate selection, including explicit-selector and argument-free selection modes."
-        },
-        {
           "parameters": ["flag:backfill"],
           "requirements": [
             "cli/publish/older-unpublished-versions-require-backfill",
-            "cli/publish/existing-versions-require-explicit-policy"
+            "cli/publish/existing-versions-skip-before-preparation"
           ],
-          "when": "The request concerns an older unpublished version.",
+          "when": "The request concerns an older unpublished version; a version the Registry already has is skipped whether or not --backfill is supplied.",
           "details": [
             "Version ordering retains shared semver authority; this option does not allocate other publication bypasses."
           ]

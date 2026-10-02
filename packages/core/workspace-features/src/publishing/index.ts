@@ -62,7 +62,6 @@ export { buildPublishJobs, type PublishPlanCandidate } from "./jobs.js";
 export { publishRecoverySelection, type PublishRecoveryItem } from "./recovery.js";
 
 export {
-  alreadyPublishedVersionConflict,
   findPackPublishDivergenceFindings,
   localPackConstraintFailures,
   nonMonotonicVersionConflict,
@@ -100,13 +99,12 @@ export {
 // Publish selection policy and candidate model
 export {
   normalizeTypePublishSelection,
-  onExistingPolicies,
-  resolveExistingVersionPolicy,
   selectableTypes,
-  type OnExistingPolicy,
+  type ExistingVersionCandidate,
   type PublishCandidate,
   type PublishRequest,
   type PublishSelectionMode,
+  type UploadCandidate,
 } from "./publish/model.js";
 
 // Settlement rules that keep an unconfirmed run from reading as a publication

@@ -22,12 +22,40 @@ For packs, `--include-dependencies` adds only selected pack dependencies that
 are also workspace-authored. External dependencies remain Registry references;
 the Registry still validates their availability and version constraints.
 
-## Archive and existing versions
+## Existing versions
 
-AXM validates the complete authored selection, constructs one deterministic ZIP
-archive per eligible package, and computes its SRI SHA-512 digest before any
-upload. Publication never reads an installed external package as a release
-input.
+Registry releases are immutable. For each selected package, AXM reads and
+decodes the manifest, checks it against the configured identity, and looks up
+the manifest version in the Registry before any other preparation:
+
+| Registry state of the manifest version               | Outcome                                        |
+| ---------------------------------------------------- | ---------------------------------------------- |
+| Published, including yanked                          | Successful skip, reported as already published |
+| Not published, at or above the highest published one | Prepared and uploaded                          |
+| Not published, below the highest published one       | Conflict unless `--backfill` is supplied       |
+
+The rule is the same for bare, filtered, and explicit selections, for the root
+and every `axm <type> publish` command, and for dependencies added by
+`--include-dependencies`. Naming an already-published version is a successful
+skip with exit code 0. A malformed manifest or a mismatched identity still
+fails.
+
+AXM does not lint, build, validate, or review an already-published version, so
+local content at that version does not affect the outcome and is never
+shipped. To release local edits, increment the version, for example with
+`axm version <fqn> patch`, and publish again.
+
+Only versions that will upload are linted, built, and validated, and AXM
+prepares all of them before the first upload. A preparation failure in any of
+them blocks every upload; an already-published version never causes that block. When
+execution partially succeeds, run the same command again: uploaded versions are
+then skipped as already published and the remaining ones upload.
+
+## Archive
+
+For each version that will upload, AXM constructs one deterministic ZIP archive
+and computes its SRI SHA-512 digest before any upload. Publication never reads
+an installed external package as a release input.
 
 The package root is the Registry archive boundary. By default every regular
 file under it is included, including files outside `src/`. The boundaries are
@@ -80,8 +108,8 @@ commit, package directory, difference count, and a bounded list of paths.
 
 Differences excluded by `publish.ignore` do not count. AXM does not inspect a
 remote or upstream branch, does not require a clean repository outside the
-archive boundary, and does not apply this check to an existing version verified
-by `--on-existing verify`. Outside a Git worktree, publication continues without
+archive boundary, and does not review a version the Registry already has.
+Outside a Git worktree, publication continues without
 Git source evidence. A worktree with no `HEAD` commit requires the same explicit
 acceptance as a differing archive.
 
@@ -94,14 +122,6 @@ AXM validates the filtered result as a complete type-specific package before
 upload, and Registry ingestion repeats that validation. Ignoring the manifest,
 `src/SKILL.md`, `src/<subagent-name>.md`, `src/RULE.md`, a Hook entrypoint, or a
 Knowledge root fails before publication.
-
-Registry releases are immutable. When a selected version already exists,
-`--on-existing verify` rebuilds the local authored archive and requires its
-SHA-512 digest to equal the published version. A match is a verified successful
-no-op. Different authored content at the same version is `integrity_drift` and
-blocks the complete selection; increment the authored version rather than
-overwriting the release. `--on-existing error` makes any existing version a
-conflict.
 
 Archive integrity and installed content have different lifetimes. AXM verifies
 downloaded Registry archive bytes before extraction. Extracted canonical files

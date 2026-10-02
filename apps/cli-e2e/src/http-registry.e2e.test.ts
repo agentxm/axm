@@ -657,8 +657,8 @@ describe("HTTP registry transport", () => {
   // The registry stores the version but its response never arrives, and the
   // interruption lands in exactly that window. Only evidenced states may be
   // reported: the upload's outcome is indeterminate, and the credential-free
-  // recovery command verifies the committed version instead of blindly
-  // re-uploading a replay-unsafe mutation.
+  // recovery command skips the committed version as already published instead
+  // of blindly re-uploading a replay-unsafe mutation.
   it("C-15: reports an indeterminate outcome when the registry commits before its response", async () => {
     const registry = await startHttpRegistry({
       commitThenHangPublishOnce: ["skills/ambiguous"],
@@ -744,9 +744,10 @@ describe("HTTP registry transport", () => {
         throw new Error("Expected a credential-free recovery command");
       }
       expect(recovery["cmd"]).toContain("axm publish");
+      expect(recovery["cmd"]).not.toContain("--on-existing");
       expect(recovery["remainingItems"]).toEqual([`${OWNER}/skills/ambiguous`]);
 
-      // The recovery run verifies the committed version byte-for-byte
+      // The recovery run skips the committed version as already published
       // instead of re-uploading: no second publish reaches the registry.
       const recoveryArgs = recovery["cmd"].split(" ").slice(1);
       const recovered = await runCli(recoveryArgs, {

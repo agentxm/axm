@@ -12,8 +12,8 @@ export const publishRecoverySelection = (
   readonly blockedDependents: ReadonlyArray<string>;
 } => ({
   // The continuation set covers everything not definitively published:
-  // failures, blocked dependents, indeterminate uploads (the re-run verifies
-  // byte-identical versions before retrying), and interrupted pending items.
+  // failures, blocked dependents, indeterminate uploads (the re-run skips a
+  // version the registry committed), and interrupted pending items.
   remainingItems: results
     .filter(
       (result) =>

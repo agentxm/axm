@@ -96,15 +96,15 @@ packages. Use `axm adopt <extension>` when this workspace should own retained
 canonical content, or `axm fork <source> <extension>` for a separately authored
 identity.
 
-AXM preflights the full selection before uploading anything. Bare and
-filter-only selections rebuild each authored archive, verify its SHA-512 digest
-against an existing immutable version, and skip a match as a successful no-op;
-a mismatch blocks every upload. Explicit names, FQNs, globs, and multiple
-selectors remain strict unless `--on-existing verify` is supplied. Use
-`--on-existing error` to make a bulk selection strict, and `--backfill` only for
-an unpublished version below the highest published SemVer. `axm version` only
-changes workspace-sourced manifests. Run `axm help publish` for the full
-selection and integrity boundary.
+A selected version the Registry already has, yanked included, is a successful
+skip in every selection mode, decided before any preparation; local edits at
+that version are not shipped, so bump it with `axm version <fqn> patch`. AXM
+lints, builds, and validates every version that will upload before uploading
+any of them, and one failure blocks every upload. Re-run the same command to
+recover from a partial publish. Use `--backfill` only for an unpublished
+version below the highest published SemVer. `axm version` only changes
+workspace-sourced manifests. Run `axm help publish` for the full selection and
+archive boundary.
 
 Use `axm list` for the fast, local inventory across all extension types. Content
 desired state does not explain is `leftover` (installed but not configured;
@@ -195,7 +195,7 @@ command accepts it, otherwise the invocation rerun without `--json` or
 - `axm help subagents` — working with subagents
 - `axm help rules` — instruction-file propagation and installable rule extensions
 - `axm help packs` — working with packs
-- `axm help publish` — authored selection and immutable archive verification
+- `axm help publish` — authored selection, existing versions, and archive boundary
 - `axm view <extension> [version|versions]` — inspect published extension metadata
 - `axm help exit-codes` — process exit codes and their meaning
 - `axm <command> --help` — flags and examples for any command

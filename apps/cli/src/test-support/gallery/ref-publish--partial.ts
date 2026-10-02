@@ -54,7 +54,7 @@ export const refPublishPartial = publishFrame(
     suggestions: [
       {
         description: "Continue the failed items and their blocked dependents",
-        cmd: "axm publish --on-existing verify @acme/subagents/reviewer @acme/packs/review-kit",
+        cmd: "axm publish @acme/subagents/reviewer @acme/packs/review-kit",
       },
     ],
   },

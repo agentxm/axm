@@ -3045,18 +3045,20 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts`](../packages/core/workspace-features/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts)
 
-##### Existing publications are verified or rejected without being overwritten
+##### Already published versions are skipped before any preparation
 
-- Requirement: `cli/publish/existing-versions-require-explicit-policy`
+- Requirement: `cli/publish/existing-versions-skip-before-preparation`
 - Owner: `workspace-features`
-- Statement: For an already published version, publish shall reject the error policy, treat the verify policy as a successful no-op only when the newly built archive's SHA-512 integrity matches the published integrity, and reject differing content as integrity drift, with an explicit single selector defaulting to error and bulk selection defaulting to verify.
+- Statement: For every publish selection, publish shall report a selected version the Registry already has, yanked included, as a successful skip decided by that presence alone, without linting, archiving, validating, reviewing the Git source of, or comparing the content of that version, and shall prepare and upload only the selected versions the Registry lacks, where a preparation failure of any of those blocks every upload while the already published versions remain successful skips.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, example
-- Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
-- Source: [`packages/core/workspace-features/src/publishing/preflight/existing-versions-require-explicit-policy.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/existing-versions-require-explicit-policy.spec.ts)
+- Derived from: `cli/publish/existing-versions-require-explicit-policy`, `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
+- Supersedes: `cli/publish/existing-versions-require-explicit-policy`
+- Limitation: Every example publishes into a file Registry, whose index is edited directly to stand for a yanked version or an archive built with an older encoding; a remote Registry's own version records are not exercised here. Retires when: A remote Registry fixture can report yanked versions and recorded integrity, and the rows run against it as well.
+- Source: [`packages/core/workspace-features/src/publishing/preflight/existing-versions-skip-before-preparation.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/existing-versions-skip-before-preparation.spec.ts)
 
 ##### Publication exclusions use explicit case-sensitive package paths
 
@@ -3116,7 +3118,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/preserves-established-visibility`
 - Owner: `workspace-features`
-- Statement: Publish shall apply an explicit visibility request only when establishing a new extension, preserve existing extension visibility when adding or verifying a version, and report which visibility was established or preserved.
+- Statement: Publish shall apply an explicit visibility request only when establishing a new extension, preserve existing extension visibility when adding a version or skipping an already published one, and report which visibility was established or preserved.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
@@ -3211,7 +3213,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/respects-local-pack-constraints`
 - Owner: `workspace-features`
-- Statement: When an authored member selected for publication is excluded by a workspace-authored pack constraint, publish shall reject it in preview and apply, including existing-version verification, name the member and the conflicting pack constraint, and offer the repair that edits that pack's constraint.
+- Statement: When an authored member selected for publication is excluded by a workspace-authored pack constraint, publish shall reject it in preview and apply, name the member and the conflicting pack constraint, and offer the repair that edits that pack's constraint, while a member version the Registry already has remains a successful skip that blocks no other upload.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`

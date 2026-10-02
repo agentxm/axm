@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -7,6 +6,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   makePublishWorld,
+  publishDocument,
   publishFailureOf,
   requestFor,
   runPublish,
@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/respects-local-pack-constraints",
   title: "Publication respects workspace pack constraints",
   statement:
-    "When an authored member selected for publication is excluded by a workspace-authored pack constraint, publish shall reject it in preview and apply, including existing-version verification, name the member and the conflicting pack constraint, and offer the repair that edits that pack's constraint.",
+    "When an authored member selected for publication is excluded by a workspace-authored pack constraint, publish shall reject it in preview and apply, name the member and the conflicting pack constraint, and offer the repair that edits that pack's constraint, while a member version the Registry already has remains a successful skip that blocks no other upload.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
@@ -45,9 +45,14 @@ describe("Workspace pack constraints at publication", () => {
     for (const world of worlds.splice(0)) world.cleanup();
   });
 
-  const constrainedWorld = (memberConstraint: string) => {
+  const constrainedWorld = (memberConstraint: string, otherSkills: ReadonlyArray<string> = []) => {
     const world = makePublishWorld({
-      settings: { skills: { review: "workspace" }, packs: { reviewers: "workspace" } },
+      settings: {
+        skills: Object.fromEntries(
+          ["review", ...otherSkills].map((name) => [name, "workspace"] as const),
+        ),
+        packs: { reviewers: "workspace" },
+      },
     });
     worlds.push(world);
     world.write("skill", { name: "review", version: "0.0.5" });
@@ -88,10 +93,10 @@ describe("Workspace pack constraints at publication", () => {
   }
 
   it.effect(
-    "publishes a coordinated repair and still checks local constraints before an immutable-version skip",
+    "publishes a coordinated repair, then skips the already published member whatever a local pack later declares",
     () =>
       Effect.gen(function* () {
-        const world = constrainedWorld("^0.0.5");
+        const world = constrainedWorld("^0.0.5", ["fresh"]);
 
         yield* world.provide(
           runPublish(
@@ -103,26 +108,28 @@ describe("Workspace pack constraints at publication", () => {
         );
         expect(world.archive("review", "0.0.5").length).toBeGreaterThan(0);
         expect(world.archive("reviewers", "1.0.0", "packs").length).toBeGreaterThan(0);
-        const before = world.snapshotRegistry();
+        world.write("skill", { name: "fresh" });
         world.write("pack", {
           name: "reviewers",
           dependencies: { "@acme/skills/review": "^0.0.4" },
         });
 
-        const outcome = yield* world.provide(
-          runPublish(
-            requestFor(world, {
-              selectors: ["@acme/skills/review"],
-              preview: false,
-              onExisting: Option.some("verify"),
-            }),
-          ),
-        );
+        const outcome = yield* world.provide(runPublish(requestFor(world, { preview: false })));
 
-        const failure = publishFailureOf(outcome);
-        expect(failure.category).toBe("validation");
-        expect(failure.detail).toContain("@acme/packs/reviewers declares ^0.0.4");
-        expect(world.snapshotRegistry()).toEqual(before);
+        expect(outcome.disposition._tag).toBe("Completed");
+        const rows = publishDocument(outcome).execution.outcomes;
+        for (const id of ["@acme/skills/review", "@acme/packs/reviewers"]) {
+          expect(rows.find((row) => row.id === id)).toMatchObject({
+            action: "skip",
+            status: "success",
+            reason: "version_already_published",
+          });
+        }
+        expect(rows.find((row) => row.id === "@acme/skills/fresh")).toMatchObject({
+          action: "publish",
+          status: "success",
+        });
+        expect(world.archive("fresh").length).toBeGreaterThan(0);
       }),
   );
 });

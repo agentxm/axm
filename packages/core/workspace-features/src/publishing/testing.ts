@@ -279,8 +279,8 @@ export const PublishPortsTest = (
 
 /**
  * A publish request with non-interactive defaults: every extension of every
- * publishable type, previewed against `registryUrl`, with no existing-version
- * policy and no visibility override. Override only what the example is about.
+ * publishable type, previewed against `registryUrl`, with no visibility
+ * override. Override only what the example is about.
  */
 export const publishRequest = (
   registryUrl: string,
@@ -292,7 +292,6 @@ export const publishRequest = (
   excludes: [],
   registry: Option.none(),
   registryUrl: Option.some(registryUrl),
-  onExisting: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: true,

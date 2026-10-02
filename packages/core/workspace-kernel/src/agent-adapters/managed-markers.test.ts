@@ -21,7 +21,7 @@ const styles: ReadonlyArray<FileCommentStyle> = [
 const markerArbitrary = FastCheck.oneof(
   FastCheck.record({
     kind: FastCheck.constantFrom("axm:start", "axm:end"),
-    region: FastCheck.constantFrom("rules", "knowledge", "hook-fallbacks", "instruction-aliases"),
+    region: FastCheck.constantFrom("rules", "knowledge", "instruction-aliases"),
     ext: FastCheck.string({ minLength: 1, maxLength: 80 }),
   }).map(({ kind, region, ext }) => ({ kind, v: 1, region, ext }) satisfies ManagedMarker),
   FastCheck.record({
@@ -89,7 +89,7 @@ describe("projection managed-region markers", () => {
     const marker: ManagedMarker = {
       kind: "axm:start",
       v: 1,
-      region: "hook-fallbacks",
+      region: "knowledge",
     };
     const parsed = parseMarker(serializeMarker(marker, style), style);
     expect(parsed.state).toBe("complete");

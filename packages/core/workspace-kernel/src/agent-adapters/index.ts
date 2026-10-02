@@ -320,3 +320,5 @@ export {
   TransientBackupFailed,
   type TransientFileBackup,
 } from "./transient-backup.js";
+
+export { renderNativeHookGroup } from "./hooks/native-entry.js";

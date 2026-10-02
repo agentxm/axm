@@ -33,7 +33,6 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import type { ProjectionParticipantFailure } from "./errors.js";
 import type { ProjectionPlan } from "./planning.js";
 import {
-  HOOK_FALLBACKS_REGION_OWNER,
   KNOWLEDGE_REGION_OWNER,
   RULES_REGION_OWNER,
   type AggregateOwnershipUnitId,
@@ -67,8 +66,7 @@ export type ParticipantProjectionPlans = Effect.Effect<
  * One capability that owns aggregate projection units.
  *
  * `units` is the complete set this participant answers for. When planning
- * fails, every listed unit becomes one unavailable fact, so a participant that
- * owns two units (the native hook entries and the fallback region) reports two.
+ * fails, every listed unit becomes one unavailable fact, so the unavailable facts retain the complete declared ownership set.
  */
 export interface ProjectionParticipant {
   readonly units: ReadonlyArray<AggregateOwnershipUnitId>;
@@ -127,11 +125,6 @@ const aggregateUnitSubjects: Readonly<Record<AggregateOwnershipUnitId, Aggregate
   },
   "hook:agent-hook-entries": {
     path: "managed hook projections",
-    contributorType: "hook",
-  },
-  "hook:fallback-region": {
-    path: "managed Hook fallback region",
-    owner: HOOK_FALLBACKS_REGION_OWNER,
     contributorType: "hook",
   },
   "knowledge:discovery-region": {

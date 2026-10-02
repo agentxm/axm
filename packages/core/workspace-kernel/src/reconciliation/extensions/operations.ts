@@ -1,3 +1,4 @@
+import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type * as FileSystem from "effect/FileSystem";
 import type { NativeWriteAuthority } from "../../agent-adapters/index.js";
 import * as Path from "effect/Path";
@@ -342,6 +343,8 @@ export interface InstallOperationArgs<
   readonly ref: TRef;
   /** A containing graph closure can carry its captured prior reachability. */
   readonly nativeInsertionEligible?: boolean;
+  /** Explicit Hook consumer values committed with acquisition and native projection. */
+  readonly hookConfiguration?: HookConfigurationValues;
   /** The explicit desired root to declare; absent for derived materialization. */
   readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
   /** When true, re-materialize unconditionally (repair path for forced reinstalls). */
@@ -499,6 +502,13 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
               name: args.declaration.name,
               versionRange: args.declaration.versionRange,
               resolution,
+            });
+          }
+          if (args.ref.type === "hook" && args.hookConfiguration !== undefined) {
+            const configured = yield* (yield* SettingsReader).entry("hook", target.name);
+            yield* (yield* SettingsWriter).setEntry("hook", target.name, {
+              ...(Option.isSome(configured) ? configured.value : { enabled: true }),
+              configuration: args.hookConfiguration,
             });
           }
           yield* recordMaterialization({

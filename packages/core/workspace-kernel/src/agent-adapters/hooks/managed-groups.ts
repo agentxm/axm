@@ -34,7 +34,7 @@ const parseJsonConfig = (
     },
     catch: (error) =>
       new HookConfigInvalid({
-        detail: `Invalid Claude Code hooks config JSON/JSONC: ${configPath}`,
+        detail: `Invalid native hooks config JSON/JSONC: ${configPath}`,
         cause: error,
       }),
   });
@@ -62,7 +62,10 @@ const validateHooksShape = (
     Object.values(hooks).some(
       (groups) =>
         !Array.isArray(groups) ||
-        groups.some((group) => !isRecord(group) || !Array.isArray(group["hooks"])),
+        groups.some(
+          (group) =>
+            !isRecord(group) || (group["hooks"] !== undefined && !Array.isArray(group["hooks"])),
+        ),
     )
   ) {
     return Effect.fail(
@@ -72,9 +75,7 @@ const validateHooksShape = (
   return Effect.void;
 };
 
-interface ManagedHookCommand {
-  readonly type: "command";
-  readonly command: string;
+interface ManagedHookEntry extends Readonly<Record<string, unknown>> {
   readonly "x-axm": {
     readonly v: 1;
     readonly managed: true;
@@ -96,11 +97,11 @@ export interface HookOwnership {
 
 export interface ManagedHookUnit {
   readonly name: string;
-  readonly command: string;
+  readonly command?: string;
 }
 
-export const isManagedHookEntry = (value: unknown): value is ManagedHookCommand => {
-  if (!isRecord(value) || value["type"] !== "command" || typeof value["command"] !== "string") {
+export const isManagedHookEntry = (value: unknown): value is ManagedHookEntry => {
+  if (!isRecord(value)) {
     return false;
   }
   const metadata = value["x-axm"];
@@ -120,7 +121,7 @@ export const isManagedHookEntry = (value: unknown): value is ManagedHookCommand 
 export const isOwnedHookEntry = (
   value: unknown,
   ownership: ReadonlyArray<HookOwnership>,
-): value is ManagedHookCommand =>
+): value is ManagedHookEntry =>
   isManagedHookEntry(value) &&
   ownership.some(
     (owner) =>
@@ -129,6 +130,9 @@ export const isOwnedHookEntry = (
       value["x-axm"].scope === owner.scope &&
       value["x-axm"].root === owner.root,
   );
+
+const entriesIn = (group: unknown): ReadonlyArray<unknown> =>
+  !isRecord(group) ? [] : Array.isArray(group["hooks"]) ? group["hooks"] : [group];
 
 /** Commands recovered from AXM-owned hook entries in one hooks object. */
 export const managedHookCommands = (
@@ -140,9 +144,9 @@ export const managedHookCommands = (
   for (const groups of Object.values(hooks)) {
     if (!Array.isArray(groups)) continue;
     for (const group of groups) {
-      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
-      for (const entry of group["hooks"]) {
-        if (isOwnedHookEntry(entry, ownership)) commands.push(entry.command);
+      for (const entry of entriesIn(group)) {
+        if (isOwnedHookEntry(entry, ownership) && typeof entry["command"] === "string")
+          commands.push(entry["command"]);
       }
     }
   }
@@ -159,12 +163,11 @@ export const managedHookUnits = (
   for (const groups of Object.values(hooks)) {
     if (!Array.isArray(groups)) continue;
     for (const group of groups) {
-      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
-      for (const entry of group["hooks"]) {
+      for (const entry of entriesIn(group)) {
         if (!isOwnedHookEntry(entry, ownership)) continue;
         units.push({
           name: entry["x-axm"].unit.slice("hook:".length),
-          command: entry.command,
+          ...(typeof entry["command"] === "string" ? { command: entry["command"] } : {}),
         });
       }
     }
@@ -181,8 +184,7 @@ export const ambiguousHookCommands = (
   for (const groups of Object.values(hooks)) {
     if (!Array.isArray(groups)) continue;
     for (const group of groups) {
-      if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
-      for (const entry of group["hooks"]) {
+      for (const entry of entriesIn(group)) {
         if (
           isRecord(entry) &&
           entry["type"] === "command" &&
@@ -237,10 +239,14 @@ export const readManagedHookGroups = (
     if (!isRecord(parsed) || !isRecord(parsed[settingsKey])) return selected;
     for (const [event, groups] of Object.entries(parsed[settingsKey])) {
       if (!Array.isArray(groups)) continue;
-      const retained = groups.flatMap((group) => {
-        if (!isRecord(group) || !Array.isArray(group["hooks"])) return [];
-        const hooks = group["hooks"].filter((entry) => isOwnedHookEntry(entry, ownership));
-        return hooks.length === 0 ? [] : [{ ...group, hooks }];
+      const retained = groups.flatMap((group): ReadonlyArray<Record<string, unknown>> => {
+        if (!isRecord(group)) return [];
+        const hooks = entriesIn(group).filter((entry) => isOwnedHookEntry(entry, ownership));
+        return hooks.length === 0
+          ? []
+          : Array.isArray(group["hooks"])
+            ? [{ ...group, hooks }]
+            : hooks;
       });
       if (retained.length > 0) selected[event] = retained;
     }
@@ -296,7 +302,7 @@ export const stripManagedHookGroups = (
 
       const groupHooks = group["hooks"];
       if (!Array.isArray(groupHooks)) {
-        retainedGroups.push(group);
+        if (!isOwnedHookEntry(group, ownership)) retainedGroups.push(group);
         continue;
       }
 
@@ -328,7 +334,11 @@ const retainExpectedManagedHookGroups = (
     const retainedGroups: unknown[] = [];
     for (const group of groups) {
       if (!isRecord(group) || !Array.isArray(group["hooks"])) {
-        retainedGroups.push(group);
+        if (
+          !isOwnedHookEntry(group, ownership) ||
+          expectedNames.has(group["x-axm"].unit.slice("hook:".length))
+        )
+          retainedGroups.push(group);
         continue;
       }
       const retainedHooks = group["hooks"].filter(
@@ -356,21 +366,36 @@ export const updateHooksJson = (
   renderedHooks: Record<string, unknown>,
   ownership: ReadonlyArray<HookOwnership>,
   format: "json" | "jsonc" = "jsonc",
+  configVersion?: 1,
 ): Effect.Effect<string, HookConfigInvalid> =>
   Effect.gen(function* () {
-    const initial = raw.trim().length === 0 ? "{}\n" : raw;
+    let initial = raw.trim().length === 0 ? "{}\n" : raw;
     const parsed = yield* parseJsonConfig(configPath, initial, format);
     yield* validateHooksShape(configPath, settingsKey, parsed);
+    let versionChanged = false;
+    if (configVersion !== undefined && Object.keys(renderedHooks).length > 0 && isRecord(parsed)) {
+      if (parsed["version"] !== undefined && parsed["version"] !== configVersion)
+        return yield* new HookConfigInvalid({
+          detail: `Unsupported native Hook config version in ${configPath}`,
+        });
+      if (parsed["version"] === undefined) {
+        initial = applyEdits(
+          initial,
+          modify(initial, ["version"], configVersion, {
+            formattingOptions: { insertSpaces: true, tabSize: 2, eol: "\n" },
+          }),
+        );
+        versionChanged = true;
+      }
+    }
     const desiredUnits = new Set(
       Object.values(renderedHooks).flatMap((groups) =>
         !Array.isArray(groups)
           ? []
           : groups.flatMap((group) =>
-              !isRecord(group) || !Array.isArray(group["hooks"])
-                ? []
-                : group["hooks"].flatMap((entry) =>
-                    isManagedHookEntry(entry) ? [entry["x-axm"].unit] : [],
-                  ),
+              entriesIn(group).flatMap((entry) =>
+                isManagedHookEntry(entry) ? [entry["x-axm"].unit] : [],
+              ),
             ),
       ),
     );
@@ -378,8 +403,7 @@ export const updateHooksJson = (
       for (const groups of Object.values(parsed[settingsKey])) {
         if (!Array.isArray(groups)) continue;
         for (const group of groups) {
-          if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
-          for (const entry of group["hooks"]) {
+          for (const entry of entriesIn(group)) {
             if (!isRecord(entry) || !isRecord(entry["x-axm"])) continue;
             const unit = entry["x-axm"]["unit"];
             if (
@@ -411,7 +435,12 @@ export const updateHooksJson = (
       existingHooks[event] = [...retainedGroups, ...renderedGroups];
     }
 
-    if (isRecord(parsed) && structurallyEqual(parsed[settingsKey] ?? {}, existingHooks)) return raw;
+    if (
+      !versionChanged &&
+      isRecord(parsed) &&
+      structurallyEqual(parsed[settingsKey] ?? {}, existingHooks)
+    )
+      return raw;
     return yield* editHookEntries(configPath, settingsKey, initial, ownership, renderedHooks);
   });
 
@@ -477,14 +506,14 @@ const editHookEntries = (
       if (!Array.isArray(groups)) continue;
       for (let groupIndex = groups.length - 1; groupIndex >= 0; groupIndex--) {
         const group = groups[groupIndex];
-        if (!isRecord(group) || !Array.isArray(group["hooks"])) continue;
+        if (!isRecord(group)) continue;
         const desiredGroups = rendered[event];
         if (
           Array.isArray(desiredGroups) &&
           desiredGroups.some((desired) => structurallyEqual(desired, group))
         )
           continue;
-        const entries = group["hooks"];
+        const entries = entriesIn(group);
         const owned = entries.flatMap((entry, index) =>
           isOwnedHookEntry(entry, ownership) ? [index] : [],
         );

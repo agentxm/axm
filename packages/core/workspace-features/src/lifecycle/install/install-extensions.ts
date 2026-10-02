@@ -150,6 +150,7 @@ export interface InstallExtensionsRequest {
   readonly localName: Option.Option<string>;
   /** `KEY=VALUE` inputs an MCP install supplies. */
   readonly env: ReadonlyArray<string>;
+  readonly configuration?: import("@agentxm/extension-model/unstable/hooks/manifest-schema").HookConfigurationValues;
   /** No prompt can open in this invocation. */
   readonly nonInteractive: boolean;
   /** Human-readable name for the operation, chosen by the command. */
@@ -397,7 +398,12 @@ const planForType = (
       return Effect.gen(function* () {
         const settled = yield* settleSourceInstall("hook", source, selectors, request);
         return {
-          plan: yield* planHookInstall({ refs: settled.refs }),
+          plan: yield* planHookInstall({
+            refs: settled.refs,
+            ...(request.configuration === undefined
+              ? {}
+              : { configuration: request.configuration }),
+          }),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -769,12 +775,10 @@ export const prepareInstallExtensions: (
     const key = step.key ?? "";
     return [
       "rule:",
-      "hook:",
       "knowledge:",
       "pack:",
       "projection:aggregate-units",
       "projection:rule",
-      "projection:hook",
       "projection:knowledge",
     ].some((prefix) => key.startsWith(prefix));
   };

@@ -64,7 +64,7 @@ import {
   type FqnInvalidError,
 } from "@agentxm/extension-model/unstable/extensions";
 import type {
-  HookEvent,
+  HookImplementation,
   HookRuntime,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
@@ -155,7 +155,8 @@ export interface CreateRuleRequest extends CreateRequestBase {
 export interface CreateHookRequest extends CreateRequestBase {
   readonly type: "hook";
   readonly runtime: HookRuntime;
-  readonly event: HookEvent;
+  readonly protocol: HookImplementation["protocol"];
+  readonly event: string;
   readonly matcher: Option.Option<string>;
 }
 export interface CreateKnowledgeRequest extends CreateRequestBase {
@@ -280,7 +281,7 @@ const declaration = (
   const target = authoredDeclaration(ports, type, name);
   return {
     isConfigured: target.read.pipe(Effect.map((current) => current.configured)),
-    declare: target.declare({ enabled: true }),
+    declare: target.declare({ enabled: type !== "hook" }),
   };
 };
 
@@ -297,6 +298,7 @@ const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredSc
         name: request.name,
         owner,
         runtime: request.runtime,
+        protocol: request.protocol,
         event: request.event,
         matcher: request.matcher,
       });
@@ -630,7 +632,7 @@ export const prepareCreateExtension: (
       yield* preflightAuthoredNativeProjection({
         identity: { type: request.type, owner, name: extensionName },
         packageRoot: stagedPackage,
-        enabled: true,
+        enabled: request.type !== "hook",
       });
     }),
   );
@@ -747,8 +749,11 @@ export const prepareCreateExtension: (
         });
       case "hook": {
         const hook = yield* HookManager;
-        return authoredStep(hook, {
+        return authoredPackageStep(hook, {
           ...common,
+          enabled: false,
+          location,
+          nativeInsertionEligible: false,
           ref: {
             ...sourceRef,
             type: "hook",
@@ -761,7 +766,7 @@ export const prepareCreateExtension: (
               type: "hook",
               artifact: plannedArtifact,
               change,
-              projected: true,
+              projected: false,
             }),
         });
       }

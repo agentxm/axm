@@ -216,9 +216,19 @@ describe("normalizePublishInput", () => {
       type: "hook" as const,
       manifest: {
         description: "Reviews code",
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
-        bindings: [{ on: "session.start" }],
+        implementations: [
+          {
+            id: "claude",
+            protocol: "claude-code",
+            bindings: [
+              {
+                id: "start",
+                event: "SessionStart",
+                handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+              },
+            ],
+          },
+        ],
       },
       missing: "src/hook.sh",
     },

@@ -417,13 +417,14 @@ describe("agent capability derivation", () => {
       matcherKinds: ["regex", "none-imperative"],
     });
   });
-  it("treats decision subfields as advisory during hook installability checks", () => {
+  it("rejects an unsupported native decision outcome during hook installability checks", () => {
     expect(
       installable(agentById("claude-code"), {
-        on: "turn.end",
-        requires: { decision: { kind: "block", outcomes: ["ask"] } },
+        event: "Stop",
+        handler: { type: "command" },
+        requires: { outcomes: ["ask"] },
       }),
-    ).toMatchObject({ installable: true });
+    ).toMatchObject({ installable: false });
   });
   it("derives descriptors with explicit rootDir and own-file instructions", () => {
     expect(

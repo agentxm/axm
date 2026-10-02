@@ -178,7 +178,6 @@ export const resolveWorkspaceExtensionRef = (args: {
           refType: "workspace",
           ...details,
           hook: { name: manifest.name },
-          ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
         };
       case "knowledge":
         return {

@@ -394,9 +394,19 @@ const hookManifest = {
   type: "hook",
   name: "tool-audit",
   version: "1.0.0",
-  runtime: "bash",
-  entrypoint: "src/hook.sh",
-  bindings: [{ on: "tool.pre", requires: { decision: { kind: "observe" } } }],
+  implementations: [
+    {
+      id: "claude",
+      protocol: "claude-code",
+      bindings: [
+        {
+          id: "audit",
+          event: "PreToolUse",
+          handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+        },
+      ],
+    },
+  ],
 };
 
 const makeHookContext = (hookJson: unknown, files: ReadonlyArray<string>): HookRuleContext => ({
@@ -414,14 +424,26 @@ const hookEnvelopeCases = envelopeCases<HookRuleContext>({
 
 registerConformance("hook manifest envelope", orderedEnvelopeRules(hookRules), hookEnvelopeCases);
 
-registerConformance("hook-specific", hookRules.slice(3, 6), [
+registerConformance("hook-specific", hookRules.slice(3, 5), [
   {
-    ruleId: "hook/decision-portability",
+    ruleId: "hook/native-bindings-supported",
     satisfied: makeHookContext(hookManifest, ["hook.json", "src/hook.sh"]),
     violated: makeHookContext(
       {
         ...hookManifest,
-        bindings: [{ on: "tool.pre", requires: { decision: { kind: "block" } } }],
+        implementations: [
+          {
+            id: "claude",
+            protocol: "claude-code",
+            bindings: [
+              {
+                id: "audit",
+                event: "MissingNativeEvent",
+                handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+              },
+            ],
+          },
+        ],
       },
       ["hook.json", "src/hook.sh"],
     ),
@@ -429,17 +451,7 @@ registerConformance("hook-specific", hookRules.slice(3, 6), [
     location: "hook.json",
   },
   {
-    ruleId: "hook/matcher-raw-portability",
-    satisfied: makeHookContext(hookManifest, ["hook.json", "src/hook.sh"]),
-    violated: makeHookContext(
-      { ...hookManifest, bindings: [{ on: "tool.pre", matcherRaw: "Write|Edit" }] },
-      ["hook.json", "src/hook.sh"],
-    ),
-    inapplicable: makeHookContext(undefined, []),
-    location: "hook.json",
-  },
-  {
-    ruleId: "hook/entrypoint-exists",
+    ruleId: "hook/referenced-files-exist",
     satisfied: makeHookContext(hookManifest, ["hook.json", "src/hook.sh"]),
     violated: makeHookContext(hookManifest, ["hook.json"]),
     inapplicable: makeHookContext(undefined, []),

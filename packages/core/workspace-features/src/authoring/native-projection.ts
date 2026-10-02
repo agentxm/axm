@@ -93,7 +93,6 @@ export const preflightAuthoredNativeProjection = (args: {
               type: "hook",
               source: { ...source, extensionType: "hook" },
               hook: { name: manifest.name },
-              ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
             },
           ],
           options,

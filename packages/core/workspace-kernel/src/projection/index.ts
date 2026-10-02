@@ -35,7 +35,6 @@ export {
 // Ownership units and their region identities
 export {
   aggregateOwnershipUnits,
-  HOOK_FALLBACKS_REGION_OWNER,
   KNOWLEDGE_REGION_OWNER,
   ownershipUnits,
   RULES_REGION_OWNER,

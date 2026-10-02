@@ -14,7 +14,9 @@ export const hasNativeHookIntroductions = (before: unknown, after: unknown): boo
   if (!Array.isArray(after)) return true;
   const priorGroups: ReadonlyArray<unknown> = Array.isArray(before) ? before : [];
   return after.some((group) => {
-    if (!record(group) || !Array.isArray(group["hooks"])) return true;
+    if (!record(group)) return true;
+    if (!Array.isArray(group["hooks"]))
+      return !priorGroups.some((prior) => Equal.equals(prior, group));
     const properties = Object.fromEntries(Object.entries(group).filter(([key]) => key !== "hooks"));
     const prior = priorGroups.find(
       (candidate) =>
@@ -45,7 +47,11 @@ export const interpretNativeHookChanges = (args: {
   const meanings: Array<Readonly<Record<string, unknown>>> = [];
   for (const group of args.after) {
     if (priorGroups.some((prior) => Equal.equals(prior, group))) continue;
-    if (!record(group) || !Array.isArray(group["hooks"])) return Option.none();
+    if (!record(group)) return Option.none();
+    const flat = args.dialect.serializer === "flat-command-stdin";
+    if (!flat && !Array.isArray(group["hooks"])) return Option.none();
+    const commands = flat ? [group] : group["hooks"];
+    if (!Array.isArray(commands)) return Option.none();
     const matcher = group["matcher"];
     if (matcher !== undefined && typeof matcher !== "string") return Option.none();
     if (matcher !== undefined && args.event.matcher.kind === "none-imperative")
@@ -60,11 +66,11 @@ export const interpretNativeHookChanges = (args: {
         ? prior["hooks"]
         : [],
     );
-    for (const command of group["hooks"]) {
+    for (const command of commands) {
       if (priorCommands.some((prior) => Equal.equals(prior, command))) continue;
       if (
         !record(command) ||
-        command["type"] !== "command" ||
+        (command["type"] !== undefined && command["type"] !== "command") ||
         typeof command["command"] !== "string"
       )
         return Option.none();
@@ -80,7 +86,8 @@ export const interpretNativeHookChanges = (args: {
       )
         return Option.none();
       meanings.push({
-        event: args.event.canonical,
+        event: args.event.nativeName,
+        protocol: args.dialect.serializer,
         matcher: normalizedMatcher,
         matcherKind: matcher === undefined ? null : args.event.matcher.kind,
         toolNames:

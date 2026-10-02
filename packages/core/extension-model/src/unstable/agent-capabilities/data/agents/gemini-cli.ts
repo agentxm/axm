@@ -551,7 +551,7 @@ export const geminiCliAgent = {
       axm: {
         status: "supported",
         writer: {
-          locationIds: ["project"],
+          locationIds: ["user", "project"],
           eventMap: "native.events",
         },
         lastVerified: "2026-08-05",

@@ -9,7 +9,6 @@ import {
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   captureAgentOutputAuthority,
-  HOOK_FALLBACKS_REGION_OWNER,
   KNOWLEDGE_REGION_OWNER,
   RULES_REGION_OWNER,
   reconcileNativeManagedRegion,
@@ -28,7 +27,7 @@ import {
 } from "../errors.js";
 import type { ManageInstructionsRequirements } from "./manage-instructions.js";
 
-export type AdoptableInstructionRegion = "rules" | "knowledge" | "hook-fallbacks";
+export type AdoptableInstructionRegion = "rules" | "knowledge";
 
 export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdoption")(
   function* (request: { readonly region: AdoptableInstructionRegion; readonly fileName: string }) {
@@ -60,15 +59,8 @@ export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdop
     const owners =
       request.region === "rules"
         ? authority.expectedRegions.rule
-        : request.region === "knowledge"
-          ? authority.expectedRegions.knowledge
-          : authority.expectedHooks;
-    const owner =
-      request.region === "rules"
-        ? RULES_REGION_OWNER
-        : request.region === "knowledge"
-          ? KNOWLEDGE_REGION_OWNER
-          : HOOK_FALLBACKS_REGION_OWNER;
+        : authority.expectedRegions.knowledge;
+    const owner = request.region === "rules" ? RULES_REGION_OWNER : KNOWLEDGE_REGION_OWNER;
     if (owners.length === 0)
       return yield* fail("The selected region has no accepted source authority in this scope");
     const args = {

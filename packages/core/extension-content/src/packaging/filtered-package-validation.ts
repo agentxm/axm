@@ -1,6 +1,11 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import {
+  HookManifestSchema,
+  referencedHookPackageFiles,
+} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { parseFrontmatterEffect } from "../content/frontmatter.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { inspectKnowledgeEntries, type KnowledgeBundleEntry } from "../knowledge/okf.js";
@@ -29,12 +34,6 @@ const rawField = (raw: unknown, field: string): unknown =>
   typeof raw === "object" && raw !== null && !Array.isArray(raw)
     ? Reflect.get(raw, field)
     : undefined;
-
-const safeArchivePath = (value: string): boolean =>
-  value.length > 0 &&
-  !value.startsWith("/") &&
-  !value.includes("\\") &&
-  !value.split("/").some((segment) => segment === "" || segment === "." || segment === "..");
 
 const requireEntry = (
   entries: ReadonlyArray<ZipEntry>,
@@ -121,14 +120,20 @@ export const validateFilteredPackage = (
         return;
       }
       case "hook": {
-        const entrypoint = rawField(args.manifest.raw, "entrypoint");
-        if (typeof entrypoint !== "string" || !safeArchivePath(entrypoint)) {
-          return yield* new FilteredPackageError({
-            code: "reference_invalid",
-            detail: "Hook entrypoint must be a safe package-relative file path.",
-          });
-        }
-        yield* requireEntry(args.entries, entrypoint);
+        const manifest = yield* Schema.decodeUnknownEffect(HookManifestSchema)(args.manifest.raw, {
+          onExcessProperty: "error",
+        }).pipe(
+          Effect.mapError(
+            () =>
+              new FilteredPackageError({
+                code: "reference_invalid",
+                detail:
+                  "Filtered Hook manifest must declare valid native implementations and safe package-relative references.",
+              }),
+          ),
+        );
+        for (const file of referencedHookPackageFiles(manifest))
+          yield* requireEntry(args.entries, file);
         return;
       }
       case "knowledge": {

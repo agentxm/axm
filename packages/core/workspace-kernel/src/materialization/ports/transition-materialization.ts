@@ -1,4 +1,5 @@
 /** Materialization capabilities required by workspace transitions. */
+import type { HookConfigurationValues } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -16,6 +17,8 @@ export interface NativeProjectionOptions {
   readonly nativeInsertionEligibleAgentIds?: ReadonlySet<string>;
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly desiredGraph?: DesiredStateGraph;
+  /** Prospective values validated and rendered before settings are committed. */
+  readonly hookConfigurations?: ReadonlyMap<string, HookConfigurationValues>;
 }
 
 export interface MaterializationConfiguration<E, R> {

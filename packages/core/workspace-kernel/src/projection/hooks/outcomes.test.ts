@@ -14,26 +14,26 @@ const agentById = (id: string): Agent => {
   return agent;
 };
 
-const manifest = (args?: {
-  readonly fallback?: "auto" | "none";
-  readonly decision?: "observe" | "block" | "modify";
-}): HookManifest => ({
+const manifest = (): HookManifest => ({
   owner: decodeHandleSync("@acme"),
   type: "hook",
   name: decodeExtensionNameSync("audit"),
   version: decodeVersionSync("1.0.0"),
-  runtime: "bash",
-  entrypoint: "src/hook.sh",
-  bindings: [
+  implementations: [
     {
-      on: "tool.pre",
-      ...(args?.decision === undefined ? {} : { requires: { decision: { kind: args.decision } } }),
+      id: "claude",
+      protocol: "claude-code",
+      bindings: [
+        {
+          id: "audit",
+          event: "PreToolUse",
+          handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+        },
+      ],
     },
   ],
-  ...(args?.fallback === undefined ? {} : { fallback: args.fallback }),
 });
-
-const target = { nativePath: ".claude/settings.json", fallbackPath: "AGENTS.md" };
+const target = { nativePath: ".claude/settings.json" };
 
 describe("evaluateHookAgentOutcome", () => {
   it("reports native when every binding is supported", () => {
@@ -42,41 +42,32 @@ describe("evaluateHookAgentOutcome", () => {
         agent: agentById("claude-code"),
         manifest: manifest(),
         target,
+        scope: "project",
         state: "projected",
       }),
     ).toMatchObject({ outcome: "projected", mechanism: "native", path: ".claude/settings.json" });
   });
 
-  it("reports advisory fallback for observational hooks without a usable writer", () => {
+  it("blocks unsupported hosts without inventing advisory execution", () => {
     expect(
       evaluateHookAgentOutcome({
         agent: agentById("windsurf"),
         manifest: manifest(),
-        target,
+        target: {},
+        scope: "project",
         state: "current",
       }),
-    ).toMatchObject({ outcome: "current", mechanism: "advisory-fallback", path: "AGENTS.md" });
-  });
-
-  it("blocks when fallback is forbidden", () => {
-    expect(
-      evaluateHookAgentOutcome({
-        agent: agentById("windsurf"),
-        manifest: manifest({ fallback: "none" }),
-        target,
-        state: "projected",
-      }),
     ).toMatchObject({ outcome: "blocked" });
   });
-
-  it("blocks when advisory instructions cannot preserve a decision", () => {
+  it("blocks missing native implementations even when a host writer exists", () => {
     expect(
       evaluateHookAgentOutcome({
-        agent: agentById("windsurf"),
-        manifest: manifest({ decision: "block" }),
+        agent: agentById("codex"),
+        manifest: manifest(),
         target,
+        scope: "project",
         state: "projected",
       }),
-    ).toMatchObject({ outcome: "blocked" });
+    ).toMatchObject({ outcome: "blocked", reasonCode: "hook-native-implementation-unavailable" });
   });
 });

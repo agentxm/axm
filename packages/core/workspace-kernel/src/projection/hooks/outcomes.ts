@@ -1,75 +1,69 @@
-import { type Agent, installable } from "@agentxm/extension-model/unstable/agent-capabilities";
+import {
+  type Agent,
+  installable,
+  isConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
-import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import {
+  type HookManifest,
+  resolveHookImplementation,
+} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
 export interface HookOutcomeTarget {
   readonly nativePath?: string;
-  readonly fallbackPath: string;
 }
 
-const nonAdvisoryDecision = (manifest: HookManifest): "block" | "modify" | undefined =>
-  manifest.bindings
-    .map((binding) => binding.requires?.decision.kind)
-    .find((kind): kind is "block" | "modify" => kind === "block" || kind === "modify");
-
+/** Native settings are the only Hook activation mechanism. Runtime execution is separate evidence. */
 export const evaluateHookAgentOutcome = (args: {
   readonly agent: Agent;
   readonly manifest: HookManifest;
   readonly target: HookOutcomeTarget;
+  readonly scope: "project" | "user";
   readonly state: "projected" | "current";
 }): ConfiguredAgentOutcome => {
-  const unsupported =
-    (args.target.nativePath === undefined
-      ? { installable: false, reason: "No native Hook writer is declared for the selected scope." }
-      : undefined) ??
-    args.manifest.bindings
-      .map((binding) => installable(args.agent, binding))
-      .find((verdict) => !verdict.installable);
-
-  if (unsupported === undefined) {
+  const base = { extensionType: "hook", name: args.manifest.name, agentId: args.agent.id } as const;
+  if (args.target.nativePath === undefined || !isConfigurableAgentId(args.agent.id))
     return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
-      outcome: args.state,
-      reasonCode: "hook-native",
-      reason: "All hook bindings have a supported native mapping and writer.",
-      mechanism: "native",
-      ...(args.target.nativePath === undefined ? {} : { path: args.target.nativePath }),
-    };
-  }
-
-  if (args.manifest.fallback === "none") {
-    return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
+      ...base,
       outcome: "blocked",
-      reasonCode: "hook-fallback-forbidden",
-      reason: `${unsupported.reason} This hook forbids advisory fallback.`,
+      reasonCode: "hook-native-writer-unavailable",
+      reason: "No native Hook writer is declared for the selected scope.",
     };
-  }
-
-  const requiredDecision = nonAdvisoryDecision(args.manifest);
-  if (requiredDecision !== undefined) {
+  const selected = resolveHookImplementation(args.manifest, args.agent.id, { scope: args.scope });
+  if (selected.status === "unsupported")
     return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
+      ...base,
       outcome: "blocked",
-      reasonCode: "hook-decision-not-preserved",
-      reason: `${unsupported.reason} Advisory fallback cannot preserve ${requiredDecision} decisions.`,
+      reasonCode: "hook-native-implementation-unavailable",
+      reason: selected.reasons.join(" "),
     };
-  }
-
+  if (selected.status === "ambiguous")
+    return {
+      ...base,
+      outcome: "blocked",
+      reasonCode: "hook-native-implementation-ambiguous",
+      reason: `Multiple implementations match: ${selected.implementationIds.join(", ")}.`,
+    };
+  const unsupported = selected.implementation.bindings
+    .map((binding) => installable(args.agent, binding))
+    .find((verdict) => !verdict.installable);
+  if (unsupported !== undefined)
+    return {
+      ...base,
+      outcome: "blocked",
+      reasonCode: "hook-native-semantics-unsupported",
+      reason: unsupported.reason,
+    };
   return {
-    extensionType: "hook",
-    name: args.manifest.name,
-    agentId: args.agent.id,
+    ...base,
     outcome: args.state,
-    reasonCode: "hook-advisory-fallback",
-    reason: `${unsupported.reason} AXM will represent this observational hook through managed instructions.`,
-    mechanism: "advisory-fallback",
-    path: args.target.fallbackPath,
+    reasonCode: selected.status === "conditional" ? "hook-native-conditional" : "hook-native",
+    reason:
+      `Native implementation ${selected.implementation.id} has a supported settings representation. ${selected.conditions.join(" ")} Runtime prerequisites and host execution remain unverified.`.replace(
+        / +/g,
+        " ",
+      ),
+    mechanism: "native",
+    path: args.target.nativePath,
   };
 };

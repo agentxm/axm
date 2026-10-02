@@ -93,7 +93,7 @@ export const ProjectionParticipantsLive = Layer.effect(
           manager: rules,
         }),
         participant({
-          units: ["hook:agent-hook-entries", "hook:fallback-region"],
+          units: ["hook:agent-hook-entries"],
           failureUnitId: "hook:agent-hook-entries",
           manager: hooks,
         }),

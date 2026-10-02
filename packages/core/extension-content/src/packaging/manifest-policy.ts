@@ -272,7 +272,10 @@ export const resolveManifest = (
 
     yield* Effect.fromResult(validateManifestHasNoAgentsField(manifestEntry.fileName, parsed));
     const schema = manifestSchemaForType(input.type);
-    yield* Schema.decodeUnknownEffect(schema)(parsed).pipe(
+    yield* Schema.decodeUnknownEffect(schema)(
+      parsed,
+      input.type === "hook" ? { onExcessProperty: "error" } : undefined,
+    ).pipe(
       Effect.mapError((error) => {
         const companionPackageError = classifyCompanionPackageManifestError(parsed);
         return new ManifestError({

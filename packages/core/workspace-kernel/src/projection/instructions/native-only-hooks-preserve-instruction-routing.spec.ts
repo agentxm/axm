@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "workspace/instructions/native-only-hooks-preserve-routing",
   title: "Native Hook changes preserve existing instruction routing state",
   statement:
-    "A native Hook transition with an unchanged instruction fallback shall preserve absent and preexisting instruction aliases; shared instruction content changes shall still reconcile their dependent aliases.",
+    "A Hook transition shall preserve absent and preexisting instruction aliases; shared Rule and Knowledge instruction content changes shall reconcile their dependent aliases.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -69,24 +69,7 @@ describe("native Hook instruction routing", () => {
                   apply: () => fs.writeFileString(native, after),
                 },
               });
-              const fallbackPlan = yield* planAggregateProjection({
-                unitId: "hook:fallback-region",
-                targetFile: source,
-                graph: { nodes: [], mcpSourceClosures: [], problems: [], packMembership: [] },
-                select: () => Effect.succeed({ contributors: [], exclusions: [] }),
-                adapter: {
-                  observe: () =>
-                    Effect.succeed({
-                      unitId: "hook:fallback-region",
-                      path: source,
-                      present: false,
-                      current: true,
-                      expectedContributors: [],
-                    }),
-                  apply: () => Effect.void,
-                },
-              });
-              yield* applyInstructionSurfacePlans([nativePlan, fallbackPlan]);
+              yield* applyInstructionSurfacePlans([nativePlan]);
               expect(yield* fs.exists(alias)).toBe(existingAlias);
               expect(yield* fs.readFileString(source)).toBe(authored);
               if (existingAlias) expect(yield* fs.readLink(alias)).toBe("AGENTS.md");
@@ -110,25 +93,25 @@ describe("native Hook instruction routing", () => {
       });
       yield* Effect.gen(function* () {
         const plan = yield* planAggregateProjection({
-          unitId: "hook:fallback-region",
+          unitId: "rule:instructions-region",
           targetFile: source,
           graph: { nodes: [], mcpSourceClosures: [], problems: [], packMembership: [] },
-          select: () => Effect.succeed({ contributors: ["hook"], exclusions: [] }),
+          select: () => Effect.succeed({ contributors: ["rule"], exclusions: [] }),
           adapter: {
             observe: () =>
               Effect.succeed({
-                unitId: "hook:fallback-region",
+                unitId: "rule:instructions-region",
                 path: source,
                 present: false,
                 current: false,
-                expectedContributors: ["hook"],
+                expectedContributors: ["rule"],
               }),
-            apply: () => fs.writeFileString(source, "# Authored\n\nHook instructions\n"),
+            apply: () => fs.writeFileString(source, "# Authored\n\nRule instructions\n"),
           },
         });
         yield* applyInstructionSurfacePlans([plan]);
         expect(yield* fs.readFileString(path.join(root, "CLAUDE.md"))).toBe(
-          "# Authored\n\nHook instructions\n",
+          "# Authored\n\nRule instructions\n",
         );
       }).pipe(Effect.provide(Layer.merge(workspace, NativeWriteAuthorityPermissive)));
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

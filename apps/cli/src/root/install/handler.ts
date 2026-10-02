@@ -34,6 +34,7 @@ export interface InstallHandlerArgs {
   readonly force: boolean;
   readonly preview: boolean;
   readonly env: ReadonlyArray<string>;
+  readonly configuration?: import("@agentxm/extension-model/unstable/hooks/manifest-schema").HookConfigurationValues;
   readonly localName: Option.Option<string>;
   readonly bundled: boolean;
 }
@@ -125,6 +126,7 @@ export const handleInstall = (args: InstallHandlerArgs) =>
         reinstall: args.force,
         localName: args.localName,
         env: args.env,
+        ...(args.configuration === undefined ? {} : { configuration: args.configuration }),
         nonInteractive,
         planName: Option.isSome(args.type)
           ? `Install ${extensionTypeToPlural[args.type.value]}`

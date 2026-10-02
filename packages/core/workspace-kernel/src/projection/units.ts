@@ -22,7 +22,6 @@ import type { ProjectionContributorExclusion } from "./exclusions.js";
 // -----------------------------------------------------------------------------
 
 export const RULES_REGION_OWNER = "@agentxm/rules/instructions";
-export const HOOK_FALLBACKS_REGION_OWNER = "@agentxm/hooks/fallbacks";
 export const KNOWLEDGE_REGION_OWNER = "@agentxm/knowledge/discovery";
 
 export interface OwnershipUnitDeclaration {
@@ -59,12 +58,6 @@ export const ownershipUnits = [
     type: "hook",
     contributors: "many",
     membership: "Every active reachable Hook realized natively for that agent.",
-  },
-  {
-    unitId: "hook:fallback-region",
-    type: "hook",
-    contributors: "many",
-    membership: "Every active reachable Hook realized through the fallback.",
   },
   {
     unitId: "rule:instructions-region",

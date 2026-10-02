@@ -4,7 +4,11 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
-import { LOCKFILE_VERSION, LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  LOCKFILE_VERSION,
+  LockfileSchema,
+  computePackManifestContentIdentity,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -84,6 +88,70 @@ const minimalLockfile = (
 const decodeLockfile = Schema.decodeUnknownEffect(LockfileSchema);
 
 describe("Published lockfile schema", () => {
+  it.effect("every acquired Pack requires its accepted dependency declaration", () =>
+    Effect.gen(function* () {
+      const document = publishedLockfileSchema();
+      const alternatives = Schema.decodeUnknownSync(
+        Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+      )(child(child(document, "definitions"), "PackLockEntry")["anyOf"]);
+      expect(alternatives).toHaveLength(3);
+      for (const alternative of alternatives) {
+        expect(decodeStringArray(alternative["required"])).toEqual(
+          expect.arrayContaining(["dependencies", "manifestVersion", "manifestContentIdentity"]),
+        );
+        expect(child(alternative, "properties")).not.toHaveProperty("members");
+      }
+      const manifest = {
+        owner: "@acme",
+        type: "pack",
+        name: "tools",
+        version: "1.0.0",
+        dependencies: { "@acme/skills/review": "^1.0.0" },
+      } as const;
+      const common = {
+        identity: { owner: manifest.owner, name: manifest.name },
+        treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+        manifestVersion: manifest.version,
+        manifestContentIdentity: computePackManifestContentIdentity(manifest),
+        dependencies: manifest.dependencies,
+      };
+      for (const resolution of [
+        {
+          source: { type: "registry", url: "https://registry.example.com" },
+          resolved: {
+            version: "1.0.0",
+            integrity: "sha512-example",
+            publisherBindingId: "hbnd_example",
+          },
+        },
+        {
+          source: { type: "git", url: "https://example.com/tools.git" },
+          resolved: { commit: "accepted-commit", tree: "accepted-tree" },
+        },
+        {
+          source: { type: "path", path: "sources/tools" },
+          sourceRoot: "sources",
+          resolved: { tree: "accepted-tree" },
+        },
+      ]) {
+        const row = { ...common, ...resolution };
+        yield* decodeLockfile({
+          lockfileVersion: LOCKFILE_VERSION,
+          skills: {},
+          packs: { tools: row },
+        });
+        for (const field of ["dependencies", "manifestVersion", "manifestContentIdentity"]) {
+          const missing = Object.fromEntries(Object.entries(row).filter(([key]) => key !== field));
+          yield* decodeLockfile({
+            lockfileVersion: LOCKFILE_VERSION,
+            skills: {},
+            packs: { tools: missing },
+          }).pipe(Effect.flip);
+        }
+      }
+    }),
+  );
+
   it.effect(
     "the one lockfile version the published schema admits is the version the product accepts",
     () =>

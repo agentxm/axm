@@ -463,7 +463,7 @@ const packLockEntryToRef = (
   Effect.flatMap(
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<PackRef, LockEntryToRefError> => {
-      const pack = { name: extensionName, dependencies: {} };
+      const pack = { name: extensionName, dependencies: entry.dependencies };
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,

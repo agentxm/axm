@@ -9,10 +9,7 @@ import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  installableExtensionTypes,
-  type InstallableExtensionType,
-} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { resolveSource, SourceHostProviders } from "@agentxm/workspace-kernel/sources";
@@ -21,7 +18,6 @@ import {
   lockEntryToSourceParams,
   type LockEntry,
   type ExtensionInventoryLifecycle,
-  type WorkspaceRecordRow,
   type ExtensionInventoryRow,
   DesiredStateReader,
   desiredStateProblemText,
@@ -88,31 +84,18 @@ const isRegistryAcceptedEntry = (entry: AcceptedEntry): entry is RegistryAccepte
 const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
 
-const recordSource = (row: WorkspaceRecordRow | undefined): string | undefined => row?.source;
-
-const inventoryKey = (type: string, name: string): string => `${type}:${name}`;
-
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
   function* (type?: InstallableExtensionType) {
     const lockfile = yield* LockfileReader;
     const records = yield* WorkspaceRecords;
     const inventory = yield* records.getInventory(type === undefined ? {} : { type });
-    const types = type === undefined ? installableExtensionTypes : [type];
-    const rowsByKey = new Map<string, WorkspaceRecordRow>();
-    const rowsByType = yield* Effect.forEach(types, (itemType) => records.rows(itemType), {
-      // eslint-disable-next-line axm-policy/no-unbounded-io -- fixed installable extension-type catalog
-      concurrency: "unbounded",
-    });
-    for (const row of rowsByType.flat()) {
-      rowsByKey.set(inventoryKey(row.type, row.name), row);
-    }
     const acceptedByRow = yield* Effect.forEach(inventory.items, (row) =>
       lockfile.acceptedEntry(row.type, row.name).pipe(Effect.map(Option.getOrUndefined)),
     );
 
     return inventory.items.map((row, index): ExtensionListItem => {
       const locked = acceptedByRow[index];
-      const configuredSource = recordSource(rowsByKey.get(inventoryKey(row.type, row.name)));
+      const configuredSource = row.source;
       const lockedSource =
         locked === undefined ? undefined : printSourceParams(lockEntryToSourceParams(locked));
       const source = configuredSource ?? lockedSource;

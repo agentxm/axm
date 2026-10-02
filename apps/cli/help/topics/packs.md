@@ -94,11 +94,14 @@ content unchanged. Supplying a version range for a pack-only member is blocked;
 edit the authored pack constraint with `axm packs add`, or update a published
 owner pack with `axm update @owner/packs/name`.
 
-Configured pack manifests expand desired state across skills, MCP servers,
-subagents, rules, hooks, and knowledge bundles. AXM
+Configured Packs expand desired state across skills, MCP servers,
+subagents, rules, hooks, and knowledge bundles. Authored Packs use their current
+manifest; acquired Packs use their matching accepted dependency declaration. AXM
 keeps owner, type, locator, and constraints when combining direct and pack
-origins. A missing or invalid configured manifest makes that desired subtree
-unknown and blocks destructive cleanup. Removing a pack retains members still
+origins. Missing acquired files do not erase accepted dependency relationships.
+A missing or invalid authored manifest, or unavailable accepted declaration,
+leaves routes unresolved and blocks cleanup that depends on their absence.
+Removing a pack retains members still
 required directly or by another pack.
 
 A Pack-only Knowledge member follows its own manifest's `instructionEntry`

@@ -390,7 +390,7 @@ describe("Pack member resolution without Registry release dates", () => {
         agedEvaluation,
         undefined,
         undefined,
-        () => Effect.succeed(registrySkill()),
+        () => Effect.succeed(Option.some(registrySkill())),
       ).pipe(Effect.flip);
 
       expect(error).toMatchObject({
@@ -457,7 +457,7 @@ describe("Pack member resolution under the minimum release age", () => {
     "bypasses Registry and release-age selection for an accepted immutable dependency",
     () =>
       Effect.gen(function* () {
-        const resolver = vi.fn(() => Effect.succeed(registrySkill()));
+        const resolver = vi.fn(() => Effect.succeed(Option.some(registrySkill())));
         const resolved = yield* resolvePackDependenciesWithReleaseAge(
           packRef({ "@acme/skills/release": "^2.0.0" }),
           namedProviders(() => Effect.die("Registry selection must not run")),

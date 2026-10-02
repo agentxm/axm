@@ -573,6 +573,7 @@ const makeConstraintMismatchFixture = (
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
+        dependencies: manifests[0].dependencies,
       },
       beta: {
         type: "registry",
@@ -583,6 +584,7 @@ const makeConstraintMismatchFixture = (
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
+        dependencies: manifests[1].dependencies,
       },
     },
     lockfileSkills: {

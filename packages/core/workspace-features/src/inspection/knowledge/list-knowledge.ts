@@ -1,3 +1,4 @@
+import { withInspectionReadView } from "../read-view.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — bundle inspection relays caller-owned opaque OKF accessor failures as one typed inspection failure
 /**
  * The installed Knowledge inventory behind `axm knowledge list`.
@@ -170,5 +171,5 @@ export const ListKnowledge = {
     ].sort((left, right) => left.name.localeCompare(right.name));
 
     return { document: { items: rows, count: rows.length }, rows };
-  }),
+  }, withInspectionReadView),
 };

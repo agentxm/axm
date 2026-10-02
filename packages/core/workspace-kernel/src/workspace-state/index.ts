@@ -270,7 +270,6 @@ export {
   desiredStateProblemText,
   desiredStateProblemsText,
   formatConstraintContributors,
-  packManifestContentMismatchText,
   packManifestInvalidText,
   packManifestUnavailableText,
 } from "./workspace/desired-state-problem-text.js";
@@ -519,3 +518,5 @@ export {
   withDocumentRoundTripBatch,
   type DocumentRoundTripBatch,
 } from "./desired/document-round-trip.js";
+
+export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";

@@ -49,7 +49,7 @@ describe("Subagent accepted resolutions", () => {
   it("decodes a current lockfile with Subagent external resolution state", () => {
     expect(
       Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {},
         subagents: {
           planner: localEntry,

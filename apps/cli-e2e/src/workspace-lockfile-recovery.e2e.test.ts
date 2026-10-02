@@ -137,7 +137,7 @@ describe("rejected lockfile recovery", () => {
         problem: {
           code: "workspace-lockfile-version-unsupported",
           observedVersion: 7,
-          supportedVersion: 8,
+          supportedVersion: 9,
           direction: "older",
         },
       });
@@ -158,7 +158,7 @@ describe("rejected lockfile recovery", () => {
 
       const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
       expect(lockfile).toMatchObject({
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: { [MEMBER.name]: { resolved: { version: MEMBER_PIN } } },
       });
       // The disabled connection is still accepted: its row is keyed by the

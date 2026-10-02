@@ -3,8 +3,8 @@
  *
  * `axm install` with no source, and every `<type> install` with no source, ask
  * the same question: bring the workspace to the state its settings describe.
- * Each enabled configured entry resolves to a version its declared source
- * and the release-age policy allow, becomes its own closure, and the shared
+ * Each enabled configured entry reuses its satisfying accepted resolution,
+ * or selects its first resolution under the release-age policy, becomes its own closure, and the shared
  * aggregate projections are rendered once at the end from the complete
  * contributor set. Configured Packs resolve first, so every entry is planned
  * against one proposed desired-state graph: a member reached twice — declared
@@ -44,6 +44,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
+  acceptedConfiguredResolution,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   resolveConfiguredHook,
@@ -62,12 +63,13 @@ import {
   type PlannedJobStep,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import { resolveSource, withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
+import { withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
 import * as Result from "effect/Result";
 import {
   SettingsReader,
   acquisitionConfiguredEntries,
   effectiveDesiredConstraint,
+  withWorkspaceReadView,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -100,7 +102,7 @@ import {
   nameFromLabel,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
 /** Which extension types a configured-entry sweep covers. */
@@ -382,33 +384,19 @@ const collectSimpleTypePlans = (
     >(
       expectedType: Exclude<ConfiguredInstallableType, "pack">,
       name: string,
-      source: string,
       fallback: Effect.Effect<A, E, R>,
     ) =>
       Effect.gen(function* () {
-        if (force) {
-          const resolvedSource = yield* resolveSource(source).pipe(
-            Effect.mapError(configuredEntryResolutionRefused(name)),
-          );
-          if (resolvedSource.type === "git") {
-            const accepted = yield* findGitReinstallRefs(resolvedSource, expectedType, [name]);
-            const ref = accepted.at(0);
-            if (ref !== undefined) {
-              return {
-                ref,
-                versionRange: Option.none<VersionRange>(),
-                releaseAge: { holdbacks: [], bypasses: [] },
-              } satisfies {
-                readonly ref: ExtensionRef;
-                readonly versionRange: Option.Option<VersionRange>;
-                readonly releaseAge: {
-                  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-                  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-                };
-              };
-            }
-          }
-        }
+        const desired = graph.nodes.find(
+          (node) => node.type === expectedType && node.name === name,
+        );
+        const accepted = yield* acceptedConfiguredResolution({
+          type: expectedType,
+          name,
+          ...(desired === undefined ? {} : { desired }),
+          forceCanonical: force,
+        });
+        if (Option.isSome(accepted)) return accepted.value;
         return yield* fallback;
       });
 
@@ -455,13 +443,10 @@ const collectSimpleTypePlans = (
                   );
               }
             });
-            const resolved = yield* resolveConfiguredOrAccepted(
-              type,
-              name,
-              entry.source,
-              fallback,
-            ).pipe(Effect.mapError(configuredEntryResolutionRefused(name)));
-            const ref = force ? yield* pinGitReinstallRef(resolved.ref, name) : resolved.ref;
+            const resolved = yield* resolveConfiguredOrAccepted(type, name, fallback).pipe(
+              Effect.mapError(configuredEntryResolutionRefused(name)),
+            );
+            const ref = resolved.ref;
             if (ref.type !== type) {
               return yield* installRefused({
                 category: "internal",
@@ -555,12 +540,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "skill",
             name,
-            source,
             resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "skill"
                     ? planSkillInstall({
@@ -588,12 +572,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "subagent",
             name,
-            source,
             resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "subagent"
                     ? planSubagentInstall({
@@ -620,12 +603,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "mcp-server",
             name,
-            source,
             resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "mcp-server"
                     ? Effect.gen(function* () {
@@ -744,145 +726,160 @@ export const buildConfiguredInstallPlan: (
   ConfiguredInstallPlanResult,
   ConfiguredInstallFailure,
   ConfiguredInstallRequirements
-> = Effect.fn("InstallExtensions.buildConfiguredInstallPlan")(function* (
-  args: ConfiguredInstallRequest,
-) {
-  // An unreadable window is the setting's own validation refusal; it travels
-  // unchanged so every path reports the same fact.
-  const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
-    Effect.mapError((cause) =>
-      cause._tag === "ExtensionResolutionFailed"
-        ? cause
-        : installRefused({
-            category: "internal",
-            detail: "Release-age policy could not be evaluated",
-            cause,
-          }),
-    ),
-  );
-  const selectedTypes = installableExtensionTypes.filter((type) =>
-    Option.match(args.type, { onNone: () => true, onSome: (value) => value === type }),
-  );
-  // Packs resolve first: their proposed manifests are part of the one graph
-  // every configured entry selects within.
-  const packs = selectedTypes.includes("pack")
-    ? yield* collectPackPlans({
-        releaseAgeEvaluation,
-        nonInteractive: args.nonInteractive,
-        deferProjections: true,
-        forceCanonical: args.force,
-      })
-    : undefined;
-  const graph = packs?.graph ?? (yield* readProposedGraph([]));
-  const prepared = yield* Effect.forEach(
-    selectedTypes,
-    (type) =>
-      (type === "pack"
-        ? Effect.succeed(
-            packs ?? {
-              refs: [],
-              collect: () => Effect.succeed(toCollectedPlans({ plans: [] })),
-            },
-          )
-        : collectSimpleTypePlans(type, releaseAgeEvaluation, args.nonInteractive, args.force, graph)
-      ).pipe(Effect.map((preparation) => ({ type, preparation }))),
-    { concurrency: 1 },
-  );
-  const projectionRefs = new Map<string, ExtensionRef>();
-  for (const ref of prepared.flatMap(({ preparation }) => preparation.refs)) {
-    if (ref.type !== "rule" && ref.type !== "hook" && ref.type !== "knowledge") continue;
-    if (
-      !graph.nodes.some((node) => node.type === ref.type && node.name === ref.name && node.enabled)
-    )
-      continue;
-    const key = `${ref.type}:${ref.name}`;
-    const previous = projectionRefs.get(key);
-    if (previous !== undefined && sourceRefContentKey(previous) !== sourceRefContentKey(ref)) {
-      return yield* installRefused({
-        category: "conflict",
-        detail: `Configured install selected conflicting native contributors for ${key}`,
-      });
-    }
-    projectionRefs.set(key, ref);
-  }
-  const selectedProjectionRefs = [...projectionRefs.values()];
-  const collections = yield* Effect.forEach(
-    prepared,
-    ({ type, preparation }) =>
-      preparation
-        .collect(selectedProjectionRefs)
-        .pipe(Effect.map((collection) => ({ type, collection }))),
-    { concurrency: 1 },
-  );
-  const fragments = collections.flatMap(({ collection }) => collection.fragments);
-
-  if (fragments.length === 0) {
-    const nothingConfigured: ConfiguredInstallPlanResult = {
-      _tag: "NoConfiguredExtensions",
-      message: noConfiguredMessage(args.type),
-    };
-    return nothingConfigured;
-  }
-
-  // A pack contributes rules, hooks, and knowledge bundles, so its presence
-  // implies all three aggregate units may need re-rendering.
-  const aggregateTypes = new Set<"rule" | "hook" | "knowledge">();
-  for (const { type, collection } of collections) {
-    if (collection.fragments.length === 0) continue;
-    if (type === "pack") {
-      aggregateTypes.add("rule");
-      aggregateTypes.add("hook");
-      aggregateTypes.add("knowledge");
-    } else if (type === "rule" || type === "hook" || type === "knowledge") {
-      aggregateTypes.add(type);
-    }
-  }
-  const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });
-
-  const holdbacks = normalizeReleaseAgeRecords(
-    collections.flatMap(({ collection }) => collection.holdbacks),
-  );
-  const bypasses = normalizeReleaseAgeRecords(
-    collections.flatMap(({ collection }) => collection.bypasses),
-  );
-  const failureSuggestions = collections
-    .flatMap(({ collection }) => collection.failureSuggestions)
-    .filter(
-      (suggestion, index, all) =>
-        all.findIndex(
-          (candidate) =>
-            candidate.description === suggestion.description && candidate.cmd === suggestion.cmd,
-        ) === index,
-    );
-
-  const settled: ConfiguredInstallPlanResult = {
-    _tag: "ConfiguredInstallPlan",
-    plan: {
-      _tag: "Plan",
-      name: args.planName,
-      description: args.planDescription,
-      presentation: operationPresentation(
-        { imperative: "install", past: "Installed", gerund: "Installing" },
-        Option.getOrUndefined(args.type),
+> = Effect.fn("InstallExtensions.buildConfiguredInstallPlan")(
+  function* (args: ConfiguredInstallRequest) {
+    // An unreadable window is the setting's own validation refusal; it travels
+    // unchanged so every path reports the same fact.
+    const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation().pipe(
+      Effect.mapError((cause) =>
+        cause._tag === "ExtensionResolutionFailed"
+          ? cause
+          : installRefused({
+              category: "internal",
+              detail: "Release-age policy could not be evaluated",
+              cause,
+            }),
       ),
-      jobs: [
-        {
-          concurrency: 1,
-          steps: [...fragments.map((fragment) => fragment.step), ...Option.toArray(projectionStep)],
-        },
-      ],
-      ...(holdbacks.length === 0 && bypasses.length === 0
-        ? {}
-        : {
-            releaseAge: {
-              evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
-              holdbacks,
-              bypasses,
-            },
-          }),
-      ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
-    },
-    configuredAgentOperations: configuredAgentOperationsFrom(collections),
-  };
-  return settled;
-});
+    );
+    const selectedTypes = installableExtensionTypes.filter((type) =>
+      Option.match(args.type, { onNone: () => true, onSome: (value) => value === type }),
+    );
+    // Packs resolve first: their proposed manifests are part of the one graph
+    // every configured entry selects within.
+    const packs = selectedTypes.includes("pack")
+      ? yield* collectPackPlans({
+          releaseAgeEvaluation,
+          nonInteractive: args.nonInteractive,
+          deferProjections: true,
+          forceCanonical: args.force,
+        })
+      : undefined;
+    const graph = packs?.graph ?? (yield* readProposedGraph([]));
+    const prepared = yield* Effect.forEach(
+      selectedTypes,
+      (type) =>
+        (type === "pack"
+          ? Effect.succeed(
+              packs ?? {
+                refs: [],
+                collect: () => Effect.succeed(toCollectedPlans({ plans: [] })),
+              },
+            )
+          : collectSimpleTypePlans(
+              type,
+              releaseAgeEvaluation,
+              args.nonInteractive,
+              args.force,
+              graph,
+            )
+        ).pipe(Effect.map((preparation) => ({ type, preparation }))),
+      { concurrency: 1 },
+    );
+    const projectionRefs = new Map<string, ExtensionRef>();
+    for (const ref of prepared.flatMap(({ preparation }) => preparation.refs)) {
+      if (ref.type !== "rule" && ref.type !== "hook" && ref.type !== "knowledge") continue;
+      if (
+        !graph.nodes.some(
+          (node) => node.type === ref.type && node.name === ref.name && node.enabled,
+        )
+      )
+        continue;
+      const key = `${ref.type}:${ref.name}`;
+      const previous = projectionRefs.get(key);
+      if (previous !== undefined && sourceRefContentKey(previous) !== sourceRefContentKey(ref)) {
+        return yield* installRefused({
+          category: "conflict",
+          detail: `Configured install selected conflicting native contributors for ${key}`,
+        });
+      }
+      projectionRefs.set(key, ref);
+    }
+    const selectedProjectionRefs = [...projectionRefs.values()];
+    const collections = yield* Effect.forEach(
+      prepared,
+      ({ type, preparation }) =>
+        preparation
+          .collect(selectedProjectionRefs)
+          .pipe(Effect.map((collection) => ({ type, collection }))),
+      { concurrency: 1 },
+    );
+    const fragments = collections.flatMap(({ collection }) => collection.fragments);
+
+    if (fragments.length === 0) {
+      const nothingConfigured: ConfiguredInstallPlanResult = {
+        _tag: "NoConfiguredExtensions",
+        message: noConfiguredMessage(args.type),
+      };
+      return nothingConfigured;
+    }
+
+    // A pack contributes rules, hooks, and knowledge bundles, so its presence
+    // implies all three aggregate units may need re-rendering.
+    const aggregateTypes = new Set<"rule" | "hook" | "knowledge">();
+    for (const { type, collection } of collections) {
+      if (collection.fragments.length === 0) continue;
+      if (type === "pack") {
+        aggregateTypes.add("rule");
+        aggregateTypes.add("hook");
+        aggregateTypes.add("knowledge");
+      } else if (type === "rule" || type === "hook" || type === "knowledge") {
+        aggregateTypes.add(type);
+      }
+    }
+    const projectionStep = yield* buildAggregateProjectionStep({ types: aggregateTypes });
+
+    const holdbacks = normalizeReleaseAgeRecords(
+      collections.flatMap(({ collection }) => collection.holdbacks),
+    );
+    const bypasses = normalizeReleaseAgeRecords(
+      collections.flatMap(({ collection }) => collection.bypasses),
+    );
+    const failureSuggestions = collections
+      .flatMap(({ collection }) => collection.failureSuggestions)
+      .filter(
+        (suggestion, index, all) =>
+          all.findIndex(
+            (candidate) =>
+              candidate.description === suggestion.description && candidate.cmd === suggestion.cmd,
+          ) === index,
+      );
+
+    const settled: ConfiguredInstallPlanResult = {
+      _tag: "ConfiguredInstallPlan",
+      plan: {
+        _tag: "Plan",
+        name: args.planName,
+        description: args.planDescription,
+        presentation: operationPresentation(
+          { imperative: "install", past: "Installed", gerund: "Installing" },
+          Option.getOrUndefined(args.type),
+        ),
+        jobs: [
+          {
+            concurrency: 1,
+            steps: [
+              ...fragments.map((fragment) => fragment.step),
+              ...Option.toArray(projectionStep),
+            ],
+          },
+        ],
+        ...(holdbacks.length === 0 && bypasses.length === 0
+          ? {}
+          : {
+              releaseAge: {
+                evaluatedAt: DateTime.formatIso(releaseAgeEvaluation.evaluatedAt),
+                holdbacks,
+                bypasses,
+              },
+            }),
+        ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
+      },
+      configuredAgentOperations: configuredAgentOperationsFrom(collections),
+    };
+    return settled;
+  },
+  (planning) =>
+    withWorkspaceReadView(planning).pipe(
+      Effect.mapError(configuredEntryResolutionRefused("workspace")),
+    ),
+);

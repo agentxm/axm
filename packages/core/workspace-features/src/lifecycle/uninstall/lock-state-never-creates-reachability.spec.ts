@@ -95,7 +95,7 @@ const makeWorkspace = (
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 8, skills: {}, ...lockfile }),
+    JSON.stringify({ lockfileVersion: 9, skills: {}, ...lockfile }),
   );
   return {
     root,

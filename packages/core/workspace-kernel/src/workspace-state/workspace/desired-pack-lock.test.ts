@@ -9,7 +9,6 @@ import { authorizeExternalPackRoutes } from "./desired-pack-lock.js";
 import { UNCONSTRAINED_DESIRED_NODE, type DesiredExtensionNode } from "./desired-state-graph.js";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
-import { decodePackManifestDocument } from "./pack-manifests.js";
 
 const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");
@@ -24,7 +23,6 @@ const manifest = {
   version,
   dependencies: {},
 } satisfies PackManifest;
-const manifestPath = "/workspace/agent_extensions/registry/@acme/packs/toolkit/pack.json";
 
 const externalPackNode: DesiredExtensionNode = {
   type: "pack",
@@ -52,74 +50,46 @@ const accepted = (
   },
   manifestVersion: version,
   manifestContentIdentity,
-  members: [],
+  dependencies: {},
   treeIntegrity,
 });
 
-/** The observation the evaluator hands the authorization, decoded from document text. */
-const observe = (contents: string) => {
-  const observation = decodePackManifestDocument(contents);
-  if (observation.status !== "decoded") throw new Error(`Expected a decoded manifest: ${contents}`);
-  return { manifest: observation.manifest, contentIdentity: observation.contentIdentity };
-};
-
 describe("authorizeExternalPackRoutes", () => {
   it("fails closed when an external configured Pack lacks an accepted resolution", () => {
-    const authorization = authorizeExternalPackRoutes({
-      node: externalPackNode,
-      accepted: undefined,
-      manifestPath,
-      ...observe(JSON.stringify(manifest)),
-    });
-    expect(authorization).toEqual({
+    expect(
+      authorizeExternalPackRoutes({
+        node: externalPackNode,
+        accepted: undefined,
+        declarationLocation: "axm-lock.yaml#packs.toolkit",
+      }),
+    ).toEqual({
       authorized: false,
       problem: expect.objectContaining({ type: "pack-resolution-unavailable" }),
     });
   });
 
-  it("accepts decoded-equivalent Pack manifest formatting", () => {
-    const authorization = authorizeExternalPackRoutes({
-      node: externalPackNode,
-      accepted: accepted(),
-      manifestPath,
-      ...observe(
-        JSON.stringify(
-          { dependencies: {}, version: "1.0.0", name: "toolkit", type: "pack", owner: "@acme" },
-          null,
-          2,
-        ),
-      ),
-    });
-    expect(authorization).toEqual({ authorized: true });
-  });
-
-  it("accepts unrecognised Pack manifest fields when semantic identity matches", () => {
-    const authorization = authorizeExternalPackRoutes({
-      node: externalPackNode,
-      accepted: accepted(),
-      manifestPath,
-      ...observe(JSON.stringify({ ...manifest, extra: 1 })),
-    });
-    expect(authorization).toEqual({ authorized: true });
-  });
-
-  it("rejects a Pack manifest semantic change with the accepted and observed identities", () => {
-    const authorization = authorizeExternalPackRoutes({
-      node: externalPackNode,
-      accepted: accepted(),
-      manifestPath,
-      ...observe(JSON.stringify({ ...manifest, dependencies: { "@evil/skills/injected": "*" } })),
-    });
-    expect(authorization).toEqual({
-      authorized: false,
-      problem: expect.objectContaining({
-        type: "pack-manifest-content-mismatch",
-        status: "changed",
-        path: manifestPath,
-        acceptedVersion: version,
-        acceptedContentIdentity: computePackManifestContentIdentity(manifest),
-        observedVersion: version,
+  it("authorizes matching accepted declarations without installed manifest evidence", () => {
+    expect(
+      authorizeExternalPackRoutes({
+        node: externalPackNode,
+        accepted: accepted(),
+        declarationLocation: "axm-lock.yaml#packs.toolkit",
       }),
+    ).toEqual({
+      authorized: true,
+    });
+  });
+
+  it("refuses an accepted declaration for a different Pack", () => {
+    expect(
+      authorizeExternalPackRoutes({
+        node: externalPackNode,
+        declarationLocation: "axm-lock.yaml#packs.toolkit",
+        accepted: { ...accepted(), identity: { owner, name: decodeExtensionNameSync("other") } },
+      }),
+    ).toEqual({
+      authorized: false,
+      problem: expect.objectContaining({ type: "pack-resolution-unavailable" }),
     });
   });
 });

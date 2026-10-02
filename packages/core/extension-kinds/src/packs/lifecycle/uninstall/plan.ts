@@ -30,6 +30,7 @@ import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
   DesiredStateReader,
+  observeDesiredCanonical,
   ConfiguredAgentOutcomesProvider,
   WorkspaceLocation,
   desiredPackageKey,
@@ -167,6 +168,42 @@ const retirementKey = (retirement: PackRetirement): string =>
 
 const retirementSetKey = (retirements: ReadonlyArray<PackRetirement>): string =>
   [...retirements].map(retirementKey).sort().join("\u0001");
+
+/** Accepted graph authority does not authorize deleting unverifiable package bytes. */
+const observePackRetirements = (
+  graph: DesiredStateGraph,
+  targets: ReadonlyArray<ResolvedPackUninstallTarget>,
+  declared: ReadonlyArray<PackRetirement>,
+) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const retirements = [...declared];
+    for (const target of targets) {
+      const node = graph.nodes.find(
+        (candidate) => candidate.type === "pack" && candidate.name === target.name,
+      );
+      if (node === undefined || node.identity.authority === "workspace") continue;
+      const { observation } = yield* observeDesiredCanonical(node).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "conflict",
+            detail: `Pack ${target.name} content could not be inspected`,
+            cause,
+          }),
+        ),
+      );
+      if (observation.status === "usable" || observation.path === undefined) continue;
+      retirements.push({
+        pack: desiredPackageKey(node.identity),
+        manifestPath: path.join(observation.path, "pack.json"),
+        reason:
+          observation.status === "missing" || observation.status === "incomplete"
+            ? "missing"
+            : "invalid",
+      });
+    }
+    return retirements;
+  });
 
 /**
  * Preview and apply must reach one decision from unchanged inputs. A target
@@ -374,12 +411,16 @@ export const planPackUninstall: (
   }
 
   const graph = graphReadiness.graph;
-  const plannedRetirements = graphReadiness.retirements;
+  const plannedRetirements = yield* observePackRetirements(
+    graph,
+    intent.packsToUninstall,
+    graphReadiness.retirements,
+  );
   const retirementByIdentity = new Map(
     plannedRetirements.map((retirement) => [retirement.pack, retirement]),
   );
-  // Only a selected pack can be retired, and members are never read from an
-  // unreadable manifest, so the lookup is keyed by the selected pack's name.
+  // Physical preservation is selected per Pack; its accepted dependency graph
+  // still identifies the members whose remaining reachability is evaluated.
   const retirementByPackName = new Map<string, PackRetirement>(
     intent.packsToUninstall.flatMap((pack) => {
       const retirement = retirementByIdentity.get(desiredPackageKey(pack.desiredIdentity));
@@ -621,7 +662,14 @@ export const planPackUninstall: (
       );
       yield* validatePackRetirementFacts({
         planned: plannedRetirements,
-        observed: currentReadiness.readiness === "ready" ? currentReadiness.retirements : undefined,
+        observed:
+          currentReadiness.readiness === "ready"
+            ? yield* observePackRetirements(
+                currentGraph,
+                intent.packsToUninstall,
+                currentReadiness.retirements,
+              )
+            : undefined,
       });
     }),
     validate: validatePackGraphPostcondition({ absent: orderedTargets }),

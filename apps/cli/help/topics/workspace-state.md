@@ -76,7 +76,7 @@ relationships are otherwise the same. Its runtime state is the inner
 
 ## Accepted external resolution
 
-Lockfile v8 contains only external resolutions. Every row has four authorities:
+Lockfile v9 contains only external resolutions. Every row has four authorities:
 a self-describing `source` locator, package `identity`, immutable `resolved`
 identity, and `treeIntegrity` for the complete materialized package tree.
 Registry rows pin the Registry URL, version, archive integrity, and publisher
@@ -84,6 +84,13 @@ binding. Git rows pin the repository URL, optional selected path and revision,
 commit, and tree. Path rows pin a workspace-relative path and tree identity.
 Workspace-authored, bundled, inline, projected, and command-history state does
 not belong in the lockfile.
+
+Acquired Pack rows also record their complete dependency declarations. Those
+accepted declarations preserve membership and constraints when installed Pack
+files are missing or changed. Authored Packs continue to use their current
+manifests. Settings determine the roots and activation; orphan lock rows never
+make a package desired. Knowing the dependency graph does not establish that
+its content is present or safe to project.
 
 Configured source names remain locator shorthand in `axm.json`; they are not
 lockfile identity. Unqualified Registry identifiers resolve through the
@@ -149,13 +156,18 @@ does not prevent other tools from changing acquired files and is not an
 integrity guarantee.
 
 Sync may resolve a desired external extension once when no accepted row exists.
-After acceptance, reinstall and sync use that exact identity; only update may
+After acceptance, repeated install and sync use that exact identity; update may
 advance it. If the source can no longer reproduce the locked identity, AXM
 blocks that affected work instead of substituting current bytes.
 
+Repeating install at the same accepted constraint restores missing or drifted
+acquired content. Ordinary sync and activation refuse to overwrite present
+drift. A valid, fully installed closure needs no source resolution or fetch on
+repeated install; restoring missing bytes may require network access.
+
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v8. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v9. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.

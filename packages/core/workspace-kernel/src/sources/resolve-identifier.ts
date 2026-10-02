@@ -24,7 +24,11 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { RegistryClientFactory } from "@agentxm/registry-client";
-import { WorkspaceCatalog } from "./workspace-catalog.js";
+import {
+  WorkspaceCatalog,
+  type ConfiguredSourceHost,
+  type DesiredExtensionGraphView,
+} from "./workspace-catalog.js";
 import { desiredPackageKey, unresolvedPackRoutes } from "../workspace-state/index.js";
 
 /**
@@ -46,6 +50,9 @@ export interface ResolvedIdentifier {
 }
 
 export interface ResolveIdentifierArgs {
+  /** The caller's captured local graph, shared across related identifier probes. */
+  readonly installedGraph?: DesiredExtensionGraphView;
+  readonly registrySources?: ReadonlyArray<ConfiguredSourceHost>;
   readonly input: string;
   readonly resourceType: IdentifierResourceType;
   readonly scope: IdentifierResolutionScope;
@@ -163,12 +170,13 @@ const dedupeCandidates = (
 const installedCandidates = (
   input: string,
   resourceType: IdentifierResourceType,
+  capturedGraph?: DesiredExtensionGraphView,
 ): Effect.Effect<ReadonlyArray<IdentifierCandidate>, SourceResolutionFailure, WorkspaceCatalog> =>
   Effect.gen(function* () {
     const catalog = yield* WorkspaceCatalog;
     const candidates: IdentifierCandidate[] = [];
 
-    const graph = yield* catalog.desiredExtensionGraph;
+    const graph = capturedGraph ?? (yield* catalog.desiredExtensionGraph);
     // A constraint conflict leaves membership intact, so identifiers still
     // resolve safely; the planner that selects a version reports the conflict.
     // Unresolved Pack routes or an identity problem leave the name set unknown.
@@ -225,6 +233,7 @@ const registryCandidates = (
   input: string,
   resourceType: IdentifierResourceType,
   registrySourceName: string,
+  capturedSources?: ReadonlyArray<ConfiguredSourceHost>,
 ): Effect.Effect<
   ReadonlyArray<IdentifierCandidate>,
   SourceResolutionFailure,
@@ -234,7 +243,7 @@ const registryCandidates = (
     const name = yield* decodeName(input);
     const catalog = yield* WorkspaceCatalog;
     const registryClients = yield* RegistryClientFactory;
-    const registrySources = (yield* catalog.registrySourceHosts).filter(
+    const registrySources = (capturedSources ?? (yield* catalog.registrySourceHosts)).filter(
       (source) => source.name === registrySourceName,
     );
 
@@ -352,7 +361,11 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
       }
 
       if (args.scope === "installed" || args.scope === "both") {
-        const installed = yield* installedCandidates(trimmed, args.resourceType);
+        const installed = yield* installedCandidates(
+          trimmed,
+          args.resourceType,
+          args.installedGraph,
+        );
         if (installed.length > 0) {
           return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", installed);
         }
@@ -376,7 +389,11 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
 
     switch (args.scope) {
       case "installed": {
-        const candidates = yield* installedCandidates(trimmed, args.resourceType);
+        const candidates = yield* installedCandidates(
+          trimmed,
+          args.resourceType,
+          args.installedGraph,
+        );
         return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
       }
       case "registry": {
@@ -384,11 +401,16 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
           trimmed,
           args.resourceType,
           args.registrySourceName,
+          args.registrySources,
         );
         return yield* resolveFromCandidates(trimmed, args.resourceType, args.scope, candidates);
       }
       case "both": {
-        const installed = yield* installedCandidates(trimmed, args.resourceType);
+        const installed = yield* installedCandidates(
+          trimmed,
+          args.resourceType,
+          args.installedGraph,
+        );
         if (installed.length > 0) {
           return yield* resolveFromCandidates(trimmed, args.resourceType, "installed", installed);
         }
@@ -396,6 +418,7 @@ export const resolveIdentifier = (args: ResolveIdentifierArgs) =>
           trimmed,
           args.resourceType,
           args.registrySourceName,
+          args.registrySources,
         );
         return yield* resolveFromCandidates(trimmed, args.resourceType, "registry", registry);
       }

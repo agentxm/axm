@@ -14,6 +14,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import type { PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
+import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
 import type { Settings, SourceHostConfig } from "../desired/settings/index.js";
@@ -66,7 +67,7 @@ export interface DesiredStateReaderService {
   ) => Effect.Effect<DesiredStateGraph, WorkspaceStateReadFailure>;
   /**
    * Re-evaluate a captured base under proposed settings. The proposal keeps
-   * the base's inherited settings, accepted resolutions, and every Pack
+   * the base's inherited settings, accepted resolutions, and every authored Pack
    * document it already observed; only a document the proposal relocates or
    * adds is read.
    */
@@ -101,7 +102,7 @@ export interface CaptureDesiredStateInputsArgs {
   readonly acceptedResolutions?: Lockfile;
   /** Proposed manifests that supersede the materialized copy of the Pack they name. */
   readonly prospectivePacks?: ReadonlyArray<ProspectivePackRef>;
-  /** A captured view whose materialized documents are reused when still located at the same path. */
+  /** A captured view whose authored documents are reused when still located at the same path. */
   readonly reuse?: DesiredEvaluationInputs;
   /** The authoritative documents the caller already read for this collection. */
   readonly readSet?: ReadonlyArray<DesiredInputRead>;
@@ -119,7 +120,7 @@ const registryEndpointsOf = (
 /**
  * Capture the explicit input view: derive the Registry bindings from the
  * selected and inherited settings, then locate and observe each configured
- * Pack's document exactly once. A proposal's manifest is recorded with its
+ * authored Pack's document once. External Packs use accepted declarations. A proposal's manifest is recorded with its
  * provenance instead of being read.
  */
 export const captureDesiredStateInputs = (
@@ -145,7 +146,7 @@ export const captureDesiredStateInputs = (
     const prospectivePacks = args.prospectivePacks ?? [];
     const reusable = new Map(
       (args.reuse?.packDocuments ?? [])
-        .filter((document) => document.provenance.kind === "materialized")
+        .filter((document) => document.provenance.kind === "authored")
         .map((document) => [document.settingsName, document] as const),
     );
 
@@ -186,14 +187,40 @@ export const captureDesiredStateInputs = (
         };
         packDocuments.push({
           settingsName,
-          path: located.path,
-          relativePath: located.relativePath,
+          path: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
+          relativePath: `proposed ${proposal.owner}/packs/${proposal.pack.name}`,
           observation: {
             status: "decoded",
             manifest,
             contentIdentity: computePackManifestContentIdentity(manifest),
           },
           provenance: { kind: "proposed", ref: proposal },
+        });
+        continue;
+      }
+      if (identity.identity.authority !== "workspace") {
+        const lockPath =
+          args.readSet?.find((read) => read.role === "accepted-resolutions")?.path ?? LOCKFILE_NAME;
+        const rowPath = `${LOCKFILE_NAME}#packs.${settingsName}`;
+        packDocuments.push({
+          settingsName,
+          path: `${lockPath}#packs.${settingsName}`,
+          relativePath: rowPath,
+          observation:
+            accepted === undefined
+              ? { status: "absent" }
+              : {
+                  status: "decoded",
+                  manifest: {
+                    owner: accepted.identity.owner,
+                    type: "pack",
+                    name: accepted.identity.name,
+                    version: accepted.manifestVersion,
+                    dependencies: accepted.dependencies,
+                  },
+                  contentIdentity: accepted.manifestContentIdentity,
+                },
+          provenance: { kind: "accepted-lock", lockPath, settingsName },
         });
         continue;
       }
@@ -208,7 +235,7 @@ export const captureDesiredStateInputs = (
         path: located.path,
         relativePath: located.relativePath,
         observation,
-        provenance: { kind: "materialized" },
+        provenance: { kind: "authored" },
       });
     }
 
@@ -223,7 +250,7 @@ export const captureDesiredStateInputs = (
       readSet: [
         ...(args.readSet ?? []),
         ...packDocuments.flatMap((document) =>
-          document.provenance.kind === "materialized"
+          document.provenance.kind === "authored"
             ? [{ path: document.path, role: "pack-manifest" as const }]
             : [],
         ),
@@ -290,6 +317,9 @@ export const makeDesiredStateReader = (
         builtInSources: location.builtInSources,
         layout,
         acceptedResolutions: base.inputs.acceptedResolutions,
+        prospectivePacks: base.inputs.packDocuments.flatMap((document) =>
+          document.provenance.kind === "proposed" ? [document.provenance.ref] : [],
+        ),
         reuse: base.inputs,
         readSet: base.inputs.readSet.filter((read) => read.role !== "pack-manifest"),
       });

@@ -697,7 +697,7 @@ export const collectMaterializeSteps = (args: {
 
     const selectable = selectedDesiredNodes(desiredState, selection)
       .filter(isSourcedDesiredExtension)
-      .filter((node) => node.type !== "pack" || !node.enabled);
+      .filter((node) => node.type !== "pack" || !args.packRecovery?.packNames.has(node.name));
     const problemBlocked = selectable.flatMap((node) => {
       const problems = subjectBlockers(node);
       return problems.length === 0 ? [] : [{ node, problems }];
@@ -762,6 +762,17 @@ export const collectMaterializeSteps = (args: {
               category: "conflict",
               detail: `${node.type} ${node.name}: configured source differs from accepted authority; explicitly reinstall or change source before syncing`,
             });
+          if (
+            accepted !== undefined &&
+            (observation.status === "corrupt" ||
+              observation.status === "incomplete" ||
+              observation.status === "materialization-mismatch")
+          ) {
+            return yield* new WorkspaceSyncFailed({
+              category: "conflict",
+              detail: `${node.type} ${node.name}: present package content differs from the accepted resolution; repeat its install to restore accepted content before syncing`,
+            });
+          }
           const forceCanonical = observation.status !== "usable";
           const resolved = yield* Effect.gen(function* () {
             const usable = yield* usableAcceptedCanonicalFrom(canonical);

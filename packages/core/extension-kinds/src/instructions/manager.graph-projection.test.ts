@@ -208,7 +208,7 @@ describe("RuleManager graph-derived region projection", () => {
           baseDir,
           runtimeDir: axmDir,
           settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
-          lockfile: { lockfileVersion: 8, skills: {}, rules: args.locked },
+          lockfile: { lockfileVersion: 9, skills: {}, rules: args.locked },
           graph: args.graph,
         }),
       ),

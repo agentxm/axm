@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import { startLifecycleRegistry, type RequestMetrics } from "./lifecycle-registry.js";
 import { startLifecycleGitSource, writeSkillPackage } from "./lifecycle-sources.js";
 
-const fixtureVersion = 5;
+const fixtureVersion = 6;
 const fixtureSizes = [1, 10, 50, 200] as const;
 const commandTimeoutMs = 600_000;
 const archiveBodyDelayMs = 25;
@@ -51,6 +51,8 @@ const largeBody = (): string => {
 
 type Scenario =
   | "cold-configured-install"
+  | "warm-configured-install"
+  | "ordinary-list"
   | "cold-configured-sync"
   | "install-preview"
   | "no-op-sync"
@@ -655,6 +657,15 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                   yield* invoke(["sync", "--preview"]),
                 );
                 measure(append, mode, "no-op-sync", count, "warm", yield* invoke(["sync"]));
+                measure(
+                  append,
+                  mode,
+                  "warm-configured-install",
+                  count,
+                  "warm",
+                  yield* invoke(["install"]),
+                );
+                measure(append, mode, "ordinary-list", count, "warm", yield* invoke(["list"]));
 
                 const firstName = names[0];
                 if (firstName === undefined)

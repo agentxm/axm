@@ -15,10 +15,9 @@ accepted external resolutions and their provenance. User scope keeps the same
 authority in `~/.axm/workspace/axm-lock.yaml`. It is a reproducible-resolution snapshot
 used by planning, materialization, update, reinstall, and cleanup.
 
-Settings and workspace-authored manifests remain the only authority for desired
-intent and reachability. The lockfile answers which immutable external content
-AXM accepted for a desired source; it never answers whether an extension is
-desired (the executable specification
+Settings establish desired roots and activation. Workspace-authored manifests
+supply authored Pack dependencies; matching accepted Pack rows supply acquired
+Pack dependencies. A lock row alone never creates a desired root (the executable specification
 `cli/lock-state-never-creates-reachability` in the
 [specification catalog](../../../specifications/catalog.md) owns the
 obligation).
@@ -32,7 +31,7 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a path content identity.
 
-The current strict version is version 8. Every acquired package row separates
+The current strict version is version 9. Every acquired package row separates
 four facts: a self-describing `source` locator, declared package `identity`, the
 family-specific immutable `resolved` result, and `treeIntegrity` for the
 complete installed package tree under
@@ -61,7 +60,7 @@ by schemas and behavior tests. The architectural requirement is that the row
 identify one accepted external result and support verification or exact
 rematerialization where the source can still reproduce it.
 
-A satisfying accepted resolution remains stable during sync. `update` owns
+A satisfying accepted resolution remains stable during install and sync. `update` owns
 advancement. A desired external extension without a row may resolve once and
 atomically establish one; AXM never infers a row from installed bytes, obsolete
 state, or prior command history.
@@ -70,9 +69,9 @@ state, or prior command history.
 
 The lockfile does not:
 
-- express direct membership, activation, constraints, or workspace capability
+- express direct membership, activation, direct constraints, or workspace capability
   configuration;
-- create Pack-member reachability or retain otherwise unreachable content (the
+- create roots or retain otherwise unreachable content (the
   executable specification
   `cli/lock-state-never-creates-reachability` owns the obligation);
 - establish authorship or ownership of agent-native output;
@@ -82,8 +81,13 @@ The lockfile does not:
 - authorize overwrite or removal without the applicable ownership and desired-
   graph evidence.
 
-Pack-member metadata in a lock row can verify the accepted Pack manifest but
-cannot independently contribute dependency edges. Inline MCP definitions,
+An acquired Pack row records its complete dependency declarations, including
+version ranges and explicit Registry authorities, alongside its manifest version
+and semantic content identity. A configured Pack that matches that row derives
+its dependency edges from this declaration even when installed files are absent
+or changed. Git and path rows retain the source root used by inherited members.
+Selected member resolutions remain in their own per-kind maps; updating one
+member does not rewrite its owning Packs. Inline MCP definitions,
 workspace-authored content, and bundled content have no artificial external-
 resolution rows.
 
@@ -96,7 +100,9 @@ canonical content or its accepted row; removing the final route does.
 Desired state supplies the need and constraint; source resolution supplies an
 eligible result; verification establishes immutable identity; and the lockfile
 records the accepted result. Copying data among these surfaces does not transfer
-their authority.
+their authority. Acquired Pack manifests are verified against the proposed
+declaration before publication. The declaration's semantic hash also detects
+inconsistent lock metadata; it is not a signature or an authenticity guarantee.
 
 Sync and reinstall rematerialize only the exact locked identity. When a mutable
 Git or path source no longer reproduces that identity and canonical
@@ -107,9 +113,17 @@ new identity within durable version intent.
 Present byte drift in acquired external canonical content does not alter the
 lock row or transfer authorship. It does make the accepted installed tree
 untrustworthy as projection or publication input: affected reads, mutation
-closures, and preflight checks block until explicit `reinstall`, `update`, or
+closures, and preflight checks block until explicit install, `update`, or
 `fork` establishes valid authority again. AXM does not silently overwrite the
-drift during ordinary sync.
+drift during ordinary sync or activation. Repeating install at the same accepted
+constraint authorizes exact restoration without resolving a newer version.
+
+Queries and stable planning phases share captured configuration, accepted rows,
+desired evaluation, and observations. Graph knowledge and observed content health
+remain separate: inventory still discovers local and unmanaged content, and
+physical checks still govern projection and deletion. A new query, apply-time
+validation, or an observation after a write or rollback acquires a fresh view.
+Persistence writers always read current authoritative state.
 
 ## Invalid and incompatible state
 

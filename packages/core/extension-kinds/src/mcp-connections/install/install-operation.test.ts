@@ -135,7 +135,7 @@ const acceptedCanonicalTrees = (
         };
       }
     }
-    return { lockfileVersion: 8, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
+    return { lockfileVersion: 9, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
   }).pipe(Effect.provide(NodeServices.layer));
 
 const withServices = (

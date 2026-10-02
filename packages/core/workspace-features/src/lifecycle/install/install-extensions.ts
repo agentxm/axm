@@ -45,6 +45,7 @@ import {
 
 import {
   makeConfiguredReleaseAgeEvaluation,
+  acceptedPackDependencyResolver,
   type ExtensionResolutionFailed,
 } from "@agentxm/workspace-kernel/resolution";
 
@@ -83,6 +84,7 @@ import {
 } from "@agentxm/extension-kinds/skills";
 import { planSubagentInstall } from "@agentxm/extension-kinds/subagents";
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
+import { acceptedInstallRequestRefs } from "./accepted-request.js";
 import {
   discoverInstallRefs,
   finalizeInstallRefs,
@@ -298,10 +300,19 @@ const settleSourceInstall = <T extends SourceInstallType>(
     const names = selectors.length > 0 ? selectors : parsedSource.names;
     const parsed = { ...parsedSource, names };
     const isRequestedType = (ref: ExtensionRef): ref is SourceInstallRef<T> => ref.type === type;
+    const repeated = yield* acceptedInstallRequestRefs({
+      type,
+      source: parsed.source,
+      names,
+      versionRange: parsed.versionRange,
+      force: request.reinstall,
+    });
     const accepted =
-      request.reinstall && parsed.source.type === "git"
-        ? yield* findGitReinstallRefs(parsed.source, type, names)
-        : [];
+      repeated.length > 0
+        ? repeated
+        : request.reinstall && parsed.source.type === "git"
+          ? yield* findGitReinstallRefs(parsed.source, type, names)
+          : [];
     const acceptedRefs = accepted.filter(isRequestedType);
     const discovered =
       acceptedRefs.length > 0 ? acceptedRefs : yield* discoverInstallRefs(type, parsed);
@@ -425,10 +436,20 @@ const planForType = (
           effectiveSelectors.length > 0
             ? effectiveSelectors
             : Option.toArray(Option.orElse(parsed.localName, () => parsed.serverName));
+        const repeated = yield* acceptedInstallRequestRefs({
+          type,
+          source: sourceRequest.source,
+          names: selectedNames,
+          versionRange: parsed.versionRange,
+          force: request.reinstall,
+          ...(Option.isSome(parsed.localName) ? { localName: parsed.localName.value } : {}),
+        });
         const accepted =
-          request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findGitReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
-            : [];
+          repeated.length > 0
+            ? repeated
+            : request.reinstall && sourceRequest.source.type === "git"
+              ? yield* findGitReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
+              : [];
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
         const discovered =
           acceptedMcpServers.length > 0
@@ -494,14 +515,23 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolvePackSourceRequest(parsed);
+        const repeated = yield* acceptedInstallRequestRefs({
+          type,
+          source: sourceRequest.source,
+          names: selectors.length > 0 ? selectors : Option.toArray(sourceRequest.packName),
+          versionRange: parsed.versionRange,
+          force: request.reinstall,
+        });
         const accepted =
-          request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findGitReinstallRefs(
-                sourceRequest.source,
-                "pack",
-                Option.toArray(sourceRequest.packName),
-              )
-            : [];
+          repeated.length > 0
+            ? repeated
+            : request.reinstall && sourceRequest.source.type === "git"
+              ? yield* findGitReinstallRefs(
+                  sourceRequest.source,
+                  "pack",
+                  Option.toArray(sourceRequest.packName),
+                )
+              : [];
         const acceptedPacks = accepted.filter((ref) => ref.type === "pack");
         const implicitSelectors = Option.toArray(sourceRequest.packName);
         const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
@@ -542,6 +572,9 @@ const planForType = (
             return yield* planPackInstall({
               ...intent,
               packToInstall: ref,
+              ...(acceptedPacks.length > 0
+                ? { dependencyResolver: acceptedPackDependencyResolver() }
+                : {}),
               ...(request.reinstall ? { forceCanonical: true } : {}),
             });
           }),

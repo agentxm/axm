@@ -20,7 +20,13 @@ import type { PackManifestObservation } from "./pack-manifests.js";
 
 /** Where a Pack document observation came from. */
 export type PackDocumentProvenance =
-  | { readonly kind: "materialized" }
+  | { readonly kind: "authored" }
+  | {
+      /** Accepted dependency authority, independent of installed Pack content. */
+      readonly kind: "accepted-lock";
+      readonly lockPath: string;
+      readonly settingsName: string;
+    }
   | {
       /** A planner's proposal that supersedes the materialized copy without publishing it. */
       readonly kind: "proposed";
@@ -31,6 +37,7 @@ export type PackDocumentProvenance =
 export interface ObservedPackDocument {
   /** The `packs` settings key the document was located for. */
   readonly settingsName: string;
+  /** Authored manifest path, accepted lock row, or proposal identity. */
   readonly path: string;
   readonly relativePath: string;
   readonly observation: PackManifestObservation;

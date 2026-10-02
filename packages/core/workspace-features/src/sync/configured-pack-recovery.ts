@@ -59,6 +59,7 @@ import { withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
 import {
   acceptedCanonicalObservation,
   acceptedLockedResolutionRef,
+  observeDesiredCanonical,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
   acquisitionConfiguredEntries,
@@ -73,6 +74,7 @@ import {
   buildReconciliationClosure,
   recoverableExternalPackName,
   scopedProblems,
+  selectedDesiredNodes,
   SYNC_RECOVERY_IDS,
   targetFromRef,
   WorkspaceSyncFailed,
@@ -189,6 +191,15 @@ export const collectConfiguredPackRecovery = (args: {
         return name === undefined ? [] : [name];
       }),
     );
+    // Accepted dependency declarations keep the graph complete when a Pack's
+    // acquired directory is absent. Its missing root still needs the same
+    // atomic root-and-members recovery as a first configured acquisition.
+    for (const node of selectedDesiredNodes(graph, args.selection)) {
+      if (node.type !== "pack" || !node.enabled || node.identity.authority === "workspace")
+        continue;
+      const canonical = yield* observeDesiredCanonical(node);
+      if (canonical.observation.status === "missing") packNames.add(node.name);
+    }
     if (packNames.size === 0) return undefined;
 
     const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
@@ -207,8 +218,8 @@ export const collectConfiguredPackRecovery = (args: {
           source: entry.source,
           releaseAgeEvaluation,
           nonInteractive: true,
-          // The observed tree already diverged from the accepted resolution,
-          // so reusing it would preserve the divergence.
+          // Recovery is only for absent content or a first acceptance. Present
+          // drift remains an explicit install operation.
           forceCanonical: true,
         }).pipe(
           Effect.map((resolve) => ({ name, resolve })),
@@ -300,6 +311,23 @@ export const collectConfiguredPackRecovery = (args: {
                 };
           }
           const memberRefs = selection.refs.filter((ref) => ref.type !== "pack");
+          for (const ref of memberRefs) {
+            const desired = proposedGraph.nodes.find(
+              (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
+            );
+            if (desired === undefined) continue;
+            const canonical = yield* observeDesiredCanonical(desired);
+            if (
+              canonical.accepted !== undefined &&
+              (canonical.observation.status === "corrupt" ||
+                canonical.observation.status === "incomplete" ||
+                canonical.observation.status === "materialization-mismatch")
+            ) {
+              return blocked(
+                `${ref.type} ${desired.name}: present package content differs from the accepted resolution; repeat its install to restore accepted content before syncing`,
+              );
+            }
+          }
           const packStep = {
             ...(yield* recoveryStep({ ref: packRef, adapter: args.adapter })),
             key,

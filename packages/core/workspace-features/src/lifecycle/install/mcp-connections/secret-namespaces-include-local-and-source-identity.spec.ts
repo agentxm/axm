@@ -125,7 +125,7 @@ const resetWorkspaceAuthority = (world: InstallWorld): void => {
       2,
     ),
   );
-  world.workspace.writeFile("axm-lock.yaml", JSON.stringify({ lockfileVersion: 8, skills: {} }));
+  world.workspace.writeFile("axm-lock.yaml", JSON.stringify({ lockfileVersion: 9, skills: {} }));
 };
 
 describe("MCP secrets for locally named connections", () => {

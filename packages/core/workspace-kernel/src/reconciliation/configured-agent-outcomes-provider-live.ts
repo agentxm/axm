@@ -59,6 +59,9 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
     const hookManager = yield* HookManager;
     // The provider's members answer with no requirements of their own, so this
     // layer is the boundary that composes what the manager needs.
+    const settings = yield* SettingsReader;
+    const locks = yield* LockfileReader;
+    const desired = yield* DesiredStateReader;
     const managerLayer = Layer.mergeAll(
       Layer.succeed(CodingAgentRepository, yield* CodingAgentRepository),
       Layer.succeed(FileSystem.FileSystem, yield* FileSystem.FileSystem),
@@ -66,10 +69,14 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       Layer.succeed(RegistryClientFactory, yield* RegistryClientFactory),
       Layer.succeed(NativeWriteAuthority, yield* NativeWriteAuthority),
       Layer.succeed(WorkspaceLocation, yield* WorkspaceLocation),
-      Layer.succeed(SettingsReader, yield* SettingsReader),
-      Layer.succeed(LockfileReader, yield* LockfileReader),
-      Layer.succeed(DesiredStateReader, yield* DesiredStateReader),
     );
+    const managerLayerFor = (request: ConfiguredAgentOutcomesRequest) =>
+      Layer.mergeAll(
+        managerLayer,
+        Layer.succeed(SettingsReader, request.readers?.settings ?? settings),
+        Layer.succeed(LockfileReader, request.readers?.locks ?? locks),
+        Layer.succeed(DesiredStateReader, request.readers?.desired ?? desired),
+      );
     const mapFailure = (failure: Parameters<typeof adapter.toStepFailure>[0]) => {
       const step = adapter.toStepFailure(failure);
       return new ConfiguredAgentOutcomesUnavailable({
@@ -180,7 +187,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               return [row.name, fromNative(request, row.name, nativeLocations)] as const;
             }),
           );
-        }).pipe(Effect.provide(managerLayer), Effect.mapError(mapFailure));
+        }).pipe(Effect.provide(managerLayerFor(request)), Effect.mapError(mapFailure));
     return {
       byExtensionType: {
         rule: aggregate(rules),
@@ -193,7 +200,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                 ? []
                 : yield* hookManager
                     .configuredAgentOutcomes(request.state)
-                    .pipe(Effect.provide(managerLayer), Effect.mapError(mapFailure));
+                    .pipe(Effect.provide(managerLayerFor(request)), Effect.mapError(mapFailure));
             return new Map(
               [...observations].map(([name, observed]) => [
                 name,
@@ -254,7 +261,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               }),
             );
             return new Map<string, ConfiguredExtensionObservation>(rows);
-          }).pipe(Effect.provide(managerLayer), Effect.mapError(mapFailure)),
+          }).pipe(Effect.provide(managerLayerFor(request)), Effect.mapError(mapFailure)),
         "mcp-server": (request: ConfiguredAgentOutcomesRequest) =>
           Effect.gen(function* () {
             const location = yield* WorkspaceLocation;
@@ -315,7 +322,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
             );
             return new Map<string, ConfiguredExtensionObservation>(rows);
           }).pipe(
-            Effect.provide(managerLayer),
+            Effect.provide(managerLayerFor(request)),
             Effect.mapError(
               (cause) =>
                 new ConfiguredAgentOutcomesUnavailable({
@@ -327,7 +334,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
           ),
         skill: (request: ConfiguredAgentOutcomesRequest) =>
           observeConfiguredSkillLocations(request).pipe(
-            Effect.provide(managerLayer),
+            Effect.provide(managerLayerFor(request)),
             Effect.mapError(
               (cause) =>
                 new ConfiguredAgentOutcomesUnavailable({

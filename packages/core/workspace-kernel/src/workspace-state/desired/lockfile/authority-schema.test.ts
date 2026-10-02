@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
+import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   LOCK_ENTRY_SCHEMA_BY_TYPE,
@@ -19,10 +20,10 @@ describe("authoritative external-resolution lockfile", () => {
   });
 
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(8);
+    expect(LOCKFILE_VERSION).toBe(9);
     expect(
-      decodeLockfile({ lockfileVersion: 8, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 8, skills: {} });
+      decodeLockfile({ lockfileVersion: 9, skills: {} }, { onExcessProperty: "error" }),
+    ).toEqual({ lockfileVersion: 9, skills: {} });
     expect(() =>
       decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();
@@ -106,7 +107,7 @@ describe("authoritative external-resolution lockfile", () => {
   it("round-trips every self-describing source locator", () => {
     const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
     const lockfile = {
-      lockfileVersion: 8,
+      lockfileVersion: 9,
       skills: {
         git: {
           source: {
@@ -176,7 +177,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
   });
 
-  it("stores Registry Pack manifest identity without receipt-derived member maps", () => {
+  it("stores Registry Pack dependency constraints with a consistent semantic identity", () => {
     const pack = {
       source: { type: "registry", url: "https://registry.agentxm.ai" },
       identity: { owner: "@acme", name: "toolkit" },
@@ -186,8 +187,14 @@ describe("authoritative external-resolution lockfile", () => {
         publisherBindingId: "hbnd_acme",
       },
       manifestVersion: "2.0.0",
-      manifestContentIdentity: "sha256-pack-manifest",
-      members: ["@acme/skills/review"],
+      manifestContentIdentity: computePackManifestContentIdentity({
+        owner: "@acme",
+        type: "pack",
+        name: "toolkit",
+        version: "2.0.0",
+        dependencies: { "@acme/skills/review": "^1.0.0" },
+      }),
+      dependencies: { "@acme/skills/review": "^1.0.0" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
     };
 
@@ -196,6 +203,20 @@ describe("authoritative external-resolution lockfile", () => {
         onExcessProperty: "error",
       }),
     ).toEqual({ ...pack, source: { ...pack.source, url: new URL(pack.source.url) } });
+    for (const invalid of [
+      { ...pack, dependencies: undefined },
+      { ...pack, dependencies: { "@acme/packs/nested": "*" } },
+      { ...pack, dependencies: { "@acme/skills/review": "^2.0.0" } },
+      { ...pack, manifestContentIdentity: "inconsistent" },
+      { ...pack, manifestVersion: "1.0.0" },
+      { ...pack, members: ["@acme/skills/review"] },
+    ]) {
+      expect(() =>
+        Schema.decodeUnknownSync(PackLockEntrySchema)(invalid, {
+          onExcessProperty: "error",
+        }),
+      ).toThrow();
+    }
     expect(() =>
       Schema.decodeUnknownSync(PackLockEntrySchema)(
         { ...pack, resolvedSkills: {} },
@@ -204,7 +225,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
   });
 
-  it("round-trips local Pack authority with its declared member list", () => {
+  it("round-trips local Pack authority with its dependency declarations", () => {
     const pack = {
       source: { type: "path", path: "catalog/packs/toolkit" },
       sourceRoot: "catalog",
@@ -212,8 +233,14 @@ describe("authoritative external-resolution lockfile", () => {
       resolved: { tree: "sha256-pack-content" },
       treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
       manifestVersion: "2.0.0",
-      manifestContentIdentity: "sha256-pack-manifest",
-      members: ["@acme/skills/review", "@acme/rules/house-style"],
+      manifestContentIdentity: computePackManifestContentIdentity({
+        owner: "@acme",
+        type: "pack",
+        name: "toolkit",
+        version: "2.0.0",
+        dependencies: { "@acme/skills/review": "^1.0.0", "@acme/rules/house-style": "*" },
+      }),
+      dependencies: { "@acme/skills/review": "^1.0.0", "@acme/rules/house-style": "*" },
     };
 
     expect(
@@ -229,7 +256,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 8, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 9, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

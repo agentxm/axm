@@ -19,7 +19,6 @@ import {
   DesiredStateReader,
   acceptedLockedResolutionRef,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { hydrateAcceptedPackRef } from "@agentxm/workspace-kernel/resolution";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { installRefused } from "@agentxm/workspace-kernel/operations";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
@@ -29,25 +28,14 @@ const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
   Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
   Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
 
-const reacquireAcceptedGitRef = (
-  ref: Extract<ExtensionRef, { readonly refType: "git-hosted" }>,
-  configuredName: string,
-) =>
+const reacquireAcceptedGitRef = (ref: Extract<ExtensionRef, { readonly refType: "git-hosted" }>) =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const lockedCandidate =
-      ref.type === "pack" ? yield* hydrateAcceptedPackRef(configuredName, ref) : ref;
-    if (lockedCandidate.refType !== "git-hosted") {
-      return yield* installRefused({
-        category: "conflict",
-        detail: `Accepted Git resolution for ${configuredName} changed source family`,
-      });
-    }
     const fetched = yield* sources
-      .fetch(lockedCandidate)
+      .fetch(ref)
       .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
     return {
-      ...lockedCandidate,
+      ...ref,
       location: toFileLocation(fetched.directory),
     } satisfies ExtensionRef;
   });
@@ -80,7 +68,7 @@ export const findGitReinstallRefs = (
               onNone: () => Effect.succeed(Option.none<ExtensionRef>()),
               onSome: (ref) =>
                 ref.refType === "git-hosted" && sameGitLocator(ref.source, source)
-                  ? reacquireAcceptedGitRef(ref, node.name).pipe(Effect.map(Option.some))
+                  ? reacquireAcceptedGitRef(ref).pipe(Effect.map(Option.some))
                   : Effect.succeed(Option.none<ExtensionRef>()),
             }),
           ),
@@ -118,5 +106,5 @@ export const pinGitReinstallRef = (
       return ref;
     }
 
-    return yield* reacquireAcceptedGitRef(accepted.value, configuredName);
+    return yield* reacquireAcceptedGitRef(accepted.value);
   });

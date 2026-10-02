@@ -10,6 +10,7 @@ import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "../../../settlement/live.js";
 import { WorkspaceFileWriteLocks } from "../../../settlement/index.js";
 import { WorkspaceStateLive } from "../../live.js";
+import { WorkspaceLocation } from "../../workspace/location.js";
 import { AcceptedResolutionWriter } from "../../workspace/accepted-resolution-writer.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Schema from "effect/Schema";
@@ -64,7 +65,7 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: { review: localEntry("../sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
@@ -79,7 +80,7 @@ describe("lockfile", () => {
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 8, skills: {} };
+    const base: Lockfile = { lockfileVersion: 9, skills: {} };
     const result = applyLockfileUpdates(base, [
       (lockfile) => ({ ...lockfile, skills: { review: localEntry("../one") } }),
       (lockfile) => ({
@@ -93,9 +94,9 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 8, skills: {} };
+        const base: Lockfile = { lockfileVersion: 9, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: { existing: localEntry("../existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
@@ -113,15 +114,15 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: { review: localEntry("../old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: { ...base.skills, independent: localEntry("../independent", "independent") },
         });
         const next: Lockfile = {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: { review: localEntry("../new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
@@ -134,19 +135,19 @@ describe("lockfile", () => {
   it.effect.each([
     {
       fault: "an unrecognised key",
-      raw: "lockfileVersion: 8\nskills: {}\nextra: 1\n",
+      raw: "lockfileVersion: 9\nskills: {}\nextra: 1\n",
       error: LockfileDecodeError,
     },
     {
       fault: "an unsupported version",
-      raw: "lockfileVersion: 9\nskills: {}\n",
+      raw: "lockfileVersion: 10\nskills: {}\n",
       error: LockfileVersionUnsupported,
     },
   ])("refuses a commit reread with $fault without changing the file", ({ raw, error }) =>
     run(
       Effect.gen(function* () {
         const target = path.join(root, "axm-lock.yaml");
-        const base: Lockfile = { lockfileVersion: 8, skills: {} };
+        const base: Lockfile = { lockfileVersion: 9, skills: {} };
         fs.writeFileSync(target, raw);
 
         const failure = yield* Effect.flip(commitLockfileSnapshotUpdateAtPath(target, base, base));
@@ -187,7 +188,7 @@ describe("lockfile", () => {
           ],
           { concurrency: "unbounded" },
         );
-        const target = path.join(root, "axm-lock.yaml");
+        const target = Context.get(first, WorkspaceLocation).lockPath;
         expect((yield* Ref.get(calls)).filter((call) => call === target)).toEqual([target, target]);
         const written = Schema.decodeUnknownSync(LockfileSchema)(
           YAML.parse(fs.readFileSync(target, "utf8")),

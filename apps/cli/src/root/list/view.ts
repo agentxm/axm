@@ -82,16 +82,13 @@ const ExtensionListColumns = [
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
-const guidanceFor = (item: ExtensionListItem, filter: ExtensionListFilter): string => {
-  if (filter === "all") {
-    return item.assessment.state === "deprecated" ? `axm view ${item.ref} deprecation` : "-";
-  }
+const guidanceFor = (item: ExtensionListItem): string => {
   const deprecation = item.assessment.deprecation;
   if (deprecation === undefined) return "-";
   return formatDeprecationWarning(item.ref, deprecation);
 };
 
-const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableRow => ({
+const toRow = (item: ExtensionListItem): ListTableRow => ({
   extension: item.ref,
   type: item.type,
   management: item.management,
@@ -100,7 +97,7 @@ const toRow = (item: ExtensionListItem, filter: ExtensionListFilter): ListTableR
   version: item.version ?? ABSENT,
   source: item.source ?? ABSENT,
   state: item.assessment.state,
-  guidance: guidanceFor(item, filter),
+  guidance: guidanceFor(item),
   nativeLocations:
     item.nativeLocations
       ?.map(
@@ -187,7 +184,7 @@ export const listDoc = (options: {
   readonly coverage?: ExtensionListDocument["coverage"];
   readonly emptyState?: EmptyInventory;
 }): Doc => {
-  const rows = options.items.map((item) => toRow(item, options.filter));
+  const rows = options.items.map(toRow);
   const coverage = options.coverage;
   const empty =
     options.filter === "all"
@@ -195,7 +192,12 @@ export const listDoc = (options: {
       : emptyFilteredInventoryDoc(options.filter, coverage);
   return inventoryDoc({
     rows,
-    columns: ExtensionListColumns,
+    columns:
+      options.filter === "all"
+        ? ExtensionListColumns.filter(
+            (column) => column.header !== "Assessment" && column.header !== "Guidance",
+          )
+        : ExtensionListColumns,
     summary:
       coverage === undefined
         ? inventorySentence(rows)

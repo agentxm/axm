@@ -12,14 +12,21 @@ import * as Schema from "effect/Schema";
 
 import { PackLockEntrySchema } from "../desired/lockfile/schema.js";
 import { formatDesiredSourceAuthority } from "./desired-identity.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { packMemberSourceAuthority } from "./pack-member-source-authority.js";
 
 const packFields = {
   identity: { owner: "@acme", name: "toolkit" },
   treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
   manifestVersion: "1.0.0",
-  manifestContentIdentity: "sha256-pack-manifest",
-  members: ["@acme/skills/review"],
+  manifestContentIdentity: computePackManifestContentIdentity({
+    owner: "@acme",
+    type: "pack",
+    name: "toolkit",
+    version: "1.0.0",
+    dependencies: { "@acme/skills/review": "^1.0.0" },
+  }),
+  dependencies: { "@acme/skills/review": "^1.0.0" },
 };
 
 const acceptedLock = (entry: Record<string, unknown>) =>

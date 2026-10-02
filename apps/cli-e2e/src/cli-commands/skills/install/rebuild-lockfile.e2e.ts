@@ -6,7 +6,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("authoritative lockfile recovery boundary", () => {
-  it("creates a new v8 lockfile containing only the requested external resolution", async () => {
+  it("creates a new v9 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
       await runCli(
@@ -23,7 +23,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(8);
+      expect(lock.lockfileVersion).toBe(9);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
       expect(lock.skills["another-skill"]).toMatchObject({ source: { type: "path" } });
     } finally {

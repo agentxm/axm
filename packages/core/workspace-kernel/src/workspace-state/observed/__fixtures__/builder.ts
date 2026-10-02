@@ -527,7 +527,7 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 8,
+  lockfileVersion: 9,
   skills: {
     "managed-tool": {
       source: {

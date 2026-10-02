@@ -11,7 +11,7 @@ export const specification = defineSpecification({
   requirement: "cli/shared-pack-member-index-is-coalesced",
   title: "Configured packs share one member index read and materialization",
   statement:
-    "When two configured Packs depend on the same Registry member, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.",
+    "When two configured Packs depend on the same Registry member and require resolution, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition; a repeated install shall reuse their satisfying accepted choices without resolving them again.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -26,7 +26,7 @@ export const specification = defineSpecification({
 });
 
 const OWNER = "@test";
-const env = { AXM_TOKEN: "e2e-test-token" };
+const env = { AXM_TOKEN: "e2e-test-token", AXM_NO_UPDATE_CHECK: "1" };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -182,6 +182,48 @@ describe("Shared configured Pack member", () => {
         expect(memberArchive[0]?.path).toContain(
           `/skills/shared/${sharedPublication.version}/archive`,
         );
+
+        if (command === "install") {
+          const lockPath = path.join(consumer.path, "axm-lock.yaml");
+          const acceptedLock = fs.readFileSync(lockPath, "utf8");
+          const acceptedSettings = fs.readFileSync(settingsPath, "utf8");
+          const acquiredRoot = path.join(consumer.path, "agent_extensions", "registry", OWNER);
+          const sharedRoot = path.join(acquiredRoot, "skills", "shared");
+          const acceptedManifest = fs.readFileSync(path.join(sharedRoot, "skill.json"), "utf8");
+          registry.copyVersion(
+            OWNER,
+            "skills",
+            "shared",
+            sharedPublication.version,
+            `${major}.${minor}.${patch + 2}`,
+          );
+          const beforeWarm = registry.requests.length;
+          const warm = await runCli(["install", "--json"], {
+            cwd: consumer.path,
+            env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
+          });
+          expect(warm.exitCode, warm.stdout + warm.stderr).toBe(0);
+          expect(registry.requests.slice(beforeWarm)).toEqual([]);
+          expect(fs.readFileSync(lockPath, "utf8")).toBe(acceptedLock);
+          expect(fs.readFileSync(settingsPath, "utf8")).toBe(acceptedSettings);
+
+          fs.rmSync(sharedRoot, { recursive: true });
+          fs.rmSync(path.join(acquiredRoot, "packs", "first-pack"), { recursive: true });
+          const beforeRestoreMetadata = registry.metadataRequests.length;
+          const restored = await runCli(["install", "--json"], {
+            cwd: consumer.path,
+            env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
+          });
+          expect(restored.exitCode, restored.stdout + restored.stderr).toBe(0);
+          expect(registry.metadataRequests.slice(beforeRestoreMetadata)).toEqual([]);
+          expect(fs.readFileSync(lockPath, "utf8")).toBe(acceptedLock);
+          expect(fs.readFileSync(path.join(sharedRoot, "skill.json"), "utf8")).toBe(
+            acceptedManifest,
+          );
+          expect(fs.existsSync(path.join(acquiredRoot, "packs", "first-pack", "pack.json"))).toBe(
+            true,
+          );
+        }
       } finally {
         releaseFirstPack();
         await registry.close();

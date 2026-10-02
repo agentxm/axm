@@ -1,4 +1,5 @@
 import * as nodePath from "node:path";
+import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -6,6 +7,7 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { entriesUnder, localLifecycleRows, readSettings } from "./test-helpers.js";
@@ -91,6 +93,86 @@ describe("Repeat installs are safe", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  it.effect.each(["root", "skill", "pack"] as const)(
+    "configured %s install replays a warm accepted closure without source operations",
+    (route) => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      world.registry.writeSkill("member", [{ version: "1.0.0", body: "Accepted member." }]);
+      world.registry.writePack("repeat", [
+        { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+      ]);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/repeat@^1.0.0" },
+              }),
+            );
+            yield* applyInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source: "@acme/skills/member@^1.0.0" },
+              }),
+            );
+            const before = durableState(world);
+            world.registry.writeSkill("member", [
+              { version: "1.0.0", body: "Accepted member." },
+              { version: "1.1.0", body: "New member." },
+            ]);
+            world.registry.writePack("repeat", [
+              { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+              { version: "1.1.0", dependencies: {} },
+            ]);
+            const sources = yield* SourceHostProviders;
+            const unexpected = () =>
+              Effect.die("A warm configured install must not consult or acquire from sources");
+            const repeated = yield* applyInstall(
+              installRequest({
+                ...(route === "root" ? {} : { type: route }),
+                subject: { kind: "configured" },
+              }),
+            ).pipe(
+              Effect.provideService(SourceHostProviders, {
+                ...sources,
+                find: unexpected,
+                resolveNamedRegistry: unexpected,
+                fetch: unexpected,
+                acquireForTransition: unexpected,
+              }),
+            );
+            expect(deriveOperationOutcome(repeated)).toBe("no-op");
+            expect(durableState(world)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect("configured install uses the accepted local copy after the source disappears", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    const source = nodePath.dirname(
+      writeLocalSkillPackage(world.workspace.root, { name: "repeat" }),
+    );
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({ type: "skill", subject: { kind: "source", source } }),
+          );
+          const before = durableState(world);
+          fs.rmSync(source, { recursive: true });
+          const repeated = yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          expect(deriveOperationOutcome(repeated)).toBe("no-op");
+          expect(durableState(world)).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
   });
 
   it.effect.each(repeatRows)(

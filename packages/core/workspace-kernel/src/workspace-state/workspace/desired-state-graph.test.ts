@@ -1,3 +1,4 @@
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import * as Layer from "effect/Layer";
 import { desiredConstraintContributors } from "./canonical-observation.js";
 import { PackManifests } from "./pack-manifests.js";
@@ -104,7 +105,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     nodeFs.rmSync(root, { recursive: true, force: true });
   });
 
-  it.effect("expands a configured pack across every leaf extension type", () =>
+  it.effect("does not infer acquired Pack dependencies from unaccepted installed content", () =>
     Effect.gen(function* () {
       writePack(root, "@acme", "complete", {
         "@acme/skills/review": "^1.0.0",
@@ -125,12 +126,11 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         prospectivePacks: [],
       });
 
-      // An external Pack with no accepted resolution keeps its membership
-      // known while its routes are withheld; a proposal authorizes them.
+      // Installed content cannot establish accepted dependency authority.
       expect(graph.packMembership).toEqual([
         expect.objectContaining({
           pack: "@acme/packs/complete",
-          declared: expect.objectContaining({ status: "known" }),
+          declared: { status: "unknown", reason: "resolution-unavailable" },
           routes: "unauthorized",
         }),
       ]);
@@ -318,13 +318,14 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     }),
   );
 
-  it.effect("treats a missing authoritative pack manifest as unknown desired state", () =>
+  it.effect("treats a missing authored pack manifest as unknown desired state", () =>
     Effect.gen(function* () {
       const graph = yield* evaluate({
         baseDir: root,
         settings: {
+          owner: decodeHandleSync("@acme"),
           packs: {
-            missing: { source: "@acme/packs/missing", enabled: true },
+            missing: { source: "workspace", enabled: true },
           },
         },
       });
@@ -491,15 +492,16 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("a disabled Pack withdraws its dependency route while remaining desired", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "reviewers", {
+      writeAuthoredPack(root, "reviewers", {
         "@acme/skills/review": "^1.0.0",
       });
 
       const graph = yield* evaluate({
         baseDir: root,
         settings: {
+          owner: decodeHandleSync("@acme"),
           packs: {
-            reviewers: { source: "@acme/packs/reviewers", enabled: false },
+            reviewers: { source: "workspace", enabled: false },
           },
         },
       });
@@ -538,7 +540,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         // Nothing is routed, and nothing is claimed about what would be.
         expect(graph.packMembership).toEqual([
           expect.objectContaining({
-            declared: { status: "unknown", reason: "absent" },
+            declared: { status: "unknown", reason: "resolution-unavailable" },
             routes: "dormant",
           }),
         ]);
@@ -624,18 +626,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     }),
   );
 
-  it.effect("rejects a canonical pack manifest whose identity differs from settings", () =>
+  it.effect("rejects an authored pack manifest whose identity differs from settings", () =>
     Effect.gen(function* () {
-      writePack(root, "@acme", "expected", {});
-      const manifestPath = nodePath.join(
-        root,
-        "agent_extensions",
-        "registry",
-        "@acme",
-        "packs",
-        "expected",
-        "pack.json",
-      );
+      writeAuthoredPack(root, "expected", {});
+      const manifestPath = nodePath.join(root, "packs", "expected", "pack.json");
       const manifest = JSON.parse(nodeFs.readFileSync(manifestPath, "utf8"));
       manifest.name = "other";
       nodeFs.writeFileSync(manifestPath, JSON.stringify(manifest));
@@ -643,8 +637,9 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       const graph = yield* evaluate({
         baseDir: root,
         settings: {
+          owner: decodeHandleSync("@acme"),
           packs: {
-            expected: { source: "@acme/packs/expected", enabled: true },
+            expected: { source: "workspace", enabled: true },
           },
         },
       });
@@ -664,7 +659,7 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("reports a document that is not JSON and one that violates the schema distinctly", () =>
     Effect.gen(function* () {
-      const dir = nodePath.join(root, "agent_extensions", "registry", "@acme", "packs");
+      const dir = nodePath.join(root, "packs");
       nodeFs.mkdirSync(nodePath.join(dir, "malformed"), { recursive: true });
       nodeFs.writeFileSync(nodePath.join(dir, "malformed", "pack.json"), "{ not json");
       nodeFs.mkdirSync(nodePath.join(dir, "broken"), { recursive: true });
@@ -682,9 +677,10 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
       const graph = yield* evaluate({
         baseDir: root,
         settings: {
+          owner: decodeHandleSync("@acme"),
           packs: {
-            malformed: { source: "@acme/packs/malformed", enabled: true },
-            broken: { source: "@acme/packs/broken", enabled: true },
+            malformed: { source: "workspace", enabled: true },
+            broken: { source: "workspace", enabled: true },
           },
         },
       });

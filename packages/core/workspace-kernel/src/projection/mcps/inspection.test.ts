@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -12,7 +20,11 @@ import {
   writeAgentMcpConfig,
 } from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
-import { collectManagedAgentMcpServers, inspectDesiredMcpServer } from "./inspection.js";
+import {
+  collectManagedAgentMcpServers,
+  inspectDesiredMcpServer,
+  withMcpInspectionReadView,
+} from "./inspection.js";
 
 /** One agent's inspection of one connection, judged from the desired-state facts. */
 const inspectAgentMcpServer = (args: {
@@ -94,10 +106,46 @@ const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, 
   });
 
 describe("agent MCP config inspection", () => {
+  it.effect("shares detailed observations within one query and rereads the next query", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-read-view-")),
+        );
+        const request = {
+          workspaceRoot,
+          scope: "project" as const,
+          agentId: "codex",
+          serverName: "context",
+          entry: contextEntry,
+        };
+        try {
+          const first = yield* withMcpInspectionReadView(
+            Effect.gen(function* () {
+              const first = yield* inspectAgentMcpServer(request);
+              const again = yield* inspectAgentMcpServer({ ...request });
+              expect(again).toBe(first);
+              expect(first.status).toBe("absent");
+              return first;
+            }),
+          );
+          writeCodexConfig(workspaceRoot, ["[mcp_servers.context]", 'command = "different"']);
+          const next = yield* withMcpInspectionReadView(inspectAgentMcpServer(request));
+          expect(next).not.toBe(first);
+          expect(next.status).toBe("unmanaged");
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   it.effect("reads each configured container in a shared physical document", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-distinct-containers-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-distinct-containers-")),
+        );
         try {
           const owner = buildAxmMcpMetadataFromSettingsSource("inline", "context");
           const entry = { command: "node", "x-axm": owner };
@@ -128,7 +176,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports malformed YAML entries as validation failures", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-invalid-yaml-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-invalid-yaml-")),
+        );
         try {
           const hermesDir = nodePath.join(workspaceRoot, ".hermes");
           mkdirSync(hermesDir, { recursive: true });
@@ -156,7 +206,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports malformed YAML while collecting managed entries", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-collect-invalid-yaml-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-collect-invalid-yaml-")),
+        );
         try {
           const hermesDir = nodePath.join(workspaceRoot, ".hermes");
           mkdirSync(hermesDir, { recursive: true });
@@ -186,7 +238,9 @@ describe("agent MCP config inspection", () => {
   it.effect("treats semantically equivalent managed TOML formatting as a match", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-")),
+        );
         try {
           const configDir = nodePath.join(workspaceRoot, ".codex");
           mkdirSync(configDir, { recursive: true });
@@ -232,7 +286,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports a current registry-backed Codex TOML projection as a match", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-registry-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-registry-")),
+        );
         try {
           writeCodexConfig(workspaceRoot, [
             "# axm:start v=1 region=mcp-server:context ext=@acme/mcps/context",
@@ -269,7 +325,9 @@ describe("agent MCP config inspection", () => {
   it.effect("does not treat pre-v1 Codex comments as ownership", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-legacy-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-legacy-")),
+        );
         try {
           writeCodexConfig(workspaceRoot, [
             "# axm managed mcp-server context start",
@@ -300,7 +358,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports an absent registry-backed Codex projection as absent", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-absent-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-absent-")),
+        );
         try {
           const result = yield* inspectAgentMcpServer({
             workspaceRoot,
@@ -322,7 +382,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports an unmanaged same-name Codex projection as unmanaged", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-unmanaged-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-codex-unmanaged-")),
+        );
         try {
           writeCodexConfig(workspaceRoot, [
             "[mcp_servers.context]",
@@ -350,7 +412,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports match for AXM-managed Hermes YAML entries", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-")),
+        );
         try {
           yield* withHome(
             workspaceRoot,
@@ -404,7 +468,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports drift for hand-edited managed Hermes YAML entries", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-drift-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-drift-")),
+        );
         try {
           yield* withHome(
             workspaceRoot,
@@ -447,7 +513,9 @@ describe("agent MCP config inspection", () => {
   it.effect("reports unmanaged for Hermes YAML entries without AXM metadata", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-unmanaged-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-inspect-hermes-unmanaged-")),
+        );
         try {
           const hermesDir = nodePath.join(workspaceRoot, ".hermes");
           mkdirSync(hermesDir, { recursive: true });
@@ -489,7 +557,9 @@ describe("agent MCP config inspection", () => {
   it.effect("collects AXM-managed Hermes YAML entries", () =>
     withNode(
       Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-collect-hermes-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-collect-hermes-")),
+        );
         try {
           const hermesDir = nodePath.join(workspaceRoot, ".hermes");
           mkdirSync(hermesDir, { recursive: true });

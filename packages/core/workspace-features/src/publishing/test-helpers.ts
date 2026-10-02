@@ -207,7 +207,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 8, skills: {} }),
+    JSON.stringify({ lockfileVersion: 9, skills: {} }),
   );
 
   const target = makePublishTarget(root);

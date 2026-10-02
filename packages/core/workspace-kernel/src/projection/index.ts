@@ -273,6 +273,7 @@ export type { McpInspectionError } from "./mcps/errors.js";
 export {
   collectManagedAgentMcpServers,
   inspectDesiredMcpServer,
+  withMcpInspectionReadView,
   mcpInspectionOutcome,
   mcpInspectionsCurrent,
   type AgentMcpInspectionStatus,

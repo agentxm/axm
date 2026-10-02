@@ -170,7 +170,14 @@ export interface ResolvedInstallRef<TRef> {
  */
 export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
   AcceptedCanonicalRefError | ExtensionResolutionFailed,
-  WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
+  | SourceHostProviders
+  | Scope.Scope
+  | FileSystem.FileSystem
+  | Path.Path
 >;
 
 /**

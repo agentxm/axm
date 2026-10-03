@@ -105,6 +105,7 @@ import {
 import {
   type ReleaseAgeOperationEvidence,
   type JobStepArtifact,
+  type ConfiguredAgentOutcome,
   type Plan,
   type PlannedJobStep,
 } from "../operations/index.js";
@@ -559,6 +560,8 @@ export const collectMaterializeSteps = (args: {
   /** Desired agent set for membership preflight before settings are committed. */
   readonly configuredAgents?: ReadonlyArray<string>;
   readonly packRecovery?: ConfiguredPackRecovery;
+  /** Enabled transitions require at least one compatible configured runtime. */
+  readonly requireSubagentSupport?: boolean;
   readonly adapter: StepFailureConversionService;
 }): Effect.Effect<
   CollectedMaterializeSteps,
@@ -627,10 +630,8 @@ export const collectMaterializeSteps = (args: {
       }
       for (const physical of proposed.skill)
         if (!prior.skill.has(physical)) directoryRoutes.skill.add(physical);
-      // A role Skill shares the Skill directory's physical consumer history.
-      for (const physical of [...proposed.subagent, ...proposed.skill])
-        if (!prior.subagent.has(physical) && !prior.skill.has(physical))
-          directoryRoutes.subagent.add(physical);
+      for (const physical of proposed.subagent)
+        if (!prior.subagent.has(physical)) directoryRoutes.subagent.add(physical);
     }
     const priorMcpGraph = yield* desiredStateReader.graph();
     if (unresolvedPackRoutes(priorMcpGraph).length > 0) {
@@ -810,12 +811,14 @@ export const collectMaterializeSteps = (args: {
             ref.type !== "subagent"
               ? undefined
               : yield* acquiredFilesForRef(ref, "on-disk").pipe(
-                  Effect.map((files) =>
+                  Effect.flatMap((files) =>
                     Option.isSome(files)
-                      ? files.value.directory
+                      ? Effect.succeed(files.value.directory)
                       : ref.refType === "registry"
-                        ? undefined
-                        : fromFileLocation(ref.location),
+                        ? forceCanonical
+                          ? providers.fetch(ref).pipe(Effect.map((source) => source.directory))
+                          : Effect.succeed(undefined)
+                        : Effect.succeed(fromFileLocation(ref.location)),
                   ),
                   Effect.mapError(
                     (cause) =>
@@ -844,6 +847,22 @@ export const collectMaterializeSteps = (args: {
             fs,
             path,
           });
+          const agentOutcomes = materializationObservation.agentOutcomes;
+          if (
+            args.requireSubagentSupport === true &&
+            node.type === "subagent" &&
+            node.enabled &&
+            agentOutcomes !== undefined &&
+            agentOutcomes.length > 0 &&
+            !agentOutcomes.some(
+              (outcome) => outcome.outcome === "projected" || outcome.outcome === "current",
+            )
+          ) {
+            return yield* new WorkspaceSyncFailed({
+              category: "validation",
+              detail: `No configured runtime can realize subagent ${node.name}: ${agentOutcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
+            });
+          }
           const materialize =
             observation.status !== "usable" ||
             (node.enabled && !materializationObservation.current);
@@ -852,6 +871,11 @@ export const collectMaterializeSteps = (args: {
             ref,
             restoresAccepted: resolved.restoresAccepted,
             nativeLocations: materializationObservation.nativeLocations,
+            agentOutcomes: agentOutcomes?.map((outcome) =>
+              materialize && node.enabled && outcome.outcome === "current"
+                ? { ...outcome, outcome: "projected" as const }
+                : outcome,
+            ),
             force: forceCanonical,
             materialize,
             transitionLabel: [
@@ -918,6 +942,7 @@ export const collectMaterializeSteps = (args: {
     );
 
     type Reconciled<TRef extends ExtensionRef> = {
+      readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome> | undefined;
       readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
       readonly ref: TRef;
       readonly force: boolean;
@@ -967,6 +992,7 @@ export const collectMaterializeSteps = (args: {
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
             nativeLocations: item.nativeLocations,
+            agentOutcomes: item.agentOutcomes,
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -1181,8 +1207,10 @@ export const collectMaterializeSteps = (args: {
       force,
       transitionLabel,
       nativeLocations,
+      agentOutcomes,
     }: Reconciled<SubagentExtensionRef>) =>
       ({
+        ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
         ...buildMaterializeOperation(subagentManager, {
           nativeInsertionEligiblePaths: directoryRoutes.subagent,
           toStepFailure: args.adapter.toStepFailure,
@@ -1196,6 +1224,9 @@ export const collectMaterializeSteps = (args: {
             subagentSyncArtifact({ ref, location }).pipe(
               Effect.map((artifact) => ({
                 ...artifact,
+                ...(materialization.observation.agentOutcomes === undefined
+                  ? {}
+                  : { agentOutcomes: materialization.observation.agentOutcomes }),
                 ...(materialization.observation.nativeLocations === undefined
                   ? {}
                   : {
@@ -1210,6 +1241,7 @@ export const collectMaterializeSteps = (args: {
             ref.subagent.name,
           scope: location.scope,
           change: "updated",
+          ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
           nativeLocations: desiredActivation(ref) ? nativeLocations : [],
           ...(desiredActivation(ref) && nativeLocations.length === 0 && ref.refType === "registry"
             ? {

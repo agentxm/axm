@@ -207,12 +207,11 @@ describe("subagents disable.handler", () => {
         type: "subagent",
         name: "pack-subagent",
         version: "1.0.0",
+        description: "Test subagent",
+        core: { instructions: "src/pack-subagent.md" },
       }),
     );
-    fs.writeFileSync(
-      path.join(subagentDir, "src", "pack-subagent.md"),
-      "---\nname: pack-subagent\n---\n# pack-subagent",
-    );
+    fs.writeFileSync(path.join(subagentDir, "src", "pack-subagent.md"), "# pack-subagent");
 
     const packDir = path.join(tempDir, "packs", "starter-pack");
     fs.mkdirSync(packDir, { recursive: true });

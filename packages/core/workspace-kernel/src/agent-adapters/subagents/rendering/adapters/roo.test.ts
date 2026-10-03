@@ -10,7 +10,6 @@ const baseInput: SubagentRenderInput = {
     name: "code-reviewer",
     description: "Reviews code changes",
   },
-  agentOverrides: undefined,
 };
 
 describe("splitBody", () => {
@@ -84,24 +83,6 @@ describe("buildRooModeEntry", () => {
       },
     });
     expect(result.entry.roleDefinition).toBe("You are a code reviewer.");
-  });
-
-  describe("overrides", () => {
-    it("merges overrides on top", () => {
-      const result = buildRooModeEntry({
-        ...baseInput,
-        agentOverrides: { whenToUse: "When reviewing code" },
-      });
-      expect(result.entry["whenToUse"]).toBe("When reviewing code");
-    });
-
-    it("null override removes a base-entry field", () => {
-      const result = buildRooModeEntry({
-        ...baseInput,
-        agentOverrides: { description: null },
-      });
-      expect("description" in result.entry).toBe(false);
-    });
   });
 });
 

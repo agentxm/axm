@@ -7,10 +7,7 @@
 
 import * as Data from "effect/Data";
 
-import type {
-  FailureSuggestedAction,
-  OperationErrorCategory,
-} from "@agentxm/workspace-kernel/operations";
+import type { OperationErrorCategory } from "@agentxm/workspace-kernel/operations";
 import {
   ExtensionKindFailureTypeId,
   type ExtensionKindFailure,
@@ -34,25 +31,17 @@ export class SubagentDefinitionInvalid
   }
 }
 
-/** The canonical subagent content file could not be read. */
-export class SubagentContentUnreadable
-  extends Data.TaggedError("SubagentContentUnreadable")<{
-    readonly expectedFilename: string;
-    readonly subagentSrcPath: string;
-    readonly contentPath: string;
-    readonly cause: unknown;
+/** A native destination is occupied or shared consumers require incompatible bytes. */
+export class SubagentNativeConflict
+  extends Data.TaggedError("SubagentNativeConflict")<{
+    readonly detail: string;
+    readonly cause?: unknown;
   }>
   implements ExtensionKindFailure
 {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
     ExtensionKindFailureTypeId;
   get category(): OperationErrorCategory {
-    return "internal";
-  }
-  get detail(): string {
-    return `Failed to read ${this.expectedFilename} from ${this.subagentSrcPath}`;
-  }
-  get suggestions(): ReadonlyArray<FailureSuggestedAction> {
-    return [{ description: `Ensure the subagent content file exists at ${this.contentPath}.` }];
+    return "conflict";
   }
 }

@@ -1,156 +1,105 @@
-/**
- * Unit tests for subagent content parsing.
- */
-
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import { parseSubagentMd } from "./subagent-content.js";
+import { parseNativeSubagent } from "./subagent-content.js";
 
-describe("parseSubagentMd", () => {
-  it.effect("parses content when frontmatter name matches expected name", () =>
+describe("native subagent parsing", () => {
+  it.effect(
+    "retains complete TOML, including comments, nested tables, and unknown native fields",
+    () =>
+      Effect.gen(function* () {
+        const content =
+          '# Native review\nname = "review_native"\ndescription = "Reviews"\ndeveloper_instructions = "Do the review."\n[model_settings]\nreasoning = "high"\n';
+        const result = yield* parseNativeSubagent({
+          agentId: "codex",
+          source: "native/review.toml",
+          content,
+        });
+        expect(result.content).toBe(content);
+        expect(result.name).toBe("review_native");
+        expect(result.instructions).toBe("Do the review.");
+        expect(result.configuration["model_settings"]).toEqual({ reasoning: "high" });
+      }),
+  );
+
+  it.effect("uses the source filename when a native definition omits name", () =>
     Effect.gen(function* () {
-      const result = yield* parseSubagentMd(
-        `---
-name: planner
----
-
-You are a planner.`,
-        "planner",
-      );
-
-      expect(Option.isSome(result.frontmatter)).toBe(true);
-      const fm = Option.getOrThrow(result.frontmatter);
-      expect(fm["name"]).toBe("planner");
-      expect(result.body).toContain("You are a planner.");
+      const result = yield* parseNativeSubagent({
+        agentId: "cursor",
+        source: "native/native-reviewer.md",
+        content: "---\ndescription: Reviews\n---\nReview.",
+      });
+      expect(result.name).toBe("native-reviewer");
     }),
   );
 
-  it.effect("preserves arbitrary frontmatter keys verbatim", () =>
+  it.effect("uses OpenCode and Mistral filename identity without rewriting native fields", () =>
     Effect.gen(function* () {
-      const result = yield* parseSubagentMd(
-        `---
-name: planner
-description: Plans work
-model: powerful
-toolAccess: readonly
-background: true
-custom_field: hello
-nested:
-  a: 1
-  b:
-    - x
-    - y
----
-
-Body.`,
-        "planner",
-      );
-
-      const fm = Option.getOrThrow(result.frontmatter);
-      expect(fm["description"]).toBe("Plans work");
-      expect(fm["model"]).toBe("powerful");
-      expect(fm["toolAccess"]).toBe("readonly");
-      expect(fm["background"]).toBe(true);
-      expect(fm["custom_field"]).toBe("hello");
-      expect(fm["nested"]).toEqual({ a: 1, b: ["x", "y"] });
+      const opencode = yield* parseNativeSubagent({
+        agentId: "opencode",
+        source: "native/file-identity.md",
+        content: "---\nname: retained-config\ndescription: Reviews\n---\nReview.",
+      });
+      expect(opencode.name).toBe("file-identity");
+      expect(opencode.configuration["name"]).toBe("retained-config");
+      const mistral = yield* parseNativeSubagent({
+        agentId: "mistral-vibe",
+        source: "native/vibe-review.toml",
+        content:
+          'agent_type = "subagent"\ndisplay_name = "Reviewer"\nsystem_prompt_id = "existing-user-prompt"\n',
+      });
+      expect(mistral.name).toBe("vibe-review");
+      expect(mistral.instructions).toBe("");
+      expect(mistral.configuration["system_prompt_id"]).toBe("existing-user-prompt");
     }),
   );
 
-  it.effect("extracts agentOverrides keyed by agent id", () =>
+  it.effect.each([
+    { source: "native/a.md", content: "---\nname: [broken\n---\nBody" },
+    { source: "native/a.md", content: "Missing frontmatter" },
+    { source: "native/a.md", content: "---\nname: ../../escape\n---\nBody" },
+    { source: "native/a.md", content: "---\nname: review\nagentOverrides: {}\n---\nBody" },
+    { source: "native/a.toml", content: 'name = "review"\nname = "duplicate"' },
+    { source: "native/a.toml", content: 'name = "review"\ndeveloper_instructions = ["invalid"]' },
+    { source: "native/a.json", content: '{"name":"review", "nested":{"__proto__":{}}}' },
+    { source: "native/a.xml", content: "<agent/>" },
+  ])("rejects invalid native source $source", ({ source, content }) =>
     Effect.gen(function* () {
-      const result = yield* parseSubagentMd(
-        `---
-name: planner
-agentOverrides:
-  claude-code:
-    disallowedTools: "Edit,Write"
-  codex:
-    model: gpt-5-codex
----
-
-Body.`,
-        "planner",
-      );
-
-      expect(Option.isSome(result.agentOverrides)).toBe(true);
-      const overrides = Option.getOrThrow(result.agentOverrides);
-      expect(overrides["claude-code"]).toEqual({ disallowedTools: "Edit,Write" });
-      expect(overrides["codex"]).toEqual({ model: "gpt-5-codex" });
+      const agentId = source.endsWith(".toml")
+        ? "codex"
+        : source.endsWith(".json")
+          ? "kiro-cli"
+          : "cursor";
+      const error = yield* parseNativeSubagent({ agentId, source, content }).pipe(Effect.flip);
+      expect(error.reason).toBe("native-invalid");
     }),
   );
 
-  it.effect("returns no agentOverrides when not present", () =>
+  it.effect.each([
+    {
+      agentId: "codex",
+      source: "native/review.md",
+      content: "---\nname: review\ndescription: Reviews\n---\nReview.",
+    },
+    {
+      agentId: "codex",
+      source: "native/review.toml",
+      content: 'description = "Reviews"\ndeveloper_instructions = "Review."',
+    },
+    {
+      agentId: "codex",
+      source: "native/review.toml",
+      content: 'name = "review"\ndescription = "Reviews"',
+    },
+    {
+      agentId: "claude-code",
+      source: "native/review.md",
+      content: "---\nname: review\n---\nReview.",
+    },
+    { agentId: "mistral-vibe", source: "native/review.toml", content: 'agent_type = "agent"' },
+  ])("rejects a mismatched or incomplete $agentId definition", (args) =>
     Effect.gen(function* () {
-      const result = yield* parseSubagentMd(
-        `---
-name: planner
----
-
-Body.`,
-        "planner",
-      );
-      expect(Option.isNone(result.agentOverrides)).toBe(true);
-    }),
-  );
-
-  it.effect("ignores agentOverrides entries that are not plain objects", () =>
-    Effect.gen(function* () {
-      const result = yield* parseSubagentMd(
-        `---
-name: planner
-agentOverrides:
-  claude-code:
-    model: opus
-  bad: "not an object"
----
-
-Body.`,
-        "planner",
-      );
-      const overrides = Option.getOrThrow(result.agentOverrides);
-      expect(overrides["claude-code"]).toEqual({ model: "opus" });
-      expect(overrides["bad"]).toBeUndefined();
-    }),
-  );
-
-  it.effect("fails when frontmatter is missing", () =>
-    Effect.gen(function* () {
-      const error = yield* parseSubagentMd("# Planner\n", "planner").pipe(Effect.flip);
-      expect(error.reason).toBe("missing-frontmatter");
-      expect(error.detail).toContain("planner");
-    }),
-  );
-
-  it.effect("fails when frontmatter name does not match expected name", () =>
-    Effect.gen(function* () {
-      const error = yield* parseSubagentMd(
-        `---
-name: researcher
----
-
-Body.`,
-        "planner",
-      ).pipe(Effect.flip);
-
-      expect(error.reason).toBe("name-mismatch");
-      expect(error.detail).toContain("researcher");
-      expect(error.detail).toContain("planner");
-    }),
-  );
-
-  it.effect("fails when name is missing", () =>
-    Effect.gen(function* () {
-      const error = yield* parseSubagentMd(
-        `---
-description: no name here
----
-
-Body.`,
-        "planner",
-      ).pipe(Effect.flip);
-
-      expect(error.reason).toBe("invalid-frontmatter");
+      const error = yield* parseNativeSubagent(args).pipe(Effect.flip);
+      expect(error.reason).toBe("native-invalid");
     }),
   );
 });

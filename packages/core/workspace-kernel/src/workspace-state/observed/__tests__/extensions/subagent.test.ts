@@ -6,7 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { decodedSettings } from "../../__fixtures__/decoders.js";
-import { makeAgentDirOccurrence } from "../../__fixtures__/occurrences.js";
+import { makeAgentDirOccurrence, makeCanonicalOccurrence } from "../../__fixtures__/occurrences.js";
 import { makeSubagentExtensionsApi } from "../../extensions/subagent.js";
 import type { AgentDirOccurrence, CanonicalExtensionOccurrence } from "../../scanners/types.js";
 import type { Settings } from "../../../desired/settings/schema.js";
@@ -35,6 +35,49 @@ const harness = (params: {
   });
 
 describe("makeSubagentExtensionsApi", () => {
+  it.effect("associates a distinct native name only with its exact canonical marker owner", () =>
+    Effect.gen(function* () {
+      const settings = yield* settingsWithSubagents({
+        reviewer: { source: "workspace", enabled: true },
+      });
+      const native = makeAgentDirOccurrence({
+        scope: "project",
+        type: "subagent",
+        agentId: "codex",
+        name: "research",
+        contentLocation: "/ws/.codex/agents/research.toml",
+        singleFile: true,
+      });
+      const canonical = makeCanonicalOccurrence({
+        scope: "project",
+        type: "subagent",
+        origin: "canonical-axm",
+        owner: "@owner",
+        name: "reviewer",
+        contentLocation: "/ws/subagents/reviewer",
+      });
+      for (const exact of [true, false]) {
+        const api = yield* harness({
+          settings,
+          canonicalOccurrences: [canonical],
+          agentDirOccurrences: [
+            {
+              ...native,
+              managedPackage: {
+                ext: "@owner/subagents/reviewer",
+                root: exact ? "/ws/subagents/reviewer" : "/ws/subagents/foreign",
+              },
+            },
+          ],
+        });
+        expect((yield* api.installed)[0]?.actual).toHaveLength(exact ? 2 : 1);
+        expect((yield* api.unmanaged).map((row) => row.key.name)).toEqual(
+          exact ? [] : ["research"],
+        );
+      }
+    }),
+  );
+
   it.effect("declared parses subagents from settings", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithSubagents({

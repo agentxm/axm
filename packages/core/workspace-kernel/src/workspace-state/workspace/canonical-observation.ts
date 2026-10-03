@@ -9,7 +9,11 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { parseSkillMd, readExtensionManifest } from "@agentxm/extension-content";
+import {
+  loadSubagentPackage,
+  parseSkillMd,
+  readExtensionManifest,
+} from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionPathSourceFromLockEntry,
@@ -101,19 +105,21 @@ const hasRequiredPayload = (
   path: Path.Path,
   root: string,
   type: ExtensionType,
-  name: string,
-) => {
+): Effect.Effect<boolean, never, FileSystem.FileSystem | Path.Path> => {
   switch (type) {
     case "skill":
       return Effect.map(Effect.all([fs.exists(path.join(root, "src", "SKILL.md"))]), (exists) =>
         exists.some(Boolean),
-      );
+      ).pipe(Effect.orElseSucceed(() => false));
     case "subagent":
-      return fs.exists(path.join(root, "src", `${name}.md`));
+      return loadSubagentPackage(root).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      );
     case "rule":
     case "hook":
     case "knowledge":
-      return fs.exists(path.join(root, "src"));
+      return fs.exists(path.join(root, "src")).pipe(Effect.orElseSucceed(() => false));
     case "mcp-server":
     case "pack":
       return Effect.succeed(true);
@@ -444,13 +450,9 @@ export const observeCanonicalExtension = ({
     const manifestVersion =
       "version" in parsed && typeof parsed.version === "string" ? parsed.version : undefined;
 
-    const payloadComplete = yield* hasRequiredPayload(
-      fs,
-      path,
-      root,
-      desired.type,
-      desired.name,
-    ).pipe(Effect.orElseSucceed(() => false));
+    const payloadComplete = yield* hasRequiredPayload(fs, path, root, desired.type).pipe(
+      Effect.orElseSucceed(() => false),
+    );
     if (!payloadComplete) {
       return { type: desired.type, name: desired.name, status: "incomplete", path: root };
     }

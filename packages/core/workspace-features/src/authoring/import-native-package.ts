@@ -12,11 +12,15 @@ import {
   type FrontmatterParseFailure,
 } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
+import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import { importNativeSubagent } from "./import-native-subagent.js";
 import {
   NativeImportConflict,
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
+  NativeSubagentRuntimeRequired,
+  NativeSubagentImportUnsupported,
 } from "./authored-package-errors.js";
 import { copyExtensionDirectory } from "@agentxm/workspace-kernel/acquisition";
 const NATIVE_IMPORT_VERSION = "0.1.0";
@@ -24,6 +28,8 @@ export interface ImportNativeExtensionPackageArgs {
   readonly sourcePath: string;
   readonly targetDir: string;
   readonly target: ExtensionFqnParts;
+  readonly sourceAgent?: AgentId;
+  readonly existingPackagePath?: string;
 }
 
 export type NativeImportError =
@@ -31,6 +37,8 @@ export type NativeImportError =
   | NativeImportFailed
   | NativeImportInvalid
   | NativeImportUnsupported
+  | NativeSubagentRuntimeRequired
+  | NativeSubagentImportUnsupported
   | FrontmatterParseFailure;
 
 const mapWriteError =
@@ -63,41 +71,6 @@ const rewriteFrontmatterName = (
     yield* fs
       .writeFileString(filePath, `---\n${yaml}\n---${body}`)
       .pipe(Effect.mapError(mapWriteError(`Native content could not be normalized: ${filePath}`)));
-  });
-
-const selectMarkdownFile = (
-  sourcePath: string,
-  preferredName: string,
-): Effect.Effect<
-  string,
-  NativeImportFailed | NativeImportInvalid,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const inspectionFailed = mapWriteError(`Native source could not be inspected: ${sourcePath}`);
-    const stat = yield* fs.stat(sourcePath).pipe(Effect.mapError(inspectionFailed));
-    if (stat.type === "File") return sourcePath;
-    if (stat.type !== "Directory") {
-      return yield* new NativeImportInvalid({
-        detail: `Native source must be a Markdown file or directory: ${sourcePath}`,
-      });
-    }
-    const entries = yield* fs.readDirectory(sourcePath).pipe(Effect.mapError(inspectionFailed));
-    const preferred = [`${preferredName}.md`, preferredName, "SKILL.md", "RULE.md"]
-      .map((name) => entries.find((entry) => entry === name))
-      .find((entry) => entry !== undefined);
-    if (preferred !== undefined) return path.join(sourcePath, preferred);
-    const markdown = entries.filter(
-      (entry) => entry.toLowerCase().endsWith(".md") && entry.toLowerCase() !== "readme.md",
-    );
-    if (markdown.length !== 1 || markdown[0] === undefined) {
-      return yield* new NativeImportInvalid({
-        detail: `Native source must contain exactly one unambiguous Markdown document: ${sourcePath}`,
-      });
-    }
-    return path.join(sourcePath, markdown[0]);
   });
 
 const rejectManagedPackage = (
@@ -136,6 +109,9 @@ export const importNativeExtensionPackage = (
     if (yield* fs.exists(args.targetDir).pipe(Effect.mapError(importFailed))) {
       return yield* new NativeImportConflict({ targetDir: args.targetDir });
     }
+    if (args.target.type === "subagent") {
+      return yield* importNativeSubagent(args);
+    }
     yield* fs
       .makeDirectory(args.targetDir, { recursive: true })
       .pipe(
@@ -161,18 +137,6 @@ export const importNativeExtensionPackage = (
           path.join(args.targetDir, "src", "SKILL.md"),
           args.target.name,
         );
-        break;
-      }
-      case "subagent": {
-        yield* fs
-          .makeDirectory(path.join(args.targetDir, "src"), { recursive: true })
-          .pipe(Effect.mapError(importFailed));
-        const sourceFile = yield* selectMarkdownFile(args.sourcePath, args.target.name);
-        const targetFile = path.join(args.targetDir, "src", `${args.target.name}.md`);
-        yield* fs
-          .copyFile(sourceFile, targetFile)
-          .pipe(Effect.mapError(mapWriteError("Native subagent document could not be copied")));
-        yield* rewriteFrontmatterName(targetFile, args.target.name);
         break;
       }
     }

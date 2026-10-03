@@ -83,7 +83,7 @@ help remain authoritative for exact manifest fields and command inputs.
 | ---------- | --------- | -------------------------------------------------- | ------------------------------------------------- |
 | Skill      | Per agent | Extension content                                  | Agent skill directories                           |
 | MCP Server | Per agent | Extension content; settings for inline definitions | Native MCP configuration                          |
-| Subagent   | Per agent | Extension content                                  | Native profiles or capability-preserving fallback |
+| Subagent   | Per agent | Extension content                                  | Selected native profiles                          |
 | Rule       | Workspace | Extension content                                  | Managed Rule contribution to instruction files    |
 | Hook       | Per agent | Extension content                                  | Native hook configuration or explicit fallback    |
 | Knowledge  | Workspace | Extension content                                  | Knowledge index and compact discovery surface     |

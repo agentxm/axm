@@ -232,9 +232,16 @@ export const makeSubagentExtensionsApi = (
       const fromCanonical = filterMapOccurrences(canonical, "subagent", (occ) =>
         canonicalToActual(occ, scope),
       );
-      const fromAgentDir = filterMapOccurrences(agentDir, "subagent", (occ) =>
-        agentDirToActual(occ, scope),
-      );
+      const fromAgentDir = filterMapOccurrences(agentDir, "subagent", (occ) => {
+        const owner = canonical.find(
+          (candidate) =>
+            candidate.type === "subagent" &&
+            candidate.owner !== null &&
+            occ.managedPackage?.ext === `${candidate.owner}/subagents/${candidate.name}` &&
+            occ.managedPackage.root === canonicalAxmPackageRoot(candidate),
+        );
+        return agentDirToActual(owner === undefined ? occ : { ...occ, name: owner.name }, scope);
+      });
       return [...fromCanonical, ...fromAgentDir];
     });
 

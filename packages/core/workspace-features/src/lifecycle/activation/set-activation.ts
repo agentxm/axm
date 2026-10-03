@@ -547,6 +547,13 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
           retireUnreachable: false,
         }).pipe(Effect.mapError(conflictFrom(`Cannot prepare ${request.type} activation`)));
     const agentOutcomes = yield* Effect.gen(function* () {
+      if (
+        request.type === "subagent" &&
+        request.enabled &&
+        Option.isSome(realization.materialization)
+      ) {
+        return realization.materialization.value.steps.flatMap((step) => step.agentOutcomes ?? []);
+      }
       if (request.type === "mcp-server" && request.enabled) {
         const mcp = yield* McpServerManager;
         return yield* mcp.configuredAgentOutcomes("projected", proposal.after, { names: [name] });

@@ -5,14 +5,13 @@
  * Junie, Kilo Code, Kiro IDE.
  *
  * Produces `.md` with YAML frontmatter and body. The user's frontmatter
- * passes through verbatim; `agentOverrides[<agent-id>]` is merged on top.
+ * passes through verbatim.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import YAML from "yaml";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
 /**
@@ -21,7 +20,7 @@ import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "
  * @experimental This API is unstable and may change without notice.
  */
 export const renderMarkdownYaml = (input: SubagentRenderInput): SubagentRenderOutcome => {
-  const fmObject = applyOverrides(input.frontmatter, input.agentOverrides);
+  const fmObject = input.frontmatter;
 
   const yamlStr = YAML.stringify(fmObject, { lineWidth: 0 }).trim();
   const parts: Array<string> = [`---\n${yamlStr}\n---`];

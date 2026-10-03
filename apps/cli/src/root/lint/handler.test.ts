@@ -96,12 +96,16 @@ describe("axm lint handler", () => {
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     fs.writeFileSync(
       path.join(root, "subagent.json"),
-      JSON.stringify({ owner: "@acme", type: "subagent", name, version: "1.0.0" }),
+      JSON.stringify({
+        owner: "@acme",
+        type: "subagent",
+        name,
+        version: "1.0.0",
+        description: "Test subagent",
+        core: { instructions: `src/${name}.md` },
+      }),
     );
-    fs.writeFileSync(
-      path.join(root, "src", `${name}.md`),
-      `---\nname: ${name}\ndescription: Test subagent\n---\n\n# Expected body\n`,
-    );
+    fs.writeFileSync(path.join(root, "src", `${name}.md`), `# Expected body\n`);
   };
 
   /** What one stream received, painted in plain ASCII at unbounded width. */
@@ -497,7 +501,7 @@ describe("axm lint handler", () => {
     const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
     fs.mkdirSync(path.dirname(projectionPath), { recursive: true });
     const drifted =
-      "<!-- axm:file v=1 ext=@agentxm/subagents/managed-file src=subagents/researcher/src/researcher.md -->\n# Drifted body\n";
+      "<!-- axm:file v=1 ext=@acme/subagents/researcher src=subagents/researcher/subagent.json -->\n# Drifted body\n";
     fs.writeFileSync(projectionPath, drifted);
 
     return provide(

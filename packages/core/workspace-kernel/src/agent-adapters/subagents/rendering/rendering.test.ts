@@ -10,7 +10,6 @@ const baseInput: SubagentRenderInput = {
     name: "code-reviewer",
     description: "Reviews code changes",
   },
-  agentOverrides: undefined,
 };
 
 describe("selectSubagentRenderer", () => {
@@ -22,16 +21,12 @@ describe("selectSubagentRenderer", () => {
     expect(selectSubagentRenderer("codex")).toBeDefined();
   });
 
-  it("returns renderer for Kiro (dual-format)", () => {
-    expect(selectSubagentRenderer("kiro")).toBeDefined();
-  });
-
   it("returns undefined for Roo Code", () => {
     expect(selectSubagentRenderer("roo")).toBeUndefined();
   });
 
-  it("returns default renderer for unknown agents", () => {
-    expect(selectSubagentRenderer("unknown-agent")).toBeDefined();
+  it("does not invent a renderer for unknown agents", () => {
+    expect(selectSubagentRenderer("unknown-agent")).toBeUndefined();
   });
 });
 
@@ -55,33 +50,5 @@ describe("renderSubagent", () => {
     expect(result?._tag).toBe("Rendered");
     if (result?._tag !== "Rendered") return;
     expect(result.outputs[0]?.path).toBe("code-reviewer.toml");
-  });
-});
-
-describe("Kiro dual-format rendering", () => {
-  it("produces two files — .md for IDE and .json for CLI", () => {
-    const result = renderSubagent({ ...baseInput, agentId: "kiro" });
-    expect(result?._tag).toBe("Rendered");
-    if (result?._tag !== "Rendered") return;
-    expect(result.outputs).toHaveLength(2);
-
-    const paths = result.outputs.map((o) => o.path);
-    expect(paths).toContain("code-reviewer.md");
-    expect(paths).toContain("code-reviewer.json");
-  });
-
-  it("MD file starts with frontmatter", () => {
-    const result = renderSubagent({ ...baseInput, agentId: "kiro" });
-    if (result?._tag !== "Rendered") return;
-    const mdOutput = result.outputs.find((o) => o.path.endsWith(".md"));
-    expect(mdOutput?.content.startsWith("---\n")).toBe(true);
-  });
-
-  it("JSON file has no _axm_managed field", () => {
-    const result = renderSubagent({ ...baseInput, agentId: "kiro" });
-    if (result?._tag !== "Rendered") return;
-    const jsonOutput = result.outputs.find((o) => o.path.endsWith(".json"));
-    const parsed = JSON.parse(jsonOutput?.content ?? "{}");
-    expect(parsed._axm_managed).toBeUndefined();
   });
 });

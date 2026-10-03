@@ -56,6 +56,8 @@ describe("discoverExtensionPackages", () => {
         type: "subagent",
         name: "researcher",
         version: "1.0.0",
+        description: "Research supplied evidence",
+        core: { instructions: "src/researcher.md" },
       });
       writeManifest(path.join(tempDir, "rule-package"), "rule.json", {
         owner: "@acme",

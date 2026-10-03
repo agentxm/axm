@@ -108,74 +108,48 @@ describe("Type-specific inventory", () => {
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
-  it.effect(
-    "does not report a role Skill as current after replacement with an unrelated link containing identical bytes",
-    () => {
-      const workspace = makeInstalledWorkspace({ agents: ["cline"] });
-      const source = writeLocalSubagentPackage(workspace.root, { name: "planner" });
-      const nativePath = path.join(workspace.root, ".cline", "skills", "planner");
-      const unrelatedPath = path.join(workspace.root, "unrelated-role-copy");
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            const manager = yield* SubagentManager;
-            const resolved = yield* resolveConfiguredSubagent(
-              "planner",
-              source,
-              yield* makeConfiguredReleaseAgeEvaluation(),
-            );
-            const step = buildInstallOperation(manager, {
-              ref: resolved.ref,
-              declaration: {
-                name: "planner",
-                versionRange: Option.map(resolved.versionRange, String),
-              },
-              toStepFailure: kernelFailureToStepFailure,
-            });
-            if (step.readiness === "error") throw new Error(step.errorMessage);
-            yield* step.run;
+  it.effect("reports unsupported subagents without claiming a separately authored Skill", () => {
+    const workspace = makeInstalledWorkspace({ agents: ["cline"] });
+    const source = writeLocalSubagentPackage(workspace.root, { name: "planner" });
+    const nativePath = path.join(workspace.root, ".cline", "skills", "planner");
+    fs.mkdirSync(nativePath, { recursive: true });
+    fs.writeFileSync(path.join(nativePath, "SKILL.md"), "Separately authored Skill.\n");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const manager = yield* SubagentManager;
+          const resolved = yield* resolveConfiguredSubagent(
+            "planner",
+            source,
+            yield* makeConfiguredReleaseAgeEvaluation(),
+          );
+          const step = buildInstallOperation(manager, {
+            ref: resolved.ref,
+            declaration: {
+              name: "planner",
+              versionRange: Option.map(resolved.versionRange, String),
+            },
+            toStepFailure: kernelFailureToStepFailure,
+          });
+          if (step.readiness === "error") throw new Error(step.errorMessage);
+          yield* step.run;
 
-            const before = yield* listSubagents({});
-            expect(before.inventory.items[0]?.agentOutcomes).toMatchObject([
-              { agentId: "cline", outcome: "current" },
-            ]);
-            const nativeBefore = before.inventory.items[0]?.nativeLocations?.find(
-              (unit) => unit.address.path === nativePath,
-            );
-            expect(nativeBefore).toMatchObject({
-              ownership: "owned",
-              state: "unchanged",
-              configuredConsumers: ["cline"],
-            });
-            expect(nativeBefore?.potentialReaders).toContain("cline");
-
-            const generatedBytes = fs.readFileSync(path.join(nativePath, "SKILL.md"));
-            fs.mkdirSync(unrelatedPath);
-            fs.writeFileSync(path.join(unrelatedPath, "SKILL.md"), generatedBytes);
-            fs.rmSync(nativePath, { recursive: true });
-            fs.symlinkSync(unrelatedPath, nativePath, "dir");
-            expect(fs.readFileSync(path.join(nativePath, "SKILL.md"))).toEqual(generatedBytes);
-
-            const after = yield* listSubagents({});
-            expect(after.inventory.items[0]?.agentOutcomes).toMatchObject([
-              { agentId: "cline", outcome: "blocked" },
-            ]);
-            expect(
-              after.inventory.items[0]?.nativeLocations?.find(
-                (unit) => unit.address.path === nativePath,
-              ),
-            ).toMatchObject({ ownership: "unowned", state: "blocked" });
-            expect(fs.lstatSync(nativePath).isSymbolicLink()).toBe(true);
-            expect(fs.readFileSync(path.join(unrelatedPath, "SKILL.md"))).toEqual(generatedBytes);
-          }).pipe(
-            Effect.provide(
-              Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, StepFailureConversionTest),
-            ),
+          const listed = yield* listSubagents({});
+          expect(listed.inventory.items[0]?.agentOutcomes).toMatchObject([
+            { agentId: "cline", outcome: "unsupported" },
+          ]);
+          expect(listed.inventory.items[0]?.nativeLocations ?? []).toEqual([]);
+          expect(fs.readFileSync(path.join(nativePath, "SKILL.md"), "utf8")).toBe(
+            "Separately authored Skill.\n",
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, StepFailureConversionTest),
           ),
-        )
-        .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
-    },
-  );
+        ),
+      )
+      .pipe(Effect.ensuring(Effect.sync(workspace.cleanup)));
+  });
 
   // The owner, version and source below are the installation's, not the
   // fixture's: the pack is published to a Registry on disk and installed

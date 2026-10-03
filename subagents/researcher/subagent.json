@@ -1,9 +1,9 @@
 {
   "$schema": "https://axm.sh/schemas/subagent.schema.json",
-  "owner": "@craigsmitham",
+  "owner": "@agentxm",
   "type": "subagent",
   "name": "researcher",
-  "version": "0.1.1",
+  "version": "0.1.0",
   "description": "Performs one fresh-context, read-only Research Brief framing or evidence-gathering phase",
   "keywords": [
     "research",
@@ -14,14 +14,20 @@
     "isolation",
     "read-only"
   ],
-  "fallback": "auto",
-  "recommendedPacks": [
-    "@craigsmitham/packs/research"
-  ],
-  "standalone": false,
+  "core": {
+    "instructions": "src/researcher.md"
+  },
+  "implementations": {
+    "codex": {
+      "kind": "customized",
+      "configuration": {
+        "sandbox_mode": "read-only"
+      }
+    }
+  },
   "repository": {
     "type": "git",
-    "url": "https://github.com/craigsmitham/agent-extensions",
+    "url": "https://github.com/agentxm/axm",
     "directory": "subagents/researcher"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",

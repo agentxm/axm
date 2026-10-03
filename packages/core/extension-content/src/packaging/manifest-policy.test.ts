@@ -94,6 +94,7 @@ describe("resolveManifest", () => {
         name: "researcher",
         version: "1.0.0",
         description: "A research subagent",
+        core: { instructions: "src/instructions.md" },
       });
 
       const resolved = yield* resolveManifest({

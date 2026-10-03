@@ -109,7 +109,7 @@ export const deriveAgentOutputAuthority = (args: {
     skillSources[name] = sources;
   };
   const addSubagent = (name: string, ext: string, source: string) => {
-    const src = args.path.relative(args.baseDir, args.path.join(source, `${name}.md`));
+    const src = args.path.relative(args.baseDir, args.path.join(source, "..", "subagent.json"));
     const files = subagentFiles[name] ?? [];
     if (!files.some((file) => file.ext === ext && file.src === src)) files.push({ ext, src });
     subagentFiles[name] = files;

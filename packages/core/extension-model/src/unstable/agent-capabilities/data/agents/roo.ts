@@ -129,7 +129,7 @@ export const rooAgent = {
       },
       axm: {
         status: "unsupported",
-        reason: "Native ownership is unverified; AXM can offer a role Skill fallback.",
+        reason: "Native ownership is unverified.",
         lastVerified: "2026-08-05",
         writer: null,
       },

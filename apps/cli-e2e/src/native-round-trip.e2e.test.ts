@@ -359,6 +359,9 @@ describe("new intent and precise withdrawal across CLI processes", () => {
             type: kind,
             name: "context",
             version: "1.0.0",
+            ...(kind === "subagent"
+              ? { description: "Context helper", core: { instructions: "src/context.md" } }
+              : {}),
             ...(kind === "hook"
               ? { runtime: "bash", entrypoint: "src/hook.sh", bindings: [{ on: "session.start" }] }
               : {}),
@@ -371,11 +374,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
               : {}),
           }),
         );
-        if (kind === "subagent")
-          write(
-            path.join(source, "src", "context.md"),
-            "---\nname: context\ndescription: Context helper\n---\n# Context\n",
-          );
+        if (kind === "subagent") write(path.join(source, "src", "context.md"), "# Context\n");
         if (kind === "rule") write(path.join(source, "src", "RULE.md"), "Preserve context.\n");
         if (kind === "hook")
           write(path.join(source, "src", "hook.sh"), "#!/usr/bin/env bash\nexit 0\n");

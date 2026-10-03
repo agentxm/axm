@@ -181,6 +181,7 @@ export interface RegistrySkillVersion {
 }
 
 export interface RegistrySubagentVersion {
+  readonly files?: Readonly<Record<string, string>>;
   readonly version: string;
   readonly body?: string;
   readonly published?: string;
@@ -398,6 +399,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
       readonly version: string;
       readonly published?: string;
       readonly body?: string;
+      readonly files?: Readonly<Record<string, string>>;
     }>,
   ): void => {
     const directory = extensionDir(`${type}s`, name);
@@ -405,7 +407,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
       directory,
       type,
       name,
-      versions.map(({ version, published, body }) => ({
+      versions.map(({ version, published, body, files }) => ({
         version,
         published: published ?? FIXTURE_PUBLISHED_AT,
         integrity: integrityOf(
@@ -416,6 +418,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
               name,
               version,
               description: `The ${name} ${type}.`,
+              ...(type === "subagent" ? { core: { instructions: `src/${name}.md` } } : {}),
               ...(type === "hook"
                 ? {
                     runtime: "bash",
@@ -426,11 +429,12 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
             }),
             ...(type === "subagent"
               ? {
-                  [`src/${name}.md`]: `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n# ${name}\n\n${body ?? "Review."}\n`,
+                  [`src/${name}.md`]: `${body ?? "Review."}\n`,
                 }
               : type === "rule"
                 ? { "src/RULE.md": `Guidance for ${name}: ${body ?? "Review."}\n` }
                 : { "src/hook.sh": `#!/usr/bin/env bash\necho "${name}"\n` }),
+            ...files,
           }),
         ),
       })),

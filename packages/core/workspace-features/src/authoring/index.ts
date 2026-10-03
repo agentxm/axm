@@ -20,6 +20,8 @@ export {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
+  NativeSubagentRuntimeRequired,
+  NativeSubagentImportUnsupported,
   type AuthoredPackageError,
 } from "./authored-package-errors.js";
 export {

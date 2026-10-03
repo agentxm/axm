@@ -1,9 +1,8 @@
 /**
  * Shared types for subagent renderers.
  *
- * Renderers translate an opaque frontmatter map (plus the `agentOverrides`
- * merge patch for the target agent) into agent-native files. Renderers do
- * not interpret portable fields — they format-translate verbatim.
+ * Renderers serialize the native configuration selected by the implementation
+ * compiler. They do not interpret portable execution policy.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -14,10 +13,7 @@ export interface LossyRenderingWarning {
   readonly feature: string;
   readonly message: string;
 }
-import type { AgentOverrides } from "../../agent-overrides.js";
 import type { RelativePath } from "@agentxm/extension-model/unstable/path-types";
-
-export type { AgentOverrides } from "../../agent-overrides.js";
 
 /**
  * Ownership banner text the owning projection rendered for one managed
@@ -45,10 +41,15 @@ export interface SubagentRenderInput {
   readonly name: string;
   /** Subagent content body text (after frontmatter). */
   readonly body: string;
-  /** The user's frontmatter map, opaque to the renderer (excluding `agentOverrides`). */
+  /** Selected native configuration, opaque to the renderer. */
   readonly frontmatter: Readonly<Record<string, unknown>>;
-  /** Merge patch applied on top of the frontmatter map for this agent. */
-  readonly agentOverrides: AgentOverrides | undefined;
+  /** Selected compile-time inputs that participate in projection currency. */
+  readonly sourceDependencies?: ReadonlyArray<string>;
+  /** Complete native definition; it replaces portable serialization. */
+  readonly native?: {
+    readonly format: "markdown" | "toml";
+    readonly content: string;
+  };
   /**
    * Ownership banner the owning projection stamps into comment-bearing
    * formats. Absent for an undecorated render.

@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/native-imports-preserve-content-and-source",
   title: "Native imports create workspace packages without changing original content",
   statement:
-    "When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or the target is already enabled, and shall reject a managed package or mismatched target type.",
+    "When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package. A new Subagent shall preserve the complete native definition and native identity and start disabled unless activation is requested. Existing Skill activation shall be preserved. A managed source or mismatched target type shall be refused.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -72,6 +72,7 @@ describe("Importing native instructions", () => {
         source: request.source,
         target: request.target,
         enable: request.enable,
+        ...(request.type === "subagent" ? { sourceAgent: "claude-code" as const } : {}),
       });
       return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
     }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
@@ -94,14 +95,16 @@ describe("Importing native instructions", () => {
       // A native Subagent is the single instruction file itself.
       nativePath: "native/reviewer.md",
       sourcePath: "native/reviewer.md",
-      authoredEntry: "src/custom.md",
-      projection: ".claude/agents/custom.md",
-      projected: ".claude/agents/custom.md",
+      authoredEntry: "native/claude-code/reviewer.md",
+      projection: ".claude/agents/original.md",
+      projected: ".claude/agents/original.md",
     },
   ] as const;
 
   for (const type of importable)
-    for (const row of activations)
+    for (const row of activations.filter(
+      (row) => type.type === "skill" || row.configured === undefined,
+    ))
       it.effect(`imports a ${type.type} with ${row.activation} activation`, () =>
         Effect.gen(function* () {
           const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["claude-code"] });
@@ -139,7 +142,8 @@ describe("Importing native instructions", () => {
             version: "0.1.0",
           });
           const content = created.read(`${type.plural}/custom/${type.authoredEntry}`);
-          expect(content).toContain("name: custom");
+          expect(content).toContain(type.type === "skill" ? "name: custom" : "name: original");
+          if (type.type === "subagent") expect(content).toBe(NATIVE_BODY);
           expect(content).toContain("Keep every recommendation evidence backed.");
           expect(created.settings()).toMatchObject({
             [type.plural]: {

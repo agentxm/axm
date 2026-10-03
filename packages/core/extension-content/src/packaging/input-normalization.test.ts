@@ -204,7 +204,7 @@ describe("normalizePublishInput", () => {
     },
     {
       type: "subagent" as const,
-      manifest: { description: "Reviews code" },
+      manifest: { description: "Reviews code", core: { instructions: "src/code-review.md" } },
       missing: "src/code-review.md",
     },
     {

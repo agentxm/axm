@@ -153,6 +153,7 @@ export {
   type SubagentSkipped,
 } from "./subagents/rendering/types.js";
 export {
+  nativeSubagentMarker,
   addSubagentViaResolve,
   dirOutcomeToSubagentSyncOutcome,
   removeSubagentFiles,
@@ -160,14 +161,6 @@ export {
   writeSubagentFiles,
   type SubagentSyncFailure,
 } from "./subagents/sync.js";
-
-// Agent overrides
-export {
-  applyOverrides,
-  warnOnOrphanOverrides,
-  type AgentOverrides,
-  type AllAgentOverrides,
-} from "./agent-overrides.js";
 
 // MCP native format
 export {

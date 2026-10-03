@@ -8,100 +8,116 @@ acquired packages use the source-family and identity-based canonical scheme.
 For example, a Registry subagent lives under
 `./agent_extensions/registry/<@owner>/subagents/<subagent-name>`.
 
-A subagent is two coordinated files: a portable manifest plus a content file that holds the system prompt and any agent-facing frontmatter.
+A package declares portable instructions, explicit runtime implementations, or
+both. Workspace `agents` selects the destinations; a manifest cannot declare
+`agents`. Run `axm help subagent-schema` for the complete manifest schema.
 
-## subagent.json
+## Declare implementations
 
-[`subagent.json`](https://axm.sh/schemas/subagent.schema.json)
-
-Targeting is workspace-owned through `axm.json` `agents`; publish rejects
-manifest `agents`. The manifest does not carry per-agent behavior — that lives
-in the content file.
-
-Run `axm help subagent-schema` to print the raw JSON Schema.
-
-## `src/`
-
-The `src/` directory holds `<subagent-name>.md` — Markdown with YAML frontmatter and a body containing the system prompt.
-
-Only one frontmatter field is required: `name`. Everything else you write in the frontmatter passes through verbatim into the rendered agent-native file. AXM does not interpret or reshape it.
-
-Put fields that every target agent understands at the top level. Put agent-specific fields under `agentOverrides.<agent-id>` so they only render for that agent. See each agent's official subagent documentation for the supported fields.
-
-```markdown
----
-name: code-reviewer
-description: "call me uncle bob"
-agentOverrides:
-  claude-code:
-    model: claude-opus-4-6
-  codex:
-    model: gpt-5-codex
-    sandbox_mode: read-only
-    description: null
----
-
-You are a senior code reviewer...
+```json
+{
+  "owner": "@acme",
+  "type": "subagent",
+  "name": "reviewer",
+  "version": "1.0.0",
+  "description": "Review changes and report evidence",
+  "core": { "instructions": "src/reviewer.md", "name": "reviewer" },
+  "implementations": {
+    "codex": {
+      "kind": "customized",
+      "configuration": { "sandbox_mode": "read-only" },
+      "instructions": { "mode": "append", "source": "src/codex.md" }
+    },
+    "cursor": { "kind": "native", "source": "native/cursor.md" }
+  }
+}
 ```
 
-`name` must match both the manifest's `name` and the filename stem.
+`core.instructions` names a plain instruction file. `core.name` optionally
+sets the native role name; otherwise the package name supplies it. A core
+requires a nonempty manifest description.
 
-## Pass-through rendering
+An explicit implementation wins for its catalog ID:
 
-`axm install` and `axm sync` translate the content file's frontmatter into each target agent's native format and place the body in the format's natural slot:
+- `customized` requires a core. Its optional `configuration` contains opaque
+  native JSON settings. Optional instructions append to or replace the core.
+  Identity and instruction fields cannot be placed in `configuration`.
+- `native` names a complete native definition. It preserves native settings,
+  instructions, and identity independently of the package name and never merges
+  the core into that definition.
+- Without an explicit implementation, a compatible writer may render the core.
+  Without either, that runtime is unsupported.
 
-- **Markdown + YAML** (Claude Code, Copilot, Cursor, Gemini CLI, OpenCode, Augment, Junie, Kilo Code, Kiro IDE) — frontmatter keys → YAML; body follows the `---` block.
-- **TOML** (Codex) — frontmatter keys → TOML key-value lines; body becomes `developer_instructions`.
-- **JSON** (Kiro CLI) — frontmatter keys → JSON object; body becomes `prompt`.
-- **Roo modes** (Roo Code) — `slug` and `name` are set to the subagent name; the body splits at the first blank line into `roleDefinition` and `customInstructions`; `groups` defaults to `[read, edit, command, mcp]` if not in frontmatter; other frontmatter keys flow through.
+A native-only package may omit `core`. Invalid explicit implementations fail
+validation; they never fall back to the core. AXM does not translate model,
+tool, permission, sandbox, or security settings between runtimes or supply
+universal defaults. Consult the selected runtime's native contract.
 
-Whatever you write in your frontmatter is what shows up in the rendered file. If you want different values for different agents, use `agentOverrides`. Do not edit the rendered subagents directly.
+All declared files must be contained regular files within the package, including
+references for unconfigured runtimes. Publish also validates the filtered
+archive. AXM does not relocate resource trees or resolve package-relative native
+runtime references. Recognized references whose original resource base would
+be lost make that target unsupported. External prerequisites remain the author's
+responsibility.
 
-## Agent overrides
+## Inspect before applying
 
-`agentOverrides.<agent-id>` is the one recognized convention key in frontmatter. It is consumed by the renderer and never appears in the rendered output. Each entry is applied as an RFC 7396 JSON Merge Patch on top of the rendered fields for that agent: objects merge recursively, `null` deletes a key, arrays replace wholesale, and primitive values replace.
-
-```yaml
-agentOverrides:
-  claude-code:
-    permissions:
-      write: false
-      writeMode: null
-    allowedTools:
-      - Read
-      - Grep
-  codex:
-    sandbox_mode: workspace-write
+```sh
+axm subagents show reviewer --render codex
+axm subagents show reviewer --render cursor --json
 ```
 
-Overrides for agents not in your configured `agents` set are ignored, with a warning.
+`--render` works for an unconfigured catalog runtime. It returns the selected
+mode, native identity, source dependencies, output paths, and complete rendered
+content without writing files or changing configuration. Machine output uses a
+registered schema; unsupported targets return a structured result with exit 1.
+Unknown runtime IDs are usage errors. Ordinary `show` remains available without
+`--render`.
 
-## Updating subagents
+`install`, `sync`, and render inspection use the same selection and compiler.
+Mixed target support reports every unsupported target while realizing compatible
+ones. Enabling or installing an enabled package with configured targets requires
+at least one compatible target. Disabled packages and workspaces without
+configured targets can retain canonical packages. Sync can retire previously
+owned output after accepted state loses all compatible targets. Unsupported
+subagents never become Skills.
 
-For a project-authored subagent, edit its content file under `src/`. `axm sync`
-re-renders the agent-native files from the content file's frontmatter and body;
-it does not write to `subagent.json`.
+## Import native definitions
 
-An AXM-managed rendered file names its canonical source for provenance. It
-offers edit-and-sync guidance only when that source is project-authored.
-Registry, Git, and local-source packages are immutable accepted state; use
-`axm fork` to create an authored copy before customizing one. Never edit the
-rendered agent file.
+```sh
+axm subagents import ./reviewer.md @acme/subagents/reviewer --source-agent claude-code --preview
+axm subagents import ./reviewer.toml @acme/subagents/reviewer --source-agent codex
+```
 
-Run `axm subagents publish` to release a new version. Publish validates the manifest, checks that `src/<subagent-name>.md` exists and that its frontmatter `name` matches the manifest, then zips the extension directory, computes its SRI integrity hash, and uploads the version to the target registry. Publish never edits `subagent.json` — whatever is on disk is what gets shipped.
+Import leaves the source unchanged and defaults to disabled. Use `--enable` to
+request activation. Generic Markdown needs `--source-agent`; native locations
+can identify the runtime when unambiguous. Contradictory runtime selection is
+refused, and a known runtime without an importer receives an explicit
+capability refusal.
 
-## Unmanaged subagents
+An existing workspace-authored package may receive an empty runtime slot.
+Import preserves its core, version, other implementations, and activation unless
+activation is requested. An occupied slot, acquired package, conflicting native
+destination, or changed source or destination after preview is refused. Use
+`axm fork` before customizing an acquired AXM package.
 
-Agent-native subagents without AXM ownership remain outside reconciliation.
-Use `axm subagents import <source> <extension>` when you deliberately want an
-AXM-owned copy that you can customize or publish. Import accepts a supported
-local or Git source, creates a new project-workspace package, and leaves the
-native source unchanged. Use `--preview` to inspect the candidate without
-writing it.
+## Update and remove
 
-Use `axm fork <source> <extension>` instead when the source is already a
-managed AXM package. Leave content unowned when another tool owns its lifecycle;
-AXM does not delete it.
+Edit the authored manifest or its referenced files, then run `axm sync`.
+Acquired packages are accepted state; fork them before customizing. Native
+output records its package source and generation. Unchanged source preserves
+local edits to owned output; a changed selected implementation renders a new
+generation. Editing an unused runtime implementation does not rewrite another
+runtime's output.
+
+Identity changes and removal retire only proven AXM-owned native files. Foreign
+native definitions and separately authored Skills remain intact. Consumers
+sharing a physical destination must require identical bytes; incompatible
+claims are refused before writing.
+
+Run `axm subagents publish` only when ready to release a version. Publication
+validates the manifest and referenced content and follows the archive policy
+in `axm help publish`; it never edits the manifest.
 
 ## Recommended packs
 

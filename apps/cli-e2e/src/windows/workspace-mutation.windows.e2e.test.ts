@@ -1,3 +1,4 @@
+import "../cli-commands/subagents/implementations.e2e.js";
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
@@ -14,6 +15,8 @@ export const executionBinding = {
   requirements: [
     "system/compatibility/supported-platform-matrix",
     "cli/lint/observes-selected-filesystem-view",
+    "workspace/subagents/native-locations-respect-shape-and-proof",
+    "cli/subagents/import/preserves-native-implementation-authority",
   ],
   boundary: "platform",
   rationale:

@@ -74,7 +74,7 @@ export const writeAgentSkillDirectory = (root: string, fixture: LocalPackageFixt
   return packageRoot;
 };
 
-/** A local subagent package: `subagent.json` plus `src/<name>.md`. */
+/** A local portable subagent package with an explicit instruction source. */
 export const writeLocalSubagentPackage = (root: string, fixture: LocalPackageFixture): string => {
   const description = fixture.description ?? `The ${fixture.name} subagent.`;
   const packageRoot = preparePackageRoot(root, fixture, "subagent.json", {
@@ -84,12 +84,9 @@ export const writeLocalSubagentPackage = (root: string, fixture: LocalPackageFix
     name: fixture.name,
     version: fixture.version ?? "1.0.0",
     description,
+    core: { instructions: `src/${fixture.name}.md` },
   });
-  writePackageFile(
-    packageRoot,
-    `src/${fixture.name}.md`,
-    `---\nname: ${fixture.name}\ndescription: ${description}\n---\n\n# ${fixture.name}\n`,
-  );
+  writePackageFile(packageRoot, `src/${fixture.name}.md`, `# ${fixture.name}\n\n${description}\n`);
   return packageRoot;
 };
 

@@ -46,6 +46,18 @@ export class NativeImportUnsupported extends Data.TaggedError("NativeImportUnsup
   readonly type: ExtensionType;
 }> {}
 
+export class NativeSubagentRuntimeRequired extends Data.TaggedError(
+  "NativeSubagentRuntimeRequired",
+)<{
+  readonly sourcePath: string;
+}> {}
+
+export class NativeSubagentImportUnsupported extends Data.TaggedError(
+  "NativeSubagentImportUnsupported",
+)<{
+  readonly agentId: string;
+}> {}
+
 /** Native import input content did not validate. */
 export class NativeImportInvalid extends Data.TaggedError("NativeImportInvalid")<{
   readonly detail: string;
@@ -72,6 +84,8 @@ export type AuthoredPackageError =
   | ForkPackageConflict
   | ForkPackageFailed
   | NativeImportUnsupported
+  | NativeSubagentRuntimeRequired
+  | NativeSubagentImportUnsupported
   | NativeImportInvalid
   | NativeImportConflict
   | NativeImportFailed;

@@ -5,7 +5,7 @@ import { parseFrontmatterEffect } from "../content/frontmatter.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { inspectKnowledgeEntries, type KnowledgeBundleEntry } from "../knowledge/okf.js";
 import { parseSkillMd } from "../content/skill-content.js";
-import { parseSubagentMd } from "../content/subagent-content.js";
+import { readSubagentPackage } from "../content/subagent-content.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 import type { ResolvedManifest } from "./manifest-policy.js";
 
@@ -91,16 +91,19 @@ export const validateFilteredPackage = (
         return;
       }
       case "subagent": {
-        const path = `src/${name}.md`;
-        const content = yield* readText(args, path);
-        yield* parseSubagentMd(content, name).pipe(
-          Effect.mapError(
-            () =>
-              new FilteredPackageError({
-                code: "content_invalid",
-                detail: `Filtered "${path}" must contain valid subagent frontmatter whose name is "${name}".`,
-                path,
-              }),
+        yield* readSubagentPackage({
+          manifest: args.manifest.raw,
+          readFile: (path) => readText(args, path),
+        }).pipe(
+          Effect.mapError((error) =>
+            error instanceof FilteredPackageError
+              ? error
+              : new FilteredPackageError({
+                  code:
+                    error.reason === "reference-invalid" ? "reference_invalid" : "content_invalid",
+                  detail: error.detail,
+                  ...(error.source === undefined ? {} : { path: error.source }),
+                }),
           ),
         );
         return;

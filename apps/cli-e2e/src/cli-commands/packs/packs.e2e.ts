@@ -62,18 +62,7 @@ function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.
   const subagentDir = path.join(workspaceRoot, "subagents", name);
   const srcDir = path.join(subagentDir, "src");
   fs.mkdirSync(srcDir, { recursive: true });
-  fs.writeFileSync(
-    path.join(srcDir, `${name}.md`),
-    [
-      "---",
-      `name: "${name}"`,
-      'description: "A dependency subagent"',
-      "---",
-      "",
-      `# ${name}`,
-      "",
-    ].join("\n"),
-  );
+  fs.writeFileSync(path.join(srcDir, `${name}.md`), `# ${name}\n`);
   fs.writeFileSync(
     path.join(subagentDir, "subagent.json"),
     JSON.stringify(
@@ -82,6 +71,8 @@ function writeSubagentPackage(workspaceRoot: string, name: string, version = "1.
         type: "subagent",
         name,
         version,
+        description: "A dependency subagent",
+        core: { instructions: `src/${name}.md` },
       },
       null,
       2,

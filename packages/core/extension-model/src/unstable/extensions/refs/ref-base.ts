@@ -145,8 +145,6 @@ export type SubagentExtensionRefBase<
     readonly name: ExtensionName;
     readonly description: Option.Option<string>;
   };
-  /** Override platform capability degradation for this extension. */
-  readonly fallback?: "auto" | "none";
 };
 
 /** @experimental */

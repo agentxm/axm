@@ -210,8 +210,7 @@ export const deepagentsAgent = {
       },
       axm: {
         status: "unsupported",
-        reason:
-          "Native nested AGENTS.md profile writing is unverified; AXM can offer a role Skill fallback.",
+        reason: "Native nested AGENTS.md profile writing is unverified.",
         lastVerified: "2026-08-05",
         writer: null,
       },

@@ -7,8 +7,8 @@
  *
  * What became active is materialized by the same sync steps `axm sync` runs,
  * so enabling and reconciling cannot disagree about what an active extension
- * looks like: a subagent enabled on an agent without native support gets the
- * same advisory role-skill fallback install writes. What became inactive is
+ * looks like. Enabling requires a compatible configured target; accepted-state
+ * sync can reconcile unsupported coverage. What became inactive is
  * withdrawn by the manager that owns the projection, which keeps canonical
  * content and the accepted resolution in place.
  *
@@ -91,6 +91,7 @@ export const prepareActivationRealization = (args: {
             desiredState: args.proposal.after,
             settings: args.proposal.settings,
             selection: args.selection,
+            requireSubagentSupport: true,
             adapter: args.adapter,
           }),
         )

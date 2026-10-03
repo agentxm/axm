@@ -3,15 +3,13 @@
  *
  * For: Codex.
  * Emits the user's frontmatter keys as TOML key=value pairs and the body
- * as the `developer_instructions` field. `agentOverrides[codex]` is merged
- * on top.
+ * as the `developer_instructions` field.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import { stringifyToml } from "../../../toml.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { applyOverrides } from "../overrides.js";
 import { rendered, type SubagentRenderInput, type SubagentRenderOutcome } from "../types.js";
 
 /**
@@ -24,10 +22,9 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
     ...input.frontmatter,
     developer_instructions: input.body,
   };
-  const merged = applyOverrides(base, input.agentOverrides);
 
   const path = decodeRelativePathSync(`${input.name}.toml`);
-  const body = stringifyToml(merged);
+  const body = stringifyToml(base);
   const content =
     input.ownershipBanner === undefined ? body : `${input.ownershipBanner.toml}\n\n${body}`;
 

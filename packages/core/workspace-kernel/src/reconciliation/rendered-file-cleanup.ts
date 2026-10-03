@@ -9,8 +9,6 @@ import { unlink } from "node:fs/promises";
  */
 
 import {
-  readCopiedDirectory,
-  resolveNativeReferent,
   combineNativeLocationOutcomes,
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
@@ -21,7 +19,6 @@ import {
 } from "../locations/index.js";
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
@@ -134,11 +131,7 @@ const removeOwnedFile = (
     }
     yield* recordFootprint({ path: address.entryPath, change: "removed" });
     const unit =
-      output.extensionType === "skill"
-        ? "skill-parent-directories"
-        : output.proof === "copied-directory-receipt"
-          ? "subagent-role-parent-directories"
-          : "subagent-parent-directories";
+      output.extensionType === "skill" ? "skill-parent-directories" : "subagent-parent-directories";
     yield* (yield* NativeWriteAuthority).retireCreatedDirectories({
       path: address.entryPath,
       unit: JSON.stringify([unit, address.entryPath]),
@@ -387,18 +380,6 @@ export const reconcileAgentOutputs = (
     const artifactBefore = observedArtifacts.map((locations) =>
       locations.filter((unit) => unit.state === "removed"),
     );
-    const roleSources = yield* Effect.forEach(
-      candidates.filter(
-        (output) =>
-          output.extensionType === "subagent" && output.proof === "copied-directory-receipt",
-      ),
-      (output) =>
-        readCopiedDirectory(output.path).pipe(
-          Effect.map((receipt) =>
-            Option.isSome(receipt) ? { output, source: receipt.value.source } : undefined,
-          ),
-        ),
-    );
     const mcpContainers = uniqueContainers(
       candidates.filter(({ extensionType }) => extensionType === "mcp-server"),
     );
@@ -447,47 +428,6 @@ export const reconcileAgentOutputs = (
           ),
         );
       }
-    }
-    for (const role of roleSources) {
-      if (
-        role === undefined ||
-        before.outputs.some(
-          (output) =>
-            output.extensionType === "subagent" &&
-            output.entryName === role.output.entryName &&
-            !candidates.includes(output),
-        )
-      )
-        continue;
-      const remaining = yield* Effect.forEach(
-        roleSources.filter((candidate) => candidate?.source === role.source),
-        (candidate) =>
-          candidate === undefined ? Effect.succeed(false) : fs.exists(candidate.output.path),
-      ).pipe(
-        Effect.mapError((cause) => cleanupFailure("Cannot inspect remaining role Skill", cause)),
-      );
-      if (remaining.some(Boolean)) continue;
-      const generatedRoot = yield* resolveNativeReferent(
-        path.join(location.baseDir, ".axm/build/polyfills/subagents", role.output.entryName),
-      ).pipe(
-        Effect.mapError((cause) => cleanupFailure("Cannot resolve generated role source", cause)),
-      );
-      if (!role.source.startsWith(`${generatedRoot}${path.sep}`)) continue;
-      const file = path.join(role.source, "SKILL.md");
-      const raw = yield* fs.readFileString(file).pipe(Effect.option);
-      if (Option.isSome(raw))
-        yield* (yield* NativeWriteAuthority)
-          .retireInsertion({
-            path: file,
-            unit: JSON.stringify(["subagent-role-source", file]),
-            raw: raw.value,
-            empty: true,
-          })
-          .pipe(
-            Effect.mapError((cause) =>
-              cleanupFailure("Cannot retire generated role source", cause),
-            ),
-          );
     }
     nativeLocations.push(
       ...(yield* retiredNativeArtifactLocationOutcomes(artifactBefore.flat()).pipe(

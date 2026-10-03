@@ -353,9 +353,7 @@ const expectSubagentContent = (
     name,
     version: publication.version,
   });
-  expect(workspace.readFile(`${canonical}/src/${name}.md`)).toBe(
-    `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n# ${name}\n\n${publication.body}\n`,
-  );
+  expect(workspace.readFile(`${canonical}/src/${name}.md`)).toBe(`${publication.body}\n`);
   const native = workspace.readFile(`.claude/agents/${name}.md`);
   expect(native).toContain(`name: ${name}`);
   expect(native).toContain(publication.body);

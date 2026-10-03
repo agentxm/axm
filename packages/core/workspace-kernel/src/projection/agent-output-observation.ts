@@ -21,7 +21,6 @@ import {
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
 } from "../locations/index.js";
-import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   resolveWorkspaceExtensionRef,
   type SkillEntry,
@@ -214,7 +213,7 @@ export const observeAgentOutputs = (
         const artifactPath = path.join(container.path, entry);
         const address = yield* resolveNativeEntry(artifactPath).pipe(Effect.option);
         let proof: AgentOutputOwnershipProof | undefined;
-        let extensionType: PerAgentType = "skill";
+        const extensionType: PerAgentType = "skill";
         if (
           Option.isSome(address) &&
           address.value.kind === "symlink" &&
@@ -234,25 +233,7 @@ export const observeAgentOutputs = (
           if (yield* isAuthoredSkillPackage(args.authoredSkills, artifactPath, entry)) continue;
           const receipt = yield* readCopiedDirectory(artifactPath);
           if (Option.isSome(receipt)) {
-            const marker = managedFileMarker(
-              yield* safeReadFileString(fs, path.join(artifactPath, "SKILL.md")),
-              "markdown",
-            );
-            const expected = args.expectedSubagentFiles[entry] ?? [];
-            const fallbackRoot = yield* resolveNativeReferent(
-              path.join(args.workspaceRoot, ".axm/build/polyfills/subagents", entry),
-            ).pipe(Effect.option);
-            if (
-              Option.isSome(marker) &&
-              expected.some(
-                (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
-              ) &&
-              Option.isSome(fallbackRoot) &&
-              isWithinOrEqual(path, fallbackRoot.value, receipt.value.source)
-            ) {
-              extensionType = "subagent";
-              proof = "copied-directory-receipt";
-            } else if ((expectedSkillSources.get(entry) ?? []).includes(receipt.value.source)) {
+            if ((expectedSkillSources.get(entry) ?? []).includes(receipt.value.source)) {
               proof = "copied-directory-receipt";
             }
           }
@@ -297,10 +278,17 @@ export const observeAgentOutputs = (
         const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
         if (stat._tag === "None" || stat.value.type !== "File") continue;
         const content = yield* safeReadFileString(fs, artifactPath);
-        const entryName = extensionNameFromFilename(entry);
         const format = managedFileFormatForPath(artifactPath);
         const marker = format === undefined ? Option.none() : managedFileMarker(content, format);
-        const expected = args.expectedSubagentFiles[entryName] ?? [];
+        const packageOwner = Option.isNone(marker)
+          ? undefined
+          : Object.entries(args.expectedSubagentFiles).find(([, proofs]) =>
+              proofs.some(
+                (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
+              ),
+            );
+        const entryName = packageOwner?.[0] ?? extensionNameFromFilename(entry);
+        const expected = packageOwner?.[1] ?? [];
         const managed =
           Option.isSome(marker) &&
           expected.some(

@@ -57,6 +57,11 @@ export {
   type ShowExtensionRequest,
 } from "./show/show-extension.js";
 export {
+  RenderSubagent,
+  SubagentRenderResultSchema,
+  type SubagentRenderResult,
+} from "./show/render-subagent.js";
+export {
   PackShowResultSchema,
   ShowPack,
   type PackShowResult,

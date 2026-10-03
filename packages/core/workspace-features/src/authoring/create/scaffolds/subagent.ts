@@ -20,14 +20,7 @@ import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js"
 
 const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
-const subagentBody = (name: string) =>
-  [
-    "---",
-    `name: ${name}`,
-    "---",
-    "",
-    "Describe what this subagent does and when to delegate work to it.\n",
-  ].join("\n");
+const subagentBody = "Review the assigned work carefully and report evidence-backed findings.\n";
 
 export const subagentScaffold = (args: {
   readonly name: string;
@@ -40,6 +33,8 @@ export const subagentScaffold = (args: {
     type: "subagent",
     name: decodeExtensionNameSync(args.name),
     version: INITIAL_VERSION,
+    description: "Review assigned work and report evidence-backed findings.",
+    core: { instructions: body },
   };
   return {
     subject: "Subagent",
@@ -55,7 +50,7 @@ export const subagentScaffold = (args: {
         });
         yield* stageFileAt({
           path: path.join(stagingPath, "src", `${args.name}.md`),
-          contents: subagentBody(args.name),
+          contents: subagentBody,
         });
       }),
   };

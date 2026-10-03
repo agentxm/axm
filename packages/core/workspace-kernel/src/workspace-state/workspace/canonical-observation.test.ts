@@ -455,6 +455,43 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
     }),
   );
 
+  it.effect("judges native-only subagents by declared package references", () =>
+    Effect.gen(function* () {
+      const layout = yield* projectLayout(root);
+      const source = "workspace:@acme/subagents/review";
+      const desired: DesiredExtensionNode = {
+        type: "subagent",
+        name: "review",
+        identity: identityOf(source),
+        source,
+        enabled: false,
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        origins: [{ type: "settings", source, enabled: false }],
+      };
+      const canonical = nodePath.join(root, "subagents", "review");
+      nodeFs.mkdirSync(nodePath.join(canonical, "native"), { recursive: true });
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "subagent.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "review",
+          version: "1.0.0",
+          implementations: { codex: { kind: "native", source: "native/reviewer.toml" } },
+        }),
+      );
+      const observe = () => observeCanonicalExtension({ layout, desired, accepted: undefined });
+      expect((yield* observe()).status).toBe("incomplete");
+      nodeFs.writeFileSync(
+        nodePath.join(canonical, "native/reviewer.toml"),
+        'name = "investigator"\ndescription = "Review"\ndeveloper_instructions = "Inspect evidence"\n',
+      );
+      expect((yield* observe()).status).toBe("usable");
+      nodeFs.rmSync(nodePath.join(canonical, "native/reviewer.toml"));
+      expect((yield* observe()).status).toBe("incomplete");
+    }),
+  );
+
   it.effect("evaluates pack constraints against an authored workspace manifest", () =>
     Effect.gen(function* () {
       const layout = yield* projectLayout(root);

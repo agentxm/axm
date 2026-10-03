@@ -449,6 +449,37 @@ const mcpInventoryFamily: MachineOutputFamily = {
   commandCoverage: ["apps/cli/src/root/list-empty-output.test.ts"],
 };
 
+const subagentShowFamily: MachineOutputFamily = {
+  ...extensionShowFamily,
+  id: "subagent-show",
+  schemaNames: ["ExtensionShowResultSchema", "SubagentRenderResultSchema"],
+  requiredTopLevelKeys: [],
+  optionalTopLevelKeys: [
+    "item",
+    "agents",
+    "name",
+    "fqn",
+    "type",
+    "version",
+    "enabled",
+    "locked",
+    "source",
+    "scope",
+    "agentId",
+    "status",
+    "mode",
+    "nativeName",
+    "reasonCode",
+    "reason",
+    "sourceDependencies",
+    "artifacts",
+    "qualifications",
+  ],
+  scenarios: ["extension found", "not found", "rendered target", "unsupported target"],
+  rationale:
+    "Subagent show reports installed state, or a read-only compiled runtime implementation when --render is selected.",
+};
+
 const registryTransitionFamily = defineResultFamily({
   id: "registry-transition",
   liveness: "progress",
@@ -1009,8 +1040,8 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
     "axm mcps show",
     "axm rules show",
     "axm skills show",
-    "axm subagents show",
   ]),
+  ...rowsFor(subagentShowFamily, ["axm subagents show"]),
   ...rowsFor(packShowFamily, ["axm packs show"]),
   ...rowsFor(helpTopicFamily, ["axm help"]),
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),

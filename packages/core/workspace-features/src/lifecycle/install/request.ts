@@ -86,15 +86,15 @@ const MESSAGES: Record<
       source.type === "registry"
         ? "Verify the owner and subagent name exist in the configured registry."
         : source.type === "local"
-          ? "Verify the source path contains subagent directories with <name>.md files."
-          : "Verify the source contains subagent directories with <name>.md files.",
+          ? "Verify the source path contains subagent packages with subagent.json and its referenced files."
+          : "Verify the source contains subagent packages with subagent.json and its referenced files.",
     discoverFailure: (source, cause) =>
       source.type === "registry"
         ? sourceResolutionFailureDetail(cause).includes("not implemented")
           ? "Remote registry discovery is not yet supported for HTTP(S) sources. Use a file:// registry source, or install from github:owner/repo."
           : "Verify the configured registry is reachable and contains the requested owner/subagent."
         : source.type === "local"
-          ? "Verify the source path contains subagent directories with <name>.md files."
+          ? "Verify the source path contains subagent packages with subagent.json and its referenced files."
           : "Verify the source is reachable and contains valid subagent directories.",
   },
 };

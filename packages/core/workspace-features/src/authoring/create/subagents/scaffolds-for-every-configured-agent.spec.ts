@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/subagents/new/scaffolds-for-every-configured-agent",
   title: "A new subagent is scaffolded and rendered for every configured agent",
   statement:
-    "When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply.",
+    "When a subagent is created, AXM shall create its manifest, portable instructions, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply. If configured agents exist and none can materialize the package, creation shall refuse before changing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "agent-interoperability", "safe-repetition"],
@@ -39,7 +39,7 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [
     "Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.",
-    "A subagent's rendered agent files are not listed as creation targets; the created package, its content, and its declaration are. Preview and apply therefore compare that set.",
+    "Creation reports authored package content, its declaration, and each compiled native file in both preview and apply.",
   ],
   openQuestions: [],
 });
@@ -98,7 +98,11 @@ describe("Creating a subagent", () => {
         JSON.parse(created.read(`${AUTHORED_ROOT}/subagent.json`) ?? "null"),
       );
       expect(manifest).toMatchObject({ owner: "@acme", type: "subagent", name: SUBAGENT });
-      expect(created.read(`${AUTHORED_ROOT}/src/${SUBAGENT}.md`)).toContain(`name: ${SUBAGENT}`);
+      expect(manifest.core).toEqual({ instructions: `src/${SUBAGENT}.md` });
+      expect(manifest.description).toBeTruthy();
+      expect(created.read(`${AUTHORED_ROOT}/src/${SUBAGENT}.md`)).toContain(
+        "evidence-backed findings",
+      );
       expect(created.settings()).toMatchObject({ subagents: { [SUBAGENT]: expect.anything() } });
       expect(JSON.stringify(created.settings())).not.toContain('"enabled":false');
     }),
@@ -130,7 +134,23 @@ describe("Creating a subagent", () => {
 
       const applied = yield* createSubagent(created, "apply");
 
+      expect(targetPaths(previewed.units)).toEqual(expect.arrayContaining(AGENT_RENDERINGS));
       expect(targetPaths(applied.units)).toEqual(targetPaths(previewed.units));
+    }),
+  );
+
+  it.effect("refuses an enabled scaffold when no configured runtime can materialize it", () =>
+    Effect.gen(function* () {
+      const created = makeAuthoringWorkspace({ owner: "@acme", agents: ["windsurf"] });
+      cleanups.push(created.cleanup);
+      const before = created.snapshot();
+      const failure = yield* createSubagent(created, "apply").pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: "AuthoringFailed",
+        category: "validation",
+        detail: expect.stringContaining("No configured runtime"),
+      });
+      expect(created.snapshot()).toEqual(before);
     }),
   );
 });

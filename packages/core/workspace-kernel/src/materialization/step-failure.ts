@@ -174,9 +174,6 @@ export const materializationFailureToStepFailure = (
       return makeStepFailure({
         category: "validation",
         detail: error.detail,
-        ...(error.suggestion === undefined
-          ? {}
-          : { suggestions: [{ description: error.suggestion }] }),
         cause: error,
       });
   }

@@ -113,13 +113,6 @@ export const writeAuthoringPackage = (
     row.manifest,
     `${JSON.stringify({ ...manifest, license: "MIT" }, null, 2)}\n`,
   );
-  if (row.type === "subagent") {
-    const document = path.join(source, "src", `${name}.md`);
-    fs.writeFileSync(
-      document,
-      fs.readFileSync(document, "utf8").replace(`name: ${name}\n`, `name: ${name}\nmodel: fast\n`),
-    );
-  }
   writePackageFile(source, "notes.txt", "Author notes preserved across the operation.\n");
   if (options.parent === undefined) return source;
   const destination = path.join(root, options.parent, name);

@@ -14,6 +14,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -22,7 +23,7 @@ import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
-import { WorkspaceLocation } from "../../workspace-state/index.js";
+import { DesiredStateReader, WorkspaceLocation } from "../../workspace-state/index.js";
 import {
   HookManager,
   KnowledgeManager,
@@ -70,6 +71,7 @@ export interface PackMemberStepArgs {
    * Install and update are strict; sync and recovery degrade and report.
    */
   readonly strictAgentSync: boolean;
+  readonly desiredEnabled?: boolean;
   /** Re-acquire canonical content even when the accepted content is usable. */
   readonly force?: boolean;
   readonly toStepFailure: (failure: CallerStepFailure<ExtensionManagerFailure>) => StepFailure;
@@ -86,9 +88,10 @@ const memberPresentation = (args: {
   >;
 }): Effect.Effect<InstallArtifactPresentation, ExtensionManagerFailure, ManagerRequirements> =>
   args.observation.pipe(
-    Effect.map(({ agents, nativeLocations }) => ({
+    Effect.map(({ agents, nativeLocations, agentOutcomes }) => ({
       ...registrySourceArtifact(args),
       agents,
+      ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
       ...(nativeLocations === undefined ? {} : { nativeLocations }),
     })),
   );
@@ -106,6 +109,7 @@ export const buildPackMemberStep: (
   | SkillManager
   | SubagentManager
   | WorkspaceLocation
+  | ManagerRequirements
 > = Effect.fn("Reconciliation.buildPackMemberStep")(function* (args: PackMemberStepArgs) {
   const location = yield* WorkspaceLocation;
   const { ref, toStepFailure } = args;
@@ -153,12 +157,65 @@ export const buildPackMemberStep: (
         ref,
         buildArtifact: materialized,
       });
-    case "subagent":
-      return buildInstallOperation(yield* SubagentManager, {
-        ...common,
-        ref,
-        buildArtifact: materialized,
-      });
+    case "subagent": {
+      const manager = yield* SubagentManager;
+      const inspection = yield* Effect.result(
+        Effect.gen(function* () {
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const enabled =
+            args.desiredEnabled ??
+            graph.nodes.find((node) => node.type === "subagent" && node.name === ref.subagent.name)
+              ?.enabled ??
+            true;
+          const outcomes = yield* manager.configuredAgentOutcomesForRef(ref, "projected", {
+            validateDestinations: enabled,
+          });
+          return { enabled, outcomes };
+        }),
+      );
+      const step = buildInstallOperation(manager, { ...common, ref, buildArtifact: materialized });
+      if (Result.isFailure(inspection))
+        return {
+          ...step,
+          readiness: "error",
+          errorMessage: toStepFailure(inspection.failure).detail,
+        };
+      const { enabled, outcomes } = inspection.success;
+      const selectedStep = enabled
+        ? step
+        : buildInstallOperation(
+            { ...manager, materializeInstall: manager.acquireCanonical },
+            {
+              ...common,
+              ref,
+              buildArtifact: materialized,
+            },
+          );
+      const presentation = {
+        agentOutcomes: outcomes,
+        artifact: {
+          path: ref.subagent.name,
+          scope: location.scope,
+          change: "updated" as const,
+          agentOutcomes: outcomes,
+        },
+      };
+      if (
+        args.strictAgentSync &&
+        enabled &&
+        outcomes.length > 0 &&
+        !outcomes.some(
+          (outcome) => outcome.outcome === "projected" || outcome.outcome === "current",
+        )
+      )
+        return {
+          ...selectedStep,
+          ...presentation,
+          readiness: "error",
+          errorMessage: `No configured runtime can realize subagent ${ref.subagent.name}: ${outcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
+        };
+      return { ...selectedStep, ...presentation };
+    }
     case "rule": {
       const manager = yield* RuleManager;
       return buildInstallOperation(manager, {

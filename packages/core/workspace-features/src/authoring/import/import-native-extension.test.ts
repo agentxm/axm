@@ -100,22 +100,25 @@ describe("ImportNativeExtension across native content types", () => {
               source: nodePath.join(created.root, type === "skill" ? "native" : relative),
               target: `@acme/${plural}/custom`,
               enable,
+              ...(type === "subagent" ? { sourceAgent: "claude-code" as const } : {}),
             });
             return yield* ImportNativeExtension.previewOrApply(candidate, applyExecution);
           }).pipe(Effect.scoped, Effect.provide(authoringWorkspaceLayer(created)));
 
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
+          expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
           expect(created.snapshot("native")).toEqual(before);
           expect(JSON.parse(created.read(`${plural}/custom/${type}.json`) ?? "null")).toMatchObject(
             { owner: "@acme", type, name: "custom", version: "0.1.0" },
           );
           const content = created.read(
-            `${plural}/custom/src/${type === "skill" ? "SKILL.md" : "custom.md"}`,
+            `${plural}/custom/${type === "skill" ? "src/SKILL.md" : "native/claude-code/reviewer.md"}`,
           );
-          expect(content).toContain("name: custom");
+          expect(content).toContain(type === "skill" ? "name: custom" : "name: original");
           expect(content).toContain("Keep every recommendation evidence backed.");
           expect(
-            created.exists(type === "skill" ? ".claude/skills/custom" : ".claude/agents/custom.md"),
+            created.exists(
+              type === "skill" ? ".claude/skills/custom" : ".claude/agents/original.md",
+            ),
           ).toBe(enable);
         }),
       );

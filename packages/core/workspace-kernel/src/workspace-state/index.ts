@@ -67,8 +67,6 @@ export {
   BUNDLED_SKILL_OWNER,
   bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
-  extensionContentFilename,
-  extensionContentPath,
   type ExtensionPathSource,
   type ExtensionDirPaths,
 } from "./workspace/extension-paths.js";
@@ -106,13 +104,6 @@ export {
   type SkillPathSource,
   type SkillDirPaths,
 } from "./workspace/skill-paths.js";
-export {
-  computeSubagentPathsForLayout,
-  subagentContentFilename,
-  subagentContentPath,
-  type SubagentDirPaths,
-  type SubagentPathSource,
-} from "./workspace/subagent-paths.js";
 export {
   acquisitionConfiguredEntries,
   enabledConfiguredEntries,

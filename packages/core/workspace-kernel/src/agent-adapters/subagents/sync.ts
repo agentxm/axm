@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { parseFrontmatterSync } from "@agentxm/extension-content";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../../locations/index.js";
@@ -25,11 +26,11 @@ import type {
   SubagentSyncOutcome,
 } from "../agents/coding-agent.js";
 
-const nativeSubagentMarker = (content: string, filePath: string) => {
+export const nativeSubagentMarker = (content: string, filePath: string) => {
   const style = commentStyleForTarget(filePath);
   if (Option.isNone(style)) return Option.none();
-  const closingFrontmatter = content.startsWith("---\n") ? content.indexOf("\n---", 4) : -1;
-  const body = closingFrontmatter < 0 ? content : content.slice(closingFrontmatter + 4);
+  const parsed = filePath.endsWith(".md") ? parseFrontmatterSync(content) : undefined;
+  const body = parsed?.frontmatter === undefined ? content : parsed.body;
   return markerForFile(body, style.value);
 };
 

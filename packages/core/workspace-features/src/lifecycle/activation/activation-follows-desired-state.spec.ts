@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -563,65 +563,98 @@ describe("Activation follows desired state", () => {
     });
   }
 
-  it.effect("enabling a subagent restores the role-skill fallback that disabling withdrew", () => {
-    // Cline has no native subagent surface, so a subagent reaches it as an
-    // advisory role skill; activation realizes that surface the way install does.
-    const world = makeInstallWorld({ settings: { agents: ["cline"] } });
-    cleanups.push(world.cleanup);
-    const { workspace, registry } = world;
-    registry.writeSubagent("review", [{ version: "1.0.0", body: "Review." }]);
-    const fallback = ".cline/skills/review/SKILL.md";
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applyInstall(
-            installRequest({
+  it.effect(
+    "enabling a subagent restores compatible native output and reports unsupported targets",
+    () => {
+      const world = makeInstallWorld({ settings: { agents: ["claude-code", "cline"] } });
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      registry.writeSubagent("review", [{ version: "1.0.0", body: "Review." }]);
+      const profile = ".claude/agents/review.md";
+      const foreignSkill = ".cline/skills/review/SKILL.md";
+      workspace.writeFile(foreignSkill, "Separately authored Skill.\n");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "subagent",
+                subject: { kind: "source", source: "@acme/subagents/review" },
+              }),
+            );
+            const projected = workspace.readFile(profile);
+            expect(projected).toContain("Review.");
+            yield* applyActivation({ type: "subagent", name: "review", enabled: false });
+            expect(workspace.exists(profile)).toBe(false);
+            const before = workspace.snapshot();
+            const previewed = yield* previewActivation({
               type: "subagent",
-              subject: { kind: "source", source: "@acme/subagents/review" },
-            }),
-          );
-          const projected = workspace.readFile(fallback);
-          expect(projected).toContain("advisory role-skill fallback");
+              name: "review",
+              enabled: true,
+            });
+            expect(previewed._tag).toBe("Resolved");
+            if (previewed._tag !== "Resolved") return;
+            expect(previewed.outcome).toBe("previewed");
+            expect(previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? [])).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({ agentId: "cline", outcome: "unsupported" }),
+                expect.objectContaining({ agentId: "claude-code", mechanism: "portable" }),
+              ]),
+            );
+            expect(workspace.snapshot()).toEqual(before);
+            const applied = yield* applyActivation({
+              type: "subagent",
+              name: "review",
+              enabled: true,
+            });
+            expect(applied._tag === "Resolved" ? applied.outcome : applied._tag).toBe("applied");
+            expect(workspace.readFile(profile)).toBe(projected);
+            expect(workspace.readFile(foreignSkill)).toBe("Separately authored Skill.\n");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
-          yield* applyActivation({ type: "subagent", name: "review", enabled: false });
-          expect(workspace.exists(fallback)).toBe(false);
-
-          const previewed = yield* previewActivation({
-            type: "subagent",
-            name: "review",
-            enabled: true,
-          });
-          expect(previewed._tag).toBe("Resolved");
-          if (previewed._tag !== "Resolved") return;
-          expect(previewed.outcome).toBe("previewed");
-          const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
-          expect(planned).toMatchObject([
-            { extensionType: "subagent", name: "review", agentId: "cline", outcome: "projected" },
-          ]);
-          expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
-          expect(
-            planned[0]?.nativeUnitKeys?.some((key) => key.includes(".cline/skills/review")),
-          ).toBe(true);
-          expect(workspace.exists(fallback)).toBe(false);
-
-          const applied = yield* applyActivation({
-            type: "subagent",
-            name: "review",
-            enabled: true,
-          });
-          expect(applied._tag).toBe("Resolved");
-          if (applied._tag !== "Resolved") return;
-          expect(applied.outcome).toBe("applied");
-          const observed = applied.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
-          expect(observed).toMatchObject([
-            { extensionType: "subagent", name: "review", agentId: "cline", outcome: "current" },
-          ]);
-          expect(observed[0]?.nativeUnitKeys).toEqual(planned[0]?.nativeUnitKeys);
-          expect(workspace.readFile(fallback)).toBe(projected);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+  it.effect.each(["project", "user"] as const)(
+    "refuses enabling a subagent with no compatible target in %s scope",
+    (scope) => {
+      const world = makeInstallWorld({
+        scope,
+        settings: {
+          agents: ["cline"],
+          subagents: { review: { source: "@acme/subagents/review", enabled: false } },
+        },
+      });
+      cleanups.push(world.cleanup);
+      const { workspace, registry } = world;
+      registry.writeSubagent("review", [{ version: "1.0.0", body: "Review." }]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const installed = yield* applyInstall(
+              installRequest({
+                type: "subagent",
+                subject: { kind: "source", source: "@acme/subagents/review" },
+              }),
+            );
+            expect(installed.units, JSON.stringify(installed)).toEqual(
+              expect.arrayContaining([expect.objectContaining({ state: "committed" })]),
+            );
+            const before = { project: workspace.snapshot(), home: workspace.homeSnapshot() };
+            const result = yield* Effect.result(
+              applyActivation({ type: "subagent", name: "review", enabled: true }),
+            );
+            expect(JSON.stringify(result)).toContain("No configured runtime");
+            expect({ project: workspace.snapshot(), home: workspace.homeSnapshot() }).toEqual(
+              before,
+            );
+            expect(workspace.exists(".cline/skills/review/SKILL.md")).toBe(false);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect(
     "disabling an MCP server fails when a configured agent refuses the manifest write",

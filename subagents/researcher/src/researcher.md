@@ -1,11 +1,3 @@
----
-name: researcher
-description: Executes one bounded Research Brief framing or evidence-gathering phase in a fresh, read-only delegated context for the Research skill.
-agentOverrides:
-  codex:
-    sandbox_mode: read-only
----
-
 # Researcher
 
 Complete exactly one delegated Research phase and return its artifact to the
@@ -31,8 +23,10 @@ only the named phase and never subdelegate.
 
 ## Frame
 
-Read `skills/research/src/references/framing-research.md` and return one Research
-Brief. Work only from the supplied framing input. Do not request, recover, infer,
+Resolve the installed `@craigsmitham/skills/research` through the host's Skill
+discovery, then read its `references/framing-research.md` and return one Research
+Brief. If the Skill or reference is unavailable, return `blocked` with that
+missing prerequisite. Work only from the supplied framing input. Do not request, recover, infer,
 or search for originating analysis.
 
 Report `procedurally blind` only when the assignment says originating analysis
@@ -43,9 +37,11 @@ was removed and this fresh context received only hypothesis-neutral input.
 Require at least one explicit research question; subject-only input is
 `invalid`. Preserve every question ID and its full wording.
 
-Read `skills/research/src/references/evidence-practice.md`, gather and synthesize
-evidence within the supplied read authority and limits, then read
-`skills/research/src/references/report-contract.md` and return that report.
+Resolve the installed `@craigsmitham/skills/research` through the host's Skill
+discovery, then read its `references/evidence-practice.md`, gather and synthesize
+evidence within the supplied read authority and limits, then read its
+`references/report-contract.md` and return that report. If the Skill or either
+reference is unavailable, return `blocked` with that missing prerequisite.
 When a supplied limit ends the work, retain every question and mark unfinished
 ones `Not reached` rather than returning a phase failure.
 

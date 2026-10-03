@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.5.1",
+  "suite_version": "0.6.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -738,7 +738,7 @@
       "assertions": [
         "Each finding has a stable `D` ID, evidence naming the command and rule or unit, an exact fix, its authority, and a readback.",
         "Sync reconciliation is a local write and the upgrade an executable upgrade; the unowned artifact offers removal but recommends keeping it because Git recoverability is not established.",
-        "The summary and choice are the final lines: A · Full cleanup is first, recommended, and names the sync and upgrade but no removal; B · Repair holds only the sync; the response stops without applying any fix."
+        "The summary and choice are the final lines: A \u00b7 Full cleanup is first, recommended, and names the sync and upgrade but no removal; B \u00b7 Repair holds only the sync; the response stops without applying any fix."
       ]
     },
     {
@@ -765,9 +765,9 @@
       "id": 72,
       "stage": "execution",
       "prompt": "Treat this as supplied evidence: a doctor report listed D1 (`axm sync`, local write), D2 (`axm upgrade`, executable upgrade), and D3 (unowned `.claude/skills/notes`, ownership decision). The user replied: fix everything. Plan the repair without modifying files.",
-      "expected_output": "A custom plan mapping “fix everything” to D1 and D2 with their authority, keeping D3 as a pending ownership decision, rendered as a review gate with nothing applied.",
+      "expected_output": "A custom plan mapping \u201cfix everything\u201d to D1 and D2 with their authority, keeping D3 as a pending ownership decision, rendered as a review gate with nothing applied.",
       "assertions": [
-        "“Fix everything” is treated as a custom request: the plan is shown for approval and no step, including the upgrade, is applied yet.",
+        "\u201cFix everything\u201d is treated as a custom request: the plan is shown for approval and no step, including the upgrade, is applied yet.",
         "The plan names D1's apply and readback and D2's upgrade, and keeps D3 as an ownership decision with no deletion."
       ]
     },
@@ -779,18 +779,18 @@
       "assertions": [
         "The newer CLI is a Recommended finding fixed by `axm upgrade`, labeled executable upgrade, citing the upgrade preview.",
         "The summary's Versions line reports CLI 0.29.4 with 0.30.1 available, 0 outdated, and 0 deprecated.",
-        "No upgrade is run or claimed; A · Full cleanup names the upgrade and B is omitted because it would be empty."
+        "No upgrade is run or claimed; A \u00b7 Full cleanup names the upgrade and B is omitted because it would be empty."
       ]
     },
     {
       "id": 74,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible with no findings; sync preview is `no-op`; the CLI is current; `axm list --outdated --json` lists `@acme/skills/review` 1.2.0 → 1.4.0; `axm list --deprecated --json` lists `@acme/rules/legacy` with message `Moved to the style rule` and `deprecation.replacement` `{ \"status\": \"available\", \"fqn\": \"@acme/rules/style\" }`. Run `/axm doctor` without modifying files.",
+      "prompt": "Treat this as supplied evidence: lint is compatible with no findings; sync preview is `no-op`; the CLI is current; `axm list --outdated --json` lists `@acme/skills/review` 1.2.0 \u2192 1.4.0; `axm list --deprecated --json` lists `@acme/rules/legacy` with message `Moved to the style rule` and `deprecation.replacement` `{ \"status\": \"available\", \"fqn\": \"@acme/rules/style\" }`. Run `/axm doctor` without modifying files.",
       "expected_output": "A report recommending `axm update @acme/skills/review` and a migration that installs `@acme/rules/style` before uninstalling `@acme/rules/legacy`, each previewed and verified, ending with the Versions line and gate.",
       "assertions": [
         "The outdated skill is Recommended with fix `axm update @acme/skills/review` (local write) and `axm list --outdated` as readback.",
         "The deprecated rule is a Recommended migration that previews and installs `@acme/rules/style`, verifies it, and only then previews and uninstalls `@acme/rules/legacy`, labeling the install a local write and the uninstall a local deletion.",
-        "The Versions line reports 1 outdated and 1 deprecated; A · Full cleanup is first and recommended, naming the update and the migration including the uninstall; B · Repair holds only the update; nothing is installed, updated, or uninstalled."
+        "The Versions line reports 1 outdated and 1 deprecated; A \u00b7 Full cleanup is first and recommended, naming the update and the migration including the uninstall; B \u00b7 Repair holds only the update; nothing is installed, updated, or uninstalled."
       ]
     },
     {
@@ -810,7 +810,7 @@
       "expected_output": "A report that offers a migration to the note-named, different-owner replacement as a publisher change, recommends keeping the extension, and ends with None recommended; nothing is applied.",
       "assertions": [
         "The finding quotes the note and offers migrate to `@other/skills/triage-pro`, labeled a replacement from the publisher note and a publisher change, with keep recommended.",
-        "Full cleanup and Repair are omitted because no recommended option changes anything; the choice is `A · None`, marked recommended with a reason, and option IDs are accepted.",
+        "Full cleanup and Repair are omitted because no recommended option changes anything; the choice is `A \u00b7 None`, marked recommended with a reason, and option IDs are accepted.",
         "Nothing is installed or uninstalled."
       ]
     },
@@ -818,7 +818,7 @@
       "id": 77,
       "stage": "execution",
       "prompt": "Treat this as supplied evidence: a doctor report listed D1 (`axm sync`, local write), D2 (`axm update @acme/skills/review`, local write), D3 (migrate `@acme/rules/legacy` to same-owner `@acme/rules/style`: install, verify, uninstall), D4 (`axm upgrade` to 0.30.1), and D5 (unowned `.claude/skills/notes` with uncommitted changes; recommended keep). The user replied `A`. Plan the repair without modifying files.",
-      "expected_output": "A plan applying D1–D4 in dependency order with previews and readbacks, leaving D5 untouched.",
+      "expected_output": "A plan applying D1\u2013D4 in dependency order with previews and readbacks, leaving D5 untouched.",
       "assertions": [
         "The plan orders the upgrade first, then the update and the style install with its verification, then sync, and the legacy uninstall last.",
         "D5 is not acted on because its recommendation is to keep it; no deletion of `.claude/skills/notes` appears."
@@ -838,9 +838,9 @@
       "id": 79,
       "stage": "execution",
       "prompt": "Treat this as supplied evidence: `axm lint --json` is compatible with no findings; `axm sync --preview --fail-on-change --json` plans one skill projection unit; the CLI is current; no extensions are outdated or deprecated. Run `/axm doctor` without modifying files.",
-      "expected_output": "A report whose choice offers A · Full cleanup with the sync and B · None, omits Repair because it would equal Full cleanup, recommends A, and applies nothing.",
+      "expected_output": "A report whose choice offers A \u00b7 Full cleanup with the sync and B \u00b7 None, omits Repair because it would equal Full cleanup, recommends A, and applies nothing.",
       "assertions": [
-        "The choice is lettered in order as `A · Full cleanup` and `B · None`, with no Repair choice.",
+        "The choice is lettered in order as `A \u00b7 Full cleanup` and `B \u00b7 None`, with no Repair choice.",
         "A carries an inline `**(Recommended)**` marker with its reason on the same line, no separate recommendation line follows, and no sync is applied."
       ]
     },
@@ -852,7 +852,7 @@
       "assertions": [
         "The finding cites `workspace/installed-but-not-configured`, fixes it with `axm sync`, and verifies with `axm sync --preview --fail-on-change --json` returning `no-op`.",
         "No `git rm` or adopt option is offered for the installed package.",
-        "A · Full cleanup is first, recommended, and names the sync; nothing is removed or synced."
+        "A \u00b7 Full cleanup is first, recommended, and names the sync; nothing is removed or synced."
       ]
     },
     {
@@ -872,7 +872,7 @@
       "expected_output": "A finding that offers removal but recommends keeping the modified artifact, with no full cleanup or repair option because neither would change anything.",
       "assertions": [
         "Removal is offered but not recommended because the artifact has uncommitted changes; keep is recommended.",
-        "No removal appears in any bulk option; the choice is `A · None`, marked recommended, and names option IDs such as `D1a` as a reply."
+        "No removal appears in any bulk option; the choice is `A \u00b7 None`, marked recommended, and names option IDs such as `D1a` as a reply."
       ]
     },
     {
@@ -934,7 +934,7 @@
       "assertions": [
         "The finding labels `@acme/skills/triage-v2` a replacement from the publisher note, cites the `axm view` checks, and recommends migrate over keep.",
         "Migrate previews and installs `@acme/skills/triage-v2`, verifies it, and only then previews and uninstalls `@acme/skills/triage`, labeling the install a local write and the uninstall a local deletion.",
-        "The choice starts with `A · Full cleanup` naming the migration, has no Repair, ends with None, and recommends A; nothing is installed or uninstalled."
+        "The choice starts with `A \u00b7 Full cleanup` naming the migration, has no Repair, ends with None, and recommends A; nothing is installed or uninstalled."
       ]
     },
     {
@@ -1040,6 +1040,39 @@
         "The mutation is exactly `axm archive @acme/skills/review-api --reason \"No longer maintained\"` after the command's required preflight.",
         "The verification reads `axm view @acme/skills/review-api --json` and checks archival plus effective lifecycle state.",
         "No version is yanked or deleted, no unrelated extension is selected, and failure is not reported as success or retried without live evidence that retry is safe."
+      ]
+    },
+    {
+      "id": 99,
+      "stage": "execution",
+      "prompt": "Plan a Codex read-only customization of an authored reviewer subagent that has portable core instructions. Preserve the other runtime implementations. Do not modify files.",
+      "expected_output": "A bounded canonical-source plan using the customized Codex implementation, native sandbox configuration, and read-only render inspection.",
+      "assertions": [
+        "The plan resolves the canonical authored package and consults current subagent help before choosing fields.",
+        "It uses implementations.codex with kind customized and native configuration instead of agentOverrides, a role Skill, or an inferred cross-runtime security policy.",
+        "It verifies the selected implementation with subagents show --render codex and does not run a mutation."
+      ]
+    },
+    {
+      "id": 100,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: a generic reviewer.md is a complete Claude Code native subagent definition. The intended authored AXM package exists, has core instructions and a Codex implementation, and its Claude Code slot is empty. Explain the import preview and preservation checks without writing files.",
+      "expected_output": "A source-agent-qualified native import preview filling the empty slot, preserving existing package authority and native source bytes.",
+      "assertions": [
+        "The plan uses subagents import with --source-agent claude-code and --preview.",
+        "It preserves the core, version, Codex implementation, activation, original native bytes, and native identity.",
+        "It refuses occupied slots or unowned output conflicts and never replaces an acquired package without a fork."
+      ]
+    },
+    {
+      "id": 101,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: an enabled subagent has a valid core; Claude Code is configured and compatible, while Cline is configured but unsupported. Preview reports both outcomes and no ownership conflicts. Explain what applying does, without running it.",
+      "expected_output": "A mixed-support result that realizes the compatible native implementation and preserves the unsupported outcome without introducing a fallback Skill.",
+      "assertions": [
+        "The response allows the compatible native projection and explicitly reports Cline as unsupported.",
+        "It does not create a role Skill or reinterpret the native configuration as universal permissions.",
+        "It states that zero compatible configured targets would refuse enabled installation or activation, and does not claim that a mutation occurred."
       ]
     }
   ]

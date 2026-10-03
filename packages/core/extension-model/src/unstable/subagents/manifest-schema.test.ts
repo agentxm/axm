@@ -4,30 +4,44 @@ import { SubagentManifestSchema } from "./manifest-schema.js";
 
 describe("SubagentManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(SubagentManifestSchema);
+  const identity = { owner: "@wayne", type: "subagent", name: "case-solver", version: "1.0.0" };
 
-  it("accepts valid minimal manifest", () => {
-    const input = {
-      owner: "@wayne",
-      type: "subagent",
-      name: "case-solver",
-      version: "1.0.0",
-    };
-    const result = decode(input);
-    expect(result.owner).toBe("@wayne");
-    expect(result.type).toBe("subagent");
+  it("accepts a portable core", () => {
+    const result = decode({
+      ...identity,
+      description: "Solves cases",
+      core: { instructions: "src/instructions.md" },
+    });
     expect(result.name).toBe("case-solver");
-    expect(result.version).toBe("1.0.0");
+    expect(result.core?.instructions).toBe("src/instructions.md");
   });
 
-  it("ignores residual agents field while decoding older manifests", () => {
-    const input = {
-      owner: "@wayne",
-      type: "subagent",
-      name: "case-solver",
-      version: "1.0.0",
-      agents: ["claude-code"],
-    };
-    const result = decode(input);
-    expect("agents" in result).toBe(false);
+  it.each(["fallback", "agentOverrides", "agents"])(
+    "rejects the obsolete %s field even without strict decoding",
+    (field) => {
+      expect(() =>
+        decode({
+          ...identity,
+          description: "Solves cases",
+          core: { instructions: "src/instructions.md" },
+          [field]: field === "fallback" ? "auto" : {},
+        }),
+      ).toThrow();
+    },
+  );
+
+  it("rejects native and customized fields combined in one slot with the default decoder", () => {
+    expect(() =>
+      decode({
+        ...identity,
+        implementations: {
+          codex: {
+            kind: "native",
+            source: "native/review.toml",
+            configuration: { model: "override" },
+          },
+        },
+      }),
+    ).toThrow();
   });
 });

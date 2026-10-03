@@ -14,8 +14,9 @@ import {
  *
  * Three routes share one decision: a native skill directory or file, a native
  * subagent document, and a native MCP connection declared in an agent's own
- * config all become a workspace-authored package that carries the identity the
- * person asked for, not the identity the native content happened to have. The
+ * config all become a workspace-authored package with the requested package
+ * identity. Subagents keep their native runtime identity inside an explicit
+ * implementation slot. The
  * native source is never modified — except for an MCP connection, whose native
  * declaration is retired only after the managed package validates, because
  * leaving both would give one connection two owners.
@@ -64,13 +65,17 @@ import {
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
   MCP_SERVER_MANIFEST_FILENAME,
   MCP_SERVER_MANIFEST_SCHEMA_URL,
   MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL,
   type McpServerManifest,
 } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  decodeVersionSync,
+  type Version,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceHostProviders,
   WorkspaceCatalog,
@@ -115,12 +120,17 @@ import {
   type AuthoringOwnerRequired,
 } from "../create/errors.js";
 import { importNativeExtensionPackage } from "../import-native-package.js";
+import {
+  preflightAuthoredSubagentProjection,
+  type AuthoredNativeProjection,
+} from "../native-projection.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
-import type { FrontmatterParseFailure } from "@agentxm/extension-content";
+import { readExtensionManifest, type FrontmatterParseFailure } from "@agentxm/extension-content";
 import {
   copyExtensionDirectory,
   createCanonicalDirectory,
   recoverCanonicalDirectory,
+  replaceCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
 
 /** The version an imported package starts at. */
@@ -149,6 +159,7 @@ export interface ImportNativeSkillRequest extends ImportRequestBase {
 export interface ImportNativeSubagentRequest extends ImportRequestBase {
   readonly type: "subagent";
   readonly source: string;
+  readonly sourceAgent?: AgentId;
 }
 
 /** One native MCP connection the workspace discovered, in package terms. */
@@ -196,6 +207,7 @@ export type ImportNativeExtensionRequest =
 
 /** What every step in a native import may require when it runs. */
 export type ImportNativeExtensionRequirements =
+  | SubagentManager
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
@@ -230,6 +242,7 @@ export interface ImportNativeExtensionCandidate {
 /** Every failure settling a native import can surface before anything is written. */
 export type ImportNativeExtensionFailure =
   | AuthoringFailed
+  | ExtensionManagerFailure
   | AuthoredPackageError
   | FrontmatterParseFailure
   | AuthoringOwnerRequired
@@ -245,6 +258,7 @@ export type ImportNativeExtensionFailure =
 
 /** Everything settling a native import reads before it freezes a candidate. */
 export type PrepareImportNativeExtensionRequirements =
+  | ManagerRequirements
   | FileSystem.FileSystem
   | Path.Path
   | Scope.Scope
@@ -403,6 +417,9 @@ interface SettledConversion {
   readonly nativeTargets: ReadonlyArray<string>;
   /** Files the staged package must contain before it is published. */
   readonly requiredFiles: ReadonlyArray<string> | undefined;
+  readonly stagedPackage?: string;
+  readonly version?: Version;
+  readonly materialPaths: ReadonlyArray<string>;
   readonly populate: (
     stagingPath: string,
   ) => Effect.Effect<void, AuthoringStepFailure, FileSystem.FileSystem | Path.Path>;
@@ -420,13 +437,14 @@ interface SettledConversion {
 }
 
 /**
- * Convert a native skill or subagent by staging the rewritten package now and
+ * Convert a native skill or subagent by staging the complete package now and
  * pinning its content hash, so content that changes between preview and apply
  * refuses instead of landing.
  */
 const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(function* (args: {
   readonly request: ImportNativeSkillRequest | ImportNativeSubagentRequest;
   readonly target: ExtensionFqnParts;
+  readonly existingPackagePath?: string;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -447,13 +465,32 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
     sourcePath: acquired.directory,
     targetDir: stagedPackage,
     target: args.target,
+    ...(args.request.type === "subagent" && args.request.sourceAgent !== undefined
+      ? { sourceAgent: args.request.sourceAgent }
+      : {}),
+    ...(args.existingPackagePath === undefined
+      ? {}
+      : { existingPackagePath: args.existingPackagePath }),
   });
   const stagedHash = yield* computePackageContentHash(stagedPackage);
+  const converted = yield* readExtensionManifest(stagedPackage, args.target.type).pipe(
+    Effect.mapError(
+      (cause) =>
+        new AuthoringFailed({
+          category: "validation",
+          detail: "Converted package manifest is invalid",
+          cause,
+        }),
+    ),
+  );
   return {
     origin: acquired.origin,
     mcpPreferences: {},
     nativeTargets: [],
     requiredFiles: undefined,
+    stagedPackage,
+    version: converted.manifest.version,
+    materialPaths: [acquired.directory, stagedPackage],
     populate: (publicationPath: string) =>
       copyExtensionDirectory(stagedPackage, publicationPath).pipe(
         Effect.mapError(
@@ -518,6 +555,7 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
     },
     nativeTargets: Array.from(new Set(entries.map((entry) => entry.filePath))).sort(),
     requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
+    materialPaths: [],
     populate: (stagingPath: string) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -573,6 +611,7 @@ export const prepareImportNativeExtension: (
   const accepted = yield* AcceptedResolutionWriter;
   const desiredStateWriter = yield* DesiredStateWriter;
   const path = yield* Path.Path;
+  const fs = yield* FileSystem.FileSystem;
 
   const target = yield* Effect.fromResult(parseFqn(request.target));
   if (target.type !== request.type) {
@@ -599,8 +638,6 @@ export const prepareImportNativeExtension: (
     configured: false,
     destinations: [targetDir],
   });
-  yield* createOnly;
-
   const declaration = authoredDeclaration(
     { settings, settingsWriter, accepted, desiredStateWriter },
     target.type,
@@ -608,6 +645,57 @@ export const prepareImportNativeExtension: (
     { roundTrip: false },
   );
   const current = yield* declaration.read;
+  const targetExists = yield* fs.exists(targetDir).pipe(
+    Effect.mapError(
+      (cause) =>
+        new AuthoringFailed({
+          category: "internal",
+          detail: "Import target could not be inspected",
+          cause,
+        }),
+    ),
+  );
+  const updateExisting = request.type === "subagent" && targetExists;
+  if (
+    request.type === "subagent" &&
+    current.configured &&
+    Option.getOrUndefined(current.source) !== "workspace"
+  ) {
+    return yield* new AuthoringFailed({
+      category: "conflict",
+      detail: "Native import cannot replace a non-authored subagent; fork or adopt it first",
+    });
+  }
+  if (updateExisting && !current.configured) {
+    return yield* new AuthoringFailed({
+      category: "conflict",
+      detail:
+        "An existing subagent directory must be declared as workspace-authored before importing a runtime implementation",
+    });
+  }
+  if (!updateExisting) yield* createOnly;
+  const expectedTargetHash = updateExisting
+    ? yield* computePackageContentHash(targetDir)
+    : undefined;
+  const targetPreflight = Effect.gen(function* () {
+    if (expectedTargetHash === undefined) return yield* createOnly;
+    const observed = yield* computePackageContentHash(targetDir);
+    if (observed !== expectedTargetHash)
+      return yield* new AuthoringFailed({
+        category: "conflict",
+        detail: "Authored subagent changed after import preparation",
+      });
+    const latest = yield* declaration.read;
+    if (
+      Option.getOrUndefined(latest.source) !== "workspace" ||
+      Option.getOrUndefined(latest.enabled) !== Option.getOrUndefined(current.enabled)
+    ) {
+      return yield* new AuthoringFailed({
+        category: "conflict",
+        detail: "Authored subagent declaration changed after import preparation",
+      });
+    }
+  });
 
   const settled: SettledConversion =
     request.type === "mcp-server"
@@ -617,23 +705,38 @@ export const prepareImportNativeExtension: (
           name,
           workspaceRoot: location.baseDir,
         })
-      : yield* nativeConversion({ request, target });
+      : yield* nativeConversion({
+          request,
+          target,
+          ...(updateExisting ? { existingPackagePath: targetDir } : {}),
+        });
 
   const enabled =
-    request.type === "mcp-server"
+    request.type === "mcp-server" || (request.type === "subagent" && !updateExisting)
       ? request.enable
       : request.enable || Option.getOrElse(current.enabled, () => false);
   const mcpPreferences =
     request.type === "mcp-server" ? settled.mcpPreferences : current.mcpPreferences;
+  const nativePreflight =
+    request.type === "subagent" && settled.stagedPackage !== undefined
+      ? preflightAuthoredSubagentProjection({
+          identity: target,
+          packageRoot: settled.stagedPackage,
+          enabled,
+        })
+      : Effect.succeed<AuthoredNativeProjection>({});
+  const nativeProjection = yield* nativePreflight;
 
   const artifact: JobStepArtifact = {
+    ...nativeProjection,
     path: authoredPath,
     scope: location.scope,
-    version: INITIAL_IMPORT_VERSION,
-    change: "created",
+    version: settled.version ?? INITIAL_IMPORT_VERSION,
+    change: updateExisting ? "updated" : "created",
     targets: [
-      { path: authoredPath, change: "created" },
+      { path: authoredPath, change: updateExisting ? "updated" : "created" },
       { path: settingsPath, change: "created" },
+      ...(nativeProjection.targets ?? []),
       ...settled.nativeTargets.map(
         (filePath) =>
           ({
@@ -653,23 +756,32 @@ export const prepareImportNativeExtension: (
     message: `Imported ${fqn}`,
     enabled,
     nativeInsertionEligible: false,
-    allowConfiguredSourceTransition: true,
+    allowConfiguredSourceTransition: request.type !== "subagent",
     markAuthored: declaration.declare({ enabled: true, mcpPreferences }),
     finalizeAuthored: declaration.declare({ enabled, mcpPreferences }).pipe(Effect.asVoid),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     preflight: Effect.gen(function* () {
       yield* recoverCanonicalDirectory({ baseDir: location.baseDir, canonicalPath: targetDir });
-      yield* createOnly;
+      yield* targetPreflight;
+      yield* nativePreflight;
     }),
-    scaffold: createCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
-      baseDir: location.baseDir,
-      canonicalPath: targetDir,
-      subject,
-      ...(settled.requiredFiles === undefined ? {} : { requiredFiles: settled.requiredFiles }),
-      populate: settled.populate,
-      ...(settled.validate === undefined ? {} : { validate: settled.validate }),
-    }).pipe(Effect.andThen(settled.retireNative), Effect.asVoid),
+    scaffold: (updateExisting
+      ? replaceCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
+          baseDir: location.baseDir,
+          canonicalPath: targetDir,
+          populate: settled.populate,
+          ...(settled.validate === undefined ? {} : { validate: settled.validate }),
+        })
+      : createCanonicalDirectory<AuthoringStepFailure, FileSystem.FileSystem | Path.Path>({
+          baseDir: location.baseDir,
+          canonicalPath: targetDir,
+          subject,
+          ...(settled.requiredFiles === undefined ? {} : { requiredFiles: settled.requiredFiles }),
+          populate: settled.populate,
+          ...(settled.validate === undefined ? {} : { validate: settled.validate }),
+        })
+    ).pipe(Effect.andThen(settled.retireNative), Effect.asVoid),
   } as const;
 
   const step = yield* Effect.gen(function* () {
@@ -680,6 +792,31 @@ export const prepareImportNativeExtension: (
         return importStep(yield* SubagentManager, {
           ...common,
           target: { type: "subagent", name },
+          buildArtifact: ({ change, materialization }) =>
+            Effect.succeed({
+              ...artifact,
+              ...(Option.isNone(materialization)
+                ? {}
+                : {
+                    agentOutcomes: materialization.value.observation.agentOutcomes ?? [],
+                    nativeLocations: materialization.value.observation.nativeLocations ?? [],
+                    agents: materialization.value.observation.agents,
+                    targets: [
+                      ...(artifact.targets ?? []).filter(
+                        (target) =>
+                          !materialization.value.observation.targets.some(
+                            (native) =>
+                              path.resolve(location.baseDir, native.path) ===
+                              path.resolve(location.baseDir, target.path),
+                          ),
+                      ),
+                      ...materialization.value.observation.targets.map((target) => ({
+                        ...target,
+                        change,
+                      })),
+                    ],
+                  }),
+            }),
         });
       case "mcp-server":
         return importStep(yield* McpServerManager, {
@@ -709,6 +846,7 @@ export const prepareImportNativeExtension: (
   const plan: Plan<ImportNativeExtensionRequirements> = {
     _tag: "Plan",
     name: importNativeExtensionPlanName(request.type),
+    materialPaths: settled.materialPaths,
     description: Option.some(
       request.type === "mcp-server"
         ? `Losslessly convert ${settled.origin} into ${fqn}; native MCP config is replaced only after managed validation`

@@ -170,7 +170,6 @@ const rewriteFrontmatterName = (
 
 const rewriteTypeSpecificIdentity = (
   targetDir: string,
-  source: ForkExtensionPackageArgs["sourceIdentity"],
   target: ExtensionFqnParts,
 ): Effect.Effect<
   void,
@@ -186,25 +185,7 @@ const rewriteTypeSpecificIdentity = (
           Effect.provideService(FileSystem.FileSystem, fs),
         );
         return;
-      case "subagent": {
-        const sourcePath = path.join(targetDir, "src", `${source.name}.md`);
-        const targetPath = path.join(targetDir, "src", `${target.name}.md`);
-        yield* rewriteFrontmatterName(sourcePath, target.name).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-        );
-        if (sourcePath !== targetPath) {
-          yield* fs.rename(sourcePath, targetPath).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ForkPackageFailed({
-                  detail: `Subagent content could not be renamed to ${target.name}.md`,
-                  cause,
-                }),
-            ),
-          );
-        }
-        return;
-      }
+      case "subagent":
       case "mcp-server":
       case "rule":
       case "hook":
@@ -297,7 +278,7 @@ export const forkExtensionPackage = (
           }),
       ),
     );
-    yield* rewriteTypeSpecificIdentity(args.targetDir, args.sourceIdentity, args.target).pipe(
+    yield* rewriteTypeSpecificIdentity(args.targetDir, args.target).pipe(
       Effect.provideService(FileSystem.FileSystem, fs),
       Effect.provideService(Path.Path, path),
     );

@@ -66,6 +66,7 @@ import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace-features/sharin
 import {
   ExtensionListDocumentSchema,
   ExtensionShowResultSchema,
+  SubagentRenderResultSchema,
   KnowledgeListQueryResultSchema,
   McpServerListQueryResultSchema,
   PackShowResultSchema,
@@ -86,6 +87,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   DiscoverOutputSchema,
   ExtensionInventorySchema,
   ExtensionShowResultSchema,
+  SubagentRenderResultSchema,
   HelpIndexResultSchema,
   HelpTopicResultSchema,
   InstructionsStatusOutputSchema,
@@ -162,7 +164,10 @@ describe("machine-output contract register", () => {
       }
       expect(row.family.schemaNames.length).toBeGreaterThan(0);
       expect(row.family.requiredEnvelopeKeys.length).toBeGreaterThan(0);
-      expect(row.family.requiredTopLevelKeys.length).toBeGreaterThan(0);
+      expect(
+        row.family.requiredTopLevelKeys.length + row.family.optionalTopLevelKeys.length,
+        row.path,
+      ).toBeGreaterThan(0);
       expect(row.family.scenarios.length).toBeGreaterThan(0);
       expect(row.family.rationale).not.toBe("");
       expect(row.family.centralizedCoverage.length).toBeGreaterThan(0);

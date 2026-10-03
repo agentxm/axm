@@ -90,7 +90,7 @@ describe("Removing a coding agent", () => {
     () => {
       const nativePath = ".opencode/agents/planner.md";
       const content =
-        "<!-- axm:file v=1 ext=@acme/subagents/planner src=subagents/planner/src/planner.md -->\n---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n";
+        "<!-- axm:file v=1 ext=@acme/subagents/planner src=subagents/planner/subagent.json -->\n---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n";
       let retirementAttempted = false;
       const fixture = makeAgentMembershipFixture({
         machine: true,
@@ -106,9 +106,9 @@ describe("Removing a coding agent", () => {
             name: "planner",
             version: "1.0.0",
             description: "Plans work",
+            core: { instructions: "src/planner.md" },
           }),
-          "subagents/planner/src/planner.md":
-            "---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n",
+          "subagents/planner/src/planner.md": "Plan carefully\n",
           [nativePath]: content,
           ".claude/agents/planner.md": content,
         },
@@ -157,9 +157,9 @@ describe("Removing a coding agent", () => {
           name: "planner",
           version: "1.0.0",
           description: "Plans work",
+          core: { instructions: "src/planner.md" },
         }),
-        "subagents/planner/src/planner.md":
-          "---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n",
+        "subagents/planner/src/planner.md": "Plan carefully\n",
       },
     });
     cleanups.push(fixture.cleanup);
@@ -208,9 +208,9 @@ describe("Removing a coding agent", () => {
             name: "planner",
             version: "1.0.0",
             description: "Plans work",
+            core: { instructions: "src/planner.md" },
           }),
-          "subagents/planner/src/planner.md":
-            "---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n",
+          "subagents/planner/src/planner.md": "Plan carefully\n",
         },
         fileSystemLayer: Layer.effect(
           FileSystem.FileSystem,

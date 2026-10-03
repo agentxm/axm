@@ -168,19 +168,6 @@ skills:
       integrity: sha512-EIITlzI2tbY9MCtpNE8KEv5Gp2IzHqemkK7YVwJCEcviWt92hOd81Q/RBA9xEPVA9G14ncMaL0xujPBSKDWNoQ==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
     treeIntegrity: sha256-tree-v1:49fc30e4352f088d10ddfbfdb7263458ceb56fcf93111922063a797876491dd5
-subagents:
-  researcher:
-    source:
-      type: registry
-      url: https://registry.agentxm.ai/
-    identity:
-      owner: "@craigsmitham"
-      name: researcher
-    resolved:
-      version: 0.1.1
-      integrity: sha512-i5qlpV4X8HDAgtXe7eOXdAYwBZyqZ68dAF+Om2+8MYgXQjfWxd1qNTv1SY5HJLr+QiFuDE2UeiBgJ2LqTWUpyQ==
-      publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:f727a4ea0793aceb32a8eb1650f0230d7ee9590fd28504c6fa8ba14e130207f5
 rules:
   field-notes:
     source:
@@ -280,23 +267,6 @@ knowledge:
       publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
     treeIntegrity: sha256-tree-v1:68cc69e5a255a73fdede6ab3ac3f454c4fdb55cb98940412b2bb6858e0f7b64e
 packs:
-  research:
-    source:
-      type: registry
-      url: https://registry.agentxm.ai/
-    identity:
-      owner: "@craigsmitham"
-      name: research
-    resolved:
-      version: 0.1.1
-      integrity: sha512-0VzJ2lnyrwv67lh5rBaPTeWivaT7yheT2PeKpsrBhYK3pbRj1EPsUrhkMxybsgWjgOMP65DxL/hNsj2fx59l9A==
-      publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v1:95b680e03705f6f61f33d1c7556ab362d00dc8387a1bfce3c2d7210e8c42a43f
-    manifestVersion: 0.1.1
-    manifestContentIdentity: adb77ac9c14fa74dfc8b7aceed95ee6e63bf115774d423032a220f994826a907
-    members:
-      - "@craigsmitham/skills/research"
-      - "@craigsmitham/subagents/researcher"
   field-notes:
     source:
       type: registry

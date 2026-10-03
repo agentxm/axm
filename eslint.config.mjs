@@ -443,7 +443,9 @@ const moduleBoundaryConstraints = ({ production }) => [
   // workspace or transport packages.
   {
     sourceTag: "scope:extension-content",
-    onlyDependOnLibsWithTags: ["scope:extension-content", "scope:extension-model"],
+    onlyDependOnLibsWithTags: production
+      ? ["scope:extension-content", "scope:extension-model"]
+      : ["scope:extension-content", "scope:extension-model", "scope:specification-metadata"],
   },
   // Workspace tiers: features use kinds and the kernel, kinds use the kernel.
   // The kernel and the kinds share role:capability, so the role matrix alone

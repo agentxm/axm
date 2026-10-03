@@ -21,7 +21,14 @@ const manifests = {
     version: "1.0.0",
     server: { name: "io.agentxm/browser", description: "Browser MCP", version: "1.0.0" },
   },
-  subagent: { owner: "@acme", type: "subagent", name: "researcher", version: "1.0.0" },
+  subagent: {
+    owner: "@acme",
+    type: "subagent",
+    name: "researcher",
+    version: "1.0.0",
+    description: "Research",
+    core: { instructions: "src/instructions.md" },
+  },
   pack: { owner: "@acme", type: "pack", name: "starter", version: "1.0.0", dependencies: {} },
   rule: { owner: "@acme", type: "rule", name: "policy", version: "1.0.0" },
   hook: {

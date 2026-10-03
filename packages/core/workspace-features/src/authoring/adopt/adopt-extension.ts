@@ -124,6 +124,7 @@ export interface AdoptExtensionRequest {
 
 /** What every step in an adoption may require when it runs. */
 export type AdoptExtensionRequirements =
+  | SubagentManager
   | RuleManager
   | HookManager
   | KnowledgeManager
@@ -338,7 +339,15 @@ export const prepareAdoptExtension: (
   // that stays invisible is not what adoption was asked for.
   const enabled = mode === "in-place" ? true : Option.getOrElse(current.enabled, () => true);
 
+  const nativePreflight = preflightAuthoredNativeProjection({
+    identity: parsed,
+    packageRoot: sourceDir,
+    enabled,
+  });
+  const nativeProjection = yield* nativePreflight;
+
   const moveArtifact: JobStepArtifact = {
+    ...nativeProjection,
     path: authoredPath,
     scope: location.scope,
     change: "created",
@@ -346,23 +355,18 @@ export const prepareAdoptExtension: (
       { path: acquiredPath, change: "removed" },
       { path: authoredPath, change: "created" },
       { path: settingsPath, change: "updated" },
+      ...(nativeProjection.targets ?? []),
     ],
   };
   // In-place adoption writes only the declaration; the authored package keeps
   // every byte, so it is not reported as a changed path.
   const inPlaceArtifact: JobStepArtifact = {
+    ...nativeProjection,
     path: settingsPath,
     scope: location.scope,
     change: "updated",
-    targets: [{ path: settingsPath, change: "updated" }],
+    targets: [{ path: settingsPath, change: "updated" }, ...(nativeProjection.targets ?? [])],
   };
-
-  const nativePreflight = preflightAuthoredNativeProjection({
-    identity: parsed,
-    packageRoot: sourceDir,
-    enabled,
-  });
-  yield* nativePreflight;
 
   const shared = {
     toStepFailure: authoringStepFailure,

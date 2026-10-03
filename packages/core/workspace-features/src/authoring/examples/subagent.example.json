@@ -5,6 +5,7 @@
   "name": "code-reviewer",
   "version": "1.0.0",
   "description": "Automated code review subagent",
+  "core": { "instructions": "src/instructions.md" },
   "keywords": ["code-review", "automation"],
   "repository": "https://github.com/acme/code-reviewer",
   "license": "MIT",

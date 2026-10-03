@@ -123,8 +123,7 @@ without `gen` has ownership evidence but no currency evidence; sync reconciles
 it once. It does not fall back to body normalization.
 
 Rules, Knowledge discovery, and Hook fallbacks use generated whole-body
-regions. Managed Subagent Markdown, role-skill fallbacks, and instruction
-copies use generated whole-file banners.
+regions. Managed Subagent Markdown and TOML, and instruction copies use generated whole-file banners.
 Instruction alias ignores use a pattern-list region in `.gitignore`. MCP TOML
 uses one keyed fence per server. TOML deliberately remains fenced: replacing
 the owned byte range avoids an abstract-syntax-tree round trip that could

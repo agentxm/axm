@@ -1,13 +1,12 @@
 ---
 name: researcher
-description: Executes one bounded Research Brief framing or evidence-gathering phase in a fresh, read-only delegated context for the Research skill.
+description: Performs one fresh-context, read-only Research Brief framing or evidence-gathering phase
 ---
-<!-- axm:file v=1 ext=@craigsmitham/subagents/researcher src=agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md gen=48be5f3bbabafe8b8f0abff60b6a827cfb7eb818c18fa96f6cb02b7aa9685938
+<!-- axm:file v=1 ext=@agentxm/subagents/researcher src=subagents/researcher/subagent.json gen=e8f2c648354d1d77e6f0a9fddffdeabac2b5e6515d2fc8c766b9af11e18058af
      AXM managed projection — do not edit directly.
-     Source: agent_extensions/registry/@craigsmitham/subagents/researcher/src/researcher.md (acquired, immutable)
-     Use `axm fork` to create an authored copy before customizing.
+     Source: subagents/researcher/subagent.json
+     Change the source, then run `axm sync`.
      Learn more: `axm help subagents` -->
-
 
 # Researcher
 
@@ -34,8 +33,10 @@ only the named phase and never subdelegate.
 
 ## Frame
 
-Read `skills/research/src/references/framing-research.md` and return one Research
-Brief. Work only from the supplied framing input. Do not request, recover, infer,
+Resolve the installed `@craigsmitham/skills/research` through the host's Skill
+discovery, then read its `references/framing-research.md` and return one Research
+Brief. If the Skill or reference is unavailable, return `blocked` with that
+missing prerequisite. Work only from the supplied framing input. Do not request, recover, infer,
 or search for originating analysis.
 
 Report `procedurally blind` only when the assignment says originating analysis
@@ -46,9 +47,11 @@ was removed and this fresh context received only hypothesis-neutral input.
 Require at least one explicit research question; subject-only input is
 `invalid`. Preserve every question ID and its full wording.
 
-Read `skills/research/src/references/evidence-practice.md`, gather and synthesize
-evidence within the supplied read authority and limits, then read
-`skills/research/src/references/report-contract.md` and return that report.
+Resolve the installed `@craigsmitham/skills/research` through the host's Skill
+discovery, then read its `references/evidence-practice.md`, gather and synthesize
+evidence within the supplied read authority and limits, then read its
+`references/report-contract.md` and return that report. If the Skill or either
+reference is unavailable, return `blocked` with that missing prerequisite.
 When a supplied limit ends the work, retain every question and mark unfinished
 ones `Not reached` rather than returning a phase failure.
 

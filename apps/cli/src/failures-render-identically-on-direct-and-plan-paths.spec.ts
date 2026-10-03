@@ -128,8 +128,8 @@ import {
   SkillMaterializationFailed,
 } from "@agentxm/extension-kinds/skills";
 import {
-  SubagentContentUnreadable,
   SubagentDefinitionInvalid,
+  SubagentNativeConflict,
 } from "@agentxm/extension-kinds/subagents";
 import {
   AgentDetectionFailed,
@@ -189,6 +189,8 @@ import {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
+  NativeSubagentRuntimeRequired,
+  NativeSubagentImportUnsupported,
   PackGraphInvalid,
   PackManifestUnavailable,
   PackMemberAmbiguous,
@@ -306,7 +308,7 @@ type KindFailure =
   | RuleDefinitionInvalid
   | HookDefinitionInvalid
   | SubagentDefinitionInvalid
-  | SubagentContentUnreadable
+  | SubagentNativeConflict
   | McpInstallStateMissing
   | McpConnectionConflict
   | McpCanonicalPathUnsafe
@@ -519,16 +521,11 @@ const representatives: Representatives = {
   ],
   RuleDefinitionInvalid: [new RuleDefinitionInvalid({ detail: "Failed to read rule.json" })],
   HookDefinitionInvalid: [new HookDefinitionInvalid({ detail: "Hook entrypoint missing" })],
+  SubagentNativeConflict: [
+    new SubagentNativeConflict({ detail: "Native destination is owned by another package" }),
+  ],
   SubagentDefinitionInvalid: [
     new SubagentDefinitionInvalid({ detail: "Workspace subagent source is missing" }),
-  ],
-  SubagentContentUnreadable: [
-    new SubagentContentUnreadable({
-      expectedFilename: "demo.md",
-      subagentSrcPath: "/w/subagents/demo/src",
-      contentPath: "/w/subagents/demo/src/demo.md",
-      cause: ioCause,
-    }),
   ],
   McpInstallStateMissing: [new McpInstallStateMissing({ name: "demo" })],
   McpConnectionConflict: [
@@ -578,9 +575,8 @@ const representatives: Representatives = {
   ],
   SubagentContentError: [
     new SubagentContentError({
-      reason: "missing-frontmatter",
-      detail: "Subagent content has no frontmatter",
-      suggestion: "Add a frontmatter block.",
+      reason: "content-invalid",
+      detail: "Subagent instructions are empty",
     }),
   ],
   AgentDetectionFailed: [new AgentDetectionFailed({ detail: "Detection failed", cause: ioCause })],
@@ -760,6 +756,8 @@ const representatives: Representatives = {
   ForkPackageConflict: [new ForkPackageConflict({ detail: "Fork target already exists" })],
   ForkPackageFailed: [new ForkPackageFailed({ detail: "Fork failed", cause: ioCause })],
   NativeImportUnsupported: [new NativeImportUnsupported({ type: "rule" })],
+  NativeSubagentRuntimeRequired: [new NativeSubagentRuntimeRequired({ sourcePath: "/w/agent.md" })],
+  NativeSubagentImportUnsupported: [new NativeSubagentImportUnsupported({ agentId: "windsurf" })],
   NativeImportInvalid: [new NativeImportInvalid({ detail: "Native content needs frontmatter" })],
   NativeImportConflict: [new NativeImportConflict({ targetDir: "/w/authored/demo" })],
   NativeImportFailed: [new NativeImportFailed({ detail: "Native import failed", cause: ioCause })],

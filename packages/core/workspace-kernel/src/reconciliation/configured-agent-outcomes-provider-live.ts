@@ -250,7 +250,31 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                           : "blocked",
                   }),
                 );
-                return [row.name, fromNative(request, row.name, locations)] as const;
+                const verified = fromNative(request, row.name, locations);
+                return [
+                  row.name,
+                  {
+                    ...verified,
+                    agentOutcomes: verified.agentOutcomes.map((current) => {
+                      const selected = observed?.agentOutcomes.find(
+                        (outcome) => outcome.agentId === current.agentId,
+                      );
+                      if (selected === undefined) return current;
+                      return selected.outcome === "current" || selected.outcome === "projected"
+                        ? {
+                            ...selected,
+                            outcome: current.outcome,
+                            reasonCode:
+                              current.outcome === "blocked"
+                                ? current.reasonCode
+                                : selected.reasonCode,
+                            reason: `${selected.reason} ${current.reason}`,
+                            nativeUnitKeys: current.nativeUnitKeys,
+                          }
+                        : { ...selected, nativeUnitKeys: current.nativeUnitKeys };
+                    }),
+                  },
+                ] as const;
               }),
             );
             return new Map<string, ConfiguredExtensionObservation>(rows);

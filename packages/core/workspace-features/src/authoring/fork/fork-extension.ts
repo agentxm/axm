@@ -145,6 +145,7 @@ export interface ForkExtensionRequest {
 
 /** What every step in a fork may require when it runs. */
 export type ForkExtensionRequirements =
+  | SubagentManager
   | RuleManager
   | HookManager
   | KnowledgeManager
@@ -405,9 +406,10 @@ export const prepareForkExtension: (
       packageRoot: stagedPackage,
       enabled,
     });
-    yield* nativePreflight;
+    const nativeProjection = yield* nativePreflight;
 
     const artifact: JobStepArtifact = {
+      ...nativeProjection,
       path: authoredPath,
       scope: location.scope,
       version: INITIAL_FORK_VERSION,
@@ -415,6 +417,7 @@ export const prepareForkExtension: (
       targets: [
         { path: authoredPath, change: "created" },
         { path: settingsPath, change: "created" },
+        ...(nativeProjection.targets ?? []),
       ],
     };
     const sourceFqn = `${selected.identity.owner}/${extensionTypeToPlural[selected.identity.type]}/${selected.identity.name}`;
@@ -474,6 +477,14 @@ export const prepareForkExtension: (
           return forkStep(yield* SubagentManager, {
             ...common,
             target: { type: "subagent", name },
+            buildArtifact: ({ change, materialization }) =>
+              authoredNativeArtifact({
+                type: "subagent",
+                artifact,
+                change,
+                projected: enabled,
+                materialization,
+              }),
           });
         case "rule":
           return forkStep(yield* RuleManager, { ...common, target: { type: "rule", name } });

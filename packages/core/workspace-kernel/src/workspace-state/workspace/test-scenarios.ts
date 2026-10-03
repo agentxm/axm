@@ -121,7 +121,7 @@ export const sharedMemberOutsidePinFact = (args: {
       `settings range=${args.pin} location=axm.json`,
       ...SHARED_MEMBER_PACKS.map(
         (pack) =>
-          `${pack.fqn} range=${pack.range} location=agent_extensions/registry/${SHARED_MEMBER.owner}/packs/${pack.name}/pack.json`,
+          `${pack.fqn} range=${pack.range} location=axm-lock.yaml#packs.${pack.name}.dependencies[${JSON.stringify(SHARED_MEMBER.fqn)}]`,
       ),
     ].join(", ")}`,
     `accepted version=${args.acceptedVersion}`,
@@ -216,6 +216,9 @@ const scenarioAcceptedResolutions: Lockfile = {
       makeRegistryPackLockEntry({
         owner: decodeHandleSync(SHARED_MEMBER.owner),
         name: pack.name,
+        dependencies: Schema.decodeUnknownSync(PackManifestSchema)(
+          JSON.parse(scenarioManifestText(pack.name, pack.range)),
+        ).dependencies,
         sourceHash: computePackManifestContentIdentity(
           Schema.decodeUnknownSync(PackManifestSchema)(
             JSON.parse(scenarioManifestText(pack.name, pack.range)),
@@ -244,4 +247,5 @@ export const sharedMemberGraph = (
       ...overrides,
     }),
     acceptedResolutions: scenarioAcceptedResolutions,
+    registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
   }).pipe(Effect.map(evaluateDesiredState));

@@ -36,6 +36,8 @@ import { SettingsWriter, SettingsWriterLive } from "./workspace/settings-writer.
 import { WorkspaceStateShared, makeWorkspaceStateShared } from "./workspace/shared.js";
 import { WorkspaceRecords, WorkspaceRecordsLive } from "./workspace/workspace-records.js";
 
+import { WorkspaceReadViews, WorkspaceReadViewsLive } from "./workspace/read-view.js";
+
 export type { WorkspaceStateOptions } from "./workspace/contracts.js";
 
 /** The resolved location of the selected workspace scope. */
@@ -46,6 +48,7 @@ export const WorkspaceLocationLive = (
 
 /** The narrow reader and writer services over one workspace location. */
 export type WorkspaceStateServices =
+  | WorkspaceReadViews
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader
@@ -76,7 +79,11 @@ const stateServicesOver = (
     WorkspaceRecordsLive,
     Layer.provideMerge(LockfileReaderLive, base),
   );
-  const withPaths = Layer.provideMerge(ExtensionPathsLive, readers);
+  const withViews = Layer.provideMerge(
+    Layer.provide(WorkspaceReadViewsLive, FilesystemPackManifests),
+    readers,
+  );
+  const withPaths = Layer.provideMerge(ExtensionPathsLive, withViews);
   return Layer.provideMerge(
     Layer.provide(
       Layer.mergeAll(SettingsWriterLive, AcceptedResolutionWriterLive, DesiredStateWriterLive),

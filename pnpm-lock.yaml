@@ -504,6 +504,9 @@ importers:
         specifier: 'catalog:'
         version: 4.0.0-rc.117
     devDependencies:
+      '@agentxm/specification-metadata':
+        specifier: workspace:^
+        version: link:../../../tools/specification-metadata
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.117(effect@4.0.0-rc.117)(redis@6.2.1(@node-rs/xxhash@1.7.8))

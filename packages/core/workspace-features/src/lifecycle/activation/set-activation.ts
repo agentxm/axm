@@ -101,7 +101,7 @@ import {
   acceptedCanonicalObservation,
   desiredPackageKey,
   desiredStateProblemsText,
-  usableAcceptedCanonical,
+  observeDesiredCanonical,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -496,22 +496,38 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
     // entry drifted is brought back even when desired state already agrees.
     const reprojects = request.type === "mcp-server" && request.enabled;
     if (current.enabled === request.enabled && !reprojects) return alreadySettled(request, name);
-    // Enabling projects accepted content, so content the workspace does not
-    // hold refuses the change when it runs, the way every projection does.
+    // Retain the observation's distinction between absent content and present
+    // drift. Activation never authorizes replacement of acquired bytes.
+    const canonical =
+      request.enabled && current.authority !== "inline"
+        ? yield* observeDesiredCanonical(current)
+        : undefined;
+    const drifted =
+      canonical?.accepted !== undefined &&
+      (canonical.observation.status === "corrupt" ||
+        canonical.observation.status === "incomplete" ||
+        canonical.observation.status === "materialization-mismatch");
     const refusal =
-      request.enabled &&
-      current.authority !== "inline" &&
-      Option.isNone(yield* usableAcceptedCanonical({ type: request.type, name }))
+      canonical !== undefined && canonical.observation.status !== "usable"
         ? Option.some(
             new ExtensionLifecycleFailed({
-              category: "not_found",
-              detail: `Accepted ${request.type} content for "${name}" is not usable`,
-              suggestions: [
-                {
-                  description: `Restore the accepted ${request.type} content before enabling it.`,
-                  cmd: "axm sync",
-                },
-              ],
+              category: drifted ? "conflict" : "not_found",
+              detail: drifted
+                ? `Present ${request.type} content for "${name}" differs from the accepted resolution`
+                : `Accepted ${request.type} content for "${name}" is not usable`,
+              suggestions: drifted
+                ? [
+                    {
+                      description:
+                        "Repeat this extension's explicit install to restore accepted content before enabling it; sync preserves present drift.",
+                    },
+                  ]
+                : [
+                    {
+                      description: `Restore the accepted ${request.type} content before enabling it.`,
+                      cmd: "axm sync",
+                    },
+                  ],
             }),
           )
         : Option.none<ExtensionLifecycleFailed>();

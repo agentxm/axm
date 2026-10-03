@@ -55,7 +55,7 @@ export const makeSpecWorkspace = (prefix: string) =>
     const settingsPath = path.join(root, "axm.json");
     const lockPath = path.join(root, "axm-lock.yaml");
     yield* fs.writeFileString(settingsPath, '{\n  "skills": {}\n}\n');
-    yield* fs.writeFileString(lockPath, "lockfileVersion: 9\nskills: {}\n");
+    yield* fs.writeFileString(lockPath, "lockfileVersion: 10\nskills: {}\n");
     return { root, workspaceDir, settingsPath, lockPath };
   });
 

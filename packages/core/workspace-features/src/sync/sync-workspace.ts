@@ -321,6 +321,7 @@ export const prepareSyncWorkspace = (
             adapter: conversion,
             graph,
           });
+          const planningGraph = packRecovery?.graph ?? graph;
           const collected = yield* collectMaterializeSteps({
             selection,
             desiredState: graph,
@@ -399,8 +400,8 @@ export const prepareSyncWorkspace = (
             ? Option.none<SyncPlanStep>()
             : yield* collectUnreachableRetirement(
                 conversion,
-                subjects === undefined ? undefined : { resultingGraph: graph, subjects },
-                graph,
+                subjects === undefined ? undefined : { resultingGraph: planningGraph, subjects },
+                planningGraph,
               ).pipe(
                 Effect.catch((failure) =>
                   Effect.succeed(
@@ -420,7 +421,7 @@ export const prepareSyncWorkspace = (
             : yield* collectLeftoverRetirement(
                 conversion,
                 subjects === undefined ? undefined : { subjects },
-                graph,
+                planningGraph,
               ).pipe(
                 Effect.catch((failure) =>
                   Effect.succeed([
@@ -435,6 +436,7 @@ export const prepareSyncWorkspace = (
               );
           return {
             graph,
+            planningGraph,
             evaluatedPaths,
             preflightMaterial,
             projectionFacts,
@@ -452,6 +454,7 @@ export const prepareSyncWorkspace = (
 
     const {
       graph,
+      planningGraph,
       evaluatedPaths,
       preflightMaterial,
       projectionFacts,
@@ -496,7 +499,7 @@ export const prepareSyncWorkspace = (
     }
 
     const assembled = yield* makeSyncPlan({
-      graph,
+      graph: planningGraph,
       scope: location.scope,
       adapter: conversion,
       materializeSteps,

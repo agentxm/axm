@@ -381,6 +381,7 @@ const makePackRollbackFixture = (
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
+        dependencies: acceptedPackManifest.dependencies,
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedPackSource),
       },
     },
@@ -571,6 +572,7 @@ const makeConstraintMismatchFixture = (
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
+        dependencies: manifests[0].dependencies,
       },
       beta: {
         type: "registry",
@@ -581,6 +583,7 @@ const makeConstraintMismatchFixture = (
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
+        dependencies: manifests[1].dependencies,
       },
     },
     lockfileSkills: {
@@ -1002,30 +1005,19 @@ describe("root sync handler", () => {
   );
 
   it.effect(
-    "restores a divergent Pack and its reachable members from accepted immutable resolution",
+    "restores a missing Pack and its reachable members from accepted immutable resolution",
     () =>
       Effect.gen(function* () {
         const fixture = makePackRollbackFixture(tempDir, {
-          canonicalPackState: "changed",
+          canonicalPackState: "missing",
         });
         const before = {
           lockfile: fs.readFileSync(fixture.paths.lockfile, "utf8"),
           settings: fs.readFileSync(fixture.paths.settings, "utf8"),
-          canonicalPack: fs.readFileSync(
-            path.join(fixture.paths.canonicalPack, "pack.json"),
-            "utf8",
-          ),
           canonicalSkillManifest: fs.readFileSync(fixture.paths.canonicalSkillManifest, "utf8"),
           canonicalSkillContent: fs.readFileSync(fixture.paths.canonicalSkillContent, "utf8"),
           ownedOutput: fs.readFileSync(fixture.paths.ownedOutput, "utf8"),
         };
-        const acceptedContentIdentity = computePackManifestContentIdentity(
-          fixture.manifests.accepted,
-        );
-        const observedContentIdentity = computePackManifestContentIdentity(
-          fixture.manifests.divergent,
-        );
-
         const human = makeLayers(undefined, fixture.sources);
         yield* human.provide(handleSync({ preview: true }));
         const humanPreview = expectPreviewedPlanResult(human.rendererState.results[0]?.data, {
@@ -1034,10 +1026,6 @@ describe("root sync handler", () => {
         });
         const humanLabel = property(planResultUnits(humanPreview)[0], "label");
         expect(humanLabel).toContain("Recover @acme/packs/toolkit");
-        expect(humanLabel).toContain("accepted version=1.0.0");
-        expect(humanLabel).toContain(`content=${acceptedContentIdentity}`);
-        expect(humanLabel).toContain("observed status=changed version=0.3.0");
-        expect(humanLabel).toContain(`content=${observedContentIdentity}`);
 
         const machine = makeLayers({ machine: true }, fixture.sources);
         yield* machine.provide(handleSync({ preview: true }));
@@ -1049,9 +1037,7 @@ describe("root sync handler", () => {
         expect(previewLabel).toBe(humanLabel);
         expect(fs.readFileSync(fixture.paths.lockfile, "utf8")).toBe(before.lockfile);
         expect(fs.readFileSync(fixture.paths.settings, "utf8")).toBe(before.settings);
-        expect(fs.readFileSync(path.join(fixture.paths.canonicalPack, "pack.json"), "utf8")).toBe(
-          before.canonicalPack,
-        );
+        expect(fs.existsSync(fixture.paths.canonicalPack)).toBe(false);
         expect(fs.readFileSync(fixture.paths.canonicalSkillManifest, "utf8")).toBe(
           before.canonicalSkillManifest,
         );
@@ -1098,6 +1084,38 @@ describe("root sync handler", () => {
       }),
   );
 
+  it.effect("refuses present Pack drift without acquisition or mutation", () =>
+    Effect.gen(function* () {
+      const fixture = makePackRollbackFixture(tempDir, { canonicalPackState: "changed" });
+      const protectedPaths = [
+        fixture.paths.lockfile,
+        fixture.paths.settings,
+        path.join(fixture.paths.canonicalPack, "pack.json"),
+        fixture.paths.canonicalSkillManifest,
+        fixture.paths.canonicalSkillContent,
+        fixture.paths.ownedOutput,
+      ];
+      const before = protectedPaths.map((file) => fs.readFileSync(file, "utf8"));
+      for (const preview of [true, false]) {
+        const { provide, rendererState } = makeLayers({ machine: true }, fixture.sources);
+        yield* provide(handleSync({ preview }));
+        expect(rendererState.results[0]?.data).toMatchObject({
+          result: {
+            outcome: "blocked",
+            blocking: {
+              causeCode: "conflict",
+              detail: expect.stringContaining("present package content differs"),
+            },
+          },
+        });
+        expect(protectedPaths.map((file) => fs.readFileSync(file, "utf8"))).toEqual(before);
+      }
+      expect(fixture.lookupCalls).toEqual([]);
+      expect(fixture.fetchedRefs).toEqual([]);
+      expect(fixture.acquiredRefs).toEqual([]);
+    }),
+  );
+
   it.effect("blocks accepted Pack recovery when member acquisition fails", () =>
     Effect.gen(function* () {
       const fixture = makePackRollbackFixture(tempDir, { memberCanonical: false });
@@ -1131,18 +1149,18 @@ describe("root sync handler", () => {
     () =>
       Effect.gen(function* () {
         const fixture = makePackRollbackFixture(tempDir, {
-          canonicalPackState: "changed",
+          canonicalPackState: "missing",
           withMemberDependency: false,
         });
-        // Publishing the re-acquired Pack over its protected canonical tree
-        // fails, and so does the copy back out of the snapshot store, so the
-        // recovery settles without a complete restoration.
+        // Publishing the missing Pack fails, as does withdrawing its newly
+        // created parent directory, so restoration must report retained state.
         const canonicalPack = fixture.paths.canonicalPack;
+        const retainedParent = path.dirname(canonicalPack);
         const faults = injectWriteFaults(
           (operation) =>
             operation.kind === "rename"
               ? operation.path === canonicalPack
-              : operation.kind === "copy" && operation.source.includes("axm-rollback-"),
+              : operation.kind === "remove" && operation.path === retainedParent,
           "Injected recovery write failure",
         );
         const { provide, rendererState } = makeLayers(
@@ -1171,9 +1189,7 @@ describe("root sync handler", () => {
           disposition: "retained",
           message: property(failure, "message"),
         });
-        expect(property(recovery, "retained")).toContain(
-          "agent_extensions/registry/@acme/packs/toolkit",
-        );
+        expect(property(recovery, "retained")).toContain("agent_extensions/registry/@acme/packs");
         expect(typeof snapshotDir).toBe("string");
       }),
   );

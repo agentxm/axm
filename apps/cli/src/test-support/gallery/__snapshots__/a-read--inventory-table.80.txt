@@ -15,7 +15,6 @@
  ▲   @legacy/       skill        installed but no   yes         -
      skills/                     longer selected
      changelog
-     Not shown at this width: Configured consumers, Discovery, Version, Source,
-     Assessment, Guidance
+     Not shown at this width: Configured consumers, Discovery, Version, Source
 
 6 extensions · 3 enabled · 1 needs attention · axm lint explains

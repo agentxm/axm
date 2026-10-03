@@ -1,3 +1,4 @@
+import { withInspectionReadView } from "../read-view.js";
 /**
  * Published metadata for one extension, read from the registry that supplies it.
  *
@@ -42,7 +43,7 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
-import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
+import { SettingsReader, DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
 
 import { PublishedMetadataUnavailable } from "../errors.js";
 
@@ -143,11 +144,15 @@ export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(fu
 const resolveBareHandle = Effect.fn("ViewExtension.resolveBareHandle")(function* (handle: string) {
   const settings = yield* SettingsReader;
   const defaultRegistry = yield* settings.defaultRegistry;
+  const installedGraph = yield* (yield* DesiredStateReader).graph();
+  const registrySources = yield* settings.registrySourceHosts;
   const attempts = yield* Effect.forEach(
     installableExtensionTypes,
     (resourceType) =>
       Effect.scoped(
         resolveIdentifier({
+          installedGraph,
+          registrySources,
           input: handle,
           resourceType,
           scope: "both",
@@ -190,6 +195,8 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
   const resolved = Option.isSome(request.type)
     ? yield* Effect.scoped(
         resolveIdentifier({
+          installedGraph: yield* (yield* DesiredStateReader).graph(),
+          registrySources: yield* settings.registrySourceHosts,
           input: request.handle,
           resourceType: request.type.value,
           scope: "both",
@@ -207,7 +214,7 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
     });
   }
   return { owner, type: resolved.type, name: resolved.name };
-});
+}, withInspectionReadView);
 
 const toDocument = (index: ExtensionIndex, visibility: "public" | "private"): ViewDocument => {
   const [latest] = index.versions;

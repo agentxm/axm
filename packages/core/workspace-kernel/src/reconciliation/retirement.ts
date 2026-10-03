@@ -157,7 +157,8 @@ export const collectUnreachableRetirement = (
       artifact,
       run: runWorkspaceTransaction({
         transition: Effect.gen(function* () {
-          const current = yield* desiredState.graph();
+          const current = yield* (yield* DesiredStateReader).graph();
+          const currentLocks = yield* LockfileReader;
           if (
             unresolvedPackRoutes(current).length > 0 ||
             retired.some((row) => desiredReachesAcceptedRow(current, row))
@@ -169,7 +170,7 @@ export const collectUnreachableRetirement = (
           }
           const remaining: Array<(typeof retired)[number]> = [];
           for (const row of retired) {
-            const accepted = yield* locks.entry(row.type, row.key);
+            const accepted = yield* currentLocks.entry(row.type, row.key);
             // An earlier step of this run may have settled the row already
             // (materializing authored content withdraws the resolution it
             // supersedes); the retired state then already holds.
@@ -205,8 +206,9 @@ export const collectUnreachableRetirement = (
         }),
         validate: () =>
           Effect.gen(function* () {
+            const currentLocks = yield* LockfileReader;
             for (const row of retired) {
-              if (Option.isSome(yield* locks.entry(row.type, row.key)))
+              if (Option.isSome(yield* currentLocks.entry(row.type, row.key)))
                 return yield* new WorkspaceSyncFailed({
                   category: "conflict",
                   detail: `Accepted ${row.type} ${row.key} remains after retirement`,
@@ -321,11 +323,12 @@ export const collectLeftoverRetirement = (
           artifact,
           run: runWorkspaceTransaction({
             transition: Effect.gen(function* () {
-              const current = yield* desiredState.graph();
+              const current = yield* (yield* DesiredStateReader).graph();
+              const currentLocks = yield* LockfileReader;
               const observed = yield* observeInstallRoot({
                 layout,
                 graph: current,
-                locks,
+                locks: currentLocks,
               });
               const entry = observed.packages.find(({ path: at }) => at === leftover.path);
               if (entry === undefined) return;

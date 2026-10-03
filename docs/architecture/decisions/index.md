@@ -55,9 +55,8 @@ specifications, never in these records.
   authoritative files whole and names a recovery route, and remote Registry
   effects are never rolled back
 - [Pack retirement when the package cannot be read](pack-retirement-when-the-package-cannot-be-read.md) —
-  uninstall distinguishes the removal target from the desired-state graph, so a
-  pack whose own package cannot be read is retired by registration while its
-  unverifiable content is preserved and reported
+  retirement uses accepted dependency authority for reachability while
+  preserving and reporting unverified physical content
 - [Shared desired-state reconciliation](shared-desired-state-reconciliation.md) — shared realization policy belongs below peer command features and above canonical and projection mechanics
 - [Node runtime floor is Node 24](node-runtime-floor.md) — the development
   pin, the published `engines.node` range, and the `@types/node` ceiling are

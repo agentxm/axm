@@ -146,7 +146,7 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
     // JSON is valid YAML, so the lockfile fixture needs no emitter.
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 9, skills: {}, ...options.lockfile }),
+      JSON.stringify({ lockfileVersion: 10, skills: {}, ...options.lockfile }),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {}))

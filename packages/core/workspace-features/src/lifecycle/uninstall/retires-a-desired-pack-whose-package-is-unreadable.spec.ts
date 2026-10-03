@@ -26,16 +26,14 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable",
   title: "Uninstall retires a desired pack whose package cannot be read",
   statement:
-    "When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; when any other desired pack is incomplete, AXM shall remain blocked and shall change nothing.",
+    "When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; accepted external Pack declarations shall continue to establish shared and direct member retention even when acquired manifests are unreadable, while an unresolved authored Pack graph shall remain blocked and shall change nothing.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["example", "decision-table"],
   derivedFrom: [],
   supersedes: [],
-  assumptions: [
-    "A pack's member list is not persisted outside its package manifest; neither axm.json nor axm-lock.yaml carries one, so an unreadable manifest leaves members computable only from the remaining desired state.",
-  ],
+  assumptions: [],
   openQuestions: [],
 });
 
@@ -154,6 +152,69 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
         damageManifest(world.workspace.root, fixture);
       }
     });
+
+  it.effect(
+    "uses accepted members to remove an unreadable Pack beside another unreadable acquired Pack",
+    () => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      for (const name of ["exclusive", "shared", "direct"]) {
+        world.registry.writeSkill(name, [{ version: "1.0.0", body: `${name} guidance.` }]);
+      }
+      world.registry.writePack("toolkit", [
+        {
+          version: "1.0.0",
+          dependencies: {
+            "@acme/skills/exclusive": "^1.0.0",
+            "@acme/skills/shared": "^1.0.0",
+            "@acme/skills/direct": "^1.0.0",
+          },
+        },
+      ]);
+      world.registry.writePack("sibling", [
+        { version: "1.0.0", dependencies: { "@acme/skills/shared": "^1.0.0" } },
+      ]);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            for (const name of ["toolkit", "sibling"]) {
+              yield* applyInstall(
+                installRequest({
+                  type: "pack",
+                  subject: { kind: "source", source: `@acme/packs/${name}` },
+                }),
+              );
+            }
+            yield* applyInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source: "@acme/skills/direct" },
+              }),
+            );
+            const root = "agent_extensions/registry/@acme";
+            world.workspace.writeFile(
+              `${root}/packs/toolkit/pack.json`,
+              "unverified package bytes",
+            );
+            world.workspace.writeFile(`${root}/packs/sibling/pack.json`, "also unverified");
+            const before = world.workspace.snapshot();
+            const request = uninstallRequest({ type: "pack", selector: "toolkit" });
+            expect(deriveOperationOutcome(yield* previewUninstall(request))).toBe("previewed");
+            expect(world.workspace.snapshot()).toEqual(before);
+            expect(deriveOperationOutcome(yield* applyUninstall(request))).toBe("applied");
+            expect(world.workspace.readFile(`${root}/packs/toolkit/pack.json`)).toBe(
+              "unverified package bytes",
+            );
+            expect(world.workspace.exists(`${root}/skills/exclusive`)).toBe(false);
+            expect(world.workspace.exists(`${root}/skills/shared`)).toBe(true);
+            expect(world.workspace.exists(`${root}/skills/direct`)).toBe(true);
+            expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("toolkit:");
+            expect(world.workspace.readFile("axm-lock.yaml")).toContain("sibling:");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   const unreadableTargets: ReadonlyArray<{
     readonly label: string;

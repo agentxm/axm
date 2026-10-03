@@ -30,7 +30,6 @@ export const desiredProblemSubject = (problem: DesiredStateProblem): DesiredProb
     case "pack-manifest-invalid":
     case "pack-identity-mismatch":
     case "pack-resolution-unavailable":
-    case "pack-manifest-content-mismatch":
       return { kind: "pack", pack: problem.pack };
     case "projection-collision":
     case "constraint-conflict":

@@ -58,6 +58,8 @@ import {
   decodeExtensionNameSync,
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
+import type { PackManifest } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { type InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -359,7 +361,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 9,
+    lockfileVersion: 10,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
@@ -446,6 +448,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
+  readonly dependencies?: PackManifest["dependencies"];
   readonly resolvedSkills?: Readonly<Record<string, unknown>>;
   readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
   readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
@@ -466,8 +469,14 @@ export const makeRegistryPackLockEntry = (opts: {
     manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
     manifestContentIdentity:
       opts.sourceHash === undefined
-        ? TEST_CONTENT_IDENTITY
+        ? computePackManifestContentIdentity({
+            owner: opts.owner,
+            type: "pack",
+            name: opts.name,
+            version: opts.resolvedVersion ?? "1.0.0",
+            dependencies: opts.dependencies ?? {},
+          })
         : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
-    members: [],
+    dependencies: opts.dependencies ?? {},
     treeIntegrity: TEST_TREE_INTEGRITY,
   });

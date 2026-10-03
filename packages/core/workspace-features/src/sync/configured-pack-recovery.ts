@@ -1,23 +1,14 @@
 /**
- * Recovering a configured Pack whose accepted manifest no longer matches what
- * is on disk.
+ * Restore missing configured Pack content without changing accepted choices.
  *
- * A diverged Pack manifest makes the whole desired graph incomplete, so
- * reconciliation would otherwise refuse for every member rather than repair
- * the one thing that broke. Recovery re-acquires the Pack package and its
- * declared members from the source the workspace already configured, so the
- * graph the sweep then reconciles is the graph the workspace declared.
+ * Accepted dependency declarations keep graph knowledge independent of the
+ * installed manifest. Recovery therefore selects physically missing Pack roots
+ * as well as configured Packs that have never been accepted. Present drift is
+ * refused by ordinary reconciliation and requires an explicit install.
  *
- * Each Pack's intent comes from the one configured-Pack helper install uses:
- * an accepted Pack re-acquires its *accepted* resolution and replays its
- * accepted members, never a newer one, because repairing a damaged package is
- * not the moment to advance a version; a Pack the workspace configured but
- * never accepted resolves through its configured source. Either way the
- * members are selected within the proposed desired-state graph's effective
- * constraints — so a direct pin on a shared member holds — through the same
- * workspace source authority install applies. A release the minimum release
- * age holds back preserves a complete usable graph or blocks this Pack's
- * closure, as install does.
+ * Accepted Packs replay exact accepted members; newly desired members resolve
+ * under their full source authority and effective constraints. Root and member
+ * materialization stays within the existing atomic reconciliation closure.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -60,6 +51,7 @@ import { withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
 import {
   acceptedCanonicalObservation,
   acceptedLockedResolutionRef,
+  observeDesiredCanonical,
   computeExtensionPathsForLayout,
   desiredStateProblemsText,
   acquisitionConfiguredEntries,
@@ -74,6 +66,7 @@ import {
   buildReconciliationClosure,
   recoverableExternalPackName,
   scopedProblems,
+  selectedDesiredNodes,
   SYNC_RECOVERY_IDS,
   targetFromRef,
   WorkspaceSyncFailed,
@@ -87,8 +80,8 @@ import {
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
 /**
- * The Pack package is re-acquired unconditionally — its manifest is the thing
- * that diverged. Members are the same step install and update build, acquired
+ * The missing Pack package is re-acquired. Members use the same step install
+ * and update build, acquired
  * without touching settings because recovery restores what the Pack already
  * declares; a member whose accepted content is still usable is reused rather
  * than fetched again, and an agent that cannot accept a member degrades and
@@ -191,6 +184,20 @@ export const collectConfiguredPackRecovery = (args: {
         return name === undefined ? [] : [name];
       }),
     );
+    // Accepted dependency declarations keep the graph complete when a Pack's
+    // acquired directory is absent. Its missing root still needs the same
+    // atomic root-and-members recovery as a first configured acquisition.
+    for (const node of selectedDesiredNodes(graph, args.selection)) {
+      if (
+        node.type !== "pack" ||
+        !node.enabled ||
+        node.identity.authority === "workspace" ||
+        packNames.has(node.name)
+      )
+        continue;
+      const canonical = yield* observeDesiredCanonical(node);
+      if (canonical.observation.status === "missing") packNames.add(node.name);
+    }
     if (packNames.size === 0) return undefined;
 
     const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
@@ -209,8 +216,8 @@ export const collectConfiguredPackRecovery = (args: {
           source: entry.source,
           releaseAgeEvaluation,
           nonInteractive: true,
-          // The observed tree already diverged from the accepted resolution,
-          // so reusing it would preserve the divergence.
+          // Recovery is only for absent content or a first acceptance. Present
+          // drift remains an explicit install operation.
           forceCanonical: true,
         }).pipe(
           Effect.map((resolve) => ({ name, resolve })),
@@ -262,7 +269,7 @@ export const collectConfiguredPackRecovery = (args: {
             steps: [blockedRecoveryStep({ key, label, reason })],
             holdbacks: packHoldbacks,
             bypasses: packBypasses,
-            conflicts: [],
+            refs: [],
           });
 
           // The one Pack graph selection install and update also render: the
@@ -277,12 +284,9 @@ export const collectConfiguredPackRecovery = (args: {
             return blocked(selection.blockers.map((fact) => fact.detail).join("; "));
           }
           if (selection.kind === "constraint-blocked") {
-            return {
-              ...blocked(
-                `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
-              ),
-              conflicts: selection.conflicts,
-            };
+            return blocked(
+              `Configured constraints are unsatisfiable: ${desiredStateProblemsText(selection.conflicts)}`,
+            );
           }
           if (selection.kind === "accepted-incompatible") {
             return blocked(acceptedResolutionIncompatibleText(selection.mismatch.fact));
@@ -293,7 +297,7 @@ export const collectConfiguredPackRecovery = (args: {
           };
           if (selection.kind === "held") {
             return selection.preserved
-              ? { steps: [], ...held, conflicts: [] }
+              ? { steps: [], ...held, refs: [] }
               : {
                   ...blocked(
                     `Recovering ${identity} requires a release the minimum release age still holds back, and no complete usable accepted resolution can be preserved`,
@@ -302,6 +306,23 @@ export const collectConfiguredPackRecovery = (args: {
                 };
           }
           const memberRefs = selection.refs.filter((ref) => ref.type !== "pack");
+          for (const ref of memberRefs) {
+            const desired = proposedGraph.nodes.find(
+              (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
+            );
+            if (desired === undefined) continue;
+            const canonical = yield* observeDesiredCanonical(desired);
+            if (
+              canonical.accepted !== undefined &&
+              (canonical.observation.status === "corrupt" ||
+                canonical.observation.status === "incomplete" ||
+                canonical.observation.status === "materialization-mismatch")
+            ) {
+              return blocked(
+                `${ref.type} ${desired.name}: present package content differs from the accepted resolution; repeat its install to restore accepted content before syncing`,
+              );
+            }
+          }
           const packStep = {
             ...(yield* recoveryStep({ ref: packRef, adapter: args.adapter })),
             key,
@@ -320,9 +341,8 @@ export const collectConfiguredPackRecovery = (args: {
                 sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
               )
                 return ref;
-              // The recovered graph is the authority the member is judged
-              // against; the current one lost this Pack's routes when its
-              // manifest diverged.
+              // A first acceptance judges members against the proposed graph;
+              // an accepted Pack already contributes its recorded routes.
               const desired = proposedGraph.nodes.find(
                 (node) => node.type === ref.type && node.name === target,
               );
@@ -395,7 +415,7 @@ export const collectConfiguredPackRecovery = (args: {
               },
             ],
             ...held,
-            conflicts: [],
+            refs: selection.refs,
           };
         }),
       { concurrency },
@@ -405,6 +425,12 @@ export const collectConfiguredPackRecovery = (args: {
     const bypasses = normalizeReleaseAgeRecords(recovered.flatMap(({ bypasses }) => bypasses));
     return {
       packNames,
+      graph: proposedGraph,
+      refs: [
+        ...new Map(
+          recovered.flatMap(({ refs }) => refs).map((ref) => [sourceRefContentKey(ref), ref]),
+        ).values(),
+      ],
       releaseAge:
         holdbacks.length === 0 && bypasses.length === 0
           ? undefined
@@ -414,13 +440,5 @@ export const collectConfiguredPackRecovery = (args: {
               bypasses,
             },
       steps: recovered.flatMap(({ steps }): ReadonlyArray<RecoveryStep> => steps),
-      // Packs sharing a member report its one conflict each; keep it once.
-      memberConflicts: [
-        ...new Map(
-          recovered
-            .flatMap(({ conflicts }) => conflicts)
-            .map((conflict) => [`${conflict.extensionType}:${conflict.name}`, conflict] as const),
-        ).values(),
-      ],
     };
   }).pipe(withPackRegistryIndexMemo);

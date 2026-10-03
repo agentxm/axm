@@ -70,9 +70,10 @@ unsupported ownership proof, not body currency.
 ## Authority and reachability facts
 
 The desired-state graph is the sole reachability authority. It derives direct
-routes, activation, and Pack dependency routes from settings and authored
-manifests. Lock rows, Pack-member maps, canonical content, and native output
-never create reachability or cleanup authority.
+routes and activation from settings, authored Pack dependencies from current
+manifests, and acquired Pack dependencies from matching accepted declarations.
+Lock rows never create roots. Canonical content and native output never create
+reachability or cleanup authority; physical removal still needs ownership proof.
 
 For sourced MCP servers, the graph distinguishes each local connection node
 from its source-resolution closure. Connection nodes own local names and

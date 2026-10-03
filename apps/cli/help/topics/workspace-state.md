@@ -9,9 +9,10 @@ AXM separates three state families:
 - **Observed** — canonical packages, managed agent artifacts and instruction
   regions, native config, and ownership markers say what actually exists.
 
-Settings and authored manifests are the only desired-state authority. A lock
-row never declares an extension by itself. Canonical packages and agent-native
-outputs never reconstruct missing settings or lock authority.
+Settings declare roots and activation. Authored Pack manifests and acquired
+Packs' accepted dependency declarations determine their members. A lock row
+never declares a root by itself. Canonical packages and agent-native outputs
+never reconstruct missing settings or lock authority.
 
 `axm sync` reconciles desired, accepted, and observed state. Use `axm sync
 <extension>` for one root and its required pack members, or `axm sync --type <type>`
@@ -76,7 +77,7 @@ relationships are otherwise the same. Its runtime state is the inner
 
 ## Accepted external resolution
 
-Lockfile v9 contains only external resolutions. Every row has four authorities:
+Lockfile v10 contains only external resolutions. Every row has four authorities:
 a self-describing `source` locator, package `identity`, immutable `resolved`
 identity, and `treeIntegrity` for the complete materialized package tree.
 Registry rows pin the Registry URL, version, archive integrity, and publisher
@@ -85,11 +86,16 @@ commit, and tree. Path rows pin a workspace-relative path and tree identity.
 Workspace-authored, bundled, inline, projected, and command-history state does
 not belong in the lockfile.
 
-Configured source names remain locator shorthand in `axm.json`; they are not
-lockfile identity. Unqualified Registry identifiers resolve through the
-configured `agentxm` source, while alternate registries use their configured
-source name. Once accepted, the lock row carries the resolved Registry or Git
-URL directly. If a named Registry now resolves to a different URL than the
+Acquired Pack rows also record their complete dependency declarations. Those
+accepted declarations preserve membership and constraints when installed Pack
+files are missing or changed. Authored Packs continue to use their current
+manifests. Settings determine the roots and activation; orphan lock rows never
+make a package desired. Knowing the dependency graph does not establish that
+its content is present or safe to project.
+
+Configured Registry names and the built-in `agentxm` name are locator
+shorthand in `axm.json`; they are not lockfile identity. Once accepted, the
+lock row carries the resolved Registry or Git URL directly. If a named Registry now resolves to a different URL than the
 accepted row, lint and sync block until an explicit lifecycle operation accepts
 the transition.
 
@@ -149,13 +155,18 @@ does not prevent other tools from changing acquired files and is not an
 integrity guarantee.
 
 Sync may resolve a desired external extension once when no accepted row exists.
-After acceptance, reinstall and sync use that exact identity; only update may
+After acceptance, repeated install and sync use that exact identity; update may
 advance it. If the source can no longer reproduce the locked identity, AXM
 blocks that affected work instead of substituting current bytes.
 
+Repeating install at the same accepted constraint restores missing or drifted
+acquired content. Ordinary sync and activation refuse to overwrite present
+drift. A valid, fully installed closure needs no source resolution or fetch on
+repeated install; restoring missing bytes may require network access.
+
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v9. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v10. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.
@@ -195,8 +206,8 @@ the invalid fields. Those diagnoses do not claim an unsupported version.
 ## Safe reconciliation
 
 AXM stops an affected semantic closure when a configured Pack's routes are
-unresolved (its manifest is absent, unreadable, invalid, or not authorized by
-its accepted resolution), when an accepted resolution is invalid or
+unresolved (its authored manifest is absent, unreadable, or invalid, or its
+accepted dependency declaration is unavailable), when an accepted resolution is invalid or
 incompatible, or when a target is unowned or ambiguously owned. A problem
 confined to one identified extension stops that extension's closure alone;
 independent ready closures still apply. Nothing is removed on the strength of
@@ -286,8 +297,8 @@ Git-index comparison to diagnose them.
 
 The model covers skills, MCP servers, subagents, rules, hooks, knowledge
 bundles, and packs. Packs contribute desired members only through a configured
-pack and its authoritative manifest. A lock-only pack or member is not
-reachable.
+Pack and its authoritative dependency declaration. A lock-only Pack or member
+is not reachable.
 
 A direct `enabled: false` declaration wins over pack activation. Retained
 canonical content and accepted resolution may remain while active projections

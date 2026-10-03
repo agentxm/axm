@@ -261,7 +261,6 @@ export {
   desiredStateProblemText,
   desiredStateProblemsText,
   formatConstraintContributors,
-  packManifestContentMismatchText,
   packManifestInvalidText,
   packManifestUnavailableText,
 } from "./workspace/desired-state-problem-text.js";
@@ -271,6 +270,7 @@ export {
 } from "./workspace/desired-pack-lock.js";
 export {
   observeCanonicalExtension,
+  observeAcceptedResolution,
   observeAcceptedCanonicalReuse,
   canonicalPathForAcceptedExtension,
   desiredConstraintContributors,
@@ -517,3 +517,4 @@ export {
   hookReceiptFilename,
   readHookEvidence,
 } from "./observed/hooks/evidence.js";
+export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";

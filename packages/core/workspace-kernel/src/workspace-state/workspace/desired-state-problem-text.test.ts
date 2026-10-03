@@ -37,7 +37,7 @@ describe("desiredStateProblemText", () => {
       path: "/secret/workspace/agent_extensions/registry/@acme/packs/missing/pack.json",
       reason: "absent",
     });
-    expect(text).toBe("@acme/packs/missing: installed pack manifest is absent");
+    expect(text).toBe("@acme/packs/missing: authored Pack manifest is absent");
     expect(text).not.toContain("/secret/workspace");
   });
 
@@ -50,7 +50,7 @@ describe("desiredStateProblemText", () => {
         reason: "unreadable",
         cause: "PermissionDenied",
       }),
-    ).toBe("@acme/packs/locked: installed pack manifest is unreadable (PermissionDenied)");
+    ).toBe("@acme/packs/locked: authored Pack manifest is unreadable (PermissionDenied)");
   });
 
   it("names each schema violation's path but never the value found there", () => {
@@ -63,7 +63,7 @@ describe("desiredStateProblemText", () => {
         issues: [{ path: "dependencies.@acme/skills/review", message: "Expected string" }],
       }),
     ).toBe(
-      "@acme/packs/broken: installed pack manifest does not match the schema (dependencies.@acme/skills/review: Expected string)",
+      "@acme/packs/broken: authored Pack manifest does not match the schema (dependencies.@acme/skills/review: Expected string)",
     );
   });
 });

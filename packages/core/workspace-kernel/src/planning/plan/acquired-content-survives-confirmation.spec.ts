@@ -130,7 +130,9 @@ describe("Acquired content through confirmation", () => {
       expect(nodeFs.existsSync(scratch)).toBe(false);
       expect(applied).toBe(false);
       expect(yield* fs.readFileString(workspace.settingsPath)).toBe('{\n  "skills": {}\n}\n');
-      expect(yield* fs.readFileString(workspace.lockPath)).toBe("lockfileVersion: 9\nskills: {}\n");
+      expect(yield* fs.readFileString(workspace.lockPath)).toBe(
+        "lockfileVersion: 10\nskills: {}\n",
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

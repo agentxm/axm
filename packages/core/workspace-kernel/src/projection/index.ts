@@ -178,6 +178,7 @@ export {
 } from "./agent-output-observation.js";
 export {
   captureAgentOutputAuthority,
+  captureSkillOutputSources,
   deriveAgentOutputAuthority,
   type AgentOutputAuthority,
 } from "./output-authority.js";
@@ -272,6 +273,7 @@ export type { McpInspectionError } from "./mcps/errors.js";
 export {
   collectManagedAgentMcpServers,
   inspectDesiredMcpServer,
+  withMcpInspectionReadView,
   mcpInspectionOutcome,
   mcpInspectionsCurrent,
   type AgentMcpInspectionStatus,

@@ -79,7 +79,6 @@ import {
   type WorkspaceLocationService,
   usableAcceptedCanonicalFrom,
   type CanonicalObservation,
-  type DesiredConstraintConflict,
   type DesiredExtensionNode,
   type DesiredStateGraph,
   type ExtensionInventory,
@@ -241,14 +240,10 @@ export interface ConfiguredPackRecovery<
   R = SyncStepRequirements | McpConnectionInstallRequirements,
 > {
   readonly packNames: ReadonlySet<string>;
+  readonly graph: DesiredStateGraph;
+  readonly refs: ReadonlyArray<ExtensionRef>;
   readonly releaseAge: Plan["releaseAge"];
   readonly steps: ReadonlyArray<PlannedJobStep<R>>;
-  /**
-   * Conflicts the recovered graph reports about individual members. The
-   * observed graph lost the recovered Packs' routes, so it cannot state them;
-   * each blocks its member's closure as the observed graph's own problems do.
-   */
-  readonly memberConflicts: ReadonlyArray<DesiredConstraintConflict>;
 }
 
 const configuredReleaseAge = (
@@ -605,7 +600,8 @@ export const collectMaterializeSteps = (args: {
         ? yield* settings.entries("mcp-server")
         : settingsEntries["mcp-server"].entries(args.settings);
     const configuredAgents = args.configuredAgents ?? (yield* settings.configuredAgents);
-    const desiredState = args.desiredState ?? (yield* desiredStateReader.graph());
+    const desiredState =
+      args.packRecovery?.graph ?? args.desiredState ?? (yield* desiredStateReader.graph());
     const previousAgentIds = new Set(yield* settings.configuredAgents);
     const proposedAgentIds = new Set(configuredAgents);
     const directoryRoutes = { skill: new Set<string>(), subagent: new Set<string>() };
@@ -653,10 +649,7 @@ export const collectMaterializeSteps = (args: {
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
       );
     const selection = args.selection ?? { target: Option.none(), type: Option.none() };
-    const problems = [
-      ...scopedProblems(desiredState, selection),
-      ...(args.packRecovery?.memberConflicts ?? []),
-    ];
+    const problems = scopedProblems(desiredState, selection);
     // A Pack whose routes cannot be established leaves the selection's
     // membership unknown, so nothing in it can be planned unless recovery
     // re-acquires that Pack. A problem about one identified extension blocks
@@ -696,9 +689,27 @@ export const collectMaterializeSteps = (args: {
       });
     }
 
+    const recoveryTargets = new Set(
+      (args.packRecovery?.refs ?? []).map((ref) => toStepKey(targetFromRef(ref))),
+    );
+    const recoveringPacks = new Set(
+      desiredState.nodes
+        .filter((node) => node.type === "pack" && args.packRecovery?.packNames.has(node.name))
+        .map((node) => desiredPackageKey(node.identity)),
+    );
     const selectable = selectedDesiredNodes(desiredState, selection)
       .filter(isSourcedDesiredExtension)
-      .filter((node) => node.type !== "pack" || !node.enabled);
+      .filter((node) => !recoveryTargets.has(`${node.type}:${node.name}`))
+      // Recovery owns these member transitions, including held or blocked
+      // selections with no refs. Preserve explicit graph-conflict rows.
+      .filter(
+        (node) =>
+          subjectBlockers(node).length > 0 ||
+          !node.origins.some(
+            (origin) => origin.type === "pack" && recoveringPacks.has(origin.pack.fqn),
+          ),
+      )
+      .filter((node) => node.type !== "pack" || !args.packRecovery?.packNames.has(node.name));
     const problemBlocked = selectable.flatMap((node) => {
       const problems = subjectBlockers(node);
       return problems.length === 0 ? [] : [{ node, problems }];
@@ -763,6 +774,17 @@ export const collectMaterializeSteps = (args: {
               category: "conflict",
               detail: `${node.type} ${node.name}: configured source differs from accepted authority; explicitly reinstall or change source before syncing`,
             });
+          if (
+            accepted !== undefined &&
+            (observation.status === "corrupt" ||
+              observation.status === "incomplete" ||
+              observation.status === "materialization-mismatch")
+          ) {
+            return yield* new WorkspaceSyncFailed({
+              category: "conflict",
+              detail: `${node.type} ${node.name}: present package content differs from the accepted resolution; repeat its install to restore accepted content before syncing`,
+            });
+          }
           const forceCanonical = observation.status !== "usable";
           const resolved = yield* Effect.gen(function* () {
             const usable = yield* usableAcceptedCanonicalFrom(canonical);
@@ -925,7 +947,7 @@ export const collectMaterializeSteps = (args: {
     );
     // With nothing reconcilable in the selection, the first blocker is the
     // operation's own refusal; beside reconcilable work it is a blocked step.
-    if (reconciled.length === 0) {
+    if (!reconciled.some((entry) => entry.materialize)) {
       const blocked = problemBlocked[0];
       if (blocked !== undefined) {
         return yield* new WorkspaceSyncFailed({
@@ -1282,9 +1304,14 @@ export const collectMaterializeSteps = (args: {
       { concurrency: 16 },
     );
 
-    const changedHooks = hookRefs
-      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
-      .map(({ ref }) => ref);
+    const changedHooks = [
+      ...hookRefs
+        .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+        .map(({ ref }) => ref),
+      ...(args.packRecovery?.refs ?? []).filter(
+        (ref): ref is HookExtensionRef => ref.type === "hook" && desiredActivation(ref),
+      ),
+    ];
     const priorHookGraph = yield* desiredStateReader.graph();
     const priorHookAgents = yield* settings.configuredAgents;
     const addedHookRoutes = new Set(
@@ -1312,12 +1339,22 @@ export const collectMaterializeSteps = (args: {
             desiredGraph: desiredState,
           });
     const priorAuthority = yield* captureAgentOutputAuthority();
-    const changedRules = ruleRefs
-      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
-      .map(({ ref }) => ref);
-    const changedKnowledge = knowledgeRefs
-      .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
-      .map(({ ref }) => ref);
+    const changedRules = [
+      ...ruleRefs
+        .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+        .map(({ ref }) => ref),
+      ...(args.packRecovery?.refs ?? []).filter(
+        (ref): ref is RuleExtensionRef => ref.type === "rule" && desiredActivation(ref),
+      ),
+    ];
+    const changedKnowledge = [
+      ...knowledgeRefs
+        .filter(({ materialize, ref }) => materialize && desiredActivation(ref))
+        .map(({ ref }) => ref),
+      ...(args.packRecovery?.refs ?? []).filter(
+        (ref): ref is KnowledgeExtensionRef => ref.type === "knowledge" && desiredActivation(ref),
+      ),
+    ];
     const ruleProjection: NativeProjectionOptions = {
       priorAuthority,
       configuredAgents,
@@ -1373,9 +1410,14 @@ export const collectMaterializeSteps = (args: {
       // The whole-graph sweeps act on absence from the graph, so they wait
       // while any active Pack's routes are unresolved; a problem about one
       // identified extension does not stop them.
-      cleanupSafe: unresolvedPackRoutes(desiredState).length === 0,
+      cleanupSafe:
+        unresolvedPackRoutes(desiredState).length === 0 &&
+        (args.desiredState === undefined ||
+          unresolvedPackRoutes(args.desiredState).length === 0 ||
+          packRecoverySteps.every((step) => step.readiness !== "error")),
       knowledgeMayChange:
-        packRecoverySteps.length > 0 || knowledgeRefs.some(({ materialize }) => materialize),
+        (args.packRecovery?.refs.some((ref) => ref.type === "knowledge") ?? false) ||
+        knowledgeRefs.some(({ materialize }) => materialize),
       serialMaterialization: packRecoverySteps.length > 0,
       inventoryObservations,
       expectedNames: expectedProjectionNames(desiredState),

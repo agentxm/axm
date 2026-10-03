@@ -177,7 +177,7 @@ const blockedForms: ReadonlyArray<{
 }> = [
   {
     form: "root install",
-    fixture: heldNewerRelease,
+    fixture: heldOnlyRelease,
     run: (workspace) =>
       handleInstall({
         type: Option.none(),
@@ -207,7 +207,7 @@ const blockedForms: ReadonlyArray<{
   },
   {
     form: "the shared workspace install",
-    fixture: heldNewerRelease,
+    fixture: heldOnlyRelease,
     run: (workspace) =>
       handleInstall({
         type: Option.some("skill"),

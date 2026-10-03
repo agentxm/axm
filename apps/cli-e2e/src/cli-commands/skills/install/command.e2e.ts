@@ -88,7 +88,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(9);
+        expect(lock.lockfileVersion).toBe(10);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should carry a self-describing source and immutable resolution.
@@ -411,7 +411,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(9);
+        expect(lock.lockfileVersion).toBe(10);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 

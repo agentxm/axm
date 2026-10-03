@@ -15,3 +15,6 @@ agent_extensions/
 
 # AXM-owned generated agent projections preserve manager-rendered bytes.
 .claude/agents/
+
+# Benchmark reports retain the runner's exact evidence bytes.
+benchmarks/evidence/**/*.json

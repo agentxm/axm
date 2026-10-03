@@ -11,8 +11,7 @@
      Not shown at this width:
      Management, Installed, Native
      locations, Configured consumers,
-     Discovery, Version, Source,
-     Assessment, Guidance
+     Discovery, Version, Source
 
 6 extensions · 3 enabled · 1 needs
 attention · axm lint explains

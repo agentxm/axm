@@ -87,7 +87,11 @@ import {
   resolveNativeEntry,
   type NativeLocationOutcome,
 } from "../locations/index.js";
-import { desiredPackageKey } from "../workspace-state/index.js";
+import {
+  desiredMcpSourceKey,
+  desiredPackageKey,
+  isSourcedDesiredExtension,
+} from "../workspace-state/index.js";
 
 export const SYNC_RECOVERY_IDS = {
   packManifestDivergence: "pack:manifest-divergence",
@@ -1021,7 +1025,24 @@ export const makeSyncPlan = <R>({
         )
           continue;
         keys.add(`subject:${node.type}:${node.name}`);
-        if (node.type === "pack") keys.add(`pack:${desiredPackageKey(node.identity)}`);
+        if (node.type === "mcp-server" && isSourcedDesiredExtension(node)) {
+          keys.add(`mcp-source:${desiredMcpSourceKey(node.identity)}`);
+        }
+        if (node.type === "pack") {
+          const identity = desiredPackageKey(node.identity);
+          keys.add(`pack:${identity}`);
+          if (
+            graph.nodes.some(
+              (member) =>
+                (member.type === "rule" || member.type === "hook" || member.type === "knowledge") &&
+                member.origins.some(
+                  (origin) => origin.type === "pack" && origin.pack.fqn === identity,
+                ),
+            )
+          ) {
+            keys.add("native:instruction-contributors");
+          }
+        }
         for (const origin of node.origins)
           if (origin.type === "pack") keys.add(`pack:${origin.pack.fqn}`);
       }
@@ -1042,7 +1063,29 @@ export const makeSyncPlan = <R>({
       for (const item of touching) components.splice(components.indexOf(item), 1);
       components.push(component);
     }
-    const closures = yield* Effect.forEach(components, ({ steps }) => {
+    // Fully blocked components have no transition to couple. Keep each named
+    // refusal visible instead of collapsing every prevented subject into one row.
+    const reportedComponents = components.flatMap((component) =>
+      component.steps.every((step) => step.readiness === "error")
+        ? component.steps.map((step) => ({ keys: component.keys, steps: [step] }))
+        : [component],
+    );
+    const closures = yield* Effect.forEach(reportedComponents, ({ keys, steps }) => {
+      // Read back this closure's subjects. An independent unfinished Pack
+      // cannot make a skill closure depend on unrelated aggregate projections.
+      const subjects = graph.nodes.filter(
+        (node) =>
+          keys.has(`subject:${node.type}:${node.name}`) ||
+          (node.type === "mcp-server" &&
+            isSourcedDesiredExtension(node) &&
+            keys.has(`mcp-source:${desiredMcpSourceKey(node.identity)}`)) ||
+          node.origins.some(
+            (origin) => origin.type === "pack" && keys.has(`pack:${origin.pack.fqn}`),
+          ) ||
+          (keys.has("native:instruction-contributors") &&
+            (node.type === "rule" || node.type === "hook" || node.type === "knowledge")),
+      );
+      const scopedSubjects = subjects.length === 0 ? undefined : subjects;
       const single = steps.length === 1 ? steps[0] : undefined;
       if (single !== undefined && single.readiness !== "error")
         return Effect.succeed({
@@ -1069,6 +1112,7 @@ export const makeSyncPlan = <R>({
                     result.artifact?.nativeLocations ?? [],
                     single.artifact?.nativeLocations ?? [],
                     retained,
+                    scopedSubjects,
                   )
                 : Effect.void,
           }).pipe(
@@ -1106,7 +1150,8 @@ export const makeSyncPlan = <R>({
         children: steps.map((step) => ({ step, coverage: "ineligible" })),
         validate: Effect.void,
         captureNativeRetention: captureNativeOutputRetention,
-        validateNativeOutputs: validateNativeOutputPostconditions,
+        validateNativeOutputs: (evidence, expected, retained) =>
+          validateNativeOutputPostconditions(evidence, expected, retained, scopedSubjects),
       });
     });
     return {

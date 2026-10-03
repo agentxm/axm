@@ -45,9 +45,11 @@ import {
 
 import {
   makeConfiguredReleaseAgeEvaluation,
+  acceptedPackDependencyResolver,
   type ExtensionResolutionFailed,
 } from "@agentxm/workspace-kernel/resolution";
 
+import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import { withPublisherTrust } from "../publisher-binding.js";
 import { withSourceSwitches } from "../source-switch.js";
 import {
@@ -56,7 +58,13 @@ import {
   instructionReconciliationReadiness,
   observeInstructions,
 } from "@agentxm/workspace-kernel/projection";
-import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  withWorkspaceReadView,
+  acceptedLockedCanonicalPath,
+  acceptedLockedResolutionRef,
+  usableAcceptedCanonical,
+  WorkspaceLocation,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { planKnowledgeInstall } from "@agentxm/extension-kinds/knowledge";
 import {
@@ -83,6 +91,7 @@ import {
 } from "@agentxm/extension-kinds/skills";
 import { planSubagentInstall } from "@agentxm/extension-kinds/subagents";
 import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
+import { acceptedInstallRequestRefs } from "./accepted-request.js";
 import {
   discoverInstallRefs,
   finalizeInstallRefs,
@@ -302,10 +311,19 @@ const settleSourceInstall = <T extends SourceInstallType>(
     const names = selectors.length > 0 ? selectors : parsedSource.names;
     const parsed = { ...parsedSource, names };
     const isRequestedType = (ref: ExtensionRef): ref is SourceInstallRef<T> => ref.type === type;
+    const repeated = yield* acceptedInstallRequestRefs({
+      type,
+      source: parsed.source,
+      names,
+      versionRange: parsed.versionRange,
+      force: request.reinstall,
+    });
     const accepted =
-      request.reinstall && (parsed.source.type === "git" || parsed.source.type === "http")
-        ? yield* findSourceReinstallRefs(parsed.source, type, names)
-        : [];
+      repeated.length > 0
+        ? repeated
+        : request.reinstall && (parsed.source.type === "git" || parsed.source.type === "http")
+          ? yield* findSourceReinstallRefs(parsed.source, type, names)
+          : [];
     const acceptedRefs = accepted.filter(isRequestedType);
     const discovered =
       acceptedRefs.length > 0 ? acceptedRefs : yield* discoverInstallRefs(type, parsed);
@@ -439,10 +457,20 @@ const planForType = (
           effectiveSelectors.length > 0
             ? effectiveSelectors
             : Option.toArray(Option.orElse(parsed.localName, () => parsed.serverName));
+        const repeated = yield* acceptedInstallRequestRefs({
+          type,
+          source: sourceRequest.source,
+          names: selectedNames,
+          versionRange: parsed.versionRange,
+          force: request.reinstall,
+          ...(Option.isSome(parsed.localName) ? { localName: parsed.localName.value } : {}),
+        });
         const accepted =
-          request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findSourceReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
-            : [];
+          repeated.length > 0
+            ? repeated
+            : request.reinstall && sourceRequest.source.type === "git"
+              ? yield* findSourceReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
+              : [];
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
         const discovered =
           acceptedMcpServers.length > 0
@@ -508,14 +536,23 @@ const planForType = (
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolvePackSourceRequest(parsed);
+        const repeated = yield* acceptedInstallRequestRefs({
+          type,
+          source: sourceRequest.source,
+          names: selectors.length > 0 ? selectors : Option.toArray(sourceRequest.packName),
+          versionRange: parsed.versionRange,
+          force: request.reinstall,
+        });
         const accepted =
-          request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findSourceReinstallRefs(
-                sourceRequest.source,
-                "pack",
-                Option.toArray(sourceRequest.packName),
-              )
-            : [];
+          repeated.length > 0
+            ? repeated
+            : request.reinstall && sourceRequest.source.type === "git"
+              ? yield* findSourceReinstallRefs(
+                  sourceRequest.source,
+                  "pack",
+                  Option.toArray(sourceRequest.packName),
+                )
+              : [];
         const acceptedPacks = accepted.filter((ref) => ref.type === "pack");
         const implicitSelectors = Option.toArray(sourceRequest.packName);
         const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
@@ -556,6 +593,9 @@ const planForType = (
             return yield* planPackInstall({
               ...intent,
               packToInstall: ref,
+              ...(acceptedPacks.length > 0
+                ? { dependencyResolver: acceptedPackDependencyResolver() }
+                : {}),
               ...(request.reinstall ? { forceCanonical: true } : {}),
             });
           }),
@@ -780,7 +820,84 @@ export const prepareInstallExtensions: (
   // Every acceptance a plan proposes is classified against the accepted
   // resolution here, so the root, per-type, locator, and configured routes
   // share one publisher-trust rule instead of restating it five times.
-  const trusted = yield* withPublisherTrust(planned.plan);
+  const plan = {
+    ...planned.plan,
+    jobs: yield* Effect.forEach(planned.plan.jobs, (job) =>
+      Effect.gen(function* () {
+        const steps = yield* Effect.forEach(job.steps, (step) =>
+          Effect.gen(function* () {
+            if (step.readiness === "error") return step;
+            const refs =
+              step.acquisitionRefs ??
+              (step.sourceBinding === undefined
+                ? []
+                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]);
+            const boundRefs =
+              step.sourceBinding === undefined
+                ? refs
+                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])];
+            const canonicalPaths = yield* Effect.forEach(boundRefs, (ref) =>
+              acceptedLockedCanonicalPath({
+                type: ref.type,
+                name: ref.type === "mcp-server" ? ref.server.name : ref.name,
+              }).pipe(
+                Effect.map(Option.toArray),
+                Effect.mapError((cause) =>
+                  installRefused({
+                    category: "internal",
+                    detail: `Accepted path for ${ref.name} could not be read`,
+                    cause,
+                  }),
+                ),
+              ),
+            );
+            const acquisitionRefs = yield* Effect.filter(refs, (ref) =>
+              Effect.gen(function* () {
+                if (ref.refType === "workspace") return false;
+                if (request.reinstall) return true;
+                const canonical = yield* usableAcceptedCanonical({
+                  type: ref.type,
+                  name: ref.type === "mcp-server" ? ref.server.name : ref.name,
+                }).pipe(
+                  Effect.mapError((cause) =>
+                    installRefused({
+                      category: "internal",
+                      detail: `Accepted content for ${ref.name} could not be inspected`,
+                      cause,
+                    }),
+                  ),
+                );
+                if (Option.isNone(canonical)) return true;
+                const accepted = yield* acceptedLockedResolutionRef({
+                  type: ref.type,
+                  name: ref.type === "mcp-server" ? ref.server.name : ref.name,
+                }).pipe(
+                  Effect.mapError((cause) =>
+                    installRefused({
+                      category: "internal",
+                      detail: `Accepted resolution for ${ref.name} could not be read`,
+                      cause,
+                    }),
+                  ),
+                );
+                return (
+                  Option.isNone(accepted) ||
+                  sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
+                );
+              }),
+            );
+            return {
+              ...step,
+              acquisitionRefs,
+              materialPaths: [...(step.materialPaths ?? []), ...canonicalPaths.flat()],
+            };
+          }),
+        );
+        return { ...job, steps };
+      }),
+    ),
+  };
+  const trusted = yield* withPublisherTrust(plan);
   const sourceAware = yield* withSourceSwitches(trusted);
   const touchesInstructionSurface = (
     step: PlannedJobStep<InstallStepRequirements | BundledAxmSkillAsset>,
@@ -837,7 +954,7 @@ export const prepareInstallExtensions: (
     planName: sourceAware.name,
     execution,
   } satisfies InstallExtensionsCandidate;
-});
+}, withWorkspaceReadView);
 
 // -----------------------------------------------------------------------------
 // previewOrApply

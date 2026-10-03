@@ -97,7 +97,7 @@ describe("Bundled official-skill recovery", () => {
       world.workspace.writeFile(
         "axm-lock.yaml",
         JSON.stringify({
-          lockfileVersion: 9,
+          lockfileVersion: 10,
           skills: {
             axm: makeRegistrySkillLockEntry({
               owner: decodeHandleSync("@agentxm"),

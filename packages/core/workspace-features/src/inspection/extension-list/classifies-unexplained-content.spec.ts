@@ -62,9 +62,9 @@ describe("Unexplained content classification", () => {
             all.document.items.map((item) => [item.name, item.assessment.state]),
           );
           expect(states).toEqual({
-            stale: "not-applicable",
-            drafted: "not-applicable",
-            native: "unknown",
+            stale: "not-checked",
+            drafted: "not-checked",
+            native: "not-checked",
           });
 
           for (const filter of ["outdated", "deprecated"] as const) {

@@ -12,6 +12,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { contentUnder, localLifecycleRows } from "../install/test-helpers.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
 import { DesiredStateReader, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
 import {
@@ -24,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -47,6 +48,105 @@ describe("Activation follows desired state", () => {
     cleanups.push(fixture.cleanup);
     return fixture;
   };
+
+  it.effect("refuses to enable drifted acquired content without replacing it", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    world.registry.writeSkill("review", [{ version: "1.0.0", body: "Accepted guidance." }]);
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source: "@acme/skills/review@^1.0.0" },
+            }),
+          );
+          yield* applyActivation({ type: "skill", name: "review", enabled: false });
+          world.workspace.writeFile(
+            "agent_extensions/registry/@acme/skills/review/src/SKILL.md",
+            "Locally edited acquired content.\n",
+          );
+          const before = world.workspace.snapshot();
+          const result = yield* applyActivation({ type: "skill", name: "review", enabled: true });
+          expect(
+            result._tag === "Resolved" ? result.outcome : result._tag,
+            JSON.stringify(result),
+          ).toBe("failed");
+          if (result._tag === "Resolved") {
+            expect(result.resolution.failure).toMatchObject({
+              category: "conflict",
+              suggestions: [{ description: expect.stringContaining("explicit install") }],
+            });
+          }
+          expect(world.workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("enables an unrelated Skill beside a missing acquired Pack without source work", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    for (const name of ["member", "review"])
+      world.registry.writeSkill(name, [{ version: "1.0.0", body: `${name} guidance.` }]);
+    world.registry.writePack("toolkit", [
+      {
+        version: "1.0.0",
+        dependencies: { "@acme/skills/member": "^1.0.0" },
+      },
+    ]);
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: "@acme/packs/toolkit@^1.0.0" },
+            }),
+          );
+          yield* applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source: "@acme/skills/review@^1.0.0" },
+            }),
+          );
+          yield* applyActivation({ type: "skill", name: "review", enabled: false });
+          const pack = "agent_extensions/registry/@acme/packs/toolkit";
+          fs.rmSync(nodePath.join(world.workspace.root, pack), { recursive: true });
+          const before = world.workspace.snapshot();
+          const accepted = world.workspace.readFile("axm-lock.yaml");
+          const sources = yield* SourceHostProviders;
+          const unexpected = () =>
+            Effect.die("Unrelated activation must not fetch an acquired Pack graph");
+          yield* Effect.gen(function* () {
+            const request = { type: "skill", name: "review", enabled: true } as const;
+            const preview = yield* previewActivation(request);
+            expect(preview._tag === "Resolved" ? preview.outcome : preview._tag).toBe("previewed");
+            expect(world.workspace.snapshot()).toEqual(before);
+            const result = yield* applyActivation(request);
+            expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
+          }).pipe(
+            Effect.provideService(SourceHostProviders, {
+              ...sources,
+              find: unexpected,
+              resolveNamedRegistry: unexpected,
+              fetch: unexpected,
+              acquireForTransition: unexpected,
+            }),
+          );
+          expect(world.workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          expect(world.workspace.exists(pack)).toBe(false);
+          expect(world.workspace.readFile(".claude/skills/review/SKILL.md")).toContain(
+            "review guidance.",
+          );
+          expect(world.workspace.readFile(".claude/skills/member/SKILL.md")).toContain(
+            "member guidance.",
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect.each(localLifecycleRows)(
     "re-enables local $type from accepted content after upstream changes",

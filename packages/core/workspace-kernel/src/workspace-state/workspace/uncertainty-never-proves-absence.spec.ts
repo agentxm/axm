@@ -5,31 +5,29 @@ import { describe, expect, it } from "@effect/vitest";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { SettingsSchema } from "../desired/settings/index.js";
-import { desiredReachesAcceptedRow } from "./accepted-reachability.js";
-import { evaluateDesiredState } from "./desired-state-evaluation.js";
-import type { DesiredStateGraph } from "./desired-state-graph.js";
 import {
+  SettingsSchema,
+  desiredReachesAcceptedRow,
+  evaluateDesiredState,
+  type DesiredStateGraph,
   contributorSetBlockers,
   contributorSetComplete,
   desiredReachability,
   desiredStateSettled,
   unresolvedPackRoutes,
-} from "./desired-state-queries.js";
-import { captureDesiredStateInputs } from "./desired-state-reader.js";
-import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
-import {
+  captureDesiredStateInputs,
+  computePackManifestContentIdentity,
   observePackManifest,
   type PackManifestObservation,
   type PackManifestsPort,
-} from "./pack-manifests.js";
+} from "../index.js";
 import { makeRegistryPackLockEntry } from "./test-stubs.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/desired-state/uncertainty-never-proves-absence",
   title: "Unknown Pack membership never proves an extension absent",
   statement:
-    "When a configured Pack's document is absent, unreadable, malformed, or schema-invalid, or its accepted resolution cannot authorize its routes, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while a valid empty manifest, a disabled Pack, an identity collision, and a constraint conflict shall each prove exactly what they declare.",
+    "When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -79,6 +77,7 @@ const evaluate = (args: {
     manifests: documents(args.documents),
     baseDir: "/workspace",
     settings: settingsOf(args.settings),
+    registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
     ...(args.lockfile === undefined ? {} : { acceptedResolutions: args.lockfile }),
   }).pipe(Effect.map(evaluateDesiredState));
 
@@ -158,7 +157,7 @@ describe("Uncertainty never proves absence", () => {
   );
 
   it.effect(
-    "an active external Pack whose accepted resolution cannot authorize its manifest keeps its membership known and its routes withheld",
+    "an acquired Pack needs accepted dependency authority and does not infer membership from installed files",
     () =>
       Effect.gen(function* () {
         const manifest = decoded("toolkit", { "@acme/skills/review": "^1.0.0" });
@@ -171,7 +170,7 @@ describe("Uncertainty never proves absence", () => {
         ]);
         expect(withoutResolution.packMembership).toEqual([
           expect.objectContaining({
-            declared: { status: "known", members: [{ type: "skill", name: "review" }] },
+            declared: { status: "unknown", reason: "resolution-unavailable" },
             routes: "unauthorized",
           }),
         ]);
@@ -187,17 +186,41 @@ describe("Uncertainty never proves absence", () => {
           settings,
           documents: { toolkit: manifest },
           lockfile: {
-            lockfileVersion: 9,
+            lockfileVersion: 10,
             skills: {},
             packs: {
               toolkit: makeRegistryPackLockEntry({
                 owner,
                 name: "toolkit",
+                dependencies: manifest.manifest.dependencies,
                 sourceHash: computePackManifestContentIdentity(manifest.manifest),
               }),
             },
           },
         });
+
+        for (const observation of [
+          { status: "absent" } as const,
+          observePackManifest("{ invalid"),
+          decoded("toolkit", { "@evil/skills/injected": "*" }),
+        ]) {
+          const independentOfInstalledContent = yield* evaluate({
+            settings,
+            documents: { toolkit: observation },
+            lockfile: {
+              lockfileVersion: 10,
+              skills: {},
+              packs: {
+                toolkit: makeRegistryPackLockEntry({
+                  owner,
+                  name: "toolkit",
+                  dependencies: manifest.manifest.dependencies,
+                }),
+              },
+            },
+          });
+          expect(independentOfInstalledContent).toEqual(authorized);
+        }
 
         expect(authorized.problems).toEqual([]);
         expect(authorized.packMembership).toEqual([expect.objectContaining({ routes: "active" })]);

@@ -8,9 +8,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { acceptedResolutionRef } from "@agentxm/workspace-kernel/workspace-state";
 import type {
   ReleaseAgeBypassRecord,
   ReleaseAgeHoldbackRecord,
@@ -22,8 +20,8 @@ import {
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
+  acceptedConfiguredResolution,
   acceptedPackDependencyResolver,
-  hydrateAcceptedPackRef,
   prepareConfiguredPack,
 } from "@agentxm/workspace-kernel/resolution";
 import type { PackInstallIntent } from "../lifecycle/install/plan.js";
@@ -64,9 +62,10 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
 > = Effect.fn("InstallExtensions.prepareConfiguredPackIntent")(function* (
   args: ConfiguredPackIntentArgs,
 ) {
-  const accepted = yield* acceptedResolutionRef({
+  const accepted = yield* acceptedConfiguredResolution({
     type: "pack",
     name: args.name,
+    ...(args.forceCanonical === true ? { forceCanonical: true } : {}),
   }).pipe(Effect.mapError(configuredEntryResolutionRefused(args.name)));
 
   const shared = {
@@ -77,18 +76,16 @@ export const prepareConfiguredPackIntent: (args: ConfiguredPackIntentArgs) => Ef
     ...(args.deferProjections === true ? { deferProjections: true } : {}),
   };
 
-  if (Option.isSome(accepted) && accepted.value.type === "pack") {
-    return hydrateAcceptedPackRef(args.name, accepted.value).pipe(
-      Effect.map((packToInstall) => ({
-        intent: {
-          packToInstall,
-          versionRange: Option.fromUndefinedOr(parseRegistrySourceRef(args.source)?.versionRange),
-          dependencyResolver: acceptedPackDependencyResolver(),
-          ...shared,
-        } satisfies PackInstallIntent,
-        releaseAge: undefined,
-      })),
-    );
+  if (Option.isSome(accepted) && accepted.value.ref.type === "pack") {
+    return Effect.succeed({
+      intent: {
+        packToInstall: accepted.value.ref,
+        versionRange: accepted.value.versionRange,
+        dependencyResolver: acceptedPackDependencyResolver(),
+        ...shared,
+      } satisfies PackInstallIntent,
+      releaseAge: undefined,
+    });
   }
 
   const resolve = yield* prepareConfiguredPack(

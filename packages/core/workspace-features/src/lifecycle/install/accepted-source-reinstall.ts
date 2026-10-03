@@ -20,7 +20,6 @@ import {
   DesiredStateReader,
   acceptedLockedResolutionRef,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { hydrateAcceptedPackRef } from "@agentxm/workspace-kernel/resolution";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { installRefused } from "@agentxm/workspace-kernel/operations";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
@@ -43,23 +42,14 @@ const sameLocator = (left: GitSource | HttpSource, right: GitSource | HttpSource
 
 const reacquireAcceptedSourceRef = (
   ref: Extract<ExtensionRef, { readonly refType: "git-hosted" | "http" }>,
-  configuredName: string,
 ) =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const lockedCandidate =
-      ref.type === "pack" ? yield* hydrateAcceptedPackRef(configuredName, ref) : ref;
-    if (lockedCandidate.refType !== "git-hosted" && lockedCandidate.refType !== "http") {
-      return yield* installRefused({
-        category: "conflict",
-        detail: `Accepted source resolution for ${configuredName} changed source family`,
-      });
-    }
     const fetched = yield* sources
-      .fetch(lockedCandidate)
+      .fetch(ref)
       .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
     return {
-      ...lockedCandidate,
+      ...ref,
       location: toFileLocation(fetched.directory),
     } satisfies ExtensionRef;
   });
@@ -100,7 +90,7 @@ export const findSourceReinstallRefs = (
                   (ref.type === "skill" &&
                     ref.sourcePath !== undefined &&
                     names.includes(ref.sourcePath)))
-                  ? reacquireAcceptedSourceRef(ref, node.name).pipe(Effect.map(Option.some))
+                  ? reacquireAcceptedSourceRef(ref).pipe(Effect.map(Option.some))
                   : Effect.succeed(Option.none<ExtensionRef>()),
             }),
           ),
@@ -138,5 +128,5 @@ export const pinSourceReinstallRef = (
       return ref;
     }
 
-    return yield* reacquireAcceptedSourceRef(accepted.value, configuredName);
+    return yield* reacquireAcceptedSourceRef(accepted.value);
   });

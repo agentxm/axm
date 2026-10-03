@@ -16,6 +16,9 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { ConfiguredAgentOutcome, OperationErrorCategory } from "../../operations/index.js";
 import type { NativeLocationOutcome } from "../../locations/index.js";
+import type { DesiredStateReaderService } from "./desired-state-reader.js";
+import type { LockfileReaderService } from "./lockfile-reader.js";
+import type { SettingsReaderService } from "./settings-reader.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
 
 /**
@@ -57,7 +60,15 @@ export class ConfiguredAgentOutcomesProvider extends ServiceMap.Service<
   "@agentxm/workspace-kernel/workspace-state/workspace/configured-agent-outcomes-provider/ConfiguredAgentOutcomesProvider",
 ) {}
 
+export interface WorkspaceReadViewReaders {
+  readonly settings: SettingsReaderService;
+  readonly locks: LockfileReaderService;
+  readonly desired: DesiredStateReaderService;
+}
+
 export interface ConfiguredAgentOutcomesRequest {
+  /** Stable phase readers, supplied before the native observer composes its owners. */
+  readonly readers?: WorkspaceReadViewReaders;
   readonly type: ExtensionType;
   readonly state: "current";
   readonly scope: WorkspaceScope;

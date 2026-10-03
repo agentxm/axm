@@ -85,7 +85,7 @@ const settingsRuleNode = (name: string): DesiredExtensionNode => ({
   identity: {
     authority: "registry",
     fqn: `${OWNER}/rules/${name}`,
-    registry: { sourceName: "agentxm", endpoint: undefined },
+    registry: { sourceName: "agentxm", endpoint: new URL("https://registry.agentxm.ai") },
   },
   source: `agentxm:${OWNER}/rules/${name}`,
   enabled: true,
@@ -109,7 +109,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
   identity: {
     authority: "registry",
     fqn: `${OWNER}/rules/${name}`,
-    registry: { sourceName: undefined, endpoint: undefined },
+    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
   },
   source: `${OWNER}/rules/${name}@^1.0.0`,
   enabled: true,
@@ -208,7 +208,7 @@ describe("RuleManager graph-derived region projection", () => {
           baseDir,
           runtimeDir: axmDir,
           settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
-          lockfile: { lockfileVersion: 9, skills: {}, rules: args.locked },
+          lockfile: { lockfileVersion: 10, skills: {}, rules: args.locked },
           graph: args.graph,
         }),
       ),

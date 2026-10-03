@@ -62,7 +62,7 @@ describe("root list", () => {
             }),
           ],
         });
-        expect(startedUnits(rendererState)).toContain("deprecation status");
+        expect(startedUnits(rendererState)).toContain("inventory");
       }),
     );
   });
@@ -188,7 +188,7 @@ describe("root list", () => {
     }
   };
 
-  it.effect("summarizes deprecation in the ordinary machine list without full guidance", () => {
+  it.effect("leaves ordinary machine inventory unassessed", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeInstalledRegistrySkill({
       deprecation: {
@@ -205,7 +205,7 @@ describe("root list", () => {
         expect(result).toMatchObject({
           filter: "all",
           count: 1,
-          items: [{ assessment: { state: "deprecated" } }],
+          items: [{ assessment: { state: "not-checked" } }],
         });
         const item =
           typeof result === "object" && result !== null && "items" in result
@@ -213,7 +213,7 @@ describe("root list", () => {
             : undefined;
         expect(item).toEqual([
           expect.objectContaining({
-            assessment: { state: "deprecated" },
+            assessment: { state: "not-checked" },
           }),
         ]);
       }),

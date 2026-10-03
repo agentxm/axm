@@ -3627,7 +3627,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `workspace-features`
-- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -3766,7 +3766,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/install/apply-realizes-the-previewed-closure`
 - Owner: `workspace-features`
-- Statement: When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.
+- Statement: When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards; if material workspace state changes after preparation, apply shall reject the stale candidate without overwriting the intervening change, including warm no-op and forced installs.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `extension-adoption`
@@ -4021,31 +4021,33 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts)
 
-##### Human inventories point readers at the deprecation guidance command
+##### Human inventories report local state without assessment columns
 
-- Requirement: `cli/list/human-inventory-points-to-deprecation-guidance`
+- Requirement: `cli/list/human-inventory-reports-local-state`
 - Owner: `cli`
-- Statement: When an ordinary inventory rendered for a person includes a deprecated installation, AXM shall name the command that reports that extension's full deprecation guidance.
+- Statement: When an ordinary inventory is rendered for a person, AXM shall omit remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `cli/list/ordinary-inventory-identifies-deprecation`, `apps/cli/src/root/list/command.ts`
-- Source: [`apps/cli/src/root/list/human-inventory-points-to-deprecation-guidance.spec.ts`](../apps/cli/src/root/list/human-inventory-points-to-deprecation-guidance.spec.ts)
+- Derived from: `cli/list/ordinary-inventory-is-local`, `apps/cli/src/root/list/command.ts`
+- Supersedes: `cli/list/human-inventory-points-to-deprecation-guidance`
+- Source: [`apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts`](../apps/cli/src/root/list/human-inventory-reports-local-state.spec.ts)
 
-##### Ordinary listings identify deprecation without its detail
+##### Ordinary listings report local state without registry assessment
 
-- Requirement: `cli/list/ordinary-inventory-identifies-deprecation`
+- Requirement: `cli/list/ordinary-inventory-is-local`
 - Owner: `workspace-features`
-- Statement: When an ordinary inventory includes a deprecated installation, AXM shall identify its deprecation status and shall not carry the deprecation detail that the deprecation listing reports.
+- Statement: When an ordinary inventory is requested, AXM shall report the local inventory without consulting remote sources, with assessment not checked and without remote coverage or deprecation detail.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
-- Source: [`packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-identifies-deprecation.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-identifies-deprecation.spec.ts)
+- Supersedes: `cli/list/ordinary-inventory-identifies-deprecation`
+- Source: [`packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/ordinary-inventory-is-local.spec.ts)
 
 ##### List rejects incompatible remote filters
 
@@ -4575,13 +4577,12 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable`
 - Owner: `workspace-features`
-- Statement: When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; when any other desired pack is incomplete, AXM shall remain blocked and shall change nothing.
+- Statement: When uninstall targets a desired pack whose package manifest is missing or cannot be decoded, and every other desired pack is intact, AXM shall remove the pack's configuration and accepted resolution, shall delete no content it could not verify, shall report the removal as registration-only naming the unreadable manifest, and shall reach the same decision in preview and apply; accepted external Pack declarations shall continue to establish shared and direct member retention even when acquired manifests are unreadable, while an unresolved authored Pack graph shall remain blocked and shall change nothing.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
-- Assumptions: A pack's member list is not persisted outside its package manifest; neither axm.json nor axm-lock.yaml carries one, so an unreadable manifest leaves members computable only from the remaining desired state.
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
 
@@ -4589,7 +4590,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/unreadable-knowledge-is-left-out-and-reported`
 - Owner: `workspace-features`
-- Statement: When a desired Knowledge bundle's package cannot be read, or its acquired content differs from the accepted resolution, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.
+- Statement: When an otherwise authorized operation projects instructions and a desired Knowledge bundle's package cannot be read or differs from its accepted resolution, AXM shall exclude that bundle, report the omission with its reason and remedy on commands that write or inspect the file, and preserve independent operations. Sync and activation that encounter present acquired-content drift shall instead refuse the unsafe closure, preserve its existing files, and report the explicit restoration route.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -6461,7 +6462,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/shared-pack-member-index-is-coalesced`
 - Owner: `cli-e2e`
-- Statement: When two configured Packs depend on the same Registry member, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition.
+- Statement: When two configured Packs depend on the same Registry member and require resolution, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition; a repeated install shall reuse their satisfying accepted choices without resolving them again.
 - Class: functional
 - Role: supporting
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -6832,6 +6833,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/native-precedence-is-visible.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/native-precedence-is-visible.spec.ts)
 
+##### Acquired Pack content must match its selected dependency declaration
+
+- Requirement: `packs/acquired-manifest-matches-selected-declaration`
+- Owner: `extension-kinds`
+- Statement: Before publishing acquired Pack content, AXM shall decode its staged manifest and require its owner, name, version, and dependencies to match the selected declaration, preserving existing canonical content when validation fails.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Temporary fetched and canonical directories establish that invalid acquired bytes never replace the existing canonical package and that valid bytes produce the complete accepted declaration.
+- Methods: decision-table, example
+- Derived from: `workspace/desired-state/uncertainty-never-proves-absence`
+- Source: [`packages/core/extension-kinds/src/packs/acquired-manifest-matches-selected-declaration.spec.ts`](../packages/core/extension-kinds/src/packs/acquired-manifest-matches-selected-declaration.spec.ts)
+
 ##### Withdrawing newly introduced settings intent restores its exact baseline
 
 - Requirement: `settings-contract/withdraws-new-settings-entries-exactly`
@@ -6903,7 +6918,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/desired-state/uncertainty-never-proves-absence`
 - Owner: `workspace-kernel`
-- Statement: When a configured Pack's document is absent, unreadable, malformed, or schema-invalid, or its accepted resolution cannot authorize its routes, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while a valid empty manifest, a disabled Pack, an identity collision, and a constraint conflict shall each prove exactly what they declare.
+- Statement: When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

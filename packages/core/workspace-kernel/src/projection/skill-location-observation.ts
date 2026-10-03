@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import {
   copiedDirectoryIsCurrent,
   nativeUnitKey,
@@ -11,13 +12,14 @@ import {
   type NativeLocationOutcome,
 } from "../locations/index.js";
 import {
+  DesiredStateReader,
   WorkspaceLocation,
   type ConfiguredAgentOutcomesRequest,
   type ConfiguredExtensionObservation,
 } from "../workspace-state/index.js";
 import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import { CodingAgentRepository } from "./agents/coding-agent-repository.js";
-import { captureAgentOutputAuthority } from "./output-authority.js";
+import { deriveSkillOutputSources } from "./output-authority.js";
 import { nativeArtifactLocationOutcomes } from "./native-artifact-locations.js";
 
 export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomesRequest) =>
@@ -26,7 +28,18 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
     const agents = yield* (yield* CodingAgentRepository).all;
-    const authority = yield* captureAgentOutputAuthority();
+    const desired = request.readers?.desired ?? (yield* DesiredStateReader);
+    const evaluation = yield* desired.evaluate();
+    const sourcesByName = deriveSkillOutputSources(
+      {
+        path,
+        layout: yield* Ref.get(location.layout),
+        acceptedResolutions: evaluation.inputs.acceptedResolutions,
+        desired: evaluation.graph,
+        settings: evaluation.inputs.settings,
+      },
+      request.rows.length === 1 ? request.rows[0]?.name : undefined,
+    );
     const readers = (yield* Effect.forEach(agents, (agent) =>
       agent
         .resolveNativeReadLocations({
@@ -46,7 +59,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
       referents: [
         path.join(location.baseDir, ".agents/skills"),
         ...readers.map((reader) => reader.path),
-        ...request.rows.flatMap((row) => authority.expectedSkillSources[row.name] ?? []),
+        ...request.rows.flatMap((row) => sourcesByName[row.name] ?? []),
       ],
     });
     const artifactReaders = readers.map(({ agentId, ...location }) => ({
@@ -56,10 +69,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
     }));
     const results = new Map<string, ConfiguredExtensionObservation>();
     for (const row of request.rows) {
-      const sources = yield* Effect.forEach(
-        authority.expectedSkillSources[row.name] ?? [],
-        locations.referent,
-      );
+      const sources = yield* Effect.forEach(sourcesByName[row.name] ?? [], locations.referent);
       const targets = new Set(
         row.targetState === "absent"
           ? []

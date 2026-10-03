@@ -154,6 +154,9 @@ export const lintWorkspaceServices = (args: {
     scope: "project",
     projectRoot: decodeAbsolutePathSync(args.workspaceRoot),
     allowUninitialized: true,
+    builtInSources: [
+      { name: "agentxm", type: "registry", location: new URL("https://registry.agentxm.ai") },
+    ],
   });
   const agents = Layer.provideMerge(
     Layer.mergeAll(CodingAgentRepositoryLive, ConfiguredAgentOutcomesProviderTest),
@@ -450,7 +453,7 @@ const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrang
       const { acceptedVersion: _accepted, ...unaccepted } = registryAccepted(
         FIXTURE_CLI_VERSION,
         FIXTURE_CLI_VERSION_RANGE,
-        { "axm-lock.yaml": "lockfileVersion: 9\nskills: {}\n" },
+        { "axm-lock.yaml": "lockfileVersion: 10\nskills: {}\n" },
       );
       return unaccepted;
     }
@@ -538,7 +541,7 @@ export const makeOfficialAxmSkillWorkspace = (
     fixture.writeFile(
       "axm-lock.yaml",
       `${JSON.stringify({
-        lockfileVersion: 9,
+        lockfileVersion: 10,
         skills: {
           axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
             ? {

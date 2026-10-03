@@ -64,8 +64,13 @@ captures in the selected filesystem view. Captured location facts are not write
 authority: containment, physical-boundary admission and restoration still read
 live state.
 
-After construction succeeds, one operation uses one valid settings-backed
-snapshot. Diagnostics may tolerate later invalid workspace state to describe
+After construction succeeds, each stable query or planning phase uses one
+valid settings-backed view. It shares document captures, desired evaluation,
+accepted-entry joins, install-root inventory and required native inspections.
+Writers retain fresh persistence reads. Any observation after a settings, lock,
+canonical or projected-state write acquires a new view, including within the
+same closure and after rollback. Views are not shared across concurrent closures.
+Diagnostics may tolerate later invalid workspace state to describe
 it, but planning preserves the distinction among missing, invalid, unsupported,
 and valid inputs. Closure-local isolation begins at this post-construction
 boundary; it does not substitute for an unavailable settings prerequisite.

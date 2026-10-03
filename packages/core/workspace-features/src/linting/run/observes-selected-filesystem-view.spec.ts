@@ -152,7 +152,9 @@ describe("Selected lint filesystem view", () => {
       yield* Effect.gen(function* () {
         const settings = yield* SettingsReader;
         expect(yield* settings.owner).toEqual(Option.none());
-        expect(yield* settings.configuredSources).toEqual([]);
+        expect(yield* settings.configuredSources).toEqual([
+          { name: "agentxm", type: "registry", location: new URL("https://registry.agentxm.ai") },
+        ]);
         expect((yield* WorkspaceLocation).nativeDirectoryInputs.skillsDirectoryOverrides).toEqual({
           "claude-code": nodePath.join(selection.workspaceRoot, "selected-skills"),
         });

@@ -24,8 +24,11 @@ Install:
 - materializes canonical extension content and required agent projections; and
 - applies the affected semantic mutation closure atomically.
 
-Installing an extension already desired at the requested constraint is a
-successful no-op. Supplying a different constraint explicitly authorizes
+Installing an extension already desired at the requested constraint preserves
+its satisfying accepted resolution. When its content and projections are valid,
+this is a successful no-op without source resolution or acquisition. Missing or
+drifted acquired content is restored from the exact accepted identity; failure
+to obtain that identity does not authorize a newer one. Supplying a different constraint explicitly authorizes
 changing that durable choice; it does not require a replacement override.
 
 An inline MCP definition is already authoritative configuration, not an

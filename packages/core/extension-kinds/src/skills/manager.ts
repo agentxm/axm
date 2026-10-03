@@ -54,7 +54,7 @@ import {
   retiredNativeArtifactLocationOutcomes,
   planSingletonProjection,
   observeAgentOutputs,
-  captureAgentOutputAuthority,
+  captureSkillOutputSources,
 } from "@agentxm/workspace-kernel/projection";
 import { type MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import { computeSkillSourceHash } from "./source-hash.js";
@@ -96,8 +96,7 @@ export const SkillManagerLive = Layer.effect(
       const sanitized = sanitizeName(ref.skill.name);
 
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
-      const previousCanonicalSkillSrcPaths =
-        (yield* captureAgentOutputAuthority()).expectedSkillSources[ref.skill.name] ?? [];
+      const previousCanonicalSkillSrcPaths = yield* captureSkillOutputSources(ref.skill.name);
 
       const materialized = yield* materializeSkillCanonical({
         ref,

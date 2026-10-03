@@ -16,6 +16,7 @@ import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/li
 import * as Option from "effect/Option";
 import {
   acceptedRowKey,
+  computePackManifestContentIdentity,
   desiredReachesAcceptedRow,
   DesiredStateReader,
   WorkspaceRecords,
@@ -58,7 +59,17 @@ const acceptedRegistryRow = (
   },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   ...(extensionType === "pack"
-    ? { manifestVersion: "1.0.0", manifestContentIdentity: "test-content", members: [] }
+    ? {
+        manifestVersion: "1.0.0",
+        manifestContentIdentity: computePackManifestContentIdentity({
+          owner: "@acme",
+          type: "pack",
+          name,
+          version: "1.0.0",
+          dependencies: {},
+        }),
+        dependencies: {},
+      }
     : {}),
 });
 
@@ -95,7 +106,7 @@ const makeWorkspace = (
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 9, skills: {}, ...lockfile }),
+    JSON.stringify({ lockfileVersion: 10, skills: {}, ...lockfile }),
   );
   return {
     root,

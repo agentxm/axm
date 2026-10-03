@@ -405,7 +405,7 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
       lockfile: {
         _tag: "valid",
         contents: {
-          lockfileVersion: 9,
+          lockfileVersion: 10,
           skills: {},
           knowledge: {
             handbook: {

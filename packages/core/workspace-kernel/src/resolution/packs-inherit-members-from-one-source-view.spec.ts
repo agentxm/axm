@@ -19,7 +19,10 @@ import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { GitSource, LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 
-import { PackLockEntrySchema } from "../workspace-state/index.js";
+import {
+  PackLockEntrySchema,
+  computePackManifestContentIdentity,
+} from "../workspace-state/index.js";
 import { resolvePackDependenciesWithReleaseAge } from "./pack-dependency-resolution.js";
 import {
   createGitSourceHostProvider,
@@ -150,12 +153,17 @@ describe("source-inherited Pack members", () => {
             resolved: { commit: gitPack.gitCommitSha, tree: gitPack.gitTreeSha },
             treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
             manifestVersion: "1.0.0",
-            manifestContentIdentity: "sha256-pack-manifest",
-            members: ["@acme/skills/review"],
+            manifestContentIdentity: computePackManifestContentIdentity({
+              ...gitPack.pack,
+              owner: gitPack.owner,
+              type: "pack",
+              version: gitPack.version,
+            }),
+            dependencies: gitPack.pack.dependencies,
           });
           expect(lock).toMatchObject({
             resolved: { commit: gitPack.gitCommitSha },
-            members: ["@acme/skills/review"],
+            dependencies: { "@acme/skills/review": "^1.0.0" },
           });
         }
 

@@ -49,7 +49,7 @@ const evaluate = (source: string, rows: Readonly<Record<string, McpServerLockEnt
     inheritedSettings: Schema.decodeUnknownSync(SettingsSchema)({}),
     defaultRegistry: "test",
     registryEndpoints: {},
-    acceptedResolutions: { lockfileVersion: 9, skills: {}, mcpServers: rows },
+    acceptedResolutions: { lockfileVersion: 10, skills: {}, mcpServers: rows },
     packDocuments: [],
     readSet: [],
   });

@@ -9,6 +9,7 @@ import {
   mcpRunner,
   readMcpServerManifestAt,
 } from "@agentxm/workspace-kernel/agent-adapters";
+import { withInspectionReadView } from "../read-view.js";
 /**
  * What one installed extension's state is, uniformly for every installable type.
  *
@@ -37,7 +38,6 @@ import {
 import { inspectDesiredMcpServer } from "@agentxm/workspace-kernel/projection";
 import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operations";
 import {
-  configuredRowsByName,
   DesiredStateReader,
   LockfileReader,
   lockEntryVersion,
@@ -186,9 +186,8 @@ export const ShowExtension = {
     const lockfile = yield* LockfileReader;
     const settings = yield* SettingsReader;
 
-    const [configured, locked, inventory] = yield* Effect.all(
+    const [locked, inventory] = yield* Effect.all(
       [
-        records.rows(request.type).pipe(Effect.map(configuredRowsByName)),
         // The accepted resolution the desired name resolves to: for a sourced
         // MCP connection that is its source's shared row, not a row under
         // the local name.
@@ -199,9 +198,10 @@ export const ShowExtension = {
       { concurrency: "unbounded" },
     );
 
-    const configuredEntry = configured[request.name];
     const lockEntry = Option.getOrUndefined(locked);
     const inventoryRow = inventory.items.find((row) => row.name === request.name);
+    const configuredEntry =
+      inventoryRow?.classification.lifecycle === "configured" ? inventoryRow : undefined;
 
     if (configuredEntry === undefined && lockEntry === undefined && inventoryRow === undefined) {
       return yield* new ExtensionNotInstalled({
@@ -433,5 +433,5 @@ export const ShowExtension = {
           ? agents
           : agents.filter((agent) => request.agents?.includes(agent.agent)),
     } satisfies ExtensionShowResult;
-  }),
+  }, withInspectionReadView),
 };

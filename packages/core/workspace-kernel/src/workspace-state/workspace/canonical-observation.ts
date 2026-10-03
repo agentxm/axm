@@ -281,6 +281,13 @@ const acceptedOriginMatches = (
       }
     });
   }
+  if (
+    desired.identity.authority === "registry" &&
+    (accepted.source.type !== "registry" ||
+      desired.identity.registry.endpoint === undefined ||
+      accepted.source.url.href !== desired.identity.registry.endpoint.href)
+  )
+    return false;
   const acceptedIdentity =
     desired.type === "mcp-server" && !isHttpLockEntry(accepted)
       ? mcpResolutionKey(accepted)

@@ -9,17 +9,21 @@ import { DistributionDescriptorSchema } from "@agentxm/extension-model/unstable/
  * The lockfile (axm-lock.yaml) records accepted immutable resolutions for
  * externally sourced extensions.
  *
- * Lockfile v9 is authority, not receipt history. It contains no authored,
+ * Lockfile v10 is authority, not receipt history. It contains no authored,
  * bundled, inline, projection, completion-time, or command-history state.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Schema from "effect/Schema";
-import { ExtensionFqnSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
-import { ExtensionNameSchema } from "@agentxm/extension-model/unstable/extensions/common";
+import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
+import {
+  ExtensionNameSchema,
+  PackMemberConstraintMapSchema,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -27,7 +31,7 @@ import {
   SourceSubPathSchema,
 } from "@agentxm/extension-model/unstable/sources/types";
 
-export const LOCKFILE_VERSION = 9;
+export const LOCKFILE_VERSION = 10;
 
 // =============================================================================
 // Self-describing source locators and accepted resolutions
@@ -346,9 +350,35 @@ export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>
 
 const packLockFields = {
   manifestVersion: VersionSchema,
-  manifestContentIdentity: SourceHashSchema,
-  members: Schema.Array(ExtensionFqnSchema),
+  manifestContentIdentity: SourceHashSchema.annotate({
+    description:
+      "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature.",
+  }),
+  dependencies: PackMemberConstraintMapSchema,
 } satisfies Schema.Struct.Fields;
+
+const consistentPackDeclaration = Schema.makeFilter(
+  (entry: {
+    readonly identity: { readonly owner: string; readonly name: string };
+    readonly manifestVersion: string;
+    readonly manifestContentIdentity: string;
+    readonly dependencies: Schema.Schema.Type<typeof PackMemberConstraintMapSchema>;
+    readonly resolved: { readonly version: string } | { readonly tree: string };
+  }) => {
+    if ("version" in entry.resolved && entry.resolved.version !== entry.manifestVersion) {
+      return "Pack manifestVersion must match the accepted Registry version";
+    }
+    const identity = computePackManifestContentIdentity({
+      ...entry.identity,
+      type: "pack",
+      version: entry.manifestVersion,
+      dependencies: entry.dependencies,
+    });
+    return identity === entry.manifestContentIdentity
+      ? undefined
+      : "Pack manifestContentIdentity must match its accepted identity, version, and dependencies";
+  },
+);
 
 /**
  * Lock entry for a Pack from any external source family. @experimental
@@ -384,11 +414,13 @@ export const PackLockEntrySchema = Schema.Union([
     ...packLockFields,
     sourceRoot: LocalSourceLockPathSchema,
   }),
-]).annotate({
-  identifier: "PackLockEntry",
-  title: "Pack Lock Entry",
-  description: "Accepted immutable resolution and declared members for a Pack.",
-});
+])
+  .check(consistentPackDeclaration)
+  .annotate({
+    identifier: "PackLockEntry",
+    title: "Pack Lock Entry",
+    description: "Accepted immutable resolution and dependency constraints for a Pack.",
+  });
 
 /** Registry variant of the Pack lock entry. @experimental */
 export const RegistryPackLockEntrySchema = Schema.Struct({
@@ -397,11 +429,13 @@ export const RegistryPackLockEntrySchema = Schema.Struct({
   resolved: RegistryAcceptedResolutionSchema,
   treeIntegrity: TreeIntegritySchema,
   ...packLockFields,
-}).annotate({
-  identifier: "RegistryPackLockEntry",
-  title: "Registry Pack Lock Entry",
-  description: "Accepted immutable resolution for a Registry Pack.",
-});
+})
+  .check(consistentPackDeclaration)
+  .annotate({
+    identifier: "RegistryPackLockEntry",
+    title: "Registry Pack Lock Entry",
+    description: "Accepted immutable resolution for a Registry Pack.",
+  });
 
 /**
  * Inferred type for RegistryPackLockEntry schema.
@@ -460,8 +494,7 @@ export type PacksLockMap = Schema.Schema.Type<typeof PacksLockMapSchema>;
  * entry exists. The parity conformance suite decodes a synthetic entry through
  * each schema to check obligations that must hold for every type.
  *
- * Packs are excluded — a pack lock entry records resolved members rather than a
- * single installed source, so it is not shape-comparable with the others.
+ * Pack rows additionally carry their accepted dependency declaration.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -486,7 +519,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 9)
+ * - lockfileVersion: Schema version (currently 10)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *

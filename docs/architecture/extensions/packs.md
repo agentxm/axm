@@ -17,7 +17,7 @@ contributes to desired state.
 
 ## Responsibilities
 
-AXM resolves an enabled Pack manifest into desired member origins, constraints,
+AXM derives enabled Pack declarations into desired member origins, constraints,
 and inherited activation. It combines direct and Pack-derived reachability,
 retains members still required through another origin, and realizes one Pack
 graph as a single affected unit. Disabling the Pack retains its configuration,
@@ -41,10 +41,10 @@ content that remains reachable through another desired route.
 
 ## State and realization
 
-An authored Pack manifest is workspace authority. A Registry Pack's accepted
-locked manifest identity owns its published dependency meaning; a divergent
-installed copy cannot redefine that graph. Lock-only member metadata cannot
-create reachability. Realization consists of the desired dependency graph and
+An authored Pack manifest is workspace authority. A configured acquired Pack
+uses its matching accepted dependency declaration, independently of installed
+manifest availability or drift. An orphan lock row cannot create a desired
+root. Realization consists of the desired dependency graph and
 the ordinary canonical content and projections of its members.
 
 Pack disablement is therefore not uninstall. It preserves the Pack as managed
@@ -58,11 +58,10 @@ Packs have no agent-native output and therefore no native coexistence category.
 A workspace-authored Pack may exist as authoring inventory without being
 desired. AXM preserves it until an explicit authoring operation removes it.
 
-A Registry Pack is managed installed state only while its manifest and accepted
-lock identity establish that authority. AXM removes unreachable managed state when
-the desired graph is complete, but preserves and reports content whose
-authority it cannot establish. Non-registry external Pack sources remain
-unsupported.
+Registry, Git, and path Packs retain accepted dependency authority separately
+from physical health. AXM removes proven-unreachable managed state, but
+preserves and reports physical content whose ownership or integrity it cannot
+establish. See [Pack retirement](../decisions/pack-retirement-when-the-package-cannot-be-read.md).
 
 ## Invariants
 

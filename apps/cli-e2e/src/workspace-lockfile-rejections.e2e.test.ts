@@ -62,7 +62,7 @@ describe("workspace lockfile rejection diagnostics", () => {
     try {
       await setupScope("project", workspace.path, env);
       const lockPath = path.join(workspace.path, "axm-lock.yaml");
-      fs.writeFileSync(lockPath, "lockfileVersion: 5\nskills: {}\n");
+      fs.writeFileSync(lockPath, "lockfileVersion: 9\nskills: {}\n");
       const before = snapshotTree(workspace.path);
 
       const result = await runCli(["list", "--json"], { cwd: workspace.path, env });
@@ -76,8 +76,8 @@ describe("workspace lockfile rejection diagnostics", () => {
         problem: {
           code: "workspace-lockfile-version-unsupported",
           path: fs.realpathSync(lockPath),
-          observedVersion: 5,
-          supportedVersion: 9,
+          observedVersion: 9,
+          supportedVersion: 10,
           direction: "older",
         },
         suggestions: [
@@ -109,7 +109,7 @@ describe("workspace lockfile rejection diagnostics", () => {
     try {
       await setupScope("user", workspace.path, env);
       const lockPath = path.join(userHome.path, ".axm", "workspace", "axm-lock.yaml");
-      fs.writeFileSync(lockPath, "lockfileVersion: 10\nskills: {}\n");
+      fs.writeFileSync(lockPath, "lockfileVersion: 11\nskills: {}\n");
       const before = snapshotTree(userHome.path);
 
       for (const args of [
@@ -124,8 +124,8 @@ describe("workspace lockfile rejection diagnostics", () => {
           code: "validation",
           problem: {
             path: lockPath,
-            observedVersion: 10,
-            supportedVersion: 9,
+            observedVersion: 11,
+            supportedVersion: 10,
             direction: "newer",
           },
           suggestions: [{ cmd: "axm upgrade" }],
@@ -147,7 +147,7 @@ describe("workspace lockfile rejection diagnostics", () => {
     try {
       await setupScope("user", workspace.path, env);
       const lockPath = path.join(userHome.path, ".axm", "workspace", "axm-lock.yaml");
-      fs.writeFileSync(lockPath, "lockfileVersion: 5\nskills: {}\n");
+      fs.writeFileSync(lockPath, "lockfileVersion: 9\nskills: {}\n");
       const before = snapshotTree(userHome.path);
 
       const result = await runCli(["list", "--scope", "user", "--json"], {
@@ -180,7 +180,7 @@ describe("workspace lockfile rejection diagnostics", () => {
       const settingsPath = path.join(workspace.path, "axm.json");
       const lockPath = path.join(workspace.path, "axm-lock.yaml");
       fs.rmSync(settingsPath);
-      fs.writeFileSync(lockPath, "lockfileVersion: 10\nskills: {}\n");
+      fs.writeFileSync(lockPath, "lockfileVersion: 11\nskills: {}\n");
       const before = snapshotTree(workspace.path);
 
       const result = await runCli(["list", "--json"], { cwd: workspace.path, env });

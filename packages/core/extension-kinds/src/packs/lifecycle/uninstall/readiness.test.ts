@@ -160,27 +160,6 @@ describe("pack uninstall graph readiness", () => {
     });
   });
 
-  it("stays blocked when the target only disagrees with its accepted resolution", () => {
-    const decision = planPackUninstallGraphReadiness(
-      unsettledGraph([
-        {
-          type: "pack-manifest-content-mismatch",
-          pack: "@acme/packs/toolkit",
-          path: manifestPath,
-          status: "changed",
-          acceptedVersion: "1.0.0",
-          acceptedContentIdentity: "sha256-accepted",
-          observedVersion: "2.0.0",
-          observedContentIdentity: "sha256-observed",
-        },
-      ]),
-      ["@acme/packs/toolkit"],
-      "project",
-    );
-
-    expect(decision).toMatchObject({ readiness: "blocked" });
-  });
-
   it("reports structured Pack and authority facts when it stays blocked", () => {
     const decision = planPackUninstallGraphReadiness(
       unsettledGraph([

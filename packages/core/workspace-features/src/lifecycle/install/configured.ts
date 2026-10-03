@@ -3,8 +3,8 @@
  *
  * `axm install` with no source, and every `<type> install` with no source, ask
  * the same question: bring the workspace to the state its settings describe.
- * Each enabled configured entry resolves to a version its declared source
- * and the release-age policy allow, becomes its own closure, and the shared
+ * Each enabled configured entry reuses its satisfying accepted resolution,
+ * or selects its first resolution under the release-age policy, becomes its own closure, and the shared
  * aggregate projections are rendered once at the end from the complete
  * contributor set. Configured Packs resolve first, so every entry is planned
  * against one proposed desired-state graph: a member reached twice — declared
@@ -44,6 +44,7 @@ import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
+  acceptedConfiguredResolution,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   resolveConfiguredHook,
@@ -62,12 +63,15 @@ import {
   type PlannedJobStep,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
-import { resolveSource, withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
+import { withPackRegistryIndexMemo } from "@agentxm/workspace-kernel/sources";
 import * as Result from "effect/Result";
 import {
   SettingsReader,
   acquisitionConfiguredEntries,
   effectiveDesiredConstraint,
+  observeAcceptedResolution,
+  LockfileReader,
+  desiredPackageKey,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -100,8 +104,14 @@ import {
   nameFromLabel,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { findSourceReinstallRefs, pinSourceReinstallRef } from "./accepted-source-reinstall.js";
+
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
+import {
+  ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+  acceptedResolutionIncompatibleText,
+  acceptedResolutionIncompatibleRecovery,
+  makeExtensionConstraintInvariantFact,
+} from "@agentxm/workspace-kernel/projection";
 
 /** Which extension types a configured-entry sweep covers. */
 export type ConfiguredInstallableType = InstallableExtensionType;
@@ -382,35 +392,71 @@ const collectSimpleTypePlans = (
     >(
       expectedType: Exclude<ConfiguredInstallableType, "pack">,
       name: string,
-      source: string,
       fallback: Effect.Effect<A, E, R>,
     ) =>
       Effect.gen(function* () {
-        if (force) {
-          const resolvedSource = yield* resolveSource(source).pipe(
-            Effect.mapError(configuredEntryResolutionRefused(name)),
-          );
-          if (resolvedSource.type === "git" || resolvedSource.type === "http") {
-            const accepted = yield* findSourceReinstallRefs(resolvedSource, expectedType, [name]);
-            const ref = accepted.at(0);
-            if (ref !== undefined) {
-              return {
-                ref,
-                versionRange: Option.none<VersionRange>(),
-                releaseAge: { holdbacks: [], bypasses: [] },
-              } satisfies {
-                readonly ref: ExtensionRef;
-                readonly versionRange: Option.Option<VersionRange>;
-                readonly releaseAge: {
-                  readonly holdbacks: ReadonlyArray<ReleaseAgeHoldbackRecord>;
-                  readonly bypasses: ReadonlyArray<ReleaseAgeBypassRecord>;
-                };
-              };
-            }
-          }
-        }
+        const desired = graph.nodes.find(
+          (node) => node.type === expectedType && node.name === name,
+        );
+        const accepted = yield* acceptedConfiguredResolution({
+          type: expectedType,
+          name,
+          ...(desired === undefined ? {} : { desired }),
+          forceCanonical: force,
+        });
+        if (Option.isSome(accepted)) return accepted.value;
         return yield* fallback;
       });
+
+    const acceptedConstraintBlock = (name: string) =>
+      Effect.gen(function* () {
+        const desired = graph.nodes.find((node) => node.type === type && node.name === name);
+        if (desired === undefined) return undefined;
+        const accepted = yield* (yield* LockfileReader).acceptedEntry(type, name);
+        const observation = observeAcceptedResolution(desired, Option.getOrUndefined(accepted));
+        if (Option.isNone(observation) || observation.value.status !== "constraint-mismatch")
+          return undefined;
+        const detail = acceptedResolutionIncompatibleText(
+          makeExtensionConstraintInvariantFact(desired, observation.value),
+        );
+        const plan: Plan<InstallStepRequirements> = {
+          _tag: "Plan",
+          name: `Block configured ${type} install`,
+          description: Option.some(
+            "The accepted resolution no longer satisfies its effective constraint",
+          ),
+          presentation: operationPresentation(
+            { imperative: "install", past: "Installed", gerund: "Installing" },
+            type,
+          ),
+          jobs: [
+            {
+              concurrency: 1,
+              steps: [
+                {
+                  key: `${type}:${name}`,
+                  readiness: "error",
+                  label: name,
+                  errorMessage: detail,
+                  blockingConditionIds: [ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID],
+                },
+              ],
+            },
+          ],
+          riskConditions: [
+            {
+              level: "blocked",
+              id: ACCEPTED_RESOLUTION_INCOMPATIBLE_BLOCKER_ID,
+              detail,
+              errorCode: "conflict",
+            },
+          ],
+          failureSuggestions: [
+            acceptedResolutionIncompatibleRecovery(desiredPackageKey(desired.identity)),
+          ],
+        } satisfies Plan<InstallStepRequirements>;
+        return plan;
+      }).pipe(Effect.mapError(configuredEntryResolutionRefused(name)));
 
     if (type === "rule" || type === "hook" || type === "knowledge") {
       const configured = yield* settings.entries(type).pipe(Effect.mapError(readFailed));
@@ -419,6 +465,8 @@ const collectSimpleTypePlans = (
         entries,
         ([name, entry]) =>
           Effect.gen(function* () {
+            const acceptedBlock = yield* acceptedConstraintBlock(name);
+            if (acceptedBlock !== undefined) return Result.fail(acceptedBlock);
             const effective = effectiveDesiredConstraint(graph, { type, name });
             if (Result.isFailure(effective)) {
               return Result.fail(
@@ -455,13 +503,10 @@ const collectSimpleTypePlans = (
                   );
               }
             });
-            const resolved = yield* resolveConfiguredOrAccepted(
-              type,
-              name,
-              entry.source,
-              fallback,
-            ).pipe(Effect.mapError(configuredEntryResolutionRefused(name)));
-            const ref = force ? yield* pinSourceReinstallRef(resolved.ref, name) : resolved.ref;
+            const resolved = yield* resolveConfiguredOrAccepted(type, name, fallback).pipe(
+              Effect.mapError(configuredEntryResolutionRefused(name)),
+            );
+            const ref = resolved.ref;
             if (ref.type !== type) {
               return yield* installRefused({
                 category: "internal",
@@ -528,7 +573,7 @@ const collectSimpleTypePlans = (
       };
     }
 
-    const planFor = (
+    const resolvedPlanFor = (
       name: string,
       source: string,
     ): Effect.Effect<
@@ -555,15 +600,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "skill",
             name,
-            source,
             resolveConfiguredSkill(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force
-                ? pinSourceReinstallRef(resolved.ref, name)
-                : Effect.succeed(resolved.ref)
-              ).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "skill"
                     ? planSkillInstall({
@@ -591,15 +632,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "subagent",
             name,
-            source,
             resolveConfiguredSubagent(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force
-                ? pinSourceReinstallRef(resolved.ref, name)
-                : Effect.succeed(resolved.ref)
-              ).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "subagent"
                     ? planSubagentInstall({
@@ -626,15 +663,11 @@ const collectSimpleTypePlans = (
           return resolveConfiguredOrAccepted(
             "mcp-server",
             name,
-            source,
             resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, selectionRange),
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force
-                ? pinSourceReinstallRef(resolved.ref, name)
-                : Effect.succeed(resolved.ref)
-              ).pipe(
+              Effect.succeed(resolved.ref).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "mcp-server"
                     ? Effect.gen(function* () {
@@ -682,6 +715,12 @@ const collectSimpleTypePlans = (
           );
       }
     };
+
+    const planFor = (name: string, source: string) =>
+      Effect.gen(function* () {
+        const acceptedBlock = yield* acceptedConstraintBlock(name);
+        return acceptedBlock ?? (yield* resolvedPlanFor(name, source));
+      });
 
     return {
       refs: [],

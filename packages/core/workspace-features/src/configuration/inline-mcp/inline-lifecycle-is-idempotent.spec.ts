@@ -40,14 +40,15 @@ interface IdenticalAddRow {
 const identicalAddRows: ReadonlyArray<IdenticalAddRow> = [
   {
     label: "a command server",
-    request: { name: "demo", command: "node server.js", env: [], headers: [] },
+    request: { name: "demo", command: "node", args: ["server.js"], env: [], headers: [] },
   },
   {
     label: "a remote server with headers and named environment inputs",
     request: {
       name: "demo",
       url: "https://example.test/mcp",
-      env: ["CONTEXT_TOKEN", "MODE=review"],
+      env: [],
+      headerEnv: ["Authorization=CONTEXT_TOKEN"],
       headers: ["X-Workspace:review-team"],
     },
   },

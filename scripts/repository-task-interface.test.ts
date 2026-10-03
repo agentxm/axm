@@ -432,7 +432,6 @@ describe("repository task interface", () => {
     for (const targetName of [
       "e2e-main",
       "e2e-windows",
-      "e2e-keychain",
       "binary-smoke",
       "binary-smoke-artifact",
       "install-suite",

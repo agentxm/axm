@@ -37,8 +37,12 @@ The MCP command group may add, import, or inspect server definitions. Import is
 a separately invoked authoring capability outside the workspace-recovery
 contract; observation and reconciliation never invoke it or infer its intent.
 Import reads native configuration through the agent-adapter readers and adopts
-JSON-like and YAML entries in place through the same writers; TOML fenced
-regions cannot be adopted in place.
+JSON-like, YAML and independently editable TOML entries through the same
+writers. Import accounts for every native field, preserves activation and
+literal meaning, and refuses unsupported semantics. A batch rechecks source
+fingerprints and configured reader interpretations inside one rollback boundary.
+Explicit name selection narrows that batch; a blocker prevents the selected
+batch from committing.
 
 ## Non-responsibilities
 
@@ -59,15 +63,26 @@ it created and can still identify; unrelated entries and surrounding
 configuration remain untouched.
 
 Authority is structural in the workspace model. A sourced definition carries a
-source locator. An inline definition carries a command or URL transport and no
-source locator. Encoding preserves the authored `axm.json` forms: sourced
-entries remain strings or source objects, while inline entries remain command
-or URL objects.
+source locator. An inline definition carries an explicit `connection` and no
+source locator. Both use object declarations. The connection names `stdio`,
+`streamable-http` or `sse`; a stdio executable is one literal token with a
+separate ordered argument vector. Values are literals, explicit environment
+references or typed concatenations. A string never acquires interpolation or
+shell semantics from its spelling. An omitted working directory means the
+native host default; explicit directories retain their scope or absolute base.
+
+An authorizing install selects one source distribution before projection.
+Settings persist its normalized identifying properties separately from its
+version. Subsequent sync and update match that selector; they neither choose
+another distribution for an agent nor substitute a subprocess bridge. Input
+bindings address only the selected distribution, with distinct environment,
+header, URL-variable, runtime-argument and package-argument targets. Missing,
+ambiguous, unused and unsafe bindings block settlement.
 
 Several sourced connections may carry different local names while referencing
 one source identity. They share one acquired canonical package and accepted
-lock resolution, but retain separate input bindings, activation, agent
-targeting, native entries, and secret namespaces. Every version constraint from
+lock resolution, but retain separate distribution choices, input bindings,
+activation and native entries. Workspace membership determines agent targeting. Every version constraint from
 those connections and any depending Pack contributes to one source closure. An
 update selected by any local name or by exact source advances and reprojects the
 whole closure.
@@ -105,12 +120,26 @@ TOML region identifies the local connection. Supporting local names therefore
 does not require an ownership-format version change.
 
 Uninstall selects a local connection name. It removes only that connection's
-settings, projections, and secret namespace while another local connection or
-Pack route still needs the source. The final removal also deletes the shared
-accepted resolution and acquired canonical package. Workspace-state changes
-commit before keychain cleanup; a keychain deletion failure is reported as
-credential residue requiring manual cleanup rather than rolling authoritative
-state back.
+settings and projections while another local connection or Pack route still
+needs the source. The final removal also deletes the shared accepted resolution
+and acquired canonical package.
+
+MCP credentials belong to the native host. AXM retains symbolic environment
+references or native OAuth intent and never obtains their values. Known
+credentials in literal settings, URLs or process arguments are refused. MCP
+operations do not read, write or erase OS credential entries; existing entries
+remain untouched. Registry authentication has its own independent owner.
+
+Users who previously saved MCP secrets can remove obsolete entries through
+their operating system's credential manager, selecting the `axm-mcp` service.
+Its account names are opaque connection/input digests. Review the service
+identity before removal; do not remove Registry-login or native-host entries.
+This cleanup is user-directed and is never part of install or uninstall.
+
+Inspection is passive. It separates configuration and projection facts from
+readiness and reports runtime as `not-checked`. A source version lock does not
+prove that the external runtime artifact is pinned. Native trust, approvals,
+environment availability, OAuth and reload requirements remain host actions.
 
 ## Invariants
 

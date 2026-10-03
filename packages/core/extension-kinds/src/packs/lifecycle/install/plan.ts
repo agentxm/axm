@@ -988,6 +988,7 @@ export const planPackInstall: (
           )
         : buildPackMemberStep({
             ref,
+            authorizeDistributionSelection: true,
             nativeInsertionEligible:
               desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
             nonInteractive: intent.nonInteractive,

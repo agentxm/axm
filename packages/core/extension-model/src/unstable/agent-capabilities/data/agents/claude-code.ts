@@ -148,6 +148,21 @@ export const claudeCodeAgent = {
         },
         locations: [
           {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".claude.json",
+            configRootRelativePath: ".claude.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
             id: "project",
             scope: "project",
             root: "project",
@@ -217,10 +232,10 @@ export const claudeCodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: null,
         writer: {
           config: {
-            locationIds: ["project"],
+            locationIds: ["project", "user"],
           },
         },
       },

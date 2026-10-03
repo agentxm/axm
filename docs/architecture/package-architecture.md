@@ -352,8 +352,8 @@ A kind's error classes carry the kernel's `ExtensionKindFailure` brand with
 their own wording, so the kernel renders them without naming a kind. MCP
 installation reaches the kernel only through the
 `McpServerManagerService.installConnection` port member. The package-level
-`./live` entry composes the seven manager Layers and the keychain-backed MCP
-secret store, which is why the package declares `@napi-rs/keyring`.
+`./live` entry composes the seven manager Layers. MCP credential references
+remain symbolic; the native host owns credential resolution and OAuth.
 
 ### Feature modules
 

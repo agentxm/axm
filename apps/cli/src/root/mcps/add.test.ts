@@ -41,9 +41,12 @@ describe("mcps add output", () => {
         mcpServers: {
           context: {
             enabled: true,
-            command: "node",
-            args: ["server.js"],
-            env: { CONTEXT_TOKEN: "${CONTEXT_TOKEN}" },
+            connection: {
+              transport: "stdio",
+              command: "node",
+              args: ["server.js"],
+              env: { CONTEXT_TOKEN: { env: "CONTEXT_TOKEN" } },
+            },
           },
         },
       }),
@@ -79,8 +82,14 @@ describe("mcps add output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpsAdd({
+          connection: Option.none(),
+          transport: Option.none(),
+          cwd: Option.none(),
+          headerEnv: [],
+          nativeOauth: false,
           name: "context",
-          command: Option.some("node server.js"),
+          command: Option.some("node"),
+          arg: ["server.js"],
           url: Option.none(),
           env: ["CONTEXT_TOKEN"],
           header: [],
@@ -107,8 +116,14 @@ describe("mcps add output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpsAdd({
+          connection: Option.none(),
+          transport: Option.none(),
+          cwd: Option.none(),
+          headerEnv: [],
+          nativeOauth: false,
           name: "demo",
-          command: Option.some("node server.js"),
+          command: Option.some("node"),
+          arg: ["server.js"],
           url: Option.none(),
           env: [],
           header: [],
@@ -119,14 +134,14 @@ describe("mcps add output", () => {
         const result = expectAppliedPlanResult(rendererState.results[0]?.data, {
           planName: "Add MCP server",
           totalSteps: 1,
-          warningCount: 0,
+          warningCount: 5,
         });
         const units = planResultUnits(result);
         expect(units[0]).toMatchObject({
           id: "Configure and project demo",
           label: "Configure and project demo",
           state: "committed",
-          message: "Synced demo to 5 agents",
+          message: "Synced demo to 5 agents with 5 warnings",
           artifact: {
             path: "axm.json",
             scope: "project",
@@ -177,8 +192,14 @@ describe("mcps add output", () => {
       Effect.gen(function* () {
         const result = yield* Effect.result(
           handleMcpsAdd({
+            connection: Option.none(),
+            transport: Option.none(),
+            cwd: Option.none(),
+            headerEnv: [],
+            nativeOauth: false,
             name: "demo",
-            command: Option.some("node server.js"),
+            command: Option.some("node"),
+            arg: ["server.js"],
             url: Option.none(),
             env: ["API_TOKEN=literal-secret"],
             header: [],
@@ -203,8 +224,14 @@ describe("mcps add output", () => {
       Effect.gen(function* () {
         const result = yield* Effect.result(
           handleMcpsAdd({
+            connection: Option.none(),
+            transport: Option.none(),
+            cwd: Option.none(),
+            headerEnv: [],
+            nativeOauth: false,
             name: "demo",
             command: Option.none(),
+            arg: [],
             url: Option.some("wss://example.test/mcp"),
             env: [],
             header: [],
@@ -231,8 +258,14 @@ describe("mcps add output", () => {
       Effect.gen(function* () {
         const result = yield* Effect.result(
           handleMcpsAdd({
+            connection: Option.none(),
+            transport: Option.none(),
+            cwd: Option.none(),
+            headerEnv: [],
+            nativeOauth: false,
             name: "@acme/mcps/demo",
             command: Option.none(),
+            arg: [],
             url: Option.none(),
             env: [],
             header: [],
@@ -253,7 +286,7 @@ describe("mcps add output", () => {
     );
   });
 
-  it.effect("blocks agents that cannot represent environment defaults", () => {
+  it.effect("blocks native expansion of authored literal metasyntax", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeEnvExpansionSettings();
     const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
@@ -261,8 +294,14 @@ describe("mcps add output", () => {
     return provide(
       Effect.gen(function* () {
         yield* handleMcpsAdd({
+          connection: Option.none(),
+          transport: Option.none(),
+          cwd: Option.none(),
+          headerEnv: [],
+          nativeOauth: false,
           name: "demo",
-          command: Option.some("node server.js"),
+          command: Option.some("node"),
+          arg: ["server.js"],
           url: Option.none(),
           env: ["FOO=${BAR:-fallback}"],
           header: [],
@@ -278,7 +317,7 @@ describe("mcps add output", () => {
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).toContain(
-          "does not expand environment default",
+          "literal native metasyntax",
         );
         expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
         for (const config of [".mcp.json", ".cursor/mcp.json", ".codex/config.toml"]) {

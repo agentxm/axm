@@ -114,7 +114,7 @@ import {
   McpCanonicalPathUnsafe,
   McpInstallStateMissing,
   McpConnectionConflict,
-  McpRequiredInputsMissing,
+  McpConfigurationRefused,
   McpWorkspacePackageInvalid,
 } from "@agentxm/extension-kinds/mcp-connections";
 import {
@@ -311,7 +311,7 @@ type KindFailure =
   | McpConnectionConflict
   | McpCanonicalPathUnsafe
   | McpWorkspacePackageInvalid
-  | McpRequiredInputsMissing
+  | McpConfigurationRefused
   | McpAgentSyncRefused
   | SkillDefinitionInvalid
   | SkillMaterializationFailed
@@ -548,8 +548,8 @@ const representatives: Representatives = {
       fault: "missing",
     }),
   ],
-  McpRequiredInputsMissing: [
-    new McpRequiredInputsMissing({ localName: "demo", inputNames: ["API_KEY"] }),
+  McpConfigurationRefused: [
+    new McpConfigurationRefused({ localName: "demo", reason: "Required input binding is missing" }),
   ],
   McpAgentSyncRefused: [
     new McpAgentSyncRefused({ serverName: "demo", fault: "unknown-agents", agentIds: ["x"] }),

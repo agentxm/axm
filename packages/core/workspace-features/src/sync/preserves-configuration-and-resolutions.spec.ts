@@ -348,7 +348,8 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           );
           expect(workspace.readFile("axm.json")).toBe(settingsBefore);
           // Nothing is left to downgrade: the next run has no work.
-          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+          const repeated = yield* applySync();
+          expect(repeated._tag, JSON.stringify(repeated)).toBe("AlreadyReconciled");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

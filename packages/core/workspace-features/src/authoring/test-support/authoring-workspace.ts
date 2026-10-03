@@ -36,7 +36,6 @@ import {
   SourceHostProvidersLive,
   WorkspaceCatalogLive,
 } from "@agentxm/workspace-kernel/sources/live";
-import { makeMemoryMcpSecretStore } from "@agentxm/workspace-kernel/materialization/testing";
 import { withKindManagers } from "../../testing/workspace-world.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { previewPlanExecution, type PlanExecution } from "@agentxm/workspace-kernel/operations";
@@ -196,16 +195,10 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
   );
   const sources = Layer.provideMerge(SourceHostProvidersLive, policy);
   const managers = withKindManagers(sources);
-  // MCP connection secrets stay in memory: a specification must never reach
-  // the developer's real credential store, and an in-memory store answers the
-  // same typed outcomes the real one does.
-  const secrets = makeMemoryMcpSecretStore();
   return {
-    layer: Layer.mergeAll(managers, PlanInvocationTest, interaction.layer, identity, secrets.layer),
+    layer: Layer.mergeAll(managers, PlanInvocationTest, interaction.layer, identity),
     /** Every plan presentation and confirmation the run asked for. */
     interaction: interaction.state,
-    /** MCP connection secrets the run persisted, keyed by account digest. */
-    secrets: secrets.entries,
   };
 };
 

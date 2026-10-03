@@ -1,516 +1,91 @@
-/**
- * MCP server manifest resolver.
- *
- * Converts upstream MCP registry `ServerDetail` distributions into an
- * agent-neutral invocation, then projects that invocation through an agent
- * capability dialect.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
-import type {
-  McpExtensionCapability,
-  McpTransport,
-} from "@agentxm/extension-model/unstable/agent-capabilities";
-import { isReadableMcpCapability, type ReadableMcpCapability } from "./targeting.js";
-import type {
-  McpRegistryArgument,
-  McpRegistryInput,
-  McpRegistryKeyValueInput,
-  McpRegistryPackage,
-  McpRegistryRemoteTransport,
-  McpServerManifest,
-} from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { buildAxmMcpMetadata } from "./metadata.js";
-import { AXM_MCP_METADATA_KEY } from "./entry-semantics.js";
+import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
-  projectExpectedEntry,
-  type InlineRemoteTransport,
-  type McpServerDeclaration,
-} from "./expected-entry.js";
+  validateMcpConnection,
+  type McpAuth,
+  type McpBinding,
+  type McpConnection,
+  type McpDistribution,
+} from "./connection.js";
+import { mcpRunner, selectMcpDistribution } from "./distribution.js";
+import { resolveMcpInputs, substituteMcpVariables } from "./inputs.js";
 
-type UpstreamRemoteTransport = "streamable-http" | "sse";
-
-export type McpResolution =
+export type McpInvocationResolution =
   | {
       readonly _tag: "resolved";
-      readonly entry: Readonly<Record<string, unknown>>;
-      readonly transport: "stdio" | UpstreamRemoteTransport;
-      readonly shimmed: boolean;
+      readonly connection: McpConnection;
+      readonly distribution: McpDistribution;
+      readonly runtimeArtifactPinned: boolean;
       readonly warnings: ReadonlyArray<string>;
     }
-  | { readonly _tag: "nothing-runnable"; readonly reason: string }
-  | { readonly _tag: "no-distribution"; readonly reason: string }
-  | {
-      readonly _tag: "needs-input";
-      readonly entry: Readonly<Record<string, unknown>>;
-      readonly transport: "stdio" | UpstreamRemoteTransport;
-      readonly shimmed: boolean;
-      readonly missing: ReadonlyArray<string>;
-      readonly warnings: ReadonlyArray<string>;
-    };
+  | { readonly _tag: "blocked"; readonly reason: string; readonly missing: ReadonlyArray<string> };
 
-export interface ResolveMcpServerArgs {
+/** Selection and input binding happen once, independently of agent membership or order. */
+export const resolveMcpInvocation = (args: {
   readonly manifest: McpServerManifest;
-  /** Exact local connection name projected as the native MCP key. */
-  readonly localName?: string;
-  readonly capability: McpExtensionCapability;
-  readonly values: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-}
-
-type Candidate =
-  | {
-      readonly kind: "remote";
-      readonly rank: number;
-      readonly remote: McpRegistryRemoteTransport;
-      readonly shimmed: boolean;
-    }
-  | {
-      readonly kind: "package";
-      readonly rank: number;
-      readonly pkg: McpRegistryPackage;
-    };
-
-interface ResolvedInput {
-  readonly value: string;
-  readonly missing: boolean;
-}
-
-const packageVersionSuffix = (version: string | undefined, separator: "@" | ":"): string =>
-  version === undefined ? "" : `${separator}${version}`;
-
-const capabilitySupportsUpstream = (
-  transports: ReadonlyArray<McpTransport>,
-  transport: UpstreamRemoteTransport,
-): boolean => transports.includes(transport === "streamable-http" ? "http" : transport);
-
-const isRemoteTransport = (transport: string): transport is UpstreamRemoteTransport =>
-  transport === "streamable-http" || transport === "sse";
-
-const selectCandidate = (
-  manifest: McpServerManifest,
-  capability: ReadableMcpCapability,
-): Candidate | undefined => {
-  const candidates: Array<Candidate> = [];
-  const remotes = manifest.server.remotes ?? [];
-  const packages = manifest.server.packages ?? [];
-
-  for (const remote of remotes) {
-    if (capabilitySupportsUpstream(capability.native.transports, remote.type)) {
-      candidates.push({ kind: "remote", rank: 1, remote, shimmed: false });
-    } else if (capability.native.transports.includes("stdio")) {
-      candidates.push({ kind: "remote", rank: 3, remote, shimmed: true });
-    }
-  }
-
-  for (const pkg of packages) {
-    if (capability.native.transports.includes("stdio")) {
-      candidates.push({ kind: "package", rank: 2, pkg });
-    }
-  }
-
-  return candidates.sort((left, right) => left.rank - right.rank)[0];
-};
-
-const inputName = (input: McpRegistryKeyValueInput | McpRegistryArgument): string | undefined => {
-  if ("name" in input) return input.name;
-  if ("valueHint" in input) return input.valueHint;
-  return undefined;
-};
-
-const resolveInput = (
-  name: string,
-  input: McpRegistryInput | McpRegistryKeyValueInput | McpRegistryArgument,
-  values: Readonly<Record<string, string>>,
-): ResolvedInput => {
-  if (input.isSecret === true) {
+  readonly distribution?: McpDistribution | undefined;
+  readonly bindings?: ReadonlyArray<McpBinding> | undefined;
+  readonly auth?: McpAuth | undefined;
+}): McpInvocationResolution => {
+  const selected = selectMcpDistribution({ manifest: args.manifest, selector: args.distribution });
+  if (selected._tag === "blocked") return { _tag: "blocked", reason: selected.reason, missing: [] };
+  const { candidate } = selected;
+  const inputs = resolveMcpInputs(candidate, args.bindings ?? []);
+  if (inputs.findings.length > 0)
     return {
-      value: `\${${name}}`,
-      missing: values[name] === undefined && input.isRequired === true,
+      _tag: "blocked",
+      reason: inputs.findings.map(({ inputId, message }) => `${inputId}: ${message}`).join("; "),
+      missing: inputs.findings
+        .filter(({ code }) => code === "missing-binding")
+        .map(({ inputId }) => inputId),
     };
-  }
-  if (input.value !== undefined)
-    return { value: substituteVariables(input.value, values), missing: false };
-  const configured = values[name];
-  if (configured !== undefined) return { value: configured, missing: false };
-  if (input.default !== undefined) return { value: input.default, missing: false };
-  if (input.isRequired === true) return { value: `\${${name}}`, missing: true };
-  return { value: `\${${name}}`, missing: false };
-};
-
-const substituteVariables = (value: string, values: Readonly<Record<string, string>>): string =>
-  // Already-symbolic environment references belong to the native client.
-  // Expanding their inner braces would turn ${TOKEN} into $${TOKEN}.
-  value.replaceAll(/(?<!\$)\{([^{}]+)\}/g, (match, key: string) => values[key] ?? match);
-
-const materializeArgument = (
-  argument: McpRegistryArgument,
-  values: Readonly<Record<string, string>>,
-): { readonly args: ReadonlyArray<string>; readonly missing: ReadonlyArray<string> } => {
-  const name = inputName(argument);
-  if (argument.type === "named") {
-    if (name === undefined) return { args: [], missing: [] };
-    const resolved = resolveInput(name, argument, values);
-    return {
-      args: [argument.name, resolved.value],
-      missing: resolved.missing ? [name] : [],
+  let connection: McpConnection;
+  let runtimeArtifactPinned = false;
+  if (candidate.kind === "remote") {
+    connection = {
+      transport: candidate.remote.type,
+      url: substituteMcpVariables(candidate.remote.url, inputs.urlVariables),
+      headers: inputs.headers,
     };
-  }
-
-  if (argument.value !== undefined) {
-    return { args: [substituteVariables(argument.value, values)], missing: [] };
-  }
-  if (name === undefined) return { args: [], missing: [] };
-  const resolved = resolveInput(name, argument, values);
-  return {
-    args: [resolved.value],
-    missing: resolved.missing ? [name] : [],
-  };
-};
-
-const materializeArguments = (
-  arguments_: ReadonlyArray<McpRegistryArgument> | undefined,
-  values: Readonly<Record<string, string>>,
-): { readonly args: ReadonlyArray<string>; readonly missing: ReadonlyArray<string> } => {
-  const args: Array<string> = [];
-  const missing: Array<string> = [];
-  for (const argument of arguments_ ?? []) {
-    const resolved = materializeArgument(argument, values);
-    args.push(...resolved.args);
-    missing.push(...resolved.missing);
-  }
-  return { args, missing };
-};
-
-const materializeEnv = (
-  environmentVariables: ReadonlyArray<McpRegistryKeyValueInput> | undefined,
-  values: Readonly<Record<string, string>>,
-): { readonly env: Readonly<Record<string, string>>; readonly missing: ReadonlyArray<string> } => {
-  const env: Record<string, string> = {};
-  const missing: Array<string> = [];
-  for (const input of environmentVariables ?? []) {
-    const resolved = resolveInput(input.name, input, values);
-    env[input.name] = resolved.value;
-    if (resolved.missing) missing.push(input.name);
-  }
-  return { env, missing };
-};
-
-const materializeHeaders = (
-  headers: ReadonlyArray<McpRegistryKeyValueInput> | undefined,
-  values: Readonly<Record<string, string>>,
-): {
-  readonly headers: Readonly<Record<string, string>>;
-  readonly missing: ReadonlyArray<string>;
-} => {
-  const result: Record<string, string> = {};
-  const missing: Array<string> = [];
-  for (const input of headers ?? []) {
-    const resolved = resolveInput(input.name, input, values);
-    result[input.name] = resolved.value;
-    if (resolved.missing) missing.push(input.name);
-  }
-  return { headers: result, missing };
-};
-
-const packageCommand = (pkg: McpRegistryPackage): ReadonlyArray<string> | undefined => {
-  const runtime = pkg.runtimeHint ?? pkg.registryType;
-  switch (runtime) {
-    case "npm":
-    case "npx":
-      return ["npx", "-y", `${pkg.identifier}${packageVersionSuffix(pkg.version, "@")}`];
-    case "pypi":
-    case "uvx":
-      return ["uvx", `${pkg.identifier}${packageVersionSuffix(pkg.version, "@")}`];
-    case "oci":
-    case "docker":
-      return [
-        "docker",
-        "run",
-        "-i",
-        "--rm",
-        `${pkg.identifier}${packageVersionSuffix(pkg.version, ":")}`,
-      ];
-    case "nuget":
-    case "dnx":
-      return ["dnx", `${pkg.identifier}${packageVersionSuffix(pkg.version, "@")}`];
-    case "mcpb":
-      return ["npx", "-y", "@modelcontextprotocol/mcpb", pkg.identifier];
-    default:
-      return undefined;
-  }
-};
-
-const projectRegistryEntry = (args: {
-  readonly capability: ReadableMcpCapability;
-  readonly serverName: string;
-  readonly entry: McpServerDeclaration;
-  readonly ref: string;
-  readonly remoteTransport?: InlineRemoteTransport | undefined;
-}):
-  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
-  | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const config = args.capability.native.entryDialect;
-  const projected = projectExpectedEntry({
-    serverName: args.serverName,
-    entry: args.entry,
-    stdio: config.stdio,
-    remote: config.remote,
-    activationField: config.activationField,
-    envExpansion: args.capability.native.mcpEnvExpansion,
-    ...(args.remoteTransport === undefined ? {} : { remoteTransport: args.remoteTransport }),
-  });
-  if (projected._tag === "unsupported") return projected;
-  return {
-    _tag: "projected",
-    entry: {
-      ...projected.entry,
-      [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadata({
-        ext: args.ref,
-        source: "registry",
-        ref: args.ref,
-      }),
-    },
-  };
-};
-
-const materializeRemote = (
-  remote: McpRegistryRemoteTransport,
-  values: Readonly<Record<string, string>>,
-): { readonly url: string; readonly missing: ReadonlyArray<string> } => {
-  const missing: Array<string> = [];
-  const resolvedValues: Record<string, string> = { ...values };
-  for (const [name, input] of Object.entries(remote.variables ?? {})) {
-    const resolved = resolveInput(name, input, values);
-    resolvedValues[name] = resolved.value;
-    if (resolved.missing) missing.push(name);
-  }
-  return { url: substituteVariables(remote.url, resolvedValues), missing };
-};
-
-const resolvePackage = (
-  manifest: McpServerManifest,
-  pkg: McpRegistryPackage,
-  capability: ReadableMcpCapability,
-  values: Readonly<Record<string, string>>,
-  enabled: boolean,
-  localName: string,
-): McpResolution => {
-  const config = capability.native.entryDialect;
-  if (config.stdio === null) {
-    return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
-  }
-
-  const baseCommand = packageCommand(pkg);
-  if (baseCommand === undefined) {
-    return {
-      _tag: "no-distribution",
-      reason: `unsupported MCP package registryType: ${pkg.registryType}`,
-    };
-  }
-
-  const runtimeArgs = materializeArguments(pkg.runtimeArguments, values);
-  const packageArgs = materializeArguments(pkg.packageArguments, values);
-  const env = materializeEnv(pkg.environmentVariables, values);
-  const missing = [...runtimeArgs.missing, ...packageArgs.missing, ...env.missing];
-  const invocation =
-    pkg.registryType === "oci" || pkg.runtimeHint === "docker"
-      ? [
-          ...baseCommand.slice(0, 3),
-          ...Object.keys(env.env).flatMap((name) => ["-e", name]),
-          ...baseCommand.slice(3),
-          ...runtimeArgs.args,
-          ...packageArgs.args,
-        ]
-      : [
-          ...baseCommand.slice(0, 1),
-          ...runtimeArgs.args,
-          ...baseCommand.slice(1),
-          ...packageArgs.args,
-        ];
-  const [command, ...commandArgs] = invocation;
-  const projected = projectRegistryEntry({
-    capability,
-    serverName: localName,
-    entry: {
-      kind: "sourced",
-      source: "registry",
-      command: command ?? "",
-      args: commandArgs,
-      env: env.env,
-      enabled,
-    },
-    ref: `${manifest.owner}/mcps/${manifest.name}`,
-  });
-  if (projected._tag === "unsupported") {
-    return { _tag: "no-distribution", reason: projected.reason };
-  }
-  const entry = projected.entry;
-  if (missing.length > 0) {
-    return {
-      _tag: "needs-input",
-      entry,
+  } else {
+    const runner = mcpRunner(candidate.package);
+    if (runner._tag === "unsupported")
+      return { _tag: "blocked", reason: runner.reason, missing: [] };
+    runtimeArtifactPinned = runner.runtimeArtifactPinned;
+    connection = {
       transport: "stdio",
-      shimmed: false,
-      missing,
-      warnings: [`missing required MCP input values: ${missing.join(", ")}`],
+      command: runner.command,
+      args: [
+        ...runner.beforeRuntime,
+        ...inputs.runtimeArguments,
+        ...(candidate.package.registryType === "oci"
+          ? Object.keys(inputs.environment).flatMap((name) => ["-e", name])
+          : []),
+        ...runner.afterRuntime,
+        ...(inputs.packageArguments.length === 0 ? [] : runner.beforeArguments),
+        ...inputs.packageArguments,
+      ],
+      env: inputs.environment,
     };
   }
-  return { _tag: "resolved", entry, transport: "stdio", shimmed: false, warnings: [] };
-};
-
-const resolveRemote = (
-  manifest: McpServerManifest,
-  remote: McpRegistryRemoteTransport,
-  capability: ReadableMcpCapability,
-  values: Readonly<Record<string, string>>,
-  enabled: boolean,
-  shimmed: boolean,
-  localName: string,
-): McpResolution => {
-  const config = capability.native.entryDialect;
-  const headers = materializeHeaders(remote.headers, values);
-  const materializedRemote = materializeRemote(remote, values);
-  const missing = [...headers.missing, ...materializedRemote.missing];
-  if (shimmed) {
-    if (config.stdio === null) {
-      return { _tag: "no-distribution", reason: "agent has no stdio MCP config dialect" };
-    }
-    const command = [
-      "npx",
-      "-y",
-      "mcp-remote",
-      materializedRemote.url,
-      ...Object.entries(headers.headers).flatMap(([name, value]) => [
-        "--header",
-        `${name}: ${value}`,
-      ]),
-    ];
-    const [executable, ...commandArgs] = command;
-    const projected = projectRegistryEntry({
-      capability,
-      serverName: localName,
-      entry: {
-        kind: "sourced",
-        source: "registry",
-        command: executable ?? "",
-        args: commandArgs,
-        env: {},
-        enabled,
-      },
-      ref: `${manifest.owner}/mcps/${manifest.name}`,
-    });
-    if (projected._tag === "unsupported") {
-      return { _tag: "no-distribution", reason: projected.reason };
-    }
-    const entry = projected.entry;
-    return missing.length > 0
-      ? {
-          _tag: "needs-input",
-          entry,
-          transport: "stdio",
-          shimmed: true,
-          missing,
-          warnings: [`missing required MCP input values: ${missing.join(", ")}`],
-        }
-      : {
-          _tag: "resolved",
-          entry,
-          transport: "stdio",
-          shimmed: true,
-          warnings: [`using stdio shim for ${remote.type}`],
-        };
-  }
-
-  if (config.remote === null) {
-    return { _tag: "no-distribution", reason: "agent has no remote MCP config dialect" };
-  }
-  const urlKey = config.remote.urlKey[remote.type];
-  if (urlKey === undefined) {
+  const findings = validateMcpConnection(connection, args.auth);
+  if (findings.length > 0)
     return {
-      _tag: "no-distribution",
-      reason: `agent does not support the ${remote.type} remote transport`,
+      _tag: "blocked",
+      reason: findings.map(({ message }) => message).join("; "),
+      missing: [],
     };
-  }
-  const projected = projectRegistryEntry({
-    capability,
-    serverName: localName,
-    entry: {
-      kind: "sourced",
-      source: "registry",
-      url: materializedRemote.url,
-      headers: headers.headers,
-      env: {},
-      enabled,
-    },
-    ref: `${manifest.owner}/mcps/${manifest.name}`,
-    remoteTransport: remote.type,
-  });
-  if (projected._tag === "unsupported") {
-    return { _tag: "no-distribution", reason: projected.reason };
-  }
-  const entry = projected.entry;
-  return missing.length > 0
-    ? {
-        _tag: "needs-input",
-        entry,
-        transport: remote.type,
-        shimmed: false,
-        missing,
-        warnings: [`missing required MCP input values: ${missing.join(", ")}`],
-      }
-    : { _tag: "resolved", entry, transport: remote.type, shimmed: false, warnings: [] };
-};
-
-export const resolveMcpServer = (args: ResolveMcpServerArgs): McpResolution => {
-  if (!isReadableMcpCapability(args.capability)) {
-    return { _tag: "no-distribution", reason: "agent has no verified native MCP entry dialect" };
-  }
-  const capability = args.capability;
-  const localName = args.localName ?? args.manifest.name;
-
-  const hasPackages = (args.manifest.server.packages ?? []).length > 0;
-  const hasRemotes = (args.manifest.server.remotes ?? []).length > 0;
-  if (!hasPackages && !hasRemotes) {
-    return {
-      _tag: "nothing-runnable",
-      reason: "manifest server has no packages or remotes",
-    };
-  }
-
-  const candidate = selectCandidate(args.manifest, capability);
-  if (candidate === undefined) {
-    return {
-      _tag: "no-distribution",
-      reason: "no MCP distribution is viable for this agent",
-    };
-  }
-
-  if (candidate.kind === "package") {
-    return resolvePackage(
-      args.manifest,
-      candidate.pkg,
-      capability,
-      args.values,
-      args.enabled,
-      localName,
-    );
-  }
-
-  if (!isRemoteTransport(candidate.remote.type)) {
-    return {
-      _tag: "no-distribution",
-      reason: `unsupported remote transport: ${candidate.remote.type}`,
-    };
-  }
-  return resolveRemote(
-    args.manifest,
-    candidate.remote,
-    capability,
-    args.values,
-    args.enabled,
-    candidate.shimmed,
-    localName,
-  );
+  return {
+    _tag: "resolved",
+    connection,
+    distribution: candidate.selector,
+    runtimeArtifactPinned,
+    warnings: [
+      ...(candidate.kind === "package" && !runtimeArtifactPinned
+        ? ["Runtime artifact is not immutably pinned by the accepted source"]
+        : []),
+      ...inputs.unverified.map(
+        (id) => `${id}: native environment value and constraints are unverified`,
+      ),
+    ],
+  };
 };

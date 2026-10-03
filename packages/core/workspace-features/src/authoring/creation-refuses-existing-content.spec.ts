@@ -49,7 +49,7 @@ describe("Create-only authoring", () => {
             created.writeSettings({
               owner: "@acme",
               agents: [],
-              [row.settingsKey]: { review: "workspace" },
+              [row.settingsKey]: { review: { source: "workspace" } },
             });
           } else {
             created.write(`${row.plural}/review/notes.txt`, "Unfinished authored content\n");

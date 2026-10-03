@@ -56,7 +56,9 @@ describe("Publication archive admission", () => {
   ]) {
     it.effect(scenario.name, () =>
       Effect.gen(function* () {
-        const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
+        const world = makePublishWorld({
+          settings: { skills: { review: "workspace" } },
+        });
         worlds.push(world);
         const packageRoot = world.write("skill", {
           name: "review",

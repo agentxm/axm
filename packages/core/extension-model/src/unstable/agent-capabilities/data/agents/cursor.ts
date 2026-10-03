@@ -156,7 +156,7 @@ export const cursorAgent = {
         convention: "universal",
         transports: ["stdio", "http", "sse"],
         mcpEnvExpansion: {
-          variables: "braced",
+          variables: "env-colon",
           defaults: false,
         },
         locations: [
@@ -235,7 +235,7 @@ export const cursorAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-08-05",
+        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project", "user"],

@@ -47,7 +47,6 @@ export const specification = defineSpecification({
   openQuestions: [
     "Which native transports and configuration fields beyond the represented HTTP URL and headers must package conversion support without loss?",
     "What selection or refusal behavior is required when discovery finds no eligible server, several distinct servers, or conflicting definitions?",
-    "How must package conversion preserve existing input references and credentials? The MCP secret owner governs managed secret storage; these examples use only non-secret literal headers.",
     "May a conversion replace an existing configured connection under the target name, and how should existing authored content be treated? The current configured-source transition is an observation, not a new fallback policy.",
   ],
   limitations: [
@@ -99,9 +98,23 @@ describe("Converting a native MCP server into an authored package", () => {
           const remote = manifest.server.remotes?.[0];
           if (remote === undefined) throw new Error("Expected the converted remote definition");
           expect(remote.url).toBe(importedRemote.url);
-          expect(
-            Object.fromEntries((remote.headers ?? []).map(({ name, value }) => [name, value])),
-          ).toEqual(importedRemote.headers);
+          expect(remote.headers).toEqual(
+            Object.keys(importedRemote.headers).map((name) => ({
+              name,
+              isRequired: true,
+              isSecret: false,
+            })),
+          );
+          expect(created.settings()).toMatchObject({
+            mcpServers: {
+              [targetName]: {
+                bindings: Object.entries(importedRemote.headers).map(([name, value]) => ({
+                  target: { kind: "header", name },
+                  value,
+                })),
+              },
+            },
+          });
 
           expect(readImportedMcpDeclaration(created, targetName).source).toBe("workspace");
         }),

@@ -475,7 +475,16 @@ describe("Removing a coding agent", () => {
       settings: {
         owner: "@acme",
         agents: ["claude-code", "github-copilot-cli"],
-        mcpServers: { api: { command: "node", args: ["api.js"], env: { TOKEN: "${TOKEN}" } } },
+        mcpServers: {
+          api: {
+            connection: {
+              transport: "stdio",
+              command: "node",
+              args: ["api.js"],
+              env: { TOKEN: { env: "TOKEN" } },
+            },
+          },
+        },
       },
       files: {
         ".mcp.json":
@@ -564,7 +573,9 @@ describe("Removing a coding agent", () => {
           owner: "@acme",
           agents: [departing, remaining],
           skills: { [SKILL]: { source: "workspace", enabled: true } },
-          mcpServers: { context: { command: "node", args: ["server.js"] } },
+          mcpServers: {
+            context: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+          },
         },
         files: {
           [`skills/${SKILL}/skill.json`]: SKILL_MANIFEST,

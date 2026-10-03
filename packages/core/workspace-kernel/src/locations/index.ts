@@ -12,6 +12,7 @@ export {
 } from "./native-outcomes.js";
 export {
   NativeLocationError,
+  NativeResolutionRoot,
   assertNativeMutationWithin,
   assertNoPhysicalOverlap,
   pathsOverlap,

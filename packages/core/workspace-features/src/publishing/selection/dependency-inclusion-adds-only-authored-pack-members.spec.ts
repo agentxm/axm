@@ -40,7 +40,11 @@ describe("Selected pack dependency inclusion", () => {
         Effect.gen(function* () {
           const world = makePublishWorld({
             settings: {
-              skills: { review: "workspace", external: "workspace", unrelated: "workspace" },
+              skills: {
+                review: "workspace",
+                external: "workspace",
+                unrelated: "workspace",
+              },
               packs: { toolkit: "workspace" },
             },
           });

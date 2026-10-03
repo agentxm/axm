@@ -117,7 +117,9 @@ describe("Report every configured agent's outcome for a connection", () => {
       const fixture = makeInspectionFixture({
         settings: {
           agents: agentOutcomeRows.map((entry) => entry.agentId),
-          mcpServers: { demo: { command: "node", args: ["server.js"] } },
+          mcpServers: {
+            demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+          },
         },
         files: {
           ".mcp.json": projectedNativeConfig,

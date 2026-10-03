@@ -1,3 +1,14 @@
+import {
+  mcpDistributionCandidates,
+  mcpDistributionDestination,
+  mcpDistributionId,
+  manifestInputs,
+  mcpInputVariables,
+  mcpInputId,
+  resolveMcpInvocation,
+  mcpRunner,
+  readMcpServerManifestAt,
+} from "@agentxm/workspace-kernel/agent-adapters";
 /**
  * What one installed extension's state is, uniformly for every installable type.
  *
@@ -49,6 +60,11 @@ const ShowAgentSchema = Schema.Struct({
   fields: Schema.Array(Schema.String),
   warnings: Schema.Array(Schema.String),
   reason: Schema.optionalKey(Schema.String),
+  configuration: Schema.optionalKey(Schema.Literals(["valid", "blocked", "unverified"])),
+  projection: Schema.optionalKey(Schema.String),
+  readiness: Schema.optionalKey(Schema.Literals(["blocked", "unverified"])),
+  runtime: Schema.optionalKey(Schema.Literal("not-checked")),
+  manualActions: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 
 /**
@@ -66,9 +82,47 @@ const ShowItemSchema = Schema.Struct({
   locked: Schema.Boolean,
 });
 
+const nativeMcpRoutes: Readonly<Record<string, string>> = {
+  "claude-code": "Open /mcp in Claude Code and select this server",
+  codex: "Open /mcp in Codex and select this server",
+  cursor: "Open Cursor MCP settings and select this server",
+  "github-copilot-cli": "Open /mcp in Copilot CLI and select this server in the dashboard",
+  opencode: "Open /mcps in OpenCode V2 and select this server",
+  vscode: "Run MCP: List Servers in the selected VS Code profile and select this server",
+  pi: "Open /mcp in Pi 1.0 or later and select this server",
+};
+
+const McpFactsSchema = Schema.Struct({
+  sourceVersionLocked: Schema.Boolean,
+  runtimeArtifactPinned: Schema.NullOr(Schema.Boolean),
+  cwd: Schema.Literals(["host-default", "directory", "missing", "unverified", "not-applicable"]),
+  runtime: Schema.Literal("not-checked"),
+  distributions: Schema.Array(
+    Schema.Struct({
+      id: Schema.String,
+      kind: Schema.String,
+      transport: Schema.String,
+      destination: Schema.String,
+      selected: Schema.Boolean,
+      supported: Schema.Boolean,
+      reason: Schema.optionalKey(Schema.String),
+      inputs: Schema.Array(
+        Schema.Struct({
+          id: Schema.String,
+          required: Schema.Boolean,
+          secret: Schema.Boolean,
+          repeated: Schema.Boolean,
+          hasDefault: Schema.Boolean,
+        }),
+      ),
+    }),
+  ),
+});
+
 export const ExtensionShowResultSchema = Schema.Struct({
   item: ShowItemSchema,
   agents: Schema.Array(ShowAgentSchema),
+  mcp: Schema.optionalKey(McpFactsSchema),
 });
 export type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
 
@@ -120,6 +174,7 @@ const canonicalManifestVersion = Effect.fn("ShowExtension.canonicalManifestVersi
 export interface ShowExtensionRequest {
   readonly type: InstallableExtensionType;
   readonly name: string;
+  readonly agents?: ReadonlyArray<string>;
 }
 
 export const ShowExtension = {
@@ -185,7 +240,92 @@ export const ShowExtension = {
           : `${outcome.mechanism}: ${outcome.reason}`,
     }));
 
+    let mcp: typeof McpFactsSchema.Type | undefined;
     if (request.type === "mcp-server") {
+      const entry = (yield* settings.entries("mcp-server"))[request.name];
+      const path = yield* Path.Path;
+      const fs = yield* FileSystem.FileSystem;
+      let cwd: (typeof McpFactsSchema.Type)["cwd"] =
+        entry?.connection?.transport === "stdio" ? "host-default" : "not-applicable";
+      if (entry?.connection?.transport === "stdio" && entry.connection.cwd !== undefined) {
+        const selected = entry.connection.cwd;
+        const directory =
+          selected.base === "absolute"
+            ? selected.path
+            : path.resolve(location.baseDir, selected.path);
+        const result = yield* Effect.result(fs.stat(directory));
+        cwd =
+          result._tag === "Success"
+            ? result.success.type === "Directory"
+              ? "directory"
+              : "missing"
+            : result.failure.reason._tag === "NotFound"
+              ? "missing"
+              : "unverified";
+      }
+      let distributions: (typeof McpFactsSchema.Type)["distributions"] = [];
+      let runtimeArtifactPinned: boolean | null = null;
+      if (entry?.kind !== "inline") {
+        for (const root of inventoryRow?.paths ?? []) {
+          const directory = path.resolve(location.baseDir, root);
+          // Inventory also includes native config files, which cannot contain
+          // an authored or acquired package manifest.
+          const stat = yield* Effect.result(fs.stat(directory));
+          if (Result.isFailure(stat) || stat.success.type !== "Directory") continue;
+          const manifest = yield* readMcpServerManifestAt(directory);
+          if (Option.isNone(manifest)) continue;
+          const resolved = resolveMcpInvocation({
+            manifest: manifest.value,
+            distribution: entry?.distribution,
+            bindings: entry?.bindings,
+            auth: entry?.auth,
+          });
+          if (resolved._tag === "resolved") {
+            runtimeArtifactPinned = resolved.runtimeArtifactPinned;
+            cwd = resolved.connection.transport === "stdio" ? "host-default" : "not-applicable";
+          }
+          distributions = mcpDistributionCandidates(manifest.value).map((candidate) => {
+            const runner = candidate.kind === "package" ? mcpRunner(candidate.package) : undefined;
+            return {
+              id: candidate.id,
+              kind: candidate.kind,
+              transport: candidate.selector.transport,
+              destination: mcpDistributionDestination(candidate),
+              selected:
+                entry?.distribution !== undefined &&
+                mcpDistributionId(entry.distribution) === candidate.id,
+              supported: runner?._tag !== "unsupported",
+              ...(runner?._tag === "unsupported" ? { reason: runner.reason } : {}),
+              inputs: manifestInputs(candidate)
+                .flatMap((input) => [
+                  input,
+                  ...Object.entries(mcpInputVariables(input.input) ?? {}).map(
+                    ([variable, nested]) => ({
+                      ...input,
+                      target: { ...input.target, variable },
+                      input: nested,
+                    }),
+                  ),
+                ])
+                .map(({ target, input, repeated }) => ({
+                  id: mcpInputId(target),
+                  required: input.isRequired === true,
+                  secret: input.isSecret === true,
+                  repeated,
+                  hasDefault: input.default !== undefined,
+                })),
+            };
+          });
+          break;
+        }
+      }
+      mcp = {
+        sourceVersionLocked: lockEntry !== undefined,
+        runtimeArtifactPinned,
+        cwd,
+        runtime: "not-checked",
+        distributions,
+      };
       const desiredState = yield* DesiredStateReader;
       const graph = yield* desiredState.graph();
       const desiredNode = graph.nodes.find(
@@ -211,6 +351,22 @@ export const ShowExtension = {
             fields: [...(inspection?.fields ?? [])],
             warnings: [...(inspection?.warnings ?? [])],
             reason: outcome.reason,
+            configuration:
+              inspection?.status === "blocked" || inspection?.status === "unsupported"
+                ? "blocked"
+                : inspection?.status === "unverified"
+                  ? "unverified"
+                  : "valid",
+            projection: inspection?.status ?? "unverified",
+            readiness:
+              inspection?.status === "match" && cwd !== "missing" ? "unverified" : "blocked",
+            runtime: "not-checked",
+            manualActions: [
+              `${nativeMcpRoutes[outcome.agentId] ?? "Open the native host's MCP management UI"} for ${location.scope} scope${outcome.path === undefined ? "" : ` at ${outcome.path}`}. This may start the configured process or contact the endpoint.`,
+              "Make referenced environment variables available to the native host; AXM does not resolve their values.",
+              "Review native folder trust, policy and tool approvals. Use the selected server's native login action if required; login starts authentication and lets the host store its session.",
+              "Reload or restart the selected host after changing configuration, then invoke a harmless tool to verify the connection.",
+            ],
           };
         });
       }
@@ -222,7 +378,38 @@ export const ShowExtension = {
           fields: [],
           warnings: [],
           reason: "The extension is disabled, so no agent projection is expected.",
+          configuration: "valid" as const,
+          projection: "disabled",
+          readiness: "blocked" as const,
+          runtime: "not-checked" as const,
+          manualActions: [
+            "Reload or restart the native host; removal from desired configuration does not prove a running connection has stopped.",
+          ],
         }));
+      }
+    }
+
+    if (request.type === "mcp-server") {
+      for (const agent of request.agents ?? []) {
+        if (!agents.some((row) => row.agent === agent))
+          agents = [
+            ...agents,
+            {
+              agent,
+              status: "not-applicable",
+              reasonCode: "agent-not-configured",
+              fields: [],
+              warnings: [],
+              reason: "This agent is not configured in the selected scope.",
+              configuration: "unverified",
+              projection: "not-configured",
+              readiness: "blocked",
+              runtime: "not-checked",
+              manualActions: [
+                "Configure the agent in this scope before projecting the connection.",
+              ],
+            },
+          ];
       }
     }
 
@@ -237,7 +424,11 @@ export const ShowExtension = {
         scope: location.scope,
         locked: lockEntry !== undefined,
       },
-      agents,
+      ...(mcp === undefined ? {} : { mcp }),
+      agents:
+        request.agents === undefined || request.agents.length === 0
+          ? agents
+          : agents.filter((agent) => request.agents?.includes(agent.agent)),
     } satisfies ExtensionShowResult;
   }),
 };

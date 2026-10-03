@@ -87,7 +87,11 @@ describe("shared native MCP withdrawal", () => {
         workspaceRoot: root,
         serverName: "review",
         nativeInsertionEligible: true,
-        entry: { kind: "inline", command: "node", env: {}, enabled: true },
+        entry: {
+          kind: "inline",
+          connection: { transport: "stdio", command: "node", env: {} },
+          enabled: true,
+        },
       }).pipe(Effect.provide(authority.layer), Effect.result);
       expect(result._tag).toBe("Failure");
       expect(yield* fs.readFileString(file)).toBe("");
@@ -198,7 +202,11 @@ describe("shared native MCP withdrawal", () => {
           nativeInsertionEligible: true,
           workspaceRoot: root,
           serverName: "one",
-          entry: { kind: "inline", command: "node", env: {}, enabled: true },
+          entry: {
+            kind: "inline",
+            connection: { transport: "stdio", command: "node", env: {} },
+            enabled: true,
+          },
         });
         yield* removeMcpServerFromAgents(["claude-code", "cursor"], {
           nativeDirectoryInputs: { skillsDirectoryOverrides: {} },

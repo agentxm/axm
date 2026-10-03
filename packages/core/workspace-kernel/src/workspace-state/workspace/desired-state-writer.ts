@@ -255,7 +255,9 @@ export const makeDesiredStateWriter = (
     resolutionKey,
     lockEntry,
     versionRange,
-    env,
+    distribution,
+    bindings,
+    auth,
     enabled,
   }: SetMcpServerArgs): Write =>
     Effect.gen(function* () {
@@ -264,12 +266,17 @@ export const makeDesiredStateWriter = (
         "not-reached";
       const current = yield* settings;
       const existing = settingsEntries["mcp-server"].entries(current)[name];
+      const selected = distribution ?? existing?.distribution;
+      const bound = bindings ?? existing?.bindings;
+      const authentication = auth ?? existing?.auth;
       yield* writeSettings(
         settingsEntries["mcp-server"].set(current, name, {
           kind: "sourced" as const,
           source: yield* sourceFor("mcp-server", lockEntry, versionRange),
           enabled: enabled ?? existing?.enabled ?? true,
-          env: env ?? existing?.env ?? {},
+          ...(selected === undefined ? {} : { distribution: selected }),
+          ...(bound === undefined ? {} : { bindings: bound }),
+          ...(authentication === undefined ? {} : { auth: authentication }),
         }),
       );
       const currentLockfile = yield* lockfile;

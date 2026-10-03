@@ -54,6 +54,7 @@ export const CONFIGURABLE_AGENT_IDS = [
   "openhands",
   "ona",
   "pi",
+  "vscode",
   "pochi",
   "qoder",
   "qoder-cn",

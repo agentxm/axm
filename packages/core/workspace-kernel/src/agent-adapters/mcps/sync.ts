@@ -1,3 +1,4 @@
+import type { McpDistribution, McpBinding, McpAuth } from "./connection.js";
 /**
  * Writing MCP connections into agent-native configuration, and withdrawing
  * them: the writer side of the target plan.
@@ -172,7 +173,9 @@ export interface ValidateManifestMcpServerTargetsArgs {
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly serverName: string;
-  readonly values: Readonly<Record<string, string>>;
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
   readonly enabled: boolean;
   readonly nativeInsertionEligible: boolean;
   /** Captured newly configured physical routes; existing routes require durable ownership. */
@@ -232,6 +235,24 @@ const validatePlannedWrites = (
         writerFormat: write.target.format,
         raw: Option.getOrElse(yield* readNativeMcpConfig(write.path), () => ""),
       });
+      if (write.agentIds.includes("pi")) {
+        const entries = yield* readNativeMcpValues({
+          configPath: write.path,
+          raw: Option.getOrElse(yield* readNativeMcpConfig(write.path), () => ""),
+          format: write.target.format,
+          serversPath: write.config.serversPath,
+        });
+        const normalizedName = serverName.replaceAll("-", "_");
+        if (
+          Object.keys(entries).some(
+            (name) => name !== serverName && name.replaceAll("-", "_") === normalizedName,
+          )
+        ) {
+          return yield* new McpConfigInvalid({
+            detail: "Pi server names collide after native hyphen/underscore normalization",
+          });
+        }
+      }
       const adoption = adoptions?.find((entry) => entry.filePath === write.path);
       const proposedRaw = yield* validateAgentMcpConfigWrite({
         workspaceRoot,
@@ -284,7 +305,11 @@ export const validateInlineMcpServerTargets = (
         scope: args.scope ?? "project",
         serverName: args.serverName,
         declaration: args.entry,
-        values: args.entry.env,
+        resolvedCwd:
+          args.entry.connection?.transport === "stdio" &&
+          args.entry.connection.cwd?.base === "scope"
+            ? (yield* Path.Path).resolve(args.workspaceRoot, args.entry.connection.cwd.path)
+            : undefined,
         enabled: args.entry.enabled ?? true,
       }),
     );
@@ -388,9 +413,7 @@ export const mcpAgentSyncOutcome = (
         : "unsupported",
       reason: unavailable.join("; "),
     };
-  return agents.some((agent) => agent._tag === "projected" && agent.shimmed)
-    ? { ...facts, _tag: "fallback", reason: warnings.join("; ") }
-    : { ...facts, _tag: "success" };
+  return { ...facts, _tag: "success" };
 };
 
 /** Project one inline server into every configured agent that shares its files. */
@@ -416,7 +439,11 @@ export const syncInlineMcpServerToAgents = (
         scope: args.scope ?? "project",
         serverName: args.serverName,
         declaration: args.entry,
-        values: args.entry.env,
+        resolvedCwd:
+          args.entry.connection?.transport === "stdio" &&
+          args.entry.connection.cwd?.base === "scope"
+            ? (yield* Path.Path).resolve(args.workspaceRoot, args.entry.connection.cwd.path)
+            : undefined,
         enabled: args.entry.enabled ?? true,
       }),
     );
@@ -717,12 +744,16 @@ export const pruneManagedMcpServersForAgents = (
   });
 
 const manifestDeclaration = (args: {
-  readonly configValues?: Readonly<Record<string, string>> | undefined;
+  readonly distribution?: McpDistribution | undefined;
+  readonly bindings?: ReadonlyArray<McpBinding> | undefined;
+  readonly auth?: McpAuth | undefined;
   readonly enabled?: boolean | undefined;
 }): McpServerDeclaration => ({
   kind: "configuration",
-  env: args.configValues ?? {},
-  ...(args.enabled === undefined ? {} : { enabled: args.enabled }),
+  distribution: args.distribution,
+  bindings: args.bindings,
+  auth: args.auth,
+  enabled: args.enabled,
 });
 
 /** Refuse a manifest whose shared targets cannot hold one entry every reader accepts. */
@@ -735,9 +766,8 @@ export const validateManifestMcpServerTargets = (args: ValidateManifestMcpServer
         groups,
         scope: args.scope,
         serverName: args.serverName,
-        declaration: { kind: "configuration", env: args.values, enabled: args.enabled },
+        declaration: manifestDeclaration(args),
         manifest: args.manifest,
-        values: args.values,
         enabled: args.enabled,
       }),
     );
@@ -777,7 +807,6 @@ export const syncManifestMcpServerToAgents = (
         serverName: args.serverName,
         declaration: manifestDeclaration(args),
         manifest,
-        values: args.configValues ?? {},
         enabled: args.enabled ?? true,
       }),
     );
@@ -793,15 +822,7 @@ export const syncManifestMcpServerToAgents = (
         plan.agents.filter((agent) => agent.agentId === agentId),
         written.get(agentId) ?? [],
       );
-      // A shim is a resolution detail here, not a fallback: the connection
-      // reached the agent through the representation it accepts.
-      return outcome._tag === "fallback"
-        ? {
-            _tag: "success",
-            ...(outcome.targets === undefined ? {} : { targets: outcome.targets }),
-            ...(outcome.reason.length > 0 ? { warnings: [outcome.reason] } : {}),
-          }
-        : outcome;
+      return outcome;
     });
   });
 

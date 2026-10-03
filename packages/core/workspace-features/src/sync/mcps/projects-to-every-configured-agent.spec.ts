@@ -66,13 +66,18 @@ const NATIVE_CONFIGS = [CLAUDE_CODE_CONFIG, CURSOR_CONFIG] as const;
 
 /** Entries authored directly in `axm.json`, reaching agents only through sync. */
 const authoredInlineEntries = {
-  "local-tool": { command: "echo", args: ["local-tool"] },
-  "remote-tool": { url: "https://example.test/mcp" },
-  "muted-tool": { command: "echo muted", enabled: false },
+  "local-tool": { connection: { transport: "stdio", command: "echo", args: ["local-tool"] } },
+  "remote-tool": { connection: { transport: "streamable-http", url: "https://example.test/mcp" } },
+  "muted-tool": {
+    connection: { transport: "stdio", command: "echo", args: ["muted"] },
+    enabled: false,
+  },
 } as const;
 
-/** The entry shape `axm mcps add --command "node server.js"` records. */
-const addedEntry = { demo: { command: "node", args: ["server.js"] } } as const;
+/** The entry shape `axm mcps add --command node --arg server.js` records. */
+const addedEntry = {
+  demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+} as const;
 
 const nativeHasServer = (workspace: SyncFixture, file: string, name: string): boolean => {
   if (!workspace.exists(file)) return false;
@@ -144,7 +149,11 @@ describe("MCP servers project to every configured agent", () => {
             workspace.writeSettings({
               owner: "@acme",
               agents: bothAgents,
-              mcpServers: { adopted: { command: "node", args: ["adopted.js"] } },
+              mcpServers: {
+                adopted: {
+                  connection: { transport: "stdio", command: "node", args: ["adopted.js"] },
+                },
+              },
             });
             yield* applySync();
 

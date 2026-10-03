@@ -180,21 +180,15 @@ export {
 } from "./mcps/entry-semantics.js";
 export { buildAxmMcpMetadata, buildAxmMcpMetadataFromSettingsSource } from "./mcps/metadata.js";
 export {
-  inferInlineRemoteTransport,
   projectExpectedEntry,
   renderEnvValue,
   normalizeNativeMcpEnvValue,
   type ExpectedAgentEntry,
   type InlineRemoteTransport,
-  type InlineRemoteTransportInference,
   type McpServerDeclaration,
   type ProjectExpectedEntryArgs,
 } from "./mcps/expected-entry.js";
-export {
-  resolveMcpServer,
-  type McpResolution,
-  type ResolveMcpServerArgs,
-} from "./mcps/resolution.js";
+export { resolveMcpInvocation, type McpInvocationResolution } from "./mcps/resolution.js";
 export {
   removeAgentMcpConfig,
   retireAgentMcpConfig,
@@ -225,11 +219,14 @@ export {
   type NativeMcpConfigRead,
 } from "./mcps/native-config.js";
 export {
-  collectRequiredInputNames,
-  collectSecretInputNames,
   manifestInputs,
-  mcpProjectionInputValues,
+  mcpInputVariables,
+  mcpInputId,
+  resolveMcpInputs,
+  substituteMcpVariables,
   type ManifestInput,
+  type McpInputFinding,
+  type ResolvedMcpInputs,
 } from "./mcps/inputs.js";
 export { decodeMcpServerManifestAt, readMcpServerManifestAt } from "./mcps/manifest.js";
 export {
@@ -320,3 +317,33 @@ export {
   TransientBackupFailed,
   type TransientFileBackup,
 } from "./transient-backup.js";
+
+export {
+  McpValueSchema,
+  McpConnectionSchema,
+  McpWorkingDirectorySchema,
+  McpAuthSchema,
+  McpDistributionSchema,
+  McpBindingSchema,
+  normalizeMcpValue,
+  mcpValueHasReference,
+  isMcpCredentialName,
+  validateMcpConnection,
+  type McpValue,
+  type McpConnection,
+  type McpAuth,
+  type McpDistribution,
+  type McpBinding,
+  type McpConnectionFinding,
+} from "./mcps/connection.js";
+
+export {
+  normalizeMcpDistribution,
+  mcpDistributionId,
+  mcpDistributionCandidates,
+  mcpDistributionDestination,
+  selectMcpDistribution,
+  mcpRunner,
+  type McpDistributionCandidate,
+  type McpDistributionSelection,
+} from "./mcps/distribution.js";

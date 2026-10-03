@@ -62,8 +62,8 @@ describe("Install locally named MCP connections", () => {
 
           expect(readSettings(workspace)).toMatchObject({
             mcpServers: {
-              "work-context": "test:@acme/mcps/context",
-              "personal-context": "test:@acme/mcps/context",
+              "work-context": { source: "test:@acme/mcps/context" },
+              "personal-context": { source: "test:@acme/mcps/context" },
             },
           });
           const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
@@ -96,7 +96,7 @@ describe("Install locally named MCP connections", () => {
           yield* install("@acme/mcps/context", "personal-context");
 
           expect(readSettings(workspace)).toMatchObject({
-            mcpServers: { "personal-context": "test:@acme/mcps/context" },
+            mcpServers: { "personal-context": { source: "test:@acme/mcps/context" } },
           });
           const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {

@@ -58,13 +58,12 @@ import {
   type WorkspaceConfigurationExecutionFailure,
 } from "../errors.js";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
-import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
+import type { McpConnection, McpAuth } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   makeInlineMcpDefinition,
   matchesInlineMcpEntry,
   parseInlineMcpEnv,
   parseInlineMcpHeaders,
-  validateInlineMcpRemoteUrl,
 } from "./definition.js";
 
 const plural = (count: number, singular: string): string =>
@@ -72,7 +71,13 @@ const plural = (count: number, singular: string): string =>
 
 export interface AddInlineMcpServerRequest {
   readonly name: string;
-  /** Inline stdio command line, such as `npx -y linear-mcp-server`. */
+  readonly connection?: unknown;
+  readonly transport?: McpConnection["transport"];
+  readonly args?: ReadonlyArray<string>;
+  readonly cwd?: string;
+  readonly headerEnv?: ReadonlyArray<string>;
+  readonly auth?: McpAuth;
+  /** One literal executable token. Arguments are separate. */
   readonly command?: string;
   /** Inline remote streamable-HTTP URL. */
   readonly url?: string;
@@ -85,8 +90,8 @@ export interface AddInlineMcpServerRequest {
 export interface AddInlineMcpServerCandidate {
   readonly _tag: "AddInlineMcpServer";
   readonly name: string;
-  readonly definition: InlineMcpDefinition;
-  readonly env: Readonly<Record<string, string>>;
+  readonly definition: McpConnection;
+  readonly auth?: McpAuth;
   /** Whether the settings file already carries an entry under this name. */
   readonly replacesExistingEntry: boolean;
   readonly scope: WorkspaceScope;
@@ -112,7 +117,11 @@ export const prepareAddInlineMcpServer = (
   SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
-    if (request.command === undefined && request.url === undefined) {
+    if (
+      request.connection === undefined &&
+      request.command === undefined &&
+      request.url === undefined
+    ) {
       return yield* new WorkspaceConfigurationFailed({
         category: "usage",
         detail: `mcps add only configures inline MCP servers. Use axm mcps install ${request.name} for package or source locators.`,
@@ -124,7 +133,10 @@ export const prepareAddInlineMcpServer = (
         ],
       });
     }
-    if (request.command !== undefined && request.url !== undefined) {
+    if (
+      [request.command, request.url, request.connection].filter((value) => value !== undefined)
+        .length !== 1
+    ) {
       return yield* new WorkspaceConfigurationFailed({
         category: "usage",
         detail: "Use exactly one of --command or --url.",
@@ -134,18 +146,17 @@ export const prepareAddInlineMcpServer = (
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const env = yield* parseInlineMcpEnv(request.env);
-    const headers = yield* parseInlineMcpHeaders(request.headers);
-    if (request.url !== undefined) yield* validateInlineMcpRemoteUrl(request.url);
-    const definition = yield* makeInlineMcpDefinition(
-      {
-        command: request.command,
-        url: request.url,
-      },
-      headers,
-    );
+    const headers = yield* parseInlineMcpHeaders(request.headers, request.headerEnv);
+    const definition = yield* makeInlineMcpDefinition(request, headers, env);
     const configured = yield* settings.entries("mcp-server");
     const existing = configured[request.name];
-    if (matchesInlineMcpEntry({ existing, definition, env })) {
+    if (
+      matchesInlineMcpEntry({
+        existing,
+        definition,
+        ...(request.auth === undefined ? {} : { auth: request.auth }),
+      })
+    ) {
       return {
         _tag: "Unchanged",
         name: request.name,
@@ -157,7 +168,7 @@ export const prepareAddInlineMcpServer = (
       _tag: "AddInlineMcpServer",
       name: request.name,
       definition,
-      env,
+      ...(request.auth === undefined ? {} : { auth: request.auth }),
       replacesExistingEntry: existing !== undefined,
       scope: location.scope,
     } satisfies AddInlineMcpServerCandidate;
@@ -181,10 +192,8 @@ const recordStep = (candidate: AddInlineMcpServerCandidate): ReadyJobStep<Settin
     yield* settings
       .setEntry("mcp-server", candidate.name, {
         kind: "inline",
-        ...(candidate.definition.type === "stdio"
-          ? { command: candidate.definition.command, args: candidate.definition.args }
-          : { url: candidate.definition.url, headers: candidate.definition.headers }),
-        env: candidate.env,
+        connection: candidate.definition,
+        ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
         enabled: true,
       })
       .pipe(Effect.mapError(workspaceChangeFailedToStepFailure));
@@ -350,10 +359,8 @@ export const previewOrApplyAddInlineMcpServer = (
       scope: location.scope,
       entry: {
         kind: "inline" as const,
-        ...(candidate.definition.type === "stdio"
-          ? { command: candidate.definition.command, args: candidate.definition.args }
-          : { url: candidate.definition.url, headers: candidate.definition.headers }),
-        env: candidate.env,
+        connection: candidate.definition,
+        ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
         enabled: true,
       },
     };

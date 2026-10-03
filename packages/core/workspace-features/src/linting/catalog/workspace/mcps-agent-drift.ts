@@ -23,8 +23,7 @@ const relativeToRoot = (root: string, file: string): string => {
   return file.startsWith(prefix) ? file.slice(prefix.length) : file;
 };
 
-const isInlineEntry = (entry: McpServerEntry): boolean =>
-  entry.command !== undefined || entry.url !== undefined;
+const isInlineEntry = (entry: McpServerEntry): boolean => entry.kind === "inline";
 
 const configuredEntry = (row: InstalledMcpServer): McpServerEntry | undefined =>
   row.installationOrigin._tag === "direct" ? row.installationOrigin.declared.entry : undefined;
@@ -98,7 +97,6 @@ const checkActual = (args: {
     scope: args.row.key.scope,
     serverName: args.row.key.name,
     declaration: args.entry,
-    values: args.entry.env,
     enabled: args.entry.enabled ?? true,
   });
   if (plan._tag === "invalid") return undefined;

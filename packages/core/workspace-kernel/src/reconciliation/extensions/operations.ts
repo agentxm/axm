@@ -1103,7 +1103,29 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
         target: args.target,
       });
       if (stillRequiredByPack) {
-        yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
+        const writer = yield* SettingsWriter;
+        const mcpEntry =
+          args.target.type === "mcp-server"
+            ? (yield* (yield* SettingsReader).entries("mcp-server"))[args.target.name]
+            : undefined;
+        // Removing the direct acquisition route must retain the invocation
+        // preferences of the connection still reached through a Pack.
+        if (
+          mcpEntry !== undefined &&
+          mcpEntry.kind !== "inline" &&
+          (mcpEntry.distribution !== undefined ||
+            mcpEntry.bindings !== undefined ||
+            mcpEntry.auth !== undefined)
+        ) {
+          yield* writer.setEntry("mcp-server", args.target.name, {
+            kind: "configuration",
+            ...(mcpEntry.distribution === undefined ? {} : { distribution: mcpEntry.distribution }),
+            ...(mcpEntry.bindings === undefined ? {} : { bindings: mcpEntry.bindings }),
+            ...(mcpEntry.auth === undefined ? {} : { auth: mcpEntry.auth }),
+          });
+        } else {
+          yield* writer.removeEntry(args.target.type, args.target.name);
+        }
         const graph = yield* (yield* DesiredStateReader).graph();
         const retained = graph.nodes.find(
           (node) => node.type === args.target.type && node.name === args.target.name,
@@ -1190,7 +1212,12 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
         Effect.gen(function* () {
           if (manager.isConfigured !== undefined || manager.getConfiguredSource !== undefined) {
             const remainsConfigured = yield* isConfigured(manager, args.target);
-            if (remainsConfigured) {
+            const retainedMcpPreference =
+              args.target.type === "mcp-server" &&
+              outcome.settlement.canonical === "retained-by-pack" &&
+              (yield* (yield* SettingsReader).entries("mcp-server"))[args.target.name]?.kind ===
+                "configuration";
+            if (remainsConfigured && !retainedMcpPreference) {
               return yield* new LifecyclePostconditionViolated({
                 postcondition: "uninstall-remains-declared",
                 targetType: args.target.type,

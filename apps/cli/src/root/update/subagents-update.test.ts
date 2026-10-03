@@ -50,7 +50,8 @@ const installSubagent = (fqn: string) =>
     all: false,
     force: false,
     preview: false,
-    env: [],
+    bind: [],
+    bindEnv: [],
     localName: Option.none(),
     bundled: false,
   });

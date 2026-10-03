@@ -1,3 +1,4 @@
+import * as SchemaIssue from "effect/SchemaIssue";
 /** Cached scoped state-source loaders for `axm.json` and `axm-lock.yaml`. */
 
 import * as Effect from "effect/Effect";
@@ -96,7 +97,12 @@ export const decodeSettingsBytes = Effect.fn("workspace.read-model.state.setting
   function* (path: string, bytes: string) {
     const parsed = yield* Effect.try({
       try: (): unknown => JSON.parse(bytes),
-      catch: (cause): SettingsParseError => new SettingsParseError({ path, raw: bytes, cause }),
+      catch: (): SettingsParseError =>
+        new SettingsParseError({
+          path,
+          raw: "[Settings input withheld]",
+          cause: new Error("Settings JSON syntax is invalid; input values are withheld"),
+        }),
     });
     return yield* Schema.decodeUnknownEffect(SettingsSchema)(parsed, {
       onExcessProperty: "error",
@@ -105,8 +111,19 @@ export const decodeSettingsBytes = Effect.fn("workspace.read-model.state.setting
         (error) =>
           new SettingsDecodeError({
             path,
-            issues: formatSchemaIssuesToLines(error.issue),
-            raw: parsed,
+            issues:
+              typeof parsed === "object" && parsed !== null && "mcpServers" in parsed
+                ? SchemaIssue.makeFormatterStandardSchemaV1()(error.issue)
+                    .issues.slice(0, 5)
+                    .map(
+                      (item) =>
+                        `${(item.path ?? []).map((part) => (typeof part === "object" && part !== null && "key" in part ? String(part.key) : String(part))).join(".")}: invalid settings value (MCP input values withheld)`,
+                    )
+                : formatSchemaIssuesToLines(error.issue),
+            raw:
+              typeof parsed === "object" && parsed !== null && "mcpServers" in parsed
+                ? "[MCP settings input withheld]"
+                : parsed,
           }),
       ),
     );

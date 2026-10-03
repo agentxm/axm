@@ -80,17 +80,6 @@ export {
   type AcquiredContentIdentity,
 } from "./accepted-resolution.js";
 
-// The credential port MCP connection installs persist secrets through.
-export {
-  MCP_SECRET_SERVICE,
-  McpSecretStore,
-  mcpSecretAccount,
-  type McpSecretEraseOutcome,
-  type McpSecretIdentity,
-  type McpSecretStoreService,
-  type McpSecretWriteOutcome,
-} from "./ports/mcp-secret-store.js";
-
 // The artifact a skill materialization reports across its agent targets
 export {
   artifactAgentIdsFromTargets,

@@ -29,8 +29,7 @@ const inspectAgentMcpServer = (args: {
     agentIds: [args.agentId],
     node: {
       name: args.serverName,
-      authority:
-        args.entry.command !== undefined || args.entry.url !== undefined ? "inline" : "sourced",
+      authority: args.entry.kind === "inline" ? "inline" : "sourced",
     },
     entry: args.entry,
     canonicalPaths: [],
@@ -64,17 +63,20 @@ const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   );
 
 const contextEntry = {
-  source: "inline",
-  command: "npx",
-  args: ["-y", "@acme/context-mcp"],
+  kind: "inline",
+  connection: {
+    transport: "stdio",
+    command: "npx",
+    args: ["-y", "@acme/context-mcp"],
+    env: { ACME_REGION: "west" },
+  },
   enabled: true,
-  env: { ACME_TOKEN: "secret" },
 } satisfies McpServerEntry;
 
 const registryContextEntry = {
+  kind: "sourced",
   source: "@acme/mcps/context",
   enabled: true,
-  env: {},
 } satisfies McpServerEntry;
 
 const writeCodexConfig = (workspaceRoot: string, lines: ReadonlyArray<string>) => {
@@ -206,7 +208,7 @@ describe("agent MCP config inspection", () => {
               "managed = true",
               "",
               "[mcp_servers.context.env]",
-              'ACME_TOKEN = "secret"',
+              'ACME_REGION = "west"',
               "# axm:end v=1 region=mcp-server:context ext=@agentxm/mcps/context",
               "",
             ].join("\n"),
@@ -364,7 +366,7 @@ describe("agent MCP config inspection", () => {
               enabled: true,
               command: "npx",
               args: ["-y", "@acme/context-mcp"],
-              env: { ACME_TOKEN: "secret" },
+              env: { ACME_REGION: "west" },
             }).pipe(
               Effect.flatMap(() =>
                 inspectAgentMcpServer({
@@ -390,7 +392,7 @@ describe("agent MCP config inspection", () => {
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
-                env: { ACME_TOKEN: "secret" },
+                env: { ACME_REGION: "west" },
               });
             }),
           );
@@ -418,7 +420,7 @@ describe("agent MCP config inspection", () => {
               enabled: true,
               command: "pnpx",
               args: ["-y", "@acme/context-mcp"],
-              env: { ACME_TOKEN: "secret" },
+              env: { ACME_REGION: "west" },
             }).pipe(
               Effect.flatMap(() =>
                 inspectAgentMcpServer({

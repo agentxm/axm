@@ -1,351 +1,299 @@
-import * as DateTime from "effect/DateTime";
+import type * as DateTime from "effect/DateTime";
+import * as Schema from "effect/Schema";
+import * as Result from "effect/Result";
 import type {
   McpConfigTarget,
   McpEnvExpansion,
   McpServersPath,
+  McpEntryDialect,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
-
 import {
   isAxmManagedMcpEntry,
   normalizeNativeMcpEnvValue,
+  renderEnvValue,
+  McpConnectionSchema,
+  validateMcpConnection,
+  type McpConnection,
+  type McpAuth,
+  type McpValue,
 } from "@agentxm/workspace-kernel/agent-adapters";
-export type InlineMcpDefinition =
-  | {
-      readonly type: "stdio";
-      readonly command: string;
-      readonly args: ReadonlyArray<string>;
-    }
-  | {
-      readonly type: "http";
-      readonly url: string;
-      readonly headers: Readonly<Record<string, string>>;
-    };
 
+export type InlineMcpDefinition = McpConnection;
 export interface McpImportSource {
+  readonly agentId: string;
+  readonly dialect: McpEntryDialect;
+  readonly workspaceRoot: string;
   readonly envExpansion?: McpEnvExpansion;
+  readonly fingerprint: string;
   readonly filePath: string;
   readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
-  readonly servers: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
+  readonly servers: Readonly<Record<string, unknown>>;
 }
-
 export interface McpImportAdoption {
+  readonly fingerprint: string;
   readonly filePath: string;
   readonly serversPath: McpServersPath;
   readonly name: string;
   readonly target: McpConfigTarget;
   readonly expectedEntry: Readonly<Record<string, unknown>>;
 }
-
 export interface McpImportCandidate {
   readonly name: string;
-  readonly definition: InlineMcpDefinition;
-  readonly env: Readonly<Record<string, string>>;
+  readonly definition: McpConnection;
+  readonly enabled: boolean;
+  readonly auth?: McpAuth;
   readonly adoptions: ReadonlyArray<McpImportAdoption>;
 }
-
 export interface McpImportFinding {
   readonly name: string;
   readonly reason: string;
 }
-
 export interface McpImportPreflight {
   readonly candidates: ReadonlyArray<McpImportCandidate>;
   readonly skipped: ReadonlyArray<McpImportFinding>;
   readonly conflicts: ReadonlyArray<McpImportFinding>;
 }
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
+const record = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-
-const stringArray = (value: unknown): ReadonlyArray<string> | undefined =>
-  Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined;
-
-const stringRecord = (value: unknown): Readonly<Record<string, string>> | undefined => {
-  if (!isRecord(value)) return undefined;
-  const entries = Object.entries(value);
-  if (entries.some(([, item]) => typeof item !== "string")) return undefined;
-  return Object.fromEntries(entries.map(([key, item]) => [key, String(item)]));
-};
-
-const sortedRecord = (value: Readonly<Record<string, string>>): Readonly<Record<string, string>> =>
-  Object.fromEntries(Object.entries(value).sort(([left], [right]) => left.localeCompare(right)));
-
-const envRefs = (
-  value: unknown,
-  expansion: McpEnvExpansion | undefined,
-): Readonly<Record<string, string>> | undefined => {
-  const env = value === undefined ? {} : stringRecord(value);
-  if (env === undefined) return undefined;
-  return Object.fromEntries(
-    Object.keys(env)
-      .sort((left, right) => left.localeCompare(right))
-      .map((name) => {
-        const normalized = normalizeNativeMcpEnvValue(env[name] ?? "", expansion);
-        return [
-          name,
-          /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u.test(normalized) ? normalized : `\${${name}}`,
-        ];
-      }),
-  );
-};
-
-const isSensitiveName = (name: string): boolean =>
-  /(?:authorization|cookie|credential|password|secret|token|api[-_]?key)/iu.test(name);
-
-const hasEnvironmentReference = (value: string): boolean =>
-  /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u.test(value);
-
-const literalSensitiveField = (
-  config: Readonly<Record<string, unknown>>,
-): McpImportFinding | undefined => {
-  const entry = Object.entries(config).find(
-    ([name, value]) =>
-      isSensitiveName(name) && typeof value === "string" && !hasEnvironmentReference(value),
-  );
-  return entry === undefined
-    ? undefined
-    : {
-        name: entry[0],
-        reason: `Sensitive field ${entry[0]} must use an environment reference`,
-      };
-};
-
-const sensitiveArgumentConflict = (args: ReadonlyArray<string>): McpImportFinding | undefined => {
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index] ?? "";
-    const assignment = /^(?:--)?([^=]+)=(.*)$/u.exec(argument);
-    const assignedName = assignment?.[1];
-    const assignedValue = assignment?.[2];
-    if (
-      assignedName !== undefined &&
-      assignedValue !== undefined &&
-      isSensitiveName(assignedName) &&
-      !hasEnvironmentReference(assignedValue)
-    ) {
-      return {
-        name: assignedName,
-        reason: `Sensitive argument ${assignedName} must use an environment reference`,
-      };
-    }
-
-    const flagName = argument.replace(/^-+/u, "");
-    if (assignment === null && argument.startsWith("-") && isSensitiveName(flagName)) {
-      const value = args[index + 1];
-      if (value === undefined || !hasEnvironmentReference(value)) {
-        return {
-          name: flagName,
-          reason: `Sensitive argument ${flagName} must use an environment reference`,
-        };
-      }
-      index += 1;
-    }
-  }
-  return undefined;
-};
-
-const sensitiveHeaderConflict = (
-  headers: Readonly<Record<string, string>>,
-): McpImportFinding | undefined => {
-  const entry = Object.entries(headers).find(
-    ([name, value]) => isSensitiveName(name) && !hasEnvironmentReference(value),
-  );
-  return entry === undefined
-    ? undefined
-    : {
-        name: entry[0],
-        reason: `Sensitive header ${entry[0]} must use an environment reference`,
-      };
-};
-
-const sensitiveUrlConflict = (value: string): string | undefined => {
-  try {
-    const url = new URL(value);
-    if (url.protocol !== "http:" && url.protocol !== "https:") {
-      return "Unsupported MCP server URL scheme; use an http(s) URL";
-    }
-    const username = decodeURIComponent(url.username);
-    const password = decodeURIComponent(url.password);
-    if (
-      (username.length > 0 && !hasEnvironmentReference(username)) ||
-      (password.length > 0 && !hasEnvironmentReference(password))
-    ) {
-      return "MCP server URL credentials must use an environment reference";
-    }
-    const sensitiveParameter = Array.from(url.searchParams.keys()).find(isSensitiveName);
-    if (
-      sensitiveParameter !== undefined &&
-      !hasEnvironmentReference(url.searchParams.get(sensitiveParameter) ?? "")
-    ) {
-      return `Sensitive URL parameter ${sensitiveParameter} must use an environment reference`;
-    }
-    return undefined;
-  } catch {
-    return "Unsupported MCP server URL";
-  }
-};
-
+const strings = (value: unknown): value is ReadonlyArray<string> =>
+  Array.isArray(value) && value.every((item) => typeof item === "string");
 type NormalizedServer =
   | { readonly _tag: "candidate"; readonly candidate: McpImportCandidate }
   | { readonly _tag: "skip"; readonly finding: McpImportFinding }
   | { readonly _tag: "conflict"; readonly finding: McpImportFinding };
 
+/** Every native field is either translated, known nonsemantic metadata, or a blocker. */
 const normalizeServer = (args: {
   readonly name: string;
   readonly config: Readonly<Record<string, unknown>>;
   readonly adoption: McpImportAdoption;
-  readonly now: DateTime.Utc;
+  readonly agentId: string;
+  readonly dialect: McpEntryDialect;
+  readonly workspaceRoot: string;
   readonly envExpansion?: McpEnvExpansion;
 }): NormalizedServer => {
-  if (isAxmManagedMcpEntry(args.config)) {
+  const { config, dialect } = args;
+  const block = (reason: string): NormalizedServer => ({
+    _tag: "conflict",
+    finding: { name: args.name, reason },
+  });
+  if (isAxmManagedMcpEntry(config))
     return { _tag: "skip", finding: { name: args.name, reason: "Already managed by AXM" } };
-  }
-
-  if (args.envExpansion?.variables === "env-tag") {
-    const text = [
-      ...(typeof args.config["command"] === "string"
-        ? [args.config["command"]]
-        : (stringArray(args.config["command"]) ?? [])),
-      ...(stringArray(args.config["args"]) ?? []),
-      ...(typeof args.config["url"] === "string" ? [args.config["url"]] : []),
-      ...Object.values(stringRecord(args.config["env"] ?? args.config["environment"]) ?? {}),
-      ...Object.values(stringRecord(args.config["headers"] ?? args.config["http_headers"]) ?? {}),
-    ];
-    if (text.some((value) => /\$\{[A-Za-z_][A-Za-z0-9_]*(?::-|\})/u.test(value)))
-      return {
-        _tag: "conflict",
-        finding: {
-          name: args.name,
-          reason:
-            "Native literal uses workspace environment-reference syntax and cannot be imported without changing its meaning",
-        },
-      };
-  }
-
-  const sensitiveField = literalSensitiveField(args.config);
-  if (sensitiveField !== undefined) {
-    return {
-      _tag: "conflict",
-      finding: { name: args.name, reason: sensitiveField.reason },
-    };
-  }
-
-  const env = envRefs(args.config["env"] ?? args.config["environment"], args.envExpansion);
-  if (env === undefined) {
-    return {
-      _tag: "skip",
-      finding: { name: args.name, reason: "Unsupported MCP server environment" },
-    };
-  }
-
-  const nativeUrl = args.config["url"];
-  const url =
-    typeof nativeUrl === "string"
-      ? normalizeNativeMcpEnvValue(nativeUrl, args.envExpansion)
-      : nativeUrl;
-  if (typeof url === "string") {
-    const rawHeaders = args.config["headers"] ?? args.config["http_headers"];
-    const decodedHeaders = rawHeaders === undefined ? {} : stringRecord(rawHeaders);
-    const headers =
-      decodedHeaders === undefined
-        ? undefined
-        : Object.fromEntries(
-            Object.entries(decodedHeaders).map(([key, value]) => [
-              key,
-              normalizeNativeMcpEnvValue(value, args.envExpansion),
-            ]),
-          );
-    if (headers === undefined) {
-      return {
-        _tag: "skip",
-        finding: { name: args.name, reason: "Unsupported MCP server headers" },
-      };
+  const supported = new Set<string>(["description"]);
+  let enabled = true;
+  const activations = dialect.activationField.accepted.filter((field) => field !== null);
+  for (const field of activations) {
+    supported.add(field.name);
+    const value = config[field.name];
+    if (value !== undefined) {
+      if (value !== field.enabled && value !== field.disabled)
+        return block("Unsupported activation value");
+      enabled = value === field.enabled;
     }
-    const headerConflict = sensitiveHeaderConflict(headers);
-    if (headerConflict !== undefined) {
-      return {
-        _tag: "conflict",
-        finding: { name: args.name, reason: headerConflict.reason },
-      };
+  }
+  let valueProblem = false;
+  const value = (
+    raw: string,
+    field: "command" | "args" | "env" | "headers" | "url" | "cwd",
+  ): McpValue => {
+    const normalized = normalizeNativeMcpEnvValue(raw, args.envExpansion, field);
+    if (
+      renderEnvValue(normalized, args.envExpansion ?? { variables: "none", defaults: false }, field)
+        .warning !== undefined
+    )
+      valueProblem = true;
+    return normalized;
+  };
+  const values = (
+    raw: unknown,
+    field: "env" | "headers",
+  ): Readonly<Record<string, McpValue>> | undefined => {
+    if (raw === undefined) return {};
+    if (!record(raw)) return undefined;
+    const result: Record<string, McpValue> = {};
+    for (const [key, item] of Object.entries(raw).sort(([a], [b]) => a.localeCompare(b))) {
+      if (typeof item !== "string") return undefined;
+      result[key] = value(item, field);
     }
-    const urlConflict = sensitiveUrlConflict(url);
-    if (urlConflict !== undefined) {
-      return { _tag: "conflict", finding: { name: args.name, reason: urlConflict } };
+    return result;
+  };
+  const transports = ["stdio", "streamable-http", "sse"] as const;
+  const possible = transports.filter((transport) => {
+    const selected = transport === "stdio" ? dialect.stdio : dialect.remote;
+    if (selected === null) return false;
+    if (
+      transport !== "stdio" &&
+      (dialect.remote?.urlKey[transport] === undefined ||
+        typeof config[dialect.remote.urlKey[transport] ?? ""] !== "string")
+    )
+      return false;
+    if (transport === "stdio" && config["command"] === undefined) return false;
+    const names = selected.typeField.accepted.flatMap((field) =>
+      field === null ? [] : [field.name],
+    );
+    return selected.typeField.accepted.some((field) =>
+      field === null
+        ? names.every((name) => config[name] === undefined)
+        : config[field.name] ===
+          (typeof field.value === "string"
+            ? field.value
+            : transport === "stdio"
+              ? undefined
+              : field.value[transport]),
+    );
+  });
+  const transport = possible[0];
+  if (possible.length !== 1 || transport === undefined)
+    return block(
+      "Native transport is ambiguous or unsupported; declare its transport explicitly before import",
+    );
+  const selected = transport === "stdio" ? dialect.stdio : dialect.remote;
+  if (selected === null) return block("Native transport is unsupported");
+  for (const field of selected.typeField.accepted) if (field !== null) supported.add(field.name);
+  let proposed: unknown;
+  if (transport === "stdio" && dialect.stdio !== null) {
+    const local = dialect.stdio;
+    supported.add("command");
+    const rawCommand = config["command"];
+    let command: string | undefined;
+    let rawArgs: ReadonlyArray<string>;
+    if (local.command === "array") {
+      if (!strings(rawCommand) || rawCommand.length === 0)
+        return block("Native command must be a nonempty argument vector");
+      command = rawCommand[0];
+      rawArgs = rawCommand.slice(1);
+    } else {
+      supported.add("args");
+      if (
+        typeof rawCommand !== "string" ||
+        (config["args"] !== undefined && !strings(config["args"]))
+      )
+        return block("Unsupported command or argument shape");
+      command = rawCommand;
+      rawArgs = strings(config["args"]) ? config["args"] : [];
     }
-    return {
-      _tag: "candidate",
-      candidate: {
-        name: args.name,
-        definition: {
-          type: "http",
-          url,
-          headers: sortedRecord(headers),
-        },
-        env,
-        adoptions: [args.adoption],
-      },
+    if (command === undefined) return block("Missing native executable");
+    const executable = value(command, "command");
+    if (typeof executable !== "string")
+      return block(
+        "Executable environment substitution cannot be represented by a literal executable token",
+      );
+    const env = local.envKey === null ? {} : values(config[local.envKey], "env");
+    if (env === undefined) return block("Unsupported environment value shape");
+    if (local.envKey !== null) supported.add(local.envKey);
+    const environment = { ...env };
+    if (local.envVarsKey !== undefined) {
+      supported.add(local.envVarsKey);
+      const forwarded = config[local.envVarsKey];
+      if (forwarded !== undefined && !strings(forwarded))
+        return block("Unsupported native environment allowlist");
+      for (const name of strings(forwarded) ? forwarded : []) {
+        if (Object.hasOwn(environment, name))
+          return block("Overlapping native environment bindings require source remediation");
+        environment[name] = { env: name };
+      }
+    }
+    const cwd = local.cwdKey === undefined ? undefined : config[local.cwdKey];
+    if (local.cwdKey !== undefined) supported.add(local.cwdKey);
+    if (cwd !== undefined && typeof cwd !== "string")
+      return block("Native working directory must be a string");
+    if (typeof cwd === "string" && (typeof value(cwd, "cwd") !== "string" || valueProblem))
+      return block("Native working-directory substitutions require source remediation");
+    if (
+      args.agentId === "pi" &&
+      (cwd === undefined || (typeof cwd === "string" && !/^(?:\/|[A-Za-z]:[\\/])/u.test(cwd)))
+    )
+      return block(
+        "Pi uses the session directory; set an absolute cwd in the native source before import",
+      );
+    proposed = {
+      transport,
+      command: executable,
+      args: rawArgs.map((item) => value(item, "args")),
+      env: environment,
+      ...(typeof cwd === "string"
+        ? {
+            cwd: /^(?:\/|[A-Za-z]:[\\/])/u.test(cwd)
+              ? { base: "absolute", path: cwd }
+              : { base: "scope", path: cwd },
+          }
+        : {}),
     };
+  } else if (transport !== "stdio" && dialect.remote !== null) {
+    const remote = dialect.remote;
+    const urlKey = remote.urlKey[transport];
+    const url = urlKey === undefined ? undefined : config[urlKey];
+    if (urlKey === undefined || typeof url !== "string") return block("Missing native endpoint");
+    supported.add(urlKey);
+    const headers = remote.headersKey === null ? {} : values(config[remote.headersKey], "headers");
+    if (headers === undefined) return block("Unsupported header value shape");
+    if (remote.headersKey !== null) supported.add(remote.headersKey);
+    const combined = { ...headers };
+    if (remote.envHeadersKey != null) {
+      supported.add(remote.envHeadersKey);
+      const mappings = config[remote.envHeadersKey];
+      if (mappings !== undefined && !record(mappings))
+        return block("Unsupported environment header bindings");
+      for (const [name, variable] of Object.entries(record(mappings) ? mappings : {})) {
+        if (
+          typeof variable !== "string" ||
+          Object.keys(combined).some((key) => key.toLowerCase() === name.toLowerCase())
+        )
+          return block("Ambiguous native header bindings");
+        combined[name] = { env: variable };
+      }
+    }
+    if (remote.bearerTokenEnvKey != null) {
+      supported.add(remote.bearerTokenEnvKey);
+      const bearer = config[remote.bearerTokenEnvKey];
+      if (bearer !== undefined) {
+        if (
+          typeof bearer !== "string" ||
+          Object.keys(combined).some((name) => name.toLowerCase() === "authorization")
+        )
+          return block("Ambiguous native authorization bindings");
+        combined["Authorization"] = { template: ["Bearer ", { env: bearer }] };
+      }
+    }
+    proposed = { transport, url: value(url, "url"), headers: combined };
   }
-
-  const commandValue = args.config["command"];
-  const separateArgs = args.config["args"] === undefined ? [] : stringArray(args.config["args"]);
-  if (separateArgs === undefined) {
-    return {
-      _tag: "skip",
-      finding: { name: args.name, reason: "Unsupported MCP server arguments" },
-    };
-  }
-  const command =
-    typeof commandValue === "string"
-      ? { executable: commandValue, args: separateArgs }
-      : (() => {
-          const parts = stringArray(commandValue);
-          if (parts === undefined) return undefined;
-          const executable = parts[0];
-          return executable === undefined ? undefined : { executable, args: parts.slice(1) };
-        })();
-  if (command === undefined || command.executable.length === 0) {
-    return {
-      _tag: "skip",
-      finding: { name: args.name, reason: "Unsupported MCP server configuration" },
-    };
-  }
-  const commandArgs = command.args.map((value) =>
-    normalizeNativeMcpEnvValue(value, args.envExpansion),
+  if (
+    args.agentId === "github-copilot-cli" &&
+    strings(config["tools"]) &&
+    config["tools"].length === 1 &&
+    config["tools"][0] === "*"
+  )
+    supported.add("tools");
+  if (Object.keys(config).some((key) => !supported.has(key)))
+    return block(
+      "Native configuration contains fields whose semantics cannot be preserved; remediate the source before import",
+    );
+  if (valueProblem)
+    return block("Native interpolation or executable-value syntax cannot be represented safely");
+  const decoded = Schema.decodeUnknownResult(McpConnectionSchema, { onExcessProperty: "error" })(
+    proposed,
   );
-  const argumentConflict = sensitiveArgumentConflict(commandArgs);
-  if (argumentConflict !== undefined) {
-    return {
-      _tag: "conflict",
-      finding: { name: args.name, reason: argumentConflict.reason },
-    };
-  }
+  if (Result.isFailure(decoded))
+    return block("Native invocation cannot be represented by the canonical connection contract");
+  const findings = validateMcpConnection(decoded.success);
+  if (findings.length > 0) return block(findings.map(({ message }) => message).join("; "));
   return {
     _tag: "candidate",
     candidate: {
       name: args.name,
-      definition: {
-        type: "stdio",
-        command: normalizeNativeMcpEnvValue(command.executable, args.envExpansion),
-        args: commandArgs,
-      },
-      env,
+      definition: decoded.success,
+      enabled,
       adoptions: [args.adoption],
     },
   };
 };
-
-const candidateIdentity = (candidate: McpImportCandidate): string => {
-  const entry = candidate.definition;
-  return JSON.stringify({
-    type: entry.type,
-    command: entry.type === "stdio" ? entry.command : undefined,
-    args: entry.type === "stdio" ? entry.args : undefined,
-    url: entry.type === "http" ? entry.url : undefined,
-    headers: entry.type === "http" ? entry.headers : undefined,
-    env: sortedRecord(candidate.env),
+const candidateIdentity = (candidate: McpImportCandidate): string =>
+  JSON.stringify({
+    connection: candidate.definition,
+    enabled: candidate.enabled,
+    auth: candidate.auth,
   });
-};
 
 const sortFindings = (findings: ReadonlyArray<McpImportFinding>): ReadonlyArray<McpImportFinding> =>
   [...findings].sort(
@@ -373,17 +321,25 @@ export const preflightMcpImports = (args: {
         skipped.push({ name, reason: "Already configured" });
         continue;
       }
+      if (!record(value)) {
+        conflictNames.add(name);
+        conflicts.push({ name, reason: "Native MCP entry is not an object" });
+        continue;
+      }
       const normalized = normalizeServer({
         name,
         config: value,
         adoption: {
+          fingerprint: source.fingerprint,
           filePath: source.filePath,
           serversPath: source.serversPath,
           name,
           target: source.target,
           expectedEntry: value,
         },
-        now: args.now,
+        agentId: source.agentId,
+        dialect: source.dialect,
+        workspaceRoot: source.workspaceRoot,
         ...(source.envExpansion === undefined ? {} : { envExpansion: source.envExpansion }),
       });
       if (normalized._tag === "skip") {

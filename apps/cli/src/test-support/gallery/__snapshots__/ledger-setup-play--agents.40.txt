@@ -12,5 +12,5 @@ Setting up AXM in ~/code/storefront
    ◯ Amp
    ◯ Antigravity
    ◯ Antigravity CLI
-     ↓ 57 more
+     ↓ 58 more
 2 selected · space · ^a all · enter

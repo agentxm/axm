@@ -17,10 +17,8 @@ import {
 import { handleActivation } from "../activation-handler.js";
 
 const mcpEntry = (enabled: boolean) => ({
-  url: "https://example.test/mcp",
-  headers: {},
+  connection: { transport: "streamable-http", url: "https://example.test/mcp", headers: {} },
   enabled,
-  env: {},
 });
 
 describe("mcps enable/disable output", () => {

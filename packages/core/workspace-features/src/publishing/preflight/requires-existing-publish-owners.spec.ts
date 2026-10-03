@@ -42,7 +42,9 @@ describe("Publication owner validation", () => {
     () =>
       Effect.gen(function* () {
         const world = makeRemotePublishWorld({
-          settings: { skills: { review: "workspace", deploy: "workspace" } },
+          settings: {
+            skills: { review: "workspace", deploy: "workspace" },
+          },
           ownerResponse: (owner) =>
             owner === "@acme"
               ? registryProblem("not_found", 404)

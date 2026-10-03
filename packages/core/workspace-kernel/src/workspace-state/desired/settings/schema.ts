@@ -6,6 +6,13 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  McpConnectionSchema,
+  McpAuthSchema,
+  McpDistributionSchema,
+  McpBindingSchema,
+  validateMcpConnection,
+} from "../../../agent-adapters/index.js";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -179,60 +186,6 @@ type CanonicalSkillEntry =
   | (CanonicalSourcedEnabledEntry & { readonly origin?: "bundled" })
   | (MemberConfigurationEntry & { readonly origin?: undefined });
 
-type McpServerEnvInput = Readonly<Record<string, string>> | ReadonlyArray<string>;
-
-type McpServerVerboseEntryObject = {
-  readonly source?: string | undefined;
-  readonly command?: string | undefined;
-  readonly args?: ReadonlyArray<string> | undefined;
-  readonly url?: string | undefined;
-  readonly headers?: Readonly<Record<string, string>> | undefined;
-  readonly enabled?: boolean | undefined;
-  readonly distribute?: boolean;
-  readonly env?: McpServerEnvInput | undefined;
-};
-
-type CanonicalSourcedMcpServerEntry = {
-  readonly kind?: "sourced" | undefined;
-  readonly source: string;
-  readonly command?: string | undefined;
-  readonly args?: ReadonlyArray<string> | undefined;
-  readonly url?: string | undefined;
-  readonly headers?: Readonly<Record<string, string>> | undefined;
-  readonly enabled: boolean;
-  readonly distribute?: boolean;
-  readonly env: Readonly<Record<string, string>>;
-};
-
-type CanonicalInlineMcpServerEntry = {
-  readonly kind: "inline";
-  readonly source?: undefined;
-  readonly command?: string | undefined;
-  readonly args?: ReadonlyArray<string> | undefined;
-  readonly url?: string | undefined;
-  readonly headers?: Readonly<Record<string, string>> | undefined;
-  readonly enabled: boolean;
-  readonly distribute?: boolean | undefined;
-  readonly env: Readonly<Record<string, string>>;
-};
-
-type CanonicalConfigurationMcpServerEntry = {
-  readonly kind: "configuration";
-  readonly source?: undefined;
-  readonly command?: undefined;
-  readonly args?: undefined;
-  readonly url?: undefined;
-  readonly headers?: undefined;
-  readonly distribute?: undefined;
-  readonly enabled?: boolean;
-  readonly env: Readonly<Record<string, string>>;
-};
-
-type CanonicalMcpServerEntry =
-  | CanonicalSourcedMcpServerEntry
-  | CanonicalInlineMcpServerEntry
-  | CanonicalConfigurationMcpServerEntry;
-
 const ExtensionMapKeySchema = Schema.String.check(
   Schema.isPattern(EXTENSION_NAME_PATTERN, {
     message:
@@ -344,24 +297,6 @@ const mcpWorkspaceEntriesMatch = Schema.makeFilter(
   },
 );
 
-const McpServerEnvSchema = Schema.Union([
-  Schema.Record(Schema.String, Schema.String),
-  Schema.Array(Schema.String),
-]).annotate({
-  identifier: "McpServerEnv",
-  title: "MCP Server Env",
-  description:
-    "MCP environment values as a map or pass-through variable names. Array entries decode to ${VAR} references.",
-});
-
-const decodeMcpEnv = (env: McpServerEnvInput | undefined): Readonly<Record<string, string>> => {
-  if (env === undefined) return {};
-  if (Array.isArray(env)) {
-    return Object.fromEntries(env.map((name) => [name, `\${${name}}`]));
-  }
-  return Object.fromEntries(Object.entries(env));
-};
-
 const hasOwnKey = (entry: Readonly<Record<string, unknown>>, key: string): boolean =>
   Object.hasOwn(entry, key) && entry[key] !== undefined;
 
@@ -383,33 +318,6 @@ const memberConfigurationIssue = (
   }
   if (!preferences.some((preference) => hasOwnKey(entry, preference))) {
     return `${label} entry must declare a source or set at least one of ${preferences.join(", ")}`;
-  }
-  return undefined;
-};
-
-const validateMcpTransportExclusivity = (
-  entry: Readonly<Record<string, unknown>>,
-): string | undefined => {
-  const transports = ["source", "command", "url"].filter((key) => hasOwnKey(entry, key));
-  if (transports.length === 0) {
-    for (const forbidden of ["args", "headers"]) {
-      if (hasOwnKey(entry, forbidden)) {
-        return `MCP server entry without source, command, or url configures a Pack-supplied member and cannot set ${forbidden}`;
-      }
-    }
-    return memberConfigurationIssue("MCP server", entry, ["enabled", "env"]);
-  }
-  if (transports.length !== 1) {
-    return "MCP server entry must include exactly one of source, command, or url";
-  }
-  if (hasOwnKey(entry, "source") && (hasOwnKey(entry, "args") || hasOwnKey(entry, "headers"))) {
-    return "MCP server source entries cannot include args or headers";
-  }
-  if (hasOwnKey(entry, "command") && hasOwnKey(entry, "headers")) {
-    return "MCP server command entries cannot include headers";
-  }
-  if (hasOwnKey(entry, "url") && hasOwnKey(entry, "args")) {
-    return "MCP server URL entries cannot include args";
   }
   return undefined;
 };
@@ -984,214 +892,120 @@ export type KnowledgeMap = Schema.Schema.Type<typeof KnowledgeMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerEntryObjectSchema = Schema.Struct({
-  source: entrySourceFieldSchema("MCP server", "mcps"),
-  enabled: enabledFieldSchema,
-  distribute: distributeFieldSchema,
-  env: Schema.optionalKey(McpServerEnvSchema),
-}).annotate({
-  title: "MCP Server Entry Object",
+const forbiddenFlatMcpField = Schema.optionalKey(Schema.Never);
+const forbiddenFlatMcpFields = {
+  command: forbiddenFlatMcpField,
+  args: forbiddenFlatMcpField,
+  env: forbiddenFlatMcpField,
+  url: forbiddenFlatMcpField,
+  headers: forbiddenFlatMcpField,
+  cwd: forbiddenFlatMcpField,
+};
+const mcpPreferences = {
+  distribution: Schema.optionalKey(McpDistributionSchema),
+  bindings: Schema.optionalKey(Schema.Array(McpBindingSchema)),
+  auth: Schema.optionalKey(McpAuthSchema),
+};
+
+export const McpServerEntryObjectSchema = Schema.Union([
+  Schema.Struct({
+    ...forbiddenFlatMcpFields,
+    source: entrySourceFieldSchema("MCP server", "mcps"),
+    connection: absentFieldSchema,
+    enabled: enabledFieldSchema,
+    distribute: distributeFieldSchema,
+    ...mcpPreferences,
+  }),
+  Schema.Struct({
+    ...forbiddenFlatMcpFields,
+    source: absentFieldSchema,
+    connection: McpConnectionSchema,
+    enabled: enabledFieldSchema,
+    distribute: distributeFieldSchema,
+    auth: Schema.optionalKey(McpAuthSchema),
+    distribution: absentFieldSchema,
+    bindings: absentFieldSchema,
+  }).check(
+    Schema.makeFilter((entry) => {
+      const findings = validateMcpConnection(entry.connection, entry.auth);
+      return findings.length === 0
+        ? undefined
+        : findings.map((finding) => finding.message).join("; ");
+    }),
+  ),
+  Schema.Struct({
+    ...forbiddenFlatMcpFields,
+    source: absentFieldSchema,
+    connection: absentFieldSchema,
+    enabled: enabledFieldSchema,
+    distribute: absentFieldSchema,
+    ...mcpPreferences,
+  }).check(
+    Schema.makeFilter((entry) =>
+      memberConfigurationIssue("MCP server", entry, [
+        "enabled",
+        "distribution",
+        "bindings",
+        "auth",
+      ]),
+    ),
+  ),
+]).annotate({
+  identifier: "McpServerEntryObject",
   description:
-    "An MCP server entry with source and optional enabled, distribution, and env fields.",
+    "An explicit inline connection, sourced distribution, or Pack-member preference. Legacy strings and flat command/url/env settings are unsupported.",
 });
 
-const McpServerVerboseEntryObjectSchema = Schema.Struct({
-  source: Schema.optionalKey(entrySourceFieldSchema("MCP server", "mcps")),
-  command: Schema.optionalKey(
-    Schema.NonEmptyString.pipe(
-      Schema.annotate({
-        description: "Executable command for an inline stdio MCP server.",
-        examples: ["npx"],
-      }),
-    ),
-  ),
-  args: Schema.optionalKey(
-    Schema.Array(Schema.String).annotate({
-      description: "Arguments passed to the inline stdio MCP server command.",
-      examples: [["-y", "linear-mcp-server"]],
-    }),
-  ),
-  url: Schema.optionalKey(
-    Schema.NonEmptyString.pipe(
-      Schema.annotate({
-        description: "Remote MCP server URL.",
-        examples: ["https://mcp.sentry.dev/sse"],
-      }),
-    ),
-  ),
-  headers: Schema.optionalKey(
-    Schema.Record(Schema.String, Schema.String).annotate({
-      description: "HTTP headers for a remote MCP server. Prefer ${VAR} references for secrets.",
-    }),
-  ),
-  enabled: enabledFieldSchema,
-  distribute: distributeFieldSchema,
-  env: Schema.optionalKey(McpServerEnvSchema),
-}).pipe(
-  Schema.check(
-    Schema.makeFilter((entry: McpServerVerboseEntryObject) =>
-      validateMcpTransportExclusivity(entry),
-    ),
-  ),
-);
+const McpServerCanonicalSchema = Schema.Union([
+  Schema.Struct({
+    kind: Schema.Literal("sourced"),
+    source: Schema.String,
+    connection: absentFieldSchema,
+    enabled: Schema.Boolean,
+    distribute: distributeFieldSchema,
+    ...mcpPreferences,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("inline"),
+    source: absentFieldSchema,
+    connection: McpConnectionSchema,
+    enabled: Schema.Boolean,
+    distribute: distributeFieldSchema,
+    auth: Schema.optionalKey(McpAuthSchema),
+    distribution: absentFieldSchema,
+    bindings: absentFieldSchema,
+  }),
+  Schema.Struct({
+    kind: configurationKindFieldSchema,
+    source: absentFieldSchema,
+    connection: absentFieldSchema,
+    enabled: configurationEnabledFieldSchema,
+    distribute: absentFieldSchema,
+    ...mcpPreferences,
+  }),
+]);
 
-/**
- * Union of MCP server entry forms: plain source string or object with source + enabled + env.
- *
- * Decodes to canonical `{ source, enabled, env }` form; encodes back to the most
- * compact JSON representation.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const McpServerEntrySchema = compactOrVerboseEntry(
-  McpServerVerboseEntryObjectSchema,
-  Schema.Union([
-    Schema.Struct({
-      kind: Schema.optional(Schema.Literal("sourced")),
-      source: Schema.String,
-      command: Schema.optional(Schema.String),
-      args: Schema.optional(Schema.Array(Schema.String)),
-      url: Schema.optional(Schema.String),
-      headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-      enabled: Schema.Boolean,
-      distribute: Schema.optionalKey(Schema.Boolean),
-      env: Schema.Record(Schema.String, Schema.String),
-    }),
-    Schema.Struct({
-      kind: Schema.Literal("inline"),
-      source: Schema.optional(Schema.Never),
-      command: Schema.optional(Schema.String),
-      args: Schema.optional(Schema.Array(Schema.String)),
-      url: Schema.optional(Schema.String),
-      headers: Schema.optional(Schema.Record(Schema.String, Schema.String)),
-      enabled: Schema.Boolean,
-      distribute: Schema.optionalKey(Schema.Boolean),
-      env: Schema.Record(Schema.String, Schema.String),
-    }),
-    Schema.Struct({
-      kind: configurationKindFieldSchema,
-      source: configurationSourceFieldSchema,
-      command: absentFieldSchema,
-      args: absentFieldSchema,
-      url: absentFieldSchema,
-      headers: absentFieldSchema,
-      distribute: absentFieldSchema,
-      enabled: configurationEnabledFieldSchema,
-      env: Schema.Record(Schema.String, Schema.String),
-    }),
-  ]),
-  {
-    decode: (entry: string | McpServerVerboseEntryObject): CanonicalMcpServerEntry =>
-      typeof entry === "string"
-        ? { kind: "sourced", source: entry, enabled: true, env: {} }
-        : entry.source !== undefined
-          ? {
-              kind: "sourced",
-              source: entry.source,
-              enabled: entry.enabled ?? true,
-              ...(entry.distribute === false ? { distribute: false } : {}),
-              env: decodeMcpEnv(entry.env),
-            }
-          : entry.command === undefined && entry.url === undefined
-            ? {
-                kind: "configuration",
-                ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
-                env: decodeMcpEnv(entry.env),
-              }
-            : {
-                kind: "inline",
-                ...(entry.command === undefined ? {} : { command: entry.command }),
-                ...(entry.args === undefined ? {} : { args: entry.args }),
-                ...(entry.url === undefined ? {} : { url: entry.url }),
-                ...(entry.headers === undefined ? {} : { headers: entry.headers }),
-                enabled: entry.enabled ?? true,
-                ...(entry.distribute === false ? { distribute: false } : {}),
-                env: decodeMcpEnv(entry.env),
-              },
-    encode: (entry: CanonicalMcpServerEntry): string | McpServerVerboseEntryObject => {
-      if (entry.kind === "configuration") {
-        return {
-          ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
-          ...(Object.keys(entry.env).length === 0 ? {} : { env: entry.env }),
-        };
-      }
-      if (
-        entry.kind !== "inline" &&
-        entry.enabled &&
-        entry.distribute !== false &&
-        Object.keys(entry.env).length === 0
-      ) {
-        return entry.source;
-      }
-      const obj: {
-        source?: string;
-        command?: string;
-        args?: ReadonlyArray<string>;
-        url?: string;
-        headers?: Readonly<Record<string, string>>;
-        enabled?: boolean;
-        distribute?: boolean;
-        env?: Readonly<Record<string, string>>;
-      } = {};
-      if (entry.kind !== "inline") obj.source = entry.source;
-      if (entry.kind === "inline" && entry.command !== undefined) obj.command = entry.command;
-      if (entry.kind === "inline" && entry.args !== undefined && entry.args.length > 0)
-        obj.args = entry.args;
-      if (entry.kind === "inline" && entry.url !== undefined) obj.url = entry.url;
-      if (
-        entry.kind === "inline" &&
-        entry.headers !== undefined &&
-        Object.keys(entry.headers).length > 0
-      ) {
-        obj.headers = entry.headers;
-      }
-      if (!entry.enabled) obj.enabled = false;
-      if (entry.distribute === false) obj.distribute = false;
-      if (Object.keys(entry.env).length > 0) obj.env = entry.env;
-      if (entry.kind !== "inline") {
-        return {
-          source: entry.source,
-          ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
-          ...(obj.env === undefined ? {} : { env: obj.env }),
-        };
-      }
-      if (entry.command !== undefined) {
-        return {
-          command: entry.command,
-          ...(obj.args === undefined ? {} : { args: obj.args }),
-          ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-          ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
-          ...(obj.env === undefined ? {} : { env: obj.env }),
-        };
-      }
-      return {
-        url: entry.url ?? "",
-        ...(obj.headers === undefined ? {} : { headers: obj.headers }),
-        ...(obj.enabled === undefined ? {} : { enabled: obj.enabled }),
-        ...(obj.distribute === undefined ? {} : { distribute: obj.distribute }),
-        ...(obj.env === undefined ? {} : { env: obj.env }),
-      };
-    },
-  },
-  {
-    identifier: "McpServerEntry",
-    title: "MCP Server Entry",
-    description:
-      "An MCP server entry: a source string, sourced object, inline command object, inline URL object, or a source-less object configuring a Pack-supplied connection.",
-    examples: [
-      "@acme/mcps/context@^1.0.0",
-      { source: "github:acme/agent-extensions", enabled: false },
-      {
-        command: "npx",
-        args: ["-y", "linear-mcp-server"],
-        env: ["LINEAR_API_KEY"],
+type McpServerObject = typeof McpServerEntryObjectSchema.Type;
+type CanonicalMcpServerEntry = typeof McpServerCanonicalSchema.Type;
+
+export const McpServerEntrySchema = McpServerEntryObjectSchema.pipe(
+  Schema.decodeTo(
+    McpServerCanonicalSchema,
+    SchemaTransformation.transform<CanonicalMcpServerEntry, McpServerObject>({
+      decode: (entry): CanonicalMcpServerEntry => {
+        if (entry.source !== undefined)
+          return { ...entry, kind: "sourced", enabled: entry.enabled ?? true };
+        if (entry.connection !== undefined)
+          return { ...entry, kind: "inline", enabled: entry.enabled ?? true };
+        return { ...entry, kind: "configuration" };
       },
-      { url: "https://mcp.sentry.dev/sse", headers: { Authorization: "Bearer ${SENTRY_TOKEN}" } },
-      { enabled: false },
-    ],
-  },
-);
+      encode: (entry): McpServerObject => {
+        const { kind: _kind, enabled, ...fields } = entry;
+        return { ...fields, ...(enabled === undefined || enabled ? {} : { enabled: false }) };
+      },
+    }),
+  ),
+).annotate({ identifier: "McpServerEntry", title: "MCP Server Entry" });
 
 /**
  * Inferred type for McpServerEntry schema.
@@ -1549,7 +1363,7 @@ export const SETTINGS_KEY_ORDER: ReadonlyArray<string> = [
  * - knowledgeConfig: Knowledge discovery-table options
  * - subagents: Desired subagents by name to version specifier
  * - packs: Desired packs by name to version specifier
- * - mcpServers: Desired MCP servers by name to version specifier
+ * - mcpServers: Named inline connections or source declarations with scoped preferences
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1664,7 +1478,7 @@ const SettingsBaseSchema = Schema.Struct({
   mcpServers: Schema.optionalKey(
     Schema.Union([McpServersMapSchema]).annotate({
       description:
-        "Desired MCP servers, keyed by workspace MCP server name. Prefer plain source strings; use the object form to set enabled or distribution state and persisted env values.",
+        "Desired MCP connections, keyed by local name. Declare an explicit connection, a source with distribution and bindings, or Pack-member preferences.",
     }),
   ),
   mcpServersConfig: Schema.optionalKey(McpServersConfigSchema),

@@ -332,14 +332,11 @@ describe("generated schemas", () => {
   it("publishes settings entry annotations inline", () => {
     const settingsSchema = readGeneratedSettingsSchema();
     const definitions = getRecord(settingsSchema, "definitions");
+    const mcp = getDefinition(settingsSchema, "McpServerEntryObject");
+    expect(mcp["description"]).toContain("explicit inline connection");
+    expect(mcp["anyOf"]).toEqual(expect.any(Array));
 
-    for (const name of [
-      "SkillEntry",
-      "SubagentEntry",
-      "McpServerEntry",
-      "KnowledgeEntry",
-      "PackEntry",
-    ]) {
+    for (const name of ["SkillEntry", "SubagentEntry", "KnowledgeEntry", "PackEntry"]) {
       const entry = getDefinition(settingsSchema, name);
       expect(entry["title"]).toEqual(expect.any(String));
       expect(entry["description"]).toEqual(expect.any(String));
@@ -356,7 +353,6 @@ describe("generated schemas", () => {
 
     expect(definitions).not.toHaveProperty("SkillEntryObject");
     expect(definitions).not.toHaveProperty("SubagentEntryObject");
-    expect(definitions).not.toHaveProperty("McpServerEntryObject");
     expect(definitions).not.toHaveProperty("KnowledgeEntryObject");
     expect(definitions).not.toHaveProperty("PackEntryObject");
 

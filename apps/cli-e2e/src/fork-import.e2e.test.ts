@@ -174,16 +174,17 @@ describe("fork and native import", () => {
       const nativeConfig = {
         mcpServers: {
           context: {
+            type: "http",
             url: "https://mcp.example.test/context",
             headers: { Authorization: "Bearer ${CONTEXT_TOKEN}" },
           },
         },
       };
-      const nativeConfigPath = path.join(temp.path, ".cursor", "mcp.json");
+      const nativeConfigPath = path.join(temp.path, ".mcp.json");
       fs.mkdirSync(path.dirname(nativeConfigPath), { recursive: true });
       fs.writeFileSync(nativeConfigPath, `${JSON.stringify(nativeConfig, null, 2)}\n`);
       const setup = await runCli(
-        ["setup", "--yes", "--scope", "project", "--agent", "cursor", "--non-interactive"],
+        ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--non-interactive"],
         { cwd: temp.path },
       );
       expect(setup.exitCode, setup.stderr).toBe(0);
@@ -205,13 +206,24 @@ describe("fork and native import", () => {
             {
               type: "streamable-http",
               url: "https://mcp.example.test/context",
-              headers: [{ name: "Authorization", value: "Bearer ${CONTEXT_TOKEN}" }],
+              headers: [{ name: "Authorization", isRequired: true, isSecret: true }],
             },
           ],
         },
       });
       expect(readJson(path.join(temp.path, "axm.json"))).toMatchObject({
-        mcpServers: { context: { source: "workspace", enabled: false } },
+        mcpServers: {
+          context: {
+            source: "workspace",
+            enabled: false,
+            bindings: [
+              {
+                target: { kind: "header", name: "Authorization" },
+                value: { template: ["Bearer ", { env: "CONTEXT_TOKEN" }] },
+              },
+            ],
+          },
+        },
       });
 
       const forked = await runCli(
@@ -230,7 +242,7 @@ describe("fork and native import", () => {
     }
   });
 
-  it("imports symbolic MCP headers accepted by every potential shared reader", async () => {
+  it("imports symbolic MCP headers accepted by the configured native reader", async () => {
     const temp = createTempDir();
     try {
       const setup = await runCli(
@@ -244,6 +256,7 @@ describe("fork and native import", () => {
         JSON.stringify({
           mcpServers: {
             context: {
+              type: "http",
               url: "https://mcp.example.test/context",
               headers: { Authorization: "Bearer ${CONTEXT_TOKEN}" },
             },
@@ -266,11 +279,22 @@ describe("fork and native import", () => {
       expect(readJson(path.join(temp.path, ".mcp.json"))).toEqual({ mcpServers: {} });
       expect(readJson(path.join(temp.path, "mcps", "context", "mcp.json"))).toMatchObject({
         server: {
-          remotes: [{ headers: [{ name: "Authorization", value: "Bearer ${CONTEXT_TOKEN}" }] }],
+          remotes: [{ headers: [{ name: "Authorization", isRequired: true, isSecret: true }] }],
         },
       });
       expect(readJson(path.join(temp.path, "axm.json"))).toMatchObject({
-        mcpServers: { context: { source: "workspace", enabled: false } },
+        mcpServers: {
+          context: {
+            source: "workspace",
+            enabled: false,
+            bindings: [
+              {
+                target: { kind: "header", name: "Authorization" },
+                value: { template: ["Bearer ", { env: "CONTEXT_TOKEN" }] },
+              },
+            ],
+          },
+        },
       });
     } finally {
       temp.cleanup();

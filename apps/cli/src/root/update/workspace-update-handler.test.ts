@@ -128,8 +128,10 @@ describe("workspace update handler output", () => {
     const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
-        linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
-        sentry: { url: "https://mcp.sentry.dev/sse" },
+        linear: {
+          connection: { transport: "stdio", command: "npx", args: ["-y", "linear-mcp-server"] },
+        },
+        sentry: { connection: { transport: "sse", url: "https://mcp.sentry.dev/sse" } },
       },
     });
 
@@ -168,8 +170,10 @@ describe("workspace update handler output", () => {
     const provide = Effect.provide(ctx.fullLayer);
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
-        linear: { command: "npx", args: ["-y", "linear-mcp-server"] },
-        broken: "missing-server",
+        linear: {
+          connection: { transport: "stdio", command: "npx", args: ["-y", "linear-mcp-server"] },
+        },
+        broken: { source: "missing-server" },
       },
     });
 

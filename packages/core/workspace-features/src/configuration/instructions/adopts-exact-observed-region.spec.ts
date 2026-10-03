@@ -65,7 +65,11 @@ describe("Explicit instruction region adoption", () => {
     it.effect(`adopts ${region} from its own accepted contributors`, () => {
       const raw = `<!-- axm:start v=1 region=${region} ext=${owner} -->\nExisting body\n<!-- axm:end v=1 region=${region} -->\n`;
       const world = makeConfigurationFixture({
-        settings: { owner: "@acme", agents: ["codex"], [plural]: { guide: "workspace" } },
+        settings: {
+          owner: "@acme",
+          agents: ["codex"],
+          [plural]: { guide: { source: "workspace" } },
+        },
         files: {
           "AGENTS.md": raw,
           [`${plural}/guide/${type}.json`]: JSON.stringify({

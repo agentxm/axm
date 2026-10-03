@@ -52,6 +52,8 @@ describe("Workspace native input capture", () => {
         ),
       );
       expect(location.nativeDirectoryInputs).toEqual({
+        userHome: home,
+        selectedFiles: {},
         skillsDirectoryOverrides: { "claude-code": "custom/claude", "gemini-cli": "custom/gemini" },
         xdgConfigRoot: config,
         userConfigRootOverrides: {

@@ -1357,8 +1357,7 @@ describe("setup.handler", () => {
                   outcomes: [
                     expect.objectContaining({
                       agentId: "claude-code",
-                      status: "refused",
-                      reasonCode: "scope-not-modeled",
+                      status: "supported",
                     }),
                   ],
                 }),

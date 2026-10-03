@@ -436,11 +436,7 @@ describe("axm lint handler", () => {
     writeSettings({
       agents: ["claude-code"],
       mcpServers: {
-        demo: {
-          command: "node",
-          args: ["server.js"],
-          env: {},
-        },
+        demo: { connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} } },
       },
     });
     writeEmptyLockfile();

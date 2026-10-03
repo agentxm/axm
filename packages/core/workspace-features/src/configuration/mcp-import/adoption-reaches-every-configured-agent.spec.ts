@@ -111,7 +111,9 @@ describe("Importing a natively configured MCP server", () => {
             expect(targetPaths(applied.resolution)).toEqual(targetPaths(previewed.resolution));
             expect(targetPaths(applied.resolution)).toContain(CURSOR_CONFIG);
             const entry = settingsEntry(fixture, "demo");
-            expect(entry).toMatchObject({ command: "node", args: ["server.js"] });
+            expect(entry).toMatchObject({
+              connection: { transport: "stdio", command: "node", args: ["server.js"] },
+            });
             expect(JSON.stringify(entry)).not.toContain('"agents"');
           }),
         )
@@ -148,8 +150,11 @@ describe("Importing a natively configured MCP server", () => {
           const applied = yield* runMcpImport("apply");
           expect(applied.outcome).toBe("applied");
           expect(settingsEntry(fixture, "demo")).toMatchObject({
-            url: "https://example.test/mcp",
-            headers: { Authorization: "Bearer ${TOKEN}" },
+            connection: {
+              transport: "streamable-http",
+              url: "https://example.test/mcp",
+              headers: { Authorization: { template: ["Bearer ", { env: "TOKEN" }] } },
+            },
           });
           expect(fixture.readFile("opencode.json")).toContain("{env:TOKEN}");
           expect(fixture.readFile("opencode.json")).toContain("foreign-model");

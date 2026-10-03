@@ -64,6 +64,7 @@ describe("Pack and MCP shared source resolution", () => {
           name: "io.acme/local-server",
           description: "A local MCP server",
           version: "1.0.0",
+          remotes: [{ type: "streamable-http", url: "https://example.com/mcp" }],
         },
       }),
     );

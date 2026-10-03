@@ -56,10 +56,6 @@
     "packages/core/workspace-kernel": {
       "entry": ["src/**/*.type-test.ts"],
     },
-    "packages/core/extension-kinds": {
-      // Deliberate dynamic loading keeps unavailable native keychains recoverable.
-      "ignoreDependencies": ["@napi-rs/keyring"],
-    },
     "apps/cli": {
       // Explicit roots for source-conditioned Bun launchers.
       "entry": [

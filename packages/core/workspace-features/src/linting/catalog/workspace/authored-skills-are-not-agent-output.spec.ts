@@ -126,7 +126,11 @@ describe("Authored source ownership", () => {
         settings: {
           owner: "@acme",
           agents: [],
-          skills: { wrong: "workspace", malformed: "workspace", valid: "workspace" },
+          skills: {
+            wrong: "workspace",
+            malformed: "workspace",
+            valid: "workspace",
+          },
           lint: { rules },
         },
         files: {

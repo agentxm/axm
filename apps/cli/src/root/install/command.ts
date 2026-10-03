@@ -67,10 +67,21 @@ const commonConfig = (type?: InstallableExtensionType) => ({
 });
 
 const mcpConfig = {
-  env: Flag.String("env").pipe(
-    Flag.withAlias("e"),
-    Flag.withDescription("Provide an MCP input value as KEY=VALUE; repeatable"),
+  bind: Flag.String("bind").pipe(
+    Flag.withDescription("Bind selected INPUT_ID=LITERAL; repeat for repeated arguments"),
     Flag.atLeast(0),
+  ),
+  bindEnv: Flag.String("bind-env").pipe(
+    Flag.withDescription("Bind selected INPUT_ID=ENV_NAME without reading the environment"),
+    Flag.atLeast(0),
+  ),
+  distribution: Flag.String("distribution").pipe(
+    Flag.withDescription("Select the distribution ID shown by passive inspection"),
+    Flag.optional,
+  ),
+  nativeOauth: Flag.Boolean("native-oauth").pipe(
+    Flag.withDescription("Use authentication owned by the native MCP host"),
+    Flag.withDefault(false),
   ),
   as: Flag.String("as").pipe(
     Flag.withDescription("Install one MCP server using this local name"),
@@ -168,7 +179,8 @@ const runTypedInstall = (
     all: parsed.all,
     force: parsed.force,
     preview: parsed.preview,
-    env: [],
+    bind: [],
+    bindEnv: [],
     localName: Option.none(),
     bundled: false,
   };
@@ -202,7 +214,12 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           all: parsed.all,
           force: parsed.force,
           preview: parsed.preview,
-          env: parsed.env,
+          bind: parsed.bind,
+          bindEnv: parsed.bindEnv,
+          ...(Option.isSome(parsed.distribution)
+            ? { distributionId: parsed.distribution.value }
+            : {}),
+          nativeOauth: parsed.nativeOauth,
           localName: parsed.as,
           bundled: false,
         };
@@ -235,7 +252,8 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           all: parsed.all,
           force: parsed.force,
           preview: parsed.preview,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: parsed.bundled,
         };
@@ -367,7 +385,10 @@ export const installCommand = finishCommand(
       all: parsed.all,
       force: parsed.force,
       preview: parsed.preview,
-      env: parsed.env,
+      bind: parsed.bind,
+      bindEnv: parsed.bindEnv,
+      ...(Option.isSome(parsed.distribution) ? { distributionId: parsed.distribution.value } : {}),
+      nativeOauth: parsed.nativeOauth,
       localName: parsed.as,
       bundled: false,
     };

@@ -53,6 +53,40 @@ const withFailingConfigWrite = <A, E, R>(effect: Effect.Effect<A, E, R>, configP
   }).pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
 
 describe("agent MCP config writer", () => {
+  it.effect("adopts one unfenced TOML table while preserving foreign tables and comments", () =>
+    withNode(
+      Effect.gen(function* () {
+        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-toml-adopt-"));
+        try {
+          const configPath = nodePath.join(workspaceRoot, "config.toml");
+          const raw =
+            '# retained header\nmodel = "example"\n[mcp_servers.demo]\ncommand = "node" # retained comment\nargs = ["server.js"]\n[mcp_servers.demo.env]\nMODE = "literal"\n[mcp_servers.foreign]\ncommand = "foreign"\n';
+          writeFileSync(configPath, raw);
+          const expectedEntry = { command: "node", args: ["server.js"], env: { MODE: "literal" } };
+          yield* writeAgentMcpConfig({
+            workspaceRoot,
+            serverName: "demo",
+            serversPath: ["mcp_servers"],
+            target: { scope: "project", path: "config.toml", format: "toml", attribution: "agent" },
+            nativeInsertionEligible: false,
+            adoption: { filePath: configPath, expectedEntry },
+            entry: { ...expectedEntry, ...ownedBy("demo") },
+          });
+          const next = readFileSync(configPath, "utf8");
+          expect(next).toContain("# retained header");
+          expect(next).toContain("# retained comment");
+          expect(next).toContain('[mcp_servers.foreign]\ncommand = "foreign"');
+          expect(parseToml(next)).toMatchObject({
+            model: "example",
+            mcp_servers: { demo: expectedEntry, foreign: { command: "foreign" } },
+          });
+        } finally {
+          rmSync(workspaceRoot, { recursive: true, force: true });
+        }
+      }),
+    ),
+  );
+
   const retirement = (workspaceRoot: string, target: McpConfigTarget) =>
     retireAgentMcpConfig({
       workspaceRoot,

@@ -160,7 +160,7 @@ describe("Generated document projection currency", () => {
             owner: "@acme",
             agents: ["claude-code"],
             instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-            [row.settingsKey]: { review: "workspace" },
+            [row.settingsKey]: { review: { source: "workspace" } },
           },
         });
         cleanups.push(workspace.cleanup);

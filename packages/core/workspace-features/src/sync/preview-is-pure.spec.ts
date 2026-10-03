@@ -120,7 +120,9 @@ describe("Sync preview purity", () => {
   it.effect("describes inline MCP native units and consumers without applying them", () => {
     const workspace = fixture({
       agents: ["claude-code", "cursor"],
-      mcpServers: { demo: { url: "https://example.test/mcp" } },
+      mcpServers: {
+        demo: { connection: { transport: "streamable-http", url: "https://example.test/mcp" } },
+      },
     });
     return workspace
       .provide(
@@ -192,7 +194,9 @@ describe("Sync preview purity", () => {
   it.effect("reports one MCP key with both consumers and aliases for a shared file", () => {
     const workspace = fixture({
       agents: ["claude-code", "cursor"],
-      mcpServers: { demo: { command: "node", args: ["server.js"] } },
+      mcpServers: {
+        demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+      },
     });
     workspace.writeFile(".mcp.json", "{}\n");
     workspace.writeFile(".cursor/preserve.txt", "foreign file\n");

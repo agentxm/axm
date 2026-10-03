@@ -83,8 +83,8 @@ describe("axm mcps new", () => {
       expect(manifest["version"]).toBe("0.1.0");
 
       const settings = readJson(path.join(temp.path, "axm.json"));
-      expect(settings["mcpServers"]).toEqual({
-        context: "workspace",
+      expect(settings["mcpServers"]).toMatchObject({
+        context: { source: "workspace" },
       });
 
       const lockfile = fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf-8");
@@ -126,6 +126,22 @@ describe("axm mcps new", () => {
       ).toBe(0);
 
       const packageDir = path.join(temp.path, "mcps", "context");
+      const originalManifest = readJson(path.join(packageDir, "mcp.json"));
+      writeJson(path.join(packageDir, "mcp.json"), {
+        ...originalManifest,
+        server: {
+          name: "io.github.test/context",
+          description: "Context server",
+          version: "0.1.0",
+          remotes: [{ type: "streamable-http", url: "https://example.test/mcp" }],
+        },
+      });
+      configureWorkspace(temp.path, (settings) => ({
+        ...settings,
+        mcpServers: { context: { source: "workspace" } },
+      }));
+      const installed = await runCli(["mcps", "install"], { cwd: temp.path });
+      expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       writeJson(path.join(packageDir, "mcp.json"), {
         ...readJson(path.join(packageDir, "mcp.json")),
         owner: "@other",
@@ -133,7 +149,16 @@ describe("axm mcps new", () => {
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@other",
-        mcpServers: { context: "workspace" },
+        mcpServers: {
+          context: {
+            source: "workspace",
+            distribution: {
+              kind: "remote",
+              transport: "streamable-http",
+              url: "https://example.test/mcp",
+            },
+          },
+        },
       }));
 
       const protectedPaths = ["axm.json", "axm-lock.yaml", "mcps/context/mcp.json", ".mcp.json"];
@@ -167,7 +192,16 @@ describe("axm mcps new", () => {
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
         owner: "@other",
-        mcpServers: { context: "workspace" },
+        mcpServers: {
+          context: {
+            source: "workspace",
+            distribution: {
+              kind: "remote",
+              transport: "streamable-http",
+              url: "https://example.test/mcp",
+            },
+          },
+        },
       }));
       const recovered = await runCli(["sync", "@other/mcps/context"], { cwd: temp.path });
       expect(recovered.exitCode, recovered.stdout + recovered.stderr).toBe(0);

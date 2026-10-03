@@ -18,7 +18,7 @@ describe("Registry MCP installation with shared native targets", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  for (const transport of ["stdio", "http", "http-symbolic"] as const) {
+  for (const transport of ["stdio", "http"] as const) {
     it.effect(`preserves symbolic ${transport} credentials for Cursor and Codex`, () => {
       const world = makeInstallWorld({
         settings: { agents: ["cursor", "codex"] },
@@ -49,10 +49,7 @@ describe("Registry MCP installation with shared native targets", () => {
                   headers: [
                     {
                       name: "Authorization",
-                      value:
-                        transport === "http-symbolic"
-                          ? "Bearer ${API_TOKEN}"
-                          : "Bearer {API_TOKEN}",
+                      value: "Bearer {API_TOKEN}",
                       variables: { API_TOKEN: { isSecret: true, isRequired: true } },
                     },
                   ],
@@ -81,7 +78,11 @@ describe("Registry MCP installation with shared native targets", () => {
       const request = installRequest({
         type: "mcp-server",
         subject: { kind: "source", source: "@acme/mcps/context" },
-        env: ["API_TOKEN=${API_TOKEN}"],
+        bindEnv: [
+          transport === "stdio"
+            ? "environment/API_TOKEN=API_TOKEN"
+            : "header/Authorization/variable/API_TOKEN=API_TOKEN",
+        ],
       });
       return world.workspace
         .provide(
@@ -92,8 +93,8 @@ describe("Registry MCP installation with shared native targets", () => {
             expect(world.workspace.snapshot()).toEqual(before);
             const applied = yield* applyInstall(request);
             expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(world.workspace.readFile("axm.json")).toContain("${API_TOKEN}");
-            expect(world.workspace.readFile(".cursor/mcp.json")).toContain("${API_TOKEN}");
+            expect(world.workspace.readFile("axm.json")).toContain('"env": "API_TOKEN"');
+            expect(world.workspace.readFile(".cursor/mcp.json")).toContain("${env:API_TOKEN}");
             expect(world.workspace.readFile(".cursor/mcp.json")).not.toContain("$${API_TOKEN}");
             expect(world.workspace.readFile(".cursor/mcp.json")).toContain("personal-server");
             expect(world.workspace.readFile(".codex/config.toml")).toContain("API_TOKEN");
@@ -116,7 +117,7 @@ describe("Registry MCP installation with shared native targets", () => {
     const request = installRequest({
       type: "mcp-server",
       subject: { kind: "source", source: "@acme/mcps/context" },
-      env: ["API_TOKEN=${API_TOKEN}"],
+      bindEnv: ["environment/API_TOKEN=API_TOKEN"],
     });
     return world.workspace
       .provide(

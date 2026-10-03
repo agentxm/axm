@@ -315,7 +315,7 @@ describe("Versions the Registry already has", () => {
     it.effect(`explicitly naming an existing ${type.type} version is a successful skip`, () =>
       Effect.gen(function* () {
         const world = makePublishWorld({
-          settings: { [authoredSettingsKey[type.type]]: { review: "workspace" } },
+          settings: { [authoredSettingsKey[type.type]]: { review: { source: "workspace" } } },
         });
         worlds.push(world);
         world.write(type.type, { name: "review" });
@@ -355,7 +355,10 @@ describe("Versions the Registry already has", () => {
   it.effect("an included dependency already published is skipped while its new pack uploads", () =>
     Effect.gen(function* () {
       const world = makePublishWorld({
-        settings: { skills: { review: "workspace" }, packs: { toolkit: "workspace" } },
+        settings: {
+          skills: { review: "workspace" },
+          packs: { toolkit: "workspace" },
+        },
       });
       worlds.push(world);
       world.write("skill", { name: "review" });
@@ -390,7 +393,13 @@ describe("Versions the Registry already has", () => {
   it.effect("one invalid new version blocks every upload but no already published version", () =>
     Effect.gen(function* () {
       const world = makePublishWorld({
-        settings: { skills: { review: "workspace", deploy: "workspace", broken: "workspace" } },
+        settings: {
+          skills: {
+            review: "workspace",
+            deploy: "workspace",
+            broken: "workspace",
+          },
+        },
       });
       worlds.push(world);
       world.write("skill", { name: "review" });

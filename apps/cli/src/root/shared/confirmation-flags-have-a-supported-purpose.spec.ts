@@ -111,7 +111,11 @@ describe("Advance approval", () => {
       const workspace = makeSpecWorkspace({
         machine: true,
         flags: { json: true },
-        settings: { owner: "@acme", skills: { [SKILL]: "workspace" }, sources: [registry.source] },
+        settings: {
+          owner: "@acme",
+          skills: { [SKILL]: "workspace" },
+          sources: [registry.source],
+        },
       });
       cleanups.push(workspace.cleanup);
       writeAuthoredSkill(workspace.root, { name: SKILL });

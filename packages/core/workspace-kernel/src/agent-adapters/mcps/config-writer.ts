@@ -21,6 +21,7 @@ import {
 import { runWithTransientFileBackup } from "../transient-backup.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
 import { stringifyToml, stringifyTomlKey } from "../toml.js";
+import { detachNativeTomlMcpEntry } from "./toml-adoption.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml.js";
 import {
   isAxmManagedMcpEntry,
@@ -520,7 +521,13 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
     const next = yield* Effect.gen(function* () {
       switch (target.format) {
         case "toml":
-          return yield* upsertToml(renderArgs);
+          return yield* upsertToml({
+            ...renderArgs,
+            raw:
+              args.adoption === undefined
+                ? raw
+                : yield* detachNativeTomlMcpEntry(raw, args.serversPath, args.serverName),
+          });
         case "yaml":
           return yield* upsertYaml(renderArgs);
         case "json":
@@ -880,9 +887,7 @@ export const retireAgentMcpConfig = (
           const next = yield* Effect.gen(function* () {
             switch (args.target.format) {
               case "toml":
-                return yield* new McpConfigInvalid({
-                  detail: "TOML MCP entries are fenced regions and are not retired in place",
-                });
+                return yield* detachNativeTomlMcpEntry(raw, args.serversPath, args.serverName);
               case "yaml":
                 return yield* retireYaml({
                   configPath,

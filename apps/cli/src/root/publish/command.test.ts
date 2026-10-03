@@ -947,7 +947,7 @@ describe("root publish", () => {
               JSON.stringify({
                 owner: "@acme",
                 agents: [],
-                [fixture.settingsKey]: { review: "workspace" },
+                [fixture.settingsKey]: { review: { source: "workspace" } },
               }),
             );
             fixture.write(tempDir, { name: "review" });
@@ -1082,7 +1082,7 @@ describe("root publish", () => {
           owner: "@acme",
           agents: [],
           skills: { review: "@acme/skills/review@^1" },
-          mcpServers: { review: "@acme/mcps/review@^1" },
+          mcpServers: { review: { source: "@acme/mcps/review@^1" } },
           subagents: { review: "@acme/subagents/review@^1" },
           rules: { review: "@acme/rules/review@^1" },
           hooks: { review: "@acme/hooks/review@^1" },

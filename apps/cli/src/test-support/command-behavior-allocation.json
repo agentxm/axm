@@ -204,9 +204,6 @@
     "typed-update-source-selection": {
       "topic": "Update selector local-name/source matching order, disabled eligibility and unmatched selection"
     },
-    "mcp-input-grammar": {
-      "topic": "MCP install KEY=VALUE admission, empty/bare keys, first-equals parsing and duplicate-key policy"
-    },
     "mcp-update-selection": {
       "topic": "MCP source/name filter composition, constraint-insensitive source matching and unmatched selection"
     },
@@ -1938,15 +1935,43 @@
           }
         },
         {
-          "name": "env",
+          "name": "bind",
           "rawHelp": {
-            "aliases": ["-e"],
+            "aliases": [],
             "type": "string",
             "required": true
           },
           "occurrences": {
             "minimumOccurrences": 0,
             "repeatable": true
+          }
+        },
+        {
+          "name": "bind-env",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "distribution",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "native-oauth",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
           }
         },
         {
@@ -2020,11 +2045,6 @@
           "when": "A source is supplied and selection is explicit or interactive."
         },
         {
-          "parameters": ["flag:env"],
-          "requirements": ["cli/mcps/secret-namespaces-include-local-and-source-identity"],
-          "when": "The selected extension is an MCP server."
-        },
-        {
           "parameters": ["flag:as"],
           "requirements": [
             "cli/mcps/install/local-connection-names-share-source-resolution",
@@ -2062,6 +2082,18 @@
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/force-bypasses-only-named-policies"],
           "when": "A supplied source resolves to a non-Skill type, or locator discovery dispatches another type."
+        },
+        {
+          "parameters": ["flag:bind", "flag:bind-env"],
+          "requirements": ["cli/mcps/selected-distribution-inputs-follow-registry-semantics"]
+        },
+        {
+          "parameters": ["flag:distribution"],
+          "requirements": ["cli/mcps/source-distribution-selection-is-stable"]
+        },
+        {
+          "parameters": ["flag:native-oauth"],
+          "requirements": ["cli/mcps/credentials-remain-host-owned"]
         }
       ]
     },
@@ -3829,6 +3861,62 @@
           }
         },
         {
+          "name": "connection",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "transport",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "arg",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "cwd",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "header-env",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "native-oauth",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
           "name": "command",
           "rawHelp": {
             "aliases": [],
@@ -3928,6 +4016,14 @@
         {
           "parameters": ["flag:preview"],
           "requirements": ["cli/mcps/add/preview-is-pure"]
+        },
+        {
+          "parameters": ["flag:connection", "flag:transport", "flag:arg", "flag:cwd"],
+          "requirements": ["cli/mcps/connection-preserves-runtime-meaning"]
+        },
+        {
+          "parameters": ["flag:header-env", "flag:native-oauth"],
+          "requirements": ["cli/mcps/credentials-remain-host-owned"]
         }
       ]
     },
@@ -4092,6 +4188,18 @@
     "mcps import": {
       "flags": [
         {
+          "name": "name",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -4160,6 +4268,10 @@
           "parameters": ["flag:scope"],
           "requirements": ["cli/authoring-uses-project-workspace"],
           "when": "--as package conversion is requested."
+        },
+        {
+          "parameters": ["flag:name"],
+          "requirements": ["cli/mcps/import/selected-batch-is-atomic"]
         }
       ]
     },
@@ -4210,15 +4322,43 @@
           }
         },
         {
-          "name": "env",
+          "name": "bind",
           "rawHelp": {
-            "aliases": ["-e"],
+            "aliases": [],
             "type": "string",
             "required": true
           },
           "occurrences": {
             "minimumOccurrences": 0,
             "repeatable": true
+          }
+        },
+        {
+          "name": "bind-env",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "distribution",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "native-oauth",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
           }
         },
         {
@@ -4271,13 +4411,6 @@
           "when": "When mcps install runs in preview mode against a Registry MCP server that is not yet installed."
         },
         {
-          "parameters": ["flag:env"],
-          "requirements": ["cli/mcps/secret-namespaces-include-local-and-source-identity"],
-          "when": "An input is declared secret by the selected MCP package for the secret-storage obligation.",
-          "openTopics": ["mcp-input-grammar"],
-          "details": ["MCP install input admission is distinct from inline MCP passthrough."]
-        },
-        {
           "parameters": ["flag:as"],
           "requirements": [
             "cli/mcps/install/local-connection-names-share-source-resolution",
@@ -4313,6 +4446,18 @@
           "parameters": ["argument:source"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:bind", "flag:bind-env"],
+          "requirements": ["cli/mcps/selected-distribution-inputs-follow-registry-semantics"]
+        },
+        {
+          "parameters": ["flag:distribution"],
+          "requirements": ["cli/mcps/source-distribution-selection-is-stable"]
+        },
+        {
+          "parameters": ["flag:native-oauth"],
+          "requirements": ["cli/mcps/credentials-remain-host-owned"]
         }
       ]
     },
@@ -4565,6 +4710,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -4597,6 +4754,10 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/mcps/inspection-does-not-execute-or-claim-runtime-health"]
         }
       ]
     },

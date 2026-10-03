@@ -651,6 +651,7 @@ const collectSimpleTypePlans = (
                           versionRange: resolved.versionRange,
                           force,
                           nonInteractive,
+                          authorizeSelection: true,
                         });
                       })
                     : Effect.fail(

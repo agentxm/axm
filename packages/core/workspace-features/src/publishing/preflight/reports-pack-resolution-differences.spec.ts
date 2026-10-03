@@ -51,7 +51,9 @@ describe("Pack dependency resolution advisories", () => {
   ]) {
     it.effect(scenario.name, () =>
       Effect.gen(function* () {
-        const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
+        const world = makePublishWorld({
+          settings: { skills: { review: "workspace" } },
+        });
         worlds.push(world);
         world.write("skill", { name: "review" });
         yield* world.provide(runPublish(requestFor(world, { preview: false })));

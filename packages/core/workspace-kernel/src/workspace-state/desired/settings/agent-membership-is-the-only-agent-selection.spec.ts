@@ -40,13 +40,19 @@ const perEntrySelections = [
   },
   {
     form: "inline command",
-    entry: { command: "node", args: ["server.js"], agents: ["claude-code"] },
-    accepted: { command: "node", args: ["server.js"] },
+    entry: {
+      connection: { transport: "stdio", command: "node", args: ["server.js"] },
+      agents: ["claude-code"],
+    },
+    accepted: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
   },
   {
     form: "inline url",
-    entry: { url: "https://mcp.example.com/sse", agents: ["claude-code"] },
-    accepted: { url: "https://mcp.example.com/sse" },
+    entry: {
+      connection: { transport: "sse", url: "https://mcp.example.com/sse" },
+      agents: ["claude-code"],
+    },
+    accepted: { connection: { transport: "sse", url: "https://mcp.example.com/sse" } },
   },
 ] as const;
 

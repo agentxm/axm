@@ -5,6 +5,7 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { readSettings } from "../../install/test-helpers.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../../testing/install-world.js";
 import { applyUninstall, uninstallRequest } from "../test-helpers.js";
@@ -48,10 +49,13 @@ describe("Uninstall a locally named MCP connection", () => {
             );
           }
 
-          yield* applyUninstall(uninstallRequest({ type: "mcp-server", selector: "work-context" }));
+          const removed = yield* applyUninstall(
+            uninstallRequest({ type: "mcp-server", selector: "work-context" }),
+          );
+          expect(deriveOperationOutcome(removed), JSON.stringify(removed)).toBe("applied");
 
           expect(readSettings(workspace)).toMatchObject({
-            mcpServers: { "personal-context": "test:@acme/mcps/context" },
+            mcpServers: { "personal-context": { source: "test:@acme/mcps/context" } },
           });
           expect(JSON.stringify(readSettings(workspace))).not.toContain("work-context");
           expect(workspace.readFile(".mcp.json")).not.toContain("work-context");
@@ -73,7 +77,7 @@ describe("Uninstall a locally named MCP connection", () => {
   });
 
   it.effect(
-    "reports possible credential retention when the acquired manifest is unreadable",
+    "removes the declaration without consulting credential storage when the manifest is unreadable",
     () => {
       const world = makeInstallWorld();
       cleanups.push(world.cleanup);
@@ -94,9 +98,7 @@ describe("Uninstall a locally named MCP connection", () => {
             const result = yield* applyUninstall(
               uninstallRequest({ type: "mcp-server", selector: "work-context" }),
             );
-            expect(result.units.flatMap((unit) => unit.warnings ?? []).join("\n")).toContain(
-              "MCP manifest for work-context could not be read; stored credentials may remain",
-            );
+            expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("applied");
             expect(JSON.stringify(readSettings(workspace))).not.toContain("work-context");
           }),
         )

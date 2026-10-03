@@ -36,12 +36,19 @@ const acceptsType = (
 };
 
 /** Keep literal placeholders distinct from substitutions when readers use different spellings. */
-const environmentMeaning = (value: string, expansion: McpEnvExpansion | undefined) => {
+const environmentMeaning = (
+  value: string,
+  expansion: McpEnvExpansion | undefined,
+  field: "command" | "args" | "env" | "headers" | "url" | "cwd",
+) => {
+  if (expansion?.fields !== undefined && !expansion.fields.includes(field)) return value;
   if (expansion === undefined || expansion.variables === "none") return value;
   const references =
     expansion.variables === "env-tag"
       ? /\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
-      : /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/g;
+      : expansion.variables === "env-colon"
+        ? /\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g
+        : /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/g;
   const parts: Array<string | { readonly variable: string; readonly defaultValue?: string }> = [];
   let copiedUntil = 0;
   let match: RegExpExecArray | null;
@@ -90,9 +97,12 @@ export const interpretNativeMcpEntry = (args: {
   });
   const enabled = activations[0];
   if (enabled === undefined || activations.some((value) => value !== enabled)) return Option.none();
-  const normalize = (value: string) => environmentMeaning(value, args.envExpansion);
-  const normalizeMap = (value: Readonly<Record<string, string>>) =>
-    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalize(item)]));
+  const normalize = (
+    value: string,
+    field: "command" | "args" | "env" | "headers" | "url" | "cwd",
+  ) => environmentMeaning(value, args.envExpansion, field);
+  const normalizeMap = (value: Readonly<Record<string, string>>, field: "env" | "headers") =>
+    Object.fromEntries(Object.entries(value).map(([key, item]) => [key, normalize(item, field)]));
   const candidates: Array<Readonly<Record<string, unknown>>> = [];
   if (
     config.stdio !== null &&
@@ -121,8 +131,14 @@ export const interpretNativeMcpEntry = (args: {
     ) {
       candidates.push({
         transport: "stdio",
-        invocation: invocation.map(normalize),
-        env: normalizeMap(env ?? {}),
+        invocation: invocation.map((item, index) =>
+          normalize(item, index === 0 ? "command" : "args"),
+        ),
+        cwd:
+          config.stdio.cwdKey === undefined || entry[config.stdio.cwdKey] === undefined
+            ? { kind: "host-default" }
+            : entry[config.stdio.cwdKey],
+        env: normalizeMap(env ?? {}, "env"),
         forwarded: forwarded ?? [],
         enabled,
       });
@@ -154,8 +170,8 @@ export const interpretNativeMcpEntry = (args: {
       ) {
         candidates.push({
           transport,
-          url: normalize(url),
-          headers: normalizeMap(headers ?? {}),
+          url: normalize(url, "url"),
+          headers: normalizeMap(headers ?? {}, "headers"),
           bearer: bearer ?? null,
           envHeaders: envHeaders ?? {},
           enabled,

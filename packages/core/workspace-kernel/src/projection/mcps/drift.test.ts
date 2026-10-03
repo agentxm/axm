@@ -8,10 +8,8 @@ describe("MCP drift", () => {
     const expected = projectExpectedEntry({
       serverName: "demo",
       entry: {
-        source: "inline",
-        command: "npx",
-        args: ["-y", "@acme/context"],
-        env: {},
+        kind: "inline",
+        connection: { transport: "stdio", command: "npx", args: ["-y", "@acme/context"], env: {} },
         enabled: true,
       },
       stdio: {

@@ -180,7 +180,8 @@ describe("Approval-required recovery", () => {
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer));
@@ -240,7 +241,8 @@ describe("Approval-required recovery", () => {
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer));

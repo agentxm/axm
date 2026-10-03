@@ -23,10 +23,8 @@ const demoName = decodeExtensionNameSync("demo");
 const demoKey = { scope: "project", type: "mcp-server", name: demoName } as const;
 const inlineDemo = {
   kind: "inline",
-  command: "node",
-  args: ["server.js"],
+  connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
   enabled: true,
-  env: {},
 } satisfies McpServerEntry;
 
 const managedDemoConfig = (command: string): Readonly<Record<string, unknown>> => ({
@@ -67,7 +65,9 @@ export const mcpAgentDriftContext = (
   contextFor({
     settings: validSettings({
       agents: args.agentIds ?? ["cursor"],
-      mcpServers: { demo: { command: "node", args: ["server.js"] } },
+      mcpServers: {
+        demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+      },
     }),
     lockfile: validLockfile,
   }).pipe(

@@ -98,7 +98,11 @@ describe("Adopting existing packages", () => {
             expect(created.exists(`${acquiredParent}/review`)).toBe(false);
             expect(created.settings()).toMatchObject({
               [row.settingsKey]: {
-                review: activation.enabled ? "workspace" : { source: "workspace", enabled: false },
+                review: activation.enabled
+                  ? row.type === "mcp-server"
+                    ? { source: "workspace" }
+                    : "workspace"
+                  : { source: "workspace", enabled: false },
               },
             });
             expect(created.lockfileText()).not.toContain("review:");
@@ -158,7 +162,11 @@ describe("Adopting existing packages", () => {
             expect(helperLock).toContain("test-helper:");
             expect(created.settings()).toMatchObject({
               [row.settingsKey]: {
-                review: enabled ? "workspace" : { source: "workspace", enabled: false },
+                review: enabled
+                  ? row.type === "mcp-server"
+                    ? { source: "workspace" }
+                    : "workspace"
+                  : { source: "workspace", enabled: false },
               },
             });
           }),

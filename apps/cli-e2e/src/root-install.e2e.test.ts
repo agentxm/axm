@@ -122,7 +122,7 @@ const configureWorkspaceRegistry = (workspacePath: string, registryPath: string)
 
 const configureWorkspaceEntries = (
   workspacePath: string,
-  entries: Partial<Record<SettingsKey, Record<string, string>>>,
+  entries: Partial<Record<SettingsKey, Record<string, string | { readonly source: string }>>>,
 ) => {
   const settingsPath = path.join(workspacePath, "axm.json");
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -899,7 +899,12 @@ describe("axm install", () => {
         await initWorkspace(workspace.path, registryDir.path);
         configureWorkspaceEntries(workspace.path, {
           [settingsKeyForSurface(surface)]: Object.fromEntries(
-            names.map((name) => [name, registryFqn(surface, name)]),
+            names.map((name) => [
+              name,
+              surface === "mcps"
+                ? { source: registryFqn(surface, name) }
+                : registryFqn(surface, name),
+            ]),
           ),
         });
 
@@ -949,7 +954,7 @@ describe("axm install", () => {
       configureWorkspaceEntries(workspace.path, {
         skills: { "workspace-skill": registryFqn("skills", "workspace-skill") },
         subagents: { "workspace-subagent": registryFqn("subagents", "workspace-subagent") },
-        mcpServers: { "workspace-mcp": registryFqn("mcps", "workspace-mcp") },
+        mcpServers: { "workspace-mcp": { source: registryFqn("mcps", "workspace-mcp") } },
         rules: { "workspace-rule": registryFqn("rules", "workspace-rule") },
         packs: { "workspace-pack": registryFqn("packs", "workspace-pack") },
       });
@@ -974,7 +979,10 @@ describe("axm install", () => {
 
       const settings = readSettings(workspace.path);
       const lockfile = readLockfile(workspace.path);
-      expect(settings.mcpServers?.["pack-mcp"]).toBeUndefined();
+      expect(settings.mcpServers?.["pack-mcp"]).toMatchObject({
+        distribution: { kind: "package" },
+      });
+      expect(settings.mcpServers?.["pack-mcp"]).not.toHaveProperty("source");
       expect(Object.values(lockfile.mcpServers ?? {})).toContainEqual(
         expect.objectContaining({ identity: expect.objectContaining({ name: "pack-mcp" }) }),
       );

@@ -40,10 +40,10 @@ export const specification = defineSpecification({
 
 /** Authored inline entries exactly as a person would write them in `axm.json`. */
 const authoredInlineEntries = {
-  "local-tool": { command: "echo", args: ["local-tool"] },
-  "remote-tool": { url: "https://example.test/mcp" },
+  "local-tool": { connection: { transport: "stdio", command: "echo", args: ["local-tool"] } },
+  "remote-tool": { connection: { transport: "streamable-http", url: "https://example.test/mcp" } },
   // The command string is left unsplit on purpose: nothing may normalize it.
-  "muted-tool": { command: "echo muted", enabled: false },
+  "muted-tool": { connection: { transport: "stdio", command: "echo muted" }, enabled: false },
 } as const;
 
 const readInlineEntry = (settings: unknown, name: string): unknown => {
@@ -111,10 +111,8 @@ describe("Inline MCP entries are authoritative as authored", () => {
 
         yield* settingsWriter.setEntry("mcp-server", "companion", {
           kind: "inline",
-          command: "node",
-          args: ["companion.js"],
+          connection: { transport: "stdio", command: "node", args: ["companion.js"], env: {} },
           enabled: true,
-          env: {},
         });
 
         const settings = workspace.readSettings();
@@ -125,7 +123,9 @@ describe("Inline MCP entries are authoritative as authored", () => {
         expect(text).toContain('"echo muted"');
         expect(text).toContain('"https://example.test/mcp"');
         // The new entry is a command object as well — no fabricated source.
-        expect(readInlineEntry(settings, "companion")).toMatchObject({ command: "node" });
+        expect(readInlineEntry(settings, "companion")).toMatchObject({
+          connection: { command: "node" },
+        });
         expect(JSON.stringify(readInlineEntry(settings, "companion"))).not.toContain("source");
       }),
     );
@@ -165,10 +165,8 @@ describe("Inline MCP entries are authoritative as authored", () => {
 
         yield* settingsWriter.setEntry("mcp-server", "companion", {
           kind: "inline",
-          command: "node",
-          args: ["companion.js"],
+          connection: { transport: "stdio", command: "node", args: ["companion.js"], env: {} },
           enabled: true,
-          env: {},
         });
 
         const lockfile = workspace.readLockfileText();

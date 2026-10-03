@@ -1,3 +1,4 @@
+import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/index.js";
 /**
  * Pure desired-state evaluation over one captured input view.
  *
@@ -139,7 +140,9 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
     entry: {
       readonly enabled?: boolean | undefined;
       readonly instructionEntry?: boolean | undefined;
-      readonly env?: Readonly<Record<string, string>> | undefined;
+      readonly distribution?: McpDistribution | undefined;
+      readonly bindings?: ReadonlyArray<McpBinding> | undefined;
+      readonly auth?: McpAuth | undefined;
     },
   ) => {
     preferences.set(desiredNodeKey(type, name), {
@@ -147,7 +150,9 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       location: SETTINGS_FILENAME,
       ...(entry.enabled === undefined ? {} : { enabled: entry.enabled }),
       ...(entry.instructionEntry === undefined ? {} : { instructionEntry: entry.instructionEntry }),
-      ...(entry.env === undefined || Object.keys(entry.env).length === 0 ? {} : { env: entry.env }),
+      ...(entry.distribution === undefined ? {} : { distribution: entry.distribution }),
+      ...(entry.bindings === undefined ? {} : { bindings: entry.bindings }),
+      ...(entry.auth === undefined ? {} : { auth: entry.auth }),
     });
   };
 

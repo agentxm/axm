@@ -390,7 +390,12 @@ describe("Activation follows desired state", () => {
       makeLifecycleFixture({
         settings: {
           agents: ["claude-code"],
-          mcpServers: { context: { command: "npx", args: ["context-server"], enabled: false } },
+          mcpServers: {
+            context: {
+              connection: { transport: "stdio", command: "npx", args: ["context-server"] },
+              enabled: false,
+            },
+          },
         },
       }),
     );
@@ -406,7 +411,7 @@ describe("Activation follows desired state", () => {
           yield* applyActivation({ type: "mcp-server", name: "context", enabled: false });
           expect(fixture.readFile(".mcp.json")).not.toContain('"context"');
           expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
-            mcpServers: { context: { command: "npx", enabled: false } },
+            mcpServers: { context: { connection: { command: "npx" }, enabled: false } },
           });
           // The lockfile never moved: an inline server has no acquired package
           // and therefore no accepted resolution to change.

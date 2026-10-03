@@ -22,9 +22,9 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "cli/agent-selection-is-membership-or-filter",
-  title: "The agent option configures workspace membership or filters a listing",
+  title: "The agent option configures workspace membership or filters inspection",
   statement:
-    "A command shall accept the agent option only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.",
+    "A command shall accept the agent option only to choose the workspace's configured agents or to filter read-only inspection, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
@@ -45,11 +45,14 @@ export const specification = defineSpecification({
 
 /**
  * The commands that expose the --agent option choose workspace
- * membership at setup and row filtering when listing. Any other command
- * offering `--agent` would be selecting agents for one extension, which the
- * workspace model cannot represent durably.
+ * membership at setup and row filtering during read-only inspection.
  */
-const AGENT_SELECTION_COMMANDS = ["axm setup", "axm skills list", "axm subagents list"] as const;
+const AGENT_SELECTION_COMMANDS = [
+  "axm setup",
+  "axm skills list",
+  "axm subagents list",
+  "axm mcps show",
+] as const;
 
 const failureTag = (failure: unknown): string | undefined =>
   typeof failure === "object" &&
@@ -75,7 +78,7 @@ const describeFailure = (failure: unknown): string =>
   `${String(failure)} ${JSON.stringify(failure)}`;
 
 describe("Agent selection surface", () => {
-  it.effect("only the membership and listing commands offer an agent selection", () =>
+  it.effect("only membership and read-only inspection commands offer an agent selection", () =>
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
       const offering: string[] = [];

@@ -29,7 +29,10 @@ export const installRequest = (args: {
   readonly all?: boolean;
   readonly reinstall?: boolean;
   readonly localName?: string;
-  readonly env?: ReadonlyArray<string>;
+  readonly bind?: ReadonlyArray<string>;
+  readonly bindEnv?: ReadonlyArray<string>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
   readonly nonInteractive?: boolean;
   readonly planName?: string;
 }): InstallExtensionsRequest => ({
@@ -39,7 +42,10 @@ export const installRequest = (args: {
   all: args.all ?? true,
   reinstall: args.reinstall ?? false,
   localName: Option.fromUndefinedOr(args.localName),
-  env: args.env ?? [],
+  bind: args.bind ?? [],
+  bindEnv: args.bindEnv ?? [],
+  ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
+  ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
   nonInteractive: args.nonInteractive ?? true,
   planName: args.planName ?? "Install extensions",
   planDescription: Option.none(),

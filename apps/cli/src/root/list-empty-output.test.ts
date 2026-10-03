@@ -51,7 +51,16 @@ describe("list command empty output", () => {
   const writeRegistryMcpWorkspace = () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       agents: ["codex"],
-      mcps: { context: "@acme/mcps/context" },
+      mcps: {
+        context: {
+          source: "@acme/mcps/context",
+          distribution: {
+            kind: "remote",
+            transport: "streamable-http",
+            url: "https://mcp.acme.test/mcp",
+          },
+        },
+      },
       lockfileMcpServers: {
         [mcpRegistryResolutionKey({
           authority: "file:///tmp/test-registry",
@@ -161,7 +170,14 @@ describe("list command empty output", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       mcps: {
-        context: "@acme/mcps/context",
+        context: {
+          source: "@acme/mcps/context",
+          distribution: {
+            kind: "remote",
+            transport: "streamable-http",
+            url: "https://mcp.acme.test/mcp",
+          },
+        },
       },
       lockfileMcpServers: {
         [mcpRegistryResolutionKey({

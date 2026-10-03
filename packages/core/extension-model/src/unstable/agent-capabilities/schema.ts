@@ -126,6 +126,7 @@ const NativeReadLocationFields = {
   root: Schema.Literals(["project", "home", "xdg-config"]),
   path: Schema.NonEmptyString,
   configRootRelativePath: Schema.optionalKey(Schema.NonEmptyString),
+  selectedFile: Schema.optionalKey(Schema.Literal("vscode-user-mcp")),
   shape: Schema.Literals(["directory", "file"]),
   role: Schema.Literals(["primary", "additional"]),
   status: Schema.Literals(["canonical", "compat", "deprecated"]),
@@ -1003,6 +1004,7 @@ export const McpStdioDialectSchema = Schema.Struct({
   envKey: Schema.NullOr(Schema.NonEmptyString),
   /** Native allowlist for forwarding same-name environment variables. */
   envVarsKey: Schema.optional(Schema.NonEmptyString),
+  cwdKey: Schema.optionalKey(Schema.NonEmptyString),
 }).annotate({
   identifier: "McpStdioDialect",
   title: "MCP Stdio Dialect",
@@ -1073,8 +1075,13 @@ export type McpConfig = Schema.Schema.Type<typeof McpConfigSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
 export const McpEnvExpansionSchema = Schema.Struct({
-  variables: Schema.Literals(["none", "braced", "env-tag"]),
+  variables: Schema.Literals(["none", "braced", "env-tag", "env-colon"]),
   defaults: Schema.Boolean,
+  fields: Schema.optionalKey(
+    Schema.Array(Schema.Literals(["command", "args", "env", "url", "headers", "cwd"])),
+  ),
+  executableValues: Schema.optionalKey(Schema.Boolean),
+  homeExpansion: Schema.optionalKey(Schema.Boolean),
 }).annotate({
   identifier: "McpEnvExpansion",
   title: "MCP Env Expansion",

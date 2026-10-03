@@ -73,9 +73,7 @@ describe("authority at shared MCP files", () => {
             nativeInsertionEligible: true,
             entry: {
               kind: "inline",
-              command: "node",
-              args: ["context.js"],
-              env: {},
+              connection: { transport: "stdio", command: "node", args: ["context.js"], env: {} },
               enabled: true,
             },
           } as const;
@@ -87,7 +85,7 @@ describe("authority at shared MCP files", () => {
           expect(yield* fs.readFileString(file)).toBe(first);
           yield* syncInlineMcpServerToAgents(["coder-agents"], {
             ...args,
-            entry: { ...args.entry, args: ["next.js"] },
+            entry: { ...args.entry, connection: { ...args.entry.connection, args: ["next.js"] } },
           });
           const updated = (yield* decodeJsonMcpConfig(
             file,
@@ -164,9 +162,14 @@ describe("authority at shared MCP files", () => {
             nativeInsertionEligible: true,
             entry: {
               kind: "inline",
-              url: "https://example.test/mcp",
-              headers: { Authorization: "Bearer ${TOKEN}", "X-Secondary": "${SECOND}" },
-              env: {},
+              connection: {
+                transport: "streamable-http",
+                url: "https://example.test/mcp",
+                headers: {
+                  Authorization: { template: ["Bearer ", { env: "TOKEN" }] },
+                  "X-Secondary": { env: "SECOND" },
+                },
+              },
               enabled: false,
             },
           });
@@ -472,7 +475,11 @@ describe("authority at shared MCP files", () => {
         nativeInsertionEligible: false,
         workspaceRoot: root,
         serverName: "context",
-        entry: { kind: "inline", command: "node", env: {}, enabled: true },
+        entry: {
+          kind: "inline",
+          connection: { transport: "stdio", command: "node", env: {} },
+          enabled: true,
+        },
       }).pipe(Effect.provide(authority.layer));
       expect(outcomes.map((outcome) => outcome._tag)).toEqual(["success", "success"]);
       expect((yield* authority.observed).records).toHaveLength(1);
@@ -497,7 +504,11 @@ describe("authority at shared MCP files", () => {
           nativeInsertionEligible: false,
           workspaceRoot: root,
           serverName: "context",
-          entry: { kind: "inline" as const, command: "node", env: {}, enabled: true },
+          entry: {
+            kind: "inline" as const,
+            connection: { transport: "stdio" as const, command: "node", env: {} },
+            enabled: true,
+          },
         };
         const authority = yield* makeRecordingNativeWriteAuthority;
         const preview = yield* validateInlineMcpServerTargets(agentIds, args).pipe(Effect.result);
@@ -600,12 +611,18 @@ describe("authority at shared MCP files", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
   for (const entry of [
-    { kind: "inline", command: "node", env: { TOKEN: "${TOKEN}" }, enabled: true },
     {
       kind: "inline",
-      url: "https://mcp.example.test/mcp",
-      headers: { Authorization: "Bearer ${TOKEN}" },
-      env: {},
+      connection: { transport: "stdio", command: "node", env: { TOKEN: { env: "TOKEN" } } },
+      enabled: true,
+    },
+    {
+      kind: "inline",
+      connection: {
+        transport: "streamable-http",
+        url: "https://mcp.example.test/mcp",
+        headers: { Authorization: { template: ["Bearer ", { env: "TOKEN" }] } },
+      },
       enabled: true,
     },
   ] as const) {
@@ -637,7 +654,7 @@ describe("authority at shared MCP files", () => {
   }
 
   it.effect.each([false, true])(
-    "only configured co-readers constrain default references: %s",
+    "literal defaults are refused without native interpolation: %s",
     (configured) =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -653,20 +670,23 @@ describe("authority at shared MCP files", () => {
             nativeInsertionEligible: true,
             entry: {
               kind: "inline",
-              command: "node",
-              env: { TOKEN: "${TOKEN:-fallback}" },
+              connection: {
+                transport: "stdio",
+                command: "node",
+                env: { REGION: "${REGION:-fallback}" },
+              },
               enabled: true,
             },
           },
         ).pipe(Effect.result, Effect.provide(authority.layer));
-        expect(result._tag).toBe(configured ? "Failure" : "Success");
+        expect(result._tag).toBe("Failure");
         if (result._tag === "Failure")
           expect(result.failure).toMatchObject({
             _tag: "McpSharedTargetConflict",
-            reason: expect.stringContaining("github-copilot-cli"),
+            reason: expect.stringContaining("literal native metasyntax"),
           });
-        expect((yield* authority.observed).records).toHaveLength(configured ? 0 : 1);
-        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(!configured);
+        expect((yield* authority.observed).records).toHaveLength(0);
+        expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

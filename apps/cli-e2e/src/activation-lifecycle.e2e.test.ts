@@ -396,7 +396,10 @@ describe("extension activation lifecycle", () => {
         owner: "@test",
         agents,
         mcpServers: {
-          context: { url: "https://example.test/mcp", enabled: false },
+          context: {
+            connection: { transport: "streamable-http", url: "https://example.test/mcp" },
+            enabled: false,
+          },
         },
         lint: {
           rules: {
@@ -460,13 +463,21 @@ describe("extension activation lifecycle", () => {
     }
   }, 120_000);
 
-  it("supports symbolic inputs and refuses incompatible shared default syntax", async () => {
+  it("supports symbolic inputs and refuses literal native interpolation syntax", async () => {
     const shared = createTempDir();
     const independent = createTempDir();
     const mcpEntry = {
       source: "workspace",
       enabled: false,
-      env: { MAILER_TOKEN: "${MAILER_TOKEN}" },
+      distribution: {
+        kind: "package",
+        registryType: "npm",
+        identifier: "@test/mailer-mcp",
+        transport: "stdio",
+      },
+      bindings: [
+        { target: { kind: "environment", name: "MAILER_TOKEN" }, value: { env: "MAILER_TOKEN" } },
+      ],
     };
     try {
       for (const workspace of [shared.path, independent.path]) writeSymbolicMcpPackage(workspace);
@@ -488,7 +499,9 @@ describe("extension activation lifecycle", () => {
       expect(sharedPreview.exitCode).not.toBe(0);
       expect(sharedApply.exitCode).not.toBe(0);
       for (const result of [sharedPreview, sharedApply]) {
-        expect(result.stdout + result.stderr).toContain("github-copilot-cli");
+        expect(result.stdout + result.stderr).toContain(
+          "literal native metasyntax cannot be preserved",
+        );
         expect(result.stdout + result.stderr).toContain(
           `shared MCP target '${path.join(shared.path, ".mcp.json")}'`,
         );
@@ -539,7 +552,7 @@ describe("extension activation lifecycle", () => {
         { agentId: "codex", outcome: "current" },
       ]);
       expect(fs.readFileSync(path.join(independent.path, ".cursor/mcp.json"), "utf8")).toContain(
-        "${MAILER_TOKEN}",
+        "${env:MAILER_TOKEN}",
       );
       expect(fs.readFileSync(path.join(independent.path, ".codex/config.toml"), "utf8")).toContain(
         'env_vars = ["MAILER_TOKEN"]',
@@ -547,6 +560,7 @@ describe("extension activation lifecycle", () => {
       const shown = await runCli(["mcps", "show", "mailer", "--json"], {
         cwd: independent.path,
       });
+      expect(shown.exitCode, shown.stdout + shown.stderr).toBe(0);
       expect(showStatuses(shown.stdout)).toEqual({ cursor: "current", codex: "current" });
     } finally {
       shared.cleanup();

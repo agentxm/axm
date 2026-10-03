@@ -190,7 +190,9 @@ describe("Demoting workspace authorship", () => {
                 expect(readSettings(workspace)).toMatchObject({
                   [row.settingsKey]: {
                     [REVIEW]: enabled
-                      ? expectedSource
+                      ? row.type === "mcp-server"
+                        ? { source: expectedSource }
+                        : expectedSource
                       : expect.objectContaining({ source: expectedSource, enabled: false }),
                   },
                 });

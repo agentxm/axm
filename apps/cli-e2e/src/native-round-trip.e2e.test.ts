@@ -229,7 +229,15 @@ describe("new intent and precise withdrawal across CLI processes", () => {
       const authored = "# Workspace notes\r\nKeep these exact bytes.\r\n";
       write(path.join(fixture.selected, "README.md"), authored);
       fs.mkdirSync(path.join(fixture.selected, "authored-empty"));
-      await execute(fixture, ["mcps", "add", "context", "--command", "node context.js"]);
+      await execute(fixture, [
+        "mcps",
+        "add",
+        "context",
+        "--command",
+        "node",
+        "--arg",
+        "context.js",
+      ]);
       const native = path.join(fixture.selected, ".mcp.json");
       expect(fs.readFileSync(native, "utf8")).toContain("context");
       expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
@@ -481,7 +489,17 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           await execute(
             fixture,
             sourceKind === "inline"
-              ? ["mcps", "add", "context", "--command", "node context.js", "--scope", row.scope]
+              ? [
+                  "mcps",
+                  "add",
+                  "context",
+                  "--command",
+                  "node",
+                  "--arg",
+                  "context.js",
+                  "--scope",
+                  row.scope,
+                ]
               : ["install", source, "--mcp", "context", "--scope", row.scope],
           );
           expect(fs.readFileSync(target, "utf8")).toContain("context");

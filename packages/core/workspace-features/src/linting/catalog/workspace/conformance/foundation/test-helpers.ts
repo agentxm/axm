@@ -154,7 +154,18 @@ export const mcpTransportExclusivityConformance: WorkspaceRuleConformanceCase = 
   satisfied: () =>
     contextFor({
       settings: validSettings({
-        mcpServers: { demo: { connection: { transport: "stdio", command: "node", args: [] } } },
+        mcpServers: {
+          demo: { connection: { transport: "stdio", command: "node", args: [] } },
+          remote: { connection: { transport: "streamable-http", url: "https://example.test/mcp" } },
+          sourced: { source: "@acme/mcps/tool" },
+          member: {
+            distribution: {
+              kind: "remote",
+              transport: "streamable-http",
+              url: "https://example.test/mcp",
+            },
+          },
+        },
       }),
       lockfile: validLockfile,
     }),
@@ -176,7 +187,7 @@ export const mcpTransportExclusivityConformance: WorkspaceRuleConformanceCase = 
   expectedFindings: [
     {
       message:
-        "MCP server 'demo' must include exactly one of source, command, or url. Edit `axm.json` so each MCP server uses one transport.",
+        "MCP server 'demo' must declare one explicit stdio, streamable-http, or sse connection with fields valid for that transport. Edit `axm.json` so each MCP server uses one transport.",
       location: { file: "axm.json" },
     },
   ],
@@ -194,7 +205,11 @@ export const mcpNoSecretLiteralConformance: WorkspaceRuleConformanceCase = {
       settings: validSettings({
         mcpServers: {
           demo: {
-            connection: { transport: "stdio", command: "node", env: { API_TOKEN: "${API_TOKEN}" } },
+            connection: {
+              transport: "stdio",
+              command: "node",
+              env: { API_TOKEN: { env: "API_TOKEN" } },
+            },
           },
         },
       }),
@@ -208,7 +223,7 @@ export const mcpNoSecretLiteralConformance: WorkspaceRuleConformanceCase = {
             connection: {
               transport: "stdio",
               command: "node",
-              env: { API_TOKEN: "literal-secret" },
+              env: { API_TOKEN: "${API_TOKEN}" },
             },
           },
         },
@@ -218,7 +233,7 @@ export const mcpNoSecretLiteralConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message:
-        "MCP server 'demo' stores a secret-looking literal in env.API_TOKEN. Use a `${VAR}` reference so axm.json does not contain the secret.",
+        'MCP server \'demo\' stores a secret-looking literal in connection.env.API_TOKEN. Use a structured {"env":"VAR"} reference so axm.json does not contain the secret.',
       location: { file: "axm.json" },
     },
   ],

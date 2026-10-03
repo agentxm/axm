@@ -104,6 +104,16 @@ describe("Native projection comparison", () => {
             agents: ["claude-code"],
             sources: [registry.source],
             packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+            mcpServers: {
+              context: {
+                distribution: {
+                  kind: "package",
+                  registryType: "npm",
+                  identifier: "@acme/context",
+                  transport: "stdio",
+                },
+              },
+            },
           },
         });
         cleanups.push(workspace.cleanup);

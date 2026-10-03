@@ -48,7 +48,7 @@ export const specification = defineSpecification({
     "Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.",
     "An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.",
     "Amp has catalogued native MCP support without a verified AXM writer, while Hermes has no project-scope MCP support; these exercise different availability outcomes.",
-    "A Pack that declares one MCP member is the only way a connection reaches desired state without its own settings entry, so one such Pack stands for every Pack-supplied connection.",
+    "A Pack supplies a member's acquisition route while settings retain its selected distribution, so one such Pack stands for every Pack-supplied connection.",
   ],
   openQuestions: [],
 });
@@ -137,7 +137,7 @@ describe("MCP servers project to every configured agent", () => {
       // the shape adoption leaves behind. Reconciliation is what has to carry
       // it to an agent that never declared it.
       const workspace = workspaceWithAgents(["claude-code"], {
-        adopted: { command: "node", args: ["adopted.js"] },
+        adopted: { connection: { transport: "stdio", command: "node", args: ["adopted.js"] } },
       });
       return workspace
         .provide(
@@ -223,13 +223,13 @@ describe("MCP servers project to every configured agent", () => {
               expect(nativeHasServer(workspace, file, "demo"), file).toBe(true);
             }
 
-            settingsWith({ demo: { command: "node", args: ["server.js"], enabled: false } });
+            settingsWith({ demo: { connection: addedEntry.demo.connection, enabled: false } });
             yield* applySync();
             for (const file of NATIVE_CONFIGS) {
               expect(nativeHasServer(workspace, file, "demo"), file).toBe(false);
             }
 
-            settingsWith({ demo: { command: "node", args: ["server.js"], enabled: true } });
+            settingsWith({ demo: { connection: addedEntry.demo.connection, enabled: true } });
             yield* applySync();
             for (const file of NATIVE_CONFIGS) {
               expect(nativeHasServer(workspace, file, "demo"), file).toBe(true);
@@ -318,6 +318,16 @@ describe("MCP servers project to every configured agent", () => {
         agents,
         sources: [registry.source],
         packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+        mcpServers: {
+          context: {
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/context",
+              transport: "stdio",
+            },
+          },
+        },
       },
     });
     cleanups.push(workspace.cleanup);
@@ -355,7 +365,8 @@ describe("MCP servers project to every configured agent", () => {
                 mcpServers: { context: expect.objectContaining({ command: "npx" }) },
               });
             }
-            expect(JSON.stringify(workspace.readSettings())).not.toContain("mcpServers");
+            expect(workspace.readSettings()).toHaveProperty("mcpServers.context.distribution");
+            expect(workspace.readSettings()).not.toHaveProperty("mcpServers.context.source");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

@@ -83,7 +83,9 @@ describe("The fixed publication gate", () => {
   ]) {
     it.effect(`validates Knowledge publication: ${scenario.name}`, () =>
       Effect.gen(function* () {
-        const world = makePublishWorld({ settings: { knowledge: { platform: "workspace" } } });
+        const world = makePublishWorld({
+          settings: { knowledge: { platform: "workspace" } },
+        });
         worlds.push(world);
         const packageRoot = world.write("knowledge", { name: "platform" });
         const concept = nodePath.join(packageRoot, "src", "architecture.md");

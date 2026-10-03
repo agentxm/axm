@@ -71,7 +71,8 @@ describe("Non-terminal human output", () => {
           all: true,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer));

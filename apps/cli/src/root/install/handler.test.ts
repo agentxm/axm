@@ -51,7 +51,8 @@ describe("install argument grammar", () => {
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.some("work-context"),
           bundled: false,
         }).pipe(Effect.flip);

@@ -79,7 +79,6 @@ import {
   ExtensionKindsLive,
   HookManagerLive,
   KnowledgeManagerLive,
-  McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -740,7 +739,6 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // non-interactive default means no prompt ever opens.
     BundledAxmSkillAssetLive,
     Layer.provide(InstallSelectionLive, cliTestContext.baseLayer),
-    McpSecretStoreLive,
     // Every command runs inside the operation lifecycle, which opens the
     // journal and footprint recorder once per invocation; a test that drives
     // a handler directly gets empty ones here.

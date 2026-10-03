@@ -36,7 +36,11 @@ describe("Inline MCP configuration during workspace install", () => {
     "reports the inline entry as a skipped unit and leaves it unlocked and unchanged",
     () => {
       const { workspace, cleanup } = makeInstallWorld({
-        settings: { mcpServers: { "local-tool": { command: "echo local-tool" } } },
+        settings: {
+          mcpServers: {
+            "local-tool": { connection: { transport: "stdio", command: "echo local-tool" } },
+          },
+        },
       });
       cleanups.push(cleanup);
       const lockBefore = workspace.readFile("axm-lock.yaml");
@@ -63,7 +67,7 @@ describe("Inline MCP configuration during workspace install", () => {
             expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
             expect(workspace.readFile("axm-lock.yaml")).not.toContain("local-tool");
             expect(readSettings(workspace)).toMatchObject({
-              mcpServers: { "local-tool": { command: "echo local-tool" } },
+              mcpServers: { "local-tool": { connection: { command: "echo local-tool" } } },
             });
           }),
         )

@@ -55,7 +55,7 @@ describe("mcps import output", () => {
             demo: {
               command: "node",
               args: ["server.js"],
-              env: { DEMO_TOKEN: "secret-value" },
+              env: { DEMO_TOKEN: "${DEMO_TOKEN}" },
             },
           },
         },
@@ -140,7 +140,9 @@ describe("mcps import output", () => {
           },
         });
         const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
-        expect(settings.mcpServers.demo.env).toEqual({ DEMO_TOKEN: "${DEMO_TOKEN}" });
+        expect(settings.mcpServers.demo.connection.env).toEqual({
+          DEMO_TOKEN: { env: "DEMO_TOKEN" },
+        });
         expect(settings.mcpServers.demo).not.toHaveProperty("agents");
         expect(JSON.stringify(settings)).not.toContain("secret-value");
       }),
@@ -186,7 +188,7 @@ describe("mcps import output", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     const configBefore = JSON.stringify({
       mcpServers: {
-        demo: { command: "node", args: ["server.js"], env: { TOKEN: "private-value" } },
+        demo: { command: "node", args: ["server.js"], env: { TOKEN: "${TOKEN}" } },
       },
     });
     fs.writeFileSync(path.join(tempDir, ".mcp.json"), configBefore);
@@ -199,7 +201,7 @@ describe("mcps import output", () => {
         });
         const settings = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
         const native = fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8");
-        expect(settings).toContain("${TOKEN}");
+        expect(settings).toContain('"env": "TOKEN"');
         expect(native).toContain("${TOKEN}");
         for (const output of [settings, native, JSON.stringify(rendererState.results)])
           expect(output).not.toContain("private-value");
@@ -215,7 +217,7 @@ describe("mcps import output", () => {
     const configPath = path.join(homeDir, ".hermes", "config.yaml");
     fs.writeFileSync(
       configPath,
-      "# Keep this user comment\nmcp_servers:\n  demo:\n    command: node\n    args: [server.js]\n",
+      "# Keep this user comment\nmcp_servers:\n  demo:\n    enabled: true\n    command: node\n    args: [server.js]\n",
     );
     const { provide, rendererState } = makeLayers({
       machine: true,
@@ -244,7 +246,7 @@ describe("mcps import output", () => {
     const originalConfig = JSON.stringify({
       mcpServers: {
         zebra: { command: "node", args: ["zebra.js"] },
-        alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "private-value" } },
+        alpha: { command: "node", args: ["alpha.js"], env: { TOKEN: "${TOKEN}" } },
       },
     });
     fs.writeFileSync(path.join(tempDir, ".gemini/settings.json"), originalConfig);
@@ -290,7 +292,7 @@ describe("mcps import output", () => {
     );
   });
 
-  it.effect("reports unsupported native config formats without parsing or exposing them", () => {
+  it.effect("refuses unsupported native fields without exposing their values", () => {
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
       path.join(tempDir, "axm.json"),
@@ -307,8 +309,8 @@ describe("mcps import output", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           result: {
-            outcome: "no-op",
-            imports: { imported: 0, skipped: 1, conflicting: 0 },
+            outcome: "blocked",
+            imports: { imported: 0, skipped: 0, conflicting: 1 },
           },
         });
         expect(JSON.stringify(rendererState.results[0]?.data)).not.toContain("private-value");

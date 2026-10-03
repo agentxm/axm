@@ -1,198 +1,136 @@
-/**
- * Inline MCP capability policy: parsing and validating inline server
- * definitions from user-supplied command, URL, environment, and header
- * inputs, and deciding whether a configured entry already matches a desired
- * inline definition.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
+/** Literal CLI conveniences over the canonical typed MCP invocation contract. */
 import * as Effect from "effect/Effect";
+import * as Equal from "effect/Equal";
+import * as Schema from "effect/Schema";
+import {
+  McpConnectionSchema,
+  McpValueSchema,
+  validateMcpConnection,
+  type McpAuth,
+  type McpConnection,
+  type McpValue,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import type { McpServerEntry } from "@agentxm/workspace-kernel/workspace-state";
 import { WorkspaceConfigurationFailed } from "../errors.js";
-import type { InlineMcpDefinition } from "../mcp-import/preflight.js";
 
-export const splitCommand = (value: string): ReadonlyArray<string> =>
-  value.match(/(?:[^\s"']+|"[^"]*"|'[^']*')+/g)?.map((part) => {
-    if (
-      (part.startsWith('"') && part.endsWith('"')) ||
-      (part.startsWith("'") && part.endsWith("'"))
-    ) {
-      return part.slice(1, -1);
-    }
-    return part;
-  }) ?? [];
-
-const isSensitiveName = (name: string): boolean =>
-  /(?:authorization|cookie|credential|password|secret|token|api[-_]?key)/iu.test(name);
-
-const hasEnvironmentReference = (value: string): boolean =>
-  /\$\{[A-Za-z_][A-Za-z0-9_]*\}/u.test(value);
+const refused = (detail: string) => new WorkspaceConfigurationFailed({ category: "usage", detail });
 
 export const parseInlineMcpEnv = (
   values: ReadonlyArray<string>,
-): Effect.Effect<Readonly<Record<string, string>>, WorkspaceConfigurationFailed> =>
-  Effect.forEach(values, (value) =>
-    Effect.gen(function* () {
-      const separator = value.indexOf("=");
-      if (separator > 0) {
-        const name = value.slice(0, separator);
-        const configured = value.slice(separator + 1);
-        if (isSensitiveName(name) && !hasEnvironmentReference(configured)) {
-          return yield* new WorkspaceConfigurationFailed({
-            category: "usage",
-            detail: `Sensitive MCP input ${name} must use an environment reference; pass --env ${name}`,
-          });
-        }
-        return [name, configured] as const;
-      }
-      return [value, `\${${value}}`] as const;
-    }),
-  ).pipe(Effect.map((entries) => Object.fromEntries(entries)));
-
-const parseInlineMcpHeader = (
-  value: string,
-): Effect.Effect<readonly [string, string], WorkspaceConfigurationFailed> =>
+): Effect.Effect<Readonly<Record<string, McpValue>>, WorkspaceConfigurationFailed> =>
   Effect.gen(function* () {
-    const separator = value.indexOf(":");
-    if (separator <= 0) {
-      return yield* new WorkspaceConfigurationFailed({
-        category: "usage",
-        detail: `Invalid header "${value}". Use Name:Value.`,
-      });
+    const result: Record<string, McpValue> = {};
+    for (const item of values) {
+      const separator = item.indexOf("=");
+      const name = separator < 0 ? item : item.slice(0, separator);
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name) || Object.hasOwn(result, name))
+        return yield* refused("Environment names must be valid and unique");
+      result[name] = separator < 0 ? { env: name } : item.slice(separator + 1);
     }
-    const name = value.slice(0, separator).trim();
-    const configured = value.slice(separator + 1).trim();
-    if (isSensitiveName(name) && !hasEnvironmentReference(configured)) {
-      return yield* new WorkspaceConfigurationFailed({
-        category: "usage",
-        detail: `Sensitive MCP header ${name} must use an environment reference`,
-      });
-    }
-    return [name, configured] as const;
+    return result;
   });
 
 export const parseInlineMcpHeaders = (
   values: ReadonlyArray<string>,
-): Effect.Effect<Readonly<Record<string, string>>, WorkspaceConfigurationFailed> =>
-  Effect.map(Effect.forEach(values, parseInlineMcpHeader), (entries) =>
-    Object.fromEntries(entries),
-  );
-
-export const validateInlineMcpRemoteUrl = (
-  value: string,
-): Effect.Effect<void, WorkspaceConfigurationFailed> =>
+  references: ReadonlyArray<string> = [],
+): Effect.Effect<Readonly<Record<string, McpValue>>, WorkspaceConfigurationFailed> =>
   Effect.gen(function* () {
-    const protocol = yield* Effect.try({
-      try: () => new URL(value).protocol,
-      catch: (cause) =>
-        new WorkspaceConfigurationFailed({
-          category: "usage",
-          detail: `Invalid MCP server URL "${value}". Use an http(s):// streamable URL.`,
-          cause,
-        }),
-    });
-    if (protocol === "ws:" || protocol === "wss:") {
-      return yield* new WorkspaceConfigurationFailed({
-        category: "usage",
-        detail: "WebSocket MCP transport is not supported; use an http(s):// streamable URL.",
-      });
+    const result: Record<string, McpValue> = {};
+    const names = new Set<string>();
+    for (const [items, symbolic] of [
+      [values, false],
+      [references, true],
+    ] as const) {
+      for (const item of items) {
+        const separator = item.indexOf(symbolic ? "=" : ":");
+        if (separator <= 0)
+          return yield* refused("Headers require Name:Literal or --header-env Name=ENV_NAME");
+        const name = item.slice(0, separator).trim();
+        if (names.has(name.toLowerCase()))
+          return yield* refused("Header names must be unique ignoring case");
+        names.add(name.toLowerCase());
+        const raw = item.slice(separator + 1);
+        result[name] = yield* Schema.decodeUnknownEffect(McpValueSchema)(
+          symbolic ? { env: raw } : raw,
+        ).pipe(Effect.mapError(() => refused("Invalid header reference")));
+      }
     }
-    if (protocol !== "http:" && protocol !== "https:") {
-      return yield* new WorkspaceConfigurationFailed({
-        category: "usage",
-        detail: `Unsupported MCP server URL scheme "${protocol}". Use an http(s):// streamable URL.`,
-      });
-    }
+    return result;
   });
-
-const arraysEqual = (
-  left: ReadonlyArray<string> | undefined,
-  right: ReadonlyArray<string> | undefined,
-): boolean => {
-  const normalizedLeft = left ?? [];
-  const normalizedRight = right ?? [];
-  return (
-    normalizedLeft.length === normalizedRight.length &&
-    normalizedLeft.every((value, index) => value === normalizedRight[index])
-  );
-};
-
-const recordsEqual = (
-  left: Readonly<Record<string, string>> | undefined,
-  right: Readonly<Record<string, string>> | undefined,
-): boolean => {
-  const normalizedLeft = left ?? {};
-  const normalizedRight = right ?? {};
-  const leftEntries = Object.entries(normalizedLeft).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  const rightEntries = Object.entries(normalizedRight).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([key, value], index) => {
-      const rightEntry = rightEntries[index];
-      return rightEntry !== undefined && key === rightEntry[0] && value === rightEntry[1];
-    })
-  );
-};
 
 export const matchesInlineMcpEntry = (args: {
   readonly existing: McpServerEntry | undefined;
-  readonly definition: InlineMcpDefinition;
-  readonly env: Readonly<Record<string, string>>;
+  readonly definition: McpConnection;
+  readonly auth?: McpAuth;
 }): boolean =>
-  args.existing !== undefined &&
-  args.existing.kind === "inline" &&
+  args.existing?.kind === "inline" &&
   args.existing.enabled &&
-  args.existing.command ===
-    (args.definition.type === "stdio" ? args.definition.command : undefined) &&
-  arraysEqual(
-    args.existing.args,
-    args.definition.type === "stdio" ? args.definition.args : undefined,
-  ) &&
-  args.existing.url === (args.definition.type === "http" ? args.definition.url : undefined) &&
-  recordsEqual(
-    args.existing.headers,
-    args.definition.type === "http" ? args.definition.headers : undefined,
-  ) &&
-  recordsEqual(args.existing.env, args.env);
+  Equal.equals(args.existing.connection, args.definition) &&
+  Equal.equals(args.existing.auth, args.auth);
 
-/** Derive the inline definition from the add command's mutually exclusive inputs. */
 export const makeInlineMcpDefinition = (
   args: {
-    readonly command: string | undefined;
-    readonly url: string | undefined;
+    readonly command?: string | undefined;
+    readonly url?: string | undefined;
+    readonly transport?: McpConnection["transport"] | undefined;
+    readonly args?: ReadonlyArray<string> | undefined;
+    readonly cwd?: string | undefined;
+    readonly connection?: unknown;
+    readonly auth?: McpAuth | undefined;
   },
-  headers: Readonly<Record<string, string>>,
-): Effect.Effect<InlineMcpDefinition, WorkspaceConfigurationFailed> =>
+  headers: Readonly<Record<string, McpValue>>,
+  env: Readonly<Record<string, McpValue>> = {},
+): Effect.Effect<McpConnection, WorkspaceConfigurationFailed> =>
   Effect.gen(function* () {
-    if (args.command !== undefined) {
-      const commandParts = splitCommand(args.command);
-      const command = commandParts[0];
-      if (command === undefined) {
-        return yield* new WorkspaceConfigurationFailed({
-          category: "usage",
-          detail: "Inline MCP command cannot be empty.",
-        });
-      }
-      return {
-        type: "stdio",
-        command,
-        args: commandParts.slice(1),
-      } satisfies InlineMcpDefinition;
-    }
-    if (args.url !== undefined) {
-      return {
-        type: "http",
-        url: args.url,
-        headers,
-      } satisfies InlineMcpDefinition;
-    }
-    return yield* new WorkspaceConfigurationFailed({
-      category: "usage",
-      detail: "Provide --command or --url for inline MCP servers.",
-    });
+    if (
+      args.connection !== undefined &&
+      (args.command !== undefined ||
+        args.url !== undefined ||
+        args.transport !== undefined ||
+        args.cwd !== undefined ||
+        (args.args?.length ?? 0) > 0 ||
+        Object.keys(env).length > 0 ||
+        Object.keys(headers).length > 0)
+    )
+      return yield* refused("Use --connection alone for invocation fields");
+    if (args.command !== undefined && args.url !== undefined)
+      return yield* refused("Choose a command or a URL");
+    if (args.command !== undefined && Object.keys(headers).length > 0)
+      return yield* refused("Headers require a remote transport");
+    if (
+      args.command === undefined &&
+      args.connection === undefined &&
+      ((args.args?.length ?? 0) > 0 || args.cwd !== undefined || Object.keys(env).length > 0)
+    )
+      return yield* refused("Arguments, cwd and environment require stdio");
+    const proposed =
+      args.connection ??
+      (args.command !== undefined
+        ? {
+            transport: args.transport ?? "stdio",
+            command: args.command,
+            args: args.args ?? [],
+            env,
+            ...(args.cwd === undefined
+              ? {}
+              : {
+                  cwd: /^(?:\/|[A-Za-z]:[\\/])/u.test(args.cwd)
+                    ? { base: "absolute", path: args.cwd }
+                    : { base: "scope", path: args.cwd },
+                }),
+          }
+        : { transport: args.transport ?? "streamable-http", url: args.url, headers });
+    const connection = yield* Schema.decodeUnknownEffect(McpConnectionSchema, {
+      onExcessProperty: "error",
+    })(proposed).pipe(
+      Effect.mapError(() =>
+        refused(
+          "Invalid MCP connection: use one explicit transport, a single executable token, typed arguments and bindings",
+        ),
+      ),
+    );
+    const findings = validateMcpConnection(connection, args.auth);
+    if (findings.length > 0)
+      return yield* refused(findings.map(({ message }) => message).join("; "));
+    return connection;
   });

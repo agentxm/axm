@@ -70,7 +70,9 @@ describe("Adopting an authored package in place", () => {
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(created.snapshot(`${row.plural}/review`)).toEqual(before);
         expect(created.settings()).toMatchObject({
-          [row.settingsKey]: { review: "workspace" },
+          [row.settingsKey]: {
+            review: row.type === "mcp-server" ? { source: "workspace" } : "workspace",
+          },
         });
         expect(created.lockfileText()).not.toContain("review:");
         expect(created.exists("agent_extensions")).toBe(false);

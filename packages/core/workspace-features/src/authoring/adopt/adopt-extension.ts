@@ -41,7 +41,6 @@ import {
   KnowledgeManager,
   McpServerManager,
   PackManager,
-  McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type AuthorMaterialization,
@@ -136,8 +135,7 @@ export type AdoptExtensionRequirements =
   | SettingsReader
   | SettingsWriter
   | WorkspaceLocation
-  | CodingAgentRepository
-  | McpSecretStore;
+  | CodingAgentRepository;
 
 /** A settled adoption: every decision is made and nothing is written. */
 export interface AdoptExtensionCandidate {
@@ -375,9 +373,9 @@ export const prepareAdoptExtension: (
     nativeInsertionEligible: false,
     markAuthored: Effect.andThen(
       declaration.retireExternalResolution,
-      declaration.declare({ enabled: true, env: current.env }),
+      declaration.declare({ enabled: true, mcpPreferences: current.mcpPreferences }),
     ),
-    finalizeAuthored: declaration.declare({ enabled, env: current.env }),
+    finalizeAuthored: declaration.declare({ enabled, mcpPreferences: current.mcpPreferences }),
   } as const;
 
   const common =

@@ -222,7 +222,7 @@ describe("Publish preview purity", () => {
 
   const typeWorld = (row: (typeof authoredTypes)[number], authored: boolean) => {
     const world = makePublishWorld({
-      settings: authored ? { [row.settingsKey]: { [row.name]: "workspace" } } : {},
+      settings: authored ? { [row.settingsKey]: { [row.name]: { source: "workspace" } } } : {},
     });
     worlds.push(world);
     if (authored) world.write(row.type, { name: row.name });

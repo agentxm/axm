@@ -72,7 +72,10 @@ describe("Publishing when Git cannot assess the source state", () => {
   });
 
   const setup = (compare: GitDirectoryComparisonService["compare"]) => {
-    const world = makePublishWorld({ settings: { skills: { review: "workspace" } }, compare });
+    const world = makePublishWorld({
+      settings: { skills: { review: "workspace" } },
+      compare,
+    });
     worlds.push(world);
     world.write("skill", { name: "review" });
     return world;

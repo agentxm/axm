@@ -219,6 +219,7 @@ export const codexAgent = {
             command: "split",
             envKey: "env",
             envVarsKey: "env_vars",
+            cwdKey: "cwd",
           },
           remote: {
             typeField: {
@@ -236,7 +237,7 @@ export const codexAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-09-12",
+        lastVerified: null,
         writer: {
           config: {
             locationIds: ["project", "user"],

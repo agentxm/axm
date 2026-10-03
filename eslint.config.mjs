@@ -651,8 +651,7 @@ export default [
           checkVersionMismatches: true,
           ignoredDependencies: [
             // Loaded through a computed dynamic-import specifier the static
-            // graph cannot see (the registry-access credential-store keychain
-            // tier and the extension-kinds MCP secret store).
+            // graph cannot see (the registry-access credential-store keychain tier).
             "@napi-rs/keyring",
             // The published CLI pins this transitive runtime directly because
             // platform-node's prerelease range can otherwise cross cohorts.

@@ -88,7 +88,7 @@ describe("Creating an MCP server", () => {
           packages: [expect.objectContaining({ transport: { type: "stdio" } })],
         },
       });
-      expect(created.settings()).toMatchObject({ mcpServers: { review: "workspace" } });
+      expect(created.settings()).toMatchObject({ mcpServers: { review: { source: "workspace" } } });
       expect(JSON.stringify(created.settings())).not.toContain('"enabled":false');
     }),
   );

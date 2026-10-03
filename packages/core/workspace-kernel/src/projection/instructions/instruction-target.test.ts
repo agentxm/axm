@@ -61,6 +61,7 @@ const EXPECTED_SKIP: ReadonlyArray<MaterializationTargetId> = [
   "roo",
   "rovodev",
   "tabnine-cli",
+  "vscode",
   "warp",
   "zenflow",
 ];

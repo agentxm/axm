@@ -1,3 +1,4 @@
+import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/index.js";
 /**
  * The desired-state graph: what one evaluation of the workspace's declared
  * intent derived, and the constraint vocabulary every planner reads from it.
@@ -69,7 +70,9 @@ export interface DesiredMemberPreference {
   readonly location: string;
   readonly enabled?: boolean;
   readonly instructionEntry?: boolean;
-  readonly env?: Readonly<Record<string, string>>;
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
 }
 
 interface DesiredExtensionNodeCommon {

@@ -31,7 +31,7 @@ folder under `src/`, and its `index.ts` is its entry. The package exports one
 `./<slice>` per folder and no root. A slice adds `./<slice>/live` or
 `./<slice>/testing` only when that folder has a `live.ts` or `testing.ts`.
 `@agentxm/extension-kinds` also exports `./live`, which composes every kind's
-manager Layer and the keychain-backed MCP secret store. Nested subpaths such
+manager Layer. MCP credentials remain native-host responsibilities. Nested subpaths such
 as the former `transitions/planning` or `resolution/sources` are retired; a
 slice's `/live` and `/testing` entries are the only second-level subpaths.
 

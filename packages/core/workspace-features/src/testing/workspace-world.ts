@@ -24,7 +24,6 @@ import {
 import {
   HookManagerLive,
   KnowledgeManagerLive,
-  McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -242,7 +241,7 @@ export const withKindManagers = <A, E, R>(services: Layer.Layer<A, E, R>) => {
 };
 
 export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>) => {
-  const managers = withKindManagers(Layer.provideMerge(McpSecretStoreLive, layer));
+  const managers = withKindManagers(layer);
   const observed = Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, managers);
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, observed);
   return Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(

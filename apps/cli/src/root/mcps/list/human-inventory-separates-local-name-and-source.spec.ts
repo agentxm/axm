@@ -45,7 +45,8 @@ describe("List locally named MCP connections for a person", () => {
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.some(localName),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer));

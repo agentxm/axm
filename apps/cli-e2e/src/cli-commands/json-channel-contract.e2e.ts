@@ -135,9 +135,7 @@ describe("JSON-mode channel contract (--json)", () => {
               mcpServers: {
                 demo: {
                   enabled: true,
-                  command: "node",
-                  args: ["server.js"],
-                  env: {},
+                  connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
                 },
               },
             },

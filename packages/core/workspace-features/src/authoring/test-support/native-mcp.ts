@@ -92,8 +92,11 @@ export const nativeMcpDiscovery = (
   candidates: [
     {
       name,
-      remote: Option.some({ url: importedRemote.url, headers: importedRemote.headers }),
-      env: {},
+      remote: Option.some({
+        transport: "streamable-http",
+        url: importedRemote.url,
+        headers: importedRemote.headers,
+      }),
       entries: NATIVE_MCP_FILES.filter((relative) =>
         Object.hasOwn(readNativeMcpServers(workspace, relative), name),
       ).map((relative) => {

@@ -57,8 +57,10 @@ export interface WorkspaceLocationService extends StateCellPaths {
   /** The resolved layout; replaced only when an owner is recorded. */
   readonly layout: Ref.Ref<WorkspaceLayout>;
   readonly nativeDirectoryInputs: {
+    readonly userHome?: string;
     readonly skillsDirectoryOverrides: Readonly<Partial<Record<string, string>>>;
     readonly xdgConfigRoot?: string;
+    readonly selectedFiles?: Readonly<Partial<Record<"vscode-user-mcp", string>>>;
     readonly userConfigRootOverrides?: Readonly<Partial<Record<string, string>>>;
   };
   /** Built-in registries merged behind project and user settings. */
@@ -108,8 +110,15 @@ export const captureNativeDirectoryInputs = (userHome: string) =>
     const xdgConfig = yield* envOption("XDG_CONFIG_HOME");
     const codexHome = yield* envOption("CODEX_HOME");
     const claudeConfig = yield* envOption("CLAUDE_CONFIG_DIR");
+    const copilotHome = yield* envOption("COPILOT_HOME");
+    const piHome = yield* envOption("PI_CODING_AGENT_DIR");
+    const vscodeMcp = yield* envOption("AXM_VSCODE_USER_MCP_CONFIG");
     return {
+      userHome,
+      selectedFiles: Option.isSome(vscodeMcp) ? { "vscode-user-mcp": vscodeMcp.value } : {},
       userConfigRootOverrides: {
+        ...(Option.isSome(copilotHome) ? { "github-copilot-cli": copilotHome.value } : {}),
+        ...(Option.isSome(piHome) ? { pi: piHome.value } : {}),
         ...(Option.isSome(codexHome) ? { codex: codexHome.value } : {}),
         ...(Option.isSome(claudeConfig) ? { "claude-code": claudeConfig.value } : {}),
       },

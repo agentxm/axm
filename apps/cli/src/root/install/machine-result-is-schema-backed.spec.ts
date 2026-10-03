@@ -51,7 +51,8 @@ describe("Machine install result contract", () => {
         all: true,
         force: false,
         preview: options?.preview === true,
-        env: [],
+        bind: [],
+        bindEnv: [],
         localName: Option.none(),
         bundled: false,
       }).pipe(Effect.provide(workspace.layer));

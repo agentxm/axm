@@ -31,16 +31,15 @@ export const decodeMcpServerManifestAt = (
         const value: unknown = JSON.parse(raw);
         return value;
       },
-      catch: (cause) =>
-        new McpConfigInvalid({
-          detail: `Invalid JSON in MCP server manifest: ${manifestPath}`,
-          cause,
-        }),
+      catch: () =>
+        new McpConfigInvalid({ detail: `Invalid JSON in MCP server manifest: ${manifestPath}` }),
     });
     return yield* Schema.decodeUnknownEffect(McpServerManifestSchema)(parsed).pipe(
       Effect.mapError(
-        (cause) =>
-          new McpConfigInvalid({ detail: `Invalid MCP server manifest: ${manifestPath}`, cause }),
+        () =>
+          new McpConfigInvalid({
+            detail: `Invalid MCP server manifest: ${manifestPath}; input values are withheld`,
+          }),
       ),
     );
   });

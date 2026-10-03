@@ -418,5 +418,11 @@
     "disposition": "superseded-by",
     "successor": "cli/publish/existing-versions-skip-before-preparation",
     "basis": "Published versions are immutable, so the Registry's record of a version settles it: a selected version the Registry already has, yanked included, is a successful skip for every selection mode, decided before any lint, archive build, archive validation, Git source review, or integrity comparison. The explicit error and verify policies and the integrity-drift rejection they selected between are gone, because comparing a fresh local build against the published integrity failed whenever the archive encoding changed and gave no publisher a decision worth making. The successor states the single rule and demonstrates it across bulk, filtered, explicit, dependency-included, yanked, and preview selections."
+  },
+  {
+    "requirement": "cli/mcps/secret-namespaces-include-local-and-source-identity",
+    "disposition": "superseded-by",
+    "successor": "cli/mcps/credentials-remain-host-owned",
+    "basis": "MCP credentials now remain with native hosts through explicit environment references or native OAuth. AXM no longer stores, namespaces, reads, or erases MCP secrets."
   }
 ]

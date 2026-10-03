@@ -18,12 +18,8 @@ import {
   type McpConfigTarget,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import {
-  inferInlineRemoteTransport,
-  projectExpectedEntry,
-  type McpServerDeclaration,
-} from "./expected-entry.js";
-import { resolveMcpServer, type McpResolution } from "./resolution.js";
+import { projectExpectedEntry, type McpServerDeclaration } from "./expected-entry.js";
+import { resolveMcpInvocation } from "./resolution.js";
 import {
   resolveSharedMcpTarget,
   type SharedMcpTargetMember,
@@ -47,8 +43,7 @@ export interface PlanMcpServerTargetsArgs {
   readonly declaration: McpServerDeclaration;
   /** The canonical manifest of a sourced connection; absent for an inline one. */
   readonly manifest?: McpServerManifest | undefined;
-  /** The projection input values, with every secret supplied as its reference. */
-  readonly values: Readonly<Record<string, string>>;
+  readonly resolvedCwd?: string | undefined;
   readonly enabled: boolean;
 }
 
@@ -82,7 +77,6 @@ export type McpAgentTargetPlan =
       readonly _tag: "projected";
       readonly entry: Readonly<Record<string, unknown>>;
       readonly warnings: ReadonlyArray<string>;
-      readonly shimmed: boolean;
     });
 
 /** One native file to write: the entry its readers share. */
@@ -104,11 +98,6 @@ export type McpTargetPlan =
       readonly writes: ReadonlyArray<McpTargetWrite>;
     };
 
-type RunnableMcpResolution = Extract<McpResolution, { readonly _tag: "resolved" | "needs-input" }>;
-
-const isRunnable = (resolution: McpResolution): resolution is RunnableMcpResolution =>
-  resolution._tag === "resolved" || resolution._tag === "needs-input";
-
 const unreadableShared = (agentId: string, path: string, reason: string): string =>
   `${agentId} cannot read shared MCP target '${path}': ${reason}`;
 
@@ -123,21 +112,6 @@ const blockedGroup = (
     target: member.target,
     reason,
   }));
-
-const inlineTransport = (
-  declaration: McpServerDeclaration,
-):
-  | { readonly _tag: "transport"; readonly transport: SharedMcpTransport }
-  | { readonly _tag: "invalid"; readonly detail: string; readonly cause?: unknown } => {
-  if (declaration.command !== undefined) return { _tag: "transport", transport: "stdio" };
-  if (declaration.url !== undefined) {
-    const inference = inferInlineRemoteTransport(declaration.url);
-    return inference._tag === "supported"
-      ? { _tag: "transport", transport: inference.transport }
-      : { _tag: "invalid", detail: "Invalid inline MCP server URL", cause: inference.reason };
-  }
-  return { _tag: "invalid", detail: "Inline MCP server has no command or URL" };
-};
 
 const planInlineGroup = (
   args: PlanMcpServerTargetsArgs,
@@ -155,6 +129,7 @@ const planInlineGroup = (
       remote: shared.config.remote,
       activationField: shared.config.activationField,
       envExpansion: readableMcpCapability(member.agentId)?.native.mcpEnvExpansion,
+      resolvedCwd: args.resolvedCwd,
     }),
   }));
   const unsupported = projected.find((item) => item.result._tag === "unsupported");
@@ -192,132 +167,12 @@ const planInlineGroup = (
       target: member.target,
       entry: first.entry,
       warnings: result._tag === "projected" ? result.warnings : [],
-      shimmed: false,
     })),
     write: {
       path: shared.path,
       config: shared.config,
       target: shared.target,
       entry: first.entry,
-      agentIds: [
-        ...new Set(members.filter((member) => member.configured).map((member) => member.agentId)),
-      ],
-      declaredTargets: members.map((member) => member.declaredTarget ?? member.target),
-    },
-  };
-};
-
-const planManifestGroup = (
-  args: PlanMcpServerTargetsArgs,
-  manifest: McpServerManifest,
-  members: ReadonlyArray<SharedMcpTargetMember>,
-): { readonly agents: ReadonlyArray<McpAgentTargetPlan>; readonly write?: McpTargetWrite } => {
-  const path = members[0]?.target.path ?? "unknown";
-  const resolve = (member: SharedMcpTargetMember, config: ResolvedMcpConfig): McpResolution => {
-    const capability = readableMcpCapability(member.agentId);
-    if (capability === undefined) {
-      return { _tag: "no-distribution", reason: "agent does not have MCP config support" };
-    }
-    return resolveMcpServer({
-      manifest,
-      localName: args.serverName,
-      capability: { ...capability, native: { ...capability.native, entryDialect: config } },
-      values: args.values,
-      enabled: args.enabled,
-    });
-  };
-  const initial = members.map((member) => ({ member, resolution: resolve(member, member.config) }));
-  const runnable = initial.filter(({ resolution }) => isRunnable(resolution));
-  if (runnable.length === 0) {
-    return {
-      agents: initial.map(({ member, resolution }) => ({
-        _tag: resolution._tag === "nothing-runnable" ? "nothing-runnable" : "unsupported",
-        agentId: member.agentId,
-        target: member.target,
-        reason: isRunnable(resolution) ? "" : resolution.reason,
-      })),
-    };
-  }
-  const unavailable = initial.find(({ resolution }) => !isRunnable(resolution));
-  if (unavailable !== undefined && !isRunnable(unavailable.resolution)) {
-    return {
-      agents: blockedGroup(
-        members,
-        unreadableShared(unavailable.member.agentId, path, unavailable.resolution.reason),
-      ),
-    };
-  }
-  const transports = new Set(
-    runnable.flatMap(({ resolution }) => (isRunnable(resolution) ? [resolution.transport] : [])),
-  );
-  if (transports.size > 1) {
-    return {
-      agents: blockedGroup(
-        members,
-        `MCP config target '${path}' resolves to incompatible transports for ${members.map(({ agentId }) => agentId).join(", ")}`,
-      ),
-    };
-  }
-  const transport = [...transports][0];
-  if (transport === undefined) return { agents: blockedGroup(members, "no transport resolved") };
-  const shared = resolveSharedMcpTarget({ members, transport });
-  if (shared._tag === "conflict") return { agents: blockedGroup(members, shared.reason) };
-  const projected = members.map((member) => ({
-    member,
-    resolution: resolve(member, shared.config),
-  }));
-  const blockedBy = projected.find(({ resolution }) => !isRunnable(resolution));
-  if (blockedBy !== undefined && !isRunnable(blockedBy.resolution)) {
-    return {
-      agents: blockedGroup(
-        members,
-        unreadableShared(blockedBy.member.agentId, path, blockedBy.resolution.reason),
-      ),
-    };
-  }
-  const entry = projected.flatMap(({ resolution }) =>
-    isRunnable(resolution) ? [resolution.entry] : [],
-  )[0];
-  if (entry === undefined) return { agents: blockedGroup(members, "no entry resolved") };
-  if (
-    projected.some(
-      ({ resolution }) => isRunnable(resolution) && !Equal.equals(resolution.entry, entry),
-    )
-  ) {
-    return {
-      agents: blockedGroup(
-        members,
-        `MCP target '${shared.path}' renders different content for its consumers`,
-      ),
-    };
-  }
-  return {
-    agents: projected.map(({ member, resolution }) =>
-      resolution._tag === "needs-input"
-        ? {
-            _tag: "needs-input",
-            agentId: member.agentId,
-            config: shared.config,
-            target: member.target,
-            entry,
-            warnings: resolution.warnings,
-            missing: resolution.missing,
-          }
-        : {
-            _tag: "projected",
-            agentId: member.agentId,
-            config: shared.config,
-            target: member.target,
-            entry,
-            warnings: resolution._tag === "resolved" ? resolution.warnings : [],
-            shimmed: resolution._tag === "resolved" ? resolution.shimmed : false,
-          },
-    ),
-    write: {
-      path: shared.path,
-      config: shared.config,
-      target: shared.target,
-      entry,
       agentIds: [
         ...new Set(members.filter((member) => member.configured).map((member) => member.agentId)),
       ],
@@ -380,29 +235,72 @@ export const unresolvedMcpAgentTargets = (
 };
 
 /** Plan the native entry every configured agent should hold for one connection. */
-export const planMcpServerTargets = (args: PlanMcpServerTargetsArgs): McpTargetPlan => {
-  const inline = args.declaration.command !== undefined || args.declaration.url !== undefined;
-  const transport = inline ? inlineTransport(args.declaration) : undefined;
-  if (transport?._tag === "invalid") return transport;
-  if (!inline && args.manifest === undefined) {
-    return { _tag: "invalid", detail: "MCP server has no inline command or URL" };
-  }
+export const planMcpServerTargets = (input: PlanMcpServerTargetsArgs): McpTargetPlan => {
+  const resolution =
+    input.declaration.connection !== undefined
+      ? undefined
+      : input.manifest === undefined
+        ? undefined
+        : resolveMcpInvocation({
+            manifest: input.manifest,
+            distribution: input.declaration.distribution,
+            bindings: input.declaration.bindings,
+            auth: input.declaration.auth,
+          });
+  const connection =
+    input.declaration.connection ??
+    (resolution?._tag === "resolved" ? resolution.connection : undefined);
+  if (connection === undefined)
+    return {
+      _tag: "invalid",
+      detail:
+        resolution?._tag === "blocked"
+          ? resolution.reason
+          : "MCP connection has no invocation or accepted manifest",
+    };
+  const args = {
+    ...input,
+    declaration: {
+      ...input.declaration,
+      connection,
+      ...(input.manifest === undefined
+        ? {}
+        : { source: `${input.manifest.owner}/mcps/${input.manifest.name}` }),
+    },
+  };
+  const transport = connection.transport;
   const byAgent = new Map<string, Array<McpAgentTargetPlan>>();
   const groups =
     args.groups ?? groupConfiguredMcpTargets({ agentIds: args.agentIds, scope: args.scope });
   const writes: Array<McpTargetWrite> = [];
   for (const group of groups) {
     const consumers = group.members.filter((member) => member.configured);
+    const competing =
+      group.competingEntries?.filter(
+        (entry) => entry.name === args.serverName || entry.name === "*",
+      ) ?? [];
+    const blockers = [
+      ...group.unverifiedReaders,
+      ...competing.filter((entry) => entry.blocks).map((entry) => entry.reason),
+    ];
     const planned =
-      group.unverifiedReaders.length > 0
-        ? { agents: blockedGroup(consumers, group.unverifiedReaders.join("; ")) }
-        : transport?._tag === "transport"
-          ? planInlineGroup(args, consumers, transport.transport)
-          : args.manifest === undefined
-            ? { agents: blockedGroup(consumers, "no manifest") }
-            : planManifestGroup(args, args.manifest, consumers);
+      blockers.length > 0
+        ? { agents: blockedGroup(consumers, blockers.join("; ")) }
+        : planInlineGroup(args, consumers, transport);
     for (const agent of planned.agents.filter((agent) => args.agentIds.includes(agent.agentId)))
-      byAgent.set(agent.agentId, [...(byAgent.get(agent.agentId) ?? []), agent]);
+      byAgent.set(agent.agentId, [
+        ...(byAgent.get(agent.agentId) ?? []),
+        agent._tag === "projected"
+          ? {
+              ...agent,
+              warnings: [
+                ...(resolution?._tag === "resolved" ? resolution.warnings : []),
+                ...agent.warnings,
+                ...competing.map((entry) => entry.reason),
+              ],
+            }
+          : agent,
+      ]);
     if (planned.write !== undefined)
       writes.push({
         ...planned.write,

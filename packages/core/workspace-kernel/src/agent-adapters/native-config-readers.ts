@@ -54,6 +54,7 @@ export const preflightNativeConfigReaders = (args: {
   readonly writerFormat: NativeConfigReadLocation["format"] | "text";
   readonly raw: string;
   readonly proposedRaw?: string;
+  readonly preserveMcpSemantics?: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -80,6 +81,7 @@ export const preflightNativeConfigReaders = (args: {
           declaration.file,
           args,
           args.nativeDirectoryInputs,
+          { includeConditional: true },
         );
         return location === undefined ? [] : [{ agent, declaration, location }];
       });
@@ -88,7 +90,9 @@ export const preflightNativeConfigReaders = (args: {
       referents: declaredReaders.map(({ location }) => location.path),
     });
     for (const { agent, declaration, location } of declaredReaders) {
-      const configured = args.configuredAgentIds.includes(agent.id);
+      const configured =
+        args.configuredAgentIds.includes(agent.id) &&
+        declaration.file.applicability.kind === "always";
       const mcp = agent.capabilities["mcp-server"].native;
       const hook = agent.capabilities.hook.native;
       const alias = location.path;
@@ -210,6 +214,13 @@ export const preflightNativeConfigReaders = (args: {
             ? Object.entries(after)
             : [];
         const recipe = "entryDialect" in mcp ? mcp.entryDialect : null;
+        if (
+          args.preserveMcpSemantics === true &&
+          beforeEntries.some(([name]) => !afterEntries.some(([afterName]) => afterName === name))
+        )
+          return yield* new McpConfigInvalid({
+            detail: `Native MCP adoption removes an existing invocation for ${agent.id}`,
+          });
         for (const [name, entry] of afterEntries) {
           if (Equal.equals(beforeEntries.find(([priorName]) => priorName === name)?.[1], entry))
             continue;
@@ -229,6 +240,23 @@ export const preflightNativeConfigReaders = (args: {
             return yield* new McpConfigInvalid({
               detail: `Native MCP reader ${agent.id} cannot interpret modified ${declaration.file.keyPath.join(".")}.${name} in ${alias}`,
             });
+          if (
+            args.preserveMcpSemantics === true &&
+            beforeEntries.some(([priorName]) => priorName === name)
+          ) {
+            const original = interpretNativeMcpEntry({
+              entry: beforeEntries.find(([priorName]) => priorName === name)?.[1],
+              config: recipe,
+              transports: mcp.transports,
+              ...(!("mcpEnvExpansion" in mcp) || mcp.mcpEnvExpansion === undefined
+                ? {}
+                : { envExpansion: mcp.mcpEnvExpansion }),
+            });
+            if (Option.isNone(original) || !Equal.equals(original.value, interpreted.value))
+              return yield* new McpConfigInvalid({
+                detail: `Native MCP adoption changes invocation semantics for ${agent.id}`,
+              });
+          }
           const key = JSON.stringify(["mcp-server", ...declaration.file.keyPath, name]);
           const prior = entrySemantics.get(key);
           if (prior !== undefined && !Equal.equals(prior, interpreted.value))

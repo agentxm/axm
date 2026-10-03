@@ -40,10 +40,10 @@ export const materializeAuthoredMcpServer = (args: {
     name: "install-mcp-server",
     args: {
       ref: args.ref,
+      authorizeDistributionSelection: true,
       nonInteractive: args.nonInteractive,
       force: false,
       nativeInsertionEligible: args.nativeInsertionEligible,
-      env: Option.none(),
     },
   }).pipe(
     Effect.map((result) => {

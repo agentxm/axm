@@ -1,16 +1,20 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
+import { mcpDistributionCandidates } from "./distribution.js";
 import { mcpAgentSyncOutcome } from "./sync.js";
 import { configuredMcpCapability, declaredMcpWriterTargets } from "./targeting.js";
 import { planMcpServerTargets } from "./target-plan.js";
 
 const inline = {
   kind: "inline",
-  command: "npx",
-  args: ["-y", "demo-mcp"],
+  connection: {
+    transport: "stdio",
+    command: "npx",
+    args: ["-y", "demo-mcp"],
+    env: { TOKEN: { env: "TOKEN" } },
+  },
   enabled: true,
-  env: { TOKEN: "${TOKEN}" },
 } as const;
 
 const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)({
@@ -41,7 +45,6 @@ describe("planMcpServerTargets", () => {
       scope: "project",
       serverName: "demo",
       declaration: inline,
-      values: inline.env,
       enabled: true,
     });
     expect(plan._tag).toBe("planned");
@@ -63,14 +66,13 @@ describe("planMcpServerTargets", () => {
       scope: "project",
       serverName: "demo",
       declaration: inline,
-      values: inline.env,
       enabled: true,
     });
     expect(plan._tag).toBe("planned");
     if (plan._tag !== "planned") return;
     expect(plan.agents.map((agent) => agent._tag)).toEqual(["projected", "projected", "projected"]);
     expect(plan.writes).toHaveLength(1);
-    expect(plan.writes[0]?.entry).toMatchObject({ env: inline.env });
+    expect(plan.writes[0]?.entry).toMatchObject({ env: { TOKEN: "${TOKEN}" } });
   });
 
   it("blocks every reader of a shared file when one cannot expand a default", () => {
@@ -79,8 +81,7 @@ describe("planMcpServerTargets", () => {
       agentIds: ["claude-code", "github-copilot-cli"],
       scope: "project",
       serverName: "demo",
-      declaration: { ...inline, env },
-      values: env,
+      declaration: { ...inline, connection: { ...inline.connection, env } },
       enabled: true,
     });
     expect(plan._tag).toBe("planned");
@@ -97,8 +98,7 @@ describe("planMcpServerTargets", () => {
       agentIds: ["claude-code"],
       scope: "project",
       serverName: "demo",
-      declaration: { kind: "inline", enabled: true, env: {} },
-      values: {},
+      declaration: { kind: "inline", enabled: true },
       enabled: true,
     });
     expect(plan._tag).toBe("invalid");
@@ -109,9 +109,14 @@ describe("planMcpServerTargets", () => {
       agentIds: ["claude-code", "github-copilot-cli"],
       scope: "project",
       serverName: "context",
-      declaration: { kind: "configuration", env: {} },
+      declaration: {
+        kind: "configuration",
+        distribution: mcpDistributionCandidates(manifest)[0]?.selector,
+        bindings: [
+          { target: { kind: "environment", name: "API_TOKEN" }, value: { env: "API_TOKEN" } },
+        ],
+      },
       manifest,
-      values: { API_TOKEN: "${API_TOKEN}" },
       enabled: true,
     });
     expect(plan._tag).toBe("planned");
@@ -125,20 +130,20 @@ describe("planMcpServerTargets", () => {
     });
   });
 
-  it("reports a required secret nobody supplied as needing input, with the entry it would write", () => {
+  it("blocks unresolved required inputs before any native write", () => {
     const plan = planMcpServerTargets({
       agentIds: ["claude-code"],
       scope: "project",
       serverName: "context",
-      declaration: { kind: "configuration", env: {} },
+      declaration: {
+        kind: "configuration",
+        distribution: mcpDistributionCandidates(manifest)[0]?.selector,
+      },
       manifest,
-      values: {},
       enabled: true,
     });
-    expect(plan._tag).toBe("planned");
-    if (plan._tag !== "planned") return;
-    expect(plan.agents[0]).toMatchObject({ _tag: "needs-input", missing: ["API_TOKEN"] });
-    expect(plan.writes[0]?.entry).toMatchObject({ env: { API_TOKEN: "${API_TOKEN}" } });
+    expect(plan._tag).toBe("invalid");
+    if (plan._tag === "invalid") expect(plan.detail).toContain("API_TOKEN");
   });
 });
 
@@ -173,17 +178,16 @@ describe("agent results with multiple native targets", () => {
       config: member.config,
       target: member.target,
       entry: {},
-      shimmed: false,
     } as const;
     const outcome = mcpAgentSyncOutcome(
       [
         { ...projected, warnings: ["first warning", "shared warning"] },
-        { ...projected, shimmed: true, warnings: ["shared warning", "second warning"] },
+        { ...projected, warnings: ["shared warning", "second warning"] },
       ],
       [],
     );
     expect(outcome).toMatchObject({
-      _tag: "fallback",
+      _tag: "success",
       warnings: ["first warning", "shared warning", "second warning"],
       targets: [],
     });

@@ -24,8 +24,8 @@ describe("setupScopeSupport", () => {
     expect(category(support, "mcp-server")?.outcomes).toEqual([
       expect.objectContaining({
         agentId: "claude-code",
-        status: "refused",
-        reasonCode: "scope-not-modeled",
+        status: "supported",
+        reasonCode: "supported",
       }),
       expect.objectContaining({
         agentId: "codex",

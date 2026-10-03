@@ -1,3 +1,4 @@
+import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/index.js";
 /** Shared workspace-state operation types and failure unions. */
 
 import type * as Effect from "effect/Effect";
@@ -194,7 +195,9 @@ export interface SetMcpServerArgs {
   readonly resolutionKey: string;
   readonly lockEntry: McpServerLockEntry;
   readonly versionRange: Option.Option<string>;
-  readonly env?: Readonly<Record<string, string>>;
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
   readonly enabled?: boolean;
 }
 

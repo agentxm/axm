@@ -79,11 +79,11 @@ const makeTwoRegistryWorld = (type: (typeof publicationTypes)[number]) => {
       { name: "selected", type: "registry", location: selected.url },
     ],
     [authoredSettingsKey[type.type]]: {
-      review: "workspace",
-      redwood: "workspace",
-      unrelated: "workspace",
+      review: { source: "workspace" },
+      redwood: { source: "workspace" },
+      unrelated: { source: "workspace" },
     },
-    [authoredSettingsKey[foreign]]: { review: "workspace" },
+    [authoredSettingsKey[foreign]]: { review: { source: "workspace" } },
   });
   for (const name of ["review", "redwood", "unrelated"]) world.write(type.type, { name });
   world.write(foreign, { name: "review" });

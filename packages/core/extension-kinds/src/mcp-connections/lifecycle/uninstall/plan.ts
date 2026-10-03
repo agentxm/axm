@@ -1,11 +1,7 @@
 /**
  * Uninstalling an MCP connection.
  *
- * Removing a connection also removes the secrets it stored in the operating
- * system keychain, because those inputs exist only for that connection. A
- * keychain that refuses the deletion does not fail the removal — AXM state is
- * already applied — but it is reported, because a credential left behind is
- * something the operator has to finish by hand.
+ * Runtime credentials belong to the native host and are never erased here.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -15,11 +11,9 @@ import {
   DesiredStateReader,
   LockfileReader,
   WorkspaceLocation,
-  acceptedLockedCanonicalPath,
   type McpServerExtensionTarget,
   lockfileDisplayPath,
   settingsDisplayPath,
-  desiredMcpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -28,12 +22,6 @@ import * as Path from "effect/Path";
 
 import { McpServerManager } from "@agentxm/workspace-kernel/materialization";
 import { mcpServerArtifact, mcpSourceTarget } from "../../artifact.js";
-import { deleteMcpSecrets } from "../../install/install-operation.js";
-import {
-  collectSecretInputNames,
-  readMcpServerManifestAt,
-} from "@agentxm/workspace-kernel/agent-adapters";
-import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   buildUninstallOperation,
   kernelFailureToStepFailure,
@@ -41,7 +29,6 @@ import {
   type InstallStepRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
-  appendWarningsToMessage,
   type JobStepResult,
   type Plan,
   type PlannedJobStep,
@@ -70,7 +57,6 @@ export const planMcpServerUninstall: (
   const desiredState = yield* DesiredStateReader;
   const lockfile = yield* LockfileReader;
   const mcpServerManager = yield* McpServerManager;
-  const path = yield* Path.Path;
   const retentionPolicy = makeWorkspaceRetentionPolicy(desiredState, kernelFailureToStepFailure);
 
   const steps = intent.targets.map((target): PlannedJobStep<InstallStepRequirements> => {
@@ -94,84 +80,20 @@ export const planMcpServerUninstall: (
     return {
       ...step,
       run: Effect.gen(function* () {
-        const graph = yield* desiredState
-          .graph()
-          .pipe(Effect.catch(() => Effect.succeed(undefined)));
-        const desiredNode = graph?.nodes.find(
-          (node) => node.type === "mcp-server" && node.name === target.name,
-        );
         const lockEntry = Option.getOrUndefined(
           yield* lockfile
             .acceptedEntry("mcp-server", target.name)
             .pipe(Effect.catch(() => Effect.succeed(Option.none()))),
         );
-        const canonicalPath = yield* acceptedLockedCanonicalPath({
-          type: "mcp-server",
-          name: target.name,
-        }).pipe(Effect.catch(() => Effect.succeed(Option.none())));
-        const manifestRead = yield* Option.match(canonicalPath, {
-          onNone: () =>
-            Effect.succeed({ manifest: Option.none<McpServerManifest>(), warning: undefined }),
-          // Removal still proceeds when an acquired manifest is unreadable,
-          // but the operator must know that stored credentials may remain.
-          onSome: (root) =>
-            readMcpServerManifestAt(root).pipe(
-              Effect.match({
-                onFailure: () => ({
-                  manifest: Option.none<McpServerManifest>(),
-                  warning: `MCP manifest for ${target.name} could not be read; stored credentials may remain`,
-                }),
-                onSuccess: (manifest) => ({ manifest, warning: undefined }),
-              }),
-            ),
-        });
         const result = yield* step.run;
         if (result.result !== "success") return result;
         const unchanged = result.disposition === "unchanged";
-        const secretNames = Option.match(manifestRead.manifest, {
-          onNone: () => new Set<string>(),
-          onSome: collectSecretInputNames,
-        });
-        const remaining = yield* desiredState
-          .graph()
-          .pipe(Effect.mapError(kernelFailureToStepFailure));
-        const remainsDesired = remaining.nodes.some(
-          (node) => node.type === "mcp-server" && node.name === target.name,
-        );
-        const deletionWarnings =
-          unchanged ||
-          remainsDesired ||
-          desiredNode === undefined ||
-          desiredNode.authority === "inline"
-            ? []
-            : (yield* deleteMcpSecrets(
-                {
-                  scopeRoot: path.resolve(location.baseDir),
-                  localName: target.name,
-                  sourceIdentity: desiredMcpSourceKey(desiredNode.identity),
-                },
-                secretNames,
-              )).flatMap((outcome) =>
-                outcome._tag === "failed"
-                  ? [
-                      `${outcome.inputName} could not be deleted from the system keychain; AXM state was applied and credential cleanup is required`,
-                    ]
-                  : [],
-              );
-        const secretDeletionWarnings = [
-          ...(manifestRead.warning === undefined ? [] : [manifestRead.warning]),
-          ...deletionWarnings,
-        ];
         const sourceTarget =
           lockEntry?.source.type === "registry"
             ? mcpSourceTarget(location.scope, lockEntry, "removed")
             : undefined;
         return {
           ...result,
-          message: appendWarningsToMessage(result.message, secretDeletionWarnings),
-          ...(secretDeletionWarnings.length === 0
-            ? {}
-            : { warnings: [...(result.warnings ?? []), ...secretDeletionWarnings] }),
           artifact: mcpServerArtifact({
             lockEntry,
             scope: location.scope,

@@ -304,9 +304,7 @@ describe("axm lint (e2e, Phase 7)", () => {
           settings.mcpServers = {
             demo: {
               enabled: true,
-              command: "node",
-              args: ["server.js"],
-              env: {},
+              connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
             },
           };
           writeJson(settingsPath, settings);

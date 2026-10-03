@@ -251,6 +251,7 @@ export const opencodeAgent = {
           stdio: {
             command: "array",
             envKey: "environment",
+            cwdKey: "cwd",
             typeField: {
               required: { name: "type", value: "local" },
               accepted: [{ name: "type", value: "local" }],
@@ -268,7 +269,7 @@ export const opencodeAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-09-29",
+        lastVerified: null,
         writer: { config: { locationIds: ["project", "user"] } },
       },
     },

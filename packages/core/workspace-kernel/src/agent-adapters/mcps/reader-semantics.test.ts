@@ -31,6 +31,7 @@ describe("native MCP transport interpretation", () => {
         invocation: ["node", { environmentTemplate: [{ variable: "SCRIPT" }] }],
         env: { TOKEN: { environmentTemplate: [{ variable: "OTHER" }] } },
         forwarded: [],
+        cwd: { kind: "host-default" },
         enabled: false,
       }),
     );

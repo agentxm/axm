@@ -74,18 +74,19 @@ const configurableMcpCases = CONFIGURABLE_AGENT_IDS.flatMap((agentId) => {
 });
 
 const inlineEntry = {
-  source: "inline",
-  command: "npx",
-  args: ["-y", "example-mcp-server"],
+  kind: "inline",
+  connection: {
+    transport: "stdio",
+    command: "npx",
+    args: ["-y", "example-mcp-server"],
+    env: { EXAMPLE_REGION: "us-east-1" },
+  },
   enabled: true,
-  env: { EXAMPLE_REGION: "us-east-1" },
 } satisfies McpServerEntry;
 const inlineRemoteEntry = {
-  source: "inline",
-  url: "https://mcp.example.com/api",
+  kind: "inline",
+  connection: { transport: "streamable-http", url: "https://mcp.example.com/api", headers: {} },
   enabled: true,
-  headers: {},
-  env: {},
 } satisfies McpServerEntry;
 
 const entryForTransports = (transports: ReadonlyArray<string>): McpServerEntry =>
@@ -142,13 +143,12 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect(
-    "writes a config that inspection reads as a match for every configurable MCP agent",
-    () =>
-      withNode(
-        Effect.gen(function* () {
-          expect(configurableMcpCases.length).toBeGreaterThan(0);
-          for (const testCase of configurableMcpCases) {
+  for (const testCase of configurableMcpCases)
+    it.effect(
+      `writes a config inspection reads as a match for ${testCase.agentId} in ${testCase.scope} scope`,
+      () =>
+        withNode(
+          Effect.gen(function* () {
             const workspaceRoot = mkdtempSync(
               nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
             );
@@ -177,10 +177,9 @@ describe("mcp-sync helpers", () => {
             } finally {
               rmSync(workspaceRoot, { recursive: true, force: true });
             }
-          }
-        }),
-      ),
-  );
+          }),
+        ),
+    );
 
   fastCheckIt.prop(
     {
@@ -296,11 +295,14 @@ describe("mcp-sync helpers", () => {
             serverName: "linear",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "npx",
-              args: ["-y", "linear-mcp-server"],
+              kind: "inline",
+              connection: {
+                transport: "stdio",
+                command: "npx",
+                args: ["-y", "linear-mcp-server"],
+                env: { LINEAR_API_KEY: { env: "LINEAR_API_KEY" } },
+              },
               enabled: true,
-              env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
             },
           });
 
@@ -333,11 +335,14 @@ describe("mcp-sync helpers", () => {
       withNode(
         Effect.gen(function* () {
           const entry = {
-            source: "inline",
-            command: "npx",
-            args: ["-y", "linear-mcp-server"],
+            kind: "inline",
+            connection: {
+              transport: "stdio",
+              command: "npx",
+              args: ["-y", "linear-mcp-server"],
+              env: { REGION: "us-east-1" },
+            },
             enabled: true,
-            env: { REGION: "us-east-1" },
           } as const;
 
           const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-shared-sync-"));
@@ -384,11 +389,14 @@ describe("mcp-sync helpers", () => {
     withNode(
       Effect.gen(function* () {
         const entry = {
-          source: "inline",
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
+          kind: "inline",
+          connection: {
+            transport: "stdio",
+            command: "npx",
+            args: ["-y", "linear-mcp-server"],
+            env: {},
+          },
           enabled: true,
-          env: {},
         } as const;
         const rendered: Array<string> = [];
 
@@ -429,11 +437,13 @@ describe("mcp-sync helpers", () => {
             serverName: "sentry",
             scope: "project",
             entry: {
-              source: "inline",
-              url: "https://mcp.sentry.dev/sse",
-              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              kind: "inline",
+              connection: {
+                transport: "sse",
+                url: "https://mcp.sentry.dev/sse",
+                headers: { Authorization: { template: ["Bearer ", { env: "SENTRY_TOKEN" }] } },
+              },
               enabled: true,
-              env: {},
             },
           });
 
@@ -463,11 +473,13 @@ describe("mcp-sync helpers", () => {
             serverName: "sentry",
             scope: "project",
             entry: {
-              source: "inline",
-              url: "https://mcp.sentry.dev/sse",
-              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              kind: "inline",
+              connection: {
+                transport: "sse",
+                url: "https://mcp.sentry.dev/sse",
+                headers: { Authorization: { template: ["Bearer ", { env: "SENTRY_TOKEN" }] } },
+              },
               enabled: true,
-              env: {},
             },
           });
 
@@ -497,11 +509,14 @@ describe("mcp-sync helpers", () => {
             serverName: "linear",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "npx",
-              args: ["-y", "linear-mcp-server"],
+              kind: "inline",
+              connection: {
+                transport: "stdio",
+                command: "npx",
+                args: ["-y", "linear-mcp-server"],
+                env: { REGION: "us-east-1" },
+              },
               enabled: true,
-              env: { REGION: "us-east-1" },
             },
           });
 
@@ -532,11 +547,14 @@ describe("mcp-sync helpers", () => {
             serverName: "linear",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "npx",
-              args: ["-y", "linear-mcp-server"],
+              kind: "inline",
+              connection: {
+                transport: "stdio",
+                command: "npx",
+                args: ["-y", "linear-mcp-server"],
+                env: { REGION: "us-east-1" },
+              },
               enabled: true,
-              env: { REGION: "us-east-1" },
             },
           });
 
@@ -571,11 +589,13 @@ describe("mcp-sync helpers", () => {
             serverName: "sentry",
             scope: "project",
             entry: {
-              source: "inline",
-              url: "https://mcp.sentry.dev/sse",
-              headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
+              kind: "inline",
+              connection: {
+                transport: "sse",
+                url: "https://mcp.sentry.dev/sse",
+                headers: { Authorization: { template: ["Bearer ", { env: "SENTRY_TOKEN" }] } },
+              },
               enabled: true,
-              env: {},
             },
           });
 
@@ -605,11 +625,14 @@ describe("mcp-sync helpers", () => {
             serverName: "linear",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "npx",
-              args: ["-y", "linear-mcp-server"],
+              kind: "inline",
+              connection: {
+                transport: "stdio",
+                command: "npx",
+                args: ["-y", "linear-mcp-server"],
+                env: {},
+              },
               enabled: true,
-              env: {},
             },
           });
           yield* syncInlineMcpServerToAgent("claude-code", {
@@ -617,10 +640,9 @@ describe("mcp-sync helpers", () => {
             serverName: "stale",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "stale-mcp",
+              kind: "inline",
+              connection: { transport: "stdio", command: "stale-mcp", env: {} },
               enabled: true,
-              env: {},
             },
           });
           yield* syncInlineMcpServerToAgent("claude-code", {
@@ -628,10 +650,9 @@ describe("mcp-sync helpers", () => {
             serverName: "stale-two",
             scope: "project",
             entry: {
-              source: "inline",
-              command: "stale-mcp",
+              kind: "inline",
+              connection: { transport: "stdio", command: "stale-mcp", env: {} },
               enabled: true,
-              env: {},
             },
           });
 
@@ -684,11 +705,14 @@ describe("mcp-sync helpers", () => {
                 serverName: "context",
                 scope: "user",
                 entry: {
-                  source: "inline",
-                  command: "npx",
-                  args: ["-y", "@acme/context-mcp"],
+                  kind: "inline",
+                  connection: {
+                    transport: "stdio",
+                    command: "npx",
+                    args: ["-y", "@acme/context-mcp"],
+                    env: { REGION: "us-east-1" },
+                  },
                   enabled: true,
-                  env: { REGION: "us-east-1" },
                 },
               });
               expect(stdioOutcome).toMatchObject({
@@ -701,11 +725,13 @@ describe("mcp-sync helpers", () => {
                 serverName: "stripe",
                 scope: "user",
                 entry: {
-                  source: "inline",
-                  url: "https://mcp.stripe.com",
-                  headers: { Accept: "application/json" },
+                  kind: "inline",
+                  connection: {
+                    transport: "streamable-http",
+                    url: "https://mcp.stripe.com",
+                    headers: { "X-Region": "west" },
+                  },
                   enabled: true,
-                  env: {},
                 },
               });
               expect(remoteOutcome).toMatchObject({
@@ -738,7 +764,7 @@ describe("mcp-sync helpers", () => {
                 url: "https://mcp.stripe.com",
               });
               expect(readYamlEntry(raw, ["mcp_servers"], "stripe")).toMatchObject({
-                headers: { Accept: "application/json" },
+                headers: { "X-Region": "west" },
               });
 
               const [disableOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
@@ -778,10 +804,9 @@ describe("mcp-sync helpers", () => {
                 serverName: "stale",
                 scope: "user",
                 entry: {
-                  source: "inline",
-                  command: "stale-mcp",
+                  kind: "inline",
+                  connection: { transport: "stdio", command: "stale-mcp", env: {} },
                   enabled: true,
-                  env: {},
                 },
               });
               const [pruneOutcome] = yield* pruneManagedMcpServersForAgents(["hermes"], {

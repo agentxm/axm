@@ -70,24 +70,39 @@ which holds the actual transports:
 All commands live under `axm mcps` and accept `--scope project` (default) or
 `--scope user`.
 
-- `axm mcps install @owner/mcps/<name>` — install a registry MCP server. Add
-  `--as <local-name>` to install another locally named connection from the same
-  package. Pass
-  `--env KEY=VALUE` to supply declared inputs, or `--non-interactive` to use
-  defaults and placeholders instead of prompting.
-- `axm mcps add <name> --command "npx -y linear-mcp-server"` — add an inline
-  stdio server you define yourself. Use `--url` for a remote server, plus
-  `--env` and `--header` for its inputs.
-- `axm mcps import` — adopt MCP servers already present in your agent configs as
-  inline AXM entries. Import records each server once; the next reconciliation
-  writes it to every configured agent that can represent it, and preview and
-  apply list every native file the import rewrites.
+- `axm mcps install @owner/mcps/<name>` — install a Registry MCP server.
+  Use `--as <local-name>` for another connection to the same package. Select
+  one distribution with `--distribution <id>` when the manifest offers several;
+  inspect candidates with `mcps show`. A single candidate can be selected
+  automatically by install. Sync never makes a new selection.
+- Bind selected inputs with `--bind environment/REGION=west` for literals or
+  `--bind-env environment/API_TOKEN=API_TOKEN` for host environment references.
+  Input locations are distinct; use the input identifiers reported by
+  inspection. Required missing inputs, invalid choices and unknown bindings
+  block settlement. AXM never prompts for secret values.
+- `axm mcps add linear --command npx --arg=-y --arg=linear-mcp-server --env LINEAR_API_KEY`
+  — declare an executable token, ordered arguments and a host environment reference.
+  `--command` does not parse a shell command. `--cwd` resolves relative to the
+  selected scope root (project root or user home); omission retains the host default.
+- `axm mcps add service --url https://example.com/mcp --native-oauth` — declare
+  Streamable HTTP with native authentication. SSE requires `--transport sse`;
+  the URL suffix never selects transport. Use `--header-env Name=ENV_NAME`
+  for symbolic headers, or `--connection` for canonical connection JSON.
+- `axm mcps import --preview` — inspect unmanaged entries, fingerprints,
+  ownership transfers, configured readers, planned writes and blockers.
+  Apply adopts the entire selected batch atomically. Any selected blocker
+  refuses the batch; repeat `--name <entry>` to select an explicit subset.
+  Unsupported native fields and literal credentials remain untouched.
+  `--as` explicitly converts an entry into an authored package.
 - `axm mcps update` — update configured Registry servers to their latest
   eligible resolution. Use `--name <local-name-or-glob>` to select connections,
   or `--source @owner/mcps/<name>` to select an exact source. Every selected
   connection that shares a source advances together.
 - `axm mcps list` — show local connection names, sources, accepted resolutions,
-  and state.
+  and state. `axm mcps show <name> --agent <agent>` separates configuration,
+  projection and readiness from unchecked runtime/authentication, and supplies
+  manual host instructions. Inspection never executes a host, retrieves
+  credentials, starts OAuth or contacts an MCP endpoint.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
 - `axm mcps uninstall <local-name>` — remove one connection and its AXM-owned
@@ -109,10 +124,19 @@ MCP servers are not symlinked like skills. `axm sync` and the `axm mcps`
 commands write each server into the configured agents' native MCP config files
 under that agent's servers key:
 
-- **Claude Code** — `.mcp.json`, key `mcpServers`
-- **Cursor** — `.cursor/mcp.json`, key `mcpServers`
-- **VS Code (Copilot)** — `.vscode/mcp.json`, key `servers`
-- **Codex** — TOML, key `mcp_servers`
+- **Claude Code** — project `.mcp.json`, user `~/.claude.json`, key `mcpServers`.
+- **Cursor** — `.cursor/mcp.json`, key `mcpServers`.
+- **VS Code local extension host** — project `.vscode/mcp.json`, key `servers`;
+  user scope requires an explicitly selected profile configuration.
+- **Codex** — `.codex/config.toml`, key `mcp_servers`.
+- **Copilot CLI** — project `.mcp.json`, user `~/.copilot/mcp-config.json`.
+- **OpenCode V2** — `opencode.json`, key `mcp.servers`.
+- **Pi 1.0+** — native MCP configuration; SSE is unsupported.
+
+Run `axm agents capabilities <agent>` and `axm mcps show <name>` for the
+resolved scope, profile, transport restrictions and native instructions.
+Implemented configuration writers do not establish native runtime verification.
+Remote development, containers and WSL are outside these local host claims.
 
 The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 `mcp_servers`, `context_servers`). Local transports render as `command`/`args`;
@@ -135,68 +159,81 @@ state and preserves unmanaged collisions.
 
 Installed servers are tracked in `axm.json` under `mcpServers`, with
 shared resolution state in `axm-lock.yaml` under `mcpServers`. The lockfile
-does not persist which agents received materialized configuration. Every entry
-declares exactly one transport — `source`, `command`, or `url`:
+does not persist which agents received materialized configuration. Each entry
+declares a `source` with a persisted `distribution`, or an inline `connection`:
 
-```jsonc
+```json
 {
   "mcpServers": {
-    // Registry server, compact form
-    "database": "@acme/mcps/database@^1.0.0",
-    // Registry server with inputs and an opt-out
-    "search": {
-      "source": "@acme/mcps/search@^2.0.0",
-      "enabled": false,
-      "env": ["SEARCH_API_KEY"],
+    "database": {
+      "source": "@acme/mcps/database@^1.0.0",
+      "distribution": {
+        "kind": "package",
+        "registryType": "npm",
+        "identifier": "@acme/database-mcp",
+        "transport": "stdio"
+      },
+      "bindings": [
+        {
+          "target": { "kind": "environment", "name": "DATABASE_URL" },
+          "value": { "env": "DATABASE_URL" }
+        }
+      ]
     },
-    // Inline stdio server
-    "linear": { "command": "npx", "args": ["-y", "linear-mcp-server"], "env": ["LINEAR_API_KEY"] },
-    // Inline remote server
-    "sentry": {
-      "url": "https://mcp.sentry.dev/sse",
-      "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" },
+    "linear": {
+      "connection": {
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "linear-mcp-server"],
+        "env": { "LINEAR_API_KEY": { "env": "LINEAR_API_KEY" } }
+      }
     },
-  },
+    "service": {
+      "connection": {
+        "transport": "streamable-http",
+        "url": "https://example.com/mcp"
+      },
+      "auth": { "type": "native-oauth" }
+    }
+  }
 }
 ```
 
-The settings key is the local connection name. For example, both
-`"work-github": "@acme/mcps/github"` and
-`"personal-github": "@acme/mcps/github"` are valid. They project as two native
-keys and keep separate inputs, activation, and keychain accounts,
-while the lockfile records one source resolution for the Registry authority and
-`@acme/mcps/github` package.
+The settings key is the local connection name. Multiple names can share one
+source with independent bindings and activation. Their distribution selectors
+survive manifest reordering and version changes; a disappeared or ambiguous
+selection blocks update. Every reachable alias is validated before the shared
+source revision advances. Pack-derived members use the same connection
+preferences without acquiring an independent source route.
 
-- **`enabled: false`** keeps a server installed but deactivates its AXM-owned
-  agent entries.
-- **`env`** accepts a `{ KEY: value }` map or an array of names; `["VAR"]`
-  decodes to a `${VAR}` reference.
-- Agent-native entries without AXM ownership metadata remain unowned and are
-  never deleted by reconciliation.
-- AXM-owned JSON and YAML entries carry versioned `x-axm` metadata. Its `ext`
-  field is the installed extension FQN or `@workspace/mcps/<name>` for an
-  inline server; source and reference fields retain provenance. The native map
-  key carries the local connection name.
+Strings are literal, including strings spelled `${NAME}`.
+`{ "env": "NAME" }` is a host environment reference;
+`{ "template": ["Bearer ", { "env": "TOKEN" }] }` is bounded concatenation.
+AXM never expands either using its own environment. A target that cannot
+preserve the meaning is unsupported. Fixed Registry inputs cannot be overridden;
+optional unset inputs are omitted and required inputs must be bound.
 
-Prefer the CLI over hand-editing — it normalizes the shape and reconciles agent
-configs through `axm sync`.
+`enabled: false` withdraws AXM-owned configuration while retaining the connection.
+Unowned entries remain untouched. Shared native files require agreement from
+all configured applicable readers. Native name collisions and higher-priority
+unmanaged entries are reported rather than overwritten. A running host may
+need reload, restart or renewed trust after any change; configuration withdrawal
+does not prove disconnection, process termination or token revocation.
 
-## Secrets
+## Authentication and former MCP credentials
 
-Never store literal tokens in `axm.json`. Put secrets in `env` or
-`headers` as `${VAR}` references and let each agent resolve them from the
-environment at runtime. Registry inputs marked `isSecret` may be supplied to
-the installer and saved in the system keychain, but native config receives only
-the reference. AXM never substitutes a secret value into native config. If an
-applicable agent cannot represent the reference, it is reported as unsupported
-instead of writing a literal or omitting authentication. If a required input is
-missing, projection is blocked. `axm lint` flags secret-looking literals
-through `workspace/mcps-no-secret-literal`, and `mcp.json` marks sensitive
-inputs with `isSecret` so installers prompt for them instead of hardcoding.
-Keychain accounts are isolated by workspace, local connection name, source
-identity, and input name. Uninstall removes only the selected connection's
-accounts. If keychain deletion fails after workspace state commits, AXM reports
-the remaining credential for manual cleanup.
+Known secrets and Authorization values require symbolic references or supported
+native OAuth. Secret argument inputs and protocol-owned custom headers are
+refused. Explicit native OAuth cannot coexist with an Authorization header.
+The native host owns environment availability, login, tokens, helpers and
+consent. An omitted auth declaration retains host defaults.
+
+MCP operations never read, write or delete AXM's former MCP keychain entries.
+Existing entries remain untouched, including on uninstall. To remove obsolete
+entries, use your operating system's credential manager and select the
+`axm-mcp` service; its account names are opaque connection/input digests.
+Review the service identity before removal. Registry-login credentials and
+native-host authentication are separate and must be retained as needed.
 
 ## Recommended packs
 

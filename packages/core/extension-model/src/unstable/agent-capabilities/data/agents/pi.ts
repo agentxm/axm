@@ -81,17 +81,88 @@ export const piAgent = {
     },
     "mcp-server": {
       native: {
-        availability: { via: "unknown" },
+        availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "The historical profile describes MCP through TypeScript extensions. Current reviewed product documentation does not resolve the core MCP boundary.",
+          "Requires Pi 1.0 or later. Native runtime verification is pending. Hyphens and underscores collide in exposed server names. Reload the host after configuration changes.",
         docs: [],
-        sources: ["https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"],
+        sources: [
+          "https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/mcp.md",
+        ],
+        scopes: ["project", "user"],
+        standardsCompliance: "full",
+        convention: "vendor",
+        transports: ["stdio", "http"],
+        mcpEnvExpansion: {
+          variables: "braced",
+          defaults: false,
+          fields: ["env", "headers"],
+          executableValues: true,
+          homeExpansion: true,
+        },
+        locations: [
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".pi/mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".pi/agent/mcp.json",
+            configRootRelativePath: "mcp.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
+          },
+        ],
+        entryDialect: {
+          activationField: {
+            required: { name: "enabled", enabled: true, disabled: false },
+            accepted: [null, { name: "enabled", enabled: true, disabled: false }],
+          },
+          stdio: {
+            typeField: {
+              required: { name: "type", value: "stdio" },
+              accepted: [null, { name: "type", value: "stdio" }],
+            },
+            command: "split",
+            envKey: "env",
+            cwdKey: "cwd",
+          },
+          remote: {
+            typeField: {
+              required: { name: "type", value: "http" },
+              accepted: [
+                null,
+                { name: "type", value: "http" },
+                { name: "type", value: "streamable-http" },
+              ],
+            },
+            urlKey: { "streamable-http": "url" },
+            headersKey: "headers",
+          },
+        },
       },
       axm: {
-        status: "unsupported",
+        status: "supported",
         lastVerified: null,
-        writer: null,
+        writer: { config: { locationIds: ["project", "user"] } },
       },
     },
     subagent: {
@@ -246,7 +317,7 @@ export const piAgent = {
       conditions: [],
       limitations: [
         "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-        "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+        "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
         "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
       ],
       claimScope: "Current terminal product and configuration entry points",

@@ -461,7 +461,17 @@ describe("root update handler", () => {
         owner: "@axm",
         sources: [{ type: "registry", name: "test", location: "file:///tmp/test-registry" }],
         skills: { skill: "@acme/skills/skill" },
-        mcps: { server: "@acme/mcps/server" },
+        mcps: {
+          server: {
+            source: "@acme/mcps/server",
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/server",
+              transport: "stdio",
+            },
+          },
+        },
         subagents: { subagent: "@acme/subagents/subagent" },
         rules: { rule: "@acme/rules/rule" },
         hooks: { hook: "@acme/hooks/hook" },

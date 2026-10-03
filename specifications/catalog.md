@@ -950,7 +950,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Reading the native definition, writing a schema-valid manifest under the supplied identity, and recording the workspace declaration are all decisions of the import use case; a real project directory observes each one without a built binary.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/mcps/import.ts`, `apps/cli-e2e/src/fork-import.e2e.test.ts`, `cli/creation-uses-configured-workspace-ownership`, `cli/authoring-uses-project-workspace`
-- Open questions: Which native transports and configuration fields beyond the represented HTTP URL and headers must package conversion support without loss?; What selection or refusal behavior is required when discovery finds no eligible server, several distinct servers, or conflicting definitions?; How must package conversion preserve existing input references and credentials? The MCP secret owner governs managed secret storage; these examples use only non-secret literal headers.; May a conversion replace an existing configured connection under the target name, and how should existing authored content be treated? The current configured-source transition is an observation, not a new fallback policy.
+- Open questions: Which native transports and configuration fields beyond the represented HTTP URL and headers must package conversion support without loss?; What selection or refusal behavior is required when discovery finds no eligible server, several distinct servers, or conflicting definitions?; May a conversion replace an existing configured connection under the target name, and how should existing authored content be treated? The current configured-source transition is an observation, not a new fallback policy.
 - Limitation: These examples verify conversion of connection configuration without contacting the remote MCP service or exercising credentials. Retires when: Add evidence under accepted transport and credential obligations when those additional conversion conditions are decided.
 - Source: [`packages/core/workspace-features/src/authoring/import/creates-authored-package-from-native-server.spec.ts`](../packages/core/workspace-features/src/authoring/import/creates-authored-package-from-native-server.spec.ts)
 
@@ -1286,7 +1286,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
 - Owner: `workspace-features`
-- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.
+- Statement: When a directly desired extension is uninstalled, AXM shall remove its direct acquisition declaration while retaining MCP distribution and input preferences for connections still reached through a Pack, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
@@ -3400,11 +3400,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`packages/core/workspace-features/src/lifecycle/activation/activation-follows-desired-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/activation/activation-follows-desired-state.spec.ts)
 
-##### The agent option configures workspace membership or filters a listing
+##### The agent option configures workspace membership or filters inspection
 
 - Requirement: `cli/agent-selection-is-membership-or-filter`
 - Owner: `cli`
-- Statement: A command shall accept the agent option only to choose the workspace's configured agents or to filter a listing, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.
+- Statement: A command shall accept the agent option only to choose the workspace's configured agents or to filter read-only inspection, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
@@ -3904,6 +3904,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so a server present in one file and absent from the other observes adoption reaching a second agent.
 - Source: [`packages/core/workspace-features/src/configuration/mcp-import/adoption-reaches-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/configuration/mcp-import/adoption-reaches-every-configured-agent.spec.ts)
 
+##### The explicitly selected MCP adoption batch commits atomically
+
+- Requirement: `cli/mcps/import/selected-batch-is-atomic`
+- Owner: `workspace-features`
+- Statement: AXM shall treat all discovered unmanaged MCP candidates as one adoption batch unless names explicitly select a subset; any selected blocker or stale native source shall prevent the batch from changing desired state or native files, while a valid explicit subset may commit without altering excluded declarations.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Temporary workspace and native files observe the transaction and stale-source boundary.
+- Methods: example
+- Derived from: `cli/mutations-are-closure-atomic`
+- Source: [`packages/core/workspace-features/src/configuration/mcp-import/selected-batch-is-atomic.spec.ts`](../packages/core/workspace-features/src/configuration/mcp-import/selected-batch-is-atomic.spec.ts)
+
 ##### Inline MCP entries stay authoritative exactly as authored
 
 - Requirement: `cli/mcps/inline-entries-are-authoritative-as-authored`
@@ -3930,6 +3944,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Source: [`apps/cli/src/root/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../apps/cli/src/root/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
+
+##### MCP source distribution choice is explicit and stable
+
+- Requirement: `cli/mcps/source-distribution-selection-is-stable`
+- Owner: `workspace-kernel`
+- Statement: AXM shall select one distribution per local MCP connection independently of agent order, persist a selector based on stable distribution properties, and refuse unresolved, disappearing or ambiguous selections before projection.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/source-distribution-selection-is-stable.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/source-distribution-selection-is-stable.spec.ts)
 
 ##### Uninstall removes one local MCP connection and retains shared source state
 
@@ -5470,20 +5496,69 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Limitation: This owner concerns application resources, not the OS keychain. It does not claim that AXM_USER_HOME changes the logged-in operating-system account or keychain namespace. Retires when: Retain that ownership distinction while changes to the application-home implementation are reviewed.
 - Source: [`apps/cli-e2e/src/environment-relocates-user-resources.spec.ts`](../apps/cli-e2e/src/environment-relocates-user-resources.spec.ts)
 
-##### MCP entries declare at most one of source, command, or url
+##### MCP connections preserve explicit invocation meaning
+
+- Requirement: `cli/mcps/connection-preserves-runtime-meaning`
+- Owner: `workspace-kernel`
+- Statement: AXM shall preserve the explicitly declared transport, executable, ordered arguments, directory base and literal or symbolic values of an MCP connection, without shell splitting, environment resolution or URL-based transport inference.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/connection-preserves-runtime-meaning.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/connection-preserves-runtime-meaning.spec.ts)
+
+##### MCP credentials remain owned by the native host
+
+- Requirement: `cli/mcps/credentials-remain-host-owned`
+- Owner: `workspace-kernel`
+- Statement: AXM shall accept MCP credentials only as symbolic native environment references or native OAuth intent, refuse known credentials in literal configuration, URLs and process arguments, and project credential references without obtaining or storing their values. MCP lifecycle operations shall neither depend on nor erase OS credential entries.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Supersedes: `cli/mcps/secret-namespaces-include-local-and-source-identity`
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/credentials-remain-host-owned.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/credentials-remain-host-owned.spec.ts)
+
+##### MCP entries declare an explicit connection or a sourced distribution
 
 - Requirement: `cli/mcps/entries-declare-exactly-one-transport`
 - Owner: `workspace-kernel`
-- Statement: An MCP server entry in axm.json shall declare at most one of source, command, or url; an entry declaring more than one shall be refused with an error naming that rule, and an entry declaring none shall be accepted only as a Pack-member configuration that sets at least one supported preference and no transport field, with any other source-less entry refused with an error naming the rule it broke.
+- Statement: An MCP settings entry shall declare either one explicit inline transport or one source with distribution preferences; a source-less preference shall configure only a Pack-supplied member, and ambiguous, legacy or unknown fields shall be refused without rewriting the user's file.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Boundary rationale: Transport exclusivity is a property of the accepted settings document; the decode that refuses it is the lowest layer that decides the rule.
+- Boundary rationale: Settings decoding decides whether authored invocation intent is accepted.
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-authority-is-operation-coherent`, `cli/invalid-workspace-state-gates-operations`
 - Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/mcp-entries-declare-exactly-one-transport.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/mcp-entries-declare-exactly-one-transport.spec.ts)
+
+##### Native MCP adoption preserves or refuses every invocation field
+
+- Requirement: `cli/mcps/import/preserves-or-refuses-native-semantics`
+- Owner: `workspace-features`
+- Statement: AXM shall adopt native MCP configuration only when every field's supported transport, literal or symbolic value, activation and directory meaning can be preserved, and shall report unsupported fields and literal credentials without silently replacing or dropping them.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-features/src/configuration/mcp-import/preserves-or-refuses-native-semantics.spec.ts`](../packages/core/workspace-features/src/configuration/mcp-import/preserves-or-refuses-native-semantics.spec.ts)
+
+##### MCP inspection is passive and distinguishes runtime evidence
+
+- Requirement: `cli/mcps/inspection-does-not-execute-or-claim-runtime-health`
+- Owner: `workspace-features`
+- Statement: AXM MCP inspection shall report configuration, projection and readiness separately from runtime, leave runtime not checked, and describe host actions without launching a process, contacting the server, resolving credential values or mutating configuration.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-features/src/inspection/show/inspection-does-not-execute-or-claim-runtime-health.spec.ts`](../packages/core/workspace-features/src/inspection/show/inspection-does-not-execute-or-claim-runtime-health.spec.ts)
 
 ##### Locally named MCP install requests are validated before any workspace change
 
@@ -5510,6 +5585,30 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/inspection/type-list/mcp-servers.ts`, `cli/mcps/projects-to-every-configured-agent`
 - Source: [`packages/core/workspace-features/src/inspection/mcps/local-name-source-and-resolution-are-distinct.spec.ts`](../packages/core/workspace-features/src/inspection/mcps/local-name-source-and-resolution-are-distinct.spec.ts)
+
+##### Native MCP projection refuses semantic loss
+
+- Requirement: `cli/mcps/projection-refuses-semantic-loss`
+- Owner: `workspace-kernel`
+- Statement: AXM shall render one explicitly selected MCP invocation using the target host's supported per-field semantics, preserve literal tokens and native credential references, and refuse unrepresentable transports, interpolation and execution syntax without shims.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/projection-refuses-semantic-loss.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/projection-refuses-semantic-loss.spec.ts)
+
+##### MCP bindings honor the selected distribution's input semantics
+
+- Requirement: `cli/mcps/selected-distribution-inputs-follow-registry-semantics`
+- Owner: `workspace-kernel`
+- Statement: AXM shall bind only inputs of the selected distribution through unique scoped locators, preserve fixed values, defaults, optional omission and repeated argument order, and refuse unused, ambiguous or unsafe bindings before settlement.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/selected-distribution-inputs-follow-registry-semantics.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/selected-distribution-inputs-follow-registry-semantics.spec.ts)
 
 ##### A sync check reports whether managed output needs updating
 
@@ -6233,6 +6332,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 #### Functional
 
+##### Competing native MCP declarations remain visible and untouched
+
+- Requirement: `cli/mcps/native-precedence-is-visible`
+- Owner: `workspace-kernel`
+- Statement: AXM shall refuse to project beneath an observed higher-priority native declaration or an ambiguous competing reader, identify the effective winner where known, and preserve the competing file.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real native files exercise the shared target planner without launching a host.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/native-precedence-is-visible.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/native-precedence-is-visible.spec.ts)
+
 ##### Withdrawing newly introduced settings intent restores its exact baseline
 
 - Requirement: `settings-contract/withdraws-new-settings-entries-exactly`
@@ -6473,24 +6585,6 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Distinct live process-lock instances and real directory identities exercise proof transfer and finalizer cleanup.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts`](../packages/core/workspace-kernel/src/settlement/runtime-directories-retire-after-withdrawal.spec.ts)
-
-#### Quality
-
-##### MCP secrets stay in a per-connection credential namespace and out of workspace files
-
-- Requirement: `cli/mcps/secret-namespaces-include-local-and-source-identity`
-- Owner: `workspace-features`
-- Statement: When a locally named MCP connection is installed with a secret input, AXM shall keep the secret in the credential store under a namespace unique to the workspace, the local connection name, the source, and the input name, and shall write the secret value into neither axm.json, any agent's native configuration, nor the reported outcome.
-- Class: quality (security)
-- Role: supporting
-- Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
-- Methods: example
-- Derived from: `packages/core/workspace-kernel/src/materialization/ports/mcp-secret-store.ts`, `apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`
-- Open questions: When the credential store cannot persist a required secret, must installation fail, or may it complete with a warning and require the secret to be supplied later? The current statement promises storage; the controlled unavailable-store case establishes disclosure safety, not satisfaction of storage.
-- Limitation: Default scenarios control the credential-store port. The separately selected platform execution exercises the actual system keychain only on its recorded host and access context; other operating systems and access policies remain unverified. Retires when: Run the same credential lifecycle against disposable keychain entries on each supported operating system.
-- Additional evidence: platform via [`apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts`](../apps/cli-e2e/src/mcp-secrets.keychain.e2e.test.ts) — Runs the built CLI's real MCP install, stored-input reload and secret replacement in its declared Node runtime against the host OS keychain, preserving host HOME for native access while isolating AXM_USER_HOME and project state. A subprocess loads the shipped identity build artifacts only to derive disposable cleanup identities, without a product source dependency in the test project. Producer and observer use the same runtime application identity across separate processes. Workspace/local/source/input namespaces are isolated and read back natively; a finally block deletes exactly the known disposable entries, requires affirmative deletion for every attempted write, and retains an independent cleanup journal on failure. This establishes only the recorded host and access context, not cross-application access, unavailable-keychain policy or every supported operating system.
-- Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/secret-namespaces-include-local-and-source-identity.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/secret-namespaces-include-local-and-source-identity.spec.ts)
 
 ## Product goals
 

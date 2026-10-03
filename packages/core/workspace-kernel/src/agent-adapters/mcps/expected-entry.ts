@@ -1,76 +1,39 @@
-/**
- * Pure MCP server projection helpers.
- *
- * @experimental This API is unstable and may change without notice.
- */
-
 import type {
   McpActivationField,
   McpEnvExpansion,
   McpRemoteDialect,
   McpStdioDialect,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
+import {
+  normalizeMcpValue,
+  validateMcpConnection,
+  type McpAuth,
+  type McpBinding,
+  type McpConnection,
+  type McpDistribution,
+  type McpValue,
+} from "./connection.js";
 import { buildAxmMcpMetadataFromSettingsSource } from "./metadata.js";
 import { AXM_MCP_METADATA_KEY } from "./entry-semantics.js";
 
-/**
- * The declared MCP server an agent projection renders, as plain data.
- *
- * Structurally the fields the workspace settings entry carries; declared here
- * so the projection helpers never depend on the settings schema.
- */
-export type McpServerDeclaration =
-  | {
-      /**
-       * A Pack-supplied connection the workspace only configures: it names no
-       * transport of its own, so the resolved member supplies one.
-       */
-      readonly kind: "configuration";
-      readonly source?: undefined;
-      readonly command?: undefined;
-      readonly args?: undefined;
-      readonly url?: undefined;
-      readonly headers?: undefined;
-      readonly enabled?: boolean;
-      readonly env: Readonly<Record<string, string>>;
-    }
-  | {
-      readonly kind: "inline";
-      readonly source?: undefined;
-      readonly command?: string | undefined;
-      readonly args?: ReadonlyArray<string> | undefined;
-      readonly url?: string | undefined;
-      readonly headers?: Readonly<Record<string, string>> | undefined;
-      readonly enabled: boolean;
-      readonly env: Readonly<Record<string, string>>;
-    }
-  | {
-      readonly kind?: "sourced" | undefined;
-      readonly source: string;
-      readonly command?: string | undefined;
-      readonly args?: ReadonlyArray<string> | undefined;
-      readonly url?: string | undefined;
-      readonly headers?: Readonly<Record<string, string>> | undefined;
-      readonly enabled: boolean;
-      readonly env: Readonly<Record<string, string>>;
-    };
-
+/** Desired preferences plus the invocation resolved once before native projection. */
+export interface McpServerDeclaration {
+  readonly kind?: "configuration" | "inline" | "sourced" | undefined;
+  readonly source?: string | undefined;
+  readonly connection?: McpConnection | undefined;
+  readonly distribution?: McpDistribution | undefined;
+  readonly bindings?: ReadonlyArray<McpBinding> | undefined;
+  readonly auth?: McpAuth | undefined;
+  readonly enabled?: boolean | undefined;
+}
 export type InlineRemoteTransport = "streamable-http" | "sse";
-
-export type InlineRemoteTransportInference =
-  | { readonly _tag: "supported"; readonly transport: InlineRemoteTransport }
-  | { readonly _tag: "unsupported"; readonly reason: string };
-
 export type ExpectedAgentEntry =
   | {
       readonly _tag: "projected";
       readonly entry: Readonly<Record<string, unknown>>;
       readonly warnings: ReadonlyArray<string>;
     }
-  | {
-      readonly _tag: "unsupported";
-      readonly reason: string;
-    };
+  | { readonly _tag: "unsupported"; readonly reason: string };
 
 export interface ProjectExpectedEntryArgs {
   readonly serverName: string;
@@ -79,400 +42,235 @@ export interface ProjectExpectedEntryArgs {
   readonly remote: McpRemoteDialect | null;
   readonly activationField: McpActivationField;
   readonly envExpansion?: McpEnvExpansion | undefined;
-  readonly remoteTransport?: InlineRemoteTransport | undefined;
+  /** Absolute cwd resolved against the captured scope root by the location owner. */
+  readonly resolvedCwd?: string | undefined;
 }
 
-const FULL_ENV_REF_RE = /^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/;
-const BEARER_ENV_REF_RE = /^Bearer\s+\$\{([A-Za-z_][A-Za-z0-9_]*)\}$/i;
-const DEFAULT_ENV_EXPANSION: McpEnvExpansion = {
-  variables: "none",
-  defaults: false,
+type ValueField = "command" | "args" | "env" | "url" | "headers" | "cwd";
+const noExpansion: McpEnvExpansion = { variables: "none", defaults: false };
+
+/** Literal metasyntax is refused unless a native escaping contract is known. */
+export const renderEnvValue = (
+  raw: McpValue,
+  capability: McpEnvExpansion,
+  field: ValueField = "env",
+): { readonly value: string; readonly warning?: string } => {
+  const value = normalizeMcpValue(raw);
+  const expands = capability.fields === undefined || capability.fields.includes(field);
+  const literalUnsafe = (literal: string): boolean =>
+    (capability.homeExpansion === true && literal.startsWith("~/")) ||
+    (capability.executableValues === true &&
+      (field === "env" || field === "headers") &&
+      literal.startsWith("!")) ||
+    (expands &&
+      (((capability.variables === "braced" || capability.variables === "env-colon") &&
+        literal.includes("${")) ||
+        (capability.variables === "env-tag" && /\{(?:env|file):/u.test(literal))));
+  const segments = typeof value === "string" ? [value] : "env" in value ? [value] : value.template;
+  let rendered = "";
+  for (const segment of segments) {
+    if (typeof segment === "string") {
+      if (literalUnsafe(segment))
+        return {
+          value: "",
+          warning: "literal native metasyntax cannot be preserved in this field",
+        };
+      rendered += segment;
+    } else {
+      if (!expands || capability.variables === "none")
+        return {
+          value: "",
+          warning: "native environment references are unsupported in this field",
+        };
+      switch (capability.variables) {
+        case "braced":
+          rendered += `\${${segment.env}}`;
+          break;
+        case "env-colon":
+          rendered += `\${env:${segment.env}}`;
+          break;
+        case "env-tag":
+          rendered += `{env:${segment.env}}`;
+          break;
+      }
+    }
+  }
+  return { value: rendered };
 };
 
-const addInlineTypeField = (
-  entry: Record<string, unknown>,
-  typeField: McpStdioDialect["typeField"] | McpRemoteDialect["typeField"],
-  transport: "stdio" | InlineRemoteTransport,
-): void => {
-  const required = typeField.required;
-  if (required === null) return;
-  if (typeof required.value === "string") {
-    entry[required.name] = required.value;
-    return;
+/** Decode only the selected host's documented reference grammar, without evaluation. */
+export const normalizeNativeMcpEnvValue = (
+  value: string,
+  expansion: McpEnvExpansion | undefined,
+  field: ValueField = "env",
+): McpValue => {
+  if (
+    expansion === undefined ||
+    expansion.variables === "none" ||
+    (expansion.fields !== undefined && !expansion.fields.includes(field))
+  )
+    return value;
+  const pattern =
+    expansion.variables === "env-tag"
+      ? /\{env:([A-Za-z_][A-Za-z0-9_]*)\}/gu
+      : expansion.variables === "env-colon"
+        ? /\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}/gu
+        : /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/gu;
+  const segments: Array<string | { readonly env: string }> = [];
+  let start = 0;
+  for (const match of value.matchAll(pattern)) {
+    const name = match[1];
+    if (name === undefined) continue;
+    if (match.index > start) segments.push(value.slice(start, match.index));
+    segments.push({ env: name });
+    start = match.index + match[0].length;
   }
-  if (transport !== "stdio") {
+  if (start === 0) return value;
+  if (start < value.length) segments.push(value.slice(start));
+  const first = segments[0];
+  return first === undefined
+    ? value
+    : normalizeMcpValue({ template: [first, ...segments.slice(1)] });
+};
+
+const addType = (
+  entry: Record<string, unknown>,
+  dialect: McpStdioDialect | McpRemoteDialect,
+  transport: McpConnection["transport"],
+) => {
+  const required = dialect.typeField.required;
+  if (required === null) return;
+  if (typeof required.value === "string") entry[required.name] = required.value;
+  else if (transport !== "stdio") {
     const value = required.value[transport];
     if (value !== undefined) entry[required.name] = value;
   }
 };
 
-const addActivationField = (
-  entry: Record<string, unknown>,
-  activationField: McpActivationField,
-  enabled: boolean,
-): void => {
-  const required = activationField.required;
-  if (required === null) return;
-  entry[required.name] = enabled ? required.enabled : required.disabled;
-};
-
-export const inferInlineRemoteTransport = (url: string): InlineRemoteTransportInference => {
-  let protocol: string | undefined;
-  try {
-    protocol = new URL(url).protocol;
-  } catch {
-    protocol = undefined;
-  }
-  if (protocol === "ws:" || protocol === "wss:") {
-    return { _tag: "unsupported", reason: "WebSocket MCP transport is not supported" };
-  }
-  if (protocol !== "http:" && protocol !== "https:") {
-    return {
-      _tag: "unsupported",
-      reason: `Unsupported MCP URL scheme: ${protocol ?? "missing"}`,
-    };
-  }
-  return {
-    _tag: "supported",
-    transport: url.endsWith("/sse") || url.includes("/sse?") ? "sse" : "streamable-http",
-  };
-};
-
-export const renderEnvValue = (
-  raw: string,
-  capability: McpEnvExpansion,
-): { readonly value: string; readonly warning?: string } => {
-  if (capability.variables === "env-tag" && /\{env:[A-Za-z_][A-Za-z0-9_]*\}/u.test(raw))
-    return {
-      value: raw,
-      warning: "cannot preserve a literal native environment tag",
-    };
-  const references = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-|\})/g;
-  let rendered = "";
-  let copiedUntil = 0;
-  let match: RegExpExecArray | null;
-  while ((match = references.exec(raw)) !== null) {
-    const variableName = match[1];
-    if (variableName === undefined) continue;
-    const end = match[0].endsWith("}")
-      ? references.lastIndex - 1
-      : raw.indexOf("}", references.lastIndex);
-    // Do not repeatedly rescan a tail containing unterminated defaults.
-    if (end === -1) break;
-    const reference = raw.slice(match.index, end + 1);
-    const hasDefault = !match[0].endsWith("}");
-    if (hasDefault && (capability.variables === "none" || !capability.defaults))
-      return { value: raw, warning: `does not expand environment default ${reference}` };
-    if (capability.variables === "none")
-      return { value: raw, warning: `does not expand environment reference ${reference}` };
-    rendered +=
-      raw.slice(copiedUntil, match.index) +
-      (capability.variables === "env-tag" ? `{env:${variableName}}` : reference);
-    copiedUntil = end + 1;
-    references.lastIndex = copiedUntil;
-  }
-  return { value: rendered + raw.slice(copiedUntil) };
-};
-
-/** Convert a verified native expansion spelling back to symbolic workspace syntax. */
-export const normalizeNativeMcpEnvValue = (
-  value: string,
-  expansion: McpEnvExpansion | undefined,
-): string =>
-  expansion?.variables === "env-tag"
-    ? value.replace(/\{env:([A-Za-z_][A-Za-z0-9_]*)\}/g, (_, name: string) => `\${${name}}`)
-    : value;
-
-const projectEnvRecord = (args: {
-  readonly values: Readonly<Record<string, string>>;
-  readonly envExpansion: McpEnvExpansion;
-  readonly field: string;
-}):
-  | { readonly _tag: "projected"; readonly values: Readonly<Record<string, string>> }
-  | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const values: Record<string, string> = {};
-  for (const [key, value] of Object.entries(args.values)) {
-    const rendered = renderEnvValue(value, args.envExpansion);
-    if (rendered.warning !== undefined) {
-      return {
-        _tag: "unsupported",
-        reason: `${args.field}.${key}: ${rendered.warning}; secret references are never resolved into native config literals`,
-      };
-    }
-    values[key] = rendered.value;
-  }
-  return { _tag: "projected", values };
-};
-
-const projectRemoteHeaders = (args: {
-  readonly values: Readonly<Record<string, string>>;
-  readonly dialect: McpRemoteDialect;
-  readonly envExpansion: McpEnvExpansion;
-}):
-  | {
-      readonly _tag: "projected";
-      readonly literal: Readonly<Record<string, string>>;
-      readonly env: Readonly<Record<string, string>>;
-      readonly bearerTokenEnv: string | undefined;
-    }
-  | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const literal: Record<string, string> = {};
-  const env: Record<string, string> = {};
-  let bearerTokenEnv: string | undefined;
-
-  for (const [name, value] of Object.entries(args.values)) {
-    if (args.envExpansion.variables !== "none") {
-      const rendered = renderEnvValue(value, args.envExpansion);
-      if (rendered.warning !== undefined) {
-        return {
-          _tag: "unsupported",
-          reason: `headers.${name}: ${rendered.warning}; secret references are never resolved into native config literals`,
-        };
-      }
-      literal[name] = rendered.value;
-      continue;
-    }
-
-    const bearerMatch =
-      name.toLowerCase() === "authorization" ? BEARER_ENV_REF_RE.exec(value) : null;
-    const bearerVariable = bearerMatch?.[1];
-    if (bearerVariable !== undefined) {
-      if (args.dialect.bearerTokenEnvKey !== undefined && args.dialect.bearerTokenEnvKey !== null) {
-        bearerTokenEnv = bearerVariable;
-      } else {
-        return {
-          _tag: "unsupported",
-          reason: `headers.${name}: cannot project environment reference \${${bearerVariable}} for this agent`,
-        };
-      }
-      continue;
-    }
-
-    const envMatch = FULL_ENV_REF_RE.exec(value);
-    const envVariable = envMatch?.[1];
-    if (envVariable !== undefined) {
-      if (args.dialect.envHeadersKey !== undefined && args.dialect.envHeadersKey !== null) {
-        env[name] = envVariable;
-      } else {
-        return {
-          _tag: "unsupported",
-          reason: `headers.${name}: cannot project environment reference \${${envVariable}} for this agent`,
-        };
-      }
-      continue;
-    }
-
-    const rendered = renderEnvValue(value, args.envExpansion);
-    if (rendered.warning === undefined) {
-      literal[name] = rendered.value;
-    } else {
-      const reference = rendered.warning.replace(
-        /^does not expand environment (?:reference|default) /u,
-        "",
-      );
-      return {
-        _tag: "unsupported",
-        reason: `headers.${name}: cannot project environment reference ${reference} for this agent`,
-      };
-    }
-  }
-
-  return { _tag: "projected", literal, env, bearerTokenEnv };
-};
-
-const projectInlineStdio = (args: {
-  readonly dialect: McpStdioDialect;
-  readonly command: string;
-  readonly commandArgs: ReadonlyArray<string>;
-  readonly env: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly activationField: McpActivationField;
-  readonly envExpansion: McpEnvExpansion;
-  readonly source: string;
-  readonly serverName: string;
-}):
-  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
-  | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const invocation: Array<string> = [];
-  for (const [index, value] of [args.command, ...args.commandArgs].entries()) {
-    const rendered = renderEnvValue(value, args.envExpansion);
-    if (rendered.warning !== undefined) {
-      return {
-        _tag: "unsupported",
-        reason: `invocation.${index}: ${rendered.warning}; secret references are never resolved into native config literals`,
-      };
-    }
-    invocation.push(rendered.value);
-  }
-  const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
-  };
-  const forwarded: Array<string> = [];
-  const literalOrExpanded: Record<string, string> = {};
-  for (const [name, value] of Object.entries(args.env)) {
-    if (args.dialect.envVarsKey !== undefined && FULL_ENV_REF_RE.exec(value)?.[1] === name) {
-      forwarded.push(name);
-    } else {
-      literalOrExpanded[name] = value;
-    }
-  }
-  const env = projectEnvRecord({
-    values: literalOrExpanded,
-    envExpansion: args.envExpansion,
-    field: "env",
-  });
-  if (env._tag === "unsupported") return env;
-  if (Object.keys(env.values).length > 0 && args.dialect.envKey === null) {
-    return {
-      _tag: "unsupported",
-      reason: "agent cannot project MCP environment values",
-    };
-  }
-  addInlineTypeField(entry, args.dialect.typeField, "stdio");
-  addActivationField(entry, args.activationField, args.enabled);
-  if (args.dialect.command === "array") {
-    entry["command"] = invocation;
-  } else {
-    entry["command"] = invocation[0];
-    if (invocation.length > 1) entry["args"] = invocation.slice(1);
-  }
-  if (Object.keys(env.values).length > 0 && args.dialect.envKey !== null) {
-    entry[args.dialect.envKey] = env.values;
-  }
-  if (forwarded.length > 0 && args.dialect.envVarsKey !== undefined) {
-    entry[args.dialect.envVarsKey] = forwarded.sort();
-  }
-  return { _tag: "projected", entry };
-};
-
-const projectInlineRemote = (args: {
-  readonly dialect: McpRemoteDialect;
-  readonly url: string;
-  readonly headers: Readonly<Record<string, string>>;
-  readonly enabled: boolean;
-  readonly activationField: McpActivationField;
-  readonly envExpansion: McpEnvExpansion;
-  readonly source: string;
-  readonly serverName: string;
-  readonly transport?: InlineRemoteTransport | undefined;
-}):
-  | { readonly _tag: "projected"; readonly entry: Readonly<Record<string, unknown>> }
-  | { readonly _tag: "unsupported"; readonly reason: string } => {
-  const inference =
-    args.transport === undefined
-      ? inferInlineRemoteTransport(args.url)
-      : ({ _tag: "supported", transport: args.transport } as const);
-  if (inference._tag === "unsupported") return inference;
-  const transport = inference.transport;
-  const urlKey = args.dialect.urlKey[transport];
-  if (urlKey === undefined) {
-    return {
-      _tag: "unsupported",
-      reason: `agent does not support the ${transport} remote transport`,
-    };
-  }
-  const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(args.source, args.serverName),
-  };
-  const headers = projectRemoteHeaders({
-    values: args.headers,
-    dialect: args.dialect,
-    envExpansion: args.envExpansion,
-  });
-  if (headers._tag === "unsupported") return headers;
-  if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey === null) {
-    return {
-      _tag: "unsupported",
-      reason: "agent cannot project literal MCP request headers",
-    };
-  }
-  addInlineTypeField(entry, args.dialect.typeField, transport);
-  addActivationField(entry, args.activationField, args.enabled);
-  const renderedUrl = renderEnvValue(args.url, args.envExpansion);
-  if (renderedUrl.warning !== undefined)
-    return {
-      _tag: "unsupported",
-      reason: `url: ${renderedUrl.warning}; secret references are never resolved into native config literals`,
-    };
-  entry[urlKey] = renderedUrl.value;
-  if (Object.keys(headers.literal).length > 0 && args.dialect.headersKey !== null) {
-    entry[args.dialect.headersKey] = headers.literal;
-  }
-  if (
-    headers.bearerTokenEnv !== undefined &&
-    args.dialect.bearerTokenEnvKey !== undefined &&
-    args.dialect.bearerTokenEnvKey !== null
-  ) {
-    entry[args.dialect.bearerTokenEnvKey] = headers.bearerTokenEnv;
-  }
-  if (
-    Object.keys(headers.env).length > 0 &&
-    args.dialect.envHeadersKey !== undefined &&
-    args.dialect.envHeadersKey !== null
-  ) {
-    entry[args.dialect.envHeadersKey] = headers.env;
-  }
-  return { _tag: "projected", entry };
-};
-
 export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAgentEntry => {
-  const envExpansion = args.envExpansion ?? DEFAULT_ENV_EXPANSION;
-  if (args.entry.command !== undefined) {
-    if (args.stdio === null) {
-      return {
-        _tag: "unsupported",
-        reason: "agent does not support inline stdio MCP servers",
-      };
-    }
-    const projected = projectInlineStdio({
-      dialect: args.stdio,
-      command: args.entry.command,
-      commandArgs: args.entry.args ?? [],
-      env: args.entry.env,
-      enabled: args.entry.enabled,
-      activationField: args.activationField,
-      envExpansion,
-      source: args.entry.kind === "inline" ? "inline" : args.entry.source,
-      serverName: args.serverName,
-      ...(args.remoteTransport === undefined ? {} : { transport: args.remoteTransport }),
-    });
-    if (projected._tag === "unsupported") return projected;
+  const connection = args.entry.connection;
+  if (connection === undefined)
+    return { _tag: "unsupported", reason: "MCP connection has no resolved invocation" };
+  const findings = validateMcpConnection(connection, args.entry.auth);
+  if (findings.length > 0)
+    return { _tag: "unsupported", reason: findings.map(({ message }) => message).join("; ") };
+  const expansion = args.envExpansion ?? noExpansion;
+  const entry: Record<string, unknown> = {
+    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(
+      args.entry.source ?? "inline",
+      args.serverName,
+    ),
+  };
+  const activation = args.activationField.required;
+  if (activation !== null)
+    entry[activation.name] =
+      args.entry.enabled === false ? activation.disabled : activation.enabled;
+  // Hosts without an activation field are withdrawn by the lifecycle owner.
+  if (activation === null && args.entry.enabled === false)
     return {
-      _tag: "projected",
-      warnings: [],
-      entry: projected.entry,
+      _tag: "unsupported",
+      reason: "Disabled connections must be withdrawn for this native host",
     };
-  }
-  if (args.entry.url !== undefined) {
-    if (args.remote === null) {
-      const headerRecovery =
-        Object.keys(args.entry.headers ?? {}).length === 0
-          ? ""
-          : ' Preserve required headers by appending `--header "Header:${ENV_VAR}"` to the shim command and pass `ENV_VAR` with `--env ENV_VAR`.';
-      return {
-        _tag: "unsupported",
-        reason: `this agent cannot project inline URL entries; use the supported stdio shim instead: \`axm mcps add ${args.serverName} --command "npx -y mcp-remote ${args.entry.url}"\`.${headerRecovery}`,
-      };
+  const unsupported = (field: string, reason: string): ExpectedAgentEntry => ({
+    _tag: "unsupported",
+    reason: `${field}: ${reason}`,
+  });
+  if (connection.transport === "stdio") {
+    const dialect = args.stdio;
+    if (dialect === null) return unsupported("transport", "agent has no stdio MCP representation");
+    const invocation: Array<string> = [];
+    for (const [index, value] of [connection.command, ...(connection.args ?? [])].entries()) {
+      const rendered = renderEnvValue(value, expansion, index === 0 ? "command" : "args");
+      if (rendered.warning !== undefined)
+        return unsupported(index === 0 ? "command" : `args.${index - 1}`, rendered.warning);
+      invocation.push(rendered.value);
     }
-    const projected = projectInlineRemote({
-      dialect: args.remote,
-      url: args.entry.url,
-      headers: args.entry.headers ?? {},
-      enabled: args.entry.enabled,
-      activationField: args.activationField,
-      envExpansion,
-      source: args.entry.kind === "inline" ? "inline" : args.entry.source,
-      serverName: args.serverName,
-    });
-    if (projected._tag === "unsupported") return projected;
-    return {
-      _tag: "projected",
-      warnings: [],
-      entry: projected.entry,
-    };
+    const env: Record<string, string> = {};
+    const forwarded: Array<string> = [];
+    for (const [name, raw] of Object.entries(connection.env ?? {})) {
+      const value = normalizeMcpValue(raw);
+      if (
+        dialect.envVarsKey !== undefined &&
+        typeof value !== "string" &&
+        "env" in value &&
+        value.env === name
+      ) {
+        forwarded.push(name);
+      } else {
+        const rendered = renderEnvValue(value, expansion, "env");
+        if (rendered.warning !== undefined) return unsupported(`env.${name}`, rendered.warning);
+        env[name] = rendered.value;
+      }
+    }
+    if (Object.keys(env).length > 0) {
+      if (dialect.envKey === null)
+        return unsupported("env", "agent cannot represent environment values");
+      entry[dialect.envKey] = env;
+    }
+    if (forwarded.length > 0 && dialect.envVarsKey !== undefined)
+      entry[dialect.envVarsKey] = forwarded.sort();
+    if (connection.cwd !== undefined) {
+      if (dialect.cwdKey === undefined)
+        return unsupported("cwd", "agent cannot represent an explicit working directory");
+      const cwd = connection.cwd.base === "absolute" ? connection.cwd.path : args.resolvedCwd;
+      if (cwd === undefined) return unsupported("cwd", "scope directory has not been resolved");
+      const rendered = renderEnvValue(cwd, expansion, "cwd");
+      if (rendered.warning !== undefined) return unsupported("cwd", rendered.warning);
+      entry[dialect.cwdKey] = rendered.value;
+    }
+    addType(entry, dialect, "stdio");
+    entry["command"] = dialect.command === "array" ? invocation : invocation[0];
+    if (dialect.command === "split" && invocation.length > 1) entry["args"] = invocation.slice(1);
+  } else {
+    const dialect = args.remote;
+    if (dialect === null) return unsupported("transport", "agent has no remote MCP representation");
+    const urlKey = dialect.urlKey[connection.transport];
+    if (urlKey === undefined)
+      return unsupported("transport", "agent cannot represent the selected remote transport");
+    const url = renderEnvValue(connection.url, expansion, "url");
+    if (url.warning !== undefined) return unsupported("url", url.warning);
+    entry[urlKey] = url.value;
+    const headers: Record<string, string> = {};
+    const envHeaders: Record<string, string> = {};
+    for (const [name, raw] of Object.entries(connection.headers ?? {})) {
+      const value = normalizeMcpValue(raw);
+      if (typeof value !== "string" && "env" in value && dialect.envHeadersKey != null) {
+        envHeaders[name] = value.env;
+        continue;
+      }
+      if (
+        name.toLowerCase() === "authorization" &&
+        typeof value !== "string" &&
+        "template" in value &&
+        value.template.length === 2 &&
+        value.template[0] === "Bearer " &&
+        dialect.bearerTokenEnvKey != null
+      ) {
+        const ref = value.template[1];
+        if (ref !== undefined && typeof ref !== "string") {
+          entry[dialect.bearerTokenEnvKey] = ref.env;
+          continue;
+        }
+      }
+      const rendered = renderEnvValue(value, expansion, "headers");
+      if (rendered.warning !== undefined) return unsupported(`headers.${name}`, rendered.warning);
+      headers[name] = rendered.value;
+    }
+    if (Object.keys(headers).length > 0) {
+      if (dialect.headersKey === null)
+        return unsupported("headers", "agent cannot represent request headers");
+      entry[dialect.headersKey] = headers;
+    }
+    if (Object.keys(envHeaders).length > 0 && dialect.envHeadersKey != null)
+      entry[dialect.envHeadersKey] = envHeaders;
+    addType(entry, dialect, connection.transport);
   }
   return {
-    _tag: "unsupported",
-    reason: "MCP server has no inline command or URL",
+    _tag: "projected",
+    entry,
+    warnings:
+      connection.transport === "stdio" && connection.cwd === undefined
+        ? ["Working directory is unspecified; the native host default applies"]
+        : [],
   };
 };

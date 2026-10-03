@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 /**
  * Inline MCP adoption policy: discover import sources from configured agents'
  * native MCP configs, rewrite adopted entries with AXM management metadata,
@@ -12,6 +13,7 @@ import {
   CONFIGURABLE_AGENTS_BY_ID,
   McpServersPathSchema,
   type NativeConfigReadLocation,
+  type McpEntryDialect,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -26,9 +28,12 @@ import {
   isAxmManagedMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
-  readNativeMcpServers,
+  readNativeMcpValues,
+  decodeJsonMcpConfig,
   resolveAgentMcpConfigTargetPath,
   writeAgentMcpConfig,
+  validateAgentMcpConfigWrite,
+  preflightNativeConfigReaders,
   validateInlineMcpServerTargets,
   syncInlineMcpServerToAgents,
   NativeWriteAuthority,
@@ -87,8 +92,18 @@ export const collectMcpImportSources = (
   settings: SettingsReaderService,
 ) =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+    const exists = (file: string) =>
+      fs.exists(file).pipe(
+        Effect.mapError(
+          () =>
+            new WorkspaceConfigurationFailed({
+              category: "validation",
+              detail: "Cannot inspect native MCP discovery boundary",
+            }),
+        ),
+      );
     const sources: Array<McpImportSource> = [];
     const skipped = new Map<string, { readonly name: string; readonly reason: string }>();
     const sourceKeys = new Set<string>();
@@ -97,8 +112,10 @@ export const collectMcpImportSources = (
       serversPath: McpImportSource["serversPath"],
       target: McpImportSource["target"],
       envExpansion: McpImportSource["envExpansion"],
+      agentId: string,
+      dialect: McpEntryDialect,
     ) => {
-      const sourceKey = JSON.stringify([filePath, serversPath]);
+      const sourceKey = JSON.stringify([filePath, serversPath, agentId]);
       if (sourceKeys.has(sourceKey)) return Effect.void;
       sourceKeys.add(sourceKey);
       return Effect.gen(function* () {
@@ -106,13 +123,34 @@ export const collectMcpImportSources = (
           Effect.mapError(readFailureToConfigurationFailed),
         );
         if (Option.isNone(raw)) return;
-        const servers = yield* readNativeMcpServers({
+        if (agentId === "github-copilot-cli" && location.scope === "project") {
+          const decoded = yield* decodeJsonMcpConfig(
+            filePath,
+            raw.value,
+            serversPath,
+            target.format,
+          ).pipe(Effect.mapError(readFailureToConfigurationFailed));
+          if (decoded.servers === undefined && Object.keys(decoded.root).length > 0) {
+            for (const name of Object.keys(decoded.root))
+              skipped.set(`${filePath}:${name}`, {
+                name,
+                reason:
+                  "Copilot bare-root MCP entry requires an explicit mcpServers container before portable adoption",
+              });
+            return;
+          }
+        }
+        const servers = yield* readNativeMcpValues({
           format: target.format,
           configPath: filePath,
           raw: raw.value,
           serversPath,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
         sources.push({
+          agentId,
+          dialect,
+          workspaceRoot: location.baseDir,
+          fingerprint: createHash("sha256").update(raw.value).digest("hex"),
           filePath,
           serversPath,
           target,
@@ -128,11 +166,12 @@ export const collectMcpImportSources = (
     for (const agentId of agentIds) {
       if (!isConfigurableAgentId(agentId)) continue;
       const native = CONFIGURABLE_AGENTS_BY_ID[agentId].capabilities["mcp-server"].native;
-      if (!("locations" in native)) continue;
+      if (!("locations" in native) || native.entryDialect === null) continue;
       const declarations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
       for (const declaration of [...declarations].sort((left, right) =>
         left.path.localeCompare(right.path),
       )) {
+        if (declaration.applicability.kind !== "always") continue;
         const resolved = resolveNativeReadLocation(
           path,
           agentId,
@@ -140,7 +179,15 @@ export const collectMcpImportSources = (
           { workspaceRoot: location.baseDir, scope: location.scope },
           location.nativeDirectoryInputs,
         );
-        if (resolved === undefined) continue;
+        if (resolved === undefined) {
+          if (declaration.scope === location.scope && declaration.selectedFile !== undefined)
+            skipped.set(`${agentId}:${declaration.id}`, {
+              name: agentId,
+              reason:
+                "Select an absolute native user MCP configuration file before importing this agent",
+            });
+          continue;
+        }
         const serversPath = declaration.keyPath;
         if (!Schema.is(McpServersPathSchema)(serversPath)) {
           const finding = {
@@ -160,32 +207,44 @@ export const collectMcpImportSources = (
         const configPath = yield* resolveAgentMcpConfigTargetPath(location.baseDir, target).pipe(
           Effect.mapError(readFailureToConfigurationFailed),
         );
-        if (target.format === "toml") {
-          const exists = yield* fs.exists(configPath).pipe(
-            Effect.mapError(
-              (cause) =>
-                new WorkspaceConfigurationFailed({
-                  category: "internal",
-                  detail: `Failed to inspect MCP config: ${configPath}`,
-                  cause,
-                }),
-            ),
-          );
-          if (exists) {
-            const finding = {
-              name: path.relative(location.baseDir, configPath),
-              reason: "TOML MCP entries are fenced regions and cannot be adopted in place",
-            };
-            skipped.set(`${finding.name}\0${finding.reason}`, finding);
-          }
-          continue;
-        }
         yield* addSource(
           configPath,
           serversPath,
           target,
           "mcpEnvExpansion" in native ? native.mcpEnvExpansion : undefined,
+          agentId,
+          native.entryDialect,
         );
+      }
+    }
+    if (location.scope === "project" && agentIds.includes("github-copilot-cli")) {
+      let directory = location.baseDir;
+      const ancestors: Array<string> = [];
+      while (!(yield* exists(path.join(directory, ".git")))) {
+        const parent = path.dirname(directory);
+        if (parent === directory) {
+          ancestors.length = 0;
+          break;
+        }
+        directory = parent;
+        ancestors.push(directory);
+      }
+      for (const ancestorDirectory of ancestors) {
+        for (const relative of [".mcp.json", ".github/mcp.json"]) {
+          const file = path.join(ancestorDirectory, relative);
+          const raw = yield* readNativeMcpConfig(file).pipe(
+            Effect.mapError(readFailureToConfigurationFailed),
+          );
+          if (Option.isNone(raw)) continue;
+          const decoded = yield* decodeJsonMcpConfig(file, raw.value, ["mcpServers"], "json").pipe(
+            Effect.mapError(readFailureToConfigurationFailed),
+          );
+          for (const name of Object.keys(decoded.servers ?? decoded.root))
+            skipped.set(`${file}:${name}`, {
+              name,
+              reason: `Copilot reads an ancestor declaration at ${file}; select its owning workspace to manage it and resolve precedence before importing`,
+            });
+        }
       }
     }
     return { sources, skipped: Array.from(skipped.values()) };
@@ -194,6 +253,7 @@ export const collectMcpImportSources = (
 const adoptNativeMcpEntry = (
   location: WorkspaceLocationService,
   adoption: McpImportAdoption,
+  configuredAgentIds: ReadonlyArray<string>,
 ): Effect.Effect<
   ReadonlyArray<NativeLocationOutcome>,
   WorkspaceConfigurationFailed,
@@ -218,7 +278,7 @@ const adoptNativeMcpEntry = (
         detail: `MCP server ${adoption.name} changed before import`,
       });
     }
-    const result = yield* writeAgentMcpConfig({
+    const write = {
       workspaceRoot: location.baseDir,
       serverName: adoption.name,
       serversPath: adoption.serversPath,
@@ -229,48 +289,37 @@ const adoptNativeMcpEntry = (
         ...entry.value,
         [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline", adoption.name),
       },
+    };
+    const proposedRaw = yield* validateAgentMcpConfigWrite(write).pipe(
+      Effect.mapError(nativeFailureToConfigurationFailed),
+    );
+    yield* preflightNativeConfigReaders({
+      workspaceRoot: location.baseDir,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
+      scope: location.scope,
+      physicalPath: adoption.filePath,
+      configuredAgentIds,
+      writerFormat: adoption.target.format,
+      raw: Option.getOrElse(raw, () => ""),
+      proposedRaw,
+      preserveMcpSemantics: true,
     }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+    const result = yield* writeAgentMcpConfig(write).pipe(
+      Effect.mapError(nativeFailureToConfigurationFailed),
+    );
     return result.targets.flatMap((target) =>
       target.nativeLocation === undefined ? [] : [target.nativeLocation],
     );
   });
 
-const recordsEqual = (
-  left: Readonly<Record<string, string>> | undefined,
-  right: Readonly<Record<string, string>> | undefined,
-): boolean => {
-  const leftEntries = Object.entries(left ?? {}).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  const rightEntries = Object.entries(right ?? {}).sort(([leftKey], [rightKey]) =>
-    leftKey.localeCompare(rightKey),
-  );
-  return (
-    leftEntries.length === rightEntries.length &&
-    leftEntries.every(([key, value], index) => {
-      const rightEntry = rightEntries[index];
-      return rightEntry !== undefined && key === rightEntry[0] && value === rightEntry[1];
-    })
-  );
-};
-
 const candidateMatchesSettings = (
   candidate: McpImportCandidate,
   entry: McpServerEntry | undefined,
 ): boolean =>
-  entry !== undefined &&
-  entry.kind === "inline" &&
-  entry.enabled &&
-  entry.command ===
-    (candidate.definition.type === "stdio" ? candidate.definition.command : undefined) &&
-  JSON.stringify(entry.args ?? []) ===
-    JSON.stringify(candidate.definition.type === "stdio" ? candidate.definition.args : []) &&
-  entry.url === (candidate.definition.type === "http" ? candidate.definition.url : undefined) &&
-  recordsEqual(
-    entry.headers,
-    candidate.definition.type === "http" ? candidate.definition.headers : undefined,
-  ) &&
-  recordsEqual(entry.env, candidate.env);
+  entry?.kind === "inline" &&
+  entry.enabled === candidate.enabled &&
+  Equal.equals(entry.connection, candidate.definition) &&
+  Equal.equals(entry.auth, candidate.auth);
 
 const validateAdoption = (
   adoption: McpImportAdoption,
@@ -298,11 +347,9 @@ const validateAdoption = (
 
 const settingsEntry = (candidate: McpImportCandidate): McpServerEntry => ({
   kind: "inline",
-  ...(candidate.definition.type === "stdio"
-    ? { command: candidate.definition.command, args: candidate.definition.args }
-    : { url: candidate.definition.url, headers: candidate.definition.headers }),
-  env: candidate.env,
-  enabled: true,
+  connection: candidate.definition,
+  enabled: candidate.enabled,
+  ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
 });
 
 /** Every configured reader is checked before adoption publishes any desired state. */
@@ -313,6 +360,19 @@ export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandi
     const agentIds = yield* (yield* SettingsReader).configuredAgents;
     const locations: Array<NativeLocationOutcome> = [];
     for (const candidate of candidates) {
+      for (const adoption of candidate.adoptions) {
+        const raw = yield* readNativeMcpConfig(adoption.filePath).pipe(
+          Effect.mapError(readFailureToConfigurationFailed),
+        );
+        if (
+          Option.isNone(raw) ||
+          createHash("sha256").update(raw.value).digest("hex") !== adoption.fingerprint
+        )
+          return yield* new WorkspaceConfigurationFailed({
+            category: "conflict",
+            detail: "Native MCP source document changed after discovery; discover the batch again",
+          });
+      }
       const plan = yield* validateInlineMcpServerTargets(agentIds, {
         nativeDirectoryInputs: location.nativeDirectoryInputs,
         workspaceRoot: location.baseDir,
@@ -375,8 +435,21 @@ export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) =>
     const location = yield* WorkspaceLocation;
     const planned = yield* prepareMcpImportTargets(candidates);
     const agentIds = yield* settings.configuredAgents;
+    const originals = yield* Effect.forEach(
+      Array.from(new Map(adoptions.map((adoption) => [adoption.filePath, adoption])).values()),
+      (adoption) =>
+        readNativeMcpConfig(adoption.filePath).pipe(
+          Effect.mapError(readFailureToConfigurationFailed),
+          Effect.map((raw) => ({ adoption, raw })),
+        ),
+    );
     return yield* runWorkspaceTransaction({
-      targets: Array.from(new Set(planned.map((target) => target.address.path))).sort(),
+      targets: Array.from(
+        new Set([
+          ...planned.map((target) => target.address.path),
+          ...adoptions.map((adoption) => adoption.filePath),
+        ]),
+      ).sort(),
       transition: Effect.gen(function* () {
         const locations: Array<NativeLocationOutcome> = [];
         for (const candidate of candidates) {
@@ -385,7 +458,7 @@ export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) =>
           });
         }
         for (const adoption of adoptions) {
-          locations.push(...(yield* adoptNativeMcpEntry(location, adoption)));
+          locations.push(...(yield* adoptNativeMcpEntry(location, adoption, agentIds)));
         }
         for (const candidate of candidates) {
           const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
@@ -422,6 +495,22 @@ export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) =>
           yield* Effect.forEach(adoptions, validateAdoption, {
             concurrency: 1,
           });
+          for (const { adoption, raw } of originals) {
+            const after = yield* readNativeMcpConfig(adoption.filePath).pipe(
+              Effect.mapError(readFailureToConfigurationFailed),
+            );
+            yield* preflightNativeConfigReaders({
+              workspaceRoot: location.baseDir,
+              nativeDirectoryInputs: location.nativeDirectoryInputs,
+              scope: location.scope,
+              physicalPath: adoption.filePath,
+              configuredAgentIds: agentIds,
+              writerFormat: adoption.target.format,
+              raw: Option.getOrElse(raw, () => ""),
+              proposedRaw: Option.getOrElse(after, () => ""),
+              preserveMcpSemantics: true,
+            }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+          }
         }),
     });
   });

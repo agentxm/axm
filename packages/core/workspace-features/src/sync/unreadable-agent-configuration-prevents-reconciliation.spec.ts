@@ -58,7 +58,9 @@ describe("Agent configuration failure", () => {
         settings: {
           owner: "@acme",
           agents: ["claude-code"],
-          mcpServers: { demo: { command: "node", args: ["server.js"] } },
+          mcpServers: {
+            demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+          },
         },
         files: { ".mcp.json": "[]\n" },
       });

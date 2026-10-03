@@ -1,7 +1,7 @@
 import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 /**
  * The MCP server installation operation: use the MCP manager to acquire the
- * package, reconcile connection credentials, declare the accepted resolution
+ * package, select and bind its invocation, declare the accepted resolution
  * and settings entry, and project the connection into configured agents.
  *
  * The MCP manager serves it as its `installConnection` member, which is how
@@ -20,9 +20,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import {
-  collectSecretInputNames,
-  collectRequiredInputNames,
-  mcpProjectionInputValues,
+  selectMcpDistribution,
+  resolveMcpInvocation,
   readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
   type McpServerSyncOutcome,
@@ -56,12 +55,9 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type { McpServerManifest } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
   McpServerManager,
-  McpSecretStore,
-  mcpSecretAccount,
   type ExtensionManagerFailure,
   type InstallMcpServerOperation,
   type McpConnectionInstallRequirements,
-  type McpSecretIdentity,
 } from "@agentxm/workspace-kernel/materialization";
 import {
   agentConfigTargets,
@@ -69,22 +65,8 @@ import {
   mcpSettingsTarget,
   mcpSourceTarget,
 } from "../artifact.js";
-import { McpAgentSyncRefused, McpRequiredInputsMissing } from "../errors.js";
+import { McpAgentSyncRefused, McpConfigurationRefused } from "../errors.js";
 import { requestedMcpSourceIdentity } from "../source-identity.js";
-
-// -----------------------------------------------------------------------------
-// Credentials
-// -----------------------------------------------------------------------------
-
-type McpSecretPersistenceOutcome =
-  | { readonly _tag: "saved"; readonly inputName: string }
-  | { readonly _tag: "skipped"; readonly inputName: string }
-  | { readonly _tag: "failed"; readonly inputName: string };
-
-export type McpSecretDeletionOutcome =
-  | { readonly _tag: "deleted"; readonly inputName: string }
-  | { readonly _tag: "absent"; readonly inputName: string }
-  | { readonly _tag: "failed"; readonly inputName: string };
 
 const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): boolean =>
   Option.match(manifest, {
@@ -93,84 +75,6 @@ const isNothingRunnableManifest = (manifest: Option.Option<McpServerManifest>): 
       (value.server.packages === undefined || value.server.packages.length === 0) &&
       (value.server.remotes === undefined || value.server.remotes.length === 0),
   });
-
-const loadStoredMcpSecrets = (
-  identity: McpSecretIdentity,
-  secretNames: ReadonlySet<string>,
-): Effect.Effect<Readonly<Record<string, string>>, never, McpSecretStore> =>
-  Effect.gen(function* () {
-    const secrets = yield* McpSecretStore;
-    const entries = yield* Effect.forEach(
-      secretNames,
-      (name) =>
-        secrets
-          .read(mcpSecretAccount({ ...identity, inputName: name }))
-          .pipe(Effect.map((value) => ({ name, value }))),
-      { concurrency: 1 },
-    );
-    const loaded: Record<string, string> = {};
-    for (const { name, value } of entries) {
-      if (Option.isSome(value)) loaded[name] = value.value;
-    }
-    return loaded;
-  });
-
-const persistMcpSecrets = (
-  identity: McpSecretIdentity,
-  secretNames: ReadonlySet<string>,
-  values: Readonly<Record<string, string>>,
-): Effect.Effect<ReadonlyArray<McpSecretPersistenceOutcome>, never, McpSecretStore> =>
-  Effect.gen(function* () {
-    const secrets = yield* McpSecretStore;
-    return yield* Effect.forEach(
-      secretNames,
-      (inputName): Effect.Effect<McpSecretPersistenceOutcome> => {
-        const value = values[inputName];
-        return value === undefined || value === `\${${inputName}}`
-          ? Effect.succeed({ _tag: "skipped", inputName })
-          : secrets
-              .write(mcpSecretAccount({ ...identity, inputName }), value)
-              .pipe(Effect.map((outcome) => ({ _tag: outcome, inputName })));
-      },
-      { concurrency: 1 },
-    );
-  });
-
-/**
- * Erase every credential one connection holds. Erasure is reported per input:
- * a credential store that is unavailable leaves the secret behind and says so,
- * rather than failing the removal that has already settled.
- */
-export const deleteMcpSecrets = (
-  identity: McpSecretIdentity,
-  secretNames: ReadonlySet<string>,
-): Effect.Effect<ReadonlyArray<McpSecretDeletionOutcome>, never, McpSecretStore> =>
-  Effect.gen(function* () {
-    const secrets = yield* McpSecretStore;
-    return yield* Effect.forEach(
-      secretNames,
-      (inputName) =>
-        secrets
-          .erase(mcpSecretAccount({ ...identity, inputName }))
-          .pipe(
-            Effect.map(
-              (outcome) => ({ _tag: outcome, inputName }) satisfies McpSecretDeletionOutcome,
-            ),
-          ),
-      { concurrency: 1 },
-    );
-  });
-
-const redactSettingsEnv = (
-  values: Readonly<Record<string, string>>,
-  secretNames: ReadonlySet<string>,
-): Readonly<Record<string, string>> => {
-  const redacted: Record<string, string> = {};
-  for (const [name, value] of Object.entries(values)) {
-    if (!secretNames.has(name) || value === `\${${name}}`) redacted[name] = value;
-  }
-  return redacted;
-};
 
 interface AgentOutcome {
   readonly agentId: MaterializationTargetId;
@@ -223,7 +127,6 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly resolvedVersion: string;
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
-  readonly configValues: Readonly<Record<string, string>>;
   readonly entry: McpServerEntry;
   readonly nativeInsertionEligible: boolean;
   readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
@@ -269,7 +172,9 @@ const syncConfiguredAgentsOnInstall = (args: {
         owner: args.owner,
         resolvedVersion: args.resolvedVersion,
         enabled: args.enabled,
-        configValues: args.configValues,
+        ...(args.entry.distribution === undefined ? {} : { distribution: args.entry.distribution }),
+        ...(args.entry.bindings === undefined ? {} : { bindings: args.entry.bindings }),
+        ...(args.entry.auth === undefined ? {} : { auth: args.entry.auth }),
         nativeInsertionEligible: args.nativeInsertionEligible,
         ...(args.nativeInsertionEligiblePaths === undefined
           ? {}
@@ -313,16 +218,7 @@ const syncConfiguredAgentsOnInstall = (args: {
 // Public API
 // -----------------------------------------------------------------------------
 
-/**
- * Install one MCP server: acquire the package (registry archive or the
- * workspace-authored directory), merge the connection's inputs with what the
- * credential store already holds, record the settings entry and the accepted
- * resolution, and project the connection into every configured agent.
- *
- * Failures stay typed: a refused request, an unrepresentable connection, and a
- * credential store that will not persist a secret are three different facts,
- * and the caller decides how each is reported.
- */
+/** Install a selected, symbolically bound connection and project it to configured hosts. */
 export const installMcpServer: (
   op: InstallMcpServerOperation,
 ) => Effect.Effect<
@@ -348,7 +244,6 @@ export const installMcpServer: (
     const footprintBefore = (yield* readFootprint).length;
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
-    const env = Option.getOrElse(op.args.env ?? Option.none(), () => ({}));
     const requestedRegistryKey =
       ref.refType === "registry"
         ? mcpRegistryResolutionKey({
@@ -394,51 +289,95 @@ export const installMcpServer: (
         ? ref.version
         : Option.match(manifest, { onNone: () => "0.0.0", onSome: (value) => value.version });
     const nothingRunnable = isNothingRunnableManifest(manifest);
-    const secretNames = Option.match(manifest, {
-      onNone: () => new Set<string>(),
-      onSome: collectSecretInputNames,
-    });
-
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
+    if (currentEntry?.kind === "inline")
+      return yield* new McpConfigurationRefused({
+        localName,
+        reason: "An inline connection already owns this local name",
+      });
     const installedBefore =
       desiredGraph.nodes.some((node) => node.type === "mcp-server" && node.name === localName) ||
       currentEntry !== undefined;
-    const secretIdentity = {
-      scopeRoot: path.resolve(location.baseDir),
-      localName,
-      sourceIdentity,
-    };
-    const storedSecrets = yield* loadStoredMcpSecrets(secretIdentity, secretNames);
-    const mergedEnv = { ...storedSecrets, ...(currentEntry?.env ?? {}), ...env };
-
-    // Where no prompt can open — machine output, --non-interactive, CI, or a
-    // terminal that cannot paint one — nobody can supply a required input, so
-    // a server that could not start must not be installed. Fail with the exact
-    // recipe instead.
-    const requiredInputNames = Option.match(manifest, {
-      onNone: () => new Set<string>(),
-      onSome: collectRequiredInputNames,
-    });
-    const missingInputs = [...requiredInputNames]
-      .filter((name) => mergedEnv[name] === undefined || mergedEnv[name] === "")
-      .sort((left, right) => left.localeCompare(right));
-    if (missingInputs.length > 0 && op.args.nonInteractive) {
-      return yield* new McpRequiredInputsMissing({ localName, inputNames: missingInputs });
+    const requestedDistribution = op.args.distribution ?? currentEntry?.distribution;
+    const bindings = op.args.bindings ?? currentEntry?.bindings;
+    const auth = op.args.auth ?? currentEntry?.auth;
+    if (Option.isNone(manifest)) {
+      return yield* new McpConfigurationRefused({
+        localName,
+        reason: "Acquired manifest is missing",
+      });
     }
-    const persistedEnv = redactSettingsEnv(mergedEnv, secretNames);
+    const unfinishedAuthoredDefinition =
+      ref.refType === "workspace" &&
+      nothingRunnable &&
+      requestedDistribution === undefined &&
+      op.args.distributionId === undefined;
+    const selected = unfinishedAuthoredDefinition
+      ? undefined
+      : selectMcpDistribution({
+          manifest: manifest.value,
+          selector: requestedDistribution,
+          id: op.args.distributionId,
+          allowUnambiguous:
+            op.args.authorizeDistributionSelection === true ||
+            op.args.declaration !== undefined ||
+            nativeInsertionEligible,
+        });
+    if (selected?._tag === "blocked") {
+      return yield* new McpConfigurationRefused({ localName, reason: selected.reason });
+    }
+    const preferences = {
+      ...(selected === undefined ? {} : { distribution: selected.candidate.selector }),
+      ...(bindings === undefined ? {} : { bindings }),
+      ...(auth === undefined ? {} : { auth }),
+    };
+    const invocation = resolveMcpInvocation({ manifest: manifest.value, ...preferences });
+    if (!unfinishedAuthoredDefinition && invocation._tag === "blocked") {
+      return yield* new McpConfigurationRefused({ localName, reason: invocation.reason });
+    }
+    const projectionNames =
+      ref.refType === "registry" && lockedVersion !== undefined && lockedVersion !== ref.version
+        ? [...new Set([...(existingClosure?.localNames ?? []), localName])].sort()
+        : [localName];
+    // A shared source update must remain valid for every alias before any declaration changes.
+    for (const projectionName of projectionNames) {
+      if (projectionName === localName) continue;
+      const entry = currentMcpServers[projectionName];
+      const alias = resolveMcpInvocation({
+        manifest: manifest.value,
+        distribution: entry?.distribution,
+        bindings: entry?.bindings,
+        auth: entry?.auth,
+      });
+      if (alias._tag === "blocked")
+        return yield* new McpConfigurationRefused({
+          localName: projectionName,
+          reason: alias.reason,
+        });
+    }
     const enabled = currentEntry?.enabled ?? true;
     const settingsEntry: McpServerEntry = {
       kind: "sourced",
       source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
-      env: persistedEnv,
+      ...preferences,
       enabled,
     };
     const writeEffect =
       op.args.declaration === undefined
-        ? lockEntry === undefined
-          ? Effect.void
-          : accepted.setAccepted("mcp-server", resolutionKey ?? ref.server.name, lockEntry)
+        ? Effect.gen(function* () {
+            if (lockEntry !== undefined)
+              yield* accepted.setAccepted(
+                "mcp-server",
+                resolutionKey ?? ref.server.name,
+                lockEntry,
+              );
+            yield* settingsWriter.setEntry("mcp-server", localName, {
+              ...(currentEntry ?? { kind: "configuration" as const }),
+              ...preferences,
+              enabled,
+            });
+          })
         : lockEntry === undefined
           ? settingsWriter.setEntry("mcp-server", localName, {
               ...settingsEntry,
@@ -448,15 +387,11 @@ export const installMcpServer: (
               resolutionKey: resolutionKey ?? mcpResolutionKey(lockEntry),
               lockEntry,
               versionRange: op.args.declaration.versionRange,
-              env: persistedEnv,
+              ...preferences,
               enabled,
             });
     yield* writeEffect;
 
-    const projectionNames =
-      ref.refType === "registry" && lockedVersion !== undefined && lockedVersion !== ref.version
-        ? [...new Set([...(existingClosure?.localNames ?? []), localName])].sort()
-        : [localName];
     const agentSyncResults = yield* Effect.forEach(
       projectionNames,
       (projectionName) =>
@@ -466,19 +401,6 @@ export const installMcpServer: (
           if (projectionEntry === undefined || projectionEntry.kind === "inline") {
             return undefined;
           }
-          const projectionSecretIdentity = {
-            scopeRoot: path.resolve(location.baseDir),
-            localName: projectionName,
-            sourceIdentity,
-          };
-          const projectionStoredSecrets = yield* loadStoredMcpSecrets(
-            projectionSecretIdentity,
-            secretNames,
-          );
-          const projectionEnv =
-            projectionName === localName
-              ? mergedEnv
-              : { ...projectionStoredSecrets, ...projectionEntry.env };
           return yield* syncConfiguredAgentsOnInstall({
             wsBaseDir: location.baseDir,
             nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -490,7 +412,6 @@ export const installMcpServer: (
             resolvedVersion,
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
-            configValues: mcpProjectionInputValues(projectionEnv, secretNames),
             entry: projectionEntry,
             nativeInsertionEligible: projectionName === localName && nativeInsertionEligible,
             ...(op.args.nativeInsertionEligiblePaths === undefined
@@ -513,16 +434,10 @@ export const installMcpServer: (
       outcomes: agentSyncSummaries.flatMap((summary) => summary.outcomes),
     };
 
-    const secretPersistence = yield* persistMcpSecrets(secretIdentity, secretNames, mergedEnv);
-    const secretWarnings = secretPersistence.flatMap((outcome) =>
-      outcome._tag === "failed"
-        ? [
-            `${outcome.inputName} could not be saved to the system keychain; AXM state was applied and credential action is required`,
-          ]
-        : [],
-    );
-
-    const warnings = [...secretWarnings, ...agentSync.warnings];
+    const warnings = [
+      ...(invocation._tag === "resolved" ? invocation.warnings : []),
+      ...agentSync.warnings,
+    ];
     const change = classifyInstallChange({
       installedBefore,
       footprint: (yield* readFootprint)

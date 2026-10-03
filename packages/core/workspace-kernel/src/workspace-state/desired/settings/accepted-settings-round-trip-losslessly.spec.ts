@@ -59,7 +59,9 @@ describe("Accepted settings round-trip", () => {
           billing: { enabled: false, instructionEntry: true },
         },
         mcpServers: {
-          context: { env: { TOKEN: "${TOKEN}" } },
+          context: {
+            bindings: [{ target: { kind: "environment", name: "TOKEN" }, value: { env: "TOKEN" } }],
+          },
           search: { enabled: false },
         },
       };

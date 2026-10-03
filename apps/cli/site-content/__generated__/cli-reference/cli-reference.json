@@ -139,6 +139,7 @@
               { "value": "openhands" },
               { "value": "ona" },
               { "value": "pi" },
+              { "value": "vscode" },
               { "value": "pochi" },
               { "value": "qoder" },
               { "value": "qoder-cn" },
@@ -475,6 +476,7 @@
                   { "value": "openhands" },
                   { "value": "ona" },
                   { "value": "pi" },
+                  { "value": "vscode" },
                   { "value": "pochi" },
                   { "value": "qoder" },
                   { "value": "qoder-cn" },
@@ -912,11 +914,60 @@
                 "choices": [{ "value": "project" }, { "value": "user" }]
               },
               {
+                "name": "connection",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Canonical typed connection as JSON; values remain literal"
+              },
+              {
+                "name": "transport",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Explicit transport; required for SSE",
+                "choices": [
+                  { "value": "stdio" },
+                  { "value": "streamable-http" },
+                  { "value": "sse" }
+                ]
+              },
+              {
+                "name": "arg",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "One literal process argument; repeat in invocation order",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "cwd",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Working directory; relative paths use the selected scope root"
+              },
+              {
+                "name": "header-env",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Native environment header binding Name=ENV_NAME",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "native-oauth",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Authentication is owned by the native host"
+              },
+              {
                 "name": "command",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Inline stdio command, such as \"npx -y linear-mcp-server\""
+                "description": "Single literal executable, such as \"npx\""
               },
               {
                 "name": "url",
@@ -959,11 +1010,11 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm mcps add linear --command \"npx -y linear-mcp-server\" --env LINEAR_API_KEY",
+                "command": "axm mcps add linear --command npx --arg=-y --arg=linear-mcp-server --env LINEAR_API_KEY",
                 "description": "Add an inline stdio MCP server"
               },
               {
-                "command": "axm mcps add sentry --url https://mcp.sentry.dev/sse --header \"Authorization:Bearer ${SENTRY_TOKEN}\"",
+                "command": "axm mcps add sentry --transport sse --url https://mcp.sentry.dev/sse --native-oauth",
                 "description": "Add an inline remote MCP server"
               }
             ],
@@ -975,6 +1026,14 @@
             "description": "Import unmanaged MCP servers as inline settings entries",
             "arguments": [],
             "options": [
+              {
+                "name": "name",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select an explicit native-name subset; repeatable. Any blocker in the selected batch prevents adoption.",
+                "variadic": { "min": 0 }
+              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -1074,12 +1133,34 @@
                 "description": "Show what would be installed without making changes"
               },
               {
-                "name": "env",
-                "aliases": ["-e"],
+                "name": "bind",
+                "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Provide an MCP input value as KEY=VALUE; repeatable",
+                "description": "Bind selected INPUT_ID=LITERAL; repeat for repeated arguments",
                 "variadic": { "min": 0 }
+              },
+              {
+                "name": "bind-env",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Bind selected INPUT_ID=ENV_NAME without reading the environment",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "distribution",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Select the distribution ID shown by passive inspection"
+              },
+              {
+                "name": "native-oauth",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Use authentication owned by the native MCP host"
               },
               {
                 "name": "as",
@@ -1173,6 +1254,83 @@
                 "required": false,
                 "description": "Inspect project (default) or user-level configuration",
                 "choices": [{ "value": "project" }, { "value": "user" }]
+              },
+              {
+                "name": "agent",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Coding agent identifier from the supported catalog; repeatable",
+                "variadic": { "min": 0 },
+                "choices": [
+                  { "value": "adal" },
+                  { "value": "fx" },
+                  { "value": "muse-code" },
+                  { "value": "mimo-code" },
+                  { "value": "coder-agents" },
+                  { "value": "aider-desk" },
+                  { "value": "amp" },
+                  { "value": "antigravity" },
+                  { "value": "antigravity-cli" },
+                  { "value": "augment" },
+                  { "value": "claude-code" },
+                  { "value": "cline" },
+                  { "value": "codearts-agent" },
+                  { "value": "codebuddy" },
+                  { "value": "codemaker" },
+                  { "value": "codestudio" },
+                  { "value": "codex" },
+                  { "value": "command-code" },
+                  { "value": "continue" },
+                  { "value": "cortex" },
+                  { "value": "crush" },
+                  { "value": "cursor" },
+                  { "value": "deepagents" },
+                  { "value": "devin" },
+                  { "value": "dexto" },
+                  { "value": "droid" },
+                  { "value": "firebender" },
+                  { "value": "forgecode" },
+                  { "value": "gemini-cli" },
+                  { "value": "github-copilot-cli" },
+                  { "value": "goose" },
+                  { "value": "grok-cli" },
+                  { "value": "hermes" },
+                  { "value": "ibm-bob" },
+                  { "value": "iflow-cli" },
+                  { "value": "junie" },
+                  { "value": "lingma" },
+                  { "value": "kilo" },
+                  { "value": "kimi-cli" },
+                  { "value": "kiro-cli" },
+                  { "value": "kode" },
+                  { "value": "mcpjam" },
+                  { "value": "minimax-code" },
+                  { "value": "mistral-vibe" },
+                  { "value": "mux" },
+                  { "value": "neovate" },
+                  { "value": "openclaw" },
+                  { "value": "opencode" },
+                  { "value": "openhands" },
+                  { "value": "ona" },
+                  { "value": "pi" },
+                  { "value": "vscode" },
+                  { "value": "pochi" },
+                  { "value": "qoder" },
+                  { "value": "qoder-cn" },
+                  { "value": "qwen-code" },
+                  { "value": "replit" },
+                  { "value": "roo" },
+                  { "value": "rovodev" },
+                  { "value": "tabnine-cli" },
+                  { "value": "trae-cn" },
+                  { "value": "trae" },
+                  { "value": "warp" },
+                  { "value": "windsurf" },
+                  { "value": "zencoder" },
+                  { "value": "zed" },
+                  { "value": "zenflow" }
+                ]
               }
             ],
             "globalOptions": [],
@@ -1722,6 +1880,7 @@
                   { "value": "openhands" },
                   { "value": "ona" },
                   { "value": "pi" },
+                  { "value": "vscode" },
                   { "value": "pochi" },
                   { "value": "qoder" },
                   { "value": "qoder-cn" },
@@ -4724,12 +4883,34 @@
             "variadic": { "min": 0 }
           },
           {
-            "name": "env",
-            "aliases": ["-e"],
+            "name": "bind",
+            "aliases": [],
             "type": "string",
             "required": false,
-            "description": "Provide an MCP input value as KEY=VALUE; repeatable",
+            "description": "Bind selected INPUT_ID=LITERAL; repeat for repeated arguments",
             "variadic": { "min": 0 }
+          },
+          {
+            "name": "bind-env",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Bind selected INPUT_ID=ENV_NAME without reading the environment",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "distribution",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "Select the distribution ID shown by passive inspection"
+          },
+          {
+            "name": "native-oauth",
+            "aliases": [],
+            "type": "boolean",
+            "required": false,
+            "description": "Use authentication owned by the native MCP host"
           },
           {
             "name": "as",

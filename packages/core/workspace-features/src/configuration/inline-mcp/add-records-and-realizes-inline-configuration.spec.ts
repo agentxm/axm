@@ -33,40 +33,59 @@ interface InlineAddRow {
   readonly label: string;
   readonly command?: string;
   readonly url?: string;
+  readonly args?: ReadonlyArray<string>;
+  readonly headerEnv?: ReadonlyArray<string>;
   readonly env?: ReadonlyArray<string>;
   readonly headers?: ReadonlyArray<string>;
-  /** The entry as it must appear in `axm.json` and in native configuration. */
+  /** Canonical connection and independently expected native entry. */
   readonly authored: Readonly<Record<string, unknown>>;
+  readonly native: Readonly<Record<string, unknown>>;
 }
 
 const inlineAddRows: ReadonlyArray<InlineAddRow> = [
   {
     label: "a command server",
-    command: "node server.js",
-    authored: { command: "node", args: ["server.js"] },
+    command: "node",
+    args: ["server.js"],
+    authored: { transport: "stdio", command: "node", args: ["server.js"] },
+    native: { command: "node", args: ["server.js"] },
   },
   {
     label: "a remote server",
     url: "https://example.test/mcp",
-    authored: { url: "https://example.test/mcp" },
+    authored: { transport: "streamable-http", url: "https://example.test/mcp" },
+    native: { url: "https://example.test/mcp" },
   },
   {
     label: "a command server with named environment inputs",
-    command: "node server.js",
+    command: "node",
+    args: ["server.js"],
     env: ["CONTEXT_TOKEN", "MODE=review"],
     authored: {
+      transport: "stdio",
       command: "node",
       args: ["server.js"],
-      env: { CONTEXT_TOKEN: "${CONTEXT_TOKEN}", MODE: "review" },
+      env: { CONTEXT_TOKEN: { env: "CONTEXT_TOKEN" }, MODE: "review" },
+    },
+    native: {
+      command: "node",
+      args: ["server.js"],
+      env: { CONTEXT_TOKEN: "${env:CONTEXT_TOKEN}", MODE: "review" },
     },
   },
   {
     label: "a remote server with repeated header inputs",
     url: "https://example.test/mcp",
-    headers: ["X-Workspace:review-team", "Authorization:Bearer ${CONTEXT_TOKEN}"],
+    headers: ["X-Workspace:review-team"],
+    headerEnv: ["Authorization=CONTEXT_TOKEN"],
     authored: {
+      transport: "streamable-http",
       url: "https://example.test/mcp",
-      headers: { "X-Workspace": "review-team", Authorization: "Bearer ${CONTEXT_TOKEN}" },
+      headers: { "X-Workspace": "review-team", Authorization: { env: "CONTEXT_TOKEN" } },
+    },
+    native: {
+      url: "https://example.test/mcp",
+      headers: { "X-Workspace": "review-team", Authorization: "${env:CONTEXT_TOKEN}" },
     },
   },
 ];
@@ -92,6 +111,8 @@ describe("Add an inline MCP server", () => {
                 name: "demo",
                 ...(row.command === undefined ? {} : { command: row.command }),
                 ...(row.url === undefined ? {} : { url: row.url }),
+                ...(row.args === undefined ? {} : { args: row.args }),
+                ...(row.headerEnv === undefined ? {} : { headerEnv: row.headerEnv }),
                 env: row.env ?? [],
                 headers: row.headers ?? [],
               },
@@ -99,11 +120,11 @@ describe("Add an inline MCP server", () => {
             );
 
             expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
-              mcpServers: { demo: row.authored },
+              mcpServers: { demo: { connection: row.authored } },
             });
             const nativeConfig: unknown = JSON.parse(fixture.readFile(".cursor/mcp.json"));
             expect(nativeConfig).toMatchObject({
-              mcpServers: { demo: expect.objectContaining(row.authored) },
+              mcpServers: { demo: expect.objectContaining(row.native) },
             });
             expect(outcome).toMatchObject({
               outcome: "applied",

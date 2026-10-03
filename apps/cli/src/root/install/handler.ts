@@ -33,7 +33,10 @@ export interface InstallHandlerArgs {
   readonly all: boolean;
   readonly force: boolean;
   readonly preview: boolean;
-  readonly env: ReadonlyArray<string>;
+  readonly bind: ReadonlyArray<string>;
+  readonly bindEnv: ReadonlyArray<string>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
   readonly localName: Option.Option<string>;
   readonly bundled: boolean;
 }
@@ -68,8 +71,17 @@ const validateGrammar = (args: InstallHandlerArgs) =>
         });
       }
     }
-    if (args.env.length > 0 && Option.isNone(args.source)) {
-      return yield* makeAppError({ code: "usage", detail: "--env requires an install source" });
+    if (
+      (args.bind.length > 0 ||
+        args.bindEnv.length > 0 ||
+        args.distributionId !== undefined ||
+        args.nativeOauth === true) &&
+      Option.isNone(args.source)
+    ) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "MCP distribution and binding options require an install source",
+      });
     }
     if (args.bundled) {
       if (
@@ -124,7 +136,10 @@ export const handleInstall = (args: InstallHandlerArgs) =>
         all: args.all,
         reinstall: args.force,
         localName: args.localName,
-        env: args.env,
+        bind: args.bind,
+        bindEnv: args.bindEnv,
+        ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
+        ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
         nonInteractive,
         planName: Option.isSome(args.type)
           ? `Install ${extensionTypeToPlural[args.type.value]}`
@@ -147,9 +162,12 @@ export const handleInstall = (args: InstallHandlerArgs) =>
           onNone: () => [],
           onSome: (name) => [recoveryOption("--as", publicRecoveryValue(name))],
         }),
-        // The values of `--env` are inputs a connection needs, so the recovery
-        // line names the flag without reproducing what was passed.
-        ...args.env.map(() => recoveryOption("--env", protectedRecoveryValue())),
+        ...args.bind.map(() => recoveryOption("--bind", protectedRecoveryValue())),
+        ...args.bindEnv.map(() => recoveryOption("--bind-env", protectedRecoveryValue())),
+        ...(args.distributionId === undefined
+          ? []
+          : [recoveryOption("--distribution", publicRecoveryValue(args.distributionId))]),
+        recoverySwitch("--native-oauth", args.nativeOauth === true),
       ],
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       noOpMessage: "No extensions installed.",

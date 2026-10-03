@@ -1,3 +1,8 @@
+import type {
+  McpAuth,
+  McpBinding,
+  McpDistribution,
+} from "@agentxm/workspace-kernel/agent-adapters";
 /**
  * How a workspace declares that it authors a package, for every extension
  * type.
@@ -27,6 +32,12 @@ import {
   type WorkspaceStateMutationFailure,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+export interface AuthoredMcpPreferences {
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
+}
+
 /** What the workspace currently declares about one name of one type. */
 export interface AuthoredDeclarationState {
   /** Whether any entry of this type carries this name. */
@@ -39,7 +50,7 @@ export interface AuthoredDeclarationState {
    * Connection inputs an existing MCP declaration carries. Empty for every
    * other type, which declares no inputs.
    */
-  readonly env: Readonly<Record<string, string>>;
+  readonly mcpPreferences: AuthoredMcpPreferences;
 }
 
 /** Reading and writing one workspace declaration. */
@@ -49,7 +60,7 @@ export interface AuthoredDeclaration {
   readonly declare: (args: {
     readonly enabled: boolean;
     /** Inputs to preserve on an MCP declaration; ignored by other types. */
-    readonly env?: Readonly<Record<string, string>>;
+    readonly mcpPreferences?: AuthoredMcpPreferences;
   }) => Effect.Effect<void, WorkspaceSettingsMutationFailure>;
   /**
    * Retire the accepted external resolution the name held before the
@@ -71,7 +82,7 @@ const entrySource = (entry: unknown): Option.Option<string> => {
 
 const state = (
   entry: { readonly enabled?: boolean } | string | undefined,
-  env: Readonly<Record<string, string>> = {},
+  mcpPreferences: AuthoredMcpPreferences = {},
 ): AuthoredDeclarationState => ({
   configured: entry !== undefined,
   enabled:
@@ -79,7 +90,7 @@ const state = (
       ? Option.none()
       : Option.some(typeof entry === "string" ? true : (entry.enabled ?? true)),
   source: entrySource(entry),
-  env,
+  mcpPreferences,
 });
 
 /** The declaration surface for one extension type and name. */
@@ -173,20 +184,39 @@ export const authoredDeclaration = (
       };
     case "mcp-server":
       return {
-        read: ports.settings
-          .entries("mcp-server")
-          .pipe(Effect.map((entries) => state(entries[name], entries[name]?.env ?? {}))),
-        declare: ({ enabled, env }) =>
-          ports.settingsWriter.setEntry(
-            "mcp-server",
-            name,
-            {
-              source: WORKSPACE_SOURCE,
-              enabled,
-              env: env ?? {},
-            },
-            options,
+        read: ports.settings.entries("mcp-server").pipe(
+          Effect.map((entries) =>
+            state(entries[name], {
+              ...(entries[name]?.distribution === undefined
+                ? {}
+                : { distribution: entries[name].distribution }),
+              ...(entries[name]?.bindings === undefined
+                ? {}
+                : { bindings: entries[name].bindings }),
+              ...(entries[name]?.auth === undefined ? {} : { auth: entries[name].auth }),
+            }),
           ),
+        ),
+        declare: ({ enabled, mcpPreferences }) =>
+          Effect.gen(function* () {
+            const existing = (yield* ports.settings.entries("mcp-server"))[name];
+            yield* ports.settingsWriter.setEntry(
+              "mcp-server",
+              name,
+              {
+                kind: "sourced",
+                source: WORKSPACE_SOURCE,
+                enabled,
+                ...(existing?.distribution === undefined
+                  ? {}
+                  : { distribution: existing.distribution }),
+                ...(existing?.bindings === undefined ? {} : { bindings: existing.bindings }),
+                ...(existing?.auth === undefined ? {} : { auth: existing.auth }),
+                ...mcpPreferences,
+              },
+              options,
+            );
+          }),
         // Resolve the old connection before its workspace declaration replaces
         // it, preserving any resolution still shared by another connection.
         retireExternalResolution: ports.desiredStateWriter.undeclare("mcp-server", name),

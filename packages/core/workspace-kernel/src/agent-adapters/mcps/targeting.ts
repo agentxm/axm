@@ -29,6 +29,8 @@ import {
 import { resolveAgentMcpConfigTargetPath } from "./native-config.js";
 import { McpConfigInvalid } from "../errors.js";
 
+import { readCompetingMcpEntries, type CompetingMcpEntry } from "./competing-entries.js";
+
 export { isConfigurableAgentId };
 
 type AgentMcpCapability = Agent["capabilities"]["mcp-server"];
@@ -96,6 +98,7 @@ export interface McpTargetGroup {
   readonly path: string;
   readonly members: ReadonlyArray<SharedMcpTargetMember>;
   readonly unverifiedReaders: ReadonlyArray<string>;
+  readonly competingEntries?: ReadonlyArray<CompetingMcpEntry>;
 }
 
 const groupMembers = (
@@ -161,6 +164,7 @@ export const resolveConfiguredMcpTargets = (args: {
           location,
           args,
           args.nativeDirectoryInputs,
+          { includeConditional: true },
         );
         return resolved === undefined ? [] : [{ agentId: agent.id, path: resolved.path }];
       });
@@ -237,6 +241,7 @@ export const resolveConfiguredMcpTargets = (args: {
             location,
             args,
             args.nativeDirectoryInputs,
+            { includeConditional: true },
           );
           if (
             resolved === undefined ||
@@ -258,7 +263,7 @@ export const resolveConfiguredMcpTargets = (args: {
           if (physicalPath !== group.path) continue;
           const serversPath = location.keyPath;
           if (native.entryDialect === null || !Schema.is(McpServersPathSchema)(serversPath)) {
-            if (args.agentIds.includes(agent.id))
+            if (args.agentIds.includes(agent.id) && location.applicability.kind === "always")
               unverifiedReaders.push(
                 `${agent.id} has no verified entry dialect for native location '${location.id}'`,
               );
@@ -267,14 +272,42 @@ export const resolveConfiguredMcpTargets = (args: {
           readers.push({
             agentId: agent.id,
             locationId: location.id,
-            configured: args.agentIds.includes(agent.id),
+            configured:
+              args.agentIds.includes(agent.id) && location.applicability.kind === "always",
             config: { ...native.entryDialect, serversPath },
             target: { ...target, nativeRoot: resolved.nativeRoot, path: physicalPath },
             declaredTarget: target,
           });
         }
       }
-      result.push({ ...group, members: readers, unverifiedReaders });
+      const competingEntries: Array<CompetingMcpEntry> = [];
+      for (const member of group.members) {
+        const capability = configuredMcpCapability(member.agentId);
+        if (capability === undefined) continue;
+        const locations = capability.native.locations.flatMap((location) => {
+          const resolved = resolveNativeReadLocation(
+            path,
+            member.agentId,
+            location,
+            args,
+            args.nativeDirectoryInputs,
+          );
+          return resolved === undefined || location.keyPath === undefined
+            ? []
+            : [{ path: resolved.path, format: location.format, serversPath: location.keyPath }];
+        });
+        competingEntries.push(
+          ...(yield* readCompetingMcpEntries({
+            agentId: member.agentId,
+            target: member.target,
+            locations,
+            workspaceRoot: args.workspaceRoot,
+            userHome: args.nativeDirectoryInputs.userHome,
+            claudeConfigRoot: args.nativeDirectoryInputs.userConfigRootOverrides?.["claude-code"],
+          })),
+        );
+      }
+      result.push({ ...group, members: readers, unverifiedReaders, competingEntries });
     }
     return result;
   });

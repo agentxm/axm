@@ -68,3 +68,5 @@ export { fxAgent } from "./fx.js";
 export { museCodeAgent } from "./muse-code.js";
 export { mimoCodeAgent } from "./mimo-code.js";
 export { coderAgentsAgent } from "./coder-agents.js";
+
+export { vscodeAgent } from "./vscode.js";

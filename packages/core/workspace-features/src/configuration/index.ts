@@ -123,8 +123,6 @@ export {
   matchesInlineMcpEntry,
   parseInlineMcpEnv,
   parseInlineMcpHeaders,
-  splitCommand,
-  validateInlineMcpRemoteUrl,
 } from "./inline-mcp/definition.js";
 export {
   AddInlineMcpServer,

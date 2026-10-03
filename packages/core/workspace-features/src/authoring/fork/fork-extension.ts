@@ -39,7 +39,6 @@ import {
   KnowledgeManager,
   McpServerManager,
   PackManager,
-  McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type AuthorMaterialization,
@@ -161,8 +160,7 @@ export type ForkExtensionRequirements =
   | SettingsReader
   | WorkspaceLocation
   | WorkspaceRecords
-  | CodingAgentRepository
-  | McpSecretStore;
+  | CodingAgentRepository;
 
 /** A settled fork: every decision is made and nothing under the workspace is written. */
 export interface ForkExtensionCandidate {
@@ -429,8 +427,8 @@ export const prepareForkExtension: (
       enabled,
       nativeInsertionEligible: false,
       allowConfiguredSourceTransition: true,
-      markAuthored: declaration.declare({ enabled: true, env: current.env }),
-      finalizeAuthored: declaration.declare({ enabled, env: current.env }),
+      markAuthored: declaration.declare({ enabled: true, mcpPreferences: current.mcpPreferences }),
+      finalizeAuthored: declaration.declare({ enabled, mcpPreferences: current.mcpPreferences }),
       plannedArtifact: artifact,
       buildArtifact: ({ change }: { readonly change: "created" | "updated" | "unchanged" }) =>
         authoredNativeArtifact({ type: target.type, artifact, change, projected: enabled }),

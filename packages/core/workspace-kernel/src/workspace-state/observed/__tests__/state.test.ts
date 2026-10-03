@@ -31,7 +31,33 @@ import {
   SettingsIoError,
   SettingsParseError,
 } from "../errors.js";
-import { makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
+import { decodeSettingsBytes, makeScopedStateApi, type ScopedStateLoaders } from "../state.js";
+
+describe("settings failure nondisclosure", () => {
+  const secret = "fixture-private-credential";
+  for (const [index, bytes] of [
+    JSON.stringify({
+      mcpServers: {
+        demo: {
+          connection: {
+            transport: "streamable-http",
+            url: "https://example.test/mcp",
+            headers: { Authorization: `Bearer ${secret}` },
+          },
+        },
+      },
+    }),
+    `{"mcpServers":{"token":"${secret}",`,
+  ].entries()) {
+    it.effect(`withholds raw MCP values from error case ${index + 1}`, () =>
+      Effect.gen(function* () {
+        const failure = yield* decodeSettingsBytes("/ws/axm.json", bytes).pipe(Effect.flip);
+        expect(JSON.stringify(failure)).not.toContain(secret);
+        expect(String(failure)).not.toContain(secret);
+      }),
+    );
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -231,7 +257,7 @@ describe("makeScopedStateApi.settings", () => {
       expect(err).toBeInstanceOf(SettingsParseError);
       if (err._tag === "SettingsParseError") {
         expect(err.path).toBe(SETTINGS_PATH);
-        expect(err.raw).toBe(raw);
+        expect(err.raw).toBe("[Settings input withheld]");
       }
     }),
   );

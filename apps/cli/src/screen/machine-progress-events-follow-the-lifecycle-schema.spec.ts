@@ -78,7 +78,8 @@ describe("Machine progress event contract", () => {
         all: true,
         force: false,
         preview: false,
-        env: [],
+        bind: [],
+        bindEnv: [],
         localName: Option.none(),
         bundled: false,
       }).pipe(Effect.provide(workspace.layer));
@@ -101,7 +102,8 @@ describe("Machine progress event contract", () => {
         all: true,
         force: false,
         preview: false,
-        env: [],
+        bind: [],
+        bindEnv: [],
         localName: Option.none(),
         bundled: false,
       }).pipe(Effect.provide(workspace.layer));

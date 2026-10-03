@@ -50,7 +50,7 @@ describe("Editing authored package versions", () => {
     created.writeSettings({
       owner: "@acme",
       agents: [],
-      [row.settingsKey]: { review: "workspace" },
+      [row.settingsKey]: { review: { source: "workspace" } },
     });
     writeAuthoringPackage(created.root, row, "review", { parent: row.plural });
     return created;

@@ -1,3 +1,4 @@
+import type { McpBinding } from "@agentxm/workspace-kernel/agent-adapters";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -46,45 +47,10 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { makeCodingAgentStub } from "./test-helpers.js";
-import {
-  type McpSecretStoreService,
-  McpSecretStore,
-  mcpSecretAccount,
-  type InstallMcpServerOperation,
-} from "@agentxm/workspace-kernel/materialization";
+import { type InstallMcpServerOperation } from "@agentxm/workspace-kernel/materialization";
 import { installMcpServer } from "./install-operation.js";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { McpServerManagerLive } from "../manager.js";
-
-/**
- * A credential store that keeps what it is given, but refuses the one value
- * the write-failure example uses — the condition a locked or full keychain
- * produces. It is a behaviour, not a module patch: the install reaches it
- * through the port it declares.
- */
-const REFUSED_SECRET_VALUE = "fail-to-save";
-
-const makeTestSecretStore = (): {
-  readonly service: McpSecretStoreService;
-  readonly values: Map<string, string>;
-} => {
-  const values = new Map<string, string>();
-  return {
-    values,
-    service: {
-      read: (account) => Effect.sync(() => Option.fromNullOr(values.get(account) ?? null)),
-      write: (account, value) =>
-        Effect.sync(() => {
-          if (value === REFUSED_SECRET_VALUE) return "failed";
-          values.set(account, value);
-          return "saved";
-        }),
-      erase: (account) => Effect.sync(() => (values.delete(account) ? "deleted" : "absent")),
-    },
-  };
-};
-
-let secretStore = makeTestSecretStore();
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -204,7 +170,7 @@ const makeServices = (
             ? { acceptedResolutions: acceptedCanonicalTrees(path.dirname(axmDir)) }
             : { lockfile }),
         }),
-        Layer.mock(SettingsWriter, {}),
+        Layer.mock(SettingsWriter, { setEntry: () => Effect.void }),
         // The mocked state writers stand in for durable writes, so they record
         // the footprint a real write would; the install classifies from it.
         Layer.mock(DesiredStateWriter, {
@@ -240,7 +206,6 @@ const makeServices = (
               ),
             ),
         }),
-        Layer.succeed(McpSecretStore, secretStore.service),
         Layer.succeed(SourceHostProviders, sourceProviders),
         Layer.succeed(CodingAgentRepository, agentRepo ?? defaultAgentRepo),
       ),
@@ -320,7 +285,7 @@ const makeOp = (
     versionRange?: Option.Option<string>;
     inherited?: boolean;
     strictAgentSync?: boolean;
-    env?: Readonly<Record<string, string>>;
+    bindings?: ReadonlyArray<McpBinding>;
     sourceIdentity?: string;
   } = {},
 ): InstallMcpServerOperation => {
@@ -354,7 +319,8 @@ const makeOp = (
             },
           }),
       strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
-      env: Option.fromUndefinedOr(overrides.env),
+      ...(overrides.bindings === undefined ? {} : { bindings: overrides.bindings }),
+      nativeInsertionEligible: true,
     },
   };
 };
@@ -368,7 +334,6 @@ describe("installMcpServer", () => {
 
   beforeEach(() => {
     tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "install-mcp-server-")));
-    secretStore = makeTestSecretStore();
   });
 
   afterEach(() => {
@@ -443,6 +408,28 @@ describe("installMcpServer", () => {
     const archiveSourceDir = path.join(tmpDir, "archive-source");
     fs.mkdirSync(archiveSourceDir, { recursive: true });
     fs.writeFileSync(path.join(archiveSourceDir, "server.js"), "module.exports = {}");
+    fs.writeFileSync(
+      path.join(archiveSourceDir, "mcp.json"),
+      JSON.stringify({
+        owner,
+        name,
+        type: "mcp-server",
+        version,
+        server: {
+          name: "ai.example/server",
+          description: "Fixture",
+          version,
+          packages: [
+            {
+              registryType: "npm",
+              identifier: "example-server",
+              version,
+              transport: { type: "stdio" },
+            },
+          ],
+        },
+      }),
+    );
     const archivePath = path.join(extDir, `${version}.zip`);
     execSync(`cd "${archiveSourceDir}" && zip -r "${archivePath}" .`);
 
@@ -511,97 +498,20 @@ describe("installMcpServer", () => {
         // acquires the ref again; the drifted integrity never reaches the lock.
         expect(result.result).toBe("success");
         expect(fs.existsSync(path.join(canonicalPath, "server.js"))).toBe(true);
-        expect(fs.existsSync(path.join(canonicalPath, "mcp.json"))).toBe(false);
+        expect(fs.readFileSync(path.join(canonicalPath, "mcp.json"), "utf8")).not.toContain(
+          "edited",
+        );
         expect(persisted?.treeIntegrity).toBeDefined();
         expect(persisted?.treeIntegrity).not.toBe(drifted);
       }),
     );
 
-    for (const token of ["secret-token", "${API_TOKEN}"]) {
-      it.effect(
-        `stores literal credentials in the keychain and symbolic credentials in settings: ${token}`,
-        () =>
-          Effect.gen(function* () {
-            const { axmDir, base } = setupBase();
-            const canonicalPath = setupRegistryCanonical(base, "@community");
-            fs.writeFileSync(
-              path.join(canonicalPath, "mcp.json"),
-              JSON.stringify({
-                owner: "@community",
-                type: "mcp-server",
-                name: "my-server",
-                version: "1.0.0",
-                server: {
-                  name: "io.github.community/my-server",
-                  description: "MCP server my-server",
-                  version: "1.0.0",
-                  packages: [
-                    {
-                      registryType: "npm",
-                      identifier: "@community/my-server",
-                      version: "1.0.0",
-                      transport: { type: "stdio" },
-                      environmentVariables: [
-                        { name: "PUBLIC_URL", isRequired: true },
-                        { name: "API_TOKEN", isRequired: true, isSecret: true },
-                      ],
-                    },
-                  ],
-                },
-              }),
-            );
-            let persistedEnv: Readonly<Record<string, string>> | undefined;
-
-            const result = yield* installMcpServer(
-              makeOp({
-                ref: makeRegistryRef({ integrity: "" }),
-                sourceIdentity: "settled-test-source",
-                env: {
-                  PUBLIC_URL: "https://example.test",
-                  API_TOKEN: token,
-                },
-              }),
-            ).pipe(
-              Effect.provide(
-                withServices(axmDir, {
-                  setMcpServerFn: (args) =>
-                    Effect.sync(() => {
-                      persistedEnv = args.env;
-                    }),
-                }),
-              ),
-            );
-
-            expect(result.result).toBe("success");
-            expect(persistedEnv).toEqual({
-              PUBLIC_URL: "https://example.test",
-              ...(token === "${API_TOKEN}" ? { API_TOKEN: token } : {}),
-            });
-            expect([...secretStore.values.values()]).toEqual(
-              token === "${API_TOKEN}" ? [] : [token],
-            );
-            if (token !== "${API_TOKEN}") {
-              expect(
-                secretStore.values.get(
-                  mcpSecretAccount({
-                    scopeRoot: path.resolve(base),
-                    localName: "my-server",
-                    sourceIdentity: "settled-test-source",
-                    inputName: "API_TOKEN",
-                  }),
-                ),
-              ).toBe(token);
-            }
-          }),
-      );
-    }
-
-    it.effect("warns when a secret cannot be saved to the system keychain", () =>
+    it.effect("persists a native environment reference without a credential store", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const canonicalPath = setupRegistryCanonical(base, "@community");
+        const root = setupRegistryCanonical(base, "@community");
         fs.writeFileSync(
-          path.join(canonicalPath, "mcp.json"),
+          path.join(root, "mcp.json"),
           JSON.stringify({
             owner: "@community",
             type: "mcp-server",
@@ -609,7 +519,7 @@ describe("installMcpServer", () => {
             version: "1.0.0",
             server: {
               name: "io.github.community/my-server",
-              description: "MCP server my-server",
+              description: "Reference fixture",
               version: "1.0.0",
               packages: [
                 {
@@ -623,26 +533,31 @@ describe("installMcpServer", () => {
             },
           }),
         );
-
-        const result = yield* installMcpServer(
-          makeOp({
-            ref: makeRegistryRef({ integrity: "" }),
-            env: { API_TOKEN: "fail-to-save" },
-          }),
-        ).pipe(Effect.provide(withServices(axmDir)));
-
+        const bindings: ReadonlyArray<McpBinding> = [
+          { target: { kind: "environment", name: "API_TOKEN" }, value: { env: "HOST_API_TOKEN" } },
+        ];
+        let persisted: ReadonlyArray<McpBinding> | undefined;
+        const result = yield* installMcpServer(makeOp({ bindings })).pipe(
+          Effect.provide(
+            withServices(axmDir, {
+              setMcpServerFn: (args) =>
+                Effect.sync(() => {
+                  persisted = args.bindings;
+                }),
+            }),
+          ),
+        );
         expect(result.result).toBe("success");
-        expect(result.message).toContain("API_TOKEN could not be saved to the system keychain");
-        expect(result.message).not.toContain("fail-to-save");
+        expect(persisted).toEqual(bindings);
       }),
     );
 
-    it.effect("fails with the --env recipe when a required input is unset", () =>
+    it.effect("blocks secret literals before declaration without echoing them", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
-        const canonicalPath = setupRegistryCanonical(base, "@community");
+        const root = setupRegistryCanonical(base, "@community");
         fs.writeFileSync(
-          path.join(canonicalPath, "mcp.json"),
+          path.join(root, "mcp.json"),
           JSON.stringify({
             owner: "@community",
             type: "mcp-server",
@@ -650,84 +565,41 @@ describe("installMcpServer", () => {
             version: "1.0.0",
             server: {
               name: "io.github.community/my-server",
-              description: "MCP server my-server",
+              description: "Reference fixture",
               version: "1.0.0",
               packages: [
                 {
                   registryType: "npm",
                   identifier: "@community/my-server",
-                  version: "1.0.0",
                   transport: { type: "stdio" },
-                  environmentVariables: [
-                    { name: "PUBLIC_URL", isRequired: true },
-                    { name: "REGION", isRequired: true },
-                  ],
+                  environmentVariables: [{ name: "API_TOKEN", isRequired: true, isSecret: true }],
                 },
               ],
             },
           }),
         );
-
+        let declared = false;
         const result = yield* Effect.result(
           installMcpServer(
             makeOp({
-              ref: makeRegistryRef({ integrity: "" }),
-              env: { PUBLIC_URL: "https://example.test" },
-            }),
-          ).pipe(Effect.provide(withServices(axmDir))),
-        );
-
-        expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") {
-          expect(result.failure).toMatchObject({
-            _tag: "McpRequiredInputsMissing",
-            localName: "my-server",
-            inputNames: ["REGION"],
-          });
-        }
-      }),
-    );
-
-    it.effect("refuses an unset required runtime argument in non-interactive mode", () =>
-      Effect.gen(function* () {
-        const { axmDir, base } = setupBase();
-        const canonicalPath = setupRegistryCanonical(base, "@community");
-        fs.writeFileSync(
-          path.join(canonicalPath, "mcp.json"),
-          JSON.stringify({
-            owner: "@community",
-            type: "mcp-server",
-            name: "my-server",
-            version: "1.0.0",
-            server: {
-              name: "io.github.community/my-server",
-              description: "MCP server my-server",
-              version: "1.0.0",
-              packages: [
-                {
-                  registryType: "npm",
-                  identifier: "@community/my-server",
-                  version: "1.0.0",
-                  transport: { type: "stdio" },
-                  runtimeArguments: [{ type: "named", name: "--profile", isRequired: true }],
-                },
+              bindings: [
+                { target: { kind: "environment", name: "API_TOKEN" }, value: "private-sentinel" },
               ],
-            },
-          }),
-        );
-
-        const result = yield* Effect.result(
-          installMcpServer(makeOp({ ref: makeRegistryRef({ integrity: "" }) })).pipe(
-            Effect.provide(withServices(axmDir)),
+            }),
+          ).pipe(
+            Effect.provide(
+              withServices(axmDir, {
+                setMcpServerFn: () =>
+                  Effect.sync(() => {
+                    declared = true;
+                  }),
+              }),
+            ),
           ),
         );
         expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") {
-          expect(result.failure).toMatchObject({
-            _tag: "McpRequiredInputsMissing",
-            inputNames: ["--profile"],
-          });
-        }
+        expect(declared).toBe(false);
+        expect(JSON.stringify(result)).not.toContain("private-sentinel");
       }),
     );
 
@@ -1070,7 +942,7 @@ describe("installMcpServer", () => {
       }),
     );
 
-    it.effect("returns no-runnable sync context without writing native config", () =>
+    it.effect("refuses a manifest without a runnable distribution", () =>
       Effect.gen(function* () {
         const { axmDir, base } = setupBase();
         setupRegistryCanonical(base, "@community", "metadata-only", false);
@@ -1081,11 +953,8 @@ describe("installMcpServer", () => {
 
         const result = yield* installMcpServer(
           makeOp({ ref: makeRegistryRef({ name: "metadata-only", integrity: "" }) }),
-        ).pipe(Effect.provide(services.layer));
-
-        expect(result.result).toBe("success");
-        expect(result.message).toContain("agent-sync=green");
-        expect(result.message).toContain("manifest server has no packages or remotes");
+        ).pipe(Effect.provide(services.layer), Effect.flip);
+        expect(result).toMatchObject({ _tag: "McpConfigurationRefused" });
         expect(fs.existsSync(path.join(base, ".mcp.json"))).toBe(false);
       }),
     );
@@ -1131,29 +1000,5 @@ describe("installMcpServer", () => {
         });
       }),
     );
-  });
-});
-
-describe("mcpSecretAccount", () => {
-  const base = {
-    scopeRoot: "/workspace/project",
-    localName: "work-context",
-    sourceIdentity: "registry:https%3A%2F%2Fregistry.example:@acme/mcps/context",
-    inputName: "API_TOKEN",
-  } as const;
-
-  it("derives a deterministic hexadecimal account", () => {
-    const account = mcpSecretAccount(base);
-    expect(account).toMatch(/^[0-9a-f]{64}$/u);
-    expect(mcpSecretAccount(base)).toBe(account);
-  });
-
-  it.each([
-    ["workspace root", { ...base, scopeRoot: "/workspace/other" }],
-    ["local connection name", { ...base, localName: "personal-context" }],
-    ["source identity", { ...base, sourceIdentity: `${base.sourceIdentity}-other` }],
-    ["input name", { ...base, inputName: "OTHER_TOKEN" }],
-  ])("changes the account when the %s changes", (_component, variant) => {
-    expect(mcpSecretAccount(variant)).not.toBe(mcpSecretAccount(base));
   });
 });

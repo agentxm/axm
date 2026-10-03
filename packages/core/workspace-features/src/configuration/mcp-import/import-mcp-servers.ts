@@ -72,7 +72,9 @@ export interface ImportMcpServersCandidate {
  * the workspace itself declare. Nothing is written; the candidate names the
  * servers that can be adopted, the ones that conflict, and the ones skipped.
  */
-export const prepareImportMcpServers = (): Effect.Effect<
+export const prepareImportMcpServers = (
+  names: ReadonlyArray<string> = [],
+): Effect.Effect<
   ImportMcpServersCandidate,
   WorkspaceConfigurationFailed | Effect.Error<ReturnType<typeof collectMcpImportSources>>,
   SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
@@ -86,19 +88,38 @@ export const prepareImportMcpServers = (): Effect.Effect<
     const normalized = preflightMcpImports({
       configuredNames: new Set(Object.keys(configured)),
       now,
-      sources: discovery.sources,
+      sources: discovery.sources.map((source) => ({
+        ...source,
+        servers:
+          names.length === 0
+            ? source.servers
+            : Object.fromEntries(
+                Object.entries(source.servers).filter(([name]) => names.includes(name)),
+              ),
+      })),
     });
+    const missing = names.filter(
+      (name) => !discovery.sources.some((source) => Object.hasOwn(source.servers, name)),
+    );
+    const preflight = {
+      ...normalized,
+      conflicts: [
+        ...normalized.conflicts,
+        ...discovery.skipped.filter(
+          (finding) => names.length === 0 || names.includes(finding.name),
+        ),
+        ...missing.map((name) => ({
+          name,
+          reason: "Requested native MCP name was not discovered",
+        })),
+      ],
+    };
     return {
       _tag: "ImportMcpServers",
-      preflight: {
-        ...normalized,
-        skipped: [...normalized.skipped, ...discovery.skipped].sort(
-          (left, right) =>
-            left.name.localeCompare(right.name) || left.reason.localeCompare(right.reason),
-        ),
-      },
+      preflight,
       scope: location.scope,
-      nativeLocations: yield* prepareMcpImportTargets(normalized.candidates),
+      nativeLocations:
+        preflight.conflicts.length > 0 ? [] : yield* prepareMcpImportTargets(normalized.candidates),
     } satisfies ImportMcpServersCandidate;
   });
 
@@ -172,7 +193,7 @@ export const previewOrApplyImportMcpServers = (
       }),
     );
     const importSteps: ReadonlyArray<PlannedJobStep<ImportMcpServersRequirements>> =
-      candidate.preflight.candidates.length === 0
+      candidate.preflight.candidates.length === 0 || candidate.preflight.conflicts.length > 0
         ? []
         : [
             {

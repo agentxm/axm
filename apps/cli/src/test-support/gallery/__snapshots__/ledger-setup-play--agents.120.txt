@@ -10,5 +10,5 @@ Setting up AXM in ~/code/storefront  for this project
    ◯ Amp                           skills: .agents/skills, .claude/skills
    ◯ Antigravity                   skills: .agents/skills, .agent/skills
    ◯ Antigravity CLI               skills: .agents/skills, .agent/skills
-     ↓ 57 more
+     ↓ 58 more
 2 selected · ↑↓ move · space toggle · ^a all · enter confirm

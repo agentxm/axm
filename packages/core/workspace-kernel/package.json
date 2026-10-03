@@ -1,7 +1,7 @@
 {
   "name": "@agentxm/workspace-kernel",
   "version": "0.0.1",
-  "description": "AXM workspace kernel: transaction settlement, the operations contract, native agent adapters, workspace state, projection, acquisition, sources, resolution, planning, materialization ports, and reconciliation for the axm CLI. Unstable and unsupported \u2014 use the axm.sh CLI.",
+  "description": "AXM workspace kernel: transaction settlement, the operations contract, native agent adapters, workspace state, projection, acquisition, sources, resolution, planning, materialization ports, and reconciliation for the axm CLI. Unstable and unsupported — use the axm.sh CLI.",
   "type": "module",
   "license": "FSL-1.1-MIT",
   "homepage": "https://axm.sh",
@@ -131,11 +131,6 @@
       "axm-source": "./src/materialization/index.ts",
       "default": "./dist/src/materialization/index.js"
     },
-    "./materialization/testing": {
-      "types": "./dist/src/materialization/testing.d.ts",
-      "axm-source": "./src/materialization/testing.ts",
-      "default": "./dist/src/materialization/testing.js"
-    },
     "./reconciliation": {
       "types": "./dist/src/reconciliation/index.d.ts",
       "axm-source": "./src/reconciliation/index.ts",
@@ -181,6 +176,7 @@
     "semver": "catalog:",
     "simple-git": "catalog:",
     "smol-toml": "catalog:",
+    "toml-eslint-parser": "1.0.3",
     "yaml": "catalog:"
   },
   "devDependencies": {

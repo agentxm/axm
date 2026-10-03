@@ -45,6 +45,14 @@ import {
   declaredMcpWriterTargets,
   decodeMcpServerManifestAt,
   validateManifestMcpServerTargets,
+  selectMcpDistribution,
+  resolveMcpInvocation,
+  manifestInputs,
+  mcpInputVariables,
+  mcpInputId,
+  McpValueSchema,
+  type McpBinding,
+  type McpValue,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
@@ -79,7 +87,10 @@ export interface McpServerInstallIntent {
   readonly versionRange: Option.Option<string>;
   readonly force: boolean;
   readonly nonInteractive: boolean;
-  readonly env?: Readonly<Record<string, string>>;
+  readonly authorizeSelection?: boolean;
+  readonly bindingRequests?: ReadonlyArray<McpBindingRequest>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
 }
 
 const LOCAL_NAME_RULE =
@@ -96,7 +107,9 @@ export interface ParsedMcpServerInstallRequest {
   readonly resolvedInput: string;
   readonly force: boolean;
   readonly nonInteractive: boolean;
-  readonly env: Readonly<Record<string, string>>;
+  readonly bindingRequests?: ReadonlyArray<McpBindingRequest>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
 }
 
 /** One MCP source lookup, with the constraint every origin agrees on. */
@@ -107,28 +120,80 @@ export interface McpServerInstallSourceRequest {
   readonly versionRange: Option.Option<string>;
 }
 
-/**
- * Decode repeated `--env KEY=VALUE` inputs into a record. Later occurrences of
- * the same key win. Registry installs resolve declared inputs by name, so a
- * bare `KEY` (passthrough from the ambient environment, as `axm mcps add`
- * allows) is refused here rather than silently resolving to nothing.
- */
-export const parseMcpEnvInputs = (
-  env: ReadonlyArray<string>,
-): Effect.Effect<Readonly<Record<string, string>>, ExtensionLifecycleFailed> =>
+interface McpBindingRequest {
+  readonly id: string;
+  readonly value: McpValue;
+}
+
+/** Values remain literal unless the caller explicitly selects a native environment reference. */
+const parseMcpBindingRequests = (args: {
+  readonly bind: ReadonlyArray<string>;
+  readonly bindEnv: ReadonlyArray<string>;
+}): Effect.Effect<ReadonlyArray<McpBindingRequest>, ExtensionLifecycleFailed> =>
   Effect.gen(function* () {
-    const parsed: Record<string, string> = {};
-    for (const value of env) {
-      const separator = value.indexOf("=");
-      if (separator <= 0) {
+    const requests: Array<McpBindingRequest> = [];
+    for (const [items, symbolic] of [
+      [args.bind, false],
+      [args.bindEnv, true],
+    ] as const) {
+      for (const item of items) {
+        const separator = item.indexOf("=");
+        if (separator <= 0)
+          return yield* installRefused({
+            category: "usage",
+            detail: "Bindings require INPUT_ID=VALUE",
+          });
+        const raw = item.slice(separator + 1);
+        const value = yield* Schema.decodeUnknownEffect(McpValueSchema)(
+          symbolic ? { env: raw } : raw,
+        ).pipe(
+          Effect.mapError(() =>
+            installRefused({ category: "usage", detail: "Invalid symbolic environment binding" }),
+          ),
+        );
+        requests.push({ id: item.slice(0, separator), value });
+      }
+    }
+    return requests;
+  });
+
+const applyBindingRequests = (
+  candidate: Parameters<typeof manifestInputs>[0],
+  existing: ReadonlyArray<McpBinding>,
+  requests: ReadonlyArray<McpBindingRequest>,
+): Effect.Effect<ReadonlyArray<McpBinding>, ExtensionLifecycleFailed> =>
+  Effect.gen(function* () {
+    const descriptors = manifestInputs(candidate).flatMap((descriptor) => [
+      descriptor,
+      ...Object.entries(mcpInputVariables(descriptor.input) ?? {}).map(([variable, input]) => ({
+        ...descriptor,
+        target: { ...descriptor.target, variable },
+        input,
+      })),
+    ]);
+    const groups = new Map<string, Array<McpValue>>();
+    for (const { id, value } of requests) groups.set(id, [...(groups.get(id) ?? []), value]);
+    const additions: Array<McpBinding> = [];
+    for (const [id, values] of groups) {
+      const matches = descriptors.filter(({ target }) => mcpInputId(target) === id);
+      const descriptor = matches[0];
+      if (matches.length !== 1 || descriptor === undefined)
         return yield* installRefused({
           category: "usage",
-          detail: "--env must use KEY=VALUE format",
+          detail: "Binding ID must identify exactly one input in the selected distribution",
         });
-      }
-      parsed[value.slice(0, separator)] = value.slice(separator + 1);
+      const first = values[0];
+      if (first === undefined) continue;
+      if (values.length > 1) {
+        if (!descriptor.repeated)
+          return yield* installRefused({
+            category: "usage",
+            detail: "Multiple bindings require a repeatable argument",
+          });
+        additions.push({ target: descriptor.target, values: [first, ...values.slice(1)] });
+      } else additions.push({ target: descriptor.target, value: first });
     }
-    return parsed;
+    return [...existing.filter(({ target }) => !groups.has(mcpInputId(target))), ...additions];
   });
 
 const decodeLocalName = (value: string): Effect.Effect<ExtensionName, ExtensionLifecycleFailed> =>
@@ -142,7 +207,10 @@ const decodeLocalName = (value: string): Effect.Effect<ExtensionName, ExtensionL
 export interface McpServerInstallArgs {
   readonly source: string;
   readonly localName: Option.Option<string>;
-  readonly env: ReadonlyArray<string>;
+  readonly bind: ReadonlyArray<string>;
+  readonly bindEnv: ReadonlyArray<string>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
   readonly force: boolean;
   readonly nonInteractive: boolean;
 }
@@ -157,7 +225,12 @@ export const parseMcpServerInstallRequest: (
 > = Effect.fn("InstallExtensions.parseMcpRequest")(function* (args: McpServerInstallArgs) {
   const settings = yield* SettingsReader;
   const trimmed = args.source.trim();
-  const env = yield* parseMcpEnvInputs(args.env);
+  const bindingRequests = yield* parseMcpBindingRequests(args);
+  const preferences = {
+    bindingRequests,
+    ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
+    ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
+  };
   const explicitLocalName = yield* Option.match(args.localName, {
     onNone: () => Effect.succeed(Option.none<ExtensionName>()),
     onSome: (name) => decodeLocalName(name).pipe(Effect.map(Option.some)),
@@ -190,7 +263,7 @@ export const parseMcpServerInstallRequest: (
           resolvedInput: trimmed,
           force: args.force,
           nonInteractive: args.nonInteractive,
-          env,
+          ...preferences,
         };
     }
   }
@@ -204,7 +277,7 @@ export const parseMcpServerInstallRequest: (
       resolvedInput: trimmed,
       force: args.force,
       nonInteractive: args.nonInteractive,
-      env,
+      ...preferences,
     };
   }
 
@@ -245,7 +318,7 @@ export const parseMcpServerInstallRequest: (
     resolvedInput: `${owner}/mcps/${parsed.success.name}`,
     force: args.force,
     nonInteractive: args.nonInteractive,
-    env,
+    ...preferences,
   };
 });
 
@@ -479,7 +552,10 @@ export const finalizeMcpServerInstallIntent: (
       versionRange: request.versionRange,
       force: request.force,
       nonInteractive: request.nonInteractive,
-      env: request.env,
+      authorizeSelection: true,
+      bindingRequests: request.bindingRequests ?? [],
+      ...(request.distributionId === undefined ? {} : { distributionId: request.distributionId }),
+      ...(request.nativeOauth === undefined ? {} : { nativeOauth: request.nativeOauth }),
     } satisfies McpServerInstallIntent;
   });
 
@@ -524,7 +600,7 @@ export const planMcpServerInstall: (
     }
   }
 
-  yield* Effect.scoped(
+  const preferences = yield* Effect.scoped(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -564,6 +640,47 @@ export const planMcpServerInstall: (
         ),
       );
       const entries = yield* settings.entries("mcp-server");
+      const entry = entries[intent.localName];
+      const selection = selectMcpDistribution({
+        manifest,
+        selector: intent.distributionId === undefined ? entry?.distribution : undefined,
+        id: intent.distributionId,
+        allowUnambiguous: intent.authorizeSelection === true,
+      });
+      if (selection._tag === "blocked")
+        return yield* installRefused({ category: "validation", detail: selection.reason });
+      const bindings = yield* applyBindingRequests(
+        selection.candidate,
+        entry?.bindings ?? [],
+        intent.bindingRequests ?? [],
+      );
+      const auth = intent.nativeOauth === true ? { type: "native-oauth" as const } : entry?.auth;
+      const preferences = {
+        distribution: selection.candidate.selector,
+        bindings,
+        ...(auth === undefined ? {} : { auth }),
+      };
+      const graph = yield* (yield* DesiredStateReader).graph();
+      const closure = graph.mcpSourceClosures.find(
+        (candidate) => candidate.key === intent.sourceIdentity,
+      );
+      for (const name of closure?.localNames ?? []) {
+        if (name === intent.localName) continue;
+        const preference =
+          entries[name] ??
+          graph.nodes.find((node) => node.type === "mcp-server" && node.name === name)?.preference;
+        const resolution = resolveMcpInvocation({
+          manifest,
+          distribution: preference?.distribution,
+          bindings: preference?.bindings,
+          auth: preference?.auth,
+        });
+        if (resolution._tag === "blocked")
+          return yield* installRefused({
+            category: "validation",
+            detail: `Shared MCP alias ${name} blocks the source update: ${resolution.reason}`,
+          });
+      }
       const authority = yield* captureAgentOutputAuthority();
       yield* validateManifestMcpServerTargets({
         nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -573,7 +690,7 @@ export const planMcpServerInstall: (
         agentIds: yield* settings.configuredAgents,
         scope: location.scope,
         serverName: intent.localName,
-        values: { ...entries[intent.localName]?.env, ...intent.env },
+        ...preferences,
         enabled: entries[intent.localName]?.enabled ?? true,
         previousManagedEntries: authority.expectedMcpEntries[intent.localName] ?? [],
       }).pipe(
@@ -587,6 +704,7 @@ export const planMcpServerInstall: (
           }),
         ),
       );
+      return preferences;
     }),
   ).pipe(
     Effect.mapError((cause) =>
@@ -649,7 +767,7 @@ export const planMcpServerInstall: (
                 nonInteractive: intent.nonInteractive,
                 force: intent.force,
                 declaration: { name: intent.localName, versionRange: intent.versionRange },
-                env: Option.some(intent.env ?? {}),
+                ...preferences,
               },
             }).pipe(Effect.mapError(kernelFailureToStepFailure)),
           },

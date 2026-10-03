@@ -20,7 +20,6 @@ import type { McpInspectionError } from "./errors.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
-  collectSecretInputNames,
   decodeMcpServerManifestAt,
   resolveConfiguredMcpTargets,
   hasTomlMcpEntry,
@@ -31,7 +30,6 @@ import {
   type AxmMcpMetadata,
   McpDefinitionInvalid,
   McpOwnershipMarkerInvalid,
-  mcpProjectionInputValues,
   parseTomlMcpEntry,
   planMcpServerTargets,
   unresolvedMcpAgentTargets,
@@ -80,7 +78,7 @@ export interface InspectDesiredMcpServerArgs {
   readonly node: DesiredMcpServerSubject;
   /**
    * The settings entry under the node's name: the inline transport, or the
-   * env a sourced or Pack-supplied connection is configured with. Absent for
+   * preferences a sourced or Pack-supplied connection is configured with. Absent for
    * a Pack member the workspace has not configured.
    */
   readonly entry: McpServerEntry | undefined;
@@ -433,9 +431,7 @@ const inspectedDeclaration = (
   entry: McpServerEntry | undefined,
 ): McpServerDeclaration | undefined => {
   if (entry !== undefined) return { ...entry, enabled: true };
-  return node.authority === "inline"
-    ? undefined
-    : { kind: "configuration", env: {}, enabled: true };
+  return node.authority === "inline" ? undefined : { kind: "configuration", enabled: true };
 };
 
 /**
@@ -460,7 +456,7 @@ export const inspectDesiredMcpServer = (
         detail: `Inline MCP server ${args.node.name} has no settings entry to render`,
       });
     }
-    const inline = declaration.command !== undefined || declaration.url !== undefined;
+    const inline = declaration.connection !== undefined;
     const manifestRoot = inline
       ? Option.none<string>()
       : yield* findManifestRoot(args.workspaceRoot, args.canonicalPaths);
@@ -485,14 +481,21 @@ export const inspectDesiredMcpServer = (
         serverName: args.node.name,
         declaration,
         manifest,
-        values:
-          manifest === undefined
-            ? declaration.env
-            : mcpProjectionInputValues(declaration.env, collectSecretInputNames(manifest)),
+        resolvedCwd:
+          declaration.connection?.transport === "stdio" &&
+          declaration.connection.cwd?.base === "scope"
+            ? path.resolve(args.workspaceRoot, declaration.connection.cwd.path)
+            : undefined,
         enabled: true,
       });
       if (plan._tag === "invalid") {
-        return yield* new McpDefinitionInvalid({ detail: plan.detail, cause: plan.cause });
+        return {
+          inspections: args.agentIds.map((agentId) =>
+            terminalInspection({ agentId, status: "blocked", reason: plan.detail }),
+          ),
+          nativeLocations: [],
+          conflict: Option.some(plan.detail),
+        };
       }
       const conflict = Option.fromUndefinedOr(
         plan.agents.flatMap((agent) => (agent._tag === "blocked" ? [agent.reason] : []))[0],

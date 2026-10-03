@@ -412,9 +412,6 @@ importers:
       '@agentxm/test-support':
         specifier: workspace:*
         version: link:../../tools/test-support
-      '@napi-rs/keyring':
-        specifier: ^1.3.0
-        version: 1.3.0
       '@types/bun':
         specifier: 'catalog:'
         version: 1.4.2
@@ -494,9 +491,6 @@ importers:
       '@agentxm/workspace-kernel':
         specifier: workspace:^
         version: link:../workspace-kernel
-      '@napi-rs/keyring':
-        specifier: ^1.3.0
-        version: 1.3.0
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.117
@@ -714,6 +708,9 @@ importers:
       smol-toml:
         specifier: 'catalog:'
         version: 1.8.0
+      toml-eslint-parser:
+        specifier: 1.0.3
+        version: 1.0.3
       yaml:
         specifier: 'catalog:'
         version: 2.9.1
@@ -5505,6 +5502,10 @@ packages:
   to-regex-range@5.0.1:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
+
+  toml-eslint-parser@1.0.3:
+    resolution: {integrity: sha512-A5F0cM6+mDleacLIEUkmfpkBbnHJFV1d2rprHU2MXNk7mlxHq2zGojA+SRvQD1RoMo9gqjZPWEaKG4v1BQ48lw==}
+    engines: {node: ^20.19.0 || ^22.13.0 || >=24}
 
   tr46@0.0.3:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
@@ -10674,6 +10675,10 @@ snapshots:
   to-regex-range@5.0.1:
     dependencies:
       is-number: 7.0.0
+
+  toml-eslint-parser@1.0.3:
+    dependencies:
+      eslint-visitor-keys: 5.0.1
 
   tr46@0.0.3: {}
 

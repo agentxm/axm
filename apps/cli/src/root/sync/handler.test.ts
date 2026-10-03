@@ -16,7 +16,6 @@ import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projectio
 import {
   HookManagerLive,
   KnowledgeManagerLive,
-  McpSecretStoreLive,
   McpServerManagerLive,
   PackManagerLive,
   RuleManagerLive,
@@ -689,7 +688,6 @@ describe("root sync handler", () => {
           ctx.wsLayer,
           sourceProvidersLayer,
           WorkspaceFailureConversionLive,
-          McpSecretStoreLive,
           managersLayer,
           packManagerLayer,
           invariantFactsLayer,
@@ -932,7 +930,9 @@ describe("root sync handler", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeSettings(tempDir, {
         agents: ["claude-code"],
-        mcpServers: { demo: { command: "node", args: ["server.js"] } },
+        mcpServers: {
+          demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+        },
       });
       yield* provide(handleSync({ preview: false }));
       const configPath = path.join(tempDir, ".mcp.json");
@@ -1336,7 +1336,15 @@ describe("root sync handler", () => {
       writeWorkspaceFiles(axmDir, {
         agents: ["claude-code", "cursor", "codex"],
         mcps: {
-          browser: "workspace",
+          browser: {
+            source: "workspace",
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/browser-mcp",
+              transport: "stdio",
+            },
+          },
         },
       });
       writeMcpServerExtension(tempDir, "browser");
@@ -1417,10 +1425,8 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         mcpServers: {
           demo: {
+            connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
             enabled: true,
-            command: "node",
-            args: ["server.js"],
-            env: {},
           },
         },
       });
@@ -1444,7 +1450,7 @@ describe("root sync handler", () => {
       const applied = expectAppliedPlanResult(rendererState.results[0]?.data, {
         planName: "Sync workspace",
         totalSteps: 1,
-        warningCount: 1,
+        warningCount: 2,
       });
       expect(planResultUnits(applied)).toMatchObject([
         { label: "mcp-server demo", state: "committed" },
@@ -1459,7 +1465,17 @@ describe("root sync handler", () => {
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, {
         agents: ["codex"],
-        mcps: { context: "workspace" },
+        mcps: {
+          context: {
+            source: "workspace",
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/context-mcp",
+              transport: "stdio",
+            },
+          },
+        },
       });
       writeMcpServerExtension(tempDir, "context");
       const configPath = path.join(tempDir, ".codex", "config.toml");
@@ -1522,10 +1538,8 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         mcpServers: {
           demo: {
+            connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
             enabled: true,
-            command: "node",
-            args: ["server.js"],
-            env: {},
           },
         },
       });

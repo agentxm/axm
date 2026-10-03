@@ -13,10 +13,7 @@
 import * as Data from "effect/Data";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 
-import type {
-  FailureSuggestedAction,
-  OperationErrorCategory,
-} from "@agentxm/workspace-kernel/operations";
+import type { OperationErrorCategory } from "@agentxm/workspace-kernel/operations";
 import {
   ExtensionKindFailureTypeId,
   type ExtensionKindFailure,
@@ -106,33 +103,21 @@ export class McpWorkspacePackageInvalid
   }
 }
 
-/**
- * The manifest declares required inputs nothing supplied, and the invoking
- * surface said it cannot prompt.
- */
-export class McpRequiredInputsMissing
-  extends Data.TaggedError("McpRequiredInputsMissing")<{
+/** Selection or binding cannot produce a faithful invocation. Details contain no values. */
+export class McpConfigurationRefused
+  extends Data.TaggedError("McpConfigurationRefused")<{
     readonly localName: string;
-    /** Input names still unsatisfied, sorted. */
-    readonly inputNames: ReadonlyArray<string>;
+    readonly reason: string;
   }>
   implements ExtensionKindFailure
 {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
     ExtensionKindFailureTypeId;
   get category(): OperationErrorCategory {
-    return "usage";
+    return "validation";
   }
   get detail(): string {
-    return `${this.localName} needs ${this.inputNames.join(", ")}, and no prompt can open to ask for them`;
-  }
-  get suggestions(): ReadonlyArray<FailureSuggestedAction> {
-    return [
-      {
-        description: "Supply each required input on the command line",
-        cmd: this.inputNames.map((name) => `--env ${name}=<value>`).join(" "),
-      },
-    ];
+    return `MCP connection ${this.localName} is blocked: ${this.reason}`;
   }
 }
 

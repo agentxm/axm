@@ -152,7 +152,20 @@ describe("Sync realizes desired workspace state", () => {
             settings: {
               ...settings,
               [settingsKey]: {
-                [name]: { source: `test:@acme/${segment}/${name}@^1.0.0`, enabled },
+                [name]: {
+                  source: `test:@acme/${segment}/${name}@^1.0.0`,
+                  enabled,
+                  ...(type === "mcp-server"
+                    ? {
+                        distribution: {
+                          kind: "package",
+                          registryType: "npm",
+                          identifier: `@acme/${name}`,
+                          transport: "stdio",
+                        },
+                      }
+                    : {}),
+                },
               },
             },
           });
@@ -243,6 +256,16 @@ describe("Sync realizes desired workspace state", () => {
         agents: ["claude-code"],
         sources: [registry.source],
         packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+        mcpServers: {
+          context: {
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/context",
+              transport: "stdio",
+            },
+          },
+        },
       };
       const workspace = makeSyncFixture({ settings: base });
       cleanups.push(workspace.cleanup);

@@ -169,7 +169,7 @@ describe("Settings schema", () => {
     it("rejects a sourced MCP entry whose FQN names another extension type", () => {
       expect(() =>
         Schema.decodeUnknownSync(SettingsSchema)({
-          mcpServers: { browser: "@acme/skills/browser" },
+          mcpServers: { browser: { source: "@acme/skills/browser" } },
         }),
       ).toThrow(/MCP server registry source must use \/mcps\//);
     });
@@ -573,7 +573,7 @@ describe("Settings schema", () => {
         hooks: { review: "workspace" },
         subagents: { review: "workspace" },
         packs: { review: "workspace" },
-        mcpServers: { review: "workspace" },
+        mcpServers: { review: { source: "workspace" } },
       });
 
       expect(result.skills?.["review"]?.source).toBe("workspace");
@@ -836,7 +836,7 @@ describe("Settings schema", () => {
 
     it("accepts valid mcpServers at root", () => {
       const input = {
-        mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
+        mcpServers: { batcomputer: { source: "@wayne/mcps/batcomputer" } },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
@@ -845,7 +845,6 @@ describe("Settings schema", () => {
           kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
-          env: {},
         },
       });
     });
@@ -855,7 +854,7 @@ describe("Settings schema", () => {
         skills: { "grappling-hook": "@wayne/skills/grappling-hook@^1.0.0" },
         hooks: { audit: "@wayne/hooks/audit" },
         packs: { "utility-belt": "@wayne/packs/utility-belt@^1.0.0" },
-        mcpServers: { batcomputer: "@wayne/mcps/batcomputer" },
+        mcpServers: { batcomputer: { source: "@wayne/mcps/batcomputer" } },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);
 
@@ -876,7 +875,6 @@ describe("Settings schema", () => {
           kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
-          env: {},
         },
       });
     });
@@ -893,7 +891,7 @@ describe("Settings schema", () => {
 
   describe("McpServersMap schema (MCP server name validation)", () => {
     it("accepts valid MCP server name", () => {
-      const input = { batcomputer: "@wayne/mcps/batcomputer" };
+      const input = { batcomputer: { source: "@wayne/mcps/batcomputer" } };
       const result = Schema.decodeUnknownSync(McpServersMapSchema)(input);
 
       expect(result).toEqual({
@@ -901,7 +899,6 @@ describe("Settings schema", () => {
           kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
-          env: {},
         },
       });
     });
@@ -915,7 +912,6 @@ describe("Settings schema", () => {
           kind: "sourced",
           source: "@wayne/mcps/batcomputer",
           enabled: true,
-          env: {},
         },
       });
     });
@@ -928,102 +924,32 @@ describe("Settings schema", () => {
   });
 
   describe("McpServerEntrySchema", () => {
-    describe("decode", () => {
-      it("decodes a plain string to normalized entry", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)("@wayne/mcps/batcomputer");
-
-        expect(result).toEqual({
-          kind: "sourced",
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-          env: {},
-        });
-      });
-
-      it("decodes an object with source", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          source: "@wayne/mcps/batcomputer",
-        });
-
-        expect(result).toEqual({
-          kind: "sourced",
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-          env: {},
-        });
-      });
-
-      it("decodes an inline stdio object", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
-          env: ["LINEAR_API_KEY"],
-        });
-
-        expect(result).toEqual({
-          kind: "inline",
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
-          enabled: true,
-          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
-        });
-      });
-
-      it("decodes an inline remote object", () => {
-        const result = Schema.decodeUnknownSync(McpServerEntrySchema)({
-          url: "https://mcp.sentry.dev/sse",
-          headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
-        });
-
-        expect(result).toEqual({
-          kind: "inline",
-          url: "https://mcp.sentry.dev/sse",
-          headers: { Authorization: "Bearer ${SENTRY_TOKEN}" },
-          enabled: true,
-          env: {},
-        });
-      });
-
-      it("rejects object without a transport", () => {
-        expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)({ foo: "bar" })).toThrow();
-      });
-
-      it("rejects object with multiple transports", () => {
-        expect(() =>
-          Schema.decodeUnknownSync(McpServerEntrySchema)({
-            source: "@wayne/mcps/batcomputer",
-            command: "npx",
-          }),
-        ).toThrow();
-      });
+    it("rejects shorthand and flat transports", () => {
+      for (const entry of [
+        "@wayne/mcps/batcomputer",
+        { command: "node" },
+        { url: "https://example.test" },
+        { source: "@wayne/mcps/batcomputer", env: {} },
+      ])
+        expect(() => Schema.decodeUnknownSync(McpServerEntrySchema)(entry)).toThrow();
     });
-
-    describe("encode", () => {
-      it("encodes a default entry to string", () => {
-        const result = Schema.encodeSync(McpServerEntrySchema)({
-          kind: "sourced",
-          source: "@wayne/mcps/batcomputer",
-          enabled: true,
-          env: {},
-        });
-        expect(result).toBe("@wayne/mcps/batcomputer");
-      });
-
-      it("encodes inline entries without a visible source field", () => {
-        const result = Schema.encodeSync(McpServerEntrySchema)({
-          kind: "inline",
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
-          enabled: true,
-          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
-        });
-
-        expect(result).toEqual({
-          command: "npx",
-          args: ["-y", "linear-mcp-server"],
-          env: { LINEAR_API_KEY: "${LINEAR_API_KEY}" },
-        });
-      });
+    it("round trips an explicit sourced entry", () => {
+      const input = { source: "@wayne/mcps/batcomputer" };
+      const decoded = Schema.decodeUnknownSync(McpServerEntrySchema)(input);
+      expect(decoded).toEqual({ kind: "sourced", source: input.source, enabled: true });
+      expect(Schema.encodeSync(McpServerEntrySchema)(decoded)).toEqual(input);
+    });
+    it("round trips a typed inline connection without serializing derived kind", () => {
+      const input = {
+        connection: {
+          transport: "stdio",
+          command: "node",
+          env: { LINEAR_API_KEY: { env: "LINEAR_API_KEY" } },
+        },
+      };
+      const decoded = Schema.decodeUnknownSync(McpServerEntrySchema)(input);
+      expect(decoded.kind).toBe("inline");
+      expect(Schema.encodeSync(McpServerEntrySchema)(decoded)).toEqual(input);
     });
   });
 
@@ -1185,7 +1111,7 @@ describe("Settings schema", () => {
           "utility-belt": "@wayne/packs/utility-belt@^1.0.0",
         },
         mcpServers: {
-          batcomputer: "@wayne/mcps/batcomputer",
+          batcomputer: { source: "@wayne/mcps/batcomputer" },
         },
       };
       const result = Schema.decodeUnknownSync(SettingsSchema)(input);

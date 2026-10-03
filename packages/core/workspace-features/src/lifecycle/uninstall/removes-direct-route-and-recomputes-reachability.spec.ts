@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/removes-direct-route-and-recomputes-reachability",
   title: "Uninstall removes direct intent and keeps state another desired route still reaches",
   statement:
-    "When a directly desired extension is uninstalled, AXM shall remove its direct configuration, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.",
+    "When a directly desired extension is uninstalled, AXM shall remove its direct acquisition declaration while retaining MCP distribution and input preferences for connections still reached through a Pack, remove its resolution and verified acquired content when no other desired route reaches it, realize activation and owned outputs from the remaining desired routes, report retained state, preserve authored inventory, refuse and roll back when final owner readback finds a required retained native unit changed, and leave state outside the necessary dependency and shared-output closure untouched.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
@@ -54,6 +54,49 @@ describe("Uninstall a directly desired extension", () => {
     cleanups.push(created.cleanup);
     return created;
   };
+
+  it.effect(
+    "retains a configured Pack member's MCP selection when its direct route is removed",
+    () => {
+      const created = makeInstallWorld({
+        settings: { packs: { toolkit: "test:@acme/packs/toolkit" } },
+      });
+      cleanups.push(created.cleanup);
+      const { workspace, registry } = created;
+      registry.writeMcp("context", [{ version: "1.0.0" }]);
+      registry.writePack("toolkit", [
+        { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+      ]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const configured = yield* applyInstall(
+              installRequest({ subject: { kind: "configured" } }),
+            );
+            expect(deriveOperationOutcome(configured), JSON.stringify(configured)).toBe("applied");
+            yield* applyInstall(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source: "@acme/mcps/context" },
+              }),
+            );
+            const nativeBefore = workspace.readFile(".mcp.json");
+            const result = yield* applyUninstall(
+              uninstallRequest({ selector: "@acme/mcps/context" }),
+            );
+            expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("applied");
+            expect(readSettings(workspace)).toMatchObject({
+              mcpServers: { context: { distribution: expect.anything() } },
+            });
+            expect(JSON.stringify(readSettings(workspace))).not.toContain(
+              '"source":"test:@acme/mcps/context"',
+            );
+            expect(workspace.readFile(".mcp.json")).toBe(nativeBefore);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("removing a disabled direct preference restores an enabled Pack route", () => {
     const { workspace, registry } = world();

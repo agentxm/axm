@@ -23,7 +23,13 @@ export const nativeAuthorityRoots = (
     path.resolve(args.workspaceRoot),
     ...(args.scope === "project"
       ? []
-      : [inputs.xdgConfigRoot, ...Object.values(inputs.userConfigRootOverrides ?? {})]
+      : [
+          inputs.xdgConfigRoot,
+          ...Object.values(inputs.userConfigRootOverrides ?? {}),
+          ...Object.values(inputs.selectedFiles ?? {})
+            .filter((file): file is string => file !== undefined && path.isAbsolute(file))
+            .map((file) => path.dirname(file)),
+        ]
           .filter((root): root is string => root !== undefined && root.trim().length > 0)
           .map((root) => path.resolve(args.workspaceRoot, root))),
   ]),

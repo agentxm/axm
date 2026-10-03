@@ -96,10 +96,11 @@ this array; the commands also reconcile per-agent managed artifacts for
 installed extensions. `sources` names registries that entries can reference.
 
 Extension entries live under `skills`, `mcpServers`, `subagents`, `rules`,
-`hooks`, `knowledge`, and `packs`. Each entry can be a source
-string or an object with metadata such as `enabled`.
+`hooks`, `knowledge`, and `packs`. MCP entries use the explicit object
+contract described below. Other entries can be a source string or an object
+with metadata such as `enabled`.
 
-Prefer the plain source string. Use the object form when you need metadata such
+For those other extension types, prefer the plain source string. Use the object form when you need metadata such
 as `enabled: false`. A project-authored package uses the exact intrinsic source
 `workspace`; authorship combines the project `owner`, the map key, the
 extension type, and the manifest at that type's authored root.
@@ -225,46 +226,20 @@ defaults are `skills`, `mcps`, `subagents`, `rules`, `hooks`, `knowledge`, and
 
 ## MCP servers
 
-Registry MCP servers use the same source-string form as other extensions. The
-map key is the local connection name, so multiple keys may reference one source
-while keeping separate inputs, activation, and projections.
-They share one accepted source resolution. Inline
-MCP servers can be declared directly with either `command`/`args` for stdio or
-`url`/`headers` for a remote server. Use `axm mcps add` for both forms, `axm
-mcps import` to adopt unmanaged entries from existing agent config files, and
-`axm sync` to reconcile configured servers with every configured agent that can
-represent them.
+MCP entries use objects under `mcpServers`. A sourced entry declares `source`,
+a stable `distribution` selection and optional `bindings`. An inline entry
+declares `connection` with an explicit `stdio`, `streamable-http` or `sse`
+transport. Strings are literal; `{ "env": "NAME" }` declares a symbolic host
+environment reference. Source strings and flat command/URL entries are not
+accepted MCP settings.
 
-```jsonc
-{
-  "mcpServers": {
-    "work-github": "@acme/mcps/github@^1.0.0",
-    "personal-github": "@acme/mcps/github@^1.0.0",
-    "linear": {
-      "command": "npx",
-      "args": ["-y", "linear-mcp-server"],
-      "env": ["LINEAR_API_KEY"],
-    },
-    "sentry": {
-      "url": "https://mcp.sentry.dev/sse",
-      "headers": { "Authorization": "Bearer ${SENTRY_TOKEN}" },
-    },
-  },
-}
-```
+The map key is the local connection name. Multiple connections can share one
+accepted source resolution while retaining independent bindings and activation.
+Workspace `agents` membership applies to each connection; an entry has no
+agent list of its own. Unsupported destinations remain visible in inspection.
 
-MCP `env` accepts either a map or an array of variable names. Array entries
-decode to `${VAR}` references. Keep secrets out of settings by storing
-`${VAR}` references in `env` and `headers`; AXM preserves those references when
-syncing agent config and reports a configured agent that cannot represent one
-as unsupported.
-
-An MCP entry carries no agent list of its own. Every agent in the workspace
-`agents` list that supports the server transport and has a native config target
-for the selected scope receives the server; an agent that cannot represent it
-is reported as unsupported. `axm mcps import` records each adopted server once,
-and the next reconciliation writes it to every configured agent that can
-represent it.
+See `axm help mcps` for canonical examples, distribution selection, input
+binding, atomic import, host authentication and lifecycle behavior.
 
 ## Authoring
 

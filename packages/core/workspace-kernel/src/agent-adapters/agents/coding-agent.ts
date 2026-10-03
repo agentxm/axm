@@ -1,3 +1,4 @@
+import type { McpDistribution, McpBinding, McpAuth } from "../mcps/connection.js";
 /**
  * The per-agent native adapter contract.
  *
@@ -62,7 +63,9 @@ export interface AddMcpServerArgs {
   readonly owner: Handle;
   readonly resolvedVersion: string;
   readonly enabled?: boolean;
-  readonly configValues?: Readonly<Record<string, string>>;
+  readonly distribution?: McpDistribution;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
 }
 
 /**

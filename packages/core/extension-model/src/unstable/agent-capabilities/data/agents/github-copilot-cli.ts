@@ -168,6 +168,7 @@ export const githubCopilotCliAgent = {
             scope: "user",
             root: "home",
             path: ".copilot/mcp-config.json",
+            configRootRelativePath: "mcp-config.json",
             shape: "file",
             role: "primary",
             status: "canonical",
@@ -198,6 +199,20 @@ export const githubCopilotCliAgent = {
             format: "json",
             keyPath: ["mcpServers"],
             attribution: "shared",
+          },
+          {
+            id: "project-github",
+            scope: "project",
+            root: "project",
+            path: ".github/mcp.json",
+            shape: "file",
+            role: "additional",
+            status: "canonical",
+            applicability: { kind: "always" },
+            provenance: { kind: "capability-sources" },
+            format: "json",
+            keyPath: ["mcpServers"],
+            attribution: "agent",
           },
         ],
         entryDialect: {
@@ -254,7 +269,7 @@ export const githubCopilotCliAgent = {
       },
       axm: {
         status: "supported",
-        lastVerified: "2026-09-12",
+        lastVerified: null,
         writer: {
           config: {
             locationIds: ["user", "project"],

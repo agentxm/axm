@@ -65,7 +65,13 @@ const absentCases: readonly AbsentCase[] = [
     prepare: "uninstall-inline-mcp",
     target: { type: "mcp-server", selector: INLINE_MCP_NAME },
     settles: { type: "mcp-server", names: [INLINE_MCP_NAME] },
-    settings: { mcpServers: { [INLINE_MCP_NAME]: { command: "node", args: ["server.js"] } } },
+    settings: {
+      mcpServers: {
+        [INLINE_MCP_NAME]: {
+          connection: { transport: "stdio", command: "node", args: ["server.js"] },
+        },
+      },
+    },
   },
 ];
 

@@ -117,7 +117,7 @@ const ENTRY_DEFINITIONS = [
   "KnowledgeEntry",
   "SubagentEntry",
   "PackEntry",
-  "McpServerEntry",
+  "McpServerEntryObject",
 ] as const;
 
 describe("Published settings schema", () => {

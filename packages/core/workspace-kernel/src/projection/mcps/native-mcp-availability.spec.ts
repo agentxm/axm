@@ -34,9 +34,7 @@ export const specification = defineSpecification({
 });
 const entry = {
   kind: "inline",
-  command: "node",
-  args: ["server.js"],
-  env: {},
+  connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
   enabled: true,
 } as const;
 
@@ -47,7 +45,6 @@ describe("truthful native MCP destinations", () => {
       scope: "project",
       serverName: "context",
       declaration: entry,
-      values: {},
       enabled: true,
     });
     expect(plan._tag).toBe("planned");
@@ -88,7 +85,6 @@ describe("truthful native MCP destinations", () => {
       scope: "project",
       serverName: "context",
       declaration: entry,
-      values: {},
       enabled: true,
     });
     if (plan._tag !== "planned") return expect.fail("Expected a complete native plan");

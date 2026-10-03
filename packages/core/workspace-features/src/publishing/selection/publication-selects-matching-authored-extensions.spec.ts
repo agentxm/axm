@@ -275,9 +275,9 @@ describe("Type-specific publication selection", () => {
           const world = makePublishWorld({
             settings: {
               [authoredSettingsKey[type.type]]: {
-                review: "workspace",
-                redwood: "workspace",
-                unrelated: "workspace",
+                review: { source: "workspace" },
+                redwood: { source: "workspace" },
+                unrelated: { source: "workspace" },
               },
             },
           });

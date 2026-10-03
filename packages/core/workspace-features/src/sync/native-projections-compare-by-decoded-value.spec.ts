@@ -78,7 +78,9 @@ describe("Native projection comparison", () => {
           settings: {
             owner: "@acme",
             agents: ["claude-code"],
-            mcpServers: { demo: { command: "node", args: ["server.js"] } },
+            mcpServers: {
+              demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
+            },
           },
         });
         cleanups.push(workspace.cleanup);

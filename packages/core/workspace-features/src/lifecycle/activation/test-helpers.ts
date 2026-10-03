@@ -127,7 +127,21 @@ export const workspaceWithAuthoredExtension = (args: {
     settings: {
       owner: "@acme",
       agents: ["claude-code"],
-      [layout.settingsKey]: { [args.name]: settingsEntry(args.enabled) },
+      [layout.settingsKey]: {
+        [args.name]: {
+          ...settingsEntry(args.enabled),
+          ...(args.type === "mcp-server"
+            ? {
+                distribution: {
+                  kind: "package",
+                  registryType: "npm",
+                  identifier: `@acme/${args.name}-mcp`,
+                  transport: "stdio",
+                },
+              }
+            : {}),
+        },
+      },
     },
   });
   const packageRoot = nodePath.join(fixture.root, layout.plural, args.name);

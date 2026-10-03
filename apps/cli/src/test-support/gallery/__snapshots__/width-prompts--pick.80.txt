@@ -3,5 +3,5 @@
    ◯ FX                            skills: .fx/skills
    ◯ Muse Code                     skills: .agents/skills
    ◯ MiMo Code                     skills: .mimocode/skills
-     ↓ 62 more
+     ↓ 63 more
 2 selected · ↑↓ move · space toggle · ^a all · enter confirm

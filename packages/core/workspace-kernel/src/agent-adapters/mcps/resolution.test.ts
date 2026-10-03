@@ -1,348 +1,54 @@
+import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { describe, expect, it } from "vitest";
-import type { McpExtensionCapability } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { McpServerManifestSchema } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
-import { resolveMcpServer } from "./resolution.js";
-const decodeManifest = Schema.decodeUnknownSync(McpServerManifestSchema);
-const stdioCapability = {
-  native: {
-    standardsCompliance: "full",
-    convention: "universal",
-    availability: { via: "native" },
-    vendorStatus: { state: "active" },
-    notes: null,
-    docs: [],
-    sources: ["https://example.com/mcp"],
-    scopes: ["project"],
-    transports: ["stdio"],
-    mcpEnvExpansion: { variables: "braced", defaults: false },
+import { selectMcpDistribution } from "./distribution.js";
+import { resolveMcpInvocation } from "./resolution.js";
 
-    locations: [
-      {
-        id: "project-0",
-        scope: "project",
-        root: "project",
-        path: ".mcp.json",
-        shape: "file",
-        role: "primary",
-        status: "canonical",
-        applicability: { kind: "always" },
-        provenance: { kind: "capability-sources" },
-        format: "json",
-        attribution: "shared",
-        keyPath: ["mcpServers"],
-      },
-    ],
-
-    entryDialect: {
-      activationField: {
-        required: { name: "enabled", enabled: true, disabled: false },
-        accepted: [{ name: "enabled", enabled: true, disabled: false }],
-      },
-      stdio: {
-        typeField: { required: null, accepted: [null] },
-        command: "split",
-        envKey: "env",
-      },
-      remote: null,
-    },
-  },
-  axm: {
-    status: "supported",
-    lastVerified: "2026-05-16",
-    writer: {
-      config: {
-        locationIds: ["project-0"],
-      },
-    },
-  },
-} satisfies McpExtensionCapability;
-const remoteCapability = {
-  native: {
-    standardsCompliance: "full",
-    convention: "universal",
-    availability: { via: "native" },
-    vendorStatus: { state: "active" },
-    notes: null,
-    docs: [],
-    sources: ["https://example.com/mcp"],
-    scopes: ["project"],
-    transports: ["http", "stdio"],
-
-    locations: [
-      {
-        id: "project-0",
-        scope: "project",
-        root: "project",
-        path: ".mcp.json",
-        shape: "file",
-        role: "primary",
-        status: "canonical",
-        applicability: { kind: "always" },
-        provenance: { kind: "capability-sources" },
-        format: "json",
-        attribution: "shared",
-        keyPath: ["mcpServers"],
-      },
-    ],
-
-    entryDialect: {
-      activationField: {
-        required: { name: "enabled", enabled: true, disabled: false },
-        accepted: [{ name: "enabled", enabled: true, disabled: false }],
-      },
-      stdio: {
-        typeField: { required: null, accepted: [null] },
-        command: "array",
-        envKey: "env",
-      },
-      remote: {
-        typeField: {
-          required: {
-            name: "type",
-            value: { "streamable-http": "http", sse: "sse" },
-          },
-          accepted: [
-            {
-              name: "type",
-              value: { "streamable-http": "http", sse: "sse" },
-            },
-          ],
-        },
-        urlKey: { "streamable-http": "url", sse: "url" },
-        headersKey: "headers",
-      },
-    },
-  },
-  axm: {
-    status: "supported",
-    lastVerified: "2026-05-16",
-    writer: {
-      config: {
-        locationIds: ["project-0"],
-      },
-    },
-  },
-} satisfies McpExtensionCapability;
-const partialRemoteCapability = {
-  ...remoteCapability,
-  native: {
-    ...remoteCapability.native,
-    standardsCompliance: "partial",
-    notes: "Config dialect is verified, but native semantics diverge from full MCP format.",
-  },
-} satisfies McpExtensionCapability;
-const httpOnlyRemoteCapability = {
-  ...remoteCapability,
-  native: {
-    ...remoteCapability.native,
-    transports: ["http"],
-    entryDialect: {
-      ...remoteCapability.native.entryDialect,
-      stdio: null,
-      remote: {
-        typeField: {
-          required: { name: "type", value: { "streamable-http": "http" } },
-          accepted: [{ name: "type", value: { "streamable-http": "http" } }],
-        },
-        urlKey: { "streamable-http": "url" },
-        headersKey: "headers",
-      },
-    },
-  },
-} satisfies McpExtensionCapability;
-const manifest = (server: Record<string, unknown>) =>
-  decodeManifest({
+const source = (pkg: Record<string, unknown>) =>
+  Schema.decodeUnknownSync(McpServerManifestSchema)({
     owner: "@acme",
     type: "mcp-server",
     name: "context",
     version: "1.0.0",
     server: {
-      name: "io.github.acme/context",
-      description: "Context MCP server",
+      name: "io.example/context",
+      description: "Fixture",
       version: "1.0.0",
-      ...server,
+      packages: [{ transport: { type: "stdio" }, ...pkg }],
     },
   });
-describe("resolveMcpServer", () => {
-  it("resolves stdio packages into agent dialect config", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        packages: [
-          {
-            registryType: "npm",
-            identifier: "@acme/context-mcp",
-            version: "1.2.3",
-            transport: { type: "stdio" },
-            environmentVariables: [{ name: "ACME_TOKEN", isRequired: true }],
-          },
-        ],
-      }),
-      capability: stdioCapability,
-      values: { ACME_TOKEN: "secret" },
-      enabled: true,
-    });
-    expect(result._tag).toBe("resolved");
-    if (result._tag === "resolved") {
-      expect(result.entry).toMatchObject({
-        "x-axm": {
-          v: 1,
-          managed: true,
-          ext: "@acme/mcps/context",
-          source: "registry",
-          ref: "@acme/mcps/context",
-        },
-        command: "npx",
-        args: ["-y", "@acme/context-mcp@1.2.3"],
-        env: { ACME_TOKEN: "secret" },
-        enabled: true,
+describe("qualified runner resolution", () => {
+  for (const [registryType, identifier, command, args] of [
+    ["npm", "@acme/context", "npx", ["-y", "--runtime", "@acme/context@1.2.3", "--server"]],
+    ["pypi", "context", "uvx", ["--runtime", "context==1.2.3", "--server"]],
+    ["nuget", "Context", "dnx", ["--yes", "--runtime", "Context@1.2.3", "--", "--server"]],
+    ["oci", "context", "docker", ["run", "-i", "--rm", "--runtime", "context:1.2.3", "--server"]],
+  ] as const) {
+    it(`keeps ${registryType} runtime and server argument order`, () => {
+      const manifest = source({
+        registryType,
+        identifier,
+        version: "1.2.3",
+        runtimeArguments: [{ type: "positional", value: "--runtime" }],
+        packageArguments: [{ type: "positional", value: "--server" }],
       });
-    }
-  });
-
-  it("keeps declared secret inputs as references in native config", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        packages: [
-          {
-            registryType: "npm",
-            identifier: "@acme/context-mcp",
-            transport: { type: "stdio" },
-            environmentVariables: [{ name: "ACME_TOKEN", isRequired: true, isSecret: true }],
-          },
-        ],
-      }),
-      capability: stdioCapability,
-      values: { ACME_TOKEN: "secret" },
-      enabled: true,
+      const selected = selectMcpDistribution({ manifest, allowUnambiguous: true });
+      if (selected._tag !== "selected") throw new Error("Fixture selection failed");
+      expect(
+        resolveMcpInvocation({ manifest, distribution: selected.candidate.selector }),
+      ).toMatchObject({ _tag: "resolved", connection: { transport: "stdio", command, args } });
     });
-
-    expect(result._tag).toBe("resolved");
-    if (result._tag === "resolved") {
-      expect(result.entry).toMatchObject({ env: { ACME_TOKEN: "${ACME_TOKEN}" } });
-      expect(JSON.stringify(result.entry)).not.toContain("secret");
-    }
-  });
-  it("prefers native remotes when the agent supports HTTP", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        packages: [
-          {
-            registryType: "npm",
-            identifier: "@acme/context-mcp",
-            version: "1.2.3",
-            transport: { type: "stdio" },
-          },
-        ],
-        remotes: [{ type: "streamable-http", url: "https://mcp.acme.test/{tenant}" }],
-      }),
-      capability: remoteCapability,
-      values: { tenant: "prod" },
-      enabled: true,
+  }
+  it("refuses integrity it cannot enforce", () => {
+    const manifest = source({
+      registryType: "npm",
+      identifier: "context",
+      fileSha256: "a".repeat(64),
     });
-    expect(result._tag).toBe("resolved");
-    if (result._tag === "resolved") {
-      expect(result.transport).toBe("streamable-http");
-      expect(result.shimmed).toBe(false);
-      expect(result.entry).toMatchObject({
-        "x-axm": {
-          v: 1,
-          managed: true,
-          ext: "@acme/mcps/context",
-          source: "registry",
-          ref: "@acme/mcps/context",
-        },
-        type: "http",
-        url: "https://mcp.acme.test/prod",
-      });
-    }
-  });
-  it("resolves through writer config even when MCP compliance is partial", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        remotes: [{ type: "streamable-http", url: "https://mcp.acme.test/{tenant}" }],
-      }),
-      capability: partialRemoteCapability,
-      values: { tenant: "prod" },
-      enabled: true,
-    });
-    expect(result._tag).toBe("resolved");
-    if (result._tag === "resolved") {
-      expect(result.entry).toMatchObject({
-        type: "http",
-        url: "https://mcp.acme.test/prod",
-      });
-    }
-  });
-  it("does not project SSE remotes when the target dialect omits SSE", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        remotes: [{ type: "sse", url: "https://mcp.acme.test/sse" }],
-      }),
-      capability: httpOnlyRemoteCapability,
-      values: {},
-      enabled: true,
-    });
-    expect(result).toEqual({
-      _tag: "no-distribution",
-      reason: "no MCP distribution is viable for this agent",
-    });
-  });
-  it("falls back to an mcp-remote stdio shim for remote-only servers", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        remotes: [{ type: "streamable-http", url: "https://mcp.acme.test" }],
-      }),
-      capability: stdioCapability,
-      values: {},
-      enabled: true,
-    });
-    expect(result._tag).toBe("resolved");
-    if (result._tag === "resolved") {
-      expect(result.shimmed).toBe(true);
-      expect(result.entry).toMatchObject({
-        "x-axm": {
-          v: 1,
-          managed: true,
-          ext: "@acme/mcps/context",
-          source: "registry",
-          ref: "@acme/mcps/context",
-        },
-        command: "npx",
-        args: ["-y", "mcp-remote", "https://mcp.acme.test"],
-      });
-    }
-  });
-  it("returns needs-input with placeholders for missing required values", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({
-        packages: [
-          {
-            registryType: "npm",
-            identifier: "@acme/context-mcp",
-            version: "1.2.3",
-            transport: { type: "stdio" },
-            environmentVariables: [{ name: "ACME_TOKEN", isRequired: true }],
-          },
-        ],
-      }),
-      capability: stdioCapability,
-      values: {},
-      enabled: true,
-    });
-    expect(result._tag).toBe("needs-input");
-    if (result._tag === "needs-input") {
-      expect(result.missing).toEqual(["ACME_TOKEN"]);
-      expect(result.entry).toMatchObject({ env: { ACME_TOKEN: "${ACME_TOKEN}" } });
-    }
-  });
-  it("reports nothing-runnable for tombstone manifests", () => {
-    const result = resolveMcpServer({
-      manifest: manifest({}),
-      capability: stdioCapability,
-      values: {},
-      enabled: true,
-    });
-    expect(result).toMatchObject({ _tag: "nothing-runnable" });
+    const selected = selectMcpDistribution({ manifest, allowUnambiguous: true });
+    if (selected._tag !== "selected") throw new Error("Fixture selection failed");
+    expect(
+      resolveMcpInvocation({ manifest, distribution: selected.candidate.selector }),
+    ).toMatchObject({ _tag: "blocked", reason: expect.stringContaining("integrity") });
   });
 });

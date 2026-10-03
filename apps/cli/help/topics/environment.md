@@ -16,6 +16,18 @@ and the default self-managed executable also use the selected home.
 Project state remains in the selected project. This setting does not change
 the operating-system account or its keychain.
 
+## Native MCP configuration selection
+
+Set `AXM_VSCODE_USER_MCP_CONFIG` to the absolute `mcp.json` path for the
+VS Code profile you intend to manage. AXM does not guess an active user profile.
+Project configuration stays in `.vscode/mcp.json`. This selects local
+configuration only; remote windows and native authentication remain host-owned.
+
+AXM captures `CODEX_HOME`, `CLAUDE_CONFIG_DIR`, `COPILOT_HOME`,
+`PI_CODING_AGENT_DIR` and `XDG_CONFIG_HOME` as native configuration-root inputs
+when present. Use the same roots when launching the corresponding host.
+These selection inputs do not resolve any MCP credential reference.
+
 ## Registry credentials
 
 For the effective default Registry, ambient credentials resolve in this
@@ -167,26 +179,27 @@ characters. These display controls do not change JSON documents.
 
 ## Variable reference
 
-| Variable                    | Classification    | Values and default                                          | Effect, precedence, and applicable modes                                                                                                                                           |
-| --------------------------- | ----------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AXM_TOKEN_FILE`            | stable automation | Readable file path; unset                                   | Preferred non-interactive credential. Its trimmed contents take precedence over stored credentials, but follow `AXM_TOKEN`. Applies only to the effective default Registry origin. |
-| `AXM_TOKEN`                 | stable automation | Non-empty token; unset                                      | Highest-precedence ambient credential for the effective default Registry origin. More exposed than `AXM_TOKEN_FILE`; never log it.                                                 |
-| `AXM_TRUSTED_PUBLISHING`    | stable automation | `0` disables; enabled otherwise                             | `0` stops AXM from exchanging a GitHub Actions job's ID token for a workload token, even when the job offers one.                                                                  |
-| `AXM_USER_HOME`             | stable automation | Non-empty home-directory path; platform home when unset     | Relocates the user workspace and application resources described above; project state remains in the selected project.                                                             |
-| `AXM_NO_UPDATE_CHECK`       | stable automation | `1` disables; enabled otherwise                             | Unconditionally disables the informational startup update check in every output and interaction mode.                                                                              |
-| `AXM_TELEMETRY`             | stable automation | `0`, `false`, `errors`, `1`, or `true`; off by default      | Controls telemetry for the current process. `DO_NOT_TRACK=1` wins. Unset or unrecognized values remain off.                                                                        |
-| `AXM_TELEMETRY_PREVIEW`     | stable automation | `1` or `true` enables; disabled otherwise                   | Prints each would-be telemetry payload to stderr and sends nothing. Obeys `DO_NOT_TRACK` and `AXM_TELEMETRY`; writes nothing while telemetry is off.                               |
-| `AXM_VERBOSE`               | stable automation | `1` or `true` enables; disabled otherwise                   | Enables verbose diagnostics unless quiet mode is selected. Debug mode takes precedence.                                                                                            |
-| `AXM_DEBUG`                 | stable automation | `1` or `true` enables; disabled otherwise                   | Enables debug diagnostics unless quiet mode is selected; takes precedence over verbose mode.                                                                                       |
-| `AXM_ASCII`                 | stable automation | Non-empty enables; Unicode glyphs otherwise                 | Selects ASCII display symbols in human output while preserving content; JSON mode is unaffected. See locale and terminal inputs above.                                             |
-| `AXM_INSTALL_DIR`           | stable automation | Absolute directory path; `$AXM_USER_HOME/.axm/bin`          | Selects the destination directory used by the public shell and PowerShell installers.                                                                                              |
-| `AXM_INSTALL_VERSION`       | stable automation | Exact `1.2.3`-style release; automatic selection when unset | Selects one immutable release for the public installers without stable-channel discovery.                                                                                          |
-| `AXM_CLAUDE_SKILLS_DIR`     | internal          | Directory path; agent default when unset                    | Test/development override for Claude Code's skill directory. An empty override is invalid.                                                                                         |
-| `AXM_GEMINI_CLI_SKILLS_DIR` | internal          | Directory path; agent default when unset                    | Test/development override for Gemini CLI's skill directory. An empty override is invalid.                                                                                          |
-| `AXM_INSTALL_BASE_URL`      | internal          | URL; release-derived URL when unset                         | Test/development override for the public installers' artifact base URL.                                                                                                            |
-| `AXM_INSTALL_ENTRYPOINT`    | internal          | `cmd` or unset                                              | PowerShell wrapper hint used only to render shell-appropriate PATH guidance.                                                                                                       |
-| `AXM_INSTALL_GITHUB_REPO`   | internal          | GitHub `owner/repo`; `agentxm/axm`                          | Test/development override for install-script artifact retrieval. It does not change upgrade release authority.                                                                     |
-| `AXM_TELEMETRY_BASE_URL`    | internal          | URL; AXM telemetry service                                  | Test/development override for the telemetry endpoint.                                                                                                                              |
+| Variable                     | Classification    | Values and default                                          | Effect, precedence, and applicable modes                                                                                                                                           |
+| ---------------------------- | ----------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AXM_TOKEN_FILE`             | stable automation | Readable file path; unset                                   | Preferred non-interactive credential. Its trimmed contents take precedence over stored credentials, but follow `AXM_TOKEN`. Applies only to the effective default Registry origin. |
+| `AXM_TOKEN`                  | stable automation | Non-empty token; unset                                      | Highest-precedence ambient credential for the effective default Registry origin. More exposed than `AXM_TOKEN_FILE`; never log it.                                                 |
+| `AXM_TRUSTED_PUBLISHING`     | stable automation | `0` disables; enabled otherwise                             | `0` stops AXM from exchanging a GitHub Actions job's ID token for a workload token, even when the job offers one.                                                                  |
+| `AXM_USER_HOME`              | stable automation | Non-empty home-directory path; platform home when unset     | Relocates the user workspace and application resources described above; project state remains in the selected project.                                                             |
+| `AXM_NO_UPDATE_CHECK`        | stable automation | `1` disables; enabled otherwise                             | Unconditionally disables the informational startup update check in every output and interaction mode.                                                                              |
+| `AXM_TELEMETRY`              | stable automation | `0`, `false`, `errors`, `1`, or `true`; off by default      | Controls telemetry for the current process. `DO_NOT_TRACK=1` wins. Unset or unrecognized values remain off.                                                                        |
+| `AXM_TELEMETRY_PREVIEW`      | stable automation | `1` or `true` enables; disabled otherwise                   | Prints each would-be telemetry payload to stderr and sends nothing. Obeys `DO_NOT_TRACK` and `AXM_TELEMETRY`; writes nothing while telemetry is off.                               |
+| `AXM_VERBOSE`                | stable automation | `1` or `true` enables; disabled otherwise                   | Enables verbose diagnostics unless quiet mode is selected. Debug mode takes precedence.                                                                                            |
+| `AXM_DEBUG`                  | stable automation | `1` or `true` enables; disabled otherwise                   | Enables debug diagnostics unless quiet mode is selected; takes precedence over verbose mode.                                                                                       |
+| `AXM_ASCII`                  | stable automation | Non-empty enables; Unicode glyphs otherwise                 | Selects ASCII display symbols in human output while preserving content; JSON mode is unaffected. See locale and terminal inputs above.                                             |
+| `AXM_INSTALL_DIR`            | stable automation | Absolute directory path; `$AXM_USER_HOME/.axm/bin`          | Selects the destination directory used by the public shell and PowerShell installers.                                                                                              |
+| `AXM_INSTALL_VERSION`        | stable automation | Exact `1.2.3`-style release; automatic selection when unset | Selects one immutable release for the public installers without stable-channel discovery.                                                                                          |
+| `AXM_VSCODE_USER_MCP_CONFIG` | stable automation | Absolute profile `mcp.json` path; unresolved when unset     | Selects the local VS Code user MCP file. An unset or invalid selection is reported rather than guessed.                                                                            |
+| `AXM_CLAUDE_SKILLS_DIR`      | internal          | Directory path; agent default when unset                    | Test/development override for Claude Code's skill directory. An empty override is invalid.                                                                                         |
+| `AXM_GEMINI_CLI_SKILLS_DIR`  | internal          | Directory path; agent default when unset                    | Test/development override for Gemini CLI's skill directory. An empty override is invalid.                                                                                          |
+| `AXM_INSTALL_BASE_URL`       | internal          | URL; release-derived URL when unset                         | Test/development override for the public installers' artifact base URL.                                                                                                            |
+| `AXM_INSTALL_ENTRYPOINT`     | internal          | `cmd` or unset                                              | PowerShell wrapper hint used only to render shell-appropriate PATH guidance.                                                                                                       |
+| `AXM_INSTALL_GITHUB_REPO`    | internal          | GitHub `owner/repo`; `agentxm/axm`                          | Test/development override for install-script artifact retrieval. It does not change upgrade release authority.                                                                     |
+| `AXM_TELEMETRY_BASE_URL`     | internal          | URL; AXM telemetry service                                  | Test/development override for the telemetry endpoint.                                                                                                                              |
 
 ## Where to go next
 

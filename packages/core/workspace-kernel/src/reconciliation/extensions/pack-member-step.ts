@@ -62,6 +62,7 @@ export type PackMemberRef =
 
 export interface PackMemberStepArgs {
   readonly ref: PackMemberRef;
+  readonly authorizeDistributionSelection?: boolean;
   readonly nativeInsertionEligible?: boolean;
   readonly nonInteractive: boolean;
   /**
@@ -194,10 +195,15 @@ export const buildPackMemberStep: (
             name: "install-mcp-server",
             args: {
               ref,
+              ...(args.authorizeDistributionSelection === undefined
+                ? {}
+                : { authorizeDistributionSelection: args.authorizeDistributionSelection }),
+              ...(args.nativeInsertionEligible === undefined
+                ? {}
+                : { nativeInsertionEligible: args.nativeInsertionEligible }),
               nonInteractive: args.nonInteractive,
               force: args.force === true,
               strictAgentSync: Option.some(args.strictAgentSync),
-              env: Option.none(),
             },
           })
           .pipe(Effect.mapError(toStepFailure)),

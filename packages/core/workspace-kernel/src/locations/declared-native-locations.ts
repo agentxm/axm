@@ -5,8 +5,10 @@ import type { AgentDescriptor } from "@agentxm/extension-model/unstable/agents/t
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export interface NativeDirectoryInputs {
+  readonly userHome?: string;
   readonly skillsDirectoryOverrides: Readonly<Partial<Record<string, string>>>;
   readonly xdgConfigRoot?: string;
+  readonly selectedFiles?: Readonly<Partial<Record<"vscode-user-mcp", string>>>;
   readonly userConfigRootOverrides?: Readonly<Partial<Record<string, string>>>;
 }
 
@@ -34,6 +36,17 @@ export const resolveNativeReadLocation = <Location extends NativeReadLocation>(
     declaration.path.includes("<")
   )
     return undefined;
+  if (declaration.selectedFile !== undefined) {
+    const selected = inputs.selectedFiles?.[declaration.selectedFile];
+    if (args.scope !== "user" || selected === undefined || !path.isAbsolute(selected))
+      return undefined;
+    return {
+      declaration,
+      nativeRoot: path.dirname(selected),
+      path: path.resolve(selected),
+      availability: "declared",
+    };
+  }
   const override =
     declaration.configRootRelativePath === undefined
       ? undefined

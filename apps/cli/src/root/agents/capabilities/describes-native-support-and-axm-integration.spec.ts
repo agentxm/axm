@@ -118,12 +118,12 @@ describe("Coding-agent capability reports", () => {
         axm: "unsupported",
       });
       expect(report.items.find((item) => item.type === "mcp-server")).toMatchObject({
-        native: "unknown",
-        axm: "unsupported",
+        native: "native",
+        axm: "writer",
       });
       expect(
         report.items.find((item) => item.type === "mcp-server")?.assessment.installability.status,
-      ).toBe("unknown");
+      ).toBe("conditional");
     }),
   );
 });

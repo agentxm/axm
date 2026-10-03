@@ -149,7 +149,10 @@ export interface InstallExtensionsRequest {
   /** The local connection name an MCP install writes under. */
   readonly localName: Option.Option<string>;
   /** `KEY=VALUE` inputs an MCP install supplies. */
-  readonly env: ReadonlyArray<string>;
+  readonly bind: ReadonlyArray<string>;
+  readonly bindEnv: ReadonlyArray<string>;
+  readonly distributionId?: string;
+  readonly nativeOauth?: boolean;
   /** No prompt can open in this invocation. */
   readonly nonInteractive: boolean;
   /** Human-readable name for the operation, chosen by the command. */
@@ -414,7 +417,12 @@ const planForType = (
         const parsed = yield* parseMcpServerInstallRequest({
           source,
           localName: request.localName,
-          env: request.env,
+          bind: request.bind,
+          bindEnv: request.bindEnv,
+          ...(request.distributionId === undefined
+            ? {}
+            : { distributionId: request.distributionId }),
+          ...(request.nativeOauth === undefined ? {} : { nativeOauth: request.nativeOauth }),
           force: request.reinstall,
           nonInteractive: request.nonInteractive,
         });
@@ -708,7 +716,12 @@ const planRequest = (
       onNone: () => resolveRootInstallIntent(source).pipe(Effect.map((intent) => intent.type)),
     });
 
-    const hasMcpOnlyInput = Option.isSome(request.localName) || request.env.length > 0;
+    const hasMcpOnlyInput =
+      Option.isSome(request.localName) ||
+      request.bind.length > 0 ||
+      request.bindEnv.length > 0 ||
+      request.distributionId !== undefined ||
+      request.nativeOauth === true;
     const locatorSelectsOnlyMcp =
       installSelectorsFor(request.selectors, "mcp-server").length > 0 &&
       installableExtensionTypes.every(

@@ -11,7 +11,7 @@ export {
   McpCanonicalPathUnsafe,
   McpConnectionConflict,
   McpInstallStateMissing,
-  McpRequiredInputsMissing,
+  McpConfigurationRefused,
   McpWorkspacePackageInvalid,
 } from "./errors.js";
 export { materializeAuthoredMcpServer } from "./install/authored-materialization.js";

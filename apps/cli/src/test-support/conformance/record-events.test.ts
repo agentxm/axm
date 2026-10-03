@@ -76,7 +76,8 @@ describe("recorded lifecycle event logs", () => {
       all: false,
       force: false,
       preview,
-      env: [],
+      bind: [],
+      bindEnv: [],
       localName: Option.none(),
       bundled: false,
     });

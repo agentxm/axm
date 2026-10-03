@@ -43,7 +43,6 @@ import {
   type InstallableSkillTarget,
   type ManagerRequirements,
   type AuthorMaterialization,
-  McpSecretStore,
 } from "@agentxm/workspace-kernel/materialization";
 import {
   buildAuthoredExtensionStep,
@@ -207,8 +206,7 @@ export type CreateExtensionRequirements =
   | SettingsReader
   | SettingsWriter
   | WorkspaceLocation
-  | CodingAgentRepository
-  | McpSecretStore;
+  | CodingAgentRepository;
 
 /**
  * A settled creation: every decision is made and nothing is written. The

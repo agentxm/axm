@@ -43,7 +43,11 @@ describe("AdoptExtension over every extension type", () => {
         expect(deriveOperationOutcome(resolution)).toBe("applied");
         expect(created.snapshot(`${row.plural}/review`)).toEqual(before);
         expect(created.exists(`${parent}/review`)).toBe(false);
-        expect(created.settings()).toMatchObject({ [row.settingsKey]: { review: "workspace" } });
+        expect(created.settings()).toMatchObject({
+          [row.settingsKey]: {
+            review: row.type === "mcp-server" ? { source: "workspace" } : "workspace",
+          },
+        });
       }),
     );
 });

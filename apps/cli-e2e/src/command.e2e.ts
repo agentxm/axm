@@ -573,7 +573,7 @@ describe("main CLI help", () => {
       );
       expect(setup.exitCode).toBe(0);
 
-      const addArgs = ["mcps", "add", "demo", "--command", "node server.js", "--json"];
+      const addArgs = ["mcps", "add", "demo", "--command", "node", "--arg", "server.js", "--json"];
       const firstAdd = await runCli(addArgs, { cwd: workspace.path });
       const secondAdd = await runCli(addArgs, { cwd: workspace.path });
       expect(firstAdd.exitCode).toBe(0);

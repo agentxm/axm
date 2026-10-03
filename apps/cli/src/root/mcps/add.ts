@@ -1,6 +1,7 @@
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { makeAppError } from "../../app-error/index.js";
 import { AddInlineMcpServer } from "@agentxm/workspace-features/configuration";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -18,6 +19,12 @@ import { failureToAppError } from "../../app-error/conversions.js";
 
 export interface McpsAddArgs {
   readonly name: string;
+  readonly connection: Option.Option<string>;
+  readonly transport: Option.Option<"stdio" | "streamable-http" | "sse">;
+  readonly arg: ReadonlyArray<string>;
+  readonly cwd: Option.Option<string>;
+  readonly headerEnv: ReadonlyArray<string>;
+  readonly nativeOauth: boolean;
   readonly command: Option.Option<string>;
   readonly url: Option.Option<string>;
   readonly env: ReadonlyArray<string>;
@@ -35,7 +42,20 @@ export const handleMcpsAdd = (args: McpsAddArgs) =>
   );
 
 const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
+  const connection: unknown = Option.isSome(args.connection)
+    ? yield* Effect.try({
+        try: () => JSON.parse(args.connection.pipe(Option.getOrElse(() => ""))),
+        catch: () =>
+          makeAppError({ code: "usage", detail: "--connection requires a JSON connection object" }),
+      })
+    : undefined;
   const candidate = yield* AddInlineMcpServer.prepare({
+    ...(connection === undefined ? {} : { connection }),
+    ...(Option.isSome(args.transport) ? { transport: args.transport.value } : {}),
+    args: args.arg,
+    ...(Option.isSome(args.cwd) ? { cwd: args.cwd.value } : {}),
+    headerEnv: args.headerEnv,
+    ...(args.nativeOauth ? { auth: { type: "native-oauth" } as const } : {}),
     name: args.name,
     ...(Option.isSome(args.command) ? { command: args.command.value } : {}),
     ...(Option.isSome(args.url) ? { url: args.url.value } : {}),
@@ -68,8 +88,32 @@ const addConfig = {
   scope: scopeFlag.pipe(
     Flag.withDescription("Add to project (default) or user-level configuration"),
   ),
+  connection: Flag.String("connection").pipe(
+    Flag.optional,
+    Flag.withDescription("Canonical typed connection as JSON; values remain literal"),
+  ),
+  transport: Flag.Literals("transport", ["stdio", "streamable-http", "sse"]).pipe(
+    Flag.optional,
+    Flag.withDescription("Explicit transport; required for SSE"),
+  ),
+  arg: Flag.String("arg").pipe(
+    Flag.atLeast(0),
+    Flag.withDescription("One literal process argument; repeat in invocation order"),
+  ),
+  cwd: Flag.String("cwd").pipe(
+    Flag.optional,
+    Flag.withDescription("Working directory; relative paths use the selected scope root"),
+  ),
+  headerEnv: Flag.String("header-env").pipe(
+    Flag.atLeast(0),
+    Flag.withDescription("Native environment header binding Name=ENV_NAME"),
+  ),
+  nativeOauth: Flag.Boolean("native-oauth").pipe(
+    Flag.withDefault(false),
+    Flag.withDescription("Authentication is owned by the native host"),
+  ),
   command: Flag.optional(Flag.String("command")).pipe(
-    Flag.withDescription('Inline stdio command, such as "npx -y linear-mcp-server"'),
+    Flag.withDescription('Single literal executable, such as "npx"'),
   ),
   url: Flag.optional(Flag.String("url")).pipe(Flag.withDescription("Inline remote MCP server URL")),
   env: Flag.String("env").pipe(
@@ -84,31 +128,21 @@ const addConfig = {
   preview: previewCapabilityFlag("Show what would change without applying"),
 } as const;
 
-export const addCommand = Command.make(
-  "add",
-  addConfig,
-  ({ name, scope, command, url, env, header, force, preview }) =>
-    handleMcpsAdd({
-      name,
-      command,
-      url,
-      env,
-      header,
-      force,
-      preview,
-    }).pipe(withWorkspace(scope), withRuntime("mcps add")),
+export const addCommand = Command.make("add", addConfig, ({ scope, ...args }) =>
+  handleMcpsAdd(args).pipe(withWorkspace(scope), withRuntime("mcps add")),
 ).pipe(
   withArgvTracking(addConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription("Add an inline MCP server"),
   Command.withExamples([
     {
-      command: 'axm mcps add linear --command "npx -y linear-mcp-server" --env LINEAR_API_KEY',
+      command:
+        "axm mcps add linear --command npx --arg=-y --arg=linear-mcp-server --env LINEAR_API_KEY",
       description: "Add an inline stdio MCP server",
     },
     {
       command:
-        'axm mcps add sentry --url https://mcp.sentry.dev/sse --header "Authorization:Bearer ${SENTRY_TOKEN}"',
+        "axm mcps add sentry --transport sse --url https://mcp.sentry.dev/sse --native-oauth",
       description: "Add an inline remote MCP server",
     },
   ]),

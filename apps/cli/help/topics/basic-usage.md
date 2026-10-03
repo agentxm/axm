@@ -145,8 +145,8 @@ Use `axm mcps add` to configure MCP servers you already know about without
 publishing them first.
 
 ```bash
-axm mcps add linear --command "npx -y linear-mcp-server" --env LINEAR_API_KEY
-axm mcps add sentry --url https://mcp.sentry.dev/sse --header 'Authorization:Bearer ${SENTRY_TOKEN}'
+axm mcps add linear --command npx --arg=-y --arg=linear-mcp-server --env LINEAR_API_KEY
+axm mcps add sentry --transport sse --url https://mcp.sentry.dev/sse --native-oauth
 axm mcps import
 axm sync
 ```

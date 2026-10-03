@@ -44,7 +44,7 @@ const evaluate = (source: string, rows: Readonly<Record<string, McpServerLockEnt
   evaluateDesiredState({
     scope: "project",
     settings: Schema.decodeUnknownSync(SettingsSchema)({
-      mcpServers: { "local-alias": { kind: "sourced", source, env: {}, enabled: true } },
+      mcpServers: { "local-alias": { kind: "sourced", source, bindings: [], enabled: true } },
     }),
     inheritedSettings: Schema.decodeUnknownSync(SettingsSchema)({}),
     defaultRegistry: "test",

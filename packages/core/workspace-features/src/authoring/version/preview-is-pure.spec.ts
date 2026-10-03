@@ -41,7 +41,11 @@ describe("Version preview purity", () => {
   const authoredWorkspace = () => {
     const created = makeAuthoringWorkspace({ owner: "@acme", agents: [] });
     cleanups.push(created.cleanup);
-    created.writeSettings({ owner: "@acme", agents: [], skills: { review: "workspace" } });
+    created.writeSettings({
+      owner: "@acme",
+      agents: [],
+      skills: { review: "workspace" },
+    });
     writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
       parent: "skills",
       version: "1.0.0",

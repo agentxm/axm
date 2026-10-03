@@ -18,11 +18,7 @@ import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
-import type {
-  ManagerRequirements,
-  McpSecretStore,
-  McpServerManager,
-} from "../materialization/index.js";
+import type { ManagerRequirements, McpServerManager } from "../materialization/index.js";
 import {
   ExtensionResolutionFailed,
   type HeldReleasePolicy,
@@ -56,8 +52,8 @@ import { kernelFailureToStepFailure } from "./failure-rendering.js";
 
 /**
  * What an install or uninstall plan step declares at execution time: the
- * manager's own requirements, the transaction scope its closure opens, the
- * keychain an MCP connection reads, and the owned workspace-state ports and agent
+ * manager's own requirements, the transaction scope its closure opens, and
+ * the owned workspace-state ports and agent
  * repository its artifact observes. These travel with the step and are
  * composed once at the application's runtime boundary; nothing is captured
  * into a step's closure on the way, and no failure adapter is among them.
@@ -66,7 +62,6 @@ export type InstallStepRequirements =
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
-  | McpSecretStore
   | CodingAgentRepository
   | LockfileReader
   | WorkspaceRecords

@@ -35,7 +35,7 @@ import type { ExtensionManagerFailure } from "./errors.js";
 import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
 import type { ConfiguredAgentOutcome, JobStepResult, Operation } from "../operations/index.js";
 import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement/index.js";
-import type { McpSecretStore } from "./ports/mcp-secret-store.js";
+import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { TreeIntegrity } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
@@ -164,6 +164,8 @@ export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerS
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstallMcpServerOperationArgs {
+  /** Explicit authoring/install authority to select a unique distribution. Never set by sync. */
+  readonly authorizeDistributionSelection?: boolean;
   readonly nativeInsertionEligible?: boolean;
   /** Physical routes newly authorized by a captured membership transition. */
   readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
@@ -181,8 +183,11 @@ export interface InstallMcpServerOperationArgs {
   readonly declaration?: { readonly name: string; readonly versionRange: Option.Option<string> };
   /** When true, enforce strict policy for MCP sync outcomes. */
   readonly strictAgentSync?: Option.Option<boolean>;
-  /** Resolved MCP input values from `--env KEY=VALUE` flags. */
-  readonly env?: Option.Option<Readonly<Record<string, string>>>;
+  readonly distribution?: McpDistribution;
+  /** Convenience selector accepted only at an authorizing installation boundary. */
+  readonly distributionId?: string;
+  readonly bindings?: ReadonlyArray<McpBinding>;
+  readonly auth?: McpAuth;
   /**
    * Whether the invoking surface can prompt for missing required inputs.
    * The transport boundary resolves flag, CI, and TTY state.
@@ -203,7 +208,7 @@ export type InstallMcpServerOperation = Operation<
 /**
  * Everything installing one MCP connection reads and writes: the manager
  * requirements, the workspace records the install declares, the agents it
- * projects into, and the credential store its secret inputs are kept in.
+ * projects into. Native hosts own runtime credentials.
  */
 export type McpConnectionInstallRequirements =
   | ManagerRequirements
@@ -213,8 +218,7 @@ export type McpConnectionInstallRequirements =
   | AcceptedResolutionWriter
   | LockfileReader
   | CodingAgentRepository
-  | WorkspaceLocation
-  | McpSecretStore;
+  | WorkspaceLocation;
 
 export interface McpServerManagerService
   extends

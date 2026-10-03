@@ -55,7 +55,8 @@ describe("Quiet machine diagnostics", () => {
         all: true,
         force: false,
         preview: false,
-        env: [],
+        bind: [],
+        bindEnv: [],
         localName: Option.none(),
         bundled: false,
       });

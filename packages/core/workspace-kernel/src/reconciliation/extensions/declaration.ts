@@ -101,7 +101,9 @@ export const declareMaterialization = <TRef extends ExtensionRef>(args: {
         source: yield* sourceFor(current?.kind === "sourced" ? current.source : undefined),
         enabled: current?.enabled ?? true,
         ...(current?.distribute === undefined ? {} : { distribute: current.distribute }),
-        env: current?.env ?? {},
+        ...(current?.distribution === undefined ? {} : { distribution: current.distribution }),
+        ...(current?.bindings === undefined ? {} : { bindings: current.bindings }),
+        ...(current?.auth === undefined ? {} : { auth: current.auth }),
       });
     } else if (ref.type === "knowledge") {
       const current = (yield* reader.entries("knowledge"))[name];

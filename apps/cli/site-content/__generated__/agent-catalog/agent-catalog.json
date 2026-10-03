@@ -1655,7 +1655,7 @@
             "scopes": ["user", "project"],
             "mechanisms": []
           },
-          "axm": { "status": "writer", "legacyLastVerified": "2026-08-05", "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
             "status": "conditional",
             "conditions": [],
@@ -2992,7 +2992,7 @@
             "scopes": ["user", "project"],
             "mechanisms": []
           },
-          "axm": { "status": "writer", "legacyLastVerified": "2026-09-12", "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
             "status": "conditional",
             "conditions": [],
@@ -4122,7 +4122,7 @@
             "scopes": ["user", "project"],
             "mechanisms": []
           },
-          "axm": { "status": "writer", "legacyLastVerified": "2026-08-05", "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
             "status": "conditional",
             "conditions": [],
@@ -6059,7 +6059,7 @@
             "scopes": ["user", "project"],
             "mechanisms": []
           },
-          "axm": { "status": "writer", "legacyLastVerified": "2026-09-12", "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
             "status": "conditional",
             "conditions": [],
@@ -10241,7 +10241,7 @@
             "scopes": ["user", "project"],
             "mechanisms": []
           },
-          "axm": { "status": "writer", "legacyLastVerified": "2026-09-29", "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
             "status": "conditional",
             "conditions": [
@@ -10551,7 +10551,7 @@
           "conditions": [],
           "limitations": [
             "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-            "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+            "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
             "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions."
           ],
           "claimScope": "Current terminal product and configuration entry points"
@@ -10585,7 +10585,7 @@
             ],
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-              "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+              "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
@@ -10594,27 +10594,27 @@
         },
         "mcp-server": {
           "native": {
-            "status": "unknown",
-            "availability": { "via": "unknown" },
+            "status": "native",
+            "availability": { "via": "native" },
             "vendorStatus": { "state": "active" },
-            "notes": "The historical profile describes MCP through TypeScript extensions. Current reviewed product documentation does not resolve the core MCP boundary.",
+            "notes": "Requires Pi 1.0 or later. Native runtime verification is pending. Hyphens and underscores collide in exposed server names. Reload the host after configuration changes.",
             "docs": [],
             "sources": [
-              "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/README.md"
+              "https://github.com/earendil-works/pi/blob/v1.0.0/packages/coding-agent/docs/mcp.md"
             ],
             "review": null,
-            "scopes": [],
+            "scopes": ["project", "user"],
             "mechanisms": []
           },
-          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
-            "status": "unknown",
+            "status": "conditional",
             "conditions": [
-              "The historical profile describes MCP through TypeScript extensions. Current reviewed product documentation does not resolve the core MCP boundary."
+              "Requires Pi 1.0 or later. Native runtime verification is pending. Hyphens and underscores collide in exposed server names. Reload the host after configuration changes."
             ],
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-              "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+              "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
@@ -10652,7 +10652,7 @@
             ],
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-              "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+              "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
@@ -10685,7 +10685,7 @@
             ],
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-              "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+              "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
@@ -10714,7 +10714,7 @@
             ],
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
-              "The former README no longer establishes the deliberate no-MCP/no-per-tool-permissions assertions; those availability claims remain unknown pending current extension/security documentation.",
+              "Pi 1.0 MCP configuration is implemented from its versioned documentation; native runtime acceptance remains pending.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
               "AXM has not implemented Pi extension hook writers.",
               "No scoped native capability review is recorded.",
@@ -12551,6 +12551,137 @@
             "limitations": [
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
+              "No scoped native capability review is recorded.",
+              "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "vscode",
+      "name": "Visual Studio Code",
+      "vendor": "Microsoft",
+      "homepage": "https://code.visualstudio.com",
+      "interfaces": ["ide-extension"],
+      "lifecycle": { "state": "active" },
+      "docs": [
+        {
+          "label": "MCP configuration",
+          "url": "https://code.visualstudio.com/docs/agents/reference/mcp-configuration"
+        }
+      ],
+      "profile": null,
+      "capabilities": {
+        "skill": {
+          "native": {
+            "status": "unknown",
+            "availability": { "via": "unknown" },
+            "vendorStatus": { "state": "active" },
+            "notes": "This adapter models the local MCP extension-host surface only.",
+            "docs": [],
+            "sources": ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
+            "review": null,
+            "scopes": [],
+            "mechanisms": []
+          },
+          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "installability": {
+            "status": "unknown",
+            "conditions": ["This adapter models the local MCP extension-host surface only."],
+            "limitations": [
+              "No scoped native capability review is recorded.",
+              "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
+            ]
+          }
+        },
+        "mcp-server": {
+          "native": {
+            "status": "native",
+            "availability": { "via": "native" },
+            "vendorStatus": { "state": "active" },
+            "notes": "Local extension host only. Select the absolute user-profile mcp.json path with AXM_VSCODE_USER_MCP_CONFIG. Trust, input prompts, OAuth, policies and remote windows remain host-owned. Native runtime acceptance is pending.",
+            "docs": [],
+            "sources": ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
+            "review": null,
+            "scopes": ["project", "user"],
+            "mechanisms": []
+          },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
+          "installability": {
+            "status": "conditional",
+            "conditions": [
+              "VS Code Agent Host is selected; local extension-host configuration alone does not establish this reader.",
+              "VS Code Agent Host is selected with the default Copilot home.",
+              "Local extension host only. Select the absolute user-profile mcp.json path with AXM_VSCODE_USER_MCP_CONFIG. Trust, input prompts, OAuth, policies and remote windows remain host-owned. Native runtime acceptance is pending."
+            ],
+            "limitations": [
+              "No scoped native capability review is recorded.",
+              "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
+            ]
+          }
+        },
+        "subagent": {
+          "native": {
+            "status": "unknown",
+            "availability": { "via": "unknown" },
+            "vendorStatus": { "state": "active" },
+            "notes": "This adapter models the local MCP extension-host surface only.",
+            "docs": [],
+            "sources": ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
+            "review": null,
+            "scopes": [],
+            "mechanisms": []
+          },
+          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "installability": {
+            "status": "unknown",
+            "conditions": ["This adapter models the local MCP extension-host surface only."],
+            "limitations": [
+              "No scoped native capability review is recorded.",
+              "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
+            ]
+          }
+        },
+        "rule": {
+          "native": {
+            "status": "unknown",
+            "availability": { "via": "unknown" },
+            "vendorStatus": { "state": "active" },
+            "notes": "This adapter models the local MCP extension-host surface only.",
+            "docs": [],
+            "sources": ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
+            "review": null,
+            "scopes": [],
+            "mechanisms": []
+          },
+          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "installability": {
+            "status": "unknown",
+            "conditions": ["This adapter models the local MCP extension-host surface only."],
+            "limitations": [
+              "No scoped native capability review is recorded.",
+              "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
+            ]
+          }
+        },
+        "hook": {
+          "native": {
+            "status": "unknown",
+            "availability": { "via": "unknown" },
+            "vendorStatus": { "state": "active" },
+            "notes": "This adapter models the local MCP extension-host surface only.",
+            "docs": [],
+            "sources": ["https://code.visualstudio.com/docs/agents/reference/mcp-configuration"],
+            "review": null,
+            "scopes": [],
+            "mechanisms": []
+          },
+          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "installability": {
+            "status": "unknown",
+            "conditions": ["This adapter models the local MCP extension-host surface only."],
+            "limitations": [
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]

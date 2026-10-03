@@ -1,4 +1,10 @@
 import {
+  isMcpCredentialName,
+  type McpAuth,
+  type McpValue,
+} from "@agentxm/workspace-kernel/agent-adapters";
+import type { AuthoredMcpPreferences } from "../authored-declaration.js";
+import {
   prepareExecutionCandidate,
   resolveExecutionCandidate,
   type ExecutionCandidate,
@@ -33,7 +39,6 @@ import {
   SkillManager,
   SubagentManager,
   McpServerManager,
-  McpSecretStore,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type AuthorMaterialization,
@@ -155,11 +160,11 @@ export interface NativeMcpCandidate {
    * that no package manifest can represent losslessly.
    */
   readonly remote: Option.Option<{
-    readonly url: string;
-    readonly headers: Readonly<Record<string, string>>;
+    readonly transport: "streamable-http" | "sse";
+    readonly url: McpValue;
+    readonly headers: Readonly<Record<string, McpValue>>;
   }>;
-  /** Connection inputs the declaration carries. */
-  readonly env: Readonly<Record<string, string>>;
+  readonly auth?: McpAuth;
   /** Every native declaration of this connection, across agent config files. */
   readonly entries: ReadonlyArray<AgentMcpConfigEntryRef>;
 }
@@ -203,8 +208,7 @@ export type ImportNativeExtensionRequirements =
   | SettingsReader
   | WorkspaceLocation
   | WorkspaceRecords
-  | CodingAgentRepository
-  | McpSecretStore;
+  | CodingAgentRepository;
 
 /** A settled import: every decision is made and nothing under the workspace is written. */
 export interface ImportNativeExtensionCandidate {
@@ -293,8 +297,9 @@ const selectNativeMcpCandidate = (
 ): Effect.Effect<
   {
     readonly candidate: NativeMcpCandidate;
+    readonly transport: "streamable-http" | "sse";
     readonly url: string;
-    readonly headers: Readonly<Record<string, string>>;
+    readonly headers: Readonly<Record<string, McpValue>>;
   },
   AuthoringFailed
 > => {
@@ -327,8 +332,17 @@ const selectNativeMcpCandidate = (
       }),
     );
   }
+  if (typeof candidate.remote.value.url !== "string")
+    return Effect.fail(
+      new AuthoringFailed({
+        category: "usage",
+        detail:
+          "A local symbolic endpoint cannot be published as a fixed remote; retain this connection inline",
+      }),
+    );
   return Effect.succeed({
     candidate,
+    transport: candidate.remote.value.transport,
     url: candidate.remote.value.url,
     headers: candidate.remote.value.headers,
   });
@@ -339,8 +353,9 @@ const convertedMcpManifest = (args: {
   readonly owner: Handle;
   readonly name: ExtensionName;
   readonly nativeName: string;
+  readonly transport: "streamable-http" | "sse";
   readonly url: string;
-  readonly headers: Readonly<Record<string, string>>;
+  readonly headers: Readonly<Record<string, McpValue>>;
 }): McpServerManifest => ({
   $schema: MCP_SERVER_MANIFEST_SCHEMA_URL,
   owner: args.owner,
@@ -355,12 +370,16 @@ const convertedMcpManifest = (args: {
     version: INITIAL_IMPORT_VERSION,
     remotes: [
       {
-        type: "streamable-http",
+        type: args.transport,
         url: args.url,
         ...(Object.keys(args.headers).length === 0
           ? {}
           : {
-              headers: Object.entries(args.headers).map(([name, value]) => ({ name, value })),
+              headers: Object.keys(args.headers).map((name) => ({
+                name,
+                isRequired: true,
+                isSecret: isMcpCredentialName(name),
+              })),
             }),
       },
     ],
@@ -379,7 +398,7 @@ interface SettledConversion {
   /** Where the native content came from, in operator-facing terms. */
   readonly origin: string;
   /** Connection inputs the converted declaration carries. */
-  readonly env: Readonly<Record<string, string>>;
+  readonly mcpPreferences: AuthoredMcpPreferences;
   /** Native files the conversion may rewrite, protected by the transaction. */
   readonly nativeTargets: ReadonlyArray<string>;
   /** Files the staged package must contain before it is published. */
@@ -432,7 +451,7 @@ const nativeConversion = Effect.fn("ImportNativeExtension.nativeConversion")(fun
   const stagedHash = yield* computePackageContentHash(stagedPackage);
   return {
     origin: acquired.origin,
-    env: {},
+    mcpPreferences: {},
     nativeTargets: [],
     requiredFiles: undefined,
     populate: (publicationPath: string) =>
@@ -471,11 +490,14 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
   readonly name: ExtensionName;
   readonly workspaceRoot: string;
 }) {
-  const { candidate, url, headers } = yield* selectNativeMcpCandidate(args.request.discovery);
+  const { candidate, transport, url, headers } = yield* selectNativeMcpCandidate(
+    args.request.discovery,
+  );
   const manifest = convertedMcpManifest({
     owner: args.owner,
     name: args.name,
     nativeName: candidate.name,
+    transport,
     url,
     headers,
   });
@@ -486,7 +508,14 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
   );
   return {
     origin: candidate.name,
-    env: candidate.env,
+    mcpPreferences: {
+      distribution: { kind: "remote", transport, url },
+      bindings: Object.entries(headers).map(([name, value]) => ({
+        target: { kind: "header", name },
+        value,
+      })),
+      ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
+    },
     nativeTargets: Array.from(new Set(entries.map((entry) => entry.filePath))).sort(),
     requiredFiles: [MCP_SERVER_MANIFEST_FILENAME],
     populate: (stagingPath: string) =>
@@ -594,7 +623,8 @@ export const prepareImportNativeExtension: (
     request.type === "mcp-server"
       ? request.enable
       : request.enable || Option.getOrElse(current.enabled, () => false);
-  const env = request.type === "mcp-server" ? settled.env : current.env;
+  const mcpPreferences =
+    request.type === "mcp-server" ? settled.mcpPreferences : current.mcpPreferences;
 
   const artifact: JobStepArtifact = {
     path: authoredPath,
@@ -624,8 +654,8 @@ export const prepareImportNativeExtension: (
     enabled,
     nativeInsertionEligible: false,
     allowConfiguredSourceTransition: true,
-    markAuthored: declaration.declare({ enabled: true, env }),
-    finalizeAuthored: declaration.declare({ enabled, env }).pipe(Effect.asVoid),
+    markAuthored: declaration.declare({ enabled: true, mcpPreferences }),
+    finalizeAuthored: declaration.declare({ enabled, mcpPreferences }).pipe(Effect.asVoid),
     plannedArtifact: artifact,
     buildArtifact: () => Effect.succeed(artifact),
     preflight: Effect.gen(function* () {

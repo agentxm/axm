@@ -73,7 +73,9 @@ describe("extension show", () => {
 
           const document = rendererState.results[0]?.data;
           expect(document).toBeDefined();
-          expect(Object.keys(document ?? {})).toStrictEqual(["item", "agents"]);
+          expect(Object.keys(document ?? {})).toStrictEqual(
+            type === "mcp-server" ? ["item", "mcp", "agents"] : ["item", "agents"],
+          );
           expect(
             Object.keys((document as { readonly item: Record<string, unknown> }).item),
           ).toStrictEqual(EXTENSION_SHOW_ITEM_FIELDS);

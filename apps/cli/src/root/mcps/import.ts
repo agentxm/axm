@@ -31,6 +31,7 @@ import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirma
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface McpsImportArgs {
+  readonly name?: ReadonlyArray<string>;
   readonly preview: boolean;
   readonly as?: Option.Option<string>;
   readonly enable?: boolean;
@@ -56,13 +57,14 @@ const discoveryFrom = (preflight: McpImportPreflight) => ({
   candidates: preflight.candidates.map((candidate): NativeMcpCandidate => ({
     name: candidate.name,
     remote:
-      candidate.definition.type === "http"
+      candidate.definition.transport !== "stdio"
         ? Option.some({
+            transport: candidate.definition.transport,
             url: candidate.definition.url,
-            headers: candidate.definition.headers,
+            headers: candidate.definition.headers ?? {},
           })
         : Option.none(),
-    env: candidate.env,
+    ...(candidate.auth === undefined ? {} : { auth: candidate.auth }),
     entries: candidate.adoptions,
   })),
   conflicts: preflight.conflicts.map((finding) => finding.name),
@@ -92,7 +94,9 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
       detail: "--enable requires --as <extension>",
     });
   }
-  const candidate = yield* ImportMcpServers.prepare().pipe(Effect.mapError(failureToAppError));
+  const candidate = yield* ImportMcpServers.prepare(args.name ?? []).pipe(
+    Effect.mapError(failureToAppError),
+  );
   const preflight = candidate.preflight;
 
   if (Option.isSome(packageTarget)) {
@@ -154,6 +158,12 @@ const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImpor
 });
 
 const importConfig = {
+  name: Flag.String("name").pipe(
+    Flag.atLeast(0),
+    Flag.withDescription(
+      "Select an explicit native-name subset; repeatable. Any blocker in the selected batch prevents adoption.",
+    ),
+  ),
   scope: scopeFlag.pipe(
     Flag.withDescription("Import to project (default) or user-level configuration"),
   ),
@@ -171,8 +181,8 @@ const importConfig = {
 export const importCommand = Command.make(
   "import",
   importConfig,
-  ({ scope, preview, as, enable }) =>
-    handleMcpsImport({ preview, as, enable, scope }).pipe(
+  ({ scope, preview, as, enable, name }) =>
+    handleMcpsImport({ preview, as, enable, scope, name }).pipe(
       Effect.scoped,
       withWorkspace(scope),
       withRuntime("mcps import"),

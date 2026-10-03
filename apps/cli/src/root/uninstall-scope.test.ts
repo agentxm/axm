@@ -4,10 +4,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { captureHelpText as captureHelp } from "../test-support/command-tree-test-helpers.js";
 
 describe("mcps install flags", () => {
-  it.effect("documents --env as repeatable", () =>
+  it.effect("documents --bind as repeatable", () =>
     Effect.gen(function* () {
       const output = yield* captureHelp(["mcps", "install"]);
-      expect(output).toContain("--env");
+      expect(output).toContain("--bind");
       expect(output).toContain("repeatable");
     }),
   );

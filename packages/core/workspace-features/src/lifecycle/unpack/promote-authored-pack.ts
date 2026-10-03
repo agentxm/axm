@@ -150,8 +150,15 @@ const promoteToDirectSettings = (
         return settingsWriter.setEntry("skill", node.name, entry);
       case "mcp-server":
         return settingsWriter.setEntry("mcp-server", node.name, {
+          kind: "sourced",
           ...entry,
-          env: node.preference?.env ?? {},
+          ...(node.preference?.distribution === undefined
+            ? {}
+            : { distribution: node.preference.distribution }),
+          ...(node.preference?.bindings === undefined
+            ? {}
+            : { bindings: node.preference.bindings }),
+          ...(node.preference?.auth === undefined ? {} : { auth: node.preference.auth }),
         });
       case "subagent":
         return settingsWriter.setEntry("subagent", node.name, entry);

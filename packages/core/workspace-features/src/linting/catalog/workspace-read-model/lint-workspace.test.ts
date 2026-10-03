@@ -65,7 +65,7 @@ const settings = {
   owner: "@acme",
   skills: { "bad-skill": "@acme/skills/bad-skill@1.0.0" },
   subagents: { "bad-subagent": "@acme/subagents/bad-subagent@1.0.0" },
-  mcpServers: { "bad-mcp": "@acme/mcps/bad-mcp@1.0.0" },
+  mcpServers: { "bad-mcp": { source: "@acme/mcps/bad-mcp@1.0.0" } },
   packs: { "bad-pack": "@acme/packs/bad-pack@1.0.0" },
 };
 

@@ -153,13 +153,23 @@ export const mcpTransportExclusivityConformance: WorkspaceRuleConformanceCase = 
   rule: mcpServerTransportExclusivityRule,
   satisfied: () =>
     contextFor({
-      settings: validSettings({ mcpServers: { demo: { command: "node", args: [] } } }),
+      settings: validSettings({
+        mcpServers: { demo: { connection: { transport: "stdio", command: "node", args: [] } } },
+      }),
       lockfile: validLockfile,
     }),
   violated: () =>
     contextFor({
       settings: validSettings({
-        mcpServers: { demo: { command: "node", url: "https://example.test/mcp" } },
+        mcpServers: {
+          demo: {
+            connection: {
+              transport: "streamable-http",
+              command: "node",
+              url: "https://example.test/mcp",
+            },
+          },
+        },
       }),
       lockfile: validLockfile,
     }),
@@ -182,14 +192,26 @@ export const mcpNoSecretLiteralConformance: WorkspaceRuleConformanceCase = {
   satisfied: () =>
     contextFor({
       settings: validSettings({
-        mcpServers: { demo: { command: "node", env: { API_TOKEN: "${API_TOKEN}" } } },
+        mcpServers: {
+          demo: {
+            connection: { transport: "stdio", command: "node", env: { API_TOKEN: "${API_TOKEN}" } },
+          },
+        },
       }),
       lockfile: validLockfile,
     }),
   violated: () =>
     contextFor({
       settings: validSettings({
-        mcpServers: { demo: { command: "node", env: { API_TOKEN: "literal-secret" } } },
+        mcpServers: {
+          demo: {
+            connection: {
+              transport: "stdio",
+              command: "node",
+              env: { API_TOKEN: "literal-secret" },
+            },
+          },
+        },
       }),
       lockfile: validLockfile,
     }),

@@ -144,7 +144,8 @@ describe("Machine mode never prompts", () => {
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: false,
         }).pipe(Effect.provide(workspace.layer), Effect.flip);
@@ -163,12 +164,10 @@ describe("Machine mode never prompts", () => {
   );
 
   it.effect(
-    "an MCP install that needs a required input fails with its recipe without raising any prompt, even from an interactive terminal",
+    "an MCP install that needs a required input fails before mutation without raising any prompt, even from an interactive terminal",
     () =>
       Effect.gen(function* () {
-        // Machine output alone closes the prompt: the terminal could ask for
-        // the input, so the refusal must come from the one prompt decision,
-        // and no workspace state may change.
+        // Required symbolic bindings are configuration, never a secret prompt.
         const workspace = makeSpecWorkspace({
           machine: true,
           flags: { nonInteractive: false, json: true },
@@ -178,39 +177,25 @@ describe("Machine mode never prompts", () => {
         const source = writeMcpSourceWithRequiredInput(workspace.root);
         const before = snapshotTree(workspace.root);
 
-        yield* handleInstall({
+        const failure = yield* handleInstall({
           type: Option.some("mcp-server"),
           source: Option.some(source),
           selectors: { "mcp-server": ["demo"] },
           all: false,
           force: false,
           preview: false,
-          env: [],
+          bind: [],
+          bindEnv: [],
           localName: Option.none(),
           bundled: false,
-        }).pipe(Effect.provide(workspace.layer));
+        }).pipe(Effect.provide(workspace.layer), Effect.flip);
 
-        // The refusal is the unit's own failure, rolled back inside the
-        // result: the document reports it as a usage failure with the recipe.
-        const [entry] = workspace.rendererState.results;
-        expect(entry?.ok).toBe(false);
-        expect(entry?.data).toMatchObject({
-          result: {
-            outcome: "failed",
-            counts: { committed: 0, failed: 1 },
-            failure: {
-              code: "usage",
-              message: expect.stringContaining(
-                "demo needs API_TOKEN, and no prompt can open to ask for them",
-              ),
-            },
-            units: [{ id: "mcp-server:demo", state: "failed", disposition: "restored" }],
-          },
-        });
-        expect(workspace.rendererState.suggestions).toContainEqual({
-          description: "Supply each required input on the command line",
-          cmd: "--env API_TOKEN=<value>",
-        });
+        const error = getAppError(failure);
+        expect(error.detail).toContain(
+          "environment/API_TOKEN: Required input has no binding or default",
+        );
+        expect(classifyError(failure, "json").exitCode).toBeGreaterThan(0);
+        expect(workspace.rendererState.results).toEqual([]);
         expect(workspace.promptState.confirmCalls).toEqual([]);
         expect(snapshotTree(workspace.root)).toEqual(before);
       }),
@@ -232,7 +217,8 @@ describe("Machine mode never prompts", () => {
         all: false,
         force: false,
         preview: false,
-        env: [],
+        bind: [],
+        bindEnv: [],
         localName: Option.none(),
         bundled: false,
       }).pipe(Effect.provide(workspace.layer));

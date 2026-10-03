@@ -1,6 +1,8 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import { McpConnectionSchema } from "@agentxm/workspace-kernel/agent-adapters";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
 import { settingsDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
@@ -24,22 +26,20 @@ const parseSettings = (bytes: string): Readonly<Record<string, unknown>> | undef
 };
 
 const transportError = (entry: Readonly<Record<string, unknown>>): string | undefined => {
-  const transports = ["source", "command", "url"].filter((key) => hasOwnValue(entry, key));
-  if (transports.length !== 1) {
-    return "must include exactly one of source, command, or url";
-  }
+  if (["command", "args", "env", "url", "headers", "cwd"].some((key) => hasOwnValue(entry, key)))
+    return "uses retired flat fields; declare an explicit connection instead";
+  if (hasOwnValue(entry, "source") && hasOwnValue(entry, "connection"))
+    return "cannot combine a source with an inline connection";
+  // Source declarations and Pack preferences select a distribution separately.
+  if (!hasOwnValue(entry, "connection")) return undefined;
   if (
-    hasOwnValue(entry, "source") &&
-    (hasOwnValue(entry, "args") || hasOwnValue(entry, "headers"))
-  ) {
-    return "source entries cannot include args or headers";
-  }
-  if (hasOwnValue(entry, "command") && hasOwnValue(entry, "headers")) {
-    return "command entries cannot include headers";
-  }
-  if (hasOwnValue(entry, "url") && hasOwnValue(entry, "args")) {
-    return "URL entries cannot include args";
-  }
+    Result.isFailure(
+      Schema.decodeUnknownResult(McpConnectionSchema, { onExcessProperty: "error" })(
+        entry["connection"],
+      ),
+    )
+  )
+    return "must declare one explicit stdio, streamable-http, or sse connection with fields valid for that transport";
   return undefined;
 };
 

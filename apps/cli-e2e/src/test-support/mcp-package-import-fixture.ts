@@ -13,6 +13,7 @@ import { makeDirectoryFixture } from "./directory-harness.js";
 
 /** Public, non-secret values; this fixture does not exercise secret import policy. */
 export const importedRemote = {
+  type: "http",
   url: "https://mcp.example.test/context",
   headers: { "X-Workspace": "review-team", "X-View": "complete" },
 } as const;
@@ -51,10 +52,7 @@ export const readImportedMcpManifest = (root: string, name = "context") =>
 const authoredEntries = Schema.Struct({
   mcpServers: Schema.Record(
     Schema.String,
-    Schema.Union([
-      Schema.String,
-      Schema.Struct({ source: Schema.String, enabled: Schema.optional(Schema.Boolean) }),
-    ]),
+    Schema.Struct({ source: Schema.String, enabled: Schema.optional(Schema.Boolean) }),
   ),
 });
 
@@ -62,9 +60,7 @@ export const readImportedMcpDeclaration = (root: string, name = "context") => {
   const entry = Schema.decodeUnknownSync(authoredEntries)(readJson(path.join(root, "axm.json")))
     .mcpServers[name];
   if (entry === undefined) throw new Error(`Expected authored MCP declaration ${name}`);
-  return typeof entry === "string"
-    ? { source: entry, enabled: true }
-    : { source: entry.source, enabled: entry.enabled !== false };
+  return { source: entry.source, enabled: entry.enabled !== false };
 };
 
 export const makeMcpPackageImportProcessFixture = () => {

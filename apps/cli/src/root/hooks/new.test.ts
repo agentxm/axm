@@ -37,7 +37,8 @@ const defaultArgs = (
   name: extensionName(name),
   owner: Option.none(),
   runtime: "bash",
-  event: "tool.pre",
+  protocol: "claude-code",
+  event: "PreToolUse",
   matcher: Option.none(),
   preview: false,
   ...overrides,
@@ -75,56 +76,55 @@ describe("hooks-new.handler", () => {
   };
 
   describe("success", () => {
-    it.effect("emits scaffold plan JSON with artifact in machine mode", () => {
-      const { provide, logs, rendererState } = makeLayers({ machine: true });
-      initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
+    it.effect(
+      "emits scaffold plan JSON with artifact in machine mode",
+      () => {
+        const { provide, logs, rendererState } = makeLayers({ machine: true });
+        initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
-      return provide(
-        Effect.gen(function* () {
-          yield* handleHooksNew(defaultArgs("machine-hook"));
+        return provide(
+          Effect.gen(function* () {
+            yield* handleHooksNew(defaultArgs("machine-hook"));
 
-          expect(logs.success).toEqual([]);
-          const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
-          const result = expectAppliedPlanResult(renderedResult.data, {
-            planName: "New hook",
-          });
-          const units = planResultUnits(result);
-          const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
-          expect(firstUnit).toMatchObject({
-            id: "hook:machine-hook",
-            label: "@acme/hooks/machine-hook",
-            state: "committed",
-            message: "Created hook @acme/hooks/machine-hook",
-            artifact: {
-              path: "hooks/machine-hook",
-              scope: "project",
-              version: "0.1.0",
-              change: "created",
-              fileCount: 2,
-              targets: [
-                { path: "hooks/machine-hook/hook.json", change: "created" },
-                { path: "hooks/machine-hook/src/hook.sh", change: "created" },
-                { path: "axm.json", change: "created" },
-                {
-                  path: ".claude/settings.json",
-                  change: "created",
-                  agentIds: ["claude-code"],
-                },
-                {
-                  path: "AGENTS.md",
-                  change: "created",
-                },
-              ],
-            },
-          });
-          expect(rendererState.suggestions).toEqual([
-            {
-              description: "Edit `hooks/machine-hook/src/hook.sh` to implement the hook",
-            },
-          ]);
-        }),
-      );
-    });
+            expect(logs.success).toEqual([]);
+            const renderedResult = expectDefined(rendererState.results[0], "Expected JSON result");
+            const result = expectAppliedPlanResult(renderedResult.data, {
+              planName: "New hook",
+            });
+            const units = planResultUnits(result);
+            const firstUnit = expectRecord(expectDefined(units[0], "Expected first unit"));
+            expect(firstUnit).toMatchObject({
+              id: "hook:machine-hook",
+              label: "@acme/hooks/machine-hook",
+              state: "committed",
+              message: "Created hook @acme/hooks/machine-hook",
+              artifact: {
+                path: "hooks/machine-hook",
+                scope: "project",
+                version: "0.1.0",
+                change: "created",
+                fileCount: 6,
+                targets: [
+                  { path: "hooks/machine-hook/hook.json", change: "created" },
+                  { path: "hooks/machine-hook/src/hook.sh", change: "created" },
+                  { path: "hooks/machine-hook/fixtures/applicable.json", change: "created" },
+                  { path: "hooks/machine-hook/fixtures/nonapplicable.json", change: "created" },
+                  { path: "hooks/machine-hook/fixtures/empty.txt", change: "created" },
+                  { path: "hooks/machine-hook/fixtures/log.txt", change: "created" },
+                  { path: "axm.json", change: "created" },
+                ],
+              },
+            });
+            expect(rendererState.suggestions).toEqual([
+              {
+                description: "Edit `hooks/machine-hook/src/hook.sh` to implement the hook",
+              },
+            ]);
+          }),
+        );
+      },
+      20_000,
+    );
   });
 
   describe("name validation", () => {

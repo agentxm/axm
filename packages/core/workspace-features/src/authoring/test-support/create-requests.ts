@@ -31,7 +31,15 @@ export const createRequestFor = (
     case "knowledge":
       return { type, name, owner, description: Option.none() };
     case "hook":
-      return { type, name, owner, runtime: "bash", event: "tool.pre", matcher: Option.none() };
+      return {
+        type,
+        name,
+        owner,
+        runtime: "bash",
+        protocol: "claude-code",
+        event: "PreToolUse",
+        matcher: Option.none(),
+      };
     case "mcp-server":
       return { type, name, owner, description: Option.none(), nonInteractive: true };
   }

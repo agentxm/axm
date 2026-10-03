@@ -273,8 +273,7 @@ export const observeInstructionSurfacePlans = <E, R>(
         (observation) =>
           !observation.current &&
           (observation.unitId === "rule:instructions-region" ||
-            observation.unitId === "knowledge:discovery-region" ||
-            observation.unitId === "hook:fallback-region"),
+            observation.unitId === "knowledge:discovery-region"),
       )
       .flatMap((observation) => observation.nativeLocations ?? [])
       .filter(
@@ -523,9 +522,7 @@ export const applyInstructionSurfacePlans = <E, R>(
   Effect.gen(function* () {
     const instructionPlans = plans.filter(
       ({ unitId }) =>
-        unitId === "hook:fallback-region" ||
-        unitId === "rule:instructions-region" ||
-        unitId === "knowledge:discovery-region",
+        unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region",
     );
     const instructionChanges = yield* observeProjectionPlans(instructionPlans);
     yield* applyProjectionPlans(plans);

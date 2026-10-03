@@ -6,6 +6,10 @@ import { makeActivationCommands } from "../activation-handler.js";
 import { hooksInstallCommand as installCommand } from "../install/command.js";
 import { listCommand } from "./list.js";
 import { newCommand } from "./new.js";
+import { testCommand } from "./test.js";
+import { configureCommand } from "./configure.js";
+import { importCommand } from "./import.js";
+import { exportCommand } from "./export.js";
 import { hooksPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { makePerTypeUninstallCommand } from "../shared/uninstall-command.js";
 import { makePerTypeUpdateCommand } from "../update/per-type-command.js";
@@ -40,6 +44,10 @@ export const hooksCommand = Command.make("hooks").pipe(
   ),
   Command.withSubcommands([
     newCommand,
+    testCommand,
+    configureCommand,
+    importCommand,
+    exportCommand,
     installCommand,
     uninstallCommand,
     listCommand,

@@ -1,193 +1,247 @@
 # Hooks
 
-Before distributing package-root files, read `axm help publish` for the
-Registry-only archive policy and effective preview.
+Hook packages contain native event handlers and their resources. AXM installs
+and reconciles native registrations for the workspace's configured agents.
+The native agent owns execution, trust, event timing, and decision aggregation.
 
-Project-authored hook packages live in `./hooks/<hook-name>`; acquired hooks
-use the source-family and identity-based canonical scheme. For example, a
-Registry hook lives in `./agent_extensions/registry/<@owner>/hooks/<hook-name>`.
+Project-authored packages live in `hooks/<name>`. Acquired packages use their
+source-family and identity path, for example
+`agent_extensions/registry/@acme/hooks/block-secrets`.
 
-A hook extension runs your code on an agent lifecycle event such as a tool
-pre-call, tool post-call, prompt submission, or session start. It is a portable
-manifest plus an executable body. On install, AXM materializes the package under
-`agent_extensions/...` and merges a native hook entry into the target agent's
-settings file that points at it.
+## Manifest
 
-The command AXM writes always targets the materialized entrypoint in your
-workspace — the registry never injects an inline command string into your agent
-settings.
-
-## hook.json
-
-[`hook.json`](https://axm.sh/schemas/hook.schema.json)
-
-The manifest owns the binding and the entrypoint:
+`hook.json` declares identified implementations of exact native protocols. Each
+implementation contains identified bindings, native event names, optional native
+matchers, and command handlers. Run `axm help hook-schema` for the complete schema.
 
 ```json
 {
-  "$schema": "https://axm.sh/schemas/hook.schema.json",
   "type": "hook",
   "owner": "@acme",
   "name": "block-secrets",
   "version": "1.0.0",
-  "runtime": "bash",
-  "entrypoint": "src/hook.sh",
-  "bindings": [
+  "implementations": [
     {
-      "on": "tool.pre",
-      "match": { "tools": ["file.write", "file.edit"] },
-      "requires": { "decision": { "kind": "block" } }
+      "id": "claude",
+      "protocol": "claude-code",
+      "bindings": [
+        {
+          "id": "guard",
+          "event": "PreToolUse",
+          "matcher": "Write|Edit",
+          "handler": {
+            "type": "command",
+            "runtime": "bash",
+            "entrypoint": "src/hook.sh",
+            "timeoutMs": 5000
+          },
+          "requires": { "outcomes": ["deny"] }
+        }
+      ]
     }
   ],
-  "timeoutMs": 5000,
-  "capabilities": { "network": false, "filesystemWrite": false }
+  "assets": ["src/policy.json"]
 }
 ```
 
-Required fields:
+- `protocol` identifies the native host contract. A package can declare several
+  implementations; AXM requires a unique compatible implementation for each
+  configured target.
+- `event` and `matcher` retain native meaning. AXM does not translate canonical
+  event or tool names into an executable protocol.
+- Command handlers support `bash`, `node`, and `python` interpreter families;
+  Python commands use `python3`. `entrypoint` is package-relative. `args` and
+  `env` can contain literals or typed configuration references.
+- `requires.outcomes` and `requires.operations` require every named native
+  decision effect. Unsupported fields or effects block projection.
+- Implementation `requires` can constrain scopes, platforms, host versions, and
+  profiles. Unknown host facts remain conditions, not verified compatibility.
+- `assets` identifies additional package resources. Executables and required
+  resources must remain inside the package and survive publication filtering.
+  See `axm help publish` for archive validation and preview.
 
-- `runtime` — interpreter AXM writes into the generated command: `bash`, `node`,
-  or `python`.
-- `entrypoint` — path to the executable body, relative to the manifest
-  directory. The file must exist in the archive.
-- `bindings` — canonical AXM hook events and optional canonical tool matchers
-  that AXM maps through the agent capability catalog into agent-native settings.
+The launch writer supports command handlers only. A host advertising HTTP,
+MCP, prompt, or agent hooks does not make those handler types installable by AXM.
+Command names must be supported by the selected writer. Writers using seconds
+accept whole-second `timeoutMs` values; AXM refuses lossy rounding.
 
-`timeoutMs`, `requires`, and `capabilities` are optional. Run
-`axm help hook-schema` to print the raw JSON Schema.
+Command serialization supports Linux and macOS POSIX shells. Windows projection
+is refused. The host environment must provide each declared interpreter; AXM
+does not install or execute interpreters to infer availability during lifecycle
+operations. Fixture inputs and expected outputs may be excluded from a published
+archive; `hooks test` then requires the authoring source containing those files.
 
-## `src/`
+### Launch writer coverage
 
-The `src/` directory holds the entrypoint named by `entrypoint`, plus any helper
-files. The body is plain executable source for the declared `runtime`; AXM does
-not transform it.
+The native command writers cover these surfaces and scopes. This is serializer
+coverage, not a claim that every host version has executed every package.
 
-```text
-block-secrets/
-├── README.md
-├── hook.json
-└── src/
-    └── hook.sh
+| Protocol      | Host surface                    | Writable scopes |
+| ------------- | ------------------------------- | --------------- |
+| `claude-code` | Claude Code CLI                 | Project, user   |
+| `codex`       | Codex CLI                       | Project, user   |
+| `cursor`      | Cursor desktop/CLI native hooks | Project, user   |
+| `gemini-cli`  | Gemini CLI                      | Project, user   |
+| `qwen-code`   | Qwen Code CLI                   | Project, user   |
+| `qoder`       | Qoder CLI                       | Project, user   |
+| `codebuddy`   | CodeBuddy CLI                   | Project, user   |
+| `augment`     | Auggie CLI                      | Project, user   |
+| `devin`       | Devin CLI                       | Project only    |
+
+Every row requires Linux or macOS and the implementation's `bash`, `node`, or
+`python3` interpreter. AXM does not detect the native host version or active
+profile during reconciliation. Publisher version/profile constraints therefore
+remain explicit unresolved conditions until those facts are supplied; a writer
+does not establish an unrestricted version range. Native loading and trust are
+host prerequisites, and fixture receipts cannot satisfy them. Catalog source
+review and attributable host execution remain separate evidence.
+
+## Consumer configuration
+
+Publishers declare typed fields in `hook.json`:
+
+```json
+{
+  "configuration": {
+    "label": { "type": "string", "default": "audit" },
+    "token": { "type": "string", "secret": true, "required": true }
+  }
+}
 ```
 
-## Bindings
+Handlers reference a declared field with `{ "config": "label" }`. Fields support
+strings, numbers, booleans, and enumerations with type-specific constraints.
+Explicit consumer values override publisher defaults. Unknown keys, missing
+required values, and invalid values are rejected. Empty strings require the
+field's `allowEmpty` policy to permit them.
 
-Each binding uses `on` with a canonical AXM hook event:
+Consumer settings belong in `axm.json`, separate from immutable package content:
 
-`tool.pre`, `tool.post`, `prompt.submit`, `session.start`, `turn.end`,
-`subagent.stop`, and `compaction.pre` are the current canonical event set. AXM
-adds events only after at least one writer-backed native mapping can serialize
-them, so authoring tooling rejects events that would resolve to nothing.
-
-Use `match.tools` for portable tool-scoped bindings. AXM maps canonical tool IDs
-such as `file.write`, `file.edit`, and `shell.exec` into each target agent's
-native tool names and matcher syntax. `matcherRaw` remains available for native
-long-tail cases, but lint marks it non-portable.
-
-Use `requires.decision` when a hook depends on more than observation. For
-example, `{ "kind": "block" }` requires the target event to support blocking;
-install fails before settings are written if the configured agent cannot satisfy
-that requirement.
-
-## Install and serialization
-
-`axm hooks install` (or the generic `axm install`):
-
-1. Materializes the package into
-   `agent_extensions/registry/<owner>/hooks/<name>/`.
-2. Records the resolved hook in `axm-lock.yaml`.
-3. Merges a generated command into the target agent's settings through the
-   JSONC-aware writer.
-
-Install and sync plans report the effective result for every configured agent:
-
-- `projected` means preview selected a behavior-preserving projection.
-- `current` means apply or inspection confirmed that projection.
-- `blocked` means neither native integration nor an allowed behavior-preserving
-  fallback can satisfy the hook. A blocked plan performs no writes.
-
-The separate `mechanism` field explains how a projected or current hook is
-realized: `native` writes an agent-native hook integration, while
-`advisory-fallback` represents an observational hook in AXM's managed
-instruction region. Every outcome also carries a stable `reasonCode` and a
-human-readable reason.
-
-Preview and apply use the same reconciliation decision. Run
-`axm hooks show <name>` to inspect the current per-agent outcomes and reasons.
-
-For the generated command, AXM joins the runtime and the materialized
-entrypoint:
-
-```text
-bash agent_extensions/registry/@acme/hooks/block-secrets/src/hook.sh
-```
-
-Claude Code uses the catalog-driven `command-stdin` serializer: a `tool.pre`
-binding becomes a native hook group in the configured agent settings file, with
-native event names and matcher syntax taken from the agent capability catalog.
-AXM preserves unrelated settings and removes only the entries it manages, so
-`axm sync` can always reconcile the file. Other agents can declare unmodeled
-native hook availability until a writer is implemented behind the same manifest
-contract.
-
-Every generated command entry carries structured `x-axm` metadata with
-`v: 1`, `managed: true`, `unit: "hook:<name>"`, source, and reference. A command
-that merely points into `agent_extensions/` is not AXM-owned and is never removed
-on that basis. `axm lint` reports such an unmarked entry as
-`workspace/hook-ownership-ambiguous`; add or remove it manually after deciding
-who owns it.
-
-## Configuration
-
-Installed hooks are tracked in `axm.json` under the `hooks` map
-(name → entry) and locked in `axm-lock.yaml`. An entry is a source string,
-or an object with `source` plus optional flags:
-
-```jsonc
+```json
 {
   "hooks": {
     "block-secrets": {
       "source": "@acme/hooks/block-secrets@^1.0.0",
-      "enabled": false,
-    },
-  },
+      "configuration": {
+        "label": "team-audit",
+        "token": { "env": "AUDIT_TOKEN" }
+      }
+    }
+  }
 }
 ```
 
-Set `{ "enabled": false }` to keep a hook installed but stop serializing it into
-agent settings. Prefer the CLI over hand-editing — it normalizes the shape and
-reconciles on-disk settings.
+Secret fields require symbolic environment references. AXM keeps the reference
+in workspace settings and generated commands; the execution environment supplies
+the value. A hook supplied by a Pack can use a source-less settings object to
+hold these preferences without creating another acquisition declaration.
 
-## Safety metadata
+`axm hooks configure <name> --configuration '<JSON object>'` replaces the whole
+consumer document. Omitted keys return to publisher defaults. Add `--preview`
+to validate without writing. Configuration retains source, accepted resolution,
+package bytes, and enabled state; disabled hooks remain disabled.
 
-`requires.decision` is enforced at install because it is a hard compatibility
-fact. `capabilities` (`network`, `filesystemWrite`, `exec`, `env`) are
-author-declared and advisory in v1. AXM validates and displays them, but does
-not yet use them for consent prompts, sandboxing, or capability enforcement.
-Read a hook's source before installing it — a hook runs with your shell's
-privileges on the events it binds.
+## Creation and fixture execution
+
+`axm hooks new <name> --protocol claude-code --event PreToolUse --runtime node`
+creates an inactive project package with applicable and nonapplicable fixtures.
+Review the source and native behavior before enabling it.
+
+`axm hooks test <directory>` explicitly executes declared fixtures. Use repeated
+`--fixture <id>` flags to select fixtures and `--configuration '<JSON object>'`
+to supply typed consumer values. Execution uses the package root as its working
+directory. Fixture input must be JSON; expected exit codes and optional stdout
+and stderr files determine pass or failure.
+
+The runner limits each input, expected-output file, and output stream to 1 MiB.
+The default process deadline is 10 seconds, with declared deadlines capped at
+60 seconds. Cancellation terminates the process group and escalates to forced
+termination after one second if needed; cleanup can extend past the execution
+deadline. It records a local receipt containing package and configuration
+hashes, scope, OS and architecture, implementation and binding IDs, results, and limitations. Interpreter versions remain unknown unless measured. Raw process
+output is omitted from receipts. Changed package content or configuration makes
+previous evidence stale; a changed scope or execution platform also makes a
+receipt stale. Matching facts describe historical execution only; runtime
+environment values and native host prerequisites have not been reverified.
+
+Fixture execution is not sandboxed and does not prove native loading, trust, or
+host invocation. Inspect package code before running it. Lint, preview,
+installation, synchronization, and publication do not execute fixture code.
+
+## Native state and ownership
+
+Hooks activate only through native settings. Unsupported required targets block
+before writing; AXM does not generate instruction fallbacks. Disabling a hook
+withdraws its owned native registrations and retains its package and preferences.
+
+Install and sync report per-agent outcomes and reasons. `projected` means a
+preview has a supported native representation; `current` describes configuration
+currency. Neither means the host executed the hook. `axm hooks show <name>`
+reports the effective configured-agent outcomes, selected implementation and
+bindings, configuration provenance with secrets redacted, and local fixture
+evidence. Missing, invalid, historical, and stale evidence remain distinct.
+`axm hooks list` summarizes implementation selection and fixture/native evidence.
+`axm view @owner/hooks/<name>` verifies the published archive's integrity and
+reports static package facts and prospective configured-agent outcomes. Published
+inspection does not inherit local fixture receipts or claim native invocation.
+
+Generated entries carry structured `x-axm` metadata identifying the package,
+scope, canonical source root, binding, and selected implementations. AXM preserves
+foreign entries and unrelated native settings. A command merely pointing inside
+`agent_extensions` is not ownership proof; lint reports ambiguous ownership for
+such entries. Compatible readers of an aliased native file share one physical
+registration only when their complete native renderings agree.
+
+## Native bundles
+
+`axm hooks import <directory> @owner/hooks/<name> --protocol <host>` converts a
+local native command bundle into an inactive project package. The directory
+contains `hooks.json` and relative scripts. Use `--config <relative-path>` for a
+different JSON filename and repeat `--resource <relative-path>` for additional
+runtime files. Preview validates the bundle without creating or executing it.
+
+Import accepts grouped command arrays for grouped native protocols and version-1
+flat command arrays for Cursor. Commands must name `bash`, `node`, or `python3`,
+followed by a package-relative script and literal arguments. Import refuses
+`python` because its interpreter version is unknown. Inline
+shell expressions, environment assignments, plugin substitutions, escaping
+resources, and unsupported native fields are refused. Original registrations
+remain untouched: enabling the imported package can run the same hook twice.
+
+`axm hooks export <directory> <destination> --implementation <id>` creates a
+native bundle for one declared implementation. The destination must be a new
+directory under an existing project-workspace parent without symbolic aliases.
+Existing destinations and staging paths are protected. Add `--preview` to
+validate and list files without writing them.
+
+Export copies the selected entrypoints and declared assets and records package
+identity, version, protocol, and implementation in `hook-bundle.json`. Import
+reads that file's resource list automatically. Exported commands require the
+bundle root as their working directory; exporting does not register or run them.
+The bounded export format refuses consumer configuration, environment bindings,
+configuration references, and absolute workstation arguments. It omits workspace
+state and AXM registration ownership. Declare every required helper as an asset;
+AXM does not discover dependencies by executing or parsing scripts.
 
 ## Commands
 
-All commands live under `axm hooks` and accept `--scope project` (default) or
-`--scope user`.
+- `axm hooks new <name>` — create an inactive project package.
+- `axm hooks test <directory>` — execute selected declared fixtures and save evidence.
+- `axm hooks import <directory> @owner/hooks/<name> --protocol <host>` — import an inactive native bundle.
+- `axm hooks export <directory> <destination> --implementation <id>` — create a portable native bundle.
+- `axm hooks install <source>` — acquire and project a hook; use `--configuration`
+  for one selected Hook's consumer values.
+- `axm hooks configure <name> --configuration '<JSON object>'` — replace consumer values.
+- `axm hooks list` — list local hooks, source, lock state, and agent outcomes.
+- `axm hooks show <name>` — inspect installed state and per-agent reasons.
+- `axm hooks enable <name>` / `axm hooks disable <name>` — reconcile activation.
+- `axm hooks update <name>` — update the accepted package version.
+- `axm hooks uninstall <name>` — withdraw owned outputs and remove acquired state.
+- `axm sync --preview` — inspect reconciliation without writing.
+- `axm hooks publish @owner/hooks/<name> --preview` — inspect publication validation.
 
-- `axm hooks install <source>` — install a hook and serialize it into agent
-  settings.
-- `axm hooks uninstall <name>` — remove the hook's settings entries and package
-  files.
-- `axm hooks list` — show installed hooks with status, source, and lock
-  state.
-- `axm hooks show <name>` — inspect one installed hook and its effective
-  configured-agent outcomes.
-- `axm hooks disable <name>` — set `enabled: false` and strip the generated
-  settings entry, keeping the package.
-- `axm hooks enable <name>` — re-serialize a disabled hook.
-- `axm hooks update <name>` — move a configured hook to a newer version.
-- `axm sync --preview` — preview stale hook state and remove it only when AXM ownership
-  is proven.
-- `axm hooks publish @owner/hooks/<name>` — validate and release a new version;
-  add `--preview` to run manifest and publish lint without applying.
+Scoped commands accept `--scope project` or `--scope user`; package creation is
+project authoring. Consult each command's `--help` for its supported flags.
 
 ## Recommended packs
 
@@ -211,8 +265,8 @@ never by file path. See `axm help packs` for pack composition.
 
 ## Where to go next
 
-- `axm hooks --help` — full hook subcommand surface
-- `axm help hook-schema` — raw `hook.json` JSON Schema
-- `axm help settings` — workspace state and the `hooks` map
-- `axm help workspace-state` — package, native-config, and fallback reconciliation
-- `axm help packs` — bundling hook extensions with extension packs
+- `axm hooks --help` — Hook commands and flags
+- `axm help hook-schema` — complete manifest schema
+- `axm help settings` — consumer settings
+- `axm help workspace-state` — desired, accepted, and observed state
+- `axm help packs` — composing Hook packages

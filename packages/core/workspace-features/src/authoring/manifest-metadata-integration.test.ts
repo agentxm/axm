@@ -50,9 +50,19 @@ const cases: ReadonlyArray<{
   manifestCase("hook", HookManifestSchema, {
     ...common,
     type: "hook",
-    runtime: "bash",
-    entrypoint: "src/hook.sh",
-    bindings: [],
+    implementations: [
+      {
+        id: "claude",
+        protocol: "claude-code",
+        bindings: [
+          {
+            id: "start",
+            event: "SessionStart",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+    ],
   }),
   manifestCase("knowledge", KnowledgeManifestSchema, {
     ...common,

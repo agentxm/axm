@@ -566,7 +566,7 @@ export const claudeCodeAgent = {
       axm: {
         status: "supported",
         writer: {
-          locationIds: ["project", "project-additional-1"],
+          locationIds: ["user", "project", "project-additional-1"],
           eventMap: "native.events",
         },
         lastVerified: "2026-08-05",

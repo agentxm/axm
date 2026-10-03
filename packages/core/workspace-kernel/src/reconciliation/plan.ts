@@ -704,7 +704,7 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
           : yield* manager.configuredAgentOutcomes("current");
       return {
         result: "success",
-        message: "Reconciled managed hook entries and the fallback region",
+        message: "Reconciled managed native hook entries",
         artifact: {
           ...artifact,
           agentOutcomes: currentOutcomes,

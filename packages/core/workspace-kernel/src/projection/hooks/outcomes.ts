@@ -1,75 +1,131 @@
-import { type Agent, installable } from "@agentxm/extension-model/unstable/agent-capabilities";
-import type { ConfiguredAgentOutcome } from "../../operations/index.js";
-import type { HookManifest } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import {
+  resolveHookImplementation,
+  type HookImplementationContext,
+} from "@agentxm/extension-model/unstable/hooks/resolution";
+import * as Result from "effect/Result";
+import {
+  type Agent,
+  isConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import type { ConfiguredAgentOutcome, HookEvidenceStatus } from "../../operations/index.js";
+import {
+  resolveHookConfiguration,
+  type HookConfigurationValues,
+  type HookManifest,
+} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
 export interface HookOutcomeTarget {
   readonly nativePath?: string;
-  readonly fallbackPath: string;
 }
 
-const nonAdvisoryDecision = (manifest: HookManifest): "block" | "modify" | undefined =>
-  manifest.bindings
-    .map((binding) => binding.requires?.decision.kind)
-    .find((kind): kind is "block" | "modify" => kind === "block" || kind === "modify");
-
+/** Native settings are the only Hook activation mechanism. Runtime execution is separate evidence. */
 export const evaluateHookAgentOutcome = (args: {
   readonly agent: Agent;
   readonly manifest: HookManifest;
   readonly target: HookOutcomeTarget;
+  readonly scope: "project" | "user";
   readonly state: "projected" | "current";
+  readonly configuration?: HookConfigurationValues;
+  readonly fixtureEvidence?: HookEvidenceStatus;
+  readonly host?: Omit<HookImplementationContext, "scope">;
 }): ConfiguredAgentOutcome => {
-  const unsupported =
-    (args.target.nativePath === undefined
-      ? { installable: false, reason: "No native Hook writer is declared for the selected scope." }
-      : undefined) ??
-    args.manifest.bindings
-      .map((binding) => installable(args.agent, binding))
-      .find((verdict) => !verdict.installable);
-
-  if (unsupported === undefined) {
+  const base = { extensionType: "hook", name: args.manifest.name, agentId: args.agent.id } as const;
+  if (args.target.nativePath === undefined || !isConfigurableAgentId(args.agent.id))
     return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
-      outcome: args.state,
-      reasonCode: "hook-native",
-      reason: "All hook bindings have a supported native mapping and writer.",
-      mechanism: "native",
-      ...(args.target.nativePath === undefined ? {} : { path: args.target.nativePath }),
-    };
-  }
-
-  if (args.manifest.fallback === "none") {
-    return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
+      ...base,
       outcome: "blocked",
-      reasonCode: "hook-fallback-forbidden",
-      reason: `${unsupported.reason} This hook forbids advisory fallback.`,
+      reasonCode: "hook-native-writer-unavailable",
+      reason: "No native Hook writer is declared for the selected scope.",
     };
-  }
-
-  const requiredDecision = nonAdvisoryDecision(args.manifest);
-  if (requiredDecision !== undefined) {
+  const selected = resolveHookImplementation(args.manifest, args.agent.id, {
+    ...args.host,
+    scope: args.scope,
+  });
+  if (selected.status === "unsupported")
     return {
-      extensionType: "hook",
-      name: args.manifest.name,
-      agentId: args.agent.id,
+      ...base,
       outcome: "blocked",
-      reasonCode: "hook-decision-not-preserved",
-      reason: `${unsupported.reason} Advisory fallback cannot preserve ${requiredDecision} decisions.`,
+      reasonCode: "hook-native-implementation-unavailable",
+      reason: selected.reasons.join(" "),
     };
-  }
-
+  if (selected.status === "ambiguous")
+    return {
+      ...base,
+      outcome: "blocked",
+      reasonCode: "hook-native-implementation-ambiguous",
+      reason: `Multiple implementations match: ${selected.implementationIds.join(", ")}.`,
+    };
+  const configuration = resolveHookConfiguration(args.manifest, args.configuration ?? {});
+  const nativeImport = args.manifest.metadata?.["nativeImport"];
+  const duplicateRisk =
+    typeof nativeImport === "object" &&
+    nativeImport !== null &&
+    "originalRegistrationsPreserved" in nativeImport &&
+    nativeImport["originalRegistrationsPreserved"] === true;
+  const conditions = [
+    ...selected.conditions,
+    ...(duplicateRisk
+      ? [
+          "Import preserved the original native registrations; enabling this package can execute the hook twice until those originals are removed.",
+        ]
+      : []),
+  ];
   return {
-    extensionType: "hook",
-    name: args.manifest.name,
-    agentId: args.agent.id,
+    ...base,
     outcome: args.state,
-    reasonCode: "hook-advisory-fallback",
-    reason: `${unsupported.reason} AXM will represent this observational hook through managed instructions.`,
-    mechanism: "advisory-fallback",
-    path: args.target.fallbackPath,
+    reasonCode: selected.status === "conditional" ? "hook-native-conditional" : "hook-native",
+    reason:
+      `Native implementation ${selected.implementation.id} has a supported settings representation. ${conditions.join(" ")} Runtime prerequisites and host execution remain unverified.`.replace(
+        / +/g,
+        " ",
+      ),
+    mechanism: "native",
+    path: args.target.nativePath,
+    hook: {
+      implementationId: selected.implementation.id,
+      protocol: selected.implementation.protocol,
+      bindings: selected.implementation.bindings.map((binding) => ({
+        id: binding.id,
+        event: binding.event,
+        ...(binding.matcher === undefined ? {} : { matcher: binding.matcher }),
+        runtime: binding.handler.runtime,
+        entrypoint: binding.handler.entrypoint,
+        requiredOutcomes: binding.requires?.outcomes ?? [],
+        requiredOperations: binding.requires?.operations ?? [],
+      })),
+      conditions,
+      configuration: {
+        status:
+          args.configuration === undefined
+            ? "not-evaluated"
+            : Result.isFailure(configuration)
+              ? "invalid"
+              : "valid",
+        fields:
+          args.configuration === undefined
+            ? []
+            : Object.entries(args.manifest.configuration ?? {}).map(([key, field]) => {
+                const consumer = Object.hasOwn(args.configuration ?? {}, key);
+                const value = consumer ? args.configuration?.[key] : field.default;
+                const redacted = field.type === "string" && field.secret === true;
+                return {
+                  key,
+                  source: consumer ? "consumer" : field.default === undefined ? "unset" : "default",
+                  value: redacted || typeof value === "object" ? null : (value ?? null),
+                  redacted,
+                };
+              }),
+        issues:
+          args.configuration !== undefined && Result.isFailure(configuration)
+            ? configuration.failure
+            : [],
+      },
+      runtimeAvailability: "unverified",
+      nativeInvocation: "not-observed",
+      fixtureEvidence: args.fixtureEvidence ?? {
+        state: "absent",
+        reason: "No local fixture evidence was evaluated for this selection",
+      },
+    },
   };
 };

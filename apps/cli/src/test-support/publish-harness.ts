@@ -174,9 +174,18 @@ export const writeAuthoredHook = (
       name: fixture.name,
       version: fixture.version ?? "1.0.0",
       description: fixture.description ?? `The ${fixture.name} hook.`,
-      runtime: "bash",
-      entrypoint: "src/hook.sh",
-      bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+      implementations: ["claude-code", "codex"].map((protocol) => ({
+        id: protocol,
+        protocol,
+        bindings: [
+          {
+            id: "audit",
+            event: "PreToolUse",
+            matcher: "Write|Edit",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      })),
     },
     [[path.join("src", "hook.sh"), `#!/usr/bin/env bash\necho "${fixture.name}"\n`]],
   );

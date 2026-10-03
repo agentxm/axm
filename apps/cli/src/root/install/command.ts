@@ -17,6 +17,7 @@ import {
 import { agentFlag, ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { parseHookConfiguration } from "../hooks/configuration-input.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
@@ -185,6 +186,7 @@ const runTypedInstall = (
   type: InstallableExtensionType,
   parsed: ParsedTypedInstall,
   selection: ReadonlyArray<string>,
+  configuration?: import("@agentxm/extension-model/unstable/hooks/manifest-schema").HookConfigurationValues,
 ) => {
   const args: InstallHandlerArgs = {
     type: Option.some(type),
@@ -198,6 +200,7 @@ const runTypedInstall = (
     bindEnv: [],
     localName: Option.none(),
     bundled: false,
+    ...(configuration === undefined ? {} : { configuration }),
   };
   return executeInstall(
     args,
@@ -327,6 +330,10 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         agent: common.agent,
         scope: common.scope,
         hook: selectorFlag(type),
+        configuration: Flag.String("configuration").pipe(
+          Flag.optional,
+          Flag.withDescription("Consumer values for one selected Hook as JSON"),
+        ),
         all: common.all,
         force: common.force,
         preview: common.preview,
@@ -334,7 +341,11 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
-          runTypedInstall(type, parsed, parsed.hook),
+          Option.isNone(parsed.configuration)
+            ? runTypedInstall(type, parsed, parsed.hook)
+            : parseHookConfiguration(parsed.configuration.value).pipe(
+                Effect.flatMap((values) => runTypedInstall(type, parsed, parsed.hook, values)),
+              ),
         ).pipe(withArgvTracking(config)),
         type,
       );

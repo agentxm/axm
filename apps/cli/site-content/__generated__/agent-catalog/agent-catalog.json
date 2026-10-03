@@ -4197,24 +4197,31 @@
             "status": "native",
             "availability": { "via": "native" },
             "vendorStatus": { "state": "active" },
-            "notes": "Cursor hooks run custom scripts around agent-loop stages. The native hooks.json shape is a direct event-to-command array, not AXM's current grouped command-stdin serializer shape.",
+            "notes": "Command handlers use flat event arrays. User handlers run from the Cursor configuration directory; project handlers run from the project root. Runtime execution remains unverified.",
             "docs": [],
-            "sources": ["https://cursor.com/docs/hooks.md"],
-            "review": null,
+            "sources": ["https://cursor.com/docs/hooks"],
+            "review": {
+              "reviewedAt": "2026-10-02",
+              "sources": ["https://cursor.com/docs/hooks"],
+              "conditions": [],
+              "limitations": [
+                "AXM projects command handlers only. The preToolUse ask response is not enforced and is not advertised. Cloud profiles do not load user hooks or sessionStart. No native host execution was observed."
+              ],
+              "claimScope": "Documented native command event grammar, native decisions, and project/user locations"
+            },
             "scopes": ["user", "project"],
-            "mechanisms": []
+            "mechanisms": ["command-stdin"]
           },
-          "axm": { "status": "unsupported", "legacyLastVerified": null, "verification": null },
+          "axm": { "status": "writer", "legacyLastVerified": null, "verification": null },
           "installability": {
-            "status": "unsupported",
+            "status": "conditional",
             "conditions": [
-              "Cursor hooks run custom scripts around agent-loop stages. The native hooks.json shape is a direct event-to-command array, not AXM's current grouped command-stdin serializer shape."
+              "Command handlers use flat event arrays. User handlers run from the Cursor configuration directory; project handlers run from the project root. Runtime execution remains unverified."
             ],
             "limitations": [
               "Parent-company acquisition reviewed; the product/operator identity is distinct from parent and model provider. Existing capability paths were not all re-exercised.",
               "This review does not renew historical AXM runtime verification.",
-              "Cursor's hooks.json maps each event to a flat command array; AXM's only hook serializer emits grouped command-stdin entries, so a writer needs a new serializer rather than catalog data.",
-              "No scoped native capability review is recorded.",
+              "AXM projects command handlers only. The preToolUse ask response is not enforced and is not advertised. Cloud profiles do not load user hooks or sessionStart. No native host execution was observed.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]
           }

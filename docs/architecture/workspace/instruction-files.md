@@ -27,16 +27,14 @@ Enabled extension capabilities may contribute independently managed content:
 - Rules contribute ordered behavior guidance;
 - Knowledge contributes a compact discovery entry rather than concept content
   for each enabled bundle admitted by its manifest default and optional
-  workspace override;
-  and
-- Hooks may contribute an explicitly supported instruction fallback.
+  workspace override.
 
 AXM composes those contributions deterministically and reconciles them through
 the ordinary workspace lifecycle and sync boundaries.
 After any capability writes its contributed region, instruction-file management
 refreshes owned aliases from the complete canonical file in the same operation.
 An unowned alias target or malformed managed ignore region blocks the write;
-scoped Hook and Knowledge sync also repairs stale aliases.
+scoped Knowledge sync also repairs stale aliases.
 
 ## Configuration and commands
 
@@ -58,7 +56,7 @@ does not make the choice.
 AXM does not own the canonical file as a whole, replace user-authored prose,
 turn every instruction into a Rule extension, or treat an existing alias as
 permission to overwrite it. Enabling instruction management does not enable
-every Rule, Knowledge bundle, or Hook, and enabling one contributor does not
+every Rule or Knowledge bundle, and enabling one contributor does not
 grant authority over the shared surface.
 
 Instruction management is not a general documentation synchronization or
@@ -114,7 +112,7 @@ ambiguous and blocks the affected reconciliation. An unowned file at a required
 alias path is a collision and remains untouched.
 
 The shared [managed-file ownership grammar](managed-file-ownership.md) names
-the Rules, Knowledge, Hook fallback, and instruction-alias units. Alias copies
+the Rules, Knowledge, and instruction-alias units. Alias copies
 carry a structured `axm:file` banner, while `.gitignore` uses the
 `instruction-aliases` pattern-list region. Generated document currency follows
 generation provenance derived from authoritative inputs, so AXM does not

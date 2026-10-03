@@ -20,11 +20,9 @@ import {
   type AgentExtensionCapability,
   type AxmSupport,
   type CanonicalHookEventId,
-  type CanonicalHookToolId,
   type Detection,
   type HookBlockOutcome,
   type HookDecisionCapability,
-  type HookEventMapping,
   type HookMechanismFamily,
   type HookModifyOperation,
   type Scope,
@@ -348,31 +346,22 @@ export const getSupportedAgentsForExtension = (
 /** @experimental This API is unstable and may change without notice. */
 export type HookDecisionKind = HookDecisionCapability["kind"];
 
-/** @experimental This API is unstable and may change without notice. */
-export type HookDecisionRequirement =
-  | { readonly kind: "observe" }
-  | { readonly kind: "block"; readonly outcomes?: ReadonlyArray<HookBlockOutcome> | undefined }
-  | {
-      readonly kind: "modify";
-      readonly operations?: ReadonlyArray<HookModifyOperation> | undefined;
-    };
+/** Exact native outcomes required by one implementation binding. */
+export interface HookDecisionRequirement {
+  readonly outcomes?: ReadonlyArray<HookBlockOutcome> | undefined;
+  readonly operations?: ReadonlyArray<HookModifyOperation> | undefined;
+}
 
-/** @experimental This API is unstable and may change without notice. */
+/** Structural contract accepts native bindings without depending on the manifest module. */
 export interface HookInstallBinding {
-  readonly on: CanonicalHookEventId;
-  readonly match?:
-    | {
-        readonly tools?: ReadonlyArray<CanonicalHookToolId> | undefined;
-      }
-    | undefined;
-  readonly matcherRaw?: string | undefined;
-  readonly targets?:
-    Readonly<Record<string, { readonly matcherRaw?: string | undefined }>> | undefined;
-  readonly requires?:
-    | {
-        readonly decision: HookDecisionRequirement;
-      }
-    | undefined;
+  readonly event: string;
+  readonly matcher?: string | undefined;
+  readonly handler: {
+    readonly type: string;
+    readonly name?: string | undefined;
+    readonly timeoutMs?: number | undefined;
+  };
+  readonly requires?: HookDecisionRequirement | undefined;
 }
 
 /** @experimental This API is unstable and may change without notice. */
@@ -428,96 +417,75 @@ export const canonicalCoverage = (agent: Agent) => {
   };
 };
 
-const hookEventForBinding = (
-  agent: Agent,
-  binding: HookInstallBinding,
-): HookEventMapping | undefined => {
-  const native = agent.capabilities.hook.native;
-  if (!("events" in native)) return undefined;
-  return native.events.find((event) => event.canonical === binding.on);
-};
-
-const targetMatcherRaw = (agent: Agent, binding: HookInstallBinding): string | undefined =>
-  binding.targets?.[agent.id]?.matcherRaw ?? binding.matcherRaw;
-
-const bindingRequiresMatcher = (agent: Agent, binding: HookInstallBinding): boolean =>
-  targetMatcherRaw(agent, binding) !== undefined || (binding.match?.tools?.length ?? 0) > 0;
-
-const decisionRequirementSatisfied = (
-  available: ReadonlyArray<HookDecisionCapability>,
-  required: HookDecisionRequirement,
-): boolean => available.some((decision) => decision.kind === required.kind);
-
-/** @experimental This API is unstable and may change without notice. */
+/** Check exact native semantics; a canonical event never chooses an implementation. */
 export const installable = (
   agent: Agent,
   binding: HookInstallBinding,
 ): HookInstallabilityVerdict => {
   const hook = agent.capabilities.hook;
-  if (hook.native.availability.via === "unknown") {
+  if (hook.native.availability.via === "unknown")
     return {
       installable: false,
       reason: `${agent.name}'s hook availability has not been established.`,
     };
-  }
-  if (hook.native.availability.via === "none") {
-    return { installable: false, reason: `${agent.name} has no hook system.` };
-  }
-  if (hook.native.vendorStatus.state === "removed") {
-    return { installable: false, reason: `${agent.name}'s native hook surface has been removed.` };
-  }
-  if (!("events" in hook.native)) {
-    return { installable: false, reason: `${agent.name} has no modeled hook events.` };
-  }
-  if (hook.axm.writer === null) {
-    return { installable: false, reason: `AXM has not built a hook writer for ${agent.name}.` };
-  }
-  if (!hook.native.mechanism.includes("command-stdin")) {
+  if (hook.native.availability.via === "none" || hook.native.vendorStatus.state === "removed")
+    return { installable: false, reason: `${agent.name} has no available native hook system.` };
+  if (!("events" in hook.native) || hook.axm.writer === null || hook.native.entryDialect === null)
     return {
       installable: false,
-      reason: `AXM's hook writer requires command-stdin invocation for ${agent.name}.`,
+      reason: `AXM has no verified native hook writer for ${agent.name}.`,
     };
-  }
-
-  const event = hookEventForBinding(agent, binding);
-  if (event === undefined) {
+  if (binding.handler.type !== "command" || !hook.native.mechanism.includes("command-stdin"))
     return {
       installable: false,
-      reason: `${agent.name} does not support ${binding.on}.`,
+      reason: `${agent.name} cannot project the ${binding.handler.type} handler.`,
     };
-  }
-
-  if (bindingRequiresMatcher(agent, binding) && event.matcher.kind === "none-imperative") {
-    return {
-      installable: false,
-      reason: `${agent.name} cannot express a matcher for ${binding.on}.`,
-    };
-  }
-
-  const tools = binding.match?.tools ?? [];
-  if (tools.length > 0) {
-    const nativeTools = new Set(hook.native.tools.map((tool) => tool.canonical));
-    const missingTools = missingValues(tools, nativeTools);
-    if (missingTools.length > 0) {
-      return {
-        installable: false,
-        reason: `${agent.name} cannot express matcher tool(s): ${missingTools.join(", ")}.`,
-      };
-    }
-  }
-
-  const requiredDecision = binding.requires?.decision;
   if (
-    requiredDecision !== undefined &&
-    !decisionRequirementSatisfied(event.decision, requiredDecision)
-  ) {
+    binding.handler.name !== undefined &&
+    hook.native.entryDialect.commandNameSerialization !== "manifest"
+  )
     return {
       installable: false,
-      reason: `${agent.name} cannot satisfy ${requiredDecision.kind} decisions for ${binding.on}.`,
+      reason: `${agent.name}'s writer cannot preserve an explicit command name.`,
     };
-  }
-
-  return { installable: true, reason: `${agent.name} can install ${binding.on}.` };
+  if (
+    binding.handler.timeoutMs !== undefined &&
+    hook.native.entryDialect.timeoutSerialization === "seconds" &&
+    binding.handler.timeoutMs % 1000 !== 0
+  )
+    return {
+      installable: false,
+      reason: `${agent.name}'s writer accepts whole-second timeouts; the declared milliseconds cannot be represented exactly.`,
+    };
+  const matches = hook.native.events.filter((event) => event.nativeName === binding.event);
+  const event = matches[0];
+  if (matches.length !== 1 || event === undefined)
+    return {
+      installable: false,
+      reason: `${agent.name} has no unambiguous native ${binding.event} event.`,
+    };
+  if (binding.matcher !== undefined && event.matcher.kind === "none-imperative")
+    return {
+      installable: false,
+      reason: `${agent.name} cannot express a matcher for ${binding.event}.`,
+    };
+  const outcomes = new Set(
+    event.decision.flatMap((decision) => (decision.kind === "block" ? decision.outcomes : [])),
+  );
+  const operations = new Set(
+    event.decision.flatMap((decision) => (decision.kind === "modify" ? decision.operations : [])),
+  );
+  const missingOutcomes = missingValues(binding.requires?.outcomes ?? [], outcomes);
+  const missingOperations = missingValues(binding.requires?.operations ?? [], operations);
+  if (missingOutcomes.length > 0 || missingOperations.length > 0)
+    return {
+      installable: false,
+      reason: `${agent.name} ${binding.event} cannot preserve required semantics: ${[...missingOutcomes, ...missingOperations].join(", ")}.`,
+    };
+  return {
+    installable: true,
+    reason: `${agent.name} can project native ${binding.event}; runtime execution remains unverified.`,
+  };
 };
 
 /** @experimental This API is unstable and may change without notice. */

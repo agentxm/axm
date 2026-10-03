@@ -17,8 +17,8 @@ among AXM extension types.
   native profiles or capability-preserving fallbacks
 - [Rules](rules.md) — reusable behavior guidance contributed to a managed
   instruction surface
-- [Hooks](hooks.md) — lifecycle automation projected into supported native hook
-  systems
+- [Hooks](hooks.md) — native implementations, consumer configuration, owned
+  activation, and separate execution evidence
 - [Knowledge](knowledge.md) — isolated Open Knowledge Format bundles with
   on-demand discovery
 - [Packs](packs.md) — dependency containers that expand desired state without

@@ -60,8 +60,9 @@ const writeHookPackage = (
   name: string,
   options?: {
     readonly timeoutMs?: number;
+    readonly runtime?: "bash" | "node" | "python";
     readonly bindings?: ReadonlyArray<Record<string, unknown>>;
-    readonly fallback?: "auto" | "none";
+    readonly fixtures?: ReadonlyArray<Record<string, unknown>>;
   },
 ) => {
   mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
@@ -73,11 +74,23 @@ const writeHookPackage = (
         type: "hook",
         name,
         version: "1.0.0",
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
-        bindings: options?.bindings ?? [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
-        ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
-        ...(options?.fallback === undefined ? {} : { fallback: options.fallback }),
+        ...(options?.fixtures === undefined ? {} : { fixtures: options.fixtures }),
+        implementations: ["claude-code", "codex", "devin"].map((protocol) => ({
+          id: protocol,
+          protocol,
+          bindings: (options?.bindings ?? [{ event: "PreToolUse", matcher: "Write|Edit" }]).map(
+            (binding, index) => ({
+              id: `binding-${index}`,
+              ...binding,
+              handler: {
+                type: "command",
+                runtime: options?.runtime ?? "bash",
+                entrypoint: "src/hook.sh",
+                ...(options?.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }),
+              },
+            }),
+          ),
+        })),
       },
       null,
       2,
@@ -177,6 +190,65 @@ const makeHookManagerLayer = (
 };
 
 describe("HookManager", () => {
+  it.effect("refuses an entrypoint symlink escaping the package before native publication", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-resource-"),
+      );
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit");
+        const entrypoint = nodePath.join(packageRoot, "src/hook.sh");
+        rmSync(entrypoint);
+        writeFileSync(nodePath.join(workspaceRoot, "outside.sh"), "echo must-not-run\n");
+        symlinkSync("../../outside.sh", entrypoint);
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          const failure = yield* manager
+            .prepareProjection([makeLocalHookRef("audit", packageRoot)])
+            .pipe(Effect.flip);
+          expect(failure).toMatchObject({
+            _tag: "HookDefinitionInvalid",
+            cause: { _tag: "PathTraversalDetected" },
+          });
+          expect(existsSync(nodePath.join(workspaceRoot, ".claude/settings.json"))).toBe(false);
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"] })));
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+  it.effect("activates a distributed package with intentionally omitted fixture files", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-distributed-"),
+      );
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit", {
+          fixtures: [
+            {
+              id: "author-only",
+              implementation: "claude-code",
+              binding: "binding-0",
+              input: "fixtures/input.json",
+              expect: { exitCode: 0, stdout: "fixtures/output.txt" },
+            },
+          ],
+        });
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+          yield* manager.projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
+          expect(
+            readFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "utf8"),
+          ).toContain("src/hook.sh");
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"] })));
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
   it.effect(
     "refuses an aliased TOML co-reader before settings, canonical content, or native publication",
     () =>
@@ -261,7 +333,7 @@ describe("HookManager", () => {
         );
         try {
           const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-          writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
+          writeHookPackage(packageRoot, "audit", { bindings: [{ event: "SessionStart" }] });
           mkdirSync(nodePath.join(workspaceRoot, ".claude"));
           mkdirSync(nodePath.join(workspaceRoot, ".devin"));
           writeFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "");
@@ -302,7 +374,7 @@ describe("HookManager", () => {
           );
           try {
             const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-            writeHookPackage(packageRoot, "audit", { bindings: [{ on: "session.start" }] });
+            writeHookPackage(packageRoot, "audit", { bindings: [{ event: "SessionStart" }] });
             mkdirSync(nodePath.join(workspaceRoot, ".claude"));
             const native = nodePath.join(workspaceRoot, ".claude/settings.json");
             const otherPath = coReader === "devin" ? ".devin/config.json" : ".gemini/settings.json";
@@ -336,6 +408,10 @@ describe("HookManager", () => {
                 },
               ]);
               const beforeRepeat = readFileSync(native, "utf8");
+              expect(beforeRepeat).toContain('"implementationIds": [');
+              expect(beforeRepeat).toContain('"claude-code"');
+              expect(beforeRepeat).toContain('"devin"');
+              expect(beforeRepeat.match(/"command":/g)).toHaveLength(1);
               yield* applyPlannedProjections(manager);
               expect(readFileSync(native, "utf8")).toBe(beforeRepeat);
               expect(readlinkSync(alias)).toBe("../.claude/settings.json");
@@ -377,10 +453,7 @@ describe("HookManager", () => {
           yield* applyPlannedProjections(manager);
           expect(yield* manager.aggregateProjectionObservation).toMatchObject({
             agents: ["claude-code"],
-            targets: [
-              { path: ".claude/settings.json", agentIds: ["claude-code"] },
-              { path: "AGENTS.md" },
-            ],
+            targets: [{ path: ".claude/settings.json", agentIds: ["claude-code"] }],
           });
         }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["identity-check"] })));
 
@@ -397,13 +470,33 @@ describe("HookManager", () => {
     }),
   );
 
-  it.effect("serializes structured canonical tool matchers for Claude Code", () =>
+  it.effect("uses python3 for Python native commands", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-python-hook-"));
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit", { runtime: "python" });
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+          yield* applyPlannedProjections(manager);
+        }).pipe(Effect.provide(makeHookManagerLayer(workspaceRoot, { hooks: ["audit"] })));
+        expect(
+          readFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "utf8"),
+        ).toContain("python3 ");
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect("preserves explicit native tool matchers for Claude Code", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
         writeHookPackage(packageRoot, "shell-check", {
-          bindings: [{ on: "tool.pre", match: { tools: ["shell.exec"] } }],
+          bindings: [{ event: "PreToolUse", matcher: "Bash" }],
         });
 
         yield* Effect.gen(function* () {
@@ -459,64 +552,12 @@ describe("HookManager", () => {
     }),
   );
 
-  it.effect("degrades a hook to a managed advisory rule when an agent has no writer", () =>
-    Effect.gen(function* () {
-      const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
-      try {
-        const settingsPath = nodePath.join(workspaceRoot, ".windsurf", "settings.json");
-        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-        writeHookPackage(packageRoot, "unsupported-agent");
-
-        yield* Effect.gen(function* () {
-          const manager = yield* HookManager;
-          yield* manager.materializeInstall({
-            ref: makeLocalHookRef("unsupported-agent", packageRoot),
-          });
-          yield* applyPlannedProjections(manager);
-          expect(yield* manager.aggregateProjectionObservation).toMatchObject({
-            agents: ["windsurf"],
-            targets: [{ path: "AGENTS.md", agentIds: ["windsurf"] }],
-          });
-          if (manager.configuredAgentOutcomes === undefined) {
-            throw new Error("Hook configured-agent outcomes are unavailable");
-          }
-          expect(yield* manager.configuredAgentOutcomes("current")).toMatchObject([
-            {
-              name: "unsupported-agent",
-              agentId: "windsurf",
-              outcome: "current",
-              mechanism: "advisory-fallback",
-              path: "AGENTS.md",
-            },
-          ]);
-        }).pipe(
-          Effect.provide(
-            makeHookManagerLayer(workspaceRoot, {
-              configuredAgents: ["windsurf"],
-              hooks: ["unsupported-agent"],
-            }),
-          ),
-        );
-
-        const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
-        expect(instructions).toContain("region=hook-fallbacks");
-        expect(instructions).toContain("managed advisory rule");
-        expect(instructions).toContain(
-          "agent_extensions/path/@acme/hooks/unsupported-agent/src/hook.sh",
-        );
-        expect(existsSync(settingsPath)).toBe(false);
-      } finally {
-        rmSync(workspaceRoot, { recursive: true, force: true });
-      }
-    }),
-  );
-
-  it.effect("rejects advisory degradation when fallback is none", () =>
+  it.effect("blocks unsupported hosts without generating instruction content", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(nodePath.join(realpathSync(tmpdir()), "axm-hook-manager-"));
       try {
         const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-        writeHookPackage(packageRoot, "native-only", { fallback: "none" });
+        writeHookPackage(packageRoot, "native-only");
 
         const error = yield* Effect.gen(function* () {
           const manager = yield* HookManager;
@@ -534,7 +575,8 @@ describe("HookManager", () => {
           Effect.flip,
         );
 
-        expect(describeTestFailure(error)).toContain("forbids advisory fallback");
+        expect(describeTestFailure(error)).toContain("No native Hook writer");
+        expect(existsSync(nodePath.join(workspaceRoot, "AGENTS.md"))).toBe(false);
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });
       }
@@ -552,7 +594,7 @@ describe("HookManager", () => {
           const settingsPath = nodePath.join(workspaceRoot, ".claude", "settings.json");
           const packageRoot = nodePath.join(workspaceRoot, "source-hook");
           writeHookPackage(packageRoot, "decision-check", {
-            bindings: [{ on: "session.start", requires: { decision: { kind: "block" } } }],
+            bindings: [{ event: "SessionStart", requires: { outcomes: ["deny"] } }],
           });
 
           const error = yield* Effect.gen(function* () {
@@ -566,7 +608,7 @@ describe("HookManager", () => {
             Effect.flip,
           );
 
-          expect(describeTestFailure(error)).toContain("cannot satisfy block decisions");
+          expect(describeTestFailure(error)).toContain("cannot preserve required semantics");
           expect(existsSync(settingsPath)).toBe(false);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });

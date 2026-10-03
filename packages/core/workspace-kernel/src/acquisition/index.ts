@@ -29,6 +29,7 @@ export {
 // Canonical package staging, copy, reuse, and on-disk materializability
 export { prepareCanonicalParents, retireCanonicalDirectory } from "./canonical-parent-receipts.js";
 export {
+  canonicalMaterializationPaths,
   createCanonicalDirectory,
   materializeExternalPackageWithTreeIntegrity,
   recoverCanonicalDirectory,

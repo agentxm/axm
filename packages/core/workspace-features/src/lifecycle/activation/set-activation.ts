@@ -523,7 +523,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
       });
     }
     const gate =
-      request.type === "rule" || request.type === "hook" || request.type === "knowledge"
+      request.type === "rule" || request.type === "knowledge"
         ? yield* instructionGate()
         : Option.none<ExtensionLifecycleFailed>();
     const realization: ActivationRealization = Option.isSome(refusal)

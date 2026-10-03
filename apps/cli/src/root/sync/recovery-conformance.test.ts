@@ -124,7 +124,8 @@ const packageLintErrorIds = [
   "hook/manifest-present",
   "hook/manifest-schema-valid",
   "hook/manifest-keys-recognized",
-  "hook/entrypoint-exists",
+  "hook/native-bindings-supported",
+  "hook/referenced-files-exist",
   "rule/manifest-present",
   "rule/manifest-schema-valid",
   "rule/manifest-keys-recognized",
@@ -175,9 +176,6 @@ const aggregateCoverage = {
     "packages/core/extension-kinds/src/instructions/manager.graph-projection.test.ts",
   ],
   "hook:agent-hook-entries": [
-    "packages/core/extension-kinds/src/hooks/manager.graph-projection.test.ts",
-  ],
-  "hook:fallback-region": [
     "packages/core/extension-kinds/src/hooks/manager.graph-projection.test.ts",
   ],
   "knowledge:discovery-region": [

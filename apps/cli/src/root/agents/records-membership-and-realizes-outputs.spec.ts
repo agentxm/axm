@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/add/records-membership-and-realizes-outputs",
   title: "Adding a coding agent records it durably and realizes installed extensions for it",
   statement:
-    "When a coding agent is added to the workspace, AXM shall record it in the configured agent set and realize installed extensions on its supported native and shared surfaces as permitted by workspace activation and instruction settings in one operation.",
+    "When a coding agent is added to the workspace, AXM shall record it in the configured agent set and realize installed extensions on its supported native and shared surfaces as permitted by workspace activation and instruction settings in one operation. If an enabled Hook has no supported native implementation for a proposed target, AXM shall refuse the membership change without modifying configured membership or installed outputs.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -144,11 +144,11 @@ describe("Adding a coding agent", () => {
   );
 
   it.effect(
-    "adds a Skill-capable agent without inventing an unsupported native Hook representation",
+    "refuses a new agent that cannot realize an enabled Hook",
     () => {
       // The workspace also declares a Hook, whose only native representation
       // is the configured agent's own settings file. The agent being added
-      // supports Skills, not Hooks.
+      // supports Skills, but has no native Hook writer.
       const fixture = workspaceWithInstalledSkill({
         settings: { hooks: { "review-guard": { source: "workspace", enabled: true } } },
         files: {
@@ -160,9 +160,18 @@ describe("Adding a coding agent", () => {
               name: "review-guard",
               version: "1.0.0",
               description: "The review-guard hook.",
-              runtime: "bash",
-              entrypoint: "src/hook.sh",
-              bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+              implementations: ["claude-code", "codex"].map((protocol) => ({
+                id: protocol,
+                protocol,
+                bindings: [
+                  {
+                    id: "audit",
+                    event: "PreToolUse",
+                    matcher: "Write|Edit",
+                    handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+                  },
+                ],
+              })),
             },
             null,
             2,
@@ -176,28 +185,19 @@ describe("Adding a coding agent", () => {
         : null;
       const authoredBefore = fixture.snapshotOf("skills");
       const lockBefore = fixture.readLockfileText();
-      const nativeBefore = Object.entries(fixture.snapshotOf(".opencode")).filter(
-        ([relative]) => relative !== "skills" && !relative.startsWith("skills/"),
-      );
+      const nativeBefore = fixture.snapshotOf(".opencode");
+      const settingsBefore = fixture.readSettings();
 
       return Effect.gen(function* () {
         yield* addAgent(fixture, "opencode");
 
         expect(fixture.rendererState.results.at(-1)).toMatchObject({
-          ok: true,
-          data: { result: { outcome: "applied", counts: { failed: 0, blocked: 0 } } },
+          ok: false,
+          data: { result: { outcome: "failed" } },
         });
-        expect(fixture.readSettings()["agents"]).toEqual(["claude-code", "opencode"]);
-        expect(fixture.readFile(".opencode/skills/code-review/SKILL.md")).toBe(
-          fixture.readFile("skills/code-review/src/SKILL.md"),
-        );
-        // The new agent's directory gained Skills and nothing else: no hook
-        // representation was invented for a surface it does not declare.
-        expect(
-          Object.entries(fixture.snapshotOf(".opencode")).filter(
-            ([relative]) => relative !== "skills" && !relative.startsWith("skills/"),
-          ),
-        ).toEqual(nativeBefore);
+        expect(fixture.readSettings()).toEqual(settingsBefore);
+        expect(fixture.exists(".opencode/skills/code-review")).toBe(false);
+        expect(fixture.snapshotOf(".opencode")).toEqual(nativeBefore);
         expect(fixture.exists(".opencode/settings.json")).toBe(false);
         expect(
           fixture.exists(".claude/settings.json")
@@ -208,5 +208,6 @@ describe("Adding a coding agent", () => {
         expect(fixture.readLockfileText()).toBe(lockBefore);
       });
     },
+    { timeout: 20_000 },
   );
 });

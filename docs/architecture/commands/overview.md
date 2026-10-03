@@ -88,7 +88,7 @@ type-specific conversion, but follow the shared
 implicit lifecycle operation.
 
 `axm instructions` is a root workspace command family rather than an extension
-type command. Rules, Knowledge, and supported Hook fallbacks may contribute to
+type command. Rules and Knowledge may contribute to
 the instruction surface, but none of those types owns the surface itself.
 
 Root and type-specific forms express the same user intent and share planning

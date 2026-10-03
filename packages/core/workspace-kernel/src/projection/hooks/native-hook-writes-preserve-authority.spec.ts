@@ -15,7 +15,6 @@ import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { resolveNativeReadLocation } from "../../locations/index.js";
 import { makeRecordingNativeWriteAuthority } from "../../agent-adapters/testing.js";
 import { NativeWriteAuthorityLive } from "../live.js";
-import { reconcileNativeManagedRegion } from "../index.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 
@@ -385,95 +384,4 @@ describe("native Hook ownership", () => {
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
-
-  for (const baseline of [undefined, "", "# Existing instructions\n"]) {
-    it.effect(
-      `restores the ${baseline === undefined ? "absent" : baseline.length === 0 ? "empty" : "foreign-content"} baseline after advisory Hook withdrawal`,
-      () =>
-        Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const root = yield* fs.makeTempDirectoryScoped();
-          const file = path.join(root, "AGENTS.md");
-          if (baseline !== undefined) yield* fs.writeFileString(file, baseline);
-          const authority = NativeWriteAuthorityLive.pipe(
-            Layer.provide(
-              Layer.merge(WorkspaceReadTest({ baseDir: root }), WorkspaceFileWriteLocksLive),
-            ),
-          );
-          const args = {
-            workspaceRoot: root,
-            nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-            ownerRoot: root,
-            scope: "project" as const,
-            targetPath: file,
-            displayPath: "AGENTS.md",
-            owner: "@agentxm/hooks/fallbacks",
-            region: "hook-fallbacks" as const,
-            generation: "a".repeat(64),
-            contributors: [owner],
-            ownership: [owner],
-            configuredAgentIds: ["windsurf"],
-            eligible: true,
-          };
-          yield* reconcileNativeManagedRegion({ ...args, rendered: "Advisory hook body" }).pipe(
-            Effect.provide(authority),
-          );
-          yield* reconcileNativeManagedRegion({
-            ...args,
-            contributors: [],
-            rendered: "",
-            eligible: false,
-          }).pipe(Effect.provide(authority));
-          if (baseline === undefined) expect(yield* fs.exists(file)).toBe(false);
-          else expect(yield* fs.readFileString(file)).toBe(baseline);
-          expect(yield* fs.exists(path.join(root, ".axm/projection-containers.json"))).toBe(false);
-        }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-    );
-  }
-
-  it.effect("preserves an advisory region whose source owner is no longer accepted", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, "AGENTS.md");
-      const authority = yield* makeRecordingNativeWriteAuthority;
-      const args = {
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        ownerRoot: root,
-        scope: "project" as const,
-        targetPath: file,
-        displayPath: "AGENTS.md",
-        owner: "@agentxm/hooks/fallbacks",
-        region: "hook-fallbacks" as const,
-        generation: "a".repeat(64),
-        contributors: [owner],
-        ownership: [owner],
-        configuredAgentIds: ["windsurf"],
-        eligible: false,
-      };
-      yield* reconcileNativeManagedRegion({ ...args, rendered: "Existing advisory Hook" }).pipe(
-        Effect.provide(authority.layer),
-      );
-      const before = yield* fs.readFileString(file);
-      const other = { ...owner, ref: "@unowned/hooks/audit" };
-      const denied = yield* reconcileNativeManagedRegion({
-        ...args,
-        contributors: [other],
-        ownership: [other],
-        rendered: "Replacement",
-      }).pipe(Effect.provide(authority.layer), Effect.result);
-      expect(denied._tag).toBe("Failure");
-      yield* reconcileNativeManagedRegion({
-        ...args,
-        contributors: [],
-        ownership: [],
-        rendered: "",
-      }).pipe(Effect.provide(authority.layer));
-      expect(yield* fs.readFileString(file)).toBe(before);
-      expect((yield* authority.observed).records).toHaveLength(1);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
 });

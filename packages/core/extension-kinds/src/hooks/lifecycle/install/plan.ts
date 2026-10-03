@@ -35,7 +35,10 @@ import {
   type ResolvedInstallRef,
 } from "@agentxm/workspace-kernel/reconciliation";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
-import { HOOK_EXTENSION_DIR } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import {
+  type HookConfigurationValues,
+  HOOK_EXTENSION_DIR,
+} from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
   operationPresentation,
   type JobStepArtifact,
@@ -57,6 +60,7 @@ import {
 export interface HookInstallIntent {
   /** All Hook sources selected by the enclosing configured install for native preflight. */
   readonly projectionRefs?: ReadonlyArray<HookExtensionRef>;
+  readonly configuration?: HookConfigurationValues;
   /** The enclosing install has resolved this complete proposed contributor graph. */
   readonly desiredGraph?: DesiredStateGraph;
   /** The enclosing semantic closure owns the trailing aggregate projection. */
@@ -111,6 +115,19 @@ export const planHookInstall: (
   ExtensionLifecycleFailed,
   InstallStepRequirements | HookManager
 > = Effect.fn("InstallExtensions.planHooks")(function* (intent: HookInstallIntent) {
+  const configuredRef = intent.refs[0];
+  if (
+    intent.configuration !== undefined &&
+    (intent.refs.length !== 1 || configuredRef === undefined)
+  )
+    return yield* installRefused({
+      category: "validation",
+      detail: "Hook configuration requires exactly one selected Hook package.",
+    });
+  const hookConfigurations =
+    intent.configuration === undefined || configuredRef === undefined
+      ? undefined
+      : new Map([[configuredRef.ref.hook.name, intent.configuration]]);
   const location = yield* WorkspaceLocation;
   const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
@@ -147,6 +164,7 @@ export const planHookInstall: (
     .prepareProjection(intent.projectionRefs ?? intent.refs.map(({ ref }) => ref), {
       priorAuthority,
       nativeInsertionEligibleNames,
+      ...(hookConfigurations === undefined ? {} : { hookConfigurations }),
       ...(intent.desiredGraph === undefined ? {} : { desiredGraph: intent.desiredGraph }),
     })
     .pipe(
@@ -210,6 +228,9 @@ export const planHookInstall: (
           toStepFailure: kernelFailureToStepFailure,
           ref,
           declaration: { name: ref.hook.name, versionRange },
+          ...(intent.configuration === undefined
+            ? {}
+            : { hookConfiguration: intent.configuration }),
           ...(deferProjections
             ? { enclosingClosure: { projections: [ref.type], postconditions: [] } }
             : {}),

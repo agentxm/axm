@@ -511,3 +511,9 @@ export {
   withDocumentRoundTripBatch,
   type DocumentRoundTripBatch,
 } from "./desired/document-round-trip.js";
+
+export {
+  hookConfigurationHash,
+  hookReceiptFilename,
+  readHookEvidence,
+} from "./observed/hooks/evidence.js";

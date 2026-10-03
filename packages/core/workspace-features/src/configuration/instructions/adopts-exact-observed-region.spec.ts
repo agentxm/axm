@@ -60,7 +60,6 @@ describe("Explicit instruction region adoption", () => {
 
   for (const [region, type, plural, owner] of [
     ["knowledge", "knowledge", "knowledge", "@agentxm/knowledge/discovery"],
-    ["hook-fallbacks", "hook", "hooks", "@agentxm/hooks/fallbacks"],
   ] as const) {
     it.effect(`adopts ${region} from its own accepted contributors`, () => {
       const raw = `<!-- axm:start v=1 region=${region} ext=${owner} -->\nExisting body\n<!-- axm:end v=1 region=${region} -->\n`;

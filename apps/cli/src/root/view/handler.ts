@@ -1,5 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
+import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { observeUnit } from "@agentxm/workspace-kernel/operations";
 import {
@@ -65,14 +67,19 @@ const readAndEmit = (args: {
     // person sees their own private extensions here. What being signed in
     // changes for a miss is only whether signing in is offered as a recovery.
     const signedIn = yield* isSignedIn(args.targetRegistry.registryUrl);
+    const settings = yield* SettingsReader;
+    const agents = yield* settings.configuredAgents;
     const result = yield* withLiveOperation(
       { command: "view", name: `View ${args.handle}`, mode: "preview" },
       observeUnit(
         { id: "index", label: `${args.handle} from ${args.targetRegistry.registryName}` },
-        Effect.catchTags(ViewExtension.read(args), {
-          PublishedMetadataUnavailable: (failure: PublishedMetadataUnavailable) =>
-            Effect.fail(publishedMetadataUnavailableToAppError(failure, !signedIn)),
-        }),
+        Effect.catchTags(
+          ViewExtension.read({ ...args, hookContext: { scope: DEFAULT_WORKSPACE_SCOPE, agents } }),
+          {
+            PublishedMetadataUnavailable: (failure: PublishedMetadataUnavailable) =>
+              Effect.fail(publishedMetadataUnavailableToAppError(failure, !signedIn)),
+          },
+        ),
       ),
     );
     yield* emit(result);

@@ -151,3 +151,5 @@ export {
   type ImportMcpServersCandidate,
   type ImportMcpServersRequirements,
 } from "./mcp-import/import-mcp-servers.js";
+
+export { ConfigureHook, prepareConfigureHook } from "./hooks/configure-hook.js";

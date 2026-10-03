@@ -303,17 +303,45 @@
               "type": "boolean",
               "description": "Set to false to omit this authored extension from repository discovery, bulk publication, and share output. This is distribution intent, not a confidentiality control.",
               "default": true
+            },
+            "configuration": {
+              "type": "object",
+              "propertyNames": {
+                "type": "string",
+                "minLength": 1,
+                "pattern": "^[a-zA-Z][a-zA-Z0-9_]*$",
+                "maxLength": 64
+              },
+              "additionalProperties": {
+                "anyOf": [
+                  { "type": "string" },
+                  { "type": "number" },
+                  { "type": "boolean" },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "env": {
+                        "type": "string",
+                        "minLength": 1,
+                        "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+                      }
+                    },
+                    "required": ["env"],
+                    "additionalProperties": false
+                  }
+                ]
+              }
             }
           },
           "additionalProperties": false
         }
       ],
       "title": "Hook Entry",
-      "description": "A hook entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied hook.",
+      "description": "Hook acquisition and typed consumer values. Configuring a Pack member does not acquire it directly.",
       "examples": [
         "@acme/hooks/block-secrets@^1.0.0",
         { "source": "@acme/hooks/block-secrets@^1.0.0", "enabled": false },
-        { "enabled": false }
+        { "configuration": { "mode": "strict" } }
       ]
     },
     "HooksMap": {
@@ -967,9 +995,8 @@
             "hook/manifest-present": { "$ref": "#/definitions/LintRuleSeverity" },
             "hook/manifest-schema-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "hook/manifest-keys-recognized": { "$ref": "#/definitions/LintRuleSeverity" },
-            "hook/decision-portability": { "$ref": "#/definitions/LintRuleSeverity" },
-            "hook/matcher-raw-portability": { "$ref": "#/definitions/LintRuleSeverity" },
-            "hook/entrypoint-exists": { "$ref": "#/definitions/LintRuleSeverity" },
+            "hook/native-bindings-supported": { "$ref": "#/definitions/LintRuleSeverity" },
+            "hook/referenced-files-exist": { "$ref": "#/definitions/LintRuleSeverity" },
             "hook/standalone-declaration-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "hook/recommended-packs-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "rule/manifest-present": { "$ref": "#/definitions/LintRuleSeverity" },

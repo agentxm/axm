@@ -417,11 +417,38 @@ describe("agent capability derivation", () => {
       matcherKinds: ["regex", "none-imperative"],
     });
   });
-  it("treats decision subfields as advisory during hook installability checks", () => {
+  it("rejects an unsupported native decision outcome during hook installability checks", () => {
     expect(
       installable(agentById("claude-code"), {
-        on: "turn.end",
-        requires: { decision: { kind: "block", outcomes: ["ask"] } },
+        event: "Stop",
+        handler: { type: "command" },
+        requires: { outcomes: ["ask"] },
+      }),
+    ).toMatchObject({ installable: false });
+  });
+  it("refuses native fields that the selected writer cannot preserve exactly", () => {
+    expect(
+      installable(agentById("claude-code"), {
+        event: "PreToolUse",
+        handler: { type: "command", name: "publisher-name" },
+      }),
+    ).toMatchObject({ installable: false });
+    expect(
+      installable(agentById("claude-code"), {
+        event: "PreToolUse",
+        handler: { type: "command", timeoutMs: 1500 },
+      }),
+    ).toMatchObject({ installable: false });
+    expect(
+      installable(agentById("claude-code"), {
+        event: "PreToolUse",
+        handler: { type: "command", timeoutMs: 2000 },
+      }),
+    ).toMatchObject({ installable: true });
+    expect(
+      installable(agentById("gemini-cli"), {
+        event: "BeforeTool",
+        handler: { type: "command", name: "publisher-name", timeoutMs: 1500 },
       }),
     ).toMatchObject({ installable: true });
   });

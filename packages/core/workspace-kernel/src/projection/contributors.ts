@@ -2,7 +2,7 @@
  * Shared contributor-set resolution for aggregate ownership units.
  *
  * An aggregate managed output (the Rules region, an agent's managed hook
- * entries, the Hook fallback region, the Knowledge discovery region) is always
+ * entries, native Hook groups, the Knowledge discovery region) is always
  * rendered whole from the complete contributor set the desired-state graph
  * reaches. Writers receive contributors from these helpers and never derive
  * membership from raw settings entries, lock rows, or the unit's own content.

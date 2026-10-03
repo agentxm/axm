@@ -3,8 +3,8 @@
  * projections composed by the shared helper.
  *
  * Actual occurrences come exclusively from the canonical-extensions scanner
- * (`type === "hook"`). Agent-side managed hook groups and the advisory-rule
- * fallback region are renderings of an installed hook, never occurrences, so
+ * (`type === "hook"`). Agent-side managed native hook groups
+ * are renderings of an installed hook, never occurrences, so
  * this suite asserts against canonical input only.
  */
 

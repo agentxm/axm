@@ -700,7 +700,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/add/records-membership-and-realizes-outputs`
 - Owner: `cli`
-- Statement: When a coding agent is added to the workspace, AXM shall record it in the configured agent set and realize installed extensions on its supported native and shared surfaces as permitted by workspace activation and instruction settings in one operation.
+- Statement: When a coding agent is added to the workspace, AXM shall record it in the configured agent set and realize installed extensions on its supported native and shared surfaces as permitted by workspace activation and instruction settings in one operation. If an enabled Hook has no supported native implementation for a proposed target, AXM shall refuse the membership change without modifying configured membership or installed outputs.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -746,6 +746,19 @@ Configured extensions realize correctly and completely for every configured codi
 - Additional evidence: process via [`apps/cli-e2e/src/agent-membership.e2e.test.ts`](../apps/cli-e2e/src/agent-membership.e2e.test.ts) — Runs the built CLI end to end so agent membership preview, apply, and removal prove exit codes, JSON envelopes on stdout, and per-agent artifacts on disk that in-memory execution cannot observe.
 - Additional evidence: binary via [`apps/cli-e2e/src/binary-smoke.e2e.test.ts`](../apps/cli-e2e/src/binary-smoke.e2e.test.ts) — Executes the compiled platform binary, proving startup and native Skill lifecycle on the selected filesystem, including case aliases, canonical-byte preservation, user-owned directory routing, remaining consumers, and the zero-agent shared policy.
 - Source: [`apps/cli/src/root/agents/removes-membership-and-owned-outputs.spec.ts`](../apps/cli/src/root/agents/removes-membership-and-owned-outputs.spec.ts)
+
+##### Hook activation requires native semantics without instruction fallback
+
+- Requirement: `cli/hooks/activation/requires-native-implementation`
+- Owner: `workspace-features`
+- Statement: When enabling a Hook, AXM shall require a supported native implementation for every configured target and shall block unavailable implementations without rewriting instructions or creating advisory fallback regions. A supported activation shall use native settings and leave instruction content unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Activation over real workspace files observes the only allowed Hook activation mechanism.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/lifecycle/activation/hooks-require-native-implementation.spec.ts`](../packages/core/workspace-features/src/lifecycle/activation/hooks-require-native-implementation.spec.ts)
 
 ##### Install realizes the extension for every configured agent
 
@@ -910,11 +923,38 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Derived from: `packages/core/workspace-features/src/authoring/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
 - Source: [`packages/core/workspace-features/src/authoring/fork/refuses-ambiguous-or-conflicting-packages.spec.ts`](../packages/core/workspace-features/src/authoring/fork/refuses-ambiguous-or-conflicting-packages.spec.ts)
 
+##### Native Hook export preserves a self-contained implementation without private configuration
+
+- Requirement: `cli/hooks/export/creates-safe-native-bundle`
+- Owner: `workspace-features`
+- Statement: Export shall create a new native bundle using the projection serializer for an explicitly selected implementation, preserve declared runtime resources and package provenance, and omit AXM ownership and consumer state. It shall refuse configuration-dependent commands, absolute workstation arguments, unsafe or occupied destinations, and content changed after preparation.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production exporter and native importer run on an isolated filesystem, observing source bytes, exported protocol fields, destination collisions and unchanged preview state.
+- Methods: example, decision-table
+- Assumptions: The exported commands run with the bundle root as their working directory; export does not activate them in a native host.
+- Source: [`packages/core/workspace-features/src/authoring/hooks/exports-self-contained-native-bundles.spec.ts`](../packages/core/workspace-features/src/authoring/hooks/exports-self-contained-native-bundles.spec.ts)
+
+##### Native Hook import preserves its source and creates an inactive package
+
+- Requirement: `cli/hooks/import/preserves-native-source`
+- Owner: `workspace-features`
+- Statement: Importing a supported native command bundle shall preserve original registrations and declared resource bytes without executing them, create an inactive authored Hook with native protocol and source provenance, and report the duplicate-execution risk of enabling it. Unsupported commands and escaping resources shall be refused before package creation.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The production import use case runs against a temporary project directory; byte snapshots distinguish source preservation, pure preview, and create-only inactive authorship.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/authoring/import/hooks-preserve-native-source.spec.ts`](../packages/core/workspace-features/src/authoring/import/hooks-preserve-native-source.spec.ts)
+
 ##### Creating a hook records editable workspace content
 
-- Requirement: `cli/hooks/new/creates-enabled-workspace-content`
+- Requirement: `cli/hooks/new/creates-inactive-workspace-content`
 - Owner: `workspace-features`
-- Statement: When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested event with a matcher only where the event is tool-scoped, register it as enabled workspace-authored content, and project it into the agent hook configurations.
+- Statement: When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested native protocol and event with its explicit matcher, register it as inactive workspace-authored content with applicable and nonapplicable fixtures, and leave native agent configurations unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -922,7 +962,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/hook.ts`
-- Source: [`packages/core/workspace-features/src/authoring/create/hooks/creates-enabled-workspace-content.spec.ts`](../packages/core/workspace-features/src/authoring/create/hooks/creates-enabled-workspace-content.spec.ts)
+- Supersedes: `cli/hooks/new/creates-enabled-workspace-content`
+- Source: [`packages/core/workspace-features/src/authoring/create/hooks/creates-inactive-workspace-content.spec.ts`](../packages/core/workspace-features/src/authoring/create/hooks/creates-inactive-workspace-content.spec.ts)
 
 ##### Creating a knowledge bundle records editable workspace content
 
@@ -1212,6 +1253,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace-features/src/discovery/discover.test.ts`
 - Source: [`packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts)
+
+##### Explicit fixture execution produces bounded, attributable evidence
+
+- Requirement: `cli/hooks/test/executes-declared-fixtures`
+- Owner: `workspace-features`
+- Statement: When a person explicitly tests a Hook package, AXM shall execute only selected declared fixtures with bounded input, output, and duration; compare declared exit codes and output; omit raw process output from receipts; and record fixture evidence separately from native host invocation. Unknown fixture selection and invalid native JSON shall be refused before executing that fixture.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real child processes demonstrate exit status, output, deadlines, and persisted receipts.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/authoring/hooks/executes-declared-fixtures.spec.ts`](../packages/core/workspace-features/src/authoring/hooks/executes-declared-fixtures.spec.ts)
 
 ##### Root install and the type command express the same durable intent
 
@@ -1508,6 +1562,18 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-features/src/inspection/view/view-extension.ts`
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-missing-targets-and-fields.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-missing-targets-and-fields.spec.ts)
+
+##### Published Hook inspection reports exact version facts and prospective native outcomes
+
+- Requirement: `cli/view/reports-published-native-hook-facts`
+- Owner: `workspace-features`
+- Statement: Viewing a published Hook shall validate the selected version's immutable archive and report its native implementations and prospective workspace-agent outcomes through the shared resolver. It shall distinguish published static facts from native invocation evidence, refuse invalid manifests or integrity mismatches, and never execute package code.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts)
 
 ### Goal: knowledge-access
 
@@ -2428,6 +2494,46 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Boundary rationale: Purity is a property of the fork use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/fork/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/fork/preview-is-pure.spec.ts)
+
+##### Hook configuration preview validates values without writing or executing code
+
+- Requirement: `cli/hooks/configure/preview-is-pure`
+- Owner: `workspace-features`
+- Statement: When Hook configuration is previewed, AXM shall validate the proposed consumer values and report the planned configuration without changing settings, accepted resolutions, package content, native configuration, or verification receipts and without executing package code; invalid values shall be refused without mutation.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Byte snapshots and a script sentinel observe filesystem mutation and implicit package execution.
+- Methods: example, decision-table
+- Derived from: `cli/hooks/configure/preserves-acquisition-and-package-content`
+- Source: [`packages/core/workspace-features/src/configuration/hooks/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/hooks/preview-is-pure.spec.ts)
+
+##### Native Hook export preview changes no state
+
+- Requirement: `cli/hooks/export/preview-is-pure`
+- Owner: `workspace-features`
+- Statement: Hook export preview shall validate the selected implementation and destination and describe the native bundle without executing package code or changing package content, workspace state, native registrations, or destination files.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Boundary rationale: A real temporary project records every byte before and after the production export preview.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/authoring/hooks/export-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/hooks/export-preview-is-pure.spec.ts)
+
+##### Native Hook import preview changes no state
+
+- Requirement: `cli/hooks/import/preview-is-pure`
+- Owner: `workspace-features`
+- Statement: Hook import preview shall validate the native source and describe the inactive authored package without executing package code or changing native source, settings, accepted state, authored content, or agent configuration.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `authoring-and-creation`
+- Boundary: memory; selection: per-change
+- Boundary rationale: A real temporary project records every byte before and after the production import preview.
+- Methods: example
+- Source: [`packages/core/workspace-features/src/authoring/import/hooks-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/import/hooks-preview-is-pure.spec.ts)
 
 ##### Hook creation preview describes the scaffold without creating any state
 
@@ -3642,6 +3748,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: contract, decision-table
 - Source: [`apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts`](../apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts)
 
+##### Hook configuration changes consumer values without acquiring another package
+
+- Requirement: `cli/hooks/configure/preserves-acquisition-and-package-content`
+- Owner: `workspace-features`
+- Statement: When a person configures an installed Hook, AXM shall validate and replace consumer values, reconcile active native registrations, preserve immutable package content and accepted resolution, retain disabled state and source-less Pack membership, and refuse stale or unowned packages without changing workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`, `extension-adoption`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real native files and package archives demonstrate preserved content, registration replacement, and source ownership.
+- Methods: example, decision-table
+- Derived from: `extensions/hooks/resolve-typed-consumer-configuration`
+- Source: [`packages/core/workspace-features/src/configuration/hooks/configuration-preserves-acquisition.spec.ts`](../packages/core/workspace-features/src/configuration/hooks/configuration-preserves-acquisition.spec.ts)
+
 ##### An unchanged install request applies the plan shown in its preview
 
 - Requirement: `cli/install/apply-realizes-the-previewed-closure`
@@ -4765,6 +4885,18 @@ Configured extensions realize correctly and completely for every configured codi
 - Derived from: `cli/type-shows-report-source-and-version`
 - Source: [`packages/core/workspace-features/src/inspection/show/render-subagent.spec.ts`](../packages/core/workspace-features/src/inspection/show/render-subagent.spec.ts)
 
+##### Hook packages declare explicit native implementations with complete file references
+
+- Requirement: `extensions/hooks/declare-unambiguous-native-implementations`
+- Owner: `extension-model`
+- Statement: A Hook package shall identify native implementations and bindings uniquely, preserve exact native events and combined decision requirements, reference only declared configuration and safe package files, and select an implementation only when target constraints identify it unambiguously while reporting unknown host facts as conditions.
+- Class: functional
+- Role: interface
+- Product goals: `agent-interoperability`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/extension-model/src/unstable/hooks/native-implementations.spec.ts`](../packages/core/extension-model/src/unstable/hooks/native-implementations.spec.ts)
+
 ##### Subagent packages declare a portable core or complete native implementations
 
 - Requirement: `subagents/packages-declare-explicit-implementations`
@@ -4982,6 +5114,18 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table, invariant
 - Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-features/src/lifecycle/source-family-conformance.spec.ts`](../packages/core/workspace-features/src/lifecycle/source-family-conformance.spec.ts)
+
+##### Hook configuration preserves typed values and symbolic secrets
+
+- Requirement: `extensions/hooks/resolve-typed-consumer-configuration`
+- Owner: `extension-model`
+- Statement: AXM shall validate Hook consumer configuration against author declarations, apply explicit consumer values before defaults without modifying package source, reject unknown keys and missing required or invalid values, and preserve secret values exclusively as symbolic environment references without resolving them.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/extension-model/src/unstable/hooks/configuration.spec.ts`](../packages/core/extension-model/src/unstable/hooks/configuration.spec.ts)
 
 ##### Skill publication separates publisher identity from unchanged upstream content
 
@@ -5702,6 +5846,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/publishing/publish/use-case.ts`
 - Source: [`packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
+
+##### Distributed Hook packages preserve all runtime resources
+
+- Requirement: `extensions/hooks/distribution-preserves-runtime-resources`
+- Owner: `extension-content`
+- Statement: Filtering a Hook archive shall preserve every declared implementation entrypoint and shared asset, including unselected variants. Author-only fixture inputs and expectations may be omitted without preventing installation or native activation.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts`](../packages/core/extension-content/src/packaging/filtered-package-validation.spec.ts)
 
 #### Constraints
 
@@ -6774,7 +6930,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/instructions/native-only-hooks-preserve-routing`
 - Owner: `workspace-kernel`
-- Statement: A native Hook transition with an unchanged instruction fallback shall preserve absent and preexisting instruction aliases; shared instruction content changes shall still reconcile their dependent aliases.
+- Statement: A Hook transition shall preserve absent and preexisting instruction aliases; shared Rule and Knowledge instruction content changes shall reconcile their dependent aliases.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

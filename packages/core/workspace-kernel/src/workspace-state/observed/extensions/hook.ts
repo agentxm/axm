@@ -9,7 +9,7 @@
  * `agent_extensions/<family>/<owner>/hooks/<name>`, and user-scope packages.
  *
  * The hook installer also writes agent-side derived artifacts — managed hook
- * groups inside agent settings files and the advisory-rule fallback region.
+ * groups inside native agent settings files.
  * Those are renderings of an installed hook, not separate materializations, so
  * they are deliberately NOT occurrences: the family derives `actual` from the
  * canonical scanner alone and an agent-side rendering never produces an

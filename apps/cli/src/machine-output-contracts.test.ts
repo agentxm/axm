@@ -1,3 +1,4 @@
+import { HookTestResultSchema } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as fs from "node:fs";
@@ -90,6 +91,7 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   SubagentRenderResultSchema,
   HelpIndexResultSchema,
   HelpTopicResultSchema,
+  HookTestResultSchema,
   InstructionsStatusOutputSchema,
   JsonErrorEnvelopeSchema,
   JsonHelpDocSchema,

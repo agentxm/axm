@@ -88,7 +88,10 @@ export const readExtensionManifest = (
       ),
     );
     const raw = withDefaultOwner(parsed, options?.defaultOwner);
-    const manifest = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(raw).pipe(
+    const manifest = yield* Schema.decodeUnknownEffect(manifestSchemaForType(type))(
+      raw,
+      type === "hook" ? { onExcessProperty: "error" } : undefined,
+    ).pipe(
       Effect.mapError(
         (cause) =>
           new ManifestError({

@@ -158,13 +158,14 @@ describe("root command help", () => {
     }),
   );
 
-  it.effect("exposes native import only for skills and subagents", () =>
+  it.effect("exposes native import for skills, subagents, and hooks", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();
       expect(files.has("axm import")).toBe(false);
       expect(files.has("axm skills import")).toBe(true);
       expect(files.has("axm subagents import")).toBe(true);
-      for (const group of ["rules", "knowledge", "hooks", "packs"] as const) {
+      expect(files.has("axm hooks import")).toBe(true);
+      for (const group of ["rules", "knowledge", "packs"] as const) {
         expect(files.has(`axm ${group} import`), group).toBe(false);
       }
     }),

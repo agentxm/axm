@@ -195,6 +195,7 @@ export interface RegistryRuleVersion {
 
 export interface RegistryHookVersion {
   readonly version: string;
+  readonly files?: Readonly<Record<string, string>>;
   readonly published?: string;
 }
 
@@ -421,9 +422,17 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
               ...(type === "subagent" ? { core: { instructions: `src/${name}.md` } } : {}),
               ...(type === "hook"
                 ? {
-                    runtime: "bash",
-                    entrypoint: "src/hook.sh",
-                    bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+                    implementations: ["claude-code", "codex"].map((protocol) => ({
+                      id: protocol,
+                      protocol,
+                      bindings: [
+                        {
+                          id: "audit",
+                          event: "PreToolUse",
+                          handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+                        },
+                      ],
+                    })),
                   }
                 : {}),
             }),

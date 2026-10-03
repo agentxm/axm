@@ -102,6 +102,30 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
     { label: "Owner", value: data.owner },
     { label: "Latest", value: data.latest?.version ?? ABSENT },
     { label: "Versions", value: versionsText(data) },
+    ...(data.hook === undefined
+      ? []
+      : [
+          {
+            label: "Hook evidence",
+            value: "Published static facts; native invocation not observed",
+          },
+          {
+            label: "Implementations",
+            value: data.hook.manifest.implementations
+              .map(
+                (implementation) =>
+                  `${implementation.id} (${implementation.protocol}): ${implementation.bindings.map((binding) => `${binding.event}${binding.matcher === undefined ? "" : ` [${binding.matcher}]`}`).join(", ")}`,
+              )
+              .join("; "),
+          },
+          {
+            label: "Prospective activation",
+            value:
+              data.hook.agentOutcomes
+                .map((outcome) => `${outcome.agentId}: ${outcome.reason}`)
+                .join("; ") || "No workspace agents configured",
+          },
+        ]),
     ...(deprecation === null ? [] : [{ label: "Deprecation reason", value: deprecation.reason }]),
     ...(replacement === undefined ? [] : [{ label: "Replacement", value: replacement }]),
   ];

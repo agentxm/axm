@@ -345,3 +345,4 @@ export {
   type McpDistributionSelection,
 } from "./mcps/distribution.js";
 export { readPluginMcpDefinition, type PluginMcpDefinition } from "./mcps/plugin-definition.js";
+export { renderNativeHookGroup } from "./hooks/native-entry.js";

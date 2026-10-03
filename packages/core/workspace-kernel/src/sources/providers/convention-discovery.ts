@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -27,6 +29,7 @@ type LocalSourceRefDetails = {
   readonly refType: "local";
   readonly source: LocalSource;
   readonly sourcePath: string;
+  readonly sourceRelativePath: string;
   readonly location: string;
 };
 
@@ -74,7 +77,12 @@ const searchRootFor = (source: ExternalSource, basePath: string) =>
     });
   });
 
-const sourceRefDetails = (source: ExternalSource, basePath: string, directory: string) =>
+const sourceRefDetails = (
+  source: ExternalSource,
+  basePath: string,
+  directory: string,
+  packageDirectory: string,
+) =>
   Effect.gen(function* () {
     const sourcePath = yield* relativeDir(basePath, directory);
     const location = toFileLocation(directory);
@@ -84,6 +92,7 @@ const sourceRefDetails = (source: ExternalSource, basePath: string, directory: s
           refType: "local",
           source,
           sourcePath,
+          sourceRelativePath: sourcePath.split((yield* Path.Path).sep).join("/") || ".",
           location,
         } satisfies LocalSourceRefDetails;
       case "git":
@@ -92,7 +101,7 @@ const sourceRefDetails = (source: ExternalSource, basePath: string, directory: s
           source,
           sourcePath,
           location,
-          gitTreeSha: yield* gitTreeShaFor(basePath, directory),
+          gitTreeSha: yield* gitTreeShaFor(basePath, packageDirectory),
           gitCommitSha: yield* getCommitSha(basePath),
         } satisfies GitSourceRefDetails;
     }
@@ -104,7 +113,53 @@ const refForCandidate = (
   candidate: DiscoveredExtensionPackage,
 ) =>
   Effect.gen(function* () {
-    const details = yield* sourceRefDetails(source, basePath, candidate.directory);
+    const path = yield* Path.Path;
+    const packageDirectory =
+      candidate.kind === "portable-skill" && candidate.distribution !== undefined
+        ? path.resolve(
+            candidate.directory,
+            ...candidate.distribution.componentPath
+              .split("/")
+              .filter((segment) => segment !== ".")
+              .map(() => ".."),
+          )
+        : candidate.directory;
+    const details = yield* sourceRefDetails(
+      source,
+      basePath,
+      candidate.directory,
+      packageDirectory,
+    );
+    if (candidate.kind === "plugin-mcp") {
+      const packagePath =
+        path.relative(basePath, candidate.directory).split(path.sep).join("/") || ".";
+      const packageIdentity =
+        details.refType === "local"
+          ? path.resolve(candidate.directory)
+          : `${details.source.url.href}#${packagePath}`;
+      const packageName = decodeExtensionNameSync(
+        `plugin-${createHash("sha256").update(packageIdentity).digest("hex").slice(0, 16)}`,
+      );
+      const member = {
+        type: "mcp-server" as const,
+        name: packageName,
+        server: { name: candidate.name },
+        nativeComponent: candidate.nativeComponent,
+        distribution: { ...candidate.distribution, packageRoot: packagePath },
+      };
+      return Option.some<ExtensionRef>(
+        details.refType === "local"
+          ? { ...details, ...member, source: { ...details.source, path: candidate.directory } }
+          : {
+              ...details,
+              ...member,
+              source: {
+                ...details.source,
+                subPath: packagePath === "." ? Option.none() : Option.some(packagePath),
+              },
+            },
+      );
+    }
     if (candidate.kind === "portable-skill") {
       return Option.some<ExtensionRef>({
         type: "skill",
@@ -112,6 +167,48 @@ const refForCandidate = (
         name: candidate.name,
         skill: candidate.skill,
         portable: true,
+        ...(candidate.distribution === undefined
+          ? {}
+          : {
+              distribution: {
+                ...candidate.distribution,
+                ...(candidate.distribution.marketplace === undefined
+                  ? {}
+                  : {
+                      marketplace: {
+                        ...candidate.distribution.marketplace,
+                        path: path
+                          .relative(
+                            basePath,
+                            path.resolve(
+                              packageDirectory,
+                              ...candidate.distribution.packageRoot
+                                .split("/")
+                                .filter((segment) => segment !== ".")
+                                .map(() => ".."),
+                              candidate.distribution.marketplace.path,
+                            ),
+                          )
+                          .split(path.sep)
+                          .join("/"),
+                      },
+                    }),
+                packageRoot:
+                  path
+                    .relative(
+                      basePath,
+                      path.resolve(
+                        candidate.directory,
+                        ...candidate.distribution.componentPath
+                          .split("/")
+                          .filter((segment) => segment !== ".")
+                          .map(() => ".."),
+                      ),
+                    )
+                    .split(path.sep)
+                    .join("/") || ".",
+              },
+            }),
       } satisfies SkillExtensionRef);
     }
 
@@ -204,6 +301,16 @@ export const discoverConventionRefs = (
             owner: Option.none(),
           }
         : options,
+      source.type === "git"
+        ? {
+            rootName:
+              source.url.pathname
+                .split("/")
+                .filter(Boolean)
+                .at(-1)
+                ?.replace(/\.git$/u, "") ?? "skill",
+          }
+        : {},
     );
     const refs = yield* Effect.forEach(
       candidates,

@@ -1,4 +1,6 @@
 import type { McpBinding } from "@agentxm/workspace-kernel/agent-adapters";
+import { McpServerLockEntrySchema } from "@agentxm/workspace-kernel/workspace-state";
+import * as Schema from "effect/Schema";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -101,7 +103,7 @@ const acceptedCanonicalTrees = (
         };
       }
     }
-    return { lockfileVersion: 8, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
+    return { lockfileVersion: 9, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
   }).pipe(Effect.provide(NodeServices.layer));
 
 const withServices = (
@@ -134,13 +136,13 @@ const makeServices = (
     find: () => Effect.succeed<ReadonlyArray<ExtensionRef>>([]),
     fetch: (ref) =>
       Effect.succeed(
-        ref.refType === "git-hosted" || ref.refType === "local" || ref.refType === "workspace"
+        ref.refType !== "registry"
           ? { directory: new URL(ref.location).pathname }
           : { directory: ref.source.location.pathname },
       ),
     acquireForTransition: (ref) =>
       Effect.succeed(
-        ref.refType === "git-hosted" || ref.refType === "local" || ref.refType === "workspace"
+        ref.refType !== "registry"
           ? { directory: new URL(ref.location).pathname }
           : { directory: ref.source.location.pathname },
       ),
@@ -188,12 +190,10 @@ const makeServices = (
             recordFootprint({ path: path.join(axmDir, "axm-lock.yaml"), change: "modified" }).pipe(
               Effect.andThen(
                 Effect.suspend(() => {
-                  if (type !== "mcp-server" || entry.identity.owner === undefined)
-                    return Effect.void;
-                  const lockEntry = {
-                    ...entry,
-                    identity: { ...entry.identity, owner: entry.identity.owner },
-                  };
+                  if (type !== "mcp-server") return Effect.void;
+                  if (!Schema.is(McpServerLockEntrySchema)(entry))
+                    return Effect.die(new Error("Expected an accepted MCP lock entry"));
+                  const lockEntry = entry;
                   return (
                     setAcceptedMcpServer?.({
                       name: entry.identity.name,

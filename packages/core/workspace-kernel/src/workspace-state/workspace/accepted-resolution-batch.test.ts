@@ -21,7 +21,7 @@ import type { WorkspaceDocumentsService } from "./documents.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 const acceptedSkill = (name: string): SkillLockEntry => ({
@@ -38,7 +38,7 @@ describe("accepted-state closure batching", () => {
   it.effect(requirement, () =>
     Effect.gen(function* () {
       const initial: Lockfile = {
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {
           first: acceptedSkill("first"),
           second: acceptedSkill("second"),

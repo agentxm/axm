@@ -15,7 +15,6 @@ import * as Path from "effect/Path";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   RegistryClientFactory,
-  extractZip,
   withBufferedArchiveBudget,
   type GetExtensionPackageArgs,
   type RegistryClientFailure,
@@ -37,6 +36,7 @@ import {
   PackageMaterializationFailed,
   acquiredRegistryPackageFiles,
   copyExtensionDirectory,
+  extractExternalArchive,
   recoverCanonicalDirectory,
   replaceCanonicalDirectoryWithInspection,
   type CanonicalDirectoryReplacementError,
@@ -193,7 +193,16 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never, R = never
                 id: `registry-extract:${args.owner}/${args.type}/${args.name}`,
                 label: `extracting ${args.name}`,
               },
-              extractZip(source.archive, stagingPath),
+              extractExternalArchive(source.archive, "zip", stagingPath).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new PackageMaterializationFailed({
+                      path: stagingPath,
+                      step: "prepare-staging",
+                      cause,
+                    }),
+                ),
+              ),
             ),
       ...(args.validate === undefined ? {} : { validate: args.validate }),
       inspect: computeMaterializedTreeIntegrity,

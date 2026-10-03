@@ -187,7 +187,7 @@ describe("Uncertainty never proves absence", () => {
           settings,
           documents: { toolkit: manifest },
           lockfile: {
-            lockfileVersion: 8,
+            lockfileVersion: 9,
             skills: {},
             packs: {
               toolkit: makeRegistryPackLockEntry({

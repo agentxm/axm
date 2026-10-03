@@ -16,6 +16,7 @@ import {
 import { WorkspaceTransactionScopeTest } from "./testing.js";
 import {
   captureCopiedDirectory,
+  copiedDirectoryReceiptPath,
   readCopiedDirectory,
   retireCopiedDirectory,
 } from "../locations/index.js";
@@ -503,7 +504,7 @@ describe("physical restoration boundaries", () => {
       yield* fs.writeFileString(file, "# Owned skill\n");
       const receipt = yield* captureCopiedDirectory(directory, path.join(root, "source"));
       expect(Option.isSome(receipt)).toBe(true);
-      const before = yield* fs.readFileString(path.join(directory, ".axm-copy.json"));
+      const before = yield* fs.readFileString(yield* copiedDirectoryReceiptPath(directory));
       const result = yield* runWorkspaceTransaction({
         claimDefaultTargets: false,
         transition: retireCopiedDirectory(directory, retireWorkspacePath).pipe(
@@ -522,7 +523,7 @@ describe("physical restoration boundaries", () => {
       );
       expect(result._tag).toBe("Failure");
       if (result._tag === "Failure") expect(result.failure).toBe("later-step");
-      expect(yield* fs.readFileString(path.join(directory, ".axm-copy.json"))).toBe(before);
+      expect(yield* fs.readFileString(yield* copiedDirectoryReceiptPath(directory))).toBe(before);
       expect(Option.isSome(yield* readCopiedDirectory(directory))).toBe(true);
       expect(yield* retireCopiedDirectory(directory)).toBe(true);
       expect(yield* fs.exists(directory)).toBe(false);

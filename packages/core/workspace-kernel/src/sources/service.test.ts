@@ -1,3 +1,5 @@
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import { ArtifactHttpClient } from "./index.js";
 /**
  * Tests for SourceHostProviders service and registry meta-provider.
  *
@@ -96,6 +98,10 @@ const runWithService = <A, E>(
         makeTestWorkspaceCatalog({ sources, workspaceRoot }),
         makeTestAxmSkillGate(),
         RegistryResolutionPolicyTest,
+        Layer.succeed(
+          ArtifactHttpClient,
+          HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
+        ),
       ),
     ),
     Layer.provide(

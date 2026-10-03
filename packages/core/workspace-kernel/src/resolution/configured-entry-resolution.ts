@@ -9,7 +9,7 @@
 
 import type * as FileSystem from "effect/FileSystem";
 import type * as Config from "effect/Config";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import type * as Scope from "effect/Scope";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -25,6 +25,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { resolveSource, SourceHostProviders, WorkspaceCatalog } from "../sources/index.js";
@@ -380,9 +381,79 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
         resolvedSource.type === "registry" && parsedPattern?.type === expectedPlural
           ? Option.fromUndefinedOr(parsedPattern.versionRange)
           : Option.none<VersionRange>();
+      // A configured path names the selected member; accepted distribution
+      // context identifies the source root whose declarations still govern it.
+      const accepted =
+        expectedType === "skill" &&
+        (resolvedSource.type === "local" || resolvedSource.type === "git")
+          ? yield* acceptedResolutionRef({ type: "skill", name })
+          : Option.none();
+      const path = yield* Path.Path;
+      const workspace = yield* WorkspaceLocation;
+      const selectedLocalPath =
+        resolvedSource.type === "local"
+          ? path.resolve(workspace.baseDir, resolvedSource.path)
+          : undefined;
+      const distribution =
+        Option.isSome(accepted) &&
+        accepted.value.refType === "local" &&
+        resolvedSource.type === "local" &&
+        path.resolve(accepted.value.source.path) === selectedLocalPath
+          ? accepted.value.distribution
+          : undefined;
+      const acceptedGitSkill =
+        Option.isSome(accepted) &&
+        accepted.value.refType === "git-hosted" &&
+        resolvedSource.type === "git" &&
+        printSourceParams(accepted.value.source) === printSourceParams(resolvedSource) &&
+        accepted.value.distribution !== undefined
+          ? accepted.value
+          : undefined;
+      const discoverySource =
+        resolvedSource.type === "local" &&
+        selectedLocalPath !== undefined &&
+        distribution !== undefined
+          ? {
+              ...resolvedSource,
+              path: path.resolve(
+                selectedLocalPath,
+                ...[distribution.componentPath, distribution.packageRoot].flatMap((part) =>
+                  part
+                    .split("/")
+                    .filter((segment) => segment !== ".")
+                    .map(() => ".."),
+                ),
+              ),
+            }
+          : acceptedGitSkill !== undefined
+            ? { ...acceptedGitSkill.source, subPath: Option.none<string>() }
+            : resolvedSource;
+      const configuredMcp =
+        expectedType === "mcp-server"
+          ? (yield* (yield* SettingsReader).entries("mcp-server"))[name]
+          : undefined;
+      const nativeComponent =
+        configuredMcp?.kind === "sourced" && configuredMcp.source === source
+          ? configuredMcp.nativeComponent
+          : undefined;
+      const selectedNames =
+        nativeComponent !== undefined
+          ? [nativeComponent.name]
+          : acceptedGitSkill?.sourcePath !== undefined
+            ? [acceptedGitSkill.sourcePath]
+            : selectedLocalPath !== undefined &&
+                discoverySource.type === "local" &&
+                distribution !== undefined
+              ? [
+                  path
+                    .relative(discoverySource.path, selectedLocalPath)
+                    .split(path.sep)
+                    .join("/") || ".",
+                ]
+              : [name];
       const refs = yield* providers
-        .find(resolvedSource, {
-          names: [name],
+        .find(discoverySource, {
+          names: selectedNames,
           type: expectedType,
           owner: requestedOwner,
           versionRange,
@@ -409,7 +480,22 @@ const prepareConfiguredEntry = <TType extends ExtensionType>(
           ),
         );
 
-      const ref = refs.find((entry) => refConstructor.name(entry) === name);
+      const matches = refs.filter((candidate) => {
+        const entry: ExtensionRef = candidate;
+        return nativeComponent === undefined
+          ? refConstructor.name(candidate) === name
+          : entry.type === "mcp-server" &&
+              (entry.refType === "local" || entry.refType === "git-hosted") &&
+              entry.nativeComponent?.name === nativeComponent.name &&
+              entry.nativeComponent.configPath === nativeComponent.configPath &&
+              entry.nativeComponent.format === nativeComponent.format;
+      });
+      if (matches.length > 1)
+        return yield* new ExtensionResolutionFailed({
+          category: "conflict",
+          detail: `Configured ${typeLabel} "${name}" matches multiple source components`,
+        });
+      const ref = matches[0];
       if (ref === undefined) {
         return yield* new ExtensionResolutionFailed({
           category: "not_found",

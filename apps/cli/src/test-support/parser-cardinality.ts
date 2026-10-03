@@ -30,6 +30,16 @@ const control = (
 
 // These are runnable input controls, not a second cardinality declaration.
 export const repeatedFlagControls = [
+  ...[
+    "install",
+    "hooks install",
+    "knowledge install",
+    "mcps install",
+    "packs install",
+    "rules install",
+    "skills install",
+    "subagents install",
+  ].map((route) => control(route, "agent", ["claude-code", "codex"])),
   ...["hooks", "knowledge", "mcps", "rules", "skills", "subagents"].map((type) =>
     control(`${type} update`, "name"),
   ),
@@ -56,6 +66,8 @@ export const repeatedFlagControls = [
   control("rules install", "rule"),
   control("setup", "agent", ["claude-code", "claude-code"]),
   control("skills install", "skill"),
+  control("skills handoff", "skill"),
+  control("skills handoff", "agent", ["claude-code", "codex"]),
   control("skills list", "agent", ["claude-code", "claude-code"]),
   control("subagents install", "subagent"),
   control("subagents list", "agent", ["claude-code", "claude-code"]),

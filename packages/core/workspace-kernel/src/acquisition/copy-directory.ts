@@ -13,11 +13,13 @@ import {
   assertNoPhysicalOverlap,
   NativeLocationError,
   resolveNativeEntry,
+  validateContainedLink,
 } from "../locations/index.js";
 import * as Data from "effect/Data";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 
@@ -30,7 +32,7 @@ import * as Stream from "effect/Stream";
  * package content, and copying a `.git` directory from a git-hosted or local
  * source would only bloat the canonical copy.
  */
-const ALWAYS_EXCLUDED_NAMES = new Set([".git", ".axm-copy.json"]);
+const ALWAYS_EXCLUDED_NAMES = new Set([".git"]);
 
 /**
  * Entries additionally omitted from an agent-facing artifact: human files,
@@ -67,13 +69,27 @@ const scanCopy = (
     const pending = [{ source: src, target: dest }];
     const directories: Array<string> = [];
     const files: Array<{ source: string; target: string; mode: number }> = [];
+    const links: Array<{ source: string; target: string; value: string }> = [];
     let entries = 0;
     let bytes = 0;
 
     while (pending.length > 0) {
       const next = pending.pop();
       if (next === undefined) break;
-      // stat follows symlinks so copied content is dereferenced.
+      // The selected source root may itself be an alias. Preserve links within
+      // its payload without traversing them, including links back to the root.
+      const link =
+        next.source === src
+          ? Option.none<string>()
+          : yield* fs.readLink(next.source).pipe(Effect.option);
+      if (Option.isSome(link)) {
+        yield* validateContainedLink(src, next.source, link.value);
+        bytes += new TextEncoder().encode(link.value).byteLength;
+        if (bytes > maxBytes)
+          return yield* new DirectoryCopyLimitExceeded({ resource: "bytes", limit: maxBytes });
+        links.push({ ...next, value: link.value });
+        continue;
+      }
       const info = yield* fs.stat(next.source);
       if (info.type === "Directory") {
         directories.push(next.target);
@@ -90,16 +106,21 @@ const scanCopy = (
             target: path.join(next.target, name),
           });
         }
-      } else {
+      } else if (info.type === "File") {
         bytes += Number(info.size);
         if (bytes > maxBytes) {
           return yield* new DirectoryCopyLimitExceeded({ resource: "bytes", limit: maxBytes });
         }
         files.push({ ...next, mode: info.mode & 0o777 });
-      }
+      } else
+        return yield* new NativeLocationError({
+          target: next.source,
+          reason: "unreadable",
+          cause: "unsupported-payload-entry",
+        });
     }
 
-    return { directories, files };
+    return { directories, files, links };
   });
 
 /**
@@ -130,7 +151,7 @@ export type CopyExtensionDirectoryOptions = {
  * when fanning the canonical copy out to an agent directory (see
  * {@link CopyExtensionDirectoryOptions}).
  *
- * Symlinks are dereferenced (file content is copied, not the link).
+ * Relative symlinks contained within the source package are preserved.
  * Source content is scanned before any target write. Files are streamed one at
  * a time so a failed or cancelled copy leaves no queued filesystem work.
  */
@@ -161,7 +182,7 @@ export const copyExtensionDirectory = (
     if (!Number.isSafeInteger(maxEntries) || maxEntries < 1) {
       return yield* new DirectoryCopyLimitExceeded({ resource: "entries", limit: maxEntries });
     }
-    const { directories, files } = yield* scanCopy(
+    const { directories, files, links } = yield* scanCopy(
       src,
       dest,
       fs,
@@ -201,6 +222,12 @@ export const copyExtensionDirectory = (
       if ((destination.links ?? 1) > 1)
         return yield* new NativeLocationError({ target, reason: "hardlink" });
     }
+    for (const { target } of links) {
+      yield* assertNoPhysicalOverlap(src, target);
+      const destination = yield* resolveNativeEntry(target);
+      if (destination.kind !== "absent")
+        return yield* new NativeLocationError({ target, reason: "workspace-conflict" });
+    }
     yield* Effect.forEach(
       directories,
       (directory) => fs.makeDirectory(directory, { recursive: true }),
@@ -236,4 +263,8 @@ export const copyExtensionDirectory = (
         ),
       { concurrency: 1, discard: true },
     );
+    yield* Effect.forEach(links, ({ target, value }) => fs.symlink(value, target), {
+      concurrency: 1,
+      discard: true,
+    });
   });

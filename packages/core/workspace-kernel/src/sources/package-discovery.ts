@@ -1,3 +1,6 @@
+import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import { discoverPluginMcpComponents } from "./plugin-mcp-components.js";
+import { createHash } from "node:crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -7,8 +10,7 @@ import * as Schema from "effect/Schema";
 import {
   extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
-  ManifestIdentitySchema,
-  parseSkillMd,
+  extractSkillMetadata,
   readExtensionManifest,
   validateManifestHasNoAgentsField,
   type ExtensionManifest,
@@ -19,12 +21,16 @@ import {
   DISCOVERY_SKIPPED_DIRECTORIES,
 } from "@agentxm/extension-model/unstable/discovery-walk";
 import {
+  decodeExtensionNameSync,
   type ExtensionName,
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
+import { readPluginDistribution, type PluginSkillDistribution } from "./plugin-distribution.js";
+import { readPluginMarketplace } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
 
 export interface ExtensionPackageFilter {
@@ -43,12 +49,23 @@ export interface DiscoveredManifestExtensionPackage {
 export interface DiscoveredPortableSkillPackage {
   readonly kind: "portable-skill";
   readonly directory: string;
+  readonly sourcePath: string;
+  readonly distribution?: DistributionDescriptor;
   readonly name: ExtensionName;
   readonly skill: SkillExtensionRef["skill"];
 }
 
+export interface DiscoveredPluginMcpPackage {
+  readonly kind: "plugin-mcp";
+  readonly directory: string;
+  readonly sourcePath: string;
+  readonly distribution: DistributionDescriptor;
+  readonly name: ExtensionName;
+  readonly nativeComponent: NativeMcpComponent;
+}
+
 export type DiscoveredExtensionPackage =
-  DiscoveredManifestExtensionPackage | DiscoveredPortableSkillPackage;
+  DiscoveredManifestExtensionPackage | DiscoveredPortableSkillPackage | DiscoveredPluginMcpPackage;
 
 export const isManifestExtensionPackage = (
   candidate: DiscoveredExtensionPackage,
@@ -97,7 +114,13 @@ const matchesPortableSkillFilter = (
   filter: ExtensionPackageFilter,
 ): boolean =>
   (filter.type === "*" || filter.type === "skill") &&
-  (filter.names.length === 0 || filter.names.includes(candidate.name)) &&
+  (filter.names.length === 0 ||
+    filter.names.some(
+      (name) =>
+        name === candidate.name ||
+        name === candidate.sourcePath ||
+        name === candidate.skill.displayName,
+    )) &&
   Option.isNone(filter.owner);
 
 const readSourceSettings = (
@@ -239,8 +262,23 @@ export const inspectExtensionPackage = (
     return { kind: "manifest", directory, identity, manifest };
   });
 
+const sourceName = (value: string): ExtensionName => {
+  const normalized = value.toLowerCase().replace(/[^a-z0-9-]+/gu, "-");
+  let start = 0;
+  while (normalized[start] === "-") start += 1;
+  let end = Math.min(normalized.length, start + 64);
+  while (end > start && normalized[end - 1] === "-") end -= 1;
+  const base = normalized.slice(start, end);
+  return decodeExtensionNameSync(
+    base || `skill-${createHash("sha256").update(value).digest("hex").slice(0, 8)}`,
+  );
+};
+
 const readPortableSkill = (
   directory: string,
+  sourcePath: string,
+  rootName: string,
+  distribution?: DistributionDescriptor,
 ): Effect.Effect<
   Option.Option<DiscoveredPortableSkillPackage>,
   never,
@@ -255,31 +293,58 @@ const readPortableSkill = (
         .exists(path.join(path.dirname(directory), MANIFEST_FILENAME_BY_TYPE.skill))
         .pipe(Effect.catch(() => Effect.succeed(false))));
     if (isAxmPackageContent) return Option.none<DiscoveredPortableSkillPackage>();
-
     const content = yield* fs.readFileString(path.join(directory, "SKILL.md")).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<DiscoveredPortableSkillPackage>();
-    const parsed = parseSkillMd(content.value, path.basename(directory));
-    if (Option.isNone(parsed)) return Option.none<DiscoveredPortableSkillPackage>();
-    const name = yield* Schema.decodeUnknownEffect(ManifestIdentitySchema.fields.name)(
-      parsed.value.name,
-    ).pipe(Effect.option);
-    if (Option.isNone(name)) return Option.none<DiscoveredPortableSkillPackage>();
+    const parsed = extractSkillMetadata(content.value);
+    const name = sourceName(
+      sourcePath === "." ? (parsed.name ?? rootName) : path.basename(directory),
+    );
+    const metadata =
+      typeof parsed.metadata === "object" &&
+      parsed.metadata !== null &&
+      !Array.isArray(parsed.metadata)
+        ? yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Unknown))(
+            parsed.metadata,
+          ).pipe(Effect.option)
+        : Option.none<Readonly<Record<string, unknown>>>();
     return Option.some({
       kind: "portable-skill",
       directory,
-      name: name.value,
+      sourcePath,
+      name,
+      ...(distribution === undefined ? {} : { distribution }),
       skill: {
-        name: name.value,
-        description: Option.some(parsed.value.description),
-        metadata: parsed.value.metadata,
+        name,
+        ...(parsed.name === undefined ? {} : { displayName: parsed.name }),
+        description: Option.fromUndefinedOr(parsed.description),
+        metadata,
       },
     });
   });
 
+const distinctPortableNames = (
+  candidates: ReadonlyArray<DiscoveredExtensionPackage>,
+): ReadonlyArray<DiscoveredExtensionPackage> => {
+  const names = new Map<string, number>();
+  for (const candidate of candidates)
+    if (candidate.kind === "portable-skill")
+      names.set(candidate.name, (names.get(candidate.name) ?? 0) + 1);
+  return candidates.map((candidate) => {
+    if (candidate.kind !== "portable-skill" || names.get(candidate.name) === 1) return candidate;
+    const suffix = createHash("sha256").update(candidate.sourcePath).digest("hex").slice(0, 8);
+    const name = decodeExtensionNameSync(
+      `${candidate.name.slice(0, 55).replace(/-+$/u, "")}-${suffix}`,
+    );
+    return { ...candidate, name, skill: { ...candidate.skill, name } };
+  });
+};
+
 const identityKey = (candidate: DiscoveredExtensionPackage): string =>
   candidate.kind === "manifest"
     ? `${candidate.identity.owner}:${candidate.identity.type}:${candidate.identity.name}`
-    : `portable:skill:${candidate.name}`;
+    : candidate.kind === "portable-skill"
+      ? `portable:skill:${candidate.sourcePath}`
+      : `plugin:mcp:${candidate.sourcePath}:${candidate.nativeComponent.name}`;
 
 const rejectAmbiguousDuplicates = (candidates: ReadonlyArray<DiscoveredExtensionPackage>) =>
   Effect.gen(function* () {
@@ -300,6 +365,7 @@ const rejectAmbiguousDuplicates = (candidates: ReadonlyArray<DiscoveredExtension
 export const discoverExtensionPackages = (
   root: string,
   filter: ExtensionPackageFilter,
+  options: { readonly rootName?: string } = {},
 ): Effect.Effect<
   ReadonlyArray<DiscoveredExtensionPackage>,
   SourceNotResolvable,
@@ -341,6 +407,119 @@ export const discoverExtensionPackages = (
               }),
           ),
         );
+        const plugin = entries.includes("SKILL.md")
+          ? Option.none()
+          : yield* readPluginDistribution(directory).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            );
+        const components = (
+          packageDirectory: string,
+          distribution: PluginSkillDistribution,
+          marketplace?: { readonly path: string; readonly name: string },
+        ) =>
+          Effect.gen(function* () {
+            const skills = yield* Effect.forEach(distribution.skills, (skillPath) =>
+              readPortableSkill(
+                skillPath,
+                path.relative(resolvedRoot, skillPath).split(path.sep).join("/") || ".",
+                options.rootName ?? path.basename(resolvedRoot),
+                {
+                  format: distribution.format,
+                  packageRoot:
+                    path.relative(resolvedRoot, packageDirectory).split(path.sep).join("/") || ".",
+                  componentPath:
+                    path.relative(packageDirectory, skillPath).split(path.sep).join("/") || ".",
+                  ...(distribution.manifestPath === undefined
+                    ? {}
+                    : { manifestPath: distribution.manifestPath }),
+                  ...(marketplace === undefined
+                    ? {}
+                    : {
+                        marketplace: {
+                          path: path
+                            .relative(resolvedRoot, marketplace.path)
+                            .split(path.sep)
+                            .join("/"),
+                          name: marketplace.name,
+                        },
+                      }),
+                },
+              ).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              ),
+            ).pipe(
+              Effect.map((candidates) =>
+                candidates.flatMap((candidate) =>
+                  Option.isSome(candidate) ? [candidate.value] : [],
+                ),
+              ),
+            );
+            const mcps =
+              filter.type === "mcp-server" || filter.type === "*"
+                ? yield* discoverPluginMcpComponents(packageDirectory, distribution)
+                : [];
+            const rootPath =
+              path.relative(resolvedRoot, packageDirectory).split(path.sep).join("/") || ".";
+            const components: DiscoveredPluginMcpPackage[] = mcps.map((nativeComponent) => ({
+              kind: "plugin-mcp",
+              directory: packageDirectory,
+              sourcePath: rootPath,
+              name: sourceName(nativeComponent.name),
+              nativeComponent,
+              distribution: {
+                format: distribution.format,
+                packageRoot: rootPath,
+                componentPath: ".",
+                ...(distribution.manifestPath === undefined
+                  ? {}
+                  : { manifestPath: distribution.manifestPath }),
+                ...(marketplace === undefined
+                  ? {}
+                  : {
+                      marketplace: {
+                        path: path
+                          .relative(resolvedRoot, marketplace.path)
+                          .split(path.sep)
+                          .join("/"),
+                        name: marketplace.name,
+                      },
+                    }),
+              },
+            }));
+            return [...skills, ...components];
+          }).pipe(
+            Effect.provideService(FileSystem.FileSystem, fs),
+            Effect.provideService(Path.Path, path),
+          );
+        const marketplace =
+          entries.includes("SKILL.md") ||
+          (Option.isSome(plugin) && plugin.value.format === "agent-plugins")
+            ? Option.none()
+            : yield* readPluginMarketplace(directory, filter.names).pipe(
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              );
+        if (Option.isSome(marketplace)) {
+          const members = yield* Effect.forEach(marketplace.value, (member) =>
+            Effect.gen(function* () {
+              const distribution = yield* readPluginDistribution(
+                member.directory,
+                member.selection,
+              );
+              return Option.isNone(distribution)
+                ? []
+                : yield* components(member.directory, distribution.value, member.marketplace);
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            ),
+          );
+          return members.flat();
+        }
+        if (Option.isSome(plugin)) return yield* components(directory, plugin.value);
+
         const manifests = entries.filter(
           (entry) => extensionTypeForManifestFilename(entry) !== undefined,
         );
@@ -350,25 +529,25 @@ export const discoverExtensionPackages = (
             Effect.provideService(Path.Path, path),
           );
           const distributionKey = `${candidate.identity.type}:${candidate.identity.name}`;
-          return matchesFilter(candidate.identity, filter) &&
-            !sourceSettings.distributionOptOuts.has(distributionKey)
-            ? [candidate]
-            : [];
+          return !sourceSettings.distributionOptOuts.has(distributionKey) ? [candidate] : [];
         }
 
         const portable = entries.includes("SKILL.md")
-          ? yield* readPortableSkill(directory).pipe(
+          ? yield* readPortableSkill(
+              directory,
+              path.relative(resolvedRoot, directory).split(path.sep).join("/") || ".",
+              options.rootName ?? path.basename(resolvedRoot),
+            ).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             )
           : Option.none<DiscoveredPortableSkillPackage>();
         const current =
           Option.isSome(portable) &&
-          matchesPortableSkillFilter(portable.value, filter) &&
           !sourceSettings.distributionOptOuts.has(`skill:${portable.value.name}`)
             ? [portable.value]
             : [];
-        if (depth === DISCOVERY_MAX_DEPTH) return current;
+        if (Option.isSome(portable) || depth === DISCOVERY_MAX_DEPTH) return current;
 
         const children = yield* Effect.forEach(
           entries.filter((entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry)).sort(),
@@ -387,8 +566,22 @@ export const discoverExtensionPackages = (
       });
 
     const candidates = yield* scan(resolvedRoot, 0);
-    const sorted = [...candidates].sort((left, right) =>
-      left.directory.localeCompare(right.directory),
-    );
+    const sorted = [...distinctPortableNames(candidates)]
+      .filter((candidate) =>
+        candidate.kind === "manifest"
+          ? matchesFilter(candidate.identity, filter)
+          : candidate.kind === "portable-skill"
+            ? matchesPortableSkillFilter(candidate, filter)
+            : (filter.type === "*" || filter.type === "mcp-server") &&
+              Option.isNone(filter.owner) &&
+              (filter.names.length === 0 ||
+                filter.names.some(
+                  (name) =>
+                    name === candidate.name ||
+                    name === candidate.nativeComponent.name ||
+                    name === `${candidate.sourcePath}#${candidate.nativeComponent.name}`,
+                )),
+      )
+      .sort((left, right) => left.directory.localeCompare(right.directory));
     return yield* rejectAmbiguousDuplicates(sorted);
   });

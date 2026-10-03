@@ -135,3 +135,17 @@ export {
 } from "./registry-install-target.js";
 export { registryLoginSuggestions } from "./registry-login-suggestion.js";
 export { formatRegistryProbe, type RegistryLookupProbe } from "./registry-probe.js";
+
+export {
+  ArtifactHttpClient,
+  downloadHttpArtifact,
+  httpArtifactDigest,
+  validateArtifactUrl,
+} from "./http-download.js";
+
+export { acquireHttpOffer, acquireAcceptedHttpPackage } from "./http-package.js";
+export {
+  parseWellKnownIndex,
+  WELL_KNOWN_SCHEMA,
+  type SkillArtifactOffer,
+} from "./well-known-index.js";

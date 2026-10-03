@@ -10,7 +10,7 @@ import { desiredStateReconcilableRule } from "../../desired-state-reconcilable.j
 import { sourceEndpointsAlignedRule } from "../../source-endpoints-aligned.js";
 import { contextFor, validSettings, type WorkspaceRuleConformanceCase } from "../test-helpers.js";
 
-const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
 
 const sourceEndpointContext = (configuredEndpoint: string) =>
   contextFor({
@@ -24,7 +24,7 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {
           "react-router": {
             source: {

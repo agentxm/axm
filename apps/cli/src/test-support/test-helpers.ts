@@ -1,3 +1,4 @@
+import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
 /**
  * Shared test helpers for CLI package tests.
@@ -54,7 +55,10 @@ import type {
   WorkspaceTransactionScope,
   WorkspaceFileWriteLocks,
 } from "@agentxm/workspace-kernel/settlement";
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
+import {
+  WorkspaceFileWriteLocksLive,
+  WorkspaceTransactionScopesLive,
+} from "@agentxm/workspace-kernel/settlement/live";
 import { BundledAxmSkillAssetLive, InstallSelectionLive } from "../cli-runtime/index.js";
 import {
   AxmSkillCandidateGateLive,
@@ -580,6 +584,7 @@ export const makeCliTestContext = (opts?: {
     RegistryClientFactoryLive,
     Layer.mergeAll(
       platformLayer,
+      Layer.succeed(ArtifactHttpClient, opts?.httpClient ?? testHttpClient),
       Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
       Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     ),
@@ -587,6 +592,8 @@ export const makeCliTestContext = (opts?: {
   const baseLayer = Layer.mergeAll(
     platformLayer,
     Layer.provide(WorkspaceFileWriteLocksLive, platformLayer),
+    Layer.provide(WorkspaceTransactionScopesLive, platformLayer),
+    Layer.succeed(ArtifactHttpClient, opts?.httpClient ?? testHttpClient),
     Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
     registryClientFactoryLayer,
     rendererLayer,

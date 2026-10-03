@@ -1,20 +1,25 @@
 /** @internal Test-only CLI workspace fixtures. */
 
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
 import {
   TreeIntegritySchema,
-  computeSourceHash,
+  computePackageContentHash,
   type TreeIntegrity,
   type RegistryPackLockEntry,
   type SkillLockEntry,
   type WorkspaceLayout,
   type WorkspaceLocationService,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { treeIntegrityOf } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  treeIntegrityOf,
+  SyncNodeFileSystem,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace-kernel/materialization";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
@@ -70,14 +75,6 @@ const path = (() => {
   }
   return module;
 })();
-const crypto = (() => {
-  const module = process.getBuiltinModule("node:crypto");
-  if (!module) {
-    throw new Error("node:crypto builtin is unavailable");
-  }
-  return module;
-})();
-
 /**
  * The resolved workspace location a test runs against.
  *
@@ -124,7 +121,7 @@ export const makeWorkspaceLocationMock = (
 
 const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 const decodeExtensionDependencyConstraintMapSync = Schema.decodeUnknownSync(
   ExtensionDependencyConstraintMapSchema,
@@ -360,7 +357,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 8,
+    lockfileVersion: 9,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -401,34 +398,13 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   fs.writeFileSync(lockPath, contents.lockfile);
 };
 
-export const computePackageContentHashSync = (packageDir: string): string => {
-  const files: Array<{ readonly absolutePath: string; readonly relativePath: string }> = [];
-  const visit = (directory: string): void => {
-    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
-      const absolutePath = path.join(directory, entry.name);
-      if (entry.isDirectory()) {
-        visit(absolutePath);
-      } else if (entry.isFile()) {
-        files.push({
-          absolutePath,
-          relativePath: path.relative(packageDir, absolutePath),
-        });
-      }
-    }
-  };
-  visit(packageDir);
-  files.sort((left, right) =>
-    left.relativePath < right.relativePath ? -1 : left.relativePath > right.relativePath ? 1 : 0,
+/** Use the production advisory marker when constructing accepted fixture locks. */
+export const computePackageContentHashSync = (packageDir: string): string =>
+  Effect.runSync(
+    computePackageContentHash(packageDir).pipe(
+      Effect.provide(Layer.merge(SyncNodeFileSystem, Path.layer)),
+    ),
   );
-  const hash = crypto.createHash("sha256");
-  for (const file of files) {
-    hash.update(file.relativePath);
-    hash.update("\0");
-    hash.update(fs.readFileSync(file.absolutePath));
-    hash.update("\0");
-  }
-  return computeSourceHash(hash.digest("hex"));
-};
 
 /** Compute the strict v7 lock identity for a materialized test package tree. */
 export const computeMaterializedTreeIntegritySync = (root: string): TreeIntegrity =>

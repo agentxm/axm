@@ -47,7 +47,7 @@ export const specification = defineSpecification({
 interface FamilyFixture {
   readonly family: ExtensionSourceFamily;
   readonly root: string;
-  readonly kind: "file-registry" | "bare-git" | "path" | "workspace";
+  readonly kind: "file-registry" | "bare-git" | "path" | "workspace" | "http";
   readonly locked: boolean;
   readonly hasType: (type: ExtensionType) => boolean;
 }
@@ -107,7 +107,17 @@ const makeFamilyFixtures = (): Record<ExtensionSourceFamily, FamilyFixture> => {
   const workspace = makeDirectory("axm-conformance-workspace-");
   writeFixtureCatalog(workspace, "authored");
 
+  const http = makeDirectory("axm-conformance-http-");
+  writeFixtureCatalog(http);
+
   return {
+    http: {
+      family: "http",
+      root: http,
+      kind: "http",
+      locked: true,
+      hasType: (type) => type === "skill" && fs.existsSync(fixtureEntry(http, type)),
+    },
     registry: {
       family: "registry",
       root: registry,
@@ -178,6 +188,12 @@ const executeCell = (
   cell: SourceFamilyLifecycleCell,
 ): SourceFamilyLifecycleOutcome => {
   const fixture = fixtures[cell.family];
+  if (cell.family === "http" && cell.type !== "skill") {
+    return {
+      outcome: "unsupported-by-design",
+      decision: "HTTPS artifact and discovery sources distribute skills only.",
+    };
+  }
   if (!fs.statSync(fixture.root).isDirectory()) {
     return { outcome: "blocked", reason: `${fixture.kind} fixture is unavailable` };
   }

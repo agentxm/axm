@@ -1,3 +1,4 @@
+import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 /**
  * Shared extension directory path helpers.
  *
@@ -12,6 +13,7 @@ import {
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
   GitBasedSource,
+  HttpSource,
   LocalSource,
   RegistrySource,
 } from "@agentxm/extension-model/unstable/sources/types";
@@ -22,6 +24,14 @@ import {
 import type { WorkspaceLayout } from "./layout.js";
 
 export type ExtensionPathSource =
+  | {
+      readonly refType: "http";
+      readonly owner?: Handle;
+      readonly source: HttpSource;
+      readonly sourcePath: string;
+      readonly distribution?: DistributionDescriptor;
+      readonly portable: boolean;
+    }
   | {
       readonly refType: "registry";
       readonly owner: Handle;
@@ -38,6 +48,7 @@ export type ExtensionPathSource =
       readonly owner?: Handle;
       readonly source: GitBasedSource;
       readonly sourcePath?: string;
+      readonly distribution?: DistributionDescriptor;
       readonly portable?: boolean;
     }
   | {
@@ -45,6 +56,7 @@ export type ExtensionPathSource =
       readonly owner?: Handle;
       readonly source: LocalSource;
       readonly sourcePath?: string;
+      readonly distribution?: DistributionDescriptor;
       readonly portable?: boolean;
     };
 
@@ -55,8 +67,10 @@ export interface ExtensionDirPaths {
 
 const acquiredSourceFamily = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
-): "git" | "path" | "registry" => {
+): "git" | "path" | "registry" | "http" => {
   switch (source.refType) {
+    case "http":
+      return "http";
     case "registry":
       return "registry";
     case "local":
@@ -101,7 +115,9 @@ const extensionPathsAt = (
     canonicalPath: decodeAbsolutePathSync(canonicalPath),
     extensionSrcPath: decodeAbsolutePathSync(
       source.refType !== "workspace" && source.portable === true
-        ? canonicalPath
+        ? source.distribution === undefined
+          ? canonicalPath
+          : join(canonicalPath, source.distribution.componentPath)
         : sourceDirectory === null
           ? canonicalPath
           : join(canonicalPath, sourceDirectory),

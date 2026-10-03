@@ -27,6 +27,7 @@ import type { Handle } from "../extensions/handle.js";
  */
 export const SourceTypeSchema = Schema.Literals([
   "git",
+  "http",
   "registry",
   "local",
   "inline",
@@ -60,6 +61,7 @@ export type SourceType = Schema.Schema.Type<typeof SourceTypeSchema>;
  */
 export const RefTypeSchema = Schema.Literals([
   "git-hosted",
+  "http",
   "registry",
   "local",
   "workspace",
@@ -149,8 +151,17 @@ export interface WorkspaceSourceHost {
 }
 
 /** @experimental */
+export interface HttpSourceHost {
+  readonly type: "http";
+}
+
 export type SourceHost =
-  GitSourceHost | RegistrySourceHost | LocalSourceHost | InlineSourceHost | WorkspaceSourceHost;
+  | HttpSourceHost
+  | GitSourceHost
+  | RegistrySourceHost
+  | LocalSourceHost
+  | InlineSourceHost
+  | WorkspaceSourceHost;
 
 // -----------------------------------------------------------------------------
 // SourceParams — coordinates within a source
@@ -195,7 +206,16 @@ export interface WorkspaceSourceParams {
 }
 
 /** @experimental */
+export interface HttpSourceParams {
+  readonly type: "http";
+  readonly url: URL;
+  readonly kind: "skill-md" | "archive" | "index";
+  readonly entry?: string;
+}
+export type HttpSource = HttpSourceHost & HttpSourceParams;
+
 export type SourceParams =
+  | HttpSourceParams
   | GitSourceParams
   | RegistrySourceParams
   | LocalSourceParams
@@ -217,7 +237,7 @@ export type LocalSource = LocalSourceHost & LocalSourceParams;
 /** @experimental */
 export type WorkspaceSource = WorkspaceSourceHost & WorkspaceSourceParams;
 /** @experimental */
-export type Source = GitSource | RegistrySource | LocalSource | WorkspaceSource;
+export type Source = HttpSource | GitSource | RegistrySource | LocalSource | WorkspaceSource;
 
 // -----------------------------------------------------------------------------
 // Convenience Unions
@@ -230,4 +250,4 @@ export type GitBasedSource = GitSource;
 export type ConfiguredSourceHost = RegistrySourceHost;
 
 /** Sources that are self-describing (no settings config needed). @experimental */
-export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost;
+export type SelfDescribingSourceHost = GitSourceHost | LocalSourceHost | HttpSourceHost;

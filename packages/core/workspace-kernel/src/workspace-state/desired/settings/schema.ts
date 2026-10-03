@@ -1,3 +1,4 @@
+import { NativeMcpComponentSchema } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 /**
  * Schema definitions for AXM settings configuration.
  *
@@ -911,6 +912,7 @@ export const McpServerEntryObjectSchema = Schema.Union([
   Schema.Struct({
     ...forbiddenFlatMcpFields,
     source: entrySourceFieldSchema("MCP server", "mcps"),
+    nativeComponent: Schema.optionalKey(NativeMcpComponentSchema),
     connection: absentFieldSchema,
     enabled: enabledFieldSchema,
     distribute: distributeFieldSchema,
@@ -919,6 +921,7 @@ export const McpServerEntryObjectSchema = Schema.Union([
   Schema.Struct({
     ...forbiddenFlatMcpFields,
     source: absentFieldSchema,
+    nativeComponent: absentFieldSchema,
     connection: McpConnectionSchema,
     enabled: enabledFieldSchema,
     distribute: distributeFieldSchema,
@@ -936,6 +939,7 @@ export const McpServerEntryObjectSchema = Schema.Union([
   Schema.Struct({
     ...forbiddenFlatMcpFields,
     source: absentFieldSchema,
+    nativeComponent: absentFieldSchema,
     connection: absentFieldSchema,
     enabled: enabledFieldSchema,
     distribute: absentFieldSchema,
@@ -960,6 +964,7 @@ const McpServerCanonicalSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("sourced"),
     source: Schema.String,
+    nativeComponent: Schema.optionalKey(NativeMcpComponentSchema),
     connection: absentFieldSchema,
     enabled: Schema.Boolean,
     distribute: distributeFieldSchema,
@@ -968,6 +973,7 @@ const McpServerCanonicalSchema = Schema.Union([
   Schema.Struct({
     kind: Schema.Literal("inline"),
     source: absentFieldSchema,
+    nativeComponent: absentFieldSchema,
     connection: McpConnectionSchema,
     enabled: Schema.Boolean,
     distribute: distributeFieldSchema,
@@ -978,6 +984,7 @@ const McpServerCanonicalSchema = Schema.Union([
   Schema.Struct({
     kind: configurationKindFieldSchema,
     source: absentFieldSchema,
+    nativeComponent: absentFieldSchema,
     connection: absentFieldSchema,
     enabled: configurationEnabledFieldSchema,
     distribute: absentFieldSchema,

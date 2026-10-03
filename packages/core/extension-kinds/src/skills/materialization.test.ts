@@ -1,3 +1,4 @@
+import { copiedDirectoryReceiptPath } from "@agentxm/workspace-kernel/locations";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
 import * as Effect from "effect/Effect";
@@ -110,6 +111,18 @@ describe("Skill native materialization", () => {
   it.effect("uses a bounded copy only for unsupported links and preserves foreign children", () =>
     Effect.gen(function* () {
       const { fs, path, source, target, args } = yield* fixture;
+      const supportingFiles = [
+        "README.md",
+        "metadata.json",
+        ".axm-copy.json",
+        "_assets/template.txt",
+        "scripts/run",
+      ];
+      for (const name of supportingFiles) {
+        yield* fs.makeDirectory(path.dirname(path.join(source, name)), { recursive: true });
+        yield* fs.writeFileString(path.join(source, name), `Original ${name}\n`);
+      }
+      yield* fs.chmod(path.join(source, "scripts/run"), 0o755);
       const unsupported = {
         ...fs,
         symlink: () =>
@@ -125,19 +138,23 @@ describe("Skill native materialization", () => {
       yield* ensureSkillAgentArtifact(args).pipe(
         Effect.provideService(FileSystem.FileSystem, unsupported),
       );
-      const receipt = yield* fs.readFileString(path.join(target, ".axm-copy.json"));
+      for (const name of supportingFiles) {
+        expect(yield* fs.readFileString(path.join(target, name))).toBe(`Original ${name}\n`);
+      }
+      expect((yield* fs.stat(path.join(target, "scripts/run"))).mode & 0o777).toBe(0o755);
+      const receipt = yield* fs.readFileString(yield* copiedDirectoryReceiptPath(target));
       yield* fs.writeFileString(path.join(target, "personal.txt"), "Foreign\n");
       yield* ensureSkillAgentArtifact(args).pipe(
         Effect.provideService(FileSystem.FileSystem, unsupported),
       );
-      expect(yield* fs.readFileString(path.join(target, ".axm-copy.json"))).toBe(receipt);
+      expect(yield* fs.readFileString(yield* copiedDirectoryReceiptPath(target))).toBe(receipt);
       yield* fs.writeFileString(path.join(source, "SKILL.md"), "# Updated source\n");
       const refused = yield* ensureSkillAgentArtifact(args).pipe(
         Effect.provideService(FileSystem.FileSystem, unsupported),
         Effect.flip,
       );
       expect(refused._tag).toBe("SkillMaterializationFailed");
-      expect(yield* fs.readFileString(path.join(target, ".axm-copy.json"))).toBe(receipt);
+      expect(yield* fs.readFileString(yield* copiedDirectoryReceiptPath(target))).toBe(receipt);
       expect(yield* fs.readFileString(path.join(target, "SKILL.md"))).toBe(
         "# Source must survive\n",
       );
@@ -163,5 +180,55 @@ describe("Skill native materialization", () => {
       Effect.scoped,
       Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
     ),
+  );
+  it.effect(
+    "retains contained file and directory links through copied projection update and removal",
+    () =>
+      Effect.gen(function* () {
+        const { fs, path, source, target, args } = yield* fixture;
+        yield* fs.makeDirectory(path.join(source, "assets"));
+        yield* fs.writeFileString(path.join(source, "assets/run"), "#!/bin/sh\necho original\n");
+        yield* fs.chmod(path.join(source, "assets/run"), 0o755);
+        yield* fs.symlink("assets/run", path.join(source, "run"));
+        yield* fs.symlink(".", path.join(source, "self"));
+        const unsupportedDirectoryProjection = {
+          ...fs,
+          symlink: (from: string, to: string) =>
+            to === target
+              ? Effect.fail(
+                  PlatformError.systemError({
+                    _tag: "Unknown",
+                    module: "FileSystem",
+                    method: "symlink",
+                    cause: { code: "ENOSYS" },
+                  }),
+                )
+              : fs.symlink(from, to),
+        } satisfies FileSystem.FileSystem;
+        const ensure = ensureSkillAgentArtifact(args).pipe(
+          Effect.provideService(FileSystem.FileSystem, unsupportedDirectoryProjection),
+        );
+        yield* ensure;
+        expect(yield* fs.readLink(path.join(target, "run"))).toBe("assets/run");
+        expect(yield* fs.readLink(path.join(target, "self"))).toBe(".");
+        expect((yield* fs.stat(path.join(target, "run"))).mode & 0o111).toBe(0o111);
+        expect(yield* ensure).toBe("unchanged");
+        yield* fs.writeFileString(path.join(source, "assets/run"), "#!/bin/sh\necho updated\n");
+        yield* ensure;
+        expect(yield* fs.readFileString(path.join(target, "run"))).toBe(
+          "#!/bin/sh\necho updated\n",
+        );
+        expect(yield* fs.readLink(path.join(target, "self"))).toBe(".");
+        yield* removeSkillAgentArtifact(args);
+        expect(yield* fs.exists(target)).toBe(false);
+        expect(yield* fs.exists(yield* copiedDirectoryReceiptPath(target))).toBe(false);
+        expect(yield* fs.readLink(path.join(source, "run"))).toBe("assets/run");
+        expect(yield* fs.readFileString(path.join(source, "run"))).toBe(
+          "#!/bin/sh\necho updated\n",
+        );
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)),
+      ),
   );
 });

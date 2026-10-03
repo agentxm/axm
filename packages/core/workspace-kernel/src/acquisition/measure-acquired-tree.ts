@@ -1,6 +1,8 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
+import { validateContainedLink } from "../locations/index.js";
 import * as Path from "effect/Path";
 
 import { MAX_ACQUIRED_TREE_BYTES } from "@agentxm/registry-client";
@@ -41,6 +43,17 @@ export const measureAcquiredTree = (
     while (pending.length > 0) {
       const current = pending.pop();
       if (current === undefined) break;
+      const link =
+        current === directory
+          ? Option.none<string>()
+          : yield* fs.readLink(current).pipe(Effect.option);
+      if (Option.isSome(link)) {
+        yield* validateContainedLink(directory, current, link.value);
+        bytes += new TextEncoder().encode(link.value).byteLength;
+        if (bytes > maxBytes)
+          return yield* new AcquiredTreeLimitExceeded({ resource: "bytes", limit: maxBytes });
+        continue;
+      }
       const info = yield* fs.stat(current);
       if (info.type === "Directory") {
         const children = yield* fs.readDirectory(current);
@@ -62,5 +75,5 @@ export const measureAcquiredTree = (
         }
       }
     }
-    return bytes;
+    return { bytes, entries };
   });

@@ -3,6 +3,7 @@
 import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
@@ -50,6 +51,15 @@ export const sourceRefContentKey = (ref: ExtensionRef): string => {
   switch (ref.refType) {
     case "registry":
       return registryRefContentKey(ref);
+    case "http":
+      return JSON.stringify([
+        "http",
+        ref.source.url.href,
+        ref.source.entry,
+        ref.sourcePath,
+        ref.snapshot,
+        ref.name,
+      ]);
     case "git-hosted":
       return JSON.stringify([
         "git",
@@ -148,12 +158,22 @@ export const acquiredRegistryPackageFiles = (
   );
 
 /** Resolve external bytes from the transition's captured tree when one is active. */
-export const acquiredDirectoryForRef = (
-  ref: ExtensionRef,
-  ordinaryPath: string,
-): Effect.Effect<string, PackageMaterializationFailed> =>
-  acquiredFilesForRef(ref, "on-disk").pipe(
-    Effect.map(Option.match({ onNone: () => ordinaryPath, onSome: (files) => files.directory })),
+export const acquiredDirectoryForRef = (ref: ExtensionRef, ordinaryPath: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const files = yield* acquiredFilesForRef(ref, "on-disk");
+    if (Option.isSome(files)) return files.value.packageDirectory ?? files.value.directory;
+    return (ref.refType === "local" || ref.refType === "git-hosted" || ref.refType === "http") &&
+      ref.distribution !== undefined
+      ? path.resolve(
+          ordinaryPath,
+          ...ref.distribution.componentPath
+            .split("/")
+            .filter((segment) => segment !== ".")
+            .map(() => ".."),
+        )
+      : ordinaryPath;
+  }).pipe(
     Effect.mapError(
       (cause) =>
         new PackageMaterializationFailed({ path: ordinaryPath, step: "prepare-staging", cause }),

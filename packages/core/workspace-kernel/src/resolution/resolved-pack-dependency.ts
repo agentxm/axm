@@ -1,3 +1,4 @@
+import { HttpArtifactSnapshotSchema } from "@agentxm/extension-model/unstable/sources/http-artifact";
 /**
  * The resolved pack dependency map: the exact identity and version resolution
  * chose for every declared pack member, in the shape the lockfile records.
@@ -35,6 +36,7 @@ const ResolvedLocalDependencySchema = Schema.Struct({
 });
 
 export const ResolvedPackDependencySchema = Schema.Union([
+  Schema.Struct({ source: Schema.Literal("http"), snapshot: HttpArtifactSnapshotSchema }),
   ResolvedRegistryDependencySchema,
   ResolvedWorkspaceDependencySchema,
   ResolvedGitDependencySchema,

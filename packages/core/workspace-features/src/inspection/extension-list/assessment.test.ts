@@ -50,7 +50,7 @@ const workspaceWithCatalogLayer = (
 };
 
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 describe("extension list assessment", () => {

@@ -2,12 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { exactVersion, extensionName, handle } from "../test-helpers.js";
 import {
-  defaultReadEntry,
   normalizePublishInput,
   type DeclaredPublishIdentity,
   type PublishArchiveInput,
 } from "./input-normalization.js";
-import { parseZipCentralDirectory } from "./archive-guardrails.js";
+import { defaultReadEntry, parseZipCentralDirectory } from "./archive-guardrails.js";
 import { buildZip, textContent } from "./test-zip-helpers.js";
 
 const makeDeclaredIdentity = (

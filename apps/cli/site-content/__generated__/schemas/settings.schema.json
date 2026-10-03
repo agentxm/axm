@@ -810,6 +810,16 @@
                 "./extensions/code-review"
               ]
             },
+            "nativeComponent": {
+              "type": "object",
+              "properties": {
+                "format": { "type": "string", "enum": ["agent-plugins"] },
+                "configPath": { "type": "string", "minLength": 1 },
+                "name": { "type": "string", "minLength": 1 }
+              },
+              "required": ["format", "configPath", "name"],
+              "additionalProperties": false
+            },
             "connection": { "anyOf": [{ "not": {} }, { "type": "null" }] },
             "enabled": {
               "type": "boolean",
@@ -843,6 +853,7 @@
             "headers": { "not": {} },
             "cwd": { "not": {} },
             "source": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+            "nativeComponent": { "anyOf": [{ "not": {} }, { "type": "null" }] },
             "connection": { "$ref": "#/definitions/McpConnection" },
             "enabled": {
               "type": "boolean",
@@ -876,6 +887,7 @@
             "headers": { "not": {} },
             "cwd": { "not": {} },
             "source": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+            "nativeComponent": { "anyOf": [{ "not": {} }, { "type": "null" }] },
             "connection": { "anyOf": [{ "not": {} }, { "type": "null" }] },
             "enabled": {
               "type": "boolean",

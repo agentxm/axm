@@ -8,7 +8,7 @@
  */
 
 import type * as FileSystem from "effect/FileSystem";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import { fromFileLocation } from "@agentxm/host-primitives";
 
@@ -53,8 +53,24 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
         }),
       );
     }
-    return Effect.succeed({
-      directory: fromFileLocation(ref.location),
+    return Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const directory = fromFileLocation(ref.location);
+      return {
+        directory,
+        ...(ref.distribution === undefined
+          ? {}
+          : {
+              packageDirectory: path.resolve(
+                directory,
+                ...ref.distribution.componentPath
+                  .split("/")
+                  .filter((segment) => segment !== ".")
+                  .map(() => ".."),
+              ),
+              componentPath: ref.distribution.componentPath,
+            }),
+      };
     });
   },
 });

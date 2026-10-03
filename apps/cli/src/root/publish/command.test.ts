@@ -180,7 +180,7 @@ describe("root publish", () => {
       path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [] }),
     );
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
+    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 9\nskills: {}\n");
   });
 
   afterEach(() => {
@@ -399,7 +399,7 @@ describe("root publish", () => {
             "Previewing publish  as @acme - to override",
             "",
             "     Extension                     Version   Plan      Detail",
-            " +   @acme/skills/review           1.0.0     publish   2 files, 340 B",
+            " +   @acme/skills/review           1.0.0     publish   2 entries, 340 B",
             "",
             "     Visibility                    public (from platform defaults)",
             "",
@@ -1277,6 +1277,24 @@ describe("root publish", () => {
 });
 
 describe("publish recovery", () => {
+  it("retains the upstream directory and publisher version in recovery", () => {
+    const recovery = makeExactPublishRecovery(
+      {
+        from: "/workspace/upstream",
+        packageVersion: "1.2.3",
+        registry: Option.some("private"),
+        registryUrl: Option.none(),
+        backfill: true,
+        acceptWarnings: true,
+        visibility: Option.none(),
+      },
+      ["@acme/skills/review"],
+    );
+    expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
+      "axm publish --registry private --from /workspace/upstream --package-version 1.2.3 --backfill --accept-warnings @acme/skills/review",
+    );
+  });
+
   it("replays the exact admitted identities through the generic root command", () => {
     const recovery = makeExactPublishRecovery(
       {

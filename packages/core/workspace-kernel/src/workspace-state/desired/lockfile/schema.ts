@@ -1,10 +1,15 @@
+import {
+  ArtifactUrlSchema,
+  HttpArtifactSnapshotSchema,
+} from "@agentxm/extension-model/unstable/sources/http-artifact";
+import { DistributionDescriptorSchema } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 /**
  * Lockfile schema definition.
  *
  * The lockfile (axm-lock.yaml) records accepted immutable resolutions for
  * externally sourced extensions.
  *
- * Lockfile v8 is authority, not receipt history. It contains no authored,
+ * Lockfile v9 is authority, not receipt history. It contains no authored,
  * bundled, inline, projection, completion-time, or command-history state.
  *
  * @experimental This API is unstable and may change without notice.
@@ -22,7 +27,7 @@ import {
   SourceSubPathSchema,
 } from "@agentxm/extension-model/unstable/sources/types";
 
-export const LOCKFILE_VERSION = 8;
+export const LOCKFILE_VERSION = 9;
 
 // =============================================================================
 // Self-describing source locators and accepted resolutions
@@ -44,6 +49,7 @@ const GitSourceLocatorSchema = Schema.Struct({
   url: Schema.URLFromString,
   path: Schema.optional(SourceSubPathSchema),
   revision: Schema.optional(SourceRefSchema),
+  distribution: Schema.optional(DistributionDescriptorSchema),
 });
 
 const RegistrySourceLocatorSchema = Schema.Struct({
@@ -54,6 +60,7 @@ const RegistrySourceLocatorSchema = Schema.Struct({
 const PathSourceLocatorSchema = Schema.Struct({
   type: Schema.Literal("path"),
   path: LocalSourceLockPathSchema,
+  distribution: Schema.optional(DistributionDescriptorSchema),
 });
 
 const makeExtensionIdentitySchema = <TOwner extends Schema.Top>(owner: TOwner) =>
@@ -131,7 +138,24 @@ const makeSourceLockUnion = <TOwner extends Schema.Top, F extends Schema.Struct.
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillLockEntrySchema = makeSourceLockUnion(Schema.optional(HandleSchema), {});
+export const HttpSkillLockEntrySchema = Schema.Struct({
+  source: Schema.Struct({
+    type: Schema.Literal("http"),
+    url: ArtifactUrlSchema,
+    kind: Schema.Literals(["skill-md", "archive", "index"]),
+    entry: Schema.optional(Schema.NonEmptyString),
+    path: SourceSubPathSchema,
+    portable: Schema.Boolean,
+    distribution: Schema.optional(DistributionDescriptorSchema),
+  }),
+  identity: makeExtensionIdentitySchema(Schema.optional(HandleSchema)),
+  resolved: HttpArtifactSnapshotSchema,
+  treeIntegrity: TreeIntegritySchema,
+});
+export const SkillLockEntrySchema = Schema.Union([
+  makeSourceLockUnion(Schema.optional(HandleSchema), {}),
+  HttpSkillLockEntrySchema,
+]);
 
 /**
  * Inferred type for SkillLockEntry schema.
@@ -214,7 +238,7 @@ export type SubagentsLockMap = Schema.Schema.Type<typeof SubagentsLockMapSchema>
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const McpServerLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
+export const McpServerLockEntrySchema = makeSourceLockUnion(Schema.optional(HandleSchema), {});
 
 /**
  * Inferred type for McpServerLockEntry schema.
@@ -462,7 +486,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 8)
+ * - lockfileVersion: Schema version (currently 9)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  *

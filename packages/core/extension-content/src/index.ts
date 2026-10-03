@@ -28,10 +28,12 @@ export {
   parseFrontmatterSync,
 } from "./content/frontmatter.js";
 export {
+  type ExtractedSkillMetadata,
   type SkillFrontmatter,
   SkillFrontmatterSchema,
   type SkillFrontmatterValidation,
   parseSkillMd,
+  extractSkillMetadata,
   validateSkillFrontmatter,
 } from "./content/skill-content.js";
 export { type Skill } from "./content/skill-types.js";
@@ -53,6 +55,7 @@ export {
   ZIP_LOCAL_SIGNATURE,
   type ZipEntry,
   checkForbiddenSourceEntries,
+  defaultReadEntry,
   parseZipCentralDirectory,
   validateArchive,
 } from "./packaging/archive-guardrails.js";
@@ -74,7 +77,6 @@ export {
   type NormalizePublishInputArgs,
   type PublishArchiveInput,
   type PublishInput,
-  defaultReadEntry,
   normalizePublishInput,
 } from "./packaging/input-normalization.js";
 export {

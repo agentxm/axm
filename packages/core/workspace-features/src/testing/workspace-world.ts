@@ -1,3 +1,4 @@
+import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /** Shared filesystem and service world for state-changing workspace fixtures. */
 
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
@@ -107,7 +108,7 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
     writeSettings(options.settings);
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 8, skills: {}, ...options.lockfile }),
+      JSON.stringify({ lockfileVersion: 9, skills: {}, ...options.lockfile }),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
@@ -186,6 +187,7 @@ export const makeWorkspaceWorld = <P>(
         CodingAgentRepositoryLive,
         NativeWriteAuthorityLive,
         transport,
+        Layer.provide(Layer.effect(ArtifactHttpClient, HttpClient.HttpClient), transport),
         RegistryClientFactoryTest(transport),
         executables,
         PlanInvocationTest,

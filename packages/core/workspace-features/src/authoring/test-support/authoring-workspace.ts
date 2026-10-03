@@ -1,3 +1,6 @@
+import * as Effect from "effect/Effect";
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /**
  * A real project workspace on a temporary directory, wired to the same
  * services an authoring command runs against.
@@ -189,6 +192,10 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
     Layer.mergeAll(
       AxmSkillCandidateGateLive,
       RegistryResolutionPolicyLive,
+      Layer.succeed(
+        ArtifactHttpClient,
+        HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
+      ),
       Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, identity)),
     ),
     projection,

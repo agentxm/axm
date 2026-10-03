@@ -969,6 +969,7 @@ const planPaths = [
   "axm rules update",
   "axm skills disable",
   "axm skills enable",
+  "axm skills handoff",
   "axm skills import",
   "axm skills install",
   "axm skills new",

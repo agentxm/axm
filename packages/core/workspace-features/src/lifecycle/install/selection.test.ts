@@ -59,6 +59,56 @@ const neverPrompts = (reason: string) =>
 const unattended = { all: false, nonInteractive: true } as const;
 
 describe("install source selection", () => {
+  it.effect("selects native MCP declarations by their upstream name or exact package path", () =>
+    Effect.gen(function* () {
+      const local = {
+        ...localRef("managed-package"),
+        type: "mcp-server",
+        server: { name: Schema.decodeUnknownSync(ExtensionNameSchema)("managed-connection") },
+        nativeComponent: {
+          format: "agent-plugins",
+          configPath: "mcp.json",
+          name: "upstream-context",
+        },
+      } as const satisfies McpServerExtensionRef;
+      const described = {
+        ...local,
+        distribution: {
+          format: "agent-plugins",
+          packageRoot: "plugins/one",
+          componentPath: ".",
+          manifestPath: "plugin.json",
+        },
+      } as const satisfies McpServerExtensionRef;
+      const git = {
+        ...local,
+        refType: "git-hosted",
+        source: {
+          type: "git",
+          url: new URL("https://example.com/plugins.git"),
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        gitCommitSha: "0".repeat(40),
+        gitTreeSha: "1".repeat(40),
+        sourcePath: "plugins/two",
+      } as const satisfies McpServerExtensionRef;
+      const refs: ReadonlyArray<McpServerExtensionRef> = [described, git, local];
+      for (const [selector, expected] of [
+        ["upstream-context", refs],
+        ["plugins/one#upstream-context", [described]],
+        ["plugins/two#upstream-context", [git]],
+        [".#upstream-context", [local]],
+      ] as const) {
+        const selected = yield* selectInstallRefs(refs, {
+          type: "mcp-server",
+          selectors: [selector],
+          ...unattended,
+        }).pipe(neverPrompts("An exact plugin component must not prompt"));
+        expect(selected).toEqual(expected);
+      }
+    }),
+  );
   it.effect("has nothing to decide for a source that offers nothing of the type", () =>
     Effect.gen(function* () {
       const selected = yield* selectInstallRefs([], {
@@ -78,6 +128,39 @@ describe("install source selection", () => {
         ...unattended,
       }).pipe(neverPrompts("An explicit selection must not prompt"));
       expect(selected).toEqual([first, third]);
+    }),
+  );
+
+  it.effect("selects exact Git and local paths independently of duplicate display names", () =>
+    Effect.gen(function* () {
+      const base = skill("review", Option.none());
+      const git = {
+        ...base,
+        refType: "git-hosted",
+        source: {
+          type: "git",
+          url: new URL("https://example.com/skills.git"),
+          ref: Option.none(),
+          subPath: Option.none(),
+        },
+        location: "file:///fixture/source/review",
+        gitCommitSha: "0".repeat(40),
+        gitTreeSha: "1".repeat(40),
+        sourcePath: "git/review",
+      } satisfies SkillExtensionRef;
+      const local = {
+        ...localRef("review"),
+        type: "skill",
+        skill: base.skill,
+        sourceRelativePath: "local/review",
+      } satisfies SkillExtensionRef;
+      const other = { ...local, sourceRelativePath: "other/review" };
+      const selected = yield* selectInstallRefs([git, other, local], {
+        type: "skill",
+        selectors: ["git/review", "local/review"],
+        ...unattended,
+      }).pipe(neverPrompts("Exact paths must not prompt"));
+      expect(selected).toEqual([git, local]);
     }),
   );
 

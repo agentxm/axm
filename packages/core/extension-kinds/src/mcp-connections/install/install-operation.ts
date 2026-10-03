@@ -24,6 +24,7 @@ import {
   resolveMcpInvocation,
   readMcpServerManifestAt,
   syncManifestMcpServerToAgents,
+  syncPluginMcpServerToAgents,
   type McpServerSyncOutcome,
   type AxmMcpMetadata,
 } from "@agentxm/workspace-kernel/agent-adapters";
@@ -47,7 +48,6 @@ import {
   mcpResolutionKey,
   type McpServerEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { appendWarningsToMessage, type JobStepResult } from "@agentxm/workspace-kernel/operations";
 import { isWorkspaceFootprint, readFootprint } from "@agentxm/workspace-kernel/settlement";
 import { classifyInstallChange } from "@agentxm/workspace-kernel/reconciliation";
@@ -123,8 +123,6 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly strict: boolean;
   readonly serverName: string;
   readonly canonicalPath: string;
-  readonly owner: Handle;
-  readonly resolvedVersion: string;
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
   readonly entry: McpServerEntry;
@@ -162,15 +160,13 @@ const syncConfiguredAgentsOnInstall = (args: {
         },
       }));
     } else {
-      const synced = yield* syncManifestMcpServerToAgents({
+      const syncArgs = {
         agentIds: configuredAgentIds,
         workspaceRoot: args.wsBaseDir,
         nativeDirectoryInputs: args.nativeDirectoryInputs,
         scope: args.scope,
         serverName: args.serverName,
         canonicalPath: args.canonicalPath,
-        owner: args.owner,
-        resolvedVersion: args.resolvedVersion,
         enabled: args.enabled,
         ...(args.entry.distribution === undefined ? {} : { distribution: args.entry.distribution }),
         ...(args.entry.bindings === undefined ? {} : { bindings: args.entry.bindings }),
@@ -180,7 +176,15 @@ const syncConfiguredAgentsOnInstall = (args: {
           ? {}
           : { nativeInsertionEligiblePaths: args.nativeInsertionEligiblePaths }),
         previousManagedEntries: args.previousManagedEntries,
-      });
+      };
+      const synced = yield* args.entry.kind === "sourced" &&
+      args.entry.nativeComponent !== undefined
+        ? syncPluginMcpServerToAgents({
+            ...syncArgs,
+            source: args.entry.source,
+            nativeComponent: args.entry.nativeComponent,
+          })
+        : syncManifestMcpServerToAgents(syncArgs);
       outcomes = configuredAgentIds.map((agentId, index) => ({
         agentId,
         outcome: synced[index] ?? {
@@ -283,11 +287,12 @@ export const installMcpServer: (
         : computeExtensionPathsForLayout(path.join, layout, ref, "mcps", ref.name).canonicalPath;
     const lockEntry = Option.getOrUndefined(resolution)?.entry;
     const resolutionKey = Option.getOrUndefined(resolution)?.key;
-    const manifest = yield* readMcpServerManifestAt(canonicalPath);
-    const resolvedVersion =
-      ref.refType === "registry" || ref.refType === "workspace"
-        ? ref.version
-        : Option.match(manifest, { onNone: () => "0.0.0", onSome: (value) => value.version });
+    const nativeComponent =
+      ref.refType === "local" || ref.refType === "git-hosted" ? ref.nativeComponent : undefined;
+    const manifest =
+      nativeComponent === undefined
+        ? yield* readMcpServerManifestAt(canonicalPath)
+        : Option.none<McpServerManifest>();
     const nothingRunnable = isNothingRunnableManifest(manifest);
     const currentMcpServers = yield* settings.entries("mcp-server");
     const currentEntry = currentMcpServers[localName];
@@ -302,7 +307,7 @@ export const installMcpServer: (
     const requestedDistribution = op.args.distribution ?? currentEntry?.distribution;
     const bindings = op.args.bindings ?? currentEntry?.bindings;
     const auth = op.args.auth ?? currentEntry?.auth;
-    if (Option.isNone(manifest)) {
+    if (Option.isNone(manifest) && nativeComponent === undefined) {
       return yield* new McpConfigurationRefused({
         localName,
         reason: "Acquired manifest is missing",
@@ -313,17 +318,18 @@ export const installMcpServer: (
       nothingRunnable &&
       requestedDistribution === undefined &&
       op.args.distributionId === undefined;
-    const selected = unfinishedAuthoredDefinition
-      ? undefined
-      : selectMcpDistribution({
-          manifest: manifest.value,
-          selector: requestedDistribution,
-          id: op.args.distributionId,
-          allowUnambiguous:
-            op.args.authorizeDistributionSelection === true ||
-            op.args.declaration !== undefined ||
-            nativeInsertionEligible,
-        });
+    const selected =
+      unfinishedAuthoredDefinition || Option.isNone(manifest)
+        ? undefined
+        : selectMcpDistribution({
+            manifest: manifest.value,
+            selector: requestedDistribution,
+            id: op.args.distributionId,
+            allowUnambiguous:
+              op.args.authorizeDistributionSelection === true ||
+              op.args.declaration !== undefined ||
+              nativeInsertionEligible,
+          });
     if (selected?._tag === "blocked") {
       return yield* new McpConfigurationRefused({ localName, reason: selected.reason });
     }
@@ -332,17 +338,20 @@ export const installMcpServer: (
       ...(bindings === undefined ? {} : { bindings }),
       ...(auth === undefined ? {} : { auth }),
     };
-    const invocation = resolveMcpInvocation({ manifest: manifest.value, ...preferences });
-    if (!unfinishedAuthoredDefinition && invocation._tag === "blocked") {
+    const invocation = Option.isSome(manifest)
+      ? resolveMcpInvocation({ manifest: manifest.value, ...preferences })
+      : undefined;
+    if (!unfinishedAuthoredDefinition && invocation?._tag === "blocked") {
       return yield* new McpConfigurationRefused({ localName, reason: invocation.reason });
     }
     const projectionNames =
-      ref.refType === "registry" && lockedVersion !== undefined && lockedVersion !== ref.version
+      nativeComponent !== undefined ||
+      (ref.refType === "registry" && lockedVersion !== undefined && lockedVersion !== ref.version)
         ? [...new Set([...(existingClosure?.localNames ?? []), localName])].sort()
         : [localName];
     // A shared source update must remain valid for every alias before any declaration changes.
     for (const projectionName of projectionNames) {
-      if (projectionName === localName) continue;
+      if (projectionName === localName || Option.isNone(manifest)) continue;
       const entry = currentMcpServers[projectionName];
       const alias = resolveMcpInvocation({
         manifest: manifest.value,
@@ -361,6 +370,7 @@ export const installMcpServer: (
       kind: "sourced",
       source: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
       ...preferences,
+      ...(nativeComponent === undefined ? {} : { nativeComponent }),
       enabled,
     };
     const writeEffect =
@@ -388,16 +398,20 @@ export const installMcpServer: (
               lockEntry,
               versionRange: op.args.declaration.versionRange,
               ...preferences,
+              ...(nativeComponent === undefined ? {} : { nativeComponent }),
               enabled,
             });
     yield* writeEffect;
+    const declaredEntries = yield* settings.entries("mcp-server");
 
     const agentSyncResults = yield* Effect.forEach(
       projectionNames,
       (projectionName) =>
         Effect.gen(function* () {
           const projectionEntry =
-            projectionName === localName ? settingsEntry : currentMcpServers[projectionName];
+            projectionName === localName
+              ? (declaredEntries[localName] ?? settingsEntry)
+              : declaredEntries[projectionName];
           if (projectionEntry === undefined || projectionEntry.kind === "inline") {
             return undefined;
           }
@@ -408,8 +422,6 @@ export const installMcpServer: (
             strict: strictAgentSync,
             serverName: projectionName,
             canonicalPath,
-            owner: ref.owner,
-            resolvedVersion,
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
             entry: projectionEntry,
@@ -435,7 +447,7 @@ export const installMcpServer: (
     };
 
     const warnings = [
-      ...(invocation._tag === "resolved" ? invocation.warnings : []),
+      ...(invocation?._tag === "resolved" ? invocation.warnings : []),
       ...agentSync.warnings,
     ];
     const change = classifyInstallChange({
@@ -452,7 +464,7 @@ export const installMcpServer: (
     return {
       result: "success",
       message: appendWarningsToMessage(
-        `Installed ${localName} from ${ref.owner}/mcps/${ref.server.name} (canonical=success, agent-sync=${agentSync.status})`,
+        `Installed ${localName} from ${sourceIdentity} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
       ...(change === "unchanged" ? { disposition: "unchanged" as const } : {}),

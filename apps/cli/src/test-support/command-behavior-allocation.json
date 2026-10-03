@@ -1243,6 +1243,18 @@
     "hooks install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -1362,6 +1374,13 @@
           "requirements": ["cli/force-bypasses-only-named-policies"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -1819,6 +1838,18 @@
           }
         },
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "all",
           "rawHelp": {
             "aliases": [],
@@ -2094,6 +2125,13 @@
         {
           "parameters": ["flag:native-oauth"],
           "requirements": ["cli/mcps/credentials-remain-host-owned"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -2986,6 +3024,18 @@
     "knowledge install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -3096,6 +3146,13 @@
           "parameters": ["argument:source"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -4278,6 +4335,18 @@
     "mcps install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -4458,6 +4527,13 @@
         {
           "parameters": ["flag:native-oauth"],
           "requirements": ["cli/mcps/credentials-remain-host-owned"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -5175,6 +5251,18 @@
     "packs install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -5287,6 +5375,13 @@
           "parameters": ["argument:source"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -5784,6 +5879,22 @@
     "publish": {
       "flags": [
         {
+          "name": "from",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "package-version",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
           "name": "owner",
           "rawHelp": {
             "aliases": [],
@@ -5890,28 +6001,36 @@
       ],
       "parameterBindings": [
         {
+          "parameters": ["flag:from", "flag:package-version", "argument:extension"],
+          "requirements": [
+            "cli/publish/existing-directory-uses-a-separate-envelope",
+            "cli/publish/existing-directory-needs-no-workspace-setup"
+          ],
+          "when": "--from and --package-version select an existing directory with exactly one explicit skill FQN."
+        },
+        {
           "parameters": ["argument:extension"],
           "requirements": [
             "cli/publication-selects-matching-authored-extensions",
             "cli/publish/requires-established-authorship"
           ],
-          "when": "Explicit-selector and argument-free filtered publication are separate modes.",
+          "when": "--from is absent. Explicit-selector and argument-free filtered publication are separate modes.",
           "openTopics": ["publish-selector-combinations"]
         },
         {
           "parameters": ["flag:owner"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "No positional selectors are supplied."
+          "when": "--from is absent. No positional selectors are supplied."
         },
         {
           "parameters": ["flag:type"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "Root publication has no positional selectors."
+          "when": "--from is absent. Root publication has no positional selectors."
         },
         {
           "parameters": ["flag:exclude"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "No positional selectors are supplied.",
+          "when": "--from is absent. No positional selectors are supplied.",
           "details": [
             "Extension selection differs from manifest publish.ignore archive-path filtering."
           ]
@@ -5963,7 +6082,7 @@
         {
           "parameters": ["flag:include-dependencies"],
           "requirements": ["cli/publish/dependency-inclusion-adds-only-authored-pack-members"],
-          "when": "Root or Pack publication selects a Pack."
+          "when": "--from is absent. Root or Pack publication selects a Pack."
         }
       ]
     },
@@ -6128,6 +6247,18 @@
     "rules install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -6246,6 +6377,13 @@
           "requirements": ["cli/force-bypasses-only-named-policies"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -6945,7 +7083,16 @@
           }
         }
       ],
-      "arguments": [],
+      "arguments": [
+        {
+          "name": "directory",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": false
+          }
+        }
+      ],
       "relatedRequirements": ["cli/share-prints-live-install-command"],
       "parameterBindings": [
         {
@@ -6977,6 +7124,10 @@
             "flag:swift",
             "flag:zig"
           ],
+          "requirements": ["cli/share-prints-live-install-command"]
+        },
+        {
+          "parameters": ["argument:directory"],
           "requirements": ["cli/share-prints-live-install-command"]
         }
       ]
@@ -7223,6 +7374,18 @@
     "skills install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -7366,6 +7529,13 @@
           "parameters": ["argument:source"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -8050,6 +8220,18 @@
     "subagents install": {
       "flags": [
         {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -8170,6 +8352,13 @@
           "parameters": ["argument:source"],
           "when": "source omitted",
           "openTopics": ["workspace-install-selection"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/agent-selection-is-membership-or-filter"],
+          "details": [
+            "Configures workspace destinations on the first source installation; does not filter one extension."
+          ]
         }
       ]
     },
@@ -9507,6 +9696,94 @@
           "parameters": ["flag:notice"],
           "requirements": ["cli/yank/submits-the-requested-version-selection"],
           "when": "An exact version is selected, or all-version mode uses an unversioned extension identity."
+        }
+      ]
+    },
+    "skills handoff": {
+      "flags": [
+        {
+          "name": "skill",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "all",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "lock",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [],
+      "relatedRequirements": ["cli/skills/handoff-preserves-selected-ownership"],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:skill"],
+          "requirements": ["cli/skills/handoff-preserves-selected-ownership"]
+        },
+        {
+          "parameters": ["flag:all"],
+          "requirements": ["cli/skills/handoff-preserves-selected-ownership"]
+        },
+        {
+          "parameters": ["flag:lock"],
+          "requirements": ["cli/skills/handoff-preserves-selected-ownership"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/skills/handoff-preserves-selected-ownership"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": ["cli/skills/handoff-preserves-selected-ownership"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/skills/handoff/preview-is-pure"]
         }
       ]
     }

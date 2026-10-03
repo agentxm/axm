@@ -1,3 +1,4 @@
+import { makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   WorkspaceFileWriteLocksLive,
   WorkspaceTransactionScopesLive,
@@ -108,6 +109,7 @@ const makeSetupTestContext = (opts?: {
       ),
     ),
     Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+    makeArtifactHttpClientLayer(globalThis.fetch),
     FetchHttpClient.layer,
     Layer.provide(
       RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
@@ -559,7 +561,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 9\nskills: {}\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -1717,7 +1719,7 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           fs.writeFileSync(path.join(tempDir, "axm.json"), "not valid json {{{");
-          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
+          fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 9\nskills: {}\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error).toBeInstanceOf(AppError);

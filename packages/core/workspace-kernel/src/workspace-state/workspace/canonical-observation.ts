@@ -1,3 +1,4 @@
+import { isHttpLockEntry } from "./lock-entry.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -9,11 +10,7 @@ import {
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import {
-  loadSubagentPackage,
-  parseSkillMd,
-  readExtensionManifest,
-} from "@agentxm/extension-content";
+import { loadSubagentPackage, readExtensionManifest } from "@agentxm/extension-content";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionPathSourceFromLockEntry,
@@ -192,7 +189,7 @@ export type RequestedCanonicalRef =
       readonly publisherBindingId: string;
     }
   | {
-      readonly refType: "git-hosted" | "local";
+      readonly refType: "git-hosted" | "local" | "http";
       readonly owner?: string | undefined;
       readonly name: string;
     };
@@ -285,7 +282,7 @@ const acceptedOriginMatches = (
     });
   }
   const acceptedIdentity =
-    desired.type === "mcp-server"
+    desired.type === "mcp-server" && !isHttpLockEntry(accepted)
       ? mcpResolutionKey(accepted)
       : isRegistryLockEntry(accepted)
         ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
@@ -380,11 +377,34 @@ export const observeCanonicalExtension = ({
     }
 
     if (
+      desired.type === "mcp-server" &&
+      accepted !== undefined &&
+      accepted.identity.owner === undefined &&
+      accepted.source.type !== "registry" &&
+      accepted.source.distribution?.format === "agent-plugins"
+    ) {
+      if (!(yield* fs.exists(path.join(root, "mcp.json")).pipe(Effect.orElseSucceed(() => false))))
+        return { type: desired.type, name: desired.name, status: "incomplete", path: root };
+      if (!(yield* observedTreeMatchesAccepted(root, accepted)))
+        return {
+          type: desired.type,
+          name: desired.name,
+          status: "materialization-mismatch",
+          path: root,
+        };
+      return { type: desired.type, name: desired.name, status: "usable", path: root };
+    }
+
+    if (
       desired.type === "skill" &&
       accepted !== undefined &&
       accepted.identity.owner === undefined
     ) {
-      const skillMdPath = path.join(root, "SKILL.md");
+      const component =
+        accepted.source.type === "registry"
+          ? "."
+          : (accepted.source.distribution?.componentPath ?? ".");
+      const skillMdPath = path.join(root, component, "SKILL.md");
       const skillMdExists = yield* fs.exists(skillMdPath).pipe(Effect.orElseSucceed(() => false));
       if (!skillMdExists) {
         return { type: desired.type, name: desired.name, status: "incomplete", path: root };
@@ -394,10 +414,6 @@ export const observeCanonicalExtension = ({
       if (Result.isFailure(raw)) {
         return { type: desired.type, name: desired.name, status: "corrupt", path: root };
       }
-      if (Option.isNone(parseSkillMd(raw.success, accepted.identity.name))) {
-        return { type: desired.type, name: desired.name, status: "corrupt", path: root };
-      }
-
       if (!(yield* observedTreeMatchesAccepted(root, accepted))) {
         return {
           type: desired.type,

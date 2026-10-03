@@ -11,6 +11,7 @@
 
 import type { ExtensionName, ExtensionType } from "../common.js";
 import type * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type * as Record from "effect/Record";
 import type { RefType, Source } from "../../sources/types.js";
 import type { PackMemberConstraintMap } from "../common.js";
@@ -21,6 +22,31 @@ import type { WorkspaceScope } from "../../workspace-scope.js";
 import type { SourceHash } from "../../sources/source-hash.js";
 import type { DeprecationView } from "../deprecation.js";
 import type { ArchivalView } from "../archival.js";
+
+/** Source-format metadata is kept outside the untouched package payload. */
+const DistributionPathSchema = Schema.String.pipe(
+  Schema.check(
+    Schema.makeFilter((value: string) =>
+      value.length === 0 ||
+      value.includes("\\") ||
+      value.startsWith("/") ||
+      /^[A-Za-z]:/u.test(value) ||
+      value.split("/").some((segment) => segment === ".." || segment.length === 0)
+        ? "Expected a contained package-relative path"
+        : undefined,
+    ),
+  ),
+);
+export const DistributionDescriptorSchema = Schema.Struct({
+  format: Schema.Literals(["agent-plugins", "claude", "codex", "cursor"]),
+  packageRoot: DistributionPathSchema,
+  componentPath: DistributionPathSchema,
+  manifestPath: Schema.optionalKey(DistributionPathSchema),
+  marketplace: Schema.optionalKey(
+    Schema.Struct({ path: DistributionPathSchema, name: Schema.String }),
+  ),
+});
+export type DistributionDescriptor = typeof DistributionDescriptorSchema.Type;
 
 // -----------------------------------------------------------------------------
 // Ref Detail Interfaces
@@ -36,6 +62,7 @@ export interface GitHostedRefDetails {
   readonly location: string;
   /** Repository-relative directory selected for this extension */
   readonly sourcePath?: string;
+  readonly distribution?: DistributionDescriptor;
   /** Git tree SHA for integrity verification */
   readonly gitTreeSha: string;
   /** Immutable commit checked out while resolving this ref. */
@@ -78,6 +105,9 @@ export interface LocalRefDetails {
   readonly location: string;
   /** Workspace-relative selected package directory when known. */
   readonly sourcePath?: string;
+  /** Selected member relative to the supplied source directory, before workspace normalization. */
+  readonly sourceRelativePath?: string;
+  readonly distribution?: DistributionDescriptor;
 }
 
 /** Ref details for intrinsic workspace sources. @experimental */
@@ -123,6 +153,7 @@ export type SkillExtensionRefBase<
   readonly skill: {
     readonly name: ExtensionName;
     readonly description: Option.Option<string>;
+    readonly displayName?: string;
     readonly metadata: Option.Option<Record.ReadonlyRecord<string, unknown>>;
   };
 };

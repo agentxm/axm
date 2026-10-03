@@ -4,7 +4,7 @@ import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents
 /**
  * Catalog-validated coding-agent selection. Repeatable; an identifier outside
  * the supported agent catalog is rejected by the parser before any handler
- * runs. Agent selection means workspace membership (`setup`) or a listing
+ * runs. Agent selection means workspace membership (`setup` or first installation) or a listing
  * filter (`skills list`, `subagents list`); commands re-describe the flag for
  * their own meaning. No command narrows a single extension to a subset of
  * configured agents.

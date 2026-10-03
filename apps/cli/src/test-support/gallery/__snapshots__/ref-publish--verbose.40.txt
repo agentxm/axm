@@ -3,7 +3,7 @@ Previewing publish
 
      Extension         Version   Plan
  +   @a…/code-review   1.4.0     publish
-     42 files, 380 KB
+     42 entries, 380 KB
      visibility public from the manifest
      source matches Git HEAD a1b2c3d at
      skills/code-review
@@ -12,7 +12,7 @@ Previewing publish
      include SKILL.md (2 KB)
      dependency order 0
  +   @acme…/reviewer   0.9.0     publish
-     3 files, 4 KB
+     3 entries, 4 KB
      visibility public from the manifest
      source matches Git HEAD a1b2c3d at
      subagents/reviewer

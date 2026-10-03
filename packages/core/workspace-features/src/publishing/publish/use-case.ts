@@ -15,12 +15,16 @@
 
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import type * as FileSystem from "effect/FileSystem";
+import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
-import type * as Path from "effect/Path";
+import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
+
+import { sha512Integrity } from "@agentxm/host-primitives";
+import { buildZipArchive } from "../archive.js";
+import { publishArchiveOptions } from "../publish-ignore.js";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -73,7 +77,12 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
-import { FootprintRecorder, makeFootprintRecorder } from "@agentxm/workspace-kernel/settlement";
+import {
+  FootprintRecorder,
+  makeFootprintRecorder,
+  WorkspaceTransactionScope,
+  WorkspaceTransactionScopes,
+} from "@agentxm/workspace-kernel/settlement";
 
 import { PublishFailed } from "../errors.js";
 import {
@@ -267,7 +276,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   const prepared = yield* observeUnit(
     { id: "candidates", label: "publish candidates" },
     Effect.gen(function* () {
-      const catalog = yield* catalogEntries();
+      const catalog = request.from === undefined ? yield* catalogEntries() : [];
       const selection = yield* selectEntries(catalog, request);
       if (remoteRegistry && selection.entries.length > 0) {
         const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
@@ -302,6 +311,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
         const sourceAssessment = yield* assessPublishSourceState({
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
+          ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
           ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
         }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         return { ...candidate, sourceAssessment } satisfies PublishCandidate;
@@ -680,6 +690,23 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
     uploadCandidates,
     (candidate) =>
       Effect.gen(function* () {
+        // Existing-directory preparation captures bytes before the execution
+        // candidate is assembled. Compare the same envelope again so an edit
+        // between those phases cannot upload stale, previously prepared bytes.
+        if (candidate.existingDirectoryVersion !== undefined) {
+          const archive = yield* buildZipArchive(candidate.extensionDir, {
+            ...(yield* publishArchiveOptions(candidate.type, candidate.publishIgnore)),
+            skillEnvelope: new TextEncoder().encode(
+              `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
+            ),
+          });
+          if (sha512Integrity(archive) !== candidate.integrity) {
+            return yield* new PublishFailed({
+              category: "conflict",
+              detail: `Publish source content changed after preparation for ${candidate.fqn}; no upload was attempted.`,
+            });
+          }
+        }
         const planned = candidate.sourceAssessment;
         if (planned === undefined) {
           return yield* Effect.fail(
@@ -689,6 +716,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         const current = yield* assessPublishSourceState({
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
+          ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
           ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
         }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         if (current.fingerprint !== planned.fingerprint) {
@@ -738,13 +766,37 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           jobs: buildPublishJobs(uploadCandidates, candidateStep),
         };
         const preparedCandidate = yield* prepareExecutionCandidate(plan);
-        return yield* resolveExecutionCandidate(preparedCandidate, execution, {
+        const resolution = resolveExecutionCandidate(preparedCandidate, execution, {
           beforeApply: () =>
             requireSignedIn.pipe(
               Effect.andThen(revalidatePublishSources),
               Effect.mapError(publishStepFailure),
             ),
         });
+        if (request.from === undefined || execution.request.mode === "preview")
+          return yield* resolution;
+        // This publication mutates only the Registry. Its temporary admission
+        // state must not become part of the upstream directory being published.
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-publish-" }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new PublishFailed({
+                category: "internal",
+                detail: "Could not create publication coordination directory.",
+                cause,
+              }),
+          ),
+        );
+        const scopes = yield* WorkspaceTransactionScopes;
+        const scope = yield* scopes.forWorkspace({
+          workspaceDir: path.join(root, ".axm"),
+          nativeRoot: root,
+          settingsPath: path.join(root, "axm.json"),
+          lockPath: path.join(root, "axm-lock.yaml"),
+        });
+        return yield* resolution.pipe(Effect.provideService(WorkspaceTransactionScope, scope));
       }),
     ),
   ).pipe(

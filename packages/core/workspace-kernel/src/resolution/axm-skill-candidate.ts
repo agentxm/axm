@@ -48,6 +48,7 @@ const sourceForRef = (ref: SkillExtensionRef): string => {
       return `${ref.owner}/skills/${ref.name}@${ref.version}`;
     case "workspace":
       return `workspace:${ref.owner}/skills/${ref.name}`;
+    case "http":
     case "git-hosted":
     case "local":
       return ref.location;

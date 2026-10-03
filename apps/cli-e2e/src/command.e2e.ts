@@ -89,7 +89,8 @@ describe("axm (root command)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(output).toContain("# Publishing");
-      expect(normalizedOutput).toContain("only extensions authored by the project workspace");
+      expect(normalizedOutput).toContain("publish an existing skill directory with `--from`");
+      expect(normalizedOutput).toContain("select extensions authored by the project workspace");
       expect(normalizedOutput).toContain(
         "fails as `not_authored` before AXM constructs an archive",
       );
@@ -106,7 +107,7 @@ describe("axm (root command)", () => {
       expect(document).toMatchObject({
         type: "help",
         description:
-          "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+          "Publish project-workspace extensions or an existing skill directory to a registry (archive policy: axm help publish)",
         usage: "axm publish [flags] [<extension...>]",
       });
       expect(JSON.stringify(document)).not.toContain("--authored");
@@ -436,16 +437,23 @@ describe("main CLI help", () => {
     expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
   });
 
+  it.each(["subagents", "skills", "mcps"])(
+    "shows first-install agent selection on %s install",
+    async (type) => {
+      const result = await runCli([type, "install", "--help"]);
+      expect(result.exitCode).toBe(0);
+      expect(getOutput(result)).toContain("--agent");
+      expect(getOutput(result)).toContain("Configure an agent on first install");
+    },
+  );
+
   it.each([
-    ["subagents", "install"],
-    ["skills", "install"],
     ["skills", "uninstall"],
     ["skills", "new"],
     ["subagents", "new"],
     ["skills", "update"],
     ["subagents", "update"],
     ["mcps", "add"],
-    ["mcps", "install"],
   ])("does not show the removed --agent flag on %s %s", async (...path) => {
     const result = await runCli([...path, "--help"]);
     const output = getOutput(result);

@@ -6,7 +6,7 @@ import * as Path from "effect/Path";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { MAX_ACQUIRED_TREE_ENTRIES, measureAcquiredTree } from "./measure-acquired-tree.js";
+import { MAX_ACQUIRED_TREE_ENTRIES, measureAcquiredTree } from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/acquired-tree-is-bounded",
@@ -54,6 +54,21 @@ describe("Acquired tree measurement", () => {
       const failure = yield* measureAcquiredTree(root, { maxEntries: 1 }).pipe(Effect.flip);
       expect(failure._tag).toBe("AcquiredTreeLimitExceeded");
       if (failure._tag === "AcquiredTreeLimitExceeded") expect(failure.resource).toBe("entries");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+  it.effect("counts link entries without expanding a contained directory cycle", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-acquired-links-" });
+      yield* fs.writeFile(path.join(root, "one.txt"), new Uint8Array([1]));
+      yield* fs.symlink(".", path.join(root, "self"));
+      expect(yield* measureAcquiredTree(root, { maxBytes: 2, maxEntries: 2 })).toEqual({
+        bytes: 2,
+        entries: 2,
+      });
+      const failure = yield* measureAcquiredTree(root, { maxBytes: 1 }).pipe(Effect.flip);
+      expect(failure._tag).toBe("AcquiredTreeLimitExceeded");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

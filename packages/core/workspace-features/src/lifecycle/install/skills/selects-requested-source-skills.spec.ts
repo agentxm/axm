@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "cli/skills/install/selects-requested-source-skills",
   title: "Installation selects the requested extensions from a source",
   statement:
-    "For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.",
+    "For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; external skills shall also be selectable by exact source-relative path, including distinct same-name candidates; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
@@ -52,7 +52,7 @@ export const specification = defineSpecification({
   limitations: [
     {
       limitation:
-        "The source populations are local native trees: three uniquely named skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here.",
+        "The source populations are local native trees with unique and same-name skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here.",
       retirementCondition:
         "Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.",
     },
@@ -159,6 +159,42 @@ describe("Select skills from a supplied source", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  it.effect("installs only the exact source path when two skills have the same name", () =>
+    Effect.gen(function* () {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const source = nodePath.join(world.workspace.root, "vendor", "same-name-skills");
+      for (const team of ["one", "two"]) {
+        const directory = nodePath.join(source, team, "review");
+        fs.mkdirSync(directory, { recursive: true });
+        fs.writeFileSync(nodePath.join(directory, "SKILL.md"), `# Review for ${team}\n`);
+      }
+      const before = snapshotDirectory(source);
+      yield* world.workspace
+        .provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source },
+              names: ["two/review"],
+              all: false,
+            }),
+          ),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+      const configured = Object.keys(configuredSkills(world));
+      expect(configured).toHaveLength(1);
+      expect(Object.keys(acceptedSkillResolutions(world))).toEqual(configured);
+      for (const name of configured) {
+        for (const agent of [".claude", ".agents"])
+          expect(world.workspace.readFile(`${agent}/skills/${name}/SKILL.md`)).toBe(
+            "# Review for two\n",
+          );
+      }
+      expect(snapshotDirectory(source)).toEqual(before);
+    }),
+  );
 
   /** A workspace holding one unrelated installed skill that must not move. */
   const worldWithUnrelatedSkill = () =>

@@ -92,6 +92,7 @@ export const buildCloneUrlFromSource = (source: Source): Option.Option<string> =
   switch (source.type) {
     case "git":
       return Option.some(source.url.href);
+    case "http":
     case "registry":
     case "local":
     case "workspace":
@@ -112,6 +113,7 @@ export const getOriginFromSource = (source: Source): string => {
   switch (source.type) {
     case "local":
       return source.path;
+    case "http":
     case "git":
       return source.url.href;
     case "registry":

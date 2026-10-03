@@ -14,6 +14,7 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import type * as Path from "effect/Path";
+import { parseZipCentralDirectory } from "@agentxm/extension-content";
 import { unzipSync } from "fflate";
 import { buildZipArchive, planZipArchive } from "./archive.js";
 
@@ -22,7 +23,7 @@ const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem
 
 /** sha256 of the archive built from the fixture tree created in `beforeEach`. */
 const PINNED_CLEAN_ARCHIVE_DIGEST =
-  "108e92323d8ae9b97bcfde43b853e2c259915377c6b863d4d9253a831e2d26d6";
+  "8088f03bf9e8cb6b0a4edf119391936a2a847dd61259ab298b3b8debe5a99a73";
 
 describe("buildZipArchive", () => {
   let tmpDir: string;
@@ -35,6 +36,8 @@ describe("buildZipArchive", () => {
     fs.writeFileSync(path.join(sourceDir, "hello.txt"), "hello world");
     fs.mkdirSync(path.join(sourceDir, "nested"), { recursive: true });
     fs.writeFileSync(path.join(sourceDir, "nested", "inner.txt"), "inner");
+    fs.chmodSync(path.join(sourceDir, "hello.txt"), 0o644);
+    fs.chmodSync(path.join(sourceDir, "nested", "inner.txt"), 0o644);
   });
 
   afterEach(() => {
@@ -62,6 +65,44 @@ describe("buildZipArchive", () => {
         expect(Object.keys(entries).sort()).toEqual(["hello.txt", "nested/inner.txt"]);
         expect(new TextDecoder().decode(entries["hello.txt"])).toBe("hello world");
         expect(new TextDecoder().decode(entries["nested/inner.txt"])).toBe("inner");
+      }),
+    ),
+  );
+
+  it.effect("retains executable bits, empty directories, raw links, and cycles", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        fs.chmodSync(path.join(sourceDir, "hello.txt"), 0o755);
+        fs.mkdirSync(path.join(sourceDir, "empty"));
+        fs.symlinkSync("hello.txt", path.join(sourceDir, "run"));
+        fs.symlinkSync("b", path.join(sourceDir, "a"));
+        fs.symlinkSync("a", path.join(sourceDir, "b"));
+        const { archive, plan } = yield* planZipArchive(sourceDir);
+        const contents = unzipSync(archive);
+        const entries = yield* parseZipCentralDirectory(archive);
+        expect(
+          (entries.find((entry) => entry.fileName === "hello.txt")?.externalAttributes ?? 0) >>> 16,
+        ).toBe(0o100755);
+        expect(
+          (entries.find((entry) => entry.fileName === "run")?.externalAttributes ?? 0) >>> 16,
+        ).toBe(0o120777);
+        expect(new TextDecoder().decode(contents["run"])).toBe("hello.txt");
+        expect(new TextDecoder().decode(contents["a"])).toBe("b");
+        expect(new TextDecoder().decode(contents["b"])).toBe("a");
+        expect(contents["empty/"]).toEqual(new Uint8Array());
+        expect(plan.included.map(({ path }) => path)).toEqual(Object.keys(contents));
+        expect(fs.readlinkSync(path.join(sourceDir, "run"))).toBe("hello.txt");
+      }),
+    ),
+  );
+
+  it.effect("refuses source links that escape the package", () =>
+    withNodeContext(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tmpDir, "outside"), "outside");
+        fs.symlinkSync("../outside", path.join(sourceDir, "escape"));
+        const error = yield* buildZipArchive(sourceDir).pipe(Effect.flip);
+        expect(error.category).toBe("validation");
       }),
     ),
   );

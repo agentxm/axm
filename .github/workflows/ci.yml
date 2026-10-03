@@ -267,9 +267,9 @@ jobs:
       checks: write
       contents: read
     env:
-      # Keep nested test pools within the hosted runner CPU budget.
-      NX_PARALLEL: "2"
-      VITEST_MAX_WORKERS: "1"
+      # Give the largest suite both test workers without multiplying nested pools.
+      NX_PARALLEL: "1"
+      VITEST_MAX_WORKERS: "2"
       NX_BASE: ${{ needs.classify.outputs.base }}
       NX_HEAD: ${{ needs.classify.outputs.head }}
     steps:
@@ -497,8 +497,8 @@ jobs:
       - name: Verify workspace
         id: verify
         env:
-          NX_PARALLEL: "2"
-          VITEST_MAX_WORKERS: "1"
+          NX_PARALLEL: "1"
+          VITEST_MAX_WORKERS: "2"
         run: pnpm run ci:workspace:report
 
       - name: Publish workspace verification summary

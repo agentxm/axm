@@ -31,6 +31,7 @@ export const specification = defineSpecification({
   methods: ["contract", "example"],
   derivedFrom: [
     "axm setup --agent",
+    "axm install --agent",
     "axm skills list --agent",
     "axm subagents list --agent",
     "cli/sync/realizes-desired-state",
@@ -45,10 +46,20 @@ export const specification = defineSpecification({
 
 /**
  * The commands that expose the --agent option choose workspace
- * membership at setup and row filtering during read-only inspection.
+ * membership at setup or first installation and row filtering when listing.
+ * Installation does not narrow an extension to a subset of workspace agents.
  */
 const AGENT_SELECTION_COMMANDS = [
   "axm setup",
+  "axm install",
+  "axm skills handoff",
+  "axm skills install",
+  "axm subagents install",
+  "axm mcps install",
+  "axm rules install",
+  "axm hooks install",
+  "axm knowledge install",
+  "axm packs install",
   "axm skills list",
   "axm subagents list",
   "axm mcps show",
@@ -105,6 +116,7 @@ describe("Unsupported agent identifiers", () => {
       command: "axm setup",
       args: ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "bogus"],
     },
+    { command: "axm install", args: ["install", "./skills", "--agent", "bogus"] },
     { command: "axm skills list", args: ["skills", "list", "--agent", "bogus"] },
     { command: "axm subagents list", args: ["subagents", "list", "--agent", "bogus"] },
   ] as const;

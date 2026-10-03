@@ -99,7 +99,7 @@ import {
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+import { findSourceReinstallRefs, pinSourceReinstallRef } from "./accepted-source-reinstall.js";
 import { SourceHostProviders, formatRegistryProbe } from "@agentxm/workspace-kernel/sources";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
@@ -289,7 +289,7 @@ const parseSourceInstallRequest = (
   }
 };
 
-/** One source-backed selection and immutable Git reinstall decision for five kinds. */
+/** One source-backed selection and immutable source reinstall decision for five kinds. */
 const settleSourceInstall = <T extends SourceInstallType>(
   type: T,
   source: string,
@@ -302,8 +302,8 @@ const settleSourceInstall = <T extends SourceInstallType>(
     const parsed = { ...parsedSource, names };
     const isRequestedType = (ref: ExtensionRef): ref is SourceInstallRef<T> => ref.type === type;
     const accepted =
-      request.reinstall && parsed.source.type === "git"
-        ? yield* findGitReinstallRefs(parsed.source, type, names)
+      request.reinstall && (parsed.source.type === "git" || parsed.source.type === "http")
+        ? yield* findSourceReinstallRefs(parsed.source, type, names)
         : [];
     const acceptedRefs = accepted.filter(isRequestedType);
     const discovered =
@@ -320,14 +320,14 @@ const settleSourceInstall = <T extends SourceInstallType>(
     const refs =
       request.reinstall && acceptedRefs.length === 0
         ? yield* Effect.forEach(entries, (entry) =>
-            pinGitReinstallRef(entry.ref).pipe(
+            pinSourceReinstallRef(entry.ref).pipe(
               Effect.flatMap((pinned) =>
                 isRequestedType(pinned)
                   ? Effect.succeed({ ...entry, ref: pinned })
                   : Effect.fail(
                       installRefused({
                         category: "internal",
-                        detail: `Accepted Git ${type === "knowledge" ? "Knowledge" : type} resolution changed extension type`,
+                        detail: `Accepted source ${type === "knowledge" ? "Knowledge" : type} resolution changed extension type`,
                       }),
                     ),
               ),
@@ -435,7 +435,7 @@ const planForType = (
             : Option.toArray(Option.orElse(parsed.localName, () => parsed.serverName));
         const accepted =
           request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findGitReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
+            ? yield* findSourceReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
             : [];
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
         const discovered =
@@ -479,7 +479,7 @@ const planForType = (
             const configuredName = Option.getOrElse(localName, () => intent.ref.server.name);
             const ref =
               request.reinstall && acceptedMcpServers.length === 0
-                ? yield* pinGitReinstallRef(intent.ref, configuredName)
+                ? yield* pinSourceReinstallRef(intent.ref, configuredName)
                 : intent.ref;
             if (ref.type !== "mcp-server") {
               return yield* installRefused({
@@ -504,7 +504,7 @@ const planForType = (
         const sourceRequest = yield* resolvePackSourceRequest(parsed);
         const accepted =
           request.reinstall && sourceRequest.source.type === "git"
-            ? yield* findGitReinstallRefs(
+            ? yield* findSourceReinstallRefs(
                 sourceRequest.source,
                 "pack",
                 Option.toArray(sourceRequest.packName),
@@ -539,7 +539,7 @@ const planForType = (
             });
             const ref =
               request.reinstall && acceptedPacks.length === 0
-                ? yield* pinGitReinstallRef(intent.packToInstall)
+                ? yield* pinSourceReinstallRef(intent.packToInstall)
                 : intent.packToInstall;
             if (ref.type !== "pack") {
               return yield* installRefused({

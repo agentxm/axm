@@ -1,4 +1,4 @@
-import { stat } from "node:fs/promises";
+import { lstat, stat } from "node:fs/promises";
 
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
@@ -26,3 +26,23 @@ export const nativeInode = (target: string, info: FileSystem.File.Info) =>
       return Option.none<string>();
     return Option.some(observed.ino.toString());
   });
+
+/** Identity of the link itself, including dangling links; never its referent. */
+export const nativeLinkIdentity = (target: string) =>
+  Effect.tryPromise({
+    try: () => lstat(target, { bigint: true }),
+    catch: () => undefined,
+  }).pipe(
+    Effect.option,
+    Effect.map(
+      Option.flatMap((info) =>
+        info.isSymbolicLink() && info.ino > 0n && info.birthtime.getTime() > 0
+          ? Option.some({
+              device: info.dev.toString(),
+              inode: info.ino.toString(),
+              birthtime: info.birthtime.getTime(),
+            })
+          : Option.none(),
+      ),
+    ),
+  );

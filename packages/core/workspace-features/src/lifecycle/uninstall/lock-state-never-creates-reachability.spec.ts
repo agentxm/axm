@@ -56,7 +56,7 @@ const acceptedRegistryRow = (
     integrity: "sha512-AAAA==",
     publisherBindingId: "hbnd_test",
   },
-  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   ...(extensionType === "pack"
     ? { manifestVersion: "1.0.0", manifestContentIdentity: "test-content", members: [] }
     : {}),
@@ -95,7 +95,7 @@ const makeWorkspace = (
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 8, skills: {}, ...lockfile }),
+    JSON.stringify({ lockfileVersion: 9, skills: {}, ...lockfile }),
   );
   return {
     root,

@@ -520,7 +520,9 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
           identity: {
             ...identity,
             resolutionKey,
-            fqn: `${entry.identity.owner}/mcps/${entry.identity.name}`,
+            ...(entry.identity.owner === undefined
+              ? {}
+              : { fqn: `${entry.identity.owner}/mcps/${entry.identity.name}` }),
           },
         };
       }

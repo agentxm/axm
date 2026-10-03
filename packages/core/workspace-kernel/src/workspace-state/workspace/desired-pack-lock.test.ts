@@ -15,7 +15,7 @@ const owner = decodeHandleSync("@acme");
 const name = decodeExtensionNameSync("toolkit");
 const version = decodeVersionSync("1.0.0");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 const manifest = {
   owner,

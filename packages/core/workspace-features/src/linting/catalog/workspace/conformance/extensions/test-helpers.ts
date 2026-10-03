@@ -128,7 +128,7 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: accepted
           ? {
               reviewer: {
@@ -139,7 +139,7 @@ const skillLockContext = (accepted: boolean) =>
                   integrity: "sha512-stub",
                   publisherBindingId: "hbnd_test",
                 },
-                treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+                treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
               },
             }
           : {},

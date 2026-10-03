@@ -3,6 +3,10 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions/common";
+import * as Schema from "effect/Schema";
+import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
+
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
   installableExtensionTypes,
@@ -27,6 +31,7 @@ import { runInstallCommand } from "../shared/install-command.js";
 import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 
 export interface InstallHandlerArgs {
+  readonly agents?: ReadonlyArray<string>;
   readonly type: Option.Option<InstallableExtensionType>;
   readonly source: Option.Option<string>;
   readonly selectors: InstallExtensionSelectors;
@@ -54,6 +59,21 @@ const selectedEntries = (selectors: InstallExtensionSelectors) =>
 
 const validateGrammar = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
+    const agents = yield* Effect.forEach(args.agents ?? [], (agent) =>
+      Effect.gen(function* () {
+        if (!Schema.is(ConfigurableAgentIdSchema)(agent)) {
+          return yield* makeAppError({
+            code: "usage",
+            detail: `Unknown coding agent: ${agent}`,
+            recover: "Choose a coding agent from the supported catalog",
+          });
+        }
+        return agent;
+      }),
+    );
+    if ((args.agents?.length ?? 0) > 0 && Option.isNone(args.source)) {
+      return yield* makeAppError({ code: "usage", detail: "--agent requires an install source" });
+    }
     const selected = selectedEntries(args.selectors);
     if (Option.isNone(args.source) && (args.all || selected.length > 0)) {
       return yield* makeAppError({
@@ -100,6 +120,7 @@ const validateGrammar = (args: InstallHandlerArgs) =>
         });
       }
     }
+    return agents;
   });
 
 /** Reject grammar mistakes before workspace acquisition can mask the usage error. */
@@ -108,6 +129,22 @@ export const validateInstallArgsBeforeWorkspace = validateGrammar;
 export const handleInstall = (args: InstallHandlerArgs) =>
   Effect.gen(function* () {
     yield* validateGrammar(args);
+    const requestedAgents = args.agents ?? [];
+    if (requestedAgents.length > 0) {
+      const configured = yield* (yield* SettingsReader).configuredAgents;
+      const missing = requestedAgents.filter((agent) => !configured.includes(agent));
+      if (missing.length > 0 || configured.some((agent) => !requestedAgents.includes(agent))) {
+        return yield* makeAppError({
+          code: "usage",
+          detail:
+            "--agent initializes workspace destinations; this workspace already has a different configured agent set",
+          recover:
+            missing.length > 0
+              ? `Configure the missing workspace agents (${missing.join(", ")}) before installing, then omit --agent`
+              : "Omit --agent to install for the configured workspace agents",
+        });
+      }
+    }
     if (Option.isNone(args.source) && !args.bundled) {
       return yield* handleWorkspaceInstall({
         command: [...commandSegments(args.type)].join("."),
@@ -149,6 +186,7 @@ export const handleInstall = (args: InstallHandlerArgs) =>
       recoveryCommand: command,
       recoveryLocators: [source],
       recoveryArguments: [
+        ...requestedAgents.map((agent) => recoveryOption("--agent", publicRecoveryValue(agent))),
         recoverySwitch("--all", args.all),
         recoverySwitch("--bundled", args.bundled),
         recoverySwitch("--ignore-release-age", ignoreReleaseAge),

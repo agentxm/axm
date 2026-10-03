@@ -38,6 +38,7 @@ import type {
 
 /** The runtime directories a workspace's settings sources can live in. */
 export interface StateCellPaths {
+  readonly initialSettings?: Settings;
   readonly observationView?: NativeObservationView;
   readonly scope: WorkspaceScope;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
@@ -98,6 +99,13 @@ export const readSettingsCell = (
     ? Effect.succeedNone
     : readModelFor(cells, scopeForDir(cells, dir, sharedScope)).pipe(
         Effect.flatMap((readModel) => readModel.state.settings),
+        Effect.map((settings) =>
+          Option.isNone(settings) &&
+          scopeForDir(cells, dir, sharedScope) === cells.scope &&
+          cells.initialSettings !== undefined
+            ? Option.some(cells.initialSettings)
+            : settings,
+        ),
       );
 
 /** The settings document of one runtime directory, defaulting when absent. */

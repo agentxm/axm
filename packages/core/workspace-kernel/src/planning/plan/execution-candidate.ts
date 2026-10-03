@@ -69,17 +69,15 @@ const fingerprintPath = (
 
     const info = yield* fs.stat(target).pipe(Effect.option);
     if (Option.isNone(info)) return [label, "absent"];
-    if (info.value.type === "File") return [label, "file", yield* fs.readFile(target)];
+    if (info.value.type === "File")
+      return [label, "file", String(info.value.mode & 0o111), yield* fs.readFile(target)];
     if (info.value.type !== "Directory") return [label, info.value.type];
 
-    const entries = [...(yield* fs.readDirectory(target, { recursive: true }))].sort();
+    const entries = [...(yield* fs.readDirectory(target))].sort();
     const parts: Array<Uint8Array | string> = [label, "directory"];
     for (const entry of entries) {
       const absolute = path.join(target, entry);
-      const entryInfo = yield* fs.stat(absolute);
-      parts.push(entry, entryInfo.type);
-      if (entryInfo.type === "File") parts.push(yield* fs.readFile(absolute));
-      if (entryInfo.type === "SymbolicLink") parts.push(yield* fs.readLink(absolute));
+      parts.push(...(yield* fingerprintPath(absolute, path.join(label, entry), fs, path)));
     }
     return parts;
   }).pipe(Effect.mapError((cause) => new CandidateFingerprintFailed({ target, cause })));
@@ -97,6 +95,7 @@ const fingerprintMaterials = (
     for (const target of materialPaths) {
       const parts = yield* fingerprintPath(target, path.relative(baseDir, target), fs, path);
       for (const part of parts) {
+        hash.update(`${typeof part === "string" ? Buffer.byteLength(part) : part.byteLength}\0`);
         hash.update(part);
         hash.update("\0");
       }

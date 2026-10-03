@@ -40,7 +40,7 @@ import { makeAppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { makeAxmFormatter } from "../formatter.js";
-import { baseLayer, withWorkspace } from "../runtime.js";
+import { baseLayer, withWorkspace, makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   OutputStreams,
   OutputWriteFailed,
@@ -218,6 +218,7 @@ const inProjectWorkspace = <A, R>(
 ) =>
   command.pipe(
     withWorkspace({ scope: "project", allowUninitialized: true }),
+    Effect.provide(makeArtifactHttpClientLayer(globalThis.fetch)),
     Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
     // Building the workspace never reaches the Registry here.
     Effect.provide(

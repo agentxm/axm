@@ -11,6 +11,7 @@ import { makeActivationCommands } from "../activation-handler.js";
 import { skillsPublishCommand as publishCommand } from "../publish/per-type-command.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { skillsImportCommand as importCommand } from "../import/command.js";
+import { handoffCommand } from "./handoff.js";
 
 const updateCommand = makePerTypeUpdateCommand("skill");
 
@@ -57,6 +58,7 @@ export const skillsCommand = Command.make("skills").pipe(
     updateCommand,
     newCommand,
     importCommand,
+    handoffCommand,
     enableCommand,
     disableCommand,
     publishCommand,

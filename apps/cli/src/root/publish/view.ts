@@ -94,7 +94,7 @@ const wordOf = (standing: Standing, mode: PublishResult["mode"]): string => {
 const archiveSummary = (item: PublishResultItem): string | undefined =>
   item.archive === undefined
     ? undefined
-    : joined([count(item.archive.includedCount, "file"), bytes(item.archive.zipBytes)]);
+    : joined([count(item.archive.includedCount, "entry", "entries"), bytes(item.archive.zipBytes)]);
 
 /** Dependencies published in the same run, which this extension waits for. */
 const waitsFor = (item: PublishResultItem, setItem: SetItem | undefined): string | undefined => {

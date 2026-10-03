@@ -99,6 +99,7 @@ export const COMMAND_ROUTE_ALLOCATION: ReadonlyArray<CommandRouteAllocation> = [
   // Type command groups
   ...typeLifecycle("skills"),
   previewable("skills import"),
+  previewable("skills handoff"),
   ...typeLifecycle("mcps"),
   previewable("mcps add"),
   previewable("mcps import"),

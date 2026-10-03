@@ -14,7 +14,7 @@ import {
   installSourceArgumentDescription,
 } from "@agentxm/workspace-features/lifecycle";
 
-import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
+import { agentFlag, ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
@@ -59,6 +59,9 @@ const commonConfig = (type?: InstallableExtensionType) => ({
   source: sourceArgument(type),
   scope: scopeFlag.pipe(
     Flag.withDescription("Install to project (default) or user-level configuration"),
+  ),
+  agent: agentFlag.pipe(
+    Flag.withDescription("Configure an agent on first install; repeat for each agent"),
   ),
   all: allFlag,
   force: reinstallFlag.pipe(Flag.withDescription("Reinstall extensions that already exist")),
@@ -147,6 +150,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
 
 interface ParsedTypedInstall {
   readonly source: Option.Option<string>;
+  readonly agent: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly all: boolean;
   readonly force: boolean;
@@ -161,8 +165,18 @@ const executeInstall = (
   runtimeName: string,
 ) =>
   validateInstallArgsBeforeWorkspace(args).pipe(
-    Effect.andThen(
-      handleInstall(args).pipe(withReleaseAgePosture(ignoreReleaseAge), withWorkspace(scope)),
+    Effect.flatMap((agents) =>
+      handleInstall(args).pipe(
+        withReleaseAgePosture(ignoreReleaseAge),
+        withWorkspace(
+          Option.isSome(args.source)
+            ? {
+                scope,
+                initialSettings: { agents, instructionFiles: false },
+              }
+            : scope,
+        ),
+      ),
     ),
     withRuntime(runtimeName),
   );
@@ -175,6 +189,7 @@ const runTypedInstall = (
   const args: InstallHandlerArgs = {
     type: Option.some(type),
     source: parsed.source,
+    agents: parsed.agent,
     selectors: selectorsFor(type, selection),
     all: parsed.all,
     force: parsed.force,
@@ -197,6 +212,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
     const common = commonConfig(type);
     const config = {
       source: common.source,
+      agent: common.agent,
       scope: common.scope,
       mcp: selectorFlag(type),
       all: common.all,
@@ -210,6 +226,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         const args: InstallHandlerArgs = {
           type: Option.some(type),
           source: parsed.source,
+          agents: parsed.agent,
           selectors: selectorsFor(type, parsed.mcp),
           all: parsed.all,
           force: parsed.force,
@@ -232,6 +249,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
     const common = commonConfig(type);
     const config = {
       source: common.source,
+      agent: common.agent,
       scope: common.scope,
       skill: selectorFlag(type),
       all: common.all,
@@ -248,6 +266,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         const args: InstallHandlerArgs = {
           type: Option.some(type),
           source: parsed.source,
+          agents: parsed.agent,
           selectors: selectorsFor(type, parsed.skill),
           all: parsed.all,
           force: parsed.force,
@@ -267,6 +286,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       const common = commonConfig(type);
       const config = {
         source: common.source,
+        agent: common.agent,
         scope: common.scope,
         subagent: selectorFlag(type),
         all: common.all,
@@ -285,6 +305,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       const common = commonConfig(type);
       const config = {
         source: common.source,
+        agent: common.agent,
         scope: common.scope,
         rule: selectorFlag(type),
         all: common.all,
@@ -303,6 +324,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       const common = commonConfig(type);
       const config = {
         source: common.source,
+        agent: common.agent,
         scope: common.scope,
         hook: selectorFlag(type),
         all: common.all,
@@ -321,6 +343,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       const common = commonConfig(type);
       const config = {
         source: common.source,
+        agent: common.agent,
         scope: common.scope,
         knowledge: selectorFlag(type),
         all: common.all,
@@ -339,6 +362,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       const common = commonConfig(type);
       const config = {
         source: common.source,
+        agent: common.agent,
         scope: common.scope,
         pack: selectorFlag(type),
         all: common.all,
@@ -373,6 +397,7 @@ export const installCommand = finishCommand(
     const args: InstallHandlerArgs = {
       type: Option.none(),
       source: parsed.source,
+      agents: parsed.agent,
       selectors: {
         skill: parsed.skill,
         subagent: parsed.subagent,

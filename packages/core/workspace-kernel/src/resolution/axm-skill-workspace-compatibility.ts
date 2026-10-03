@@ -71,6 +71,7 @@ const officialAuthority = (
     case "bundled":
     case "workspace":
       return identity.fqn === AXM_SKILL_FQN ? Option.some(identity.authority) : Option.none();
+    case "http":
     case "git":
     case "path":
     case "inline":

@@ -48,7 +48,7 @@ const selectorFlag = (type: InstallableExtensionType): string =>
 /** What a request decided before the source's contents were known. */
 export interface InstallSelectionRequest {
   readonly type: InstallableExtensionType;
-  /** Names or `*` patterns; an empty list means nothing was named. */
+  /** Names, `*` patterns, or exact external skill paths; an empty list means nothing was named. */
   readonly selectors: ReadonlyArray<string>;
   /** Take everything the source offers without asking. */
   readonly all: boolean;
@@ -67,7 +67,27 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
     const noun = extensionTypeSentenceLabels[request.type];
     const plural = extensionTypePluralSentenceLabels[extensionTypeToPlural[request.type]];
     if (request.selectors.length > 0) {
-      const selected = expandGlobs(request.selectors, available);
+      const selectedNames = expandGlobs(request.selectors, available);
+      const selected = refs.filter((candidate) => {
+        const ref: ExtensionRef = candidate;
+        return (
+          selectedNames.includes(extensionRefName(ref)) ||
+          (ref.type === "mcp-server" &&
+            (ref.refType === "local" || ref.refType === "git-hosted") &&
+            ref.nativeComponent !== undefined &&
+            (request.selectors.includes(ref.nativeComponent.name) ||
+              request.selectors.includes(
+                `${ref.distribution?.packageRoot ?? ref.sourcePath ?? "."}#${ref.nativeComponent.name}`,
+              ))) ||
+          (ref.type === "skill" &&
+            (((ref.refType === "git-hosted" || ref.refType === "http") &&
+              ref.sourcePath !== undefined &&
+              request.selectors.includes(ref.sourcePath)) ||
+              (ref.refType === "local" &&
+                ref.sourceRelativePath !== undefined &&
+                request.selectors.includes(ref.sourceRelativePath))))
+        );
+      });
       if (selected.length === 0) {
         return yield* installRefused({
           category: "not_found",
@@ -75,7 +95,7 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
           recover: `Check the ${noun} names or patterns and try again`,
         });
       }
-      return refs.filter((ref) => selected.includes(extensionRefName(ref)));
+      return selected;
     }
 
     if (request.all) return refs;

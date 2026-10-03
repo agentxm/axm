@@ -314,6 +314,7 @@ export {
   lockEntryVersion,
   isRegistryLockEntry,
   isGitLockEntry,
+  isHttpLockEntry,
   isPathLockEntry,
   type LockEntry,
   type LockEntryToRefDeps,

@@ -16,13 +16,13 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
 import { discoverExtensionPackages } from "@agentxm/workspace-kernel/sources";
-import { packageMetadataEcosystems, ShareFailed, ShareWorkspace } from "./share-workspace.js";
+import { packageMetadataEcosystems, ShareFailed, ShareWorkspace } from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/share-prints-live-install-command",
   title: "Share prints live install and package recommendation output without writing",
   statement:
-    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
+    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -75,7 +75,7 @@ const makeWorkspace = (withOrigin: boolean) => {
   );
   fs.writeFileSync(
     path.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 8, skills: {} }),
+    JSON.stringify({ lockfileVersion: 9, skills: {} }),
   );
   writeSkill(root, "extensions/shared", "shared");
   writeSkill(root, "extensions/private", "private");
@@ -116,6 +116,12 @@ describe("Share workspace", () => {
         discovered.map((candidate) => ({
           type: candidate.kind === "manifest" ? candidate.identity.type : "skill",
           name: candidate.kind === "manifest" ? candidate.identity.name : candidate.name,
+          selector:
+            candidate.kind === "manifest"
+              ? candidate.identity.name
+              : candidate.sourcePath === "."
+                ? candidate.name
+                : candidate.sourcePath,
         })),
       );
       expect(result).toMatchObject({
@@ -130,6 +136,40 @@ describe("Share workspace", () => {
         `"axm install --skill shared --skill undeclared file://<workspace>"`,
       );
       expect(result.installCommand).not.toContain("--skill private");
+      expect(snapshot(root)).toEqual(before);
+    }),
+  );
+
+  it.effect("shares an uninitialized native skill collection with exact path selectors", () =>
+    Effect.gen(function* () {
+      const root = makeWorkspace(true);
+      roots.push(root);
+      fs.rmSync(path.join(root, "axm.json"));
+      fs.rmSync(path.join(root, "axm-lock.yaml"));
+      fs.rmSync(path.join(root, "extensions"), { recursive: true });
+      for (const directory of [".agents/skills/review", "nested/skills/review"]) {
+        fs.mkdirSync(path.join(root, directory), { recursive: true });
+        fs.writeFileSync(
+          path.join(root, directory, "SKILL.md"),
+          "---\nname: Same Display\ncustom: unchanged\n---\n# Review\n",
+        );
+      }
+      const before = snapshot(root);
+      const layer = Layer.provideMerge(
+        WorkspaceStateLive({
+          scope: "project",
+          projectRoot: decodeAbsolutePathSync(root),
+          allowUninitialized: true,
+        }),
+        Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      );
+      const result = yield* ShareWorkspace.query().pipe(Effect.provide(layer));
+      expect(result.extensions.map((entry) => entry.selector).sort()).toEqual([
+        ".agents/skills/review",
+        "nested/skills/review",
+      ]);
+      expect(result.installCommand).toContain("--skill .agents/skills/review");
+      expect(result.installCommand).toContain("--skill nested/skills/review");
       expect(snapshot(root)).toEqual(before);
     }),
   );

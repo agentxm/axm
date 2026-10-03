@@ -37,6 +37,7 @@ export const acceptedRowKey = (
       return node.type === "mcp-server"
         ? Option.fromUndefinedOr(node.identity.resolutionKey)
         : Option.some(node.name);
+    case "http":
     case "git":
     case "path":
       return node.type === "mcp-server"

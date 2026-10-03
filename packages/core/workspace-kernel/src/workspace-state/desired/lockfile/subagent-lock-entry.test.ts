@@ -6,7 +6,7 @@ import { LockfileSchema, SubagentLockEntrySchema } from "./schema.js";
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 const localEntry = {
@@ -49,7 +49,7 @@ describe("Subagent accepted resolutions", () => {
   it("decodes a current lockfile with Subagent external resolution state", () => {
     expect(
       Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {},
         subagents: {
           planner: localEntry,

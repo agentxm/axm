@@ -181,6 +181,10 @@ export const SkillManagerLive = Layer.effect(
                     nativeInsertionEligible === true ||
                     nativeInsertionEligiblePaths?.has(location.targetDir) === true,
                   canonicalSkillSrcPath: skillSrcPath,
+                  requiresPackageContext:
+                    "distribution" in ref &&
+                    ref.distribution !== undefined &&
+                    ref.distribution.componentPath !== ".",
                   previousCanonicalSkillSrcPaths,
                   targetDir: location.targetDir,
                   sanitizedName: sanitized,
@@ -252,12 +256,20 @@ export const SkillManagerLive = Layer.effect(
         const portable =
           Option.isSome(canonical) &&
           canonical.value.accepted !== undefined &&
-          canonical.value.accepted.identity.owner === undefined;
+          (canonical.value.accepted.source.type === "http"
+            ? canonical.value.accepted.source.portable
+            : canonical.value.accepted.identity.owner === undefined);
+        const distribution =
+          Option.isSome(canonical) &&
+          canonical.value.accepted !== undefined &&
+          "distribution" in canonical.value.accepted.source
+            ? canonical.value.accepted.source.distribution
+            : undefined;
         const canonicalSkillSrcPath =
           canonicalRoot === undefined
             ? undefined
             : portable
-              ? canonicalRoot
+              ? path.join(canonicalRoot, distribution?.componentPath ?? ".")
               : path.join(canonicalRoot, "src");
         const configuredAgentIds = new Set(yield* settings.configuredAgents);
         const inventory = yield* observeAgentOutputs({

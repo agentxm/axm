@@ -24,6 +24,11 @@ const printLocalSource = (source: LocalSourceParams): string => {
  */
 export const printSourceParams = (source: SourceParams): string => {
   switch (source.type) {
+    case "http": {
+      const url = new URL(source.url.href);
+      if (source.entry !== undefined) url.hash = `skill=${encodeURIComponent(source.entry)}`;
+      return url.href;
+    }
     case "local":
       return printLocalSource(source);
     case "git": {
@@ -31,7 +36,11 @@ export const printSourceParams = (source: SourceParams): string => {
         onSome: printForgeCoordinate,
         onNone: () => {
           const url = new URL(source.url.href);
-          url.hash = Option.getOrElse(source.ref, () => "");
+          if (Option.isSome(source.subPath)) {
+            const selector = new URLSearchParams({ path: source.subPath.value });
+            if (Option.isSome(source.ref)) selector.set("ref", source.ref.value);
+            url.hash = `axm:${selector.toString()}`;
+          } else url.hash = Option.getOrElse(source.ref, () => "");
           return url.href;
         },
       });

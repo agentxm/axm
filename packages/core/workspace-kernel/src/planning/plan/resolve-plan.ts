@@ -745,8 +745,8 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
                   acquire(ref),
                 );
                 if (reservation !== undefined) {
-                  const bytes = yield* measureAcquiredTree(files.scratchRoot ?? files.directory);
-                  yield* reservation.settle(bytes);
+                  const measured = yield* measureAcquiredTree(files.scratchRoot ?? files.directory);
+                  yield* reservation.settle(measured.bytes);
                 }
                 return files;
               }).pipe(Effect.provideService(Scope.Scope, childScope), Effect.result);

@@ -1,10 +1,8 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { parseFrontmatterEffect } from "../content/frontmatter.js";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import { inspectKnowledgeEntries, type KnowledgeBundleEntry } from "../knowledge/okf.js";
-import { parseSkillMd } from "../content/skill-content.js";
 import { readSubagentPackage } from "../content/subagent-content.js";
 import type { ArchiveGuardrailError, ZipEntry } from "./archive-guardrails.js";
 import type { ResolvedManifest } from "./manifest-policy.js";
@@ -76,18 +74,12 @@ export const validateFilteredPackage = (
   args: ValidateFilteredPackageArgs,
 ): Effect.Effect<void, FilteredPackageError> =>
   Effect.gen(function* () {
-    const name = args.manifest.identity.name;
     switch (args.type) {
       case "skill": {
         const path = "src/SKILL.md";
-        const content = yield* readText(args, path);
-        if (Option.isNone(parseSkillMd(content, name))) {
-          return yield* new FilteredPackageError({
-            code: "content_invalid",
-            detail: `Filtered "${path}" must contain valid Agent Skill frontmatter whose name is "${name}".`,
-            path,
-          });
-        }
+        // The envelope owns Registry identity. Authoring lint owns the chosen
+        // frontmatter convention; ingest must not rewrite or reject upstream metadata.
+        yield* readText(args, path);
         return;
       }
       case "subagent": {

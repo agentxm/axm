@@ -61,23 +61,23 @@ describe("copyExtensionDirectory", () => {
     ),
   );
 
-  it.effect("dereferences symlinks (copies content, not link)", () =>
+  it.effect("preserves contained relative file symlinks", () =>
     withPlatform(
       Effect.gen(function* () {
         const src = path.join(tmpDir, "src");
         const dest = path.join(tmpDir, "dest");
-        const realFile = path.join(tmpDir, "real.txt");
+        const realFile = path.join(src, "real.txt");
 
         fs.mkdirSync(src);
         fs.writeFileSync(realFile, "real content");
-        fs.symlinkSync(realFile, path.join(src, "linked.txt"));
+        fs.symlinkSync("real.txt", path.join(src, "linked.txt"));
 
         yield* copyExtensionDirectory(src, dest);
 
         const destFile = path.join(dest, "linked.txt");
         expect(fs.existsSync(destFile)).toBe(true);
-        // Should be a regular file, not a symlink
-        expect(fs.lstatSync(destFile).isSymbolicLink()).toBe(false);
+        expect(fs.lstatSync(destFile).isSymbolicLink()).toBe(true);
+        expect(fs.readlinkSync(destFile)).toBe("real.txt");
         expect(fs.readFileSync(destFile, "utf-8")).toBe("real content");
       }),
     ),

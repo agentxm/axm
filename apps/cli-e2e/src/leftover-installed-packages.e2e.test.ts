@@ -123,7 +123,7 @@ describe("Leftover installed packages", () => {
                 integrity: "sha512-AAAA==",
                 publisherBindingId: "hbnd_test",
               },
-              treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+              treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
             },
           },
         }),

@@ -27,7 +27,10 @@ import * as Schema from "effect/Schema";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
+import {
+  WorkspaceFileWriteLocksLive,
+  WorkspaceTransactionScopesLive,
+} from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/unstable/http/HttpClient";
 import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
@@ -207,7 +210,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 8, skills: {} }),
+    JSON.stringify({ lockfileVersion: 9, skills: {} }),
   );
 
   const target = makePublishTarget(root);
@@ -218,7 +221,8 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
       : options.httpClient;
 
   const platform = Layer.provideMerge(
-    Layer.merge(
+    Layer.mergeAll(
+      WorkspaceTransactionScopesLive,
       recordingFileSystemLayer((event) => void writes.push(event)),
       WorkspaceFileWriteLocksLive,
     ),

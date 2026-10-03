@@ -1,3 +1,4 @@
+import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
 import {
   WorkspaceTransactionScopesLive,
@@ -167,7 +168,29 @@ const AxmHttpClientLayer = Layer.provide(
  * Node services and the plain AXM transport, with no Registry credentials.
  * Process-level observers such as telemetry build on this layer.
  */
-export const PlatformLayer = Layer.mergeAll(NodeServices.layer, AxmHttpClientLayer);
+export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalThis.fetch) =>
+  Layer.effect(
+    ArtifactHttpClient,
+    Effect.map(HttpClient.HttpClient, (client) => withAxmUserAgent(client, loadVersion())),
+  ).pipe(
+    Layer.provide(
+      FetchHttpClient.layer.pipe(
+        Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetchImplementation)),
+        Layer.provide(
+          Layer.succeed(FetchHttpClient.RequestInit, {
+            redirect: "manual",
+            credentials: "omit",
+          }),
+        ),
+      ),
+    ),
+  );
+
+export const PlatformLayer = Layer.mergeAll(
+  NodeServices.layer,
+  AxmHttpClientLayer,
+  makeArtifactHttpClientLayer(globalThis.fetch),
+);
 const registryRuntimeLayer = (registryUrl: string) =>
   Layer.mergeAll(PlatformLayer, registryUrlLayer(registryUrl));
 

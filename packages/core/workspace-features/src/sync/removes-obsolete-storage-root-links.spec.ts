@@ -39,7 +39,7 @@ const recordAcceptedSource = (workspace: SyncFixture, name: string): void =>
   workspace.writeFile(
     "axm-lock.yaml",
     JSON.stringify({
-      lockfileVersion: 8,
+      lockfileVersion: 9,
       skills: {
         [name]: makeRegistrySkillLockEntry({
           owner: decodeHandleSync("@acme"),

@@ -1,12 +1,40 @@
 # Publishing
 
-`axm publish` and each `axm <type> publish` command distribute only extensions
-authored by the project workspace. Authorship comes from the configured
+`axm publish` can publish an existing skill directory with `--from`, or select
+extensions authored by the project workspace. Each `axm <type> publish` command
+selects from the authored workspace. Authorship comes from the configured
 exact `workspace` source together with the project `owner`, settings map key,
 extension type, and matching manifest in that type's authored root. A canonical
 directory alone does not grant publication authority.
 
-## Selection
+## Existing skill directories
+
+Supply the publisher identity and version separately from the existing source:
+
+```bash
+axm publish @acme/skills/review --from ./review --package-version 1.0.0 --preview
+axm publish @acme/skills/review --from ./review --package-version 1.0.0
+```
+
+The directory must contain `SKILL.md`. No setup, upstream `skill.json`, or source
+conversion is required. AXM retains the original body, descriptive metadata,
+supporting files, executable modes, empty directories, and contained relative
+links. It wraps that payload under `src/` in the archive and generates a separate
+`skill.json` with the supplied publisher identity and version. The source stays
+unchanged and does not become workspace-authored.
+
+This mode requires one skill FQN, `--from`, and `--package-version` together.
+Selection filters and dependency expansion do not apply. `--version` still
+reports the CLI version. Use `--registry` or `--registry-url` to select the
+Registry; publication to a remote Registry still requires its normal publisher
+authorization. Preview does not upload anything.
+
+Git's `.git` administration entry is excluded and reported in the archive
+inventory. Other payload content remains subject to the normal archive safety
+checks. Links outside the supplied skill directory are refused; supplying a
+plugin component alone does not make its sibling resources part of that directory.
+
+## Configured selection
 
 With no selectors, publish selects every workspace-authored extension. `--owner`,
 `--type`, and `--exclude` narrow that authored set. Explicit names, FQNs, globs,
@@ -26,7 +54,8 @@ the Registry still validates their availability and version constraints.
 
 Registry releases are immutable. For each selected package, AXM reads and
 decodes the manifest, checks it against the configured identity, and looks up
-the manifest version in the Registry before any other preparation:
+the manifest version in the Registry before any other preparation. Existing-directory
+publication uses the supplied identity/version envelope for this check:
 
 | Registry state of the manifest version               | Outcome                                        |
 | ---------------------------------------------------- | ---------------------------------------------- |
@@ -42,11 +71,12 @@ fails.
 
 AXM does not lint, build, validate, or review an already-published version, so
 local content at that version does not affect the outcome and is never
-shipped. To release local edits, increment the version, for example with
-`axm version <fqn> patch`, and publish again.
+shipped. To publish local edits from an existing directory, supply a new
+`--package-version`. For an authored workspace package, increment its manifest
+version, for example with `axm version <fqn> patch`, and publish again.
 
-Only versions that will upload are linted, built, and validated, and AXM
-prepares all of them before the first upload. A preparation failure in any of
+Only versions that will upload are built and validated; workspace-authored
+packages also run authoring lint. AXM prepares all of them before the first upload. A preparation failure in any of
 them blocks every upload; an already-published version never causes that block. When
 execution partially succeeds, run the same command again: uploaded versions are
 then skipped as already published and the remaining ones upload.
@@ -54,11 +84,13 @@ then skipped as already published and the remaining ones upload.
 ## Archive
 
 For each version that will upload, AXM constructs one deterministic ZIP archive
-and computes its SRI SHA-512 digest before any upload. Publication never reads
-an installed external package as a release input.
+and computes its SRI SHA-512 digest before any upload. Configured publication
+does not select installed external packages as release inputs.
 
-The package root is the Registry archive boundary. By default every regular
-file under it is included, including files outside `src/`. The boundaries are
+For workspace-authored packages, the package root is the Registry archive
+boundary. By default every regular file, empty directory, and contained link
+under it is included, including files outside `src/`; executable modes and link
+targets are retained. The boundaries are
 deliberately different:
 
 | Boundary                        | Meaning                                                     |
@@ -101,7 +133,9 @@ automatically excluded.
 ## Git source review
 
 For a new upload inside a Git worktree, AXM compares the exact filtered
-Registry archive with the package subtree at local Git `HEAD`. Added, modified,
+Registry payload with the package subtree at local Git `HEAD`. For `--from`,
+comparison uses the original directory and excludes the generated envelope.
+Link targets and executable modes participate in comparison. Added, modified,
 or deleted archive paths mean the release would contain source state that the
 current commit does not represent. `axm publish --preview --json` reports the
 commit, package directory, difference count, and a bounded list of paths.

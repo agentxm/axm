@@ -115,6 +115,8 @@ export interface SelectedEntry extends CatalogEntry {
   readonly fqn: string;
   readonly sourceType: SourceType;
   readonly authored: boolean;
+  /** Explicit existing-format publication does not confer workspace authorship. */
+  readonly existingDirectoryVersion?: Version;
   readonly includedDependency?: true;
   readonly includedBy?: ReadonlyArray<string>;
   readonly extensionDir?: string;
@@ -182,6 +184,8 @@ export interface TargetRegistry {
 
 /** The inputs one publish invocation supplies. */
 export interface PublishRequest {
+  readonly from?: string;
+  readonly packageVersion?: string;
   readonly selectors: ReadonlyArray<string>;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<PublishableType>;
@@ -401,6 +405,70 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
+  if (args.from !== undefined || args.packageVersion !== undefined) {
+    const selector = args.selectors[0];
+    if (
+      args.from === undefined ||
+      args.packageVersion === undefined ||
+      args.selectors.length !== 1 ||
+      selector === undefined ||
+      hasFilters ||
+      args.includeDependencies
+    ) {
+      return yield* new PublishFailed({
+        category: "usage",
+        detail:
+          "Existing-directory publication requires one skill FQN, --from, and --package-version; selection filters and dependency expansion are not applicable.",
+      });
+    }
+    if (!path.isAbsolute(args.from))
+      return yield* validation("Existing publication source must be an absolute directory path.");
+    const identity = yield* Effect.fromResult(
+      Result.mapError(parseFqn(selector), (cause) =>
+        validation("Existing-directory publication requires a fully qualified skill name.", {
+          cause,
+        }),
+      ),
+    );
+    if (identity.type !== "skill")
+      return yield* validation(
+        "Existing-directory publication currently requires a skill directory containing SKILL.md.",
+      );
+    const version = yield* Schema.decodeUnknownEffect(VersionSchema)(args.packageVersion).pipe(
+      Effect.mapError((cause) =>
+        validation("--package-version must be an exact package version.", { cause }),
+      ),
+    );
+    const selected: SelectedEntry = {
+      type: "skill",
+      name: identity.name,
+      owner: identity.owner,
+      fqn: formatFqn(identity),
+      source: args.from,
+      sourceType: "local",
+      authored: false,
+      distribute: true,
+      extensionDir: args.from,
+      existingDirectoryVersion: version,
+      declaredVersion: version,
+    };
+    return {
+      mode: "explicit",
+      identities: [selected],
+      entries: [selected],
+      decisions: [
+        {
+          id: selected.fqn,
+          selector,
+          target: identity,
+          origin: "explicit-selector",
+          disposition: "included",
+          reason: "selected",
+          referencedBy: [],
+        },
+      ],
+    } satisfies PublishSelection;
+  }
   if (args.selectors.length > 0 && hasFilters) {
     return yield* Effect.fail(
       new PublishFailed({
@@ -726,23 +794,47 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     );
   }
   const manifestPath = path.join(extensionDir, manifestFilenameForType(selected.type));
-  const manifestJson = yield* fs.readFileString(manifestPath).pipe(
-    Effect.flatMap((content) =>
-      Effect.try({
-        try: (): unknown => JSON.parse(content),
-        catch: (cause) => validation(`Invalid JSON in ${manifestPath}`, { cause }),
-      }),
-    ),
-    Effect.mapError((cause) =>
-      cause instanceof PublishFailed
-        ? cause
-        : new PublishFailed({
-            category: "not_found",
-            detail: `Missing manifest: ${manifestPath}`,
-            cause,
-          }),
-    ),
-  );
+  const manifestJson =
+    selected.existingDirectoryVersion === undefined
+      ? yield* fs.readFileString(manifestPath).pipe(
+          Effect.flatMap((content) =>
+            Effect.try({
+              try: (): unknown => JSON.parse(content),
+              catch: (cause) => validation(`Invalid JSON in ${manifestPath}`, { cause }),
+            }),
+          ),
+          Effect.mapError((cause) =>
+            cause instanceof PublishFailed
+              ? cause
+              : new PublishFailed({
+                  category: "not_found",
+                  detail: `Missing manifest: ${manifestPath}`,
+                  cause,
+                }),
+          ),
+        )
+      : yield* Effect.gen(function* () {
+          const administrativePath = path.join(extensionDir, ".git");
+          const exists = yield* fs.exists(administrativePath);
+          const ignore = exists
+            ? [
+                (yield* fs.stat(administrativePath)).type === "Directory"
+                  ? "src/.git/**"
+                  : "src/.git",
+              ]
+            : [];
+          return {
+            owner: selected.owner,
+            type: selected.type,
+            name: selected.name,
+            version: selected.existingDirectoryVersion,
+            ...(ignore.length === 0 ? {} : { publish: { ignore } }),
+          };
+        }).pipe(
+          Effect.mapError((cause) =>
+            validation("Could not inspect existing skill publication source.", { cause }),
+          ),
+        );
   const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(manifestJson).pipe(
     Effect.mapError((cause) => validation(`Invalid manifest: ${manifestPath}`, { cause })),
   );
@@ -844,16 +936,22 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   }
   // Total over `PublishableType`: adding a publishable type without a
   // `PublishLintArgs` arm is a compile error here, not a silently skipped gate.
-  yield* runPublishLintGate({
-    type: selected.type,
-    extensionDir,
-    manifestJson,
-    platform: { fs, path },
+  if (selected.existingDirectoryVersion === undefined) {
+    yield* runPublishLintGate({
+      type: selected.type,
+      extensionDir,
+      manifestJson,
+      platform: { fs, path },
+    });
+  }
+  const plannedArchive = yield* planZipArchive(extensionDir, {
+    ...(yield* publishArchiveOptions(selected.type, manifest.publish?.ignore)),
+    ...(selected.existingDirectoryVersion === undefined
+      ? {}
+      : {
+          skillEnvelope: new TextEncoder().encode(`${JSON.stringify(manifestJson, null, 2)}\n`),
+        }),
   });
-  const plannedArchive = yield* planZipArchive(
-    extensionDir,
-    yield* publishArchiveOptions(selected.type, manifest.publish?.ignore),
-  );
   const archive = plannedArchive.archive;
   const archivePlan: ArchivePlan = {
     ...plannedArchive.plan,

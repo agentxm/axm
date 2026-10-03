@@ -16,7 +16,7 @@ import { packMemberSourceAuthority } from "./pack-member-source-authority.js";
 
 const packFields = {
   identity: { owner: "@acme", name: "toolkit" },
-  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   manifestVersion: "1.0.0",
   manifestContentIdentity: "sha256-pack-manifest",
   members: ["@acme/skills/review"],

@@ -46,3 +46,17 @@ export class SkillMaterializationFailed
     return "internal";
   }
 }
+
+/** The target filesystem cannot preserve the selected skill's package context. */
+export class SkillActivationUnsupported
+  extends Data.TaggedError("SkillActivationUnsupported")<{
+    readonly detail: string;
+  }>
+  implements ExtensionKindFailure
+{
+  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
+    ExtensionKindFailureTypeId;
+  get category(): OperationErrorCategory {
+    return "validation";
+  }
+}

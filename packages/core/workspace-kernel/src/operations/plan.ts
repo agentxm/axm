@@ -196,7 +196,7 @@ export interface RegistryLifecycleEvidence {
   readonly deprecation?: DeprecationView;
 }
 
-export type SourceSwitchFamily = "registry" | "git" | "path";
+export type SourceSwitchFamily = "registry" | "git" | "path" | "http";
 
 export interface SourceSwitchEndpoint {
   readonly family: SourceSwitchFamily;

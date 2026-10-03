@@ -9,6 +9,7 @@ import * as EffectRecord from "effect/Record";
 import {
   extensionSourceFamilies,
   extensionTypes,
+  isInstallableFrom,
   type ExtensionSourceFamily,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/common";
@@ -116,7 +117,12 @@ export const SOURCE_FAMILY_LIFECYCLE_CELLS: ReadonlyArray<SourceFamilyLifecycleC
         type,
         family,
         operation,
-        result: SOURCE_FAMILY_LIFECYCLE_OUTCOMES[family][operation],
+        result: isInstallableFrom(type, family)
+          ? SOURCE_FAMILY_LIFECYCLE_OUTCOMES[family][operation]
+          : {
+              outcome: "unsupported-by-design",
+              decision: "HTTPS artifact and discovery sources distribute skills only.",
+            },
       })),
     ),
   );

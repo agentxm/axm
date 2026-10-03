@@ -12,6 +12,7 @@ import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   desiredMcpSourceKey,
   mcpRegistryResolutionKey,
+  mcpResolutionKey,
   mcpWorkspaceSourceKey,
   WorkspaceLocation,
   type DesiredStateGraph,
@@ -46,7 +47,15 @@ export const requestedMcpSourceIdentity = (
         );
       }
       case "git-hosted":
-        return printSourceParams(ref.source);
+        return ref.nativeComponent === undefined
+          ? printSourceParams(ref.source)
+          : mcpResolutionKey({
+              source: { type: "git", url: ref.source.url },
+              identity: {
+                name: ref.name,
+                ...(ref.owner === undefined ? {} : { owner: ref.owner }),
+              },
+            });
     }
   });
 

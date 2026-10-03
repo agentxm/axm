@@ -82,7 +82,8 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
       );
       yield* shallowFetchCommit(source.url.href, tempDir, ref.gitCommitSha);
       const sourcePath = ref.sourcePath ?? ".";
-      const fetchedTree = yield* getTreeSha(tempDir, sourcePath);
+      const packagePath = ref.distribution?.packageRoot ?? sourcePath;
+      const fetchedTree = yield* getTreeSha(tempDir, packagePath);
       if (fetchedTree !== ref.gitTreeSha) {
         return yield* new SourceNotResolvable({
           category: "conflict",
@@ -92,6 +93,12 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
       return {
         directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath),
         scratchRoot: tempDir,
+        ...(ref.distribution === undefined
+          ? {}
+          : {
+              packageDirectory: path.join(tempDir, packagePath),
+              componentPath: ref.distribution.componentPath,
+            }),
       };
     });
   },

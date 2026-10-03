@@ -182,7 +182,7 @@ export type StandardGoverns = "package-body" | "runtime-protocol" | "host-file";
 export type WorkspaceCapabilityKey = "instructions";
 
 /** Authority families an extension may be installed from. */
-export const extensionSourceFamilies = ["git", "registry", "path", "workspace"] as const;
+export const extensionSourceFamilies = ["git", "registry", "path", "workspace", "http"] as const;
 
 export type ExtensionSourceFamily = (typeof extensionSourceFamilies)[number];
 
@@ -231,7 +231,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: "package-body",
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: true },
     workspaceCapability: null,
   },
   "mcp-server": {
@@ -245,7 +245,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: "runtime-protocol",
     installInputs: true,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: null,
   },
   subagent: {
@@ -259,7 +259,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: null,
   },
   rule: {
@@ -273,7 +273,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "host-file",
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: "instructions",
   },
   hook: {
@@ -287,7 +287,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "per-agent",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: null,
   },
   knowledge: {
@@ -301,7 +301,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "workspace",
     governs: "package-body",
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: null,
   },
   pack: {
@@ -315,7 +315,7 @@ export const EXTENSION_TYPE_TABLE = {
     placement: "container",
     governs: null,
     installInputs: false,
-    installableFrom: { git: true, registry: true, path: true, workspace: true },
+    installableFrom: { git: true, registry: true, path: true, workspace: true, http: false },
     workspaceCapability: null,
   },
 } as const satisfies { readonly [key: string]: ExtensionTypeRow };
@@ -431,7 +431,7 @@ export type InputType = TypesWhere<"installInputs", true>;
 
 /** Extension types installable from one source family. */
 export type InstallableFrom<Family extends ExtensionSourceFamily> = {
-  [Type in ExtensionType]: ExtensionTypeRows[Type]["installableFrom"][Family] extends true
+  [Type in ExtensionType]: true extends ExtensionTypeRows[Type]["installableFrom"][Family]
     ? Type
     : never;
 }[ExtensionType];

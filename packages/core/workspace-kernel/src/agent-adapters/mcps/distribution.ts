@@ -251,7 +251,8 @@ export const mcpRunner = (
         if (!pkg.identifier.startsWith(`${host}/`))
           return unsupported("OCI image identifier does not name the declared registry authority");
       }
-      const hasLocator = /(?:@sha256:[a-f0-9]{64}|:[^/]+)$/u.test(pkg.identifier);
+      const locatorSeparator = pkg.identifier.indexOf(":", pkg.identifier.lastIndexOf("/") + 1);
+      const hasLocator = locatorSeparator >= 0 && locatorSeparator < pkg.identifier.length - 1;
       if (hasLocator && version !== undefined && !pkg.identifier.endsWith(`:${version}`))
         return unsupported("OCI image locator conflicts with the declared version");
       const image =

@@ -71,6 +71,34 @@ layer(Path.layer, { excludeTestServices: true })("canonical-extensions scanner",
     }),
   );
 
+  it.effect("observes native-only acquired packages without a src directory", () =>
+    Effect.gen(function* () {
+      const { occurrences } = yield* runScanner({
+        workspaceRoot: WORKSPACE_ROOT,
+        userHome: USER_HOME,
+        project: {
+          axmExtensions: {
+            "registry/@owner/subagents/reviewer/subagent.json": JSON.stringify({
+              owner: "@owner",
+              type: "subagent",
+              name: "reviewer",
+              version: "1.0.0",
+              implementations: { codex: { kind: "native", source: "native/research.toml" } },
+            }),
+            "registry/@owner/subagents/reviewer/native/research.toml": 'name = "research"',
+          },
+        },
+      });
+      expect(occurrences).toHaveLength(1);
+      expect(occurrences[0]).toMatchObject({
+        type: "subagent",
+        name: "reviewer",
+        subjectFileExists: true,
+        contentLocation: "/ws/agent_extensions/registry/@owner/subagents/reviewer",
+      });
+    }),
+  );
+
   it.effect("emits native occurrences beneath an identity-qualified Registry root", () =>
     Effect.gen(function* () {
       const { occurrences } = yield* runScanner({

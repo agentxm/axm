@@ -323,6 +323,8 @@ const subagentManifest = {
   type: "subagent",
   name: "reviewer",
   version: "1.0.0",
+  description: "Reviews code",
+  core: { instructions: "src/instructions.md" },
 };
 
 registerConformance(

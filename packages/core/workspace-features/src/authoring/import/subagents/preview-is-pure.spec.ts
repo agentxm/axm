@@ -34,7 +34,7 @@ export const specification = defineSpecification({
 });
 
 const SUBAGENT = "reviewer";
-const NATIVE_DOCUMENT = `---\nname: native-${SUBAGENT}\nmodel: fast\n---\n\nReview carefully.\n`;
+const NATIVE_DOCUMENT = `---\nname: native-${SUBAGENT}\ndescription: Review assigned work\nmodel: fast\n---\n\nReview carefully.\n`;
 
 describe("Subagent import preview purity", () => {
   const cleanups: Array<() => void> = [];

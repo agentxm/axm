@@ -74,12 +74,12 @@ const normalizeFileBackedName = (name: string): string => {
 // scanners/agent-dir.ts)
 // ---------------------------------------------------------------------------
 
-const subjectFileNameForExtensionType = (type: ExtensionType, name: string): string | null => {
+const subjectFileNameForExtensionType = (type: ExtensionType): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "subagent":
-      return `${name}.md`;
+      return "subagent.json";
     default:
       return null;
   }
@@ -122,7 +122,7 @@ export interface MakeCanonicalOccurrenceInput {
 export const makeCanonicalOccurrence = (
   input: MakeCanonicalOccurrenceInput,
 ): CanonicalExtensionOccurrence => {
-  const subjectFileName = subjectFileNameForExtensionType(input.type, input.name);
+  const subjectFileName = subjectFileNameForExtensionType(input.type);
   const contentLocation = decodeFixtureAbsolutePath(input.contentLocation);
   const subjectFile =
     subjectFileName === null

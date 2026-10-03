@@ -12,7 +12,8 @@
     "improve-whatever": "agentxm:@craigsmitham/skills/improve-whatever",
     "spot-spew": "agentxm:@craigsmitham/skills/spot-spew",
     "devops-docs": "agentxm:@craigsmitham/skills/devops-docs",
-    "okf": "agentxm:@craigsmitham/skills/okf"
+    "okf": "agentxm:@craigsmitham/skills/okf",
+    "research": "@craigsmitham/skills/research@>=3.0.1"
   },
   "knowledge": {
     "agentxm": "agentxm:@agentxm/knowledge/agentxm",
@@ -23,7 +24,12 @@
     "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",
-    "research": "agentxm:@craigsmitham/packs/research",
     "work-management": "agentxm:@craigsmitham/packs/work-management"
+  },
+  "subagents": {
+    "researcher": {
+      "source": "workspace",
+      "distribute": false
+    }
   }
 }

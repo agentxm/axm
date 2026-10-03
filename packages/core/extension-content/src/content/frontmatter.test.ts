@@ -64,6 +64,16 @@ const frontmatterOnlyDelimiters = `---
 Body after empty frontmatter.`;
 
 describe("parseFrontmatterSync", () => {
+  it("preserves delimiter-like text inside opaque YAML values", () => {
+    const result = parseFrontmatterSync(
+      '---\ndescription: "before---after"\nprompt: |\n  ---\n  Native instructions\n---\nBody.',
+    );
+    expect(result.frontmatter).toEqual({
+      description: "before---after",
+      prompt: "---\nNative instructions\n",
+    });
+    expect(result.body).toBe("Body.");
+  });
   it("parses valid frontmatter with body", () => {
     const result = parseFrontmatterSync(validFrontmatterContent);
     expect(result.frontmatter).toEqual({ title: "My Document", tags: ["one", "two"] });

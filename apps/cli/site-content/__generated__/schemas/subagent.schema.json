@@ -199,6 +199,85 @@
       "description": "Short name for this subagent within its owner namespace. Combined with owner, forms the FQN @owner/subagents/<name>.",
       "examples": ["my-skill", "code-review", "prettier"]
     },
+    "AgentId": {
+      "type": "string",
+      "enum": [
+        "adal",
+        "fx",
+        "muse-code",
+        "mimo-code",
+        "coder-agents",
+        "aider-desk",
+        "amp",
+        "antigravity",
+        "antigravity-cli",
+        "augment",
+        "claude-code",
+        "cline",
+        "codearts-agent",
+        "codebuddy",
+        "codemaker",
+        "codestudio",
+        "codex",
+        "command-code",
+        "continue",
+        "cortex",
+        "crush",
+        "cursor",
+        "deepagents",
+        "devin",
+        "dexto",
+        "droid",
+        "firebender",
+        "forgecode",
+        "gemini-cli",
+        "github-copilot-cli",
+        "goose",
+        "grok-cli",
+        "hermes",
+        "ibm-bob",
+        "iflow-cli",
+        "junie",
+        "lingma",
+        "kilo",
+        "kimi-cli",
+        "kiro-cli",
+        "kode",
+        "mcpjam",
+        "minimax-code",
+        "mistral-vibe",
+        "mux",
+        "neovate",
+        "openclaw",
+        "opencode",
+        "openhands",
+        "ona",
+        "pi",
+        "vscode",
+        "pochi",
+        "qoder",
+        "qoder-cn",
+        "qwen-code",
+        "replit",
+        "roo",
+        "rovodev",
+        "tabnine-cli",
+        "trae-cn",
+        "trae",
+        "warp",
+        "windsurf",
+        "zencoder",
+        "zed",
+        "zenflow",
+        "chatgpt",
+        "claude-ai",
+        "cowork",
+        "gemini-app"
+      ],
+      "title": "Agent ID",
+      "description": "Verified coding agent identifier in the capability catalog.",
+      "examples": ["claude-code", "codex", "cursor"]
+    },
     "SubagentManifest": {
       "type": "object",
       "properties": {
@@ -301,17 +380,6 @@
             { "type": "null" }
           ]
         },
-        "fallback": {
-          "anyOf": [
-            {
-              "type": "string",
-              "enum": ["auto", "none"],
-              "description": "Whether AXM may apply platform-provided capability fallbacks. Defaults to auto.",
-              "default": "auto"
-            },
-            { "type": "null" }
-          ]
-        },
         "recommendedPacks": {
           "anyOf": [
             {
@@ -333,12 +401,145 @@
           ]
         },
         "type": { "type": "string", "enum": ["subagent"] },
-        "name": { "$ref": "#/definitions/ExtensionName" }
+        "name": { "$ref": "#/definitions/ExtensionName" },
+        "core": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "instructions": {
+                  "type": "string",
+                  "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)[^\\\\\\p{Cc}:]+$",
+                  "allOf": [
+                    {
+                      "not": { "pattern": "/$" },
+                      "description": "Package-relative regular file path; traversal and host paths are forbidden."
+                    }
+                  ]
+                },
+                "name": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$",
+                      "description": "Native agent name, independent of the AXM package name."
+                    },
+                    { "type": "null" }
+                  ]
+                }
+              },
+              "required": ["instructions"],
+              "additionalProperties": false
+            },
+            { "type": "null" }
+          ]
+        },
+        "implementations": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["customized"] },
+                      "source": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+                      "configuration": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "propertyNames": {
+                              "type": "string",
+                              "pattern": "^(?!(?:name|description|instructions|developer_instructions|prompt|systemPrompt|system_prompt|roleDefinition|agentOverrides|fallback|__proto__|prototype|constructor)$).+$"
+                            },
+                            "description": "Opaque native configuration; identity and instruction fields belong to the core or a complete native implementation."
+                          },
+                          { "type": "null" }
+                        ]
+                      },
+                      "instructions": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "mode": { "type": "string", "enum": ["append", "replace"] },
+                              "source": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)[^\\\\\\p{Cc}:]+$",
+                                "allOf": [
+                                  {
+                                    "not": { "pattern": "/$" },
+                                    "description": "Package-relative regular file path; traversal and host paths are forbidden."
+                                  }
+                                ]
+                              }
+                            },
+                            "required": ["mode", "source"],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
+                      }
+                    },
+                    "required": ["kind"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "kind": { "type": "string", "enum": ["native"] },
+                      "source": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!.*(?:^|\\/)\\.{1,2}(?:\\/|$))(?!.*\\/\\/)[^\\\\\\p{Cc}:]+$",
+                        "allOf": [
+                          {
+                            "not": { "pattern": "/$" },
+                            "description": "Package-relative regular file path; traversal and host paths are forbidden."
+                          }
+                        ]
+                      },
+                      "configuration": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+                      "instructions": { "anyOf": [{ "not": {} }, { "type": "null" }] }
+                    },
+                    "required": ["kind", "source"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              "propertyNames": { "$ref": "#/definitions/AgentId" }
+            },
+            { "type": "null" }
+          ]
+        },
+        "fallback": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+        "agentOverrides": { "anyOf": [{ "not": {} }, { "type": "null" }] },
+        "agents": { "anyOf": [{ "not": {} }, { "type": "null" }] }
       },
       "required": ["owner", "version", "type", "name"],
       "additionalProperties": false,
-      "title": "Subagent Manifest",
-      "description": "Extension manifest file for subagent. Carries the registry-facing identity, version, and metadata."
+      "allOf": [
+        {
+          "anyOf": [
+            {
+              "required": ["core", "description"],
+              "properties": { "description": { "type": "string", "pattern": "\\S" } }
+            },
+            {
+              "not": { "required": ["core"] },
+              "required": ["implementations"],
+              "properties": {
+                "implementations": {
+                  "minProperties": 1,
+                  "additionalProperties": { "properties": { "kind": { "const": "native" } } }
+                }
+              }
+            }
+          ],
+          "title": "Subagent Manifest",
+          "description": "One subagent package with portable instructions, explicit per-agent customization, or complete native implementations."
+        }
+      ]
     }
   }
 }

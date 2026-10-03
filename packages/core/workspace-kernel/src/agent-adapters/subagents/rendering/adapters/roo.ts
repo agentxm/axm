@@ -9,14 +9,12 @@
  * is handled separately. The user's frontmatter passes through verbatim,
  * with structural Roo fields layered on top: `slug` is always
  * `input.name`, the body splits into `roleDefinition` / `customInstructions`,
- * and `groups` falls back to a sane default when not provided. Then
- * `agentOverrides[roo]` is merged on top.
+ * and `groups` falls back to a default when not provided.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import type { LossyRenderingWarning } from "../types.js";
-import { applyOverrides } from "../overrides.js";
 import type { SubagentRenderInput } from "../types.js";
 
 /** Default groups when the user does not specify any. */
@@ -84,7 +82,7 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
   const fmGroups = input.frontmatter["groups"];
   const groups: ReadonlyArray<string> = isStringArray(fmGroups) ? fmGroups : DEFAULT_GROUPS;
 
-  const baseEntry: Record<string, unknown> = {
+  const entry: RooModeEntry = {
     ...input.frontmatter,
     slug: input.name,
     name: input.name,
@@ -92,12 +90,6 @@ export const buildRooModeEntry = (input: SubagentRenderInput): RooModeResult => 
     ...(customInstructions.length > 0 ? { customInstructions } : {}),
     groups,
   };
-
-  // Assertion needed: overrides may intentionally delete fields the
-  // RooModeEntry interface marks as required; mirrors the merge semantics
-  // applied uniformly across all subagent adapters.
-  // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-  const entry = applyOverrides(baseEntry, input.agentOverrides) as unknown as RooModeEntry;
 
   return { entry, warnings: [] };
 };

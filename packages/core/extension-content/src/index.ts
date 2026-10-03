@@ -36,10 +36,16 @@ export {
 } from "./content/skill-content.js";
 export { type Skill } from "./content/skill-types.js";
 export {
-  type SubagentAgentOverrides,
-  type SubagentContentResult,
+  type DecodedSubagentPackage,
+  type NativeSubagentContent,
+  type ResolvedSubagentImplementation,
+  type SelectedSubagentImplementation,
   SubagentContentError,
-  parseSubagentMd,
+  loadSubagentPackage,
+  nativeSubagentFormat,
+  parseNativeSubagent,
+  readSubagentPackage,
+  selectSubagentImplementation,
 } from "./content/subagent-content.js";
 export {
   ArchiveGuardrailError,

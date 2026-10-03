@@ -1,3 +1,4 @@
+import { nativeSubagentMarker } from "../../../agent-adapters/index.js";
 import { resolveNativeReferent } from "../../../locations/index.js";
 import {
   resolveDeclaredNativeLocations,
@@ -219,6 +220,17 @@ const scanSubjectDirectory = (
             }
             return Option.none<PhysicalOccurrence>();
           }
+          const marker = nativeSubagentMarker(
+            new TextDecoder().decode(readable.success),
+            candidate,
+          );
+          const managedPackage =
+            Option.isSome(marker) && path.basename(marker.value.src) === "subagent.json"
+              ? {
+                  ext: marker.value.ext,
+                  root: path.dirname(path.resolve(deps.workspaceRoot, marker.value.src)),
+                }
+              : undefined;
           const fileName = path.basename(candidate);
           const name = normalizeFileBackedName(fileName.slice(0, -extension.length));
           const contentLocation = makeAbsolutePath(path, candidate);
@@ -231,6 +243,7 @@ const scanSubjectDirectory = (
             pathSegments: splitAbsolutePathSegments(path, candidate),
             subjectFile: Option.some(contentLocation),
             subjectFileExists: true,
+            ...(managedPackage === undefined ? {} : { managedPackage }),
           } satisfies PhysicalOccurrence);
         }),
       { concurrency: SCANNER_IO_CONCURRENCY },

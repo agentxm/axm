@@ -5,9 +5,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as Option from "effect/Option";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
-import { captureCopiedDirectory, readContainerReceipts } from "../locations/index.js";
+import { readContainerReceipts } from "../locations/index.js";
 import { NativeWriteAuthorityLive } from "../projection/live.js";
 import { codingAgentRepositoryLayer } from "../projection/testing.js";
 import { reconcileAgentOutputs } from "./index.js";
@@ -33,70 +32,6 @@ export const specification = defineSpecification({
 });
 
 describe("native artifact parent withdrawal", () => {
-  for (const sourceState of ["created", "preexisting", "modified"] as const)
-    it.effect(`withdraws a copied role with ${sourceState} source content`, () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped();
-        const source = path.join(root, ".axm/build/polyfills/subagents/review/content");
-        const file = path.join(source, "SKILL.md");
-        const raw =
-          "<!-- axm:file v=1 ext=@acme/subagents/review src=subagents/review -->\n# Review\n";
-        const workspace = WorkspaceReadTest({ baseDir: root });
-        const services = Layer.mergeAll(
-          workspace,
-          codingAgentRepositoryLayer([]),
-          NativeWriteAuthorityLive.pipe(
-            Layer.provide(Layer.merge(workspace, WorkspaceFileWriteLocksLive)),
-          ),
-        );
-        yield* Effect.gen(function* () {
-          const authority = yield* NativeWriteAuthority;
-          if (sourceState === "preexisting") {
-            yield* fs.makeDirectory(source, { recursive: true });
-            yield* fs.writeFileString(file, raw);
-          } else {
-            const capture = yield* authority.captureInsertion({
-              path: file,
-              unit: JSON.stringify(["subagent-role-source", file]),
-              beforeRaw: Option.none(),
-              eligible: true,
-            });
-            const createdDirectories = yield* authority.createParentDirectories(file);
-            yield* fs.writeFileString(file, raw);
-            yield* authority.recordInsertion({ capture, createdDirectories, afterRaw: raw });
-          }
-          const target = path.join(root, ".cursor/skills/review");
-          yield* fs.makeDirectory(target, { recursive: true });
-          yield* fs.writeFileString(path.join(target, "SKILL.md"), raw);
-          expect(Option.isSome(yield* captureCopiedDirectory(target, source))).toBe(true);
-          if (sourceState === "modified") yield* fs.writeFileString(file, `${raw}User edit\n`);
-          const result = yield* reconcileAgentOutputs({
-            desiredAgentIds: new Set(),
-            expectedNames: {
-              skill: new Set(),
-              subagent: new Set(),
-              hook: new Set(),
-              "mcp-server": new Set(),
-            },
-            authority: {
-              expectedSkillSources: {},
-              expectedSubagentFiles: {
-                review: [{ ext: "@acme/subagents/review", src: "subagents/review" }],
-              },
-              expectedMcpEntries: {},
-              expectedHooks: [],
-              expectedRegions: { rule: [], knowledge: [] },
-            },
-          });
-          expect(result.removedPaths).toContain(target);
-          expect(yield* fs.exists(file)).toBe(sourceState !== "created");
-          if (sourceState === "modified")
-            expect(yield* fs.readFileString(file)).toBe(`${raw}User edit\n`);
-        }).pipe(Effect.provide(services));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-    );
   for (const kind of ["skill", "subagent"] as const)
     for (const parentState of ["absent", "preexisting", "foreign-child"] as const)
       it.effect(`${kind} preserves ${parentState} parent authority`, () =>

@@ -10,7 +10,6 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { copiedDirectoryCanReplace } from "@agentxm/workspace-kernel/locations";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import {
   deriveOperationOutcome,
@@ -79,12 +78,10 @@ const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
       name: AUTHORED_SUBAGENT,
       version: "1.0.0",
       description: `The ${AUTHORED_SUBAGENT} subagent.`,
+      core: { instructions: `src/${AUTHORED_SUBAGENT}.md` },
     })}\n`,
   );
-  fs.writeFileSync(
-    nodePath.join(packageRoot, "src", `${AUTHORED_SUBAGENT}.md`),
-    `---\nname: ${AUTHORED_SUBAGENT}\ndescription: The ${AUTHORED_SUBAGENT} subagent.\n---\n\n${body}\n`,
-  );
+  fs.writeFileSync(nodePath.join(packageRoot, "src", `${AUTHORED_SUBAGENT}.md`), `${body}\n`);
 };
 
 const replaceRegionBody = (content: string, body: string): string => {
@@ -559,72 +556,30 @@ describe("Generated document projection currency", () => {
     { timeout: FIXTURE_TIMEOUT },
   );
 
-  it.effect(
-    "applies the same opaque-body contract to Subagent role-skill fallbacks",
-    () => {
-      const workspace = makeSyncFixture({
-        settings: {
-          owner: "@acme",
-          agents: ["cline"],
-          subagents: { [AUTHORED_SUBAGENT]: "workspace" },
-        },
-      });
-      cleanups.push(workspace.cleanup);
-      writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
-      const projection = `.cline/skills/${AUTHORED_SUBAGENT}/SKILL.md`;
-      const receipt = `.cline/skills/${AUTHORED_SUBAGENT}/.axm-copy.json`;
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* applySync();
-
-            const generated = workspace.readFile(projection);
-            const originalReceipt = workspace.readFile(receipt);
-            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
-            const rewritten = generated.replace(
-              "First reviewer guidance.",
-              "Repository-formatted role body.",
-            );
-            expect(rewritten).not.toBe(generated);
-            workspace.writeFile(projection, rewritten);
-
-            expectNothingToReconcile(yield* previewSync());
-            expect(workspace.readFile(projection)).toBe(rewritten);
-
-            expectNothingToReconcile(yield* applySync());
-            expect(workspace.readFile(projection)).toBe(rewritten);
-            expect(workspace.readFile(receipt)).toBe(originalReceipt);
-            expect(
-              yield* copiedDirectoryCanReplace(
-                nodePath.join(workspace.root, ".cline/skills", AUTHORED_SUBAGENT),
-              ),
-            ).toBe(false);
-
-            workspace.writeFile(
-              `.cline/skills/${AUTHORED_SUBAGENT}/notes.txt`,
-              "Foreign notes stay intact.",
-            );
-            writeAuthoredSubagent(workspace.root, "Second reviewer guidance.");
-            yield* applySync();
-            const updated = workspace.readFile(projection);
-            expect(updated).toContain("Second reviewer guidance.");
-            expect(updated).not.toContain("Repository-formatted role body.");
-            expect(workspace.readFile(`.cline/skills/${AUTHORED_SUBAGENT}/notes.txt`)).toBe(
-              "Foreign notes stay intact.",
-            );
-            expect(workspace.readFile(receipt)).toBe(originalReceipt);
-            expect(
-              yield* copiedDirectoryCanReplace(
-                nodePath.join(workspace.root, ".cline/skills", AUTHORED_SUBAGENT),
-              ),
-            ).toBe(false);
-            expectNothingToReconcile(yield* applySync());
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-    { timeout: FIXTURE_TIMEOUT },
-  );
+  it.effect("leaves foreign Skills untouched while unsupported Subagents converge", () => {
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["cline"],
+        subagents: { [AUTHORED_SUBAGENT]: "workspace" },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    writeAuthoredSubagent(workspace.root, "Reviewer guidance.");
+    const skill = `.cline/skills/${AUTHORED_SUBAGENT}/SKILL.md`;
+    workspace.writeFile(skill, "Foreign Skill guidance.\n");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          expect(workspace.readFile(skill)).toBe("Foreign Skill guidance.\n");
+          expectNothingToReconcile(yield* previewSync());
+          expectNothingToReconcile(yield* applySync());
+          expect(workspace.readFile(skill)).toBe("Foreign Skill guidance.\n");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect(
     "restores a missing generated unit without treating its prior body as authority",
@@ -649,4 +604,125 @@ describe("Generated document projection currency", () => {
     },
     { timeout: FIXTURE_TIMEOUT },
   );
+  it.effect(
+    "native variants preserve edits, retire renamed outputs and converge when support is removed",
+    () => {
+      const native = (name: string, body: string) =>
+        `---\nname: ${name}\ndescription: Review\n---\n${body}\n`;
+      const manifest = (claude: boolean) =>
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "reviewer",
+          version: "1.0.0",
+          implementations: {
+            ...(claude ? { "claude-code": { kind: "native", source: "native/claude.md" } } : {}),
+            cursor: { kind: "native", source: "native/cursor.md" },
+          },
+        });
+      const workspace = makeSyncFixture({
+        settings: { owner: "@acme", agents: ["claude-code"], subagents: { reviewer: "workspace" } },
+        files: {
+          "subagents/reviewer/subagent.json": manifest(true),
+          "subagents/reviewer/native/claude.md": native("investigator", "Selected instructions"),
+          "subagents/reviewer/native/cursor.md": native("review", "Dormant instructions"),
+          ".claude/agents/personal.md": "Keep this foreign agent.\n",
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            const edited = `${workspace.readFile(".claude/agents/investigator.md")}\nUser formatting.\n`;
+            workspace.writeFile(".claude/agents/investigator.md", edited);
+            workspace.writeFile(
+              "subagents/reviewer/native/cursor.md",
+              native("review", "Changed dormant instructions"),
+            );
+            yield* applySync();
+            expect(workspace.readFile(".claude/agents/investigator.md")).toBe(edited);
+            workspace.writeFile(
+              "subagents/reviewer/native/claude.md",
+              native("analyst", "Changed selected instructions"),
+            );
+            yield* applySync();
+            expect(workspace.exists(".claude/agents/investigator.md")).toBe(false);
+            expect(workspace.readFile(".claude/agents/analyst.md")).toContain(
+              "Changed selected instructions",
+            );
+            workspace.writeFile("subagents/reviewer/subagent.json", manifest(false));
+            yield* applySync();
+            expect(workspace.exists(".claude/agents/analyst.md")).toBe(false);
+            expect(workspace.readFile(".claude/agents/personal.md")).toBe(
+              "Keep this foreign agent.\n",
+            );
+            expect(workspace.exists("subagents/reviewer/native/claude.md")).toBe(true);
+            expectNothingToReconcile(yield* applySync());
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 240_000 },
+  );
+
+  for (const equivalent of [true, false])
+    it.effect(
+      `aliased native implementations ${equivalent ? "converge" : "refuse incompatible output before writes"}`,
+      () => {
+        const native = (body: string) => `---\nname: reviewer\ndescription: Review\n---\n${body}\n`;
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code", "cursor"],
+            subagents: { reviewer: "workspace" },
+          },
+          files: {
+            "subagents/reviewer/subagent.json": JSON.stringify({
+              owner: "@acme",
+              type: "subagent",
+              name: "reviewer",
+              version: "1.0.0",
+              implementations: {
+                "claude-code": { kind: "native", source: "native/shared.md" },
+                cursor: {
+                  kind: "native",
+                  source: equivalent ? "native/shared.md" : "native/other.md",
+                },
+              },
+            }),
+            "subagents/reviewer/native/shared.md": native("Shared instructions"),
+            "subagents/reviewer/native/other.md": native("Different instructions"),
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        fs.mkdirSync(nodePath.join(workspace.root, ".claude/agents"), { recursive: true });
+        fs.mkdirSync(nodePath.join(workspace.root, ".cursor"), { recursive: true });
+        fs.symlinkSync(
+          nodePath.join(workspace.root, ".claude/agents"),
+          nodePath.join(workspace.root, ".cursor/agents"),
+          "dir",
+        );
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              const before = workspace.snapshot();
+              const result = yield* Effect.result(applySync());
+              if (equivalent) {
+                expect(result._tag).toBe("Success");
+                expect(workspace.readFile(".claude/agents/reviewer.md")).toContain(
+                  "Shared instructions",
+                );
+                expectNothingToReconcile(yield* applySync());
+              } else {
+                expect(result._tag).toBe("Failure");
+                expect(workspace.snapshot()).toEqual(before);
+                expect(workspace.exists(".claude/agents/reviewer.md")).toBe(false);
+              }
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+      { timeout: 90_000 },
+    );
 });

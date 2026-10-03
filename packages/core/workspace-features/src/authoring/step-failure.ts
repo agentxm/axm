@@ -52,6 +52,8 @@ import {
   NativeImportFailed,
   NativeImportInvalid,
   NativeImportUnsupported,
+  NativeSubagentRuntimeRequired,
+  NativeSubagentImportUnsupported,
 } from "./authored-package-errors.js";
 
 /** Every failure the authoring feature and Pack membership edits construct. */
@@ -63,6 +65,8 @@ export type AuthoringFamilyFailure =
   | ForkPackageConflict
   | ForkPackageFailed
   | NativeImportUnsupported
+  | NativeSubagentRuntimeRequired
+  | NativeSubagentImportUnsupported
   | NativeImportInvalid
   | NativeImportConflict
   | NativeImportFailed
@@ -97,6 +101,8 @@ const authoringFailureClasses = () =>
     ForkPackageConflict,
     ForkPackageFailed,
     NativeImportUnsupported,
+    NativeSubagentRuntimeRequired,
+    NativeSubagentImportUnsupported,
     NativeImportInvalid,
     NativeImportConflict,
     NativeImportFailed,
@@ -213,6 +219,16 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
       return makeStepFailure({
         category: "usage",
         detail: `Native package import is not supported for ${error.type}`,
+      });
+    case "NativeSubagentRuntimeRequired":
+      return makeStepFailure({
+        category: "usage",
+        detail: "Native subagent runtime is ambiguous; specify --source-agent",
+      });
+    case "NativeSubagentImportUnsupported":
+      return makeStepFailure({
+        category: "usage",
+        detail: `Native subagent import is not supported for ${error.agentId}`,
       });
     case "NativeImportConflict":
       return makeStepFailure({

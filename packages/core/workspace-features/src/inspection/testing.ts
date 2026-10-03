@@ -535,8 +535,11 @@ export const authoredExtensionFiles = (
       };
     case "subagent":
       return {
-        [authoredManifestPath(type, name)]: manifest(),
-        [`subagents/${name}/src/${name}.md`]: `---\nname: ${name}\n---\n\nFixture subagent.\n`,
+        [authoredManifestPath(type, name)]: manifest({
+          description: "Fixture subagent",
+          core: { instructions: `src/${name}.md` },
+        }),
+        [`subagents/${name}/src/${name}.md`]: "Fixture subagent.\n",
       };
     case "rule":
       return {

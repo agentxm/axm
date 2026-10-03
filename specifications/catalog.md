@@ -986,7 +986,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/native-imports-preserve-content-and-source`
 - Owner: `workspace-features`
-- Statement: When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package, disabled unless activation is requested or the target is already enabled, and shall reject a managed package or mismatched target type.
+- Statement: When a person imports native Skill or Subagent content, AXM shall preserve the original source and its instructions while creating the requested workspace package. A new Subagent shall preserve the complete native definition and native identity and start disabled unless activation is requested. Existing Skill activation shall be preserved. A managed source or mismatched target type shall be refused.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -1109,11 +1109,26 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Assumptions: Claude Code and Cursor declare distinct native project skill directories, so two agent locations observe two configured agents beside the shared Skill policy location.
 - Source: [`packages/core/workspace-features/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/authoring/create/skills/scaffolds-for-every-configured-agent.spec.ts)
 
+##### Native subagent imports preserve source identity and authored slot ownership
+
+- Requirement: `cli/subagents/import/preserves-native-implementation-authority`
+- Owner: `workspace-features`
+- Statement: Subagent import shall require an explicit source runtime unless native location unambiguously identifies it, refuse contradictory runtime selection, and preserve complete native bytes and native identity. An import into an existing workspace-authored package shall fill only an empty runtime slot, preserving version, core, other implementations, and activation unless --enable is requested. It shall refuse acquired or undeclared existing targets, occupied slots, sources or targets changed after preparation, and enabled imports with configured agents but no compatible target, without changing workspace state. Disabled imports shall remain available without a compatible configured target.
+- Class: functional
+- Role: experience
+- Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Real temporary source and workspace files observe byte preservation, slot ownership, activation and stale preparation refusals through the authoring use case.
+- Methods: example, decision-table
+- Derived from: `cli/native-imports-preserve-content-and-source`
+- Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
+- Source: [`packages/core/workspace-features/src/authoring/import/subagents/native-implementation-import.spec.ts`](../packages/core/workspace-features/src/authoring/import/subagents/native-implementation-import.spec.ts)
+
 ##### A new subagent is scaffolded and rendered for every configured agent
 
 - Requirement: `cli/subagents/new/scaffolds-for-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When a subagent is created, AXM shall create its manifest, content, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply.
+- Statement: When a subagent is created, AXM shall create its manifest, portable instructions, and enabled settings entry together, shall render it for every configured agent that can represent it, and shall report the same package and declaration targets in preview and apply. If configured agents exist and none can materialize the package, creation shall refuse before changing workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
@@ -1121,7 +1136,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
-- Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.; A subagent's rendered agent files are not listed as creation targets; the created package, its content, and its declaration are. Preview and apply therefore compare that set.
+- Assumptions: Claude Code and Cursor both render project-scope subagents into distinct directories, so two rendered files observe two configured agents.; Creation reports authored package content, its declaration, and each compiled native file in both preview and apply.
 - Source: [`packages/core/workspace-features/src/authoring/create/subagents/scaffolds-for-every-configured-agent.spec.ts`](../packages/core/workspace-features/src/authoring/create/subagents/scaffolds-for-every-configured-agent.spec.ts)
 
 ##### Version argument errors offer a command that corrects the request
@@ -3391,7 +3406,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `workspace-features`
-- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -4518,12 +4533,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/subagents/native-locations-respect-shape-and-proof`
 - Owner: `workspace-kernel`
-- Statement: AXM shall place Subagent files under their resolved catalog directory, preserve authored native frontmatter and explicit agent overrides without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
+- Statement: AXM shall place Subagent files under their resolved catalog directory, preserve selected native configuration and compile-time dependency currency without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
+- Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts)
 
 #### Constraints
@@ -4607,6 +4623,59 @@ Configured extensions realize correctly and completely for every configured codi
 - Methods: example, contract
 - Limitation: Controlled catalog claims establish reporting semantics, not current vendor behavior or actual vendor execution. Retires when: Attach separately attributable source and vendor runtime evidence to the claims being published.
 - Source: [`packages/core/extension-model/src/unstable/agent-capabilities/reference.spec.ts`](../packages/core/extension-model/src/unstable/agent-capabilities/reference.spec.ts)
+
+##### Subagent render inspection compiles one runtime without writing state
+
+- Requirement: `cli/subagents/show/renders-selected-runtime-without-mutation`
+- Owner: `workspace-features`
+- Statement: When subagents show selects --render for a catalog runtime, AXM shall compile the package's selected implementation for that runtime and scope, even if the runtime is not configured, reporting its mode, native identity, source dependencies, output paths and complete output content. Unsupported placement or implementation shall be reported explicitly. Render inspection shall not change package content, configuration, lock state, receipts or native files.
+- Class: functional
+- Role: interface
+- Product goals: `agent-interoperability`, `actionable-diagnostics`, `machine-automation`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The query runs with real canonical files and workspace services; complete before/after snapshots observe read-only behavior without process or network effects.
+- Methods: example, decision-table
+- Derived from: `cli/type-shows-report-source-and-version`
+- Source: [`packages/core/workspace-features/src/inspection/show/render-subagent.spec.ts`](../packages/core/workspace-features/src/inspection/show/render-subagent.spec.ts)
+
+##### Subagent packages declare a portable core or complete native implementations
+
+- Requirement: `subagents/packages-declare-explicit-implementations`
+- Owner: `extension-model`
+- Statement: A subagent package shall declare a described portable core or at least one complete native implementation, permit customization only with a core, identify implementations by canonical agent identity, and reject obsolete fallback and override contracts, reserved customization fields, and unsafe compile-time source paths.
+- Class: functional
+- Role: interface
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Source: [`packages/core/extension-model/src/unstable/subagents/explicit-implementations.spec.ts`](../packages/core/extension-model/src/unstable/subagents/explicit-implementations.spec.ts)
+
+##### Subagent selection composes only explicit customization and keeps native definitions complete
+
+- Requirement: `subagents/selection-keeps-native-implementations-independent`
+- Owner: `extension-content`
+- Statement: AXM shall select a target's complete native implementation without merging the portable core, otherwise apply only its explicit instruction append or replacement and native configuration to the core, report unsupported when neither exists, and identify only the selected implementation's compile-time dependencies.
+- Class: functional
+- Role: interface
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/extension-content/src/content/subagent-selection.spec.ts`](../packages/core/extension-content/src/content/subagent-selection.spec.ts)
+
+#### Quality
+
+##### Every subagent implementation source remains inside its complete package
+
+- Requirement: `subagents/package-references-stay-contained-and-complete`
+- Owner: `extension-content`
+- Statement: AXM shall validate every declared subagent source as a contained regular file, reject escaped and missing sources, and require all sources to survive publication filtering even when an implementation is not selected for the current workspace.
+- Class: quality (security)
+- Role: interface
+- Product goals: `agent-interoperability`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real filesystem resolution proves symlink containment and regular-file requirements; filtered archive entries prove publication completeness.
+- Methods: example
+- Source: [`packages/core/extension-content/src/content/subagent-package-boundary.spec.ts`](../packages/core/extension-content/src/content/subagent-package-boundary.spec.ts)
 
 ### Goal: authoring-and-creation
 

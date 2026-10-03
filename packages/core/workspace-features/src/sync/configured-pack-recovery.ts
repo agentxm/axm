@@ -40,6 +40,7 @@ import {
   McpServerManager,
   PackManager,
   type McpConnectionInstallRequirements,
+  type ManagerRequirements,
 } from "@agentxm/workspace-kernel/materialization";
 import {
   makeConfiguredReleaseAgeEvaluation,
@@ -107,6 +108,7 @@ const recoveryStep = (args: {
   | McpServerManager
   | PackManager
   | WorkspaceLocation
+  | ManagerRequirements
 > =>
   Effect.gen(function* () {
     const { ref, adapter } = args;

@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-export { SubagentContentUnreadable, SubagentDefinitionInvalid } from "./errors.js";
+export { SubagentDefinitionInvalid, SubagentNativeConflict } from "./errors.js";
 export { planSubagentInstall, type SubagentInstallIntent } from "./lifecycle/install/plan.js";
 export {
   parseSubagentUninstallRequest,

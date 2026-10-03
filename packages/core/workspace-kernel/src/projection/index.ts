@@ -288,6 +288,11 @@ export { diffAgentEntry, type DriftReport } from "./mcps/drift.js";
 // Subagent managed output
 export { managedSubagentFile } from "./subagents/managed-file.js";
 export {
+  compileSubagentImplementation,
+  type CompiledSubagentImplementation,
+  type SubagentImplementationMode,
+} from "./subagents/compile.js";
+export {
   managedSubagentRenderInput,
   renderManagedSubagentOutputs,
   subagentOwnershipBanner,

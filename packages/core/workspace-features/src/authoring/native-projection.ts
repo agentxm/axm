@@ -11,12 +11,13 @@ import {
   HookManager,
   KnowledgeManager,
   RuleManager,
+  SubagentManager,
   NO_MATERIALIZATION_OBSERVATION,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type MaterializationObservation,
 } from "@agentxm/workspace-kernel/materialization";
-import type { JobStepArtifact } from "@agentxm/workspace-kernel/operations";
+import type { JobStepArtifact, JobStepArtifactTarget } from "@agentxm/workspace-kernel/operations";
 import type {
   InstallArtifactPresentation,
   InstallChange,
@@ -27,18 +28,101 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AuthoringFailed } from "./errors.js";
 
+export type AuthoredNativeProjection = Pick<
+  JobStepArtifact,
+  "agentOutcomes" | "nativeLocations" | "targets"
+>;
+
+export const preflightAuthoredSubagentProjection = Effect.fn("Authoring.preflightSubagent")(
+  function* (args: {
+    readonly identity: ExtensionFqnParts;
+    readonly packageRoot: string;
+    readonly enabled: boolean;
+  }) {
+    if (!args.enabled) return yield* Effect.succeed<AuthoredNativeProjection>({});
+    const location = yield* WorkspaceLocation;
+    const { manifest } = yield* readExtensionManifest(args.packageRoot, "subagent").pipe(
+      Effect.mapError(
+        (cause) =>
+          new AuthoringFailed({
+            category: "validation",
+            detail: "Prepared subagent manifest is invalid",
+            cause,
+          }),
+      ),
+    );
+    if (manifest.owner !== args.identity.owner || manifest.name !== args.identity.name) {
+      return yield* new AuthoringFailed({
+        category: "validation",
+        detail: "Prepared subagent identity does not match the requested identity",
+      });
+    }
+    const manager = yield* SubagentManager;
+    const ref = {
+      refType: "workspace" as const,
+      type: "subagent" as const,
+      scope: location.scope,
+      owner: manifest.owner,
+      name: manifest.name,
+      version: manifest.version,
+      location: args.packageRoot,
+      sourceHash: yield* computePackageContentHash(args.packageRoot),
+      source: {
+        type: "workspace" as const,
+        owner: manifest.owner,
+        name: manifest.name,
+        extensionType: "subagent" as const,
+      },
+      subagent: { name: manifest.name, description: Option.fromUndefinedOr(manifest.description) },
+    };
+    const observation = yield* manager.projectionObservation(ref, { sourceRoot: args.packageRoot });
+    const outcomes = (observation.agentOutcomes ?? []).map((outcome) =>
+      outcome.outcome === "current" ? { ...outcome, outcome: "projected" as const } : outcome,
+    );
+    if (
+      outcomes.length > 0 &&
+      !outcomes.some((outcome) => outcome.outcome === "projected" || outcome.outcome === "current")
+    ) {
+      return yield* new AuthoringFailed({
+        category: "validation",
+        detail: `No configured runtime can materialize this subagent: ${outcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
+      });
+    }
+    const path = yield* Path.Path;
+    return {
+      agentOutcomes: outcomes,
+      nativeLocations: observation.nativeLocations ?? [],
+      targets: (observation.nativeLocations ?? []).map(
+        (unit) =>
+          ({
+            path: path.relative(location.baseDir, unit.address.path),
+            change:
+              unit.state === "created"
+                ? "created"
+                : unit.state === "unchanged"
+                  ? "unchanged"
+                  : "updated",
+            agentIds: unit.configuredConsumers,
+          }) satisfies JobStepArtifactTarget,
+      ),
+    } satisfies AuthoredNativeProjection;
+  },
+);
+
 /** Inspect staged content against final native destinations before publishing its source. */
 export const preflightAuthoredNativeProjection = (args: {
   readonly identity: ExtensionFqnParts;
   readonly packageRoot: string;
   readonly enabled: boolean;
 }): Effect.Effect<
-  void,
+  AuthoredNativeProjection,
   AuthoringFailed | ExtensionManagerFailure,
-  ManagerRequirements | RuleManager | HookManager | KnowledgeManager
+  ManagerRequirements | RuleManager | HookManager | KnowledgeManager | SubagentManager
 > =>
   Effect.gen(function* () {
-    if (!args.enabled || !["hook", "rule", "knowledge"].includes(args.identity.type)) return;
+    if (args.identity.type === "subagent") return yield* preflightAuthoredSubagentProjection(args);
+    if (!args.enabled || !["hook", "rule", "knowledge", "subagent"].includes(args.identity.type))
+      return {};
     const location = yield* WorkspaceLocation;
     const { manifest } = yield* readExtensionManifest(args.packageRoot, args.identity.type).pipe(
       Effect.mapError(
@@ -113,6 +197,7 @@ export const preflightAuthoredNativeProjection = (args: {
         );
         break;
     }
+    return {};
   });
 
 /** Attach actual native observations after the authored transition has settled. */
@@ -154,6 +239,9 @@ export const authoredNativeArtifact = (args: {
     });
     return {
       ...args.artifact,
+      ...(observation.agentOutcomes === undefined
+        ? {}
+        : { agentOutcomes: observation.agentOutcomes }),
       ...(observation.agents.length === 0 ? {} : { agents: observation.agents }),
       ...(observation.nativeLocations === undefined
         ? {}

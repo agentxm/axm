@@ -149,13 +149,9 @@ export const writeAuthoredSubagent = (
       name: fixture.name,
       version: fixture.version ?? "1.0.0",
       description,
+      core: { instructions: `src/${fixture.name}.md` },
     },
-    [
-      [
-        path.join("src", `${fixture.name}.md`),
-        `---\nname: ${fixture.name}\ndescription: ${description}\n---\n\n# ${fixture.name}\n`,
-      ],
-    ],
+    [[path.join("src", `${fixture.name}.md`), `# ${fixture.name}\n`]],
   );
 };
 

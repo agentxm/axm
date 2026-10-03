@@ -39,6 +39,7 @@ import {
   type CodingAgentRepositoryService,
 } from "./agents/coding-agent-repository.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
+import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import { observeConfiguredSkillLocations } from "./skill-location-observation.js";
 import { inspectDesiredMcpServer } from "./mcps/inspection.js";
 import type {
@@ -83,7 +84,11 @@ export const observeMaterializationCurrency = <E>({
   fs,
   path,
 }: ObservedMaterializationCurrencyArgs<E>): Effect.Effect<
-  { readonly current: boolean; readonly nativeLocations: ReadonlyArray<NativeLocationOutcome> },
+  {
+    readonly current: boolean;
+    readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+    readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
+  },
   MaterializationCurrencyFailure<E>,
   ProjectionParticipantRequirements
 > =>
@@ -103,6 +108,7 @@ export const observeMaterializationCurrency = <E>({
         {
           readonly current: boolean;
           readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+          readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
         },
         MaterializationCurrencyFailure<E>,
         ProjectionParticipantRequirements
@@ -112,10 +118,16 @@ export const observeMaterializationCurrency = <E>({
           if (resolvedRef.type !== "subagent" || subagentSourceRoot === undefined)
             return Effect.succeed({ current: false, nativeLocations: [] });
           return observeSubagent
-            .projectionObservation(resolvedRef, { sourceRoot: subagentSourceRoot })
+            .projectionObservation(resolvedRef, {
+              sourceRoot: subagentSourceRoot,
+              configuredAgents,
+            })
             .pipe(
               Effect.map((observation) => ({
                 current: false,
+                ...(observation.agentOutcomes === undefined
+                  ? {}
+                  : { agentOutcomes: observation.agentOutcomes }),
                 nativeLocations: (observation.nativeLocations ?? []).map(
                   (unit): NativeLocationOutcome => {
                     const { proof: _proof, ...facts } = unit;
@@ -146,12 +158,18 @@ export const observeMaterializationCurrency = <E>({
           return Effect.succeed({ current: true, nativeLocations: [] });
         if (node.type === "subagent") {
           return resolvedRef.type === "subagent"
-            ? observeSubagent.projectionObservation(resolvedRef).pipe(
-                Effect.map(({ current, nativeLocations }) => ({
-                  current,
-                  nativeLocations: nativeLocations ?? [],
-                })),
-              )
+            ? observeSubagent
+                .projectionObservation(resolvedRef, {
+                  configuredAgents,
+                  ...(subagentSourceRoot === undefined ? {} : { sourceRoot: subagentSourceRoot }),
+                })
+                .pipe(
+                  Effect.map(({ current, nativeLocations, agentOutcomes }) => ({
+                    current,
+                    ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
+                    nativeLocations: nativeLocations ?? [],
+                  })),
+                )
             : Effect.succeed({ current: false, nativeLocations: [] });
         }
         if (node.type === "mcp-server") {

@@ -10,7 +10,6 @@ const baseInput: SubagentRenderInput = {
     name: "code-reviewer",
     description: "Reviews code changes for quality",
   },
-  agentOverrides: undefined,
 };
 
 describe("renderMarkdownYaml", () => {
@@ -50,54 +49,6 @@ describe("renderMarkdownYaml", () => {
     expect(content).toContain("model: claude-opus-4-6");
     expect(content).toContain("disallowedTools: Edit,Write,Bash");
     expect(content).toContain("nested: 1");
-  });
-
-  describe("overrides", () => {
-    it("merges overrides on top of frontmatter", () => {
-      const result = renderMarkdownYaml({
-        ...baseInput,
-        agentOverrides: {
-          permissionMode: "acceptEdits",
-          effort: "high",
-        },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("permissionMode: acceptEdits");
-      expect(result.outputs[0]?.content).toContain("effort: high");
-    });
-
-    it("override replaces a frontmatter field", () => {
-      const result = renderMarkdownYaml({
-        ...baseInput,
-        frontmatter: { name: "code-reviewer", model: "haiku" },
-        agentOverrides: { model: "opus" },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain("model: opus");
-      expect(result.outputs[0]?.content).not.toContain("model: haiku");
-    });
-
-    it("null override removes a frontmatter field", () => {
-      const result = renderMarkdownYaml({
-        ...baseInput,
-        frontmatter: {
-          name: "code-reviewer",
-          disallowedTools: "Edit,Write,Bash",
-        },
-        agentOverrides: { disallowedTools: null },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).not.toContain("disallowedTools");
-    });
-
-    it("null override on absent field is a no-op", () => {
-      const result = renderMarkdownYaml({
-        ...baseInput,
-        agentOverrides: { neverEmitted: null },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).not.toContain("neverEmitted");
-    });
   });
 
   describe("native filenames independent of agent paths", () => {

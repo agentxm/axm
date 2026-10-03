@@ -130,7 +130,7 @@ describe("Forking a managed package", () => {
         });
 
         // Everything the fork did not have to rewrite is byte-identical.
-        const targetBody = bodyFile(row.type, "custom");
+        const targetBody = bodyFile(row.type, row.type === "subagent" ? "original" : "custom");
         const rewritten = new Set([row.manifest, sourceBody, targetBody]);
         const withoutRewritten = (snapshot: Readonly<Record<string, string>>) =>
           Object.fromEntries(
@@ -143,7 +143,7 @@ describe("Forking a managed package", () => {
         if (sourceBody !== undefined && targetBody !== undefined) {
           const originalContent = fs.readFileSync(nodePath.join(original, sourceBody), "utf8");
           const copiedContent = created.read(`${row.plural}/custom/${targetBody}`);
-          if (row.type === "skill" || row.type === "subagent") {
+          if (row.type === "skill") {
             const originalBoundary = originalContent.indexOf("\n---\n");
             const copiedBoundary = (copiedContent ?? "").indexOf("\n---\n");
             expect(originalBoundary).toBeGreaterThan(0);
@@ -166,9 +166,10 @@ describe("Forking a managed package", () => {
         });
         expect(created.lockfileText()).not.toContain("custom:");
         if (row.type === "subagent") {
-          expect(created.read("subagents/custom/src/custom.md")).toContain("name: custom");
-          expect(created.read("subagents/custom/src/custom.md")).toContain("model: fast");
-          expect(created.exists("subagents/custom/src/original.md")).toBe(false);
+          expect(created.read("subagents/custom/src/original.md")).toBe(
+            fs.readFileSync(nodePath.join(original, "src/original.md"), "utf8"),
+          );
+          expect(created.exists("subagents/custom/src/custom.md")).toBe(false);
         }
         if (row.type === "skill") {
           expect(created.read("skills/custom/src/SKILL.md")).toContain("name: custom");

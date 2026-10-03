@@ -53,9 +53,11 @@
   "dependencies": {
     "@agentxm/extension-model": "workspace:^",
     "effect": "catalog:",
+    "smol-toml": "catalog:",
     "yaml": "catalog:"
   },
   "devDependencies": {
+    "@agentxm/specification-metadata": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/vitest": "catalog:",
     "@typescript/native": "catalog:",

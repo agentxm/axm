@@ -80,6 +80,8 @@ const manifestFor = (
     license: "MIT",
   };
   switch (row.type) {
+    case "subagent":
+      return { ...base, core: { instructions: `src/${fixture.name}.md` } };
     case "hook":
       return {
         ...base,
@@ -124,7 +126,7 @@ const writeBody = (row: AuthoringType, packageRoot: string, fixture: PackageFixt
     case "subagent":
       writeFileAt(
         nodePath.join(packageRoot, "src", `${fixture.name}.md`),
-        `---\nname: ${fixture.name}\nmodel: fast\ndescription: ${fixture.description}\n---\n\n# ${fixture.name}\n`,
+        `# ${fixture.name}\n\n${fixture.description}\n`,
       );
       return;
     case "rule":

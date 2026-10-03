@@ -972,6 +972,7 @@ export const planPackInstall: (
       | SkillManager
       | SubagentManager
       | WorkspaceLocation
+      | InstallStepRequirements
     > =>
       ref.type === "pack"
         ? Effect.succeed(
@@ -993,6 +994,10 @@ export const planPackInstall: (
               desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
             nonInteractive: intent.nonInteractive,
             strictAgentSync: true,
+            desiredEnabled:
+              proposedGraph.nodes.find(
+                (node) => node.type === ref.type && node.name === targetFromRef(ref).name,
+              )?.enabled ?? preservedPackActivation,
             toStepFailure: conversion.toStepFailure,
           }),
     { concurrency: 1 },

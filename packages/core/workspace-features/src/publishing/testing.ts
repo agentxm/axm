@@ -164,8 +164,9 @@ const manifestBody = (
       return { ...common, format: { name: "okf", version: "0.2" }, bundleRoot: "src" };
     case "pack":
       return { ...common, dependencies: fixture.dependencies ?? {} };
-    case "skill":
     case "subagent":
+      return { ...common, core: { instructions: `src/${fixture.name}.md` } };
+    case "skill":
     case "rule":
       return common;
   }
@@ -185,12 +186,7 @@ const contentFiles = (
         ],
       ];
     case "subagent":
-      return [
-        [
-          nodePath.join("src", `${fixture.name}.md`),
-          `---\nname: ${fixture.name}\ndescription: ${description}\n---\n\n# ${fixture.name}\n`,
-        ],
-      ];
+      return [[nodePath.join("src", `${fixture.name}.md`), `# ${fixture.name}\n`]];
     case "rule":
       return [[nodePath.join("src", "RULE.md"), `Guidance for ${fixture.name}: ${description}\n`]];
     case "hook":

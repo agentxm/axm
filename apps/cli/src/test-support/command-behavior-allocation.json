@@ -7971,6 +7971,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source-agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -8032,6 +8040,10 @@
           "details": [
             "Source grammar, discovery, eligibility, authorship and transport behavior have distinct authority."
           ]
+        },
+        {
+          "parameters": ["flag:source-agent"],
+          "requirements": ["cli/subagents/import/preserves-native-implementation-authority"]
         }
       ]
     },
@@ -8418,6 +8430,14 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "render",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -8450,6 +8470,10 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:render"],
+          "requirements": ["cli/subagents/show/renders-selected-runtime-without-mutation"]
         }
       ]
     },

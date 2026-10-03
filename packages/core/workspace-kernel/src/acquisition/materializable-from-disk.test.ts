@@ -106,6 +106,8 @@ layer(NodeServices.layer, { excludeTestServices: true })(
             type: "subagent",
             name: "planner",
             version: "1.0.0",
+            description: "Plan supplied work",
+            core: { instructions: "src/planner.md" },
           },
         );
 

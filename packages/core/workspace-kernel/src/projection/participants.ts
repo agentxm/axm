@@ -22,6 +22,7 @@ import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
+import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import type {
   DesiredStateReader,
   LockfileReader,
@@ -77,6 +78,7 @@ export interface ProjectionParticipant {
 
 /** What a subagent's owner reports about one rendered native profile. */
 export interface SubagentProjectionObservation {
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly nativeLocations?: ReadonlyArray<import("../locations/index.js").NativeLocationOutcome>;
   readonly present: boolean;
   readonly current: boolean;
@@ -89,7 +91,7 @@ export interface SubagentProjectionObservation {
 export interface SubagentProjectionObserver<E = ProjectionParticipantFailure> {
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
-    options?: { readonly sourceRoot: string },
+    options?: { readonly sourceRoot?: string; readonly configuredAgents?: ReadonlyArray<string> },
   ) => Effect.Effect<SubagentProjectionObservation, E, ProjectionParticipantRequirements>;
 }
 

@@ -39,7 +39,12 @@ const cases: ReadonlyArray<{
       version: "1.0.0",
     },
   }),
-  manifestCase("subagent", SubagentManifestSchema, { ...common, type: "subagent" }),
+  manifestCase("subagent", SubagentManifestSchema, {
+    ...common,
+    type: "subagent",
+    description: "Example subagent",
+    core: { instructions: "src/example.md" },
+  }),
   manifestCase("pack", PackManifestSchema, { ...common, type: "pack", dependencies: {} }),
   manifestCase("rule", RuleManifestSchema, { ...common, type: "rule" }),
   manifestCase("hook", HookManifestSchema, {

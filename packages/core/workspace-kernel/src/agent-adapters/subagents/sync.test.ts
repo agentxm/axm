@@ -4,6 +4,8 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import { nativeSubagentMarker } from "./sync.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "../agents/coding-agent.js";
@@ -40,7 +42,6 @@ const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
     name,
     description: "A test subagent for unit tests.",
   },
-  agentOverrides: undefined,
   ownershipBanner,
 });
 
@@ -505,4 +506,14 @@ describe("overwrite behavior", () => {
       }).pipe(Effect.scoped),
     ),
   );
+});
+
+describe("native subagent ownership parsing", () => {
+  it("reads the marker after CRLF native frontmatter", () => {
+    const raw = `---\r\nname: reviewer\r\ndescription: Review\r\n---\r\n${ownershipBanner.markdown}\r\nBody.\r\n`;
+    expect(Option.getOrUndefined(nativeSubagentMarker(raw, "reviewer.md"))).toMatchObject({
+      ext: "@acme/subagents/test-subagent",
+      src: "src/test-subagent.md",
+    });
+  });
 });

@@ -38,7 +38,9 @@ const gitSourceLockFieldsBase = (
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
 ) => {
-  const path = Option.orElse(selectedPath, () => source.subPath);
+  const path = Option.orElse(selectedPath, () => source.subPath).pipe(
+    Option.filter((value) => value !== "" && value !== "."),
+  );
   return {
     source: {
       type: "git" as const,

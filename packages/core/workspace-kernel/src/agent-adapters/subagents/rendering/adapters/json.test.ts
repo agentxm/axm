@@ -10,7 +10,6 @@ const baseInput: SubagentRenderInput = {
     name: "code-reviewer",
     description: "Reviews code changes",
   },
-  agentOverrides: undefined,
 };
 
 describe("renderJson", () => {
@@ -56,32 +55,6 @@ describe("renderJson", () => {
     const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
     expect(parsed.tools).toEqual(["read", "web"]);
     expect(parsed.nested).toEqual({ a: 1 });
-  });
-
-  describe("overrides", () => {
-    it("merges overrides on top", () => {
-      const result = renderJson({
-        ...baseInput,
-        agentOverrides: { keyboardShortcut: "ctrl+r" },
-      });
-      if (result._tag !== "Rendered") return;
-      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-      expect(parsed.keyboardShortcut).toBe("ctrl+r");
-    });
-
-    it("null override removes a frontmatter field", () => {
-      const result = renderJson({
-        ...baseInput,
-        frontmatter: {
-          name: "code-reviewer",
-          tools: ["read", "web"],
-        },
-        agentOverrides: { tools: null },
-      });
-      if (result._tag !== "Rendered") return;
-      const parsed = JSON.parse(result.outputs[0]?.content ?? "{}");
-      expect(parsed.tools).toBeUndefined();
-    });
   });
 
   it("produces valid JSON", () => {

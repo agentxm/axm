@@ -114,14 +114,14 @@ export const acquireCanonicalForRef = <E = never>(
     }
 
     const parentReceipt =
-      args.stage === undefined && args.nativeInsertionEligible === true
+      args.stage === undefined
         ? {
             prepareParents: prepareCanonicalParents({
               canonicalPath:
                 ref.refType === "registry"
                   ? args.canonicalPath
                   : (args.external?.targetPath ?? args.canonicalPath),
-              eligible: true,
+              eligible: args.nativeInsertionEligible === true,
             }),
           }
         : {};

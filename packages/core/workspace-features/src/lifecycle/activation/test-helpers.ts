@@ -51,6 +51,12 @@ const manifestFor = (type: ExtensionType, name: string): Readonly<Record<string,
         entrypoint: "src/hook.sh",
         bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
       };
+    case "subagent":
+      return {
+        ...base,
+        description: `The ${name} subagent.`,
+        core: { instructions: `src/${name}.md` },
+      };
     case "knowledge":
       return { ...base, format: { name: "okf", version: "0.2" }, bundleRoot: "src" };
     case "mcp-server":
@@ -87,12 +93,7 @@ const contentFor = (
         ["src/SKILL.md", `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\n# ${name}\n`],
       ];
     case "subagent":
-      return [
-        [
-          `src/${name}.md`,
-          `---\nname: ${name}\ndescription: The ${name} subagent.\n---\n\n# ${name}\n`,
-        ],
-      ];
+      return [[`src/${name}.md`, `# ${name}\n`]];
     case "rule":
       return [["src/RULE.md", `Guidance for ${name}.\n`]];
     case "hook":

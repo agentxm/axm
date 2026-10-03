@@ -38,4 +38,24 @@ describe("gitSourceLockFields", () => {
       treeIntegrity,
     });
   });
+  it.each(["", "."])("omits the repository root subpath %j", (selected) => {
+    const fields = gitSourceLockFields(
+      {
+        type: "git",
+        url: new URL("https://github.com/acme/extensions.git"),
+        ref: Option.none(),
+        subPath: Option.none(),
+      },
+      Option.some(selected),
+      "commit-1",
+      "tree-1",
+      decodeHandleSync("@acme"),
+      decodeExtensionNameSync("review"),
+      Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${"0".repeat(64)}`),
+    );
+    expect(fields.source).toEqual({
+      type: "git",
+      url: new URL("https://github.com/acme/extensions.git"),
+    });
+  });
 });

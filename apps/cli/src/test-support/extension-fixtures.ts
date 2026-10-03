@@ -116,10 +116,11 @@ export const writeLocalSubagentPackage = (
     name: fixture.name,
     version: fixture.version ?? "1.0.0",
     description,
+    core: { instructions: `src/${fixture.name}.md` },
   });
   resolveSpecWorkspaceStorage(workspace).files.writeFile(
     path.join(packageRoot, "src", `${fixture.name}.md`),
-    `---\nname: ${fixture.name}\ndescription: ${description}\n---\n\n# ${fixture.name}\n`,
+    `# ${fixture.name}\n`,
   );
   return packageRoot;
 };

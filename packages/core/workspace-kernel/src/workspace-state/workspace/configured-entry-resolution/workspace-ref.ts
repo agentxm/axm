@@ -163,7 +163,6 @@ export const resolveWorkspaceExtensionRef = (args: {
             name: manifest.name,
             description: Option.fromUndefinedOr(manifest.description),
           },
-          ...(manifest.fallback === undefined ? {} : { fallback: manifest.fallback }),
         };
       case "rule":
         return {

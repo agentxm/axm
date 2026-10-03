@@ -41,6 +41,7 @@ import {
   extensionName,
   handle,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { SourceHostProvidersTest } from "@agentxm/workspace-kernel/sources/testing";
 import { SubagentManagerLive } from "./manager.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 
@@ -48,11 +49,7 @@ import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-t
 // Test helpers
 // ---------------------------------------------------------------------------
 
-const makeLocalSubagentRef = (
-  name: string,
-  sourcePath: string,
-  fallback?: "auto" | "none",
-): LocalSubagentRef => ({
+const makeLocalSubagentRef = (name: string, sourcePath: string): LocalSubagentRef => ({
   type: "subagent",
   refType: "local",
   owner: handle("@acme"),
@@ -64,11 +61,10 @@ const makeLocalSubagentRef = (
   source: { type: "local", path: sourcePath },
   location: `file://${sourcePath}`,
   sourcePath: `sources/${name}`,
-  ...(fallback === undefined ? {} : { fallback }),
 });
 
 const makeSubagentContent = (name: string, description: string) =>
-  `---\nname: ${name}\ndescription: ${description}\n---\n\nYou are a ${name}.`;
+  `You are a ${name}. ${description}`;
 
 const writeSubagentPackage = (packageRoot: string, name: string, description: string) => {
   nodeFs.mkdirSync(nodePath.join(packageRoot, "src"), { recursive: true });
@@ -79,6 +75,8 @@ const writeSubagentPackage = (packageRoot: string, name: string, description: st
       type: "subagent",
       name,
       version: "1.0.0",
+      description,
+      core: { instructions: `src/${name}.md` },
     }),
   );
   nodeFs.writeFileSync(
@@ -152,11 +150,7 @@ const makeTestLayer = (overrides?: {
     get: (id) => {
       const found = testAgents.find((a) => a.id === id);
       if (found === undefined) {
-        return Effect.fail({
-          _tag: "AppError",
-          code: "not_found",
-          message: `Agent ${id} not found`,
-        }) as never;
+        return Effect.die(new Error(`Agent ${id} not declared in fixture`));
       }
       return Effect.succeed(found);
     },
@@ -185,6 +179,7 @@ const makeTestLayer = (overrides?: {
     ),
     Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
     Layer.provide(agentRepoLayer),
+    Layer.provide(SourceHostProvidersTest()),
     Layer.provideMerge(
       Layer.mergeAll(
         Layer.provideMerge(RegistryTransportTest(FetchHttpClient.layer), NodeServices.layer),
@@ -286,8 +281,19 @@ describe("SubagentManager", () => {
       const sourceDir = nodePath.join(tmpDir, "source/planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");
       nodeFs.writeFileSync(
-        nodePath.join(sourceDir, "src/planner.md"),
-        "---\nname: planner\ndescription: Plans work\nagentOverrides:\n  claude-code:\n    model: first\n  cursor:\n    model: second\n---\nPlan carefully\n",
+        nodePath.join(sourceDir, "subagent.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "subagent",
+          name: "planner",
+          version: "1.0.0",
+          description: "Plans work",
+          core: { instructions: "src/planner.md" },
+          implementations: {
+            "claude-code": { kind: "customized", configuration: { model: "first" } },
+            cursor: { kind: "customized", configuration: { model: "second" } },
+          },
+        }),
       );
       const projectDir = nodePath.join(tmpDir, "project");
       const agents = [makeMockCodingAgent("claude-code"), makeMockCodingAgent("cursor")];
@@ -343,11 +349,11 @@ describe("SubagentManager", () => {
         const banner = addSubagentCalls[0]?.input.ownershipBanner;
         expect(banner?.markdown).toContain("ext=@acme/subagents/planner");
         expect(banner?.markdown).toContain(
-          "src=agent_extensions/path/@acme/subagents/planner/src/planner.md",
+          "src=agent_extensions/path/@acme/subagents/planner/subagent.json",
         );
         expect(banner?.toml).toContain("ext=@acme/subagents/planner");
         expect(banner?.toml).toContain(
-          "src=agent_extensions/path/@acme/subagents/planner/src/planner.md",
+          "src=agent_extensions/path/@acme/subagents/planner/subagent.json",
         );
       }).pipe(
         Effect.provide(
@@ -402,129 +408,51 @@ describe("SubagentManager", () => {
       );
     });
 
-    it.effect("degrades unsupported subagents to an explicitly reported role skill", () => {
+    it.effect("reports unsupported targets without creating a role Skill", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");
       const projectDir = nodePath.join(tmpDir, "project");
-      const axmDir = nodePath.join(projectDir, ".axm");
       const skillsDir = nodePath.join(projectDir, ".cline", "skills");
-      nodeFs.mkdirSync(axmDir, { recursive: true });
-      const fallbackAgent = makeMockCodingAgent("cline", {
-        addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+      const unsupportedAgent = makeMockCodingAgent("cline", {
         resolveEffectiveSkillsDir: () => Effect.succeed({ _tag: "supported", dir: skillsDir }),
       });
-
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
-        const ref = makeLocalSubagentRef("planner", sourceDir);
-        const facts = yield* manager.materializeInstall({ ref });
+        const facts = yield* manager.materializeInstall({
+          ref: makeLocalSubagentRef("planner", sourceDir),
+        });
         expect(facts.observation).toMatchObject({
-          agents: ["cline"],
-          targets: [
-            {
-              path: ".cline/skills/planner",
-              agentIds: ["cline"],
-            },
-          ],
+          agents: [],
+          targets: [],
+          agentOutcomes: [{ agentId: "cline", outcome: "unsupported" }],
         });
-        expect(facts.observation.nativeLocations?.[0]).toMatchObject({
-          ownership: "owned",
-          state: "created",
-          mechanism: "copied-directory",
-          policyReasons: [],
-        });
-        const accepted = yield* manager.acceptedResolution({
-          ref,
-          materialization: Option.some(facts),
-        });
-        const captured = Option.getOrUndefined(Option.map(accepted, ({ entry }) => entry));
-
-        const skillPath = nodePath.join(skillsDir, "planner", "SKILL.md");
-        if (!nodeFs.existsSync(skillPath)) {
-          throw new Error(
-            `polyfill missing; project entries: ${JSON.stringify(nodeFs.readdirSync(projectDir, { recursive: true }))}`,
-          );
-        }
-        const content = nodeFs.readFileSync(skillPath, "utf8");
-        expect(content).toContain("AXM managed projection");
-        expect(content).toContain("(acquired, immutable)");
-        expect(content).toContain("Use `axm fork`");
-        expect(content).not.toContain("Edit:");
-        expect(content).toContain("advisory role-skill fallback");
-        expect(captured).toHaveProperty("resolved.tree");
-        expect(captured).not.toHaveProperty("renderedFiles");
-        nodeFs.writeFileSync(nodePath.join(nodePath.dirname(skillPath), "personal.txt"), "Keep\n");
-        const removal = yield* manager.materializeDeactivate({
-          target: { type: "subagent", name: "planner" },
-        });
-        expect(nodeFs.existsSync(skillPath)).toBe(false);
-        expect(
-          nodeFs.readFileSync(nodePath.join(nodePath.dirname(skillPath), "personal.txt"), "utf8"),
-        ).toBe("Keep\n");
-        expect(removal.observation.nativeLocations?.[0]).toMatchObject({
-          state: "retained",
-          ownership: "unowned",
-        });
+        expect(nodeFs.existsSync(skillsDir)).toBe(false);
       }).pipe(
         Effect.provide(
-          makeTestLayer({
-            axmDir,
-            agents: [fallbackAgent],
-            configuredSubagents: { planner: { source: "path:sources/planner", enabled: true } },
-            lockedSubagents: {
-              planner: {
-                source: { type: "path", path: decodeRelativePathSync("sources/planner") },
-                identity: { owner: handle("@acme"), name: extensionName("planner") },
-                resolved: { tree: TEST_CONTENT_IDENTITY },
-                treeIntegrity: TEST_TREE_INTEGRITY,
-              },
-            },
-          }),
+          makeTestLayer({ axmDir: nodePath.join(projectDir, ".axm"), agents: [unsupportedAgent] }),
         ),
       );
     });
 
-    it.effect("rejects role-skill degradation when fallback is none", () => {
-      const sourceDir = nodePath.join(tmpDir, "source", "planner-native-only");
+    it.effect("reports explicit empty coverage when no agent supports a native surface", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");
-      const projectDir = nodePath.join(tmpDir, "project-native-only");
-      const axmDir = nodePath.join(projectDir, ".axm");
+      const axmDir = nodePath.join(tmpDir, "project", ".axm");
       nodeFs.mkdirSync(axmDir, { recursive: true });
-      const fallbackAgent = makeMockCodingAgent("cline", {
+      const unsupportedAgent = makeMockCodingAgent("cline", {
         addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
+        resolveEffectiveSkillsDir: () =>
+          Effect.succeed({ _tag: "unsupported", reason: "no skills surface" }),
       });
 
       return Effect.gen(function* () {
         const manager = yield* SubagentManager;
-        const error = yield* manager
-          .materializeInstall({ ref: makeLocalSubagentRef("planner", sourceDir, "none") })
-          .pipe(Effect.flip);
-        expect(describeTestFailure(error)).toContain("fallback is none");
-      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [fallbackAgent] })));
-    });
-
-    it.effect(
-      "reports applicable empty coverage when no agent supports a native or fallback surface",
-      () => {
-        const sourceDir = nodePath.join(tmpDir, "source", "planner");
-        writeSubagentPackage(sourceDir, "planner", "Plans work");
-        const axmDir = nodePath.join(tmpDir, "project", ".axm");
-        nodeFs.mkdirSync(axmDir, { recursive: true });
-        const unsupportedAgent = makeMockCodingAgent("cline", {
-          addSubagent: () => Effect.succeed({ _tag: "unsupported", reason: "no native surface" }),
-          resolveEffectiveSkillsDir: () =>
-            Effect.succeed({ _tag: "unsupported", reason: "no skills surface" }),
+        const facts = yield* manager.materializeInstall({
+          ref: makeLocalSubagentRef("planner", sourceDir),
         });
-
-        return Effect.gen(function* () {
-          const manager = yield* SubagentManager;
-          const facts = yield* manager.materializeInstall({
-            ref: makeLocalSubagentRef("planner", sourceDir),
-          });
-          expect(facts.observation).toMatchObject({ agents: [], targets: [] });
-        }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [unsupportedAgent] })));
-      },
-    );
+        expect(facts.observation).toMatchObject({ agents: [], targets: [] });
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [unsupportedAgent] })));
+    });
   });
 
   describe("materializeUninstall", () => {

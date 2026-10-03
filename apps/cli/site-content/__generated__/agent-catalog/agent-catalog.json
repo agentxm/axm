@@ -4383,7 +4383,7 @@
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
               "No vendor runtime or AXM writer execution was performed.",
               "Detailed definition/frontmatter grammar was not revalidated.",
-              "Native nested AGENTS.md profile writing is unverified; AXM can offer a role Skill fallback.",
+              "Native nested AGENTS.md profile writing is unverified.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]
           }
@@ -6895,7 +6895,7 @@
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, hook, instructions, permissions.",
               "No vendor runtime or AXM writer execution was performed.",
-              "Native ownership is unverified; AXM can offer a role Skill fallback.",
+              "Native ownership is unverified.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]
           }
@@ -7792,7 +7792,7 @@
               "Capability mechanics not revalidated in this review: skill, mcp-server, instructions, permissions.",
               "No vendor runtime or AXM writer execution was performed.",
               "Full V3 permission and MCP dialects were not revalidated.",
-              "Native ownership is unverified; AXM can offer a role Skill fallback.",
+              "Native ownership is unverified.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]
           }
@@ -11773,7 +11773,7 @@
               "Documentation and public source review only; no vendor runtime execution or AXM configuration verification.",
               "The existing Roo retirement date was not independently reverified. The former homepage redirects to Roomote, which says it is built by Roo Code creators and currently uses OpenCode; this is not evidence that Roo Code resumed.",
               "Capability mechanics not revalidated in this review: skill, mcp-server, subagent, hook, instructions, permissions.",
-              "Native ownership is unverified; AXM can offer a role Skill fallback.",
+              "Native ownership is unverified.",
               "No scoped native capability review is recorded.",
               "No attributable AXM execution verification is recorded; a legacy date does not establish execution."
             ]

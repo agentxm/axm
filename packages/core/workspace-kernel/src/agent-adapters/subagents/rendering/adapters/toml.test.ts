@@ -10,7 +10,6 @@ const baseInput: SubagentRenderInput = {
     name: "code-reviewer",
     description: "Reviews code changes",
   },
-  agentOverrides: undefined,
 };
 
 describe("renderToml", () => {
@@ -50,54 +49,5 @@ describe("renderToml", () => {
     const content = result.outputs[0]?.content ?? "";
     expect(content).toContain('sandbox_mode = "read-only"');
     expect(content).toContain('model = "gpt-5-codex"');
-  });
-
-  describe("overrides", () => {
-    it("override replaces a frontmatter field", () => {
-      const result = renderToml({
-        ...baseInput,
-        frontmatter: {
-          name: "code-reviewer",
-          sandbox_mode: "read-only",
-        },
-        agentOverrides: { sandbox_mode: "workspace-write" },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain('sandbox_mode = "workspace-write"');
-      expect(result.outputs[0]?.content).not.toContain('sandbox_mode = "read-only"');
-    });
-
-    it("adds new fields from overrides", () => {
-      const result = renderToml({
-        ...baseInput,
-        agentOverrides: { model_reasoning_effort: "high" },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).toContain('model_reasoning_effort = "high"');
-    });
-
-    it("null override removes a frontmatter field", () => {
-      const result = renderToml({
-        ...baseInput,
-        frontmatter: {
-          name: "code-reviewer",
-          sandbox_mode: "read-only",
-        },
-        agentOverrides: { sandbox_mode: null },
-      });
-      if (result._tag !== "Rendered") return;
-      expect(result.outputs[0]?.content).not.toContain("sandbox_mode");
-    });
-
-    it("preserves boolean and number values without quoting", () => {
-      const result = renderToml({
-        ...baseInput,
-        agentOverrides: { verbose: true, retries: 3 },
-      });
-      if (result._tag !== "Rendered") return;
-      const content = result.outputs[0]?.content ?? "";
-      expect(content).toContain("verbose = true");
-      expect(content).toContain("retries = 3");
-    });
   });
 });

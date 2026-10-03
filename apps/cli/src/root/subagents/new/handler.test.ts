@@ -119,7 +119,8 @@ describe("subagents-new.handler", () => {
           );
           expect(fs.existsSync(subagentMdPath)).toBe(true);
           const subagentMd = fs.readFileSync(subagentMdPath, "utf-8");
-          expect(subagentMd).toContain("name: my-subagent");
+          expect(manifest.core).toEqual({ instructions: "src/my-subagent.md" });
+          expect(subagentMd).toContain("evidence-backed findings");
 
           // Verify settings registration
           const settingsPath = path.join(tempDir, "axm.json");
@@ -186,6 +187,11 @@ describe("subagents-new.handler", () => {
                 {
                   path: "axm.json",
                   change: "created",
+                },
+                {
+                  path: ".claude/agents/machine-subagent.md",
+                  change: "created",
+                  agentIds: ["claude-code"],
                 },
               ],
             },
@@ -326,7 +332,7 @@ describe("subagents-new.handler", () => {
   });
 
   describe("<name>.md content", () => {
-    it.effect("writes <name>.md with required name frontmatter and placeholder body", () => {
+    it.effect("writes portable instructions as plain Markdown", () => {
       const { provide } = makeLayers();
       initWorkspace(path.join(tempDir, ".axm"), { owner: "@acme" });
 
@@ -337,10 +343,8 @@ describe("subagents-new.handler", () => {
           const subagentMdPath = path.join(tempDir, "subagents", "my-tool", "src", "my-tool.md");
           const content = fs.readFileSync(subagentMdPath, "utf-8");
 
-          // Frontmatter has just `name`; body is the placeholder.
-          expect(content).toMatch(/^---\n/);
-          expect(content).toContain("name: my-tool");
-          expect(content).toContain("Describe what this subagent does");
+          expect(content).not.toMatch(/^---\n/);
+          expect(content).toContain("Review the assigned work carefully");
         }),
       );
     });

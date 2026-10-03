@@ -4,9 +4,14 @@ import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
+import { readSubagentPackage } from "@agentxm/extension-content";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import YAML from "yaml";
-import { managedSubagentRenderInput, renderManagedSubagentOutputs } from "../index.js";
+import {
+  compileSubagentImplementation,
+  managedSubagentRenderInput,
+  renderManagedSubagentOutputs,
+} from "../index.js";
 import { codingAgentForId } from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 
@@ -14,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "workspace/subagents/native-locations-respect-shape-and-proof",
   title: "Subagent output follows resolved native shape and requires ownership proof",
   statement:
-    "AXM shall place Subagent files under their resolved catalog directory, preserve authored native frontmatter and explicit agent overrides without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.",
+    "AXM shall place Subagent files under their resolved catalog directory, preserve selected native configuration and compile-time dependency currency without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -27,18 +32,198 @@ export const specification = defineSpecification({
 
 const managedFile = {
   ext: "@acme/subagents/review",
-  source: { kind: "workspace-authored", path: "subagents/review/src/review.md" },
+  source: { kind: "workspace-authored", path: "subagents/review/subagent.json" },
 } as const;
 const input = (agentId: string) => ({
   agentId,
   name: "review",
   body: "Review carefully",
   frontmatter: { name: "review", description: "Review" },
-  agentOverrides: undefined,
 });
 const services = Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive);
 
 describe("Native Subagent location contracts", () => {
+  it.effect("compiles portable identity and instructions without execution-policy defaults", () =>
+    Effect.gen(function* () {
+      const pkg = yield* readSubagentPackage({
+        manifest: {
+          owner: "@acme",
+          type: "subagent",
+          name: "review",
+          version: "1.0.0",
+          description: "Review changes",
+          core: { instructions: "prompts/review.md" },
+        },
+        readFile: () => Effect.succeed("Review carefully."),
+      });
+      for (const agentId of [
+        "claude-code",
+        "cursor",
+        "codex",
+        "antigravity",
+        "qoder-cn",
+        "mimo-code",
+      ]) {
+        const compiled = compileSubagentImplementation({ package: pkg, agentId, managedFile });
+        expect(compiled._tag).toBe("Compiled");
+        if (compiled._tag !== "Compiled") continue;
+        expect(compiled.mode).toBe("portable");
+        expect(compiled.outputs[0]?.content).toContain("Review carefully.");
+        expect(compiled.outputs[0]?.content).not.toMatch(
+          /permissionMode|sandbox_mode|tools:|model:/,
+        );
+        expect(compiled.sourceDependencies).toEqual(["subagent.json", "prompts/review.md"]);
+      }
+      expect(compileSubagentImplementation({ package: pkg, agentId: "kiro-cli" })._tag).toBe(
+        "Unsupported",
+      );
+      expect(compileSubagentImplementation({ package: pkg, agentId: "unknown" })._tag).toBe(
+        "Unsupported",
+      );
+    }),
+  );
+
+  it.effect(
+    "preserves complete native bytes and native names independently of the package name",
+    () =>
+      Effect.gen(function* () {
+        const native =
+          'name = "native-review"\ndescription = "Native description"\ndeveloper_instructions = "Native instructions"\n# Intentional formatting\nmodel = "host-model"\n';
+        const pkg = yield* readSubagentPackage({
+          manifest: {
+            owner: "@acme",
+            type: "subagent",
+            name: "review",
+            version: "1.0.0",
+            description: "Portable",
+            core: { instructions: "prompts/core.md" },
+            implementations: { codex: { kind: "native", source: "native/codex.toml" } },
+          },
+          readFile: (source) =>
+            Effect.succeed(source.endsWith("toml") ? native : "Unused portable instructions"),
+        });
+        const compiled = compileSubagentImplementation({
+          package: pkg,
+          agentId: "codex",
+          managedFile,
+        });
+        expect(compiled._tag).toBe("Compiled");
+        if (compiled._tag !== "Compiled") return;
+        expect(compiled.mode).toBe("native");
+        expect(compiled.nativeName).toBe("native-review");
+        expect(compiled.outputs[0]?.path).toBe("native-review.toml");
+        expect(compiled.outputs[0]?.content.endsWith(native)).toBe(true);
+        expect(compiled.outputs[0]?.content).not.toContain("Unused portable");
+        expect(compiled.sourceDependencies).toEqual(["subagent.json", "native/codex.toml"]);
+      }),
+  );
+
+  it.effect("qualifies known runtime references and leaves unrelated native fields opaque", () =>
+    Effect.gen(function* () {
+      const pkg = yield* readSubagentPackage({
+        manifest: {
+          owner: "@acme",
+          type: "subagent",
+          name: "review",
+          version: "1.0.0",
+          description: "Review",
+          core: { instructions: "prompts/core.md" },
+          implementations: {
+            codex: {
+              kind: "customized",
+              configuration: { model_instructions_file: "./instructions.md" },
+            },
+            cursor: {
+              kind: "customized",
+              configuration: { custom_field: "./label", model: "inherit" },
+            },
+          },
+        },
+        readFile: () => Effect.succeed("Review."),
+      });
+      expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
+        _tag: "Unsupported",
+        reasonCode: "subagent-runtime-reference-unresolved",
+      });
+      const cursor = compileSubagentImplementation({ package: pkg, agentId: "cursor" });
+      expect(cursor._tag).toBe("Compiled");
+      if (cursor._tag !== "Compiled") return;
+      expect(cursor.outputs[0]?.content).toContain("custom_field: ./label");
+    }),
+  );
+
+  it.effect("refuses bare and Windows-relative native runtime paths", () =>
+    Effect.gen(function* () {
+      for (const configuration of [
+        { command: "node", cwd: "scripts" },
+        { command: "node", cwd: "./scripts" },
+        { command: "node", cwd: "..\\scripts" },
+        { command: ".\\review.ps1" },
+      ]) {
+        const pkg = yield* readSubagentPackage({
+          manifest: {
+            owner: "@acme",
+            type: "subagent",
+            name: "review",
+            version: "1.0.0",
+            description: "Review",
+            core: { instructions: "core.md" },
+            implementations: {
+              codex: {
+                kind: "customized",
+                configuration: {
+                  mcp_servers: { helper: configuration },
+                },
+              },
+            },
+          },
+          readFile: () => Effect.succeed("Review."),
+        });
+        expect(compileSubagentImplementation({ package: pkg, agentId: "codex" })).toMatchObject({
+          _tag: "Unsupported",
+          reasonCode: "subagent-runtime-reference-unresolved",
+        });
+      }
+    }),
+  );
+
+  it.effect("ignores dormant implementation edits when computing selected generation", () =>
+    Effect.gen(function* () {
+      const makePackage = (dormant: string) =>
+        readSubagentPackage({
+          manifest: {
+            owner: "@acme",
+            type: "subagent",
+            name: "review",
+            version: "1.0.0",
+            description: "Review",
+            core: { instructions: "prompts/core.md" },
+            implementations: {
+              cursor: {
+                kind: "customized",
+                instructions: { mode: "append", source: "prompts/cursor.md" },
+              },
+            },
+          },
+          readFile: (source) => Effect.succeed(source.includes("cursor") ? dormant : "Review."),
+        });
+      const first = compileSubagentImplementation({
+        package: yield* makePackage("One"),
+        agentId: "claude-code",
+        managedFile,
+      });
+      const second = compileSubagentImplementation({
+        package: yield* makePackage("Two"),
+        agentId: "claude-code",
+        managedFile,
+      });
+      expect(first._tag).toBe("Compiled");
+      expect(second._tag).toBe("Compiled");
+      if (first._tag === "Compiled" && second._tag === "Compiled")
+        expect(first.outputs).toEqual(second.outputs);
+    }),
+  );
+
   it.effect("preserves another owner's same-named managed document on write and removal", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -47,7 +232,7 @@ describe("Native Subagent location contracts", () => {
       const file = path.join(root, ".claude/agents/review.md");
       yield* fs.makeDirectory(path.dirname(file), { recursive: true });
       const foreign =
-        "<!-- axm:file v=1 ext=@foreign/subagents/review src=subagents/review/src/review.md -->\nForeign owner\n";
+        "<!-- axm:file v=1 ext=@foreign/subagents/review src=subagents/review/subagent.json -->\nForeign owner\n";
       yield* fs.writeFileString(file, foreign);
       const agent = codingAgentForId("claude-code");
       const outcome = yield* agent.addSubagent({
@@ -138,8 +323,16 @@ describe("Native Subagent location contracts", () => {
         const cli = codingAgentForId("antigravity-cli");
         const replacement = {
           ...input(cli.id),
-          frontmatter: nativeFrontmatter,
-          agentOverrides: { model: "flash", tools: ["view_file"], mainAgent: null },
+          frontmatter: {
+            name: "review",
+            description: "Review",
+            subagent: true,
+            model: "flash",
+            tools: ["view_file"],
+            commandExecutionPolicy: "sandbox",
+            skills: ["review-guidelines"],
+            plugins: ["review-tools"],
+          },
           body: "Updated review instructions",
         };
         yield* cli.addSubagent({

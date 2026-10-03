@@ -308,13 +308,28 @@ export interface SubagentManagerService
   readonly materializeDeactivate: (args: {
     readonly target: ExtensionTargetFor<SubagentExtensionRef>;
   }) => Effect.Effect<SubagentMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
+  /** Package-specific coverage, distinct from the catalog's generic host capability. */
+  readonly configuredAgentOutcomesForRef: (
+    ref: SubagentExtensionRef,
+    state: "projected" | "current",
+    options?: {
+      readonly sourceRoot?: string;
+      readonly configuredAgents?: ReadonlyArray<string>;
+      readonly validateDestinations?: boolean;
+    },
+  ) => Effect.Effect<
+    ReadonlyArray<ConfiguredAgentOutcome>,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
   readonly projectionObservation: (
     ref: SubagentExtensionRef,
-    options?: { readonly sourceRoot: string },
+    options?: { readonly sourceRoot?: string; readonly configuredAgents?: ReadonlyArray<string> },
   ) => Effect.Effect<
     {
       readonly present: boolean;
       readonly current: boolean;
+      readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
       readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
     },
     ExtensionManagerFailure,

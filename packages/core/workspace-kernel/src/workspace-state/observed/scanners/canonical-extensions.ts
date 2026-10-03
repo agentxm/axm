@@ -91,14 +91,14 @@ export const makeCanonicalExtensionsScanner = (
  * without a fixed primary file return `null`.
  *
  * - `skill` → `SKILL.md` (fixed)
- * - `subagent` → `${name}.md` (e.g., `code-reviewer.md`)
+ * - `subagent` → `subagent.json` (package root)
  */
-const subjectFileNameFor = (type: ExtensionType, name: string): string | null => {
+const subjectFileNameFor = (type: ExtensionType): string | null => {
   switch (type) {
     case "skill":
       return "SKILL.md";
     case "subagent":
-      return `${name}.md`;
+      return "subagent.json";
     default:
       return null;
   }
@@ -125,7 +125,7 @@ const buildOccurrence = (
   Effect.gen(function* () {
     const { fs, path, layout, diagnostics } = deps;
     const resolvedName = args.name ?? path.basename(args.nameDir);
-    const subjectFileName = subjectFileNameFor(args.extensionType, resolvedName);
+    const subjectFileName = subjectFileNameFor(args.extensionType);
     const subjectFile =
       subjectFileName === null
         ? Option.none()
@@ -212,7 +212,7 @@ const inspectAcquiredDirectory = (
     if (Option.isSome(nativeIdentity)) {
       const identity = nativeIdentity.value;
       const contentDir =
-        identity.type === "pack" || identity.type === "mcp-server"
+        identity.type === "pack" || identity.type === "mcp-server" || identity.type === "subagent"
           ? dir
           : deps.path.join(dir, "src");
       const contentDirExists = yield* directoryExists(
@@ -354,7 +354,9 @@ const scanAuthoredType = (
       (packageDir) =>
         Effect.gen(function* () {
           const nameDir =
-            extensionType === "pack" || extensionType === "mcp-server"
+            extensionType === "pack" ||
+            extensionType === "mcp-server" ||
+            extensionType === "subagent"
               ? packageDir
               : deps.path.join(packageDir, "src");
           const present = yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, nameDir);

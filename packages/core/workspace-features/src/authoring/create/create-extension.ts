@@ -101,7 +101,11 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { authoredDeclaration } from "../authored-declaration.js";
-import { authoredNativeArtifact, preflightAuthoredNativeProjection } from "../native-projection.js";
+import {
+  authoredNativeArtifact,
+  preflightAuthoredNativeProjection,
+  type AuthoredNativeProjection,
+} from "../native-projection.js";
 import { AuthoringFailed } from "../errors.js";
 import { preflightCreateOnly } from "../create-preflight.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
@@ -195,6 +199,7 @@ export type CreatableExtensionType = CreateExtensionRequest["type"];
 
 /** What every step in this creation may require when it runs. */
 export type CreateExtensionRequirements =
+  | SubagentManager
   | RuleManager
   | HookManager
   | KnowledgeManager
@@ -598,19 +603,11 @@ export const prepareCreateExtension: (
     ),
   );
   const plannedNativeLocations = yield* inspectSkillDestinations;
-  const plannedArtifact: JobStepArtifact = {
-    path: authoredPath,
-    scope: locationService.scope,
-    version: scaffold.version,
-    change: "created",
-    fileCount: scaffold.contentFiles.length,
-    targets: [...contentTargets, settingsTarget, ...projectionTargets, ...agentConfigTargets],
-    ...(request.type === "skill" ? { nativeLocations: plannedNativeLocations } : {}),
-  };
 
   const nativePreflight = Effect.scoped(
     Effect.gen(function* () {
-      if (!["rule", "hook", "knowledge"].includes(request.type)) return;
+      if (!["rule", "hook", "knowledge", "subagent"].includes(request.type))
+        return yield* Effect.succeed<AuthoredNativeProjection>({});
       const fs = yield* FileSystem.FileSystem;
       const stagedPackage = yield* fs
         .makeTempDirectoryScoped({ prefix: "axm-create-preview-" })
@@ -625,14 +622,30 @@ export const prepareCreateExtension: (
           ),
         );
       yield* scaffold.populate(stagedPackage);
-      yield* preflightAuthoredNativeProjection({
+      return yield* preflightAuthoredNativeProjection({
         identity: { type: request.type, owner, name: extensionName },
         packageRoot: stagedPackage,
         enabled: true,
       });
     }),
   );
-  yield* nativePreflight;
+  const nativeProjection = yield* nativePreflight;
+  const plannedArtifact: JobStepArtifact = {
+    ...nativeProjection,
+    path: authoredPath,
+    scope: locationService.scope,
+    version: scaffold.version,
+    change: "created",
+    fileCount: scaffold.contentFiles.length,
+    targets: [
+      ...contentTargets,
+      settingsTarget,
+      ...projectionTargets,
+      ...agentConfigTargets,
+      ...(nativeProjection.targets ?? []),
+    ],
+    ...(request.type === "skill" ? { nativeLocations: plannedNativeLocations } : {}),
+  };
 
   const common = {
     toStepFailure: authoringStepFailure,
@@ -723,7 +736,14 @@ export const prepareCreateExtension: (
             subagent: { name: extensionName, description: Option.none() },
           },
           target: { type: "subagent", name },
-          buildArtifact: () => Effect.succeed(plannedArtifact),
+          buildArtifact: ({ change, materialization }) =>
+            authoredNativeArtifact({
+              type: "subagent",
+              artifact: plannedArtifact,
+              change,
+              projected: true,
+              materialization,
+            }),
         });
       case "rule":
         return authoredStep(yield* RuleManager, {

@@ -1,13 +1,12 @@
 /**
  * Subagent rendering engine.
  *
- * Maps agent IDs to format-family renderers and handles Kiro dual-format.
+ * Maps supported agent IDs to their native format serializers.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 export type {
-  AgentOverrides,
   OwnershipBannerText,
   SubagentRenderInput,
   SubagentRenderOutput,
@@ -18,8 +17,6 @@ export type {
 } from "./types.js";
 
 export { rendered, skipped } from "./types.js";
-
-export { applyOverrides } from "./overrides.js";
 
 export { renderMarkdownYaml } from "./adapters/markdown-yaml.js";
 export { renderToml } from "./adapters/toml.js";
@@ -38,11 +35,11 @@ import { renderToml } from "./adapters/toml.js";
 import { renderJson } from "./adapters/json.js";
 import type { SubagentRenderInput, SubagentRenderOutcome, SubagentRenderer } from "./types.js";
 import { rendered } from "./types.js";
+import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
 
 /**
  * Map of agent IDs to their subagent renderer function.
  *
- * Kiro is handled specially (dual-format) and is not in this map.
  * Roo Code is also special (mode entry, not file) and is not in this map.
  */
 const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
@@ -55,45 +52,34 @@ const rendererMap: Readonly<Record<string, SubagentRenderer>> = {
   opencode: renderMarkdownYaml,
   augment: renderMarkdownYaml,
   junie: renderMarkdownYaml,
-  "kilo-code": renderMarkdownYaml,
+  kilo: renderMarkdownYaml,
+  "kimi-cli": renderMarkdownYaml,
+  codebuddy: renderMarkdownYaml,
+  "mimo-code": renderMarkdownYaml,
+  kode: renderMarkdownYaml,
+  "codearts-agent": renderMarkdownYaml,
+  "iflow-cli": renderMarkdownYaml,
+  rovodev: renderMarkdownYaml,
+  "qwen-code": renderMarkdownYaml,
+  qoder: renderMarkdownYaml,
+  "qoder-cn": renderMarkdownYaml,
+  "grok-cli": renderMarkdownYaml,
+  "command-code": renderMarkdownYaml,
+  mux: renderMarkdownYaml,
   codex: renderToml,
   "kiro-cli": renderJson,
-};
-
-/**
- * Render a subagent for Kiro — produces two files (IDE .md + CLI .json).
- *
- * The IDE format uses the Markdown+YAML adapter; the CLI format uses
- * the JSON adapter.
- */
-const renderKiroDualFormat = (input: SubagentRenderInput): SubagentRenderOutcome => {
-  const ideInput: SubagentRenderInput = { ...input, agentId: "kiro" };
-  const cliInput: SubagentRenderInput = { ...input, agentId: "kiro" };
-
-  const ideResult = renderMarkdownYaml(ideInput);
-  const cliResult = renderJson(cliInput);
-
-  if (ideResult._tag === "Skipped") return ideResult;
-  if (cliResult._tag === "Skipped") return cliResult;
-
-  return rendered(
-    [...ideResult.outputs, ...cliResult.outputs],
-    [...ideResult.warnings, ...cliResult.warnings],
-  );
 };
 
 /**
  * Select the appropriate renderer for an agent ID.
  *
  * Returns undefined for agents that need special handling (roo).
- * Handles Kiro dual-format internally.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const selectSubagentRenderer = (agentId: string): SubagentRenderer | undefined => {
-  if (agentId === "kiro") return renderKiroDualFormat;
   if (agentId === "roo") return undefined;
-  return rendererMap[agentId] ?? renderMarkdownYaml;
+  return rendererMap[agentId];
 };
 
 /**
@@ -105,6 +91,27 @@ export const selectSubagentRenderer = (agentId: string): SubagentRenderer | unde
  * @experimental This API is unstable and may change without notice.
  */
 export const renderSubagent = (input: SubagentRenderInput): SubagentRenderOutcome | undefined => {
+  if (input.native !== undefined) {
+    const native = input.native;
+    const banner = input.ownershipBanner?.[native.format];
+    let content = native.content;
+    if (banner !== undefined) {
+      if (native.format === "toml") content = `${banner}\n${content}`;
+      else {
+        const frontmatter = /^(---\r?\n[\s\S]*?\r?\n---)(?:\r?\n|$)/u.exec(content);
+        content =
+          frontmatter === null
+            ? `${banner}\n${content}`
+            : `${frontmatter[1]}\n${banner}\n${content.slice(frontmatter[0].length)}`;
+      }
+    }
+    return rendered([
+      {
+        path: decodeRelativePathSync(`${input.name}.${native.format === "toml" ? "toml" : "md"}`),
+        content,
+      },
+    ]);
+  }
   const renderer = selectSubagentRenderer(input.agentId);
   if (renderer === undefined) return undefined;
   return renderer(input);

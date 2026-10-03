@@ -31,7 +31,6 @@ export class FrontmatterParseFailure extends Data.TaggedError("FrontmatterParseF
   readonly column?: number;
 }> {}
 
-const FRONTMATTER_DELIMITER = "---";
 export const FRONTMATTER_PARSE_FALLBACK_REASON = "YAML frontmatter could not be parsed";
 const FRONTMATTER_PARSE_REASON_MAX_CODE_POINTS = 256;
 
@@ -77,32 +76,14 @@ export const normalizeFrontmatterParseFailure = (
  */
 const findFrontmatterBoundaries = (
   content: string,
-): { yamlStart: number; bodyStart: number } | undefined => {
-  if (!content.startsWith(FRONTMATTER_DELIMITER)) {
-    return undefined;
-  }
-
-  const afterOpening = content.indexOf("\n");
-  if (afterOpening === -1) {
-    return undefined;
-  }
-
-  const closingIndex = content.indexOf(`\n${FRONTMATTER_DELIMITER}`, afterOpening);
-  if (closingIndex === -1) {
-    return undefined;
-  }
-
-  const closingEnd = closingIndex + 1 + FRONTMATTER_DELIMITER.length;
-  const bodyStart = content.startsWith("\r\n", closingEnd)
-    ? closingEnd + 2
-    : content[closingEnd] === "\n"
-      ? closingEnd + 1
-      : closingEnd;
-
-  return {
-    yamlStart: afterOpening + 1,
-    bodyStart,
-  };
+): { yamlStart: number; yamlEnd: number; bodyStart: number } | undefined => {
+  const opening = /^---\r?\n/u.exec(content);
+  if (opening === null) return undefined;
+  const yamlStart = opening[0].length;
+  const closing = /^---(?:\r?\n|$)/mu.exec(content.slice(yamlStart));
+  if (closing === null) return undefined;
+  const yamlEnd = yamlStart + closing.index;
+  return { yamlStart, yamlEnd, bodyStart: yamlEnd + closing[0].length };
 };
 
 /**
@@ -118,10 +99,10 @@ export const parseFrontmatterSync = (content: string): FrontmatterResult => {
     return { frontmatter: undefined, body: content };
   }
 
-  const yamlContent = content.slice(boundaries.yamlStart, boundaries.bodyStart).split("---")[0];
+  const yamlContent = content.slice(boundaries.yamlStart, boundaries.yamlEnd);
   const frontmatter: unknown = (() => {
     try {
-      return YAML.parse(yamlContent ?? "");
+      return YAML.parse(yamlContent);
     } catch (error) {
       const documentLineOffset = content.slice(0, boundaries.yamlStart).split("\n").length - 1;
       throw normalizeFrontmatterParseFailure(error, documentLineOffset);

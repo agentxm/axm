@@ -137,7 +137,8 @@ describe("fork and native import", () => {
       configureOwner(temp.path);
 
       const nativeFile = path.join(temp.path, "reviewer.md");
-      const original = "---\nname: native-reviewer\nmodel: fast\n---\n\nReview carefully.\n";
+      const original =
+        "---\nname: native-reviewer\ndescription: Review evidence\nmodel: fast\n---\n\nReview carefully.\n";
       fs.writeFileSync(nativeFile, original);
 
       const mismatched = await runCli(
@@ -149,7 +150,15 @@ describe("fork and native import", () => {
       expect(fs.existsSync(path.join(temp.path, "subagents", "wrong-group"))).toBe(false);
 
       const imported = await runCli(
-        ["subagents", "import", nativeFile, "@test/subagents/reviewer", "--non-interactive"],
+        [
+          "subagents",
+          "import",
+          nativeFile,
+          "@test/subagents/reviewer",
+          "--source-agent",
+          "claude-code",
+          "--non-interactive",
+        ],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -159,10 +168,10 @@ describe("fork and native import", () => {
       ).toMatchObject({ owner: "@test", type: "subagent", name: "reviewer", version: "0.1.0" });
       expect(
         fs.readFileSync(
-          path.join(temp.path, "subagents", "reviewer", "src", "reviewer.md"),
+          path.join(temp.path, "subagents", "reviewer", "native", "claude-code", "reviewer.md"),
           "utf8",
         ),
-      ).toContain("name: reviewer");
+      ).toBe(original);
     } finally {
       temp.cleanup();
     }

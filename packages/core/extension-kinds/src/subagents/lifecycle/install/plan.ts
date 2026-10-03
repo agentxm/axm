@@ -1,9 +1,8 @@
 /**
  * Installing subagents.
  *
- * A subagent is rendered into each configured agent's own subagents
- * directory, so a user-scope workspace can only hold one when every
- * configured agent has a user-scope placement to render into.
+ * A subagent renders its selected implementation for each compatible
+ * configured target and reports unsupported targets explicitly.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -24,9 +23,11 @@ import {
 import {
   operationPresentation,
   type Plan,
+  type PlannedJobStep,
   type ExtensionLifecycleFailed,
   installRefused,
 } from "@agentxm/workspace-kernel/operations";
+import { DesiredStateReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 
 import { prepareSubagentInstallations } from "../application/installation.js";
 import { subagentInstallationFacts } from "../adapters/installation.js";
@@ -47,30 +48,73 @@ export const planSubagentInstall: (
   InstallStepRequirements | SubagentManager
 > = Effect.fn("InstallExtensions.planSubagents")(function* (intent: SubagentInstallIntent) {
   const subagentManager = yield* SubagentManager;
+  const location = yield* WorkspaceLocation;
+  const prior = yield* (yield* DesiredStateReader).graph().pipe(
+    Effect.mapError((cause) => {
+      const failure = kernelFailureToStepFailure(cause);
+      return installRefused({ category: failure.category, detail: failure.detail, cause });
+    }),
+  );
   const prepared = yield* prepareSubagentInstallations(
     subagentInstallationFacts,
     intent.subagentsToInstall,
-  ).pipe(
-    Effect.catchTag("SubagentPlacementUnavailable", (error) =>
-      installRefused({ category: "validation", detail: error.reason }),
-    ),
   );
-  const steps = prepared.map((entry) =>
-    buildInstallOperation(subagentManager, {
-      toStepFailure: kernelFailureToStepFailure,
-      ref: entry.ref,
-      declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
-      force: intent.force === true,
-      buildArtifact: ({ change, materialization }) =>
-        Effect.succeed(
-          entry.buildArtifact({
-            change,
-            observation: Option.match(materialization, {
-              onNone: () => NO_MATERIALIZATION_OBSERVATION,
-              onSome: (facts) => facts.observation,
-            }),
+  const steps = yield* Effect.forEach(prepared, (entry) =>
+    Effect.gen(function* () {
+      const enabled =
+        prior.nodes.find(
+          (node) => node.type === "subagent" && node.name === entry.ref.subagent.name,
+        )?.enabled !== false;
+      const outcomes = yield* subagentManager
+        .configuredAgentOutcomesForRef(entry.ref, "projected", { validateDestinations: enabled })
+        .pipe(
+          Effect.mapError((cause) => {
+            const failure = kernelFailureToStepFailure(cause);
+            return installRefused({ category: failure.category, detail: failure.detail, cause });
           }),
-        ),
+        );
+      const step = buildInstallOperation(
+        enabled
+          ? subagentManager
+          : { ...subagentManager, materializeInstall: subagentManager.acquireCanonical },
+        {
+          toStepFailure: kernelFailureToStepFailure,
+          ref: entry.ref,
+          declaration: { name: entry.ref.subagent.name, versionRange: entry.versionRange },
+          force: intent.force === true,
+          plannedArtifact: {
+            path: entry.ref.subagent.name,
+            scope: location.scope,
+            change: "updated",
+            agentOutcomes: outcomes,
+          },
+          buildArtifact: ({ change, materialization }) =>
+            Effect.succeed(
+              entry.buildArtifact({
+                change,
+                observation: Option.match(materialization, {
+                  onNone: () => NO_MATERIALIZATION_OBSERVATION,
+                  onSome: (facts) => facts.observation,
+                }),
+              }),
+            ),
+        },
+      );
+      if (
+        enabled &&
+        outcomes.length > 0 &&
+        !outcomes.some(
+          (outcome) => outcome.outcome === "projected" || outcome.outcome === "current",
+        )
+      ) {
+        return {
+          ...step,
+          readiness: "error",
+          errorMessage: `No configured runtime can realize subagent ${entry.ref.subagent.name}: ${outcomes.map((outcome) => `${outcome.agentId}: ${outcome.reason}`).join("; ")}`,
+          agentOutcomes: outcomes,
+        } satisfies PlannedJobStep<InstallStepRequirements>;
+      }
+      return { ...step, agentOutcomes: outcomes };
     }),
   );
 

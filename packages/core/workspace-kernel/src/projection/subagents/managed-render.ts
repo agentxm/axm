@@ -26,10 +26,11 @@ export interface ManagedSubagentRenderArgs {
 export const subagentProjectionGeneration = (args: ManagedSubagentRenderArgs): string => {
   const rendered = renderSubagent({ ...args.input, ownershipBanner: undefined });
   return projectionGeneration([
-    "subagent-document-v2",
+    "subagent-implementation-v1",
     args.managedFile.ext,
     args.managedFile.source.kind,
     args.managedFile.source.path,
+    ...(args.input.sourceDependencies ?? []),
     ...(rendered?._tag === "Rendered" ? rendered.outputs.map((output) => output.content) : []),
   ]);
 };

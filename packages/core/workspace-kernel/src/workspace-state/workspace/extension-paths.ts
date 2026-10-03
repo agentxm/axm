@@ -53,14 +53,6 @@ export interface ExtensionDirPaths {
   readonly extensionSrcPath: AbsolutePath;
 }
 
-export const extensionContentFilename = (name: string): string => `${name}.md`;
-
-export const extensionContentPath = (
-  join: (...paths: string[]) => string,
-  root: string,
-  name: string,
-): AbsolutePath => decodeAbsolutePathSync(join(root, extensionContentFilename(name)));
-
 const acquiredSourceFamily = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
 ): "git" | "path" | "registry" => {

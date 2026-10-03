@@ -118,6 +118,53 @@ it.effect(
   },
 );
 
+for (const scope of ["project", "user"] as const)
+  it.effect(
+    `refuses an incompatible native subagent update before mutation in ${scope} scope`,
+    () => {
+      const { workspace, registry, cleanup } = makeInstallWorld({ scope });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            registry.writeSubagent("reviewer", [{ version: "1.0.0", body: "Initial reviewer." }]);
+            const initial = yield* applyInstall(
+              installRequest({
+                type: "subagent",
+                subject: { kind: "source", source: "@acme/subagents/reviewer@^1.0.0" },
+              }),
+            );
+            expect(deriveOperationOutcome(initial)).toBe("applied");
+            registry.writeSubagent("reviewer", [
+              { version: "1.0.0", body: "Initial reviewer." },
+              {
+                version: "1.1.0",
+                files: {
+                  "subagent.json": JSON.stringify({
+                    owner: "@acme",
+                    type: "subagent",
+                    name: "reviewer",
+                    version: "1.1.0",
+                    implementations: { codex: { kind: "native", source: "native/review.toml" } },
+                  }),
+                  "native/review.toml":
+                    'name = "reviewer"\ndescription = "Review"\ndeveloper_instructions = "Review evidence"\n',
+                },
+              },
+            ]);
+            const before = workspace.snapshot();
+            const homeBefore = workspace.homeSnapshot();
+            const result = expectResolved(yield* typeGroupSubagentUpdate("reviewer"));
+            expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("blocked");
+            expect(result.blocking?.causeCode).toBe("conflict");
+            expect(workspace.snapshot()).toEqual(before);
+            expect(workspace.homeSnapshot()).toEqual(homeBefore);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+    },
+    { timeout: 90_000 },
+  );
+
 describe("type-group subagent update of a member a direct pin and Packs share", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {

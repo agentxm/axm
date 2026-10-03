@@ -72,6 +72,8 @@ const writeEveryManifest = (root: string): void => {
     type: "subagent",
     name: "researcher",
     version: "1.0.0",
+    description: "Research supplied evidence",
+    core: { instructions: "src/researcher.md" },
   });
   writeManifest(root, "rule", "rule.json", {
     owner: "@acme",

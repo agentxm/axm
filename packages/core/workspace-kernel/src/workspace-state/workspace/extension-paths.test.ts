@@ -4,11 +4,7 @@ import * as Option from "effect/Option";
 import { handle } from "../testing.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { ProjectWorkspaceLayout } from "./layout.js";
-import {
-  computeExtensionPathsForLayout,
-  extensionContentFilename,
-  extensionContentPath,
-} from "./extension-paths.js";
+import { computeExtensionPathsForLayout } from "./extension-paths.js";
 
 describe("extension path helpers", () => {
   const workspaceRoot = decodeAbsolutePathSync("/workspace");
@@ -136,12 +132,5 @@ describe("extension path helpers", () => {
 
     expect(skill.canonicalPath).toBe("/workspace/agent_extensions/git/@acme/skills/review");
     expect(rule.canonicalPath).toBe("/workspace/agent_extensions/git/@acme/rules/review-policy");
-  });
-
-  it("computes markdown content filenames and paths", () => {
-    expect(extensionContentFilename("review-pr")).toBe("review-pr.md");
-    expect(extensionContentPath(nodePath.join, "/workspace/rules/review-pr", "review-pr")).toBe(
-      "/workspace/rules/review-pr/review-pr.md",
-    );
   });
 });

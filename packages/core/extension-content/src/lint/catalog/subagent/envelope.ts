@@ -16,6 +16,6 @@ export const subagentEnvelopeRules = makeManifestEnvelopeRules({
   manifestJson: (context: SubagentRuleContext) => context.subject.subagentJson,
   presentDescription: "Subagents include a root subagent.json manifest.",
   presentMissingMessage:
-    "subagent.json is missing. Create subagent.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
+    "subagent.json is missing. Create the identity fields and either a described portable core or explicit native implementations.",
   schemaDescription: "subagent.json defines a valid subagent manifest.",
 });

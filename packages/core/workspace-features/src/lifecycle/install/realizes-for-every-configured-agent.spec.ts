@@ -1,3 +1,6 @@
+import { execFileSync } from "node:child_process";
+import * as os from "node:os";
+import { serveBareRepository } from "../../testing/git-repositories.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -348,3 +351,73 @@ describe("Install realizes the extension for configured agents", () => {
     },
   );
 });
+
+for (const scope of ["project", "user"] as const)
+  it.effect(
+    `retains complete native-only Git packages in ${scope} scope`,
+    () =>
+      Effect.gen(function* () {
+        const world = yield* Effect.acquireRelease(
+          Effect.sync(() => makeInstallWorld({ scope, settings: { agents: ["codex"] } })),
+          (value) => Effect.sync(value.cleanup),
+        );
+        const root = yield* Effect.acquireRelease(
+          Effect.sync(() => fs.mkdtempSync(path.join(os.tmpdir(), "axm-native-git-"))),
+          (value) => Effect.sync(() => fs.rmSync(value, { recursive: true, force: true })),
+        );
+        const source = path.join(root, "source");
+        fs.mkdirSync(path.join(source, "native"), { recursive: true });
+        fs.writeFileSync(
+          path.join(source, "subagent.json"),
+          JSON.stringify({
+            owner: "@acme",
+            type: "subagent",
+            name: "reviewer",
+            version: "1.0.0",
+            implementations: { codex: { kind: "native", source: "native/review.toml" } },
+          }),
+        );
+        const native =
+          'name = "investigator"\ndescription = "Review"\ndeveloper_instructions = "Inspect evidence"\n';
+        fs.writeFileSync(path.join(source, "native/review.toml"), native);
+        fs.writeFileSync(path.join(source, "LICENSE"), "Fixture license.\n");
+        for (const args of [
+          ["init", "--quiet", "--initial-branch=main"],
+          ["config", "user.email", "test@example.com"],
+          ["config", "user.name", "Test"],
+          ["add", "."],
+          ["commit", "--quiet", "-m", "fixture"],
+        ])
+          execFileSync("git", args, { cwd: source });
+        const repository = yield* Effect.acquireRelease(
+          Effect.promise(() => serveBareRepository({ root, source, name: "native" })),
+          (value) => Effect.sync(value.stop),
+        );
+        yield* world.workspace.provide(
+          Effect.gen(function* () {
+            const resolution = yield* applyInstall(
+              installRequest({
+                type: "subagent",
+                subject: { kind: "source", source: repository.url },
+              }),
+            );
+            expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
+            const canonical = path.join(
+              world.workspace.workspaceRoot,
+              "agent_extensions/git/@acme/subagents/reviewer",
+            );
+            expect(fs.readFileSync(path.join(canonical, "native/review.toml"), "utf8")).toBe(
+              native,
+            );
+            expect(fs.readFileSync(path.join(canonical, "LICENSE"), "utf8")).toBe(
+              "Fixture license.\n",
+            );
+            const nativeRoot = scope === "project" ? world.workspace.root : world.workspace.home;
+            expect(
+              fs.readFileSync(path.join(nativeRoot, ".codex/agents/investigator.toml"), "utf8"),
+            ).toContain(native);
+          }),
+        );
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    { timeout: 90_000 },
+  );

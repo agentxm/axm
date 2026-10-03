@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import {
@@ -7,10 +8,15 @@ import {
 } from "@agentxm/workspace-features/authoring";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
+  AGENT_IDS,
+  type AgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import {
   credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryPositional,
   recoverySwitch,
+  recoveryOption,
 } from "@agentxm/workspace-kernel/operations";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -34,6 +40,7 @@ interface ImportHandlerArgs {
   readonly target: string;
   readonly enable: boolean;
   readonly preview: boolean;
+  readonly sourceAgent?: AgentId;
 }
 
 export const handleImport = (args: ImportHandlerArgs) =>
@@ -53,6 +60,7 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
     source: args.source,
     target: args.target,
     enable: args.enable,
+    ...(args.sourceAgent === undefined ? {} : { sourceAgent: args.sourceAgent }),
   }).pipe(Effect.mapError(failureToAppError));
 
   const { execution, recovery } = yield* makePlanInvocation(
@@ -61,6 +69,9 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
       [group, "import"],
       [
         recoverySwitch("--enable", args.enable),
+        ...(args.sourceAgent === undefined
+          ? []
+          : [recoveryOption("--source-agent", publicRecoveryValue(args.sourceAgent))]),
         recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
         recoveryPositional(publicRecoveryValue(args.target)),
       ],
@@ -112,4 +123,36 @@ const makeNativeImportCommand = (type: NativeImportRouteType) => {
 };
 
 export const skillsImportCommand = makeNativeImportCommand("skill");
-export const subagentsImportCommand = makeNativeImportCommand("subagent");
+const subagentConfig = {
+  ...config,
+  sourceAgent: Flag.Literals("source-agent", AGENT_IDS).pipe(
+    Flag.withDescription(
+      "Runtime whose native definition is being imported; required for ambiguous sources",
+    ),
+    Flag.optional,
+  ),
+};
+
+export const subagentsImportCommand = Command.make(
+  "import",
+  subagentConfig,
+  ({ sourceAgent, ...parsed }) =>
+    handleImport({
+      ...parsed,
+      type: "subagent",
+      ...(Option.isSome(sourceAgent) ? { sourceAgent: sourceAgent.value } : {}),
+    }).pipe(Effect.scoped, withWorkspace("project"), withRuntime("subagents import")),
+).pipe(
+  withArgvTracking(subagentConfig),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
+  Command.withDescription(
+    "Import a native definition into an empty runtime slot of a project-workspace authored subagent",
+  ),
+  Command.withExamples([
+    {
+      command:
+        "axm subagents import ./reviewer.md @me/subagents/reviewer --source-agent claude-code",
+      description: "Preserve the native definition and leave a new package disabled",
+    },
+  ]),
+);

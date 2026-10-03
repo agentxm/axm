@@ -5,6 +5,7 @@ import type { RegistryClientFactory } from "@agentxm/registry-client";
 
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
+import type { ConfiguredAgentOutcome } from "../operations/index.js";
 import type {
   DesiredStateReader,
   LockfileReader,
@@ -33,6 +34,7 @@ export type ManagerRequirements = CanonicalMaterializationRequirements;
  */
 export interface MaterializationObservation {
   readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
+  readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
   readonly agents: ReadonlyArray<string>;
   readonly targets: ReadonlyArray<{
     readonly path: string;

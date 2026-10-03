@@ -1,3 +1,4 @@
+import { withInspectionReadView } from "../read-view.js";
 /**
  * What one configured pack's desired, accepted, and canonical state is.
  *
@@ -245,5 +246,5 @@ export const ShowPack = {
         (problem) => `${problem.type}: ${desiredStateProblemText(problem)}`,
       ),
     } satisfies PackShowResult;
-  }),
+  }, withInspectionReadView),
 };

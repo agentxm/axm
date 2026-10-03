@@ -71,7 +71,6 @@ export const validatePackGraphPostcondition = (args: {
         case "pack-manifest-invalid":
         case "pack-identity-mismatch":
         case "pack-resolution-unavailable":
-        case "pack-manifest-content-mismatch":
           return requiredPackIdentities.has(problem.pack);
         case "projection-collision":
         case "constraint-conflict":

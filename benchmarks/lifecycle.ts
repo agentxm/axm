@@ -1,29 +1,37 @@
 /** Controlled lifecycle measurements. The output is diagnostic evidence, never a specification verdict. */
 
-import { spawn } from "node:child_process";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as http from "node:http";
 import * as os from "node:os";
 import * as path from "node:path";
-import { Readable } from "node:stream";
 
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import * as Effect from "effect/Effect";
 import { startLifecycleRegistry, type RequestMetrics } from "./lifecycle-registry.js";
 import { startLifecycleGitSource, writeSkillPackage } from "./lifecycle-sources.js";
 
-const fixtureVersion = 5;
+const fixtureVersion = 11;
 const fixtureSizes = [1, 10, 50, 200] as const;
-const commandTimeoutMs = 600_000;
 const archiveBodyDelayMs = 25;
 const largeBodyBytes = 2 * 1024 * 1024;
-const irrelevantDirectories = 20_000;
 
 class LifecycleBenchmarkError extends Error {
   readonly _tag = "LifecycleBenchmarkError";
 }
+
+const selectedCommandTimeoutMs = (): number => {
+  const value = Number(process.env["AXM_BENCHMARK_TIMEOUT_MS"] ?? 600_000);
+  if (!Number.isSafeInteger(value) || value <= 0 || value > 2_147_483_647) {
+    throw new LifecycleBenchmarkError(
+      "AXM_BENCHMARK_TIMEOUT_MS must be a positive integer within the timer range.",
+    );
+  }
+  return value;
+};
+
+const commandTimeoutMs = selectedCommandTimeoutMs();
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
@@ -51,6 +59,8 @@ const largeBody = (): string => {
 
 type Scenario =
   | "cold-configured-install"
+  | "warm-configured-install"
+  | "ordinary-list"
   | "cold-configured-sync"
   | "install-preview"
   | "no-op-sync"
@@ -67,6 +77,7 @@ type Scenario =
   | "git-no-op-sync";
 
 interface Sample {
+  readonly workload: "package-count" | "large-content";
   readonly mode: "control" | "diagnostic";
   readonly scenario: Scenario;
   readonly sourceFamily: "registry" | "git" | "path";
@@ -118,6 +129,20 @@ const selectedSizes = (): ReadonlyArray<number> => {
   return [...new Set(sizes)];
 };
 
+/** Select one independent mode when reproducing a failed fixture campaign. */
+const selectedModes = (): ReadonlyArray<Sample["mode"]> => {
+  const allowed = ["control", "diagnostic"] as const;
+  const override = process.env["AXM_BENCHMARK_MODES"];
+  if (override === undefined) return allowed;
+  const modes = override.split(",").map((value) => value.trim());
+  if (modes.some((mode) => !allowed.some((candidate) => candidate === mode))) {
+    throw new LifecycleBenchmarkError(
+      "AXM_BENCHMARK_MODES must select control, diagnostic, or both.",
+    );
+  }
+  return allowed.filter((mode) => modes.includes(mode));
+};
+
 const run = (
   builtCli: string,
   workspace: string,
@@ -126,14 +151,21 @@ const run = (
   observeRss: boolean,
 ) =>
   Effect.tryPromise({
-    try: (signal) =>
-      new Promise<CommandResult>((resolve, reject) => {
-        const started = process.hrtime.bigint();
+    try: async (signal): Promise<CommandResult> => {
+      const diagnosticsRoot = observeRss
+        ? fs.mkdtempSync(path.join(os.tmpdir(), "axm-benchmark-diagnostics-"))
+        : undefined;
+      const diagnosticsPath =
+        diagnosticsRoot === undefined ? undefined : path.join(diagnosticsRoot, "metrics.json");
+      let diagnosticsFd: number | undefined;
+      try {
+        if (diagnosticsPath !== undefined) diagnosticsFd = fs.openSync(diagnosticsPath, "w");
         const preload = path.resolve(
           path.dirname(builtCli),
           "../../../../benchmarks/lifecycle-preload.cjs",
         );
-        const child = spawn("node", [builtCli, ...args], {
+        const started = process.hrtime.bigint();
+        const child = Bun.spawn(["node", builtCli, ...args], {
           cwd: workspace,
           env: {
             PATH: process.env["PATH"],
@@ -152,39 +184,10 @@ const run = (
                 }
               : {}),
           },
-          stdio: ["ignore", "pipe", "pipe", "pipe"] as const,
+          // A file-backed diagnostic descriptor needs no compatibility stream or
+          // close-event accounting. The Node preload still writes its counters to fd 3.
+          stdio: ["ignore", "pipe", "pipe", diagnosticsFd ?? "ignore"],
         });
-        const stdoutStream = child.stdout;
-        const stderrStream = child.stderr;
-        if (stdoutStream === null || stderrStream === null) {
-          child.kill();
-          reject(new LifecycleBenchmarkError("Benchmark CLI output pipes are unavailable."));
-          return;
-        }
-        let stdout = "";
-        let stderr = "";
-        let diagnostics = "";
-        const diagnosticsStream = child.stdio[3];
-        if (diagnosticsStream instanceof Readable) {
-          diagnosticsStream.setEncoding("utf8");
-          diagnosticsStream.on("data", (chunk: string) => {
-            diagnostics += chunk;
-          });
-        }
-        let peakRssBytes: number | null = null;
-        const sampleRss = () => {
-          if (process.platform !== "linux") return;
-          try {
-            const status = fs.readFileSync(`/proc/${child.pid}/status`, "utf8");
-            const match = /^VmHWM:\s+(\d+) kB$/m.exec(status);
-            if (match !== null) {
-              peakRssBytes = Math.max(peakRssBytes ?? 0, Number(match[1]) * 1024);
-            }
-          } catch {
-            // The process may have exited between samples.
-          }
-        };
-        const monitor = observeRss ? setInterval(sampleRss, 20) : undefined;
         let timedOut = false;
         const abort = () => child.kill("SIGKILL");
         signal.addEventListener("abort", abort, { once: true });
@@ -193,34 +196,46 @@ const run = (
           timedOut = true;
           abort();
         }, commandTimeoutMs);
-        stdoutStream.setEncoding("utf8");
-        stderrStream.setEncoding("utf8");
-        stdoutStream.on("data", (chunk: string) => {
-          stdout += chunk;
-        });
-        stderrStream.on("data", (chunk: string) => {
-          stderr += chunk;
-        });
-        child.once("error", reject);
-        child.once("close", (code) => {
-          signal.removeEventListener("abort", abort);
-          if (monitor !== undefined) clearInterval(monitor);
-          clearTimeout(timeout);
-          resolve({
-            durationMs: Number(process.hrtime.bigint() - started) / 1_000_000,
-            peakRssBytes,
-            exitCode: code ?? 1,
+        try {
+          const [exitCode, stdout, stderr] = await Promise.all([
+            child.exited,
+            new Response(child.stdout).text(),
+            new Response(child.stderr).text(),
+          ]);
+          const durationMs = Number(process.hrtime.bigint() - started) / 1_000_000;
+          const diagnostics =
+            diagnosticsPath === undefined
+              ? null
+              : parseProcessDiagnostics(fs.readFileSync(diagnosticsPath, "utf8"));
+          if (observeRss && !timedOut && diagnostics === null) {
+            throw new LifecycleBenchmarkError("The CLI did not report valid diagnostic counters.");
+          }
+          return {
+            durationMs,
+            peakRssBytes: diagnostics?.peakRssBytes ?? null,
+            exitCode,
             stdout,
             stderr,
             timedOut,
-            nodeApi: observeRss ? parseNodeApiMetrics(diagnostics) : null,
-          });
-        });
-      }),
+            nodeApi: diagnostics?.nodeApi ?? null,
+          };
+        } finally {
+          signal.removeEventListener("abort", abort);
+          clearTimeout(timeout);
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        }
+      } finally {
+        if (diagnosticsFd !== undefined) fs.closeSync(diagnosticsFd);
+        if (diagnosticsRoot !== undefined)
+          fs.rmSync(diagnosticsRoot, { recursive: true, force: true });
+      }
+    },
     catch: (cause) => new LifecycleBenchmarkError(`Benchmark CLI process failed: ${String(cause)}`),
   });
 
-const parseNodeApiMetrics = (payload: string): NodeApiMetrics | null => {
+const parseProcessDiagnostics = (
+  payload: string,
+): { readonly peakRssBytes: number; readonly nodeApi: NodeApiMetrics } | null => {
   if (payload.length === 0) return null;
   let value: unknown;
   try {
@@ -234,16 +249,20 @@ const parseNodeApiMetrics = (payload: string): NodeApiMetrics | null => {
     !isNumberRecord(value["directoryCallsByRoot"]) ||
     typeof value["hashBytes"] !== "number" ||
     typeof value["gitProcesses"] !== "number" ||
-    typeof value["writeCalls"] !== "number"
+    typeof value["writeCalls"] !== "number" ||
+    typeof value["peakRssBytes"] !== "number"
   ) {
     return null;
   }
   return {
-    directoryCalls: value["directoryCalls"],
-    directoryCallsByRoot: value["directoryCallsByRoot"],
-    hashBytes: value["hashBytes"],
-    gitProcesses: value["gitProcesses"],
-    writeCalls: value["writeCalls"],
+    peakRssBytes: value["peakRssBytes"],
+    nodeApi: {
+      directoryCalls: value["directoryCalls"],
+      directoryCallsByRoot: value["directoryCallsByRoot"],
+      hashBytes: value["hashBytes"],
+      gitProcesses: value["gitProcesses"],
+      writeCalls: value["writeCalls"],
+    },
   };
 };
 
@@ -270,7 +289,7 @@ const check = (result: CommandResult, label: string): void => {
   }
   if (result.exitCode !== 0) {
     throw new LifecycleBenchmarkError(
-      `${label} failed (${result.exitCode}): ${result.stderr.slice(0, 1500)}`,
+      `${label} failed (${result.exitCode}): ${result.stderr.slice(-1500)}\n${result.stdout.slice(-6000)}`,
     );
   }
 };
@@ -323,6 +342,7 @@ const measure = (
   const { result, requests } = observation;
   const summary = summaryOf(result.stdout);
   append({
+    workload: "package-count",
     mode,
     scenario,
     sourceFamily: scenario.startsWith("git-")
@@ -505,15 +525,21 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
       let duplicateRequestProbe = false;
       let serializationProbe = false;
       fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-      const append = (sample: Sample): void => {
+      const appendSample = (sample: Sample): void => {
         samples.push(sample);
         fs.writeFileSync(
           outputPath,
-          `${JSON.stringify({ schemaVersion: 1, fixtureVersion, complete: false, fixtureSourceSha256, sourceRevision, sourceDirty, sourceVersion: packageJson["version"], samples }, null, 2)}\n`,
+          `${JSON.stringify({ schemaVersion: 1, fixtureVersion, complete: false, fixtureSourceSha256, sourceRevision, sourceDirty, sourceVersion: packageJson["version"], commandTimeoutMs, samples }, null, 2)}\n`,
         );
       };
-      for (const count of selectedSizes()) {
-        for (const mode of ["control", "diagnostic"] as const) {
+      const workloads = [
+        ...selectedSizes().map((count) => ({ count, workload: "package-count" as const })),
+        ...(selectedSizes().includes(1) ? [{ count: 1, workload: "large-content" as const }] : []),
+      ];
+      for (const { count, workload } of workloads) {
+        const append = (sample: Sample): void => appendSample({ ...sample, workload });
+        const lifecycleVariants = count === 1 && workload === "package-count";
+        for (const mode of selectedModes()) {
           yield* Effect.acquireUseRelease(
             Effect.gen(function* () {
               const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-lifecycle-bench-"));
@@ -535,7 +561,7 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                   { length: count },
                   (_, index) => `bench-${String(index + 1).padStart(3, "0")}`,
                 );
-                const largeContent = count === 200 ? largeBody() : undefined;
+                const largeContent = workload === "large-content" ? largeBody() : undefined;
                 for (const name of names) {
                   fixture.writeSkill(name, [
                     {
@@ -543,20 +569,6 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                       body: `${name === names[0] ? (largeContent ?? "") : ""}Baseline ${name}.`,
                     },
                   ]);
-                }
-                if (count === 10) {
-                  const dependencies = {
-                    "@acme/skills/bench-001": "*",
-                    "@acme/skills/bench-002": "*",
-                  };
-                  fixture.writePack("bench-pack-a", [{ version: "1.0.0", dependencies }]);
-                  fixture.writePack("bench-pack-b", [{ version: "1.0.0", dependencies }]);
-                }
-                if (count === 200) {
-                  const cacheTree = path.join(workspace, ".nx", "cache");
-                  for (let index = 0; index < irrelevantDirectories; index += 1) {
-                    fs.mkdirSync(path.join(cacheTree, String(index)), { recursive: true });
-                  }
                 }
                 check(
                   yield* run(
@@ -579,14 +591,6 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                   sources: [{ name: "test", type: "registry", location: registry.url }],
                   minimumReleaseAge: "0s",
                   skills: Object.fromEntries(names.map((name) => [name, `@acme/skills/${name}`])),
-                  ...(count === 10
-                    ? {
-                        packs: {
-                          "bench-pack-a": "@acme/packs/bench-pack-a",
-                          "bench-pack-b": "@acme/packs/bench-pack-b",
-                        },
-                      }
-                    : {}),
                 })}\n`;
                 fs.writeFileSync(settingsPath, configuredSettings);
                 const invokeAt = (
@@ -607,37 +611,39 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                   );
                 };
                 const invoke = (args: ReadonlyArray<string>) => invokeAt(workspace, userHome, args);
-                const syncWorkspace = path.join(root, "sync-workspace");
-                const syncHome = path.join(root, "sync-home");
-                fs.mkdirSync(syncWorkspace);
-                fs.mkdirSync(syncHome);
-                check(
-                  yield* run(
-                    builtCli,
-                    syncWorkspace,
-                    syncHome,
-                    ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--json"],
-                    false,
-                  ),
-                  "cold sync fixture setup",
-                );
-                fs.writeFileSync(path.join(syncWorkspace, "axm.json"), configuredSettings);
-                measure(
-                  append,
-                  mode,
-                  "cold-configured-sync",
-                  count,
-                  "fresh",
-                  yield* invokeAt(syncWorkspace, syncHome, ["sync"]),
-                );
-                measure(
-                  append,
-                  mode,
-                  "install-preview",
-                  count,
-                  "fresh",
-                  yield* invoke(["install", "--preview"]),
-                );
+                if (lifecycleVariants) {
+                  const syncWorkspace = path.join(root, "sync-workspace");
+                  const syncHome = path.join(root, "sync-home");
+                  fs.mkdirSync(syncWorkspace);
+                  fs.mkdirSync(syncHome);
+                  check(
+                    yield* run(
+                      builtCli,
+                      syncWorkspace,
+                      syncHome,
+                      ["setup", "--yes", "--scope", "project", "--agent", "claude-code", "--json"],
+                      false,
+                    ),
+                    "cold sync fixture setup",
+                  );
+                  fs.writeFileSync(path.join(syncWorkspace, "axm.json"), configuredSettings);
+                  measure(
+                    append,
+                    mode,
+                    "cold-configured-sync",
+                    count,
+                    "fresh",
+                    yield* invokeAt(syncWorkspace, syncHome, ["sync"]),
+                  );
+                  measure(
+                    append,
+                    mode,
+                    "install-preview",
+                    count,
+                    "fresh",
+                    yield* invoke(["install", "--preview"]),
+                  );
+                }
                 measure(
                   append,
                   mode,
@@ -646,89 +652,113 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
                   "fresh",
                   yield* invoke(["install"]),
                 );
+                if (lifecycleVariants) {
+                  measure(
+                    append,
+                    mode,
+                    "sync-preview",
+                    count,
+                    "warm",
+                    yield* invoke(["sync", "--preview"]),
+                  );
+                  measure(append, mode, "no-op-sync", count, "warm", yield* invoke(["sync"]));
+                }
                 measure(
                   append,
                   mode,
-                  "sync-preview",
+                  "warm-configured-install",
                   count,
                   "warm",
-                  yield* invoke(["sync", "--preview"]),
+                  yield* invoke(["install"]),
                 );
-                measure(append, mode, "no-op-sync", count, "warm", yield* invoke(["sync"]));
+                measure(append, mode, "ordinary-list", count, "warm", yield* invoke(["list"]));
 
                 const firstName = names[0];
                 if (firstName === undefined)
                   throw new LifecycleBenchmarkError("Empty lifecycle fixture.");
-                const firstCanonical = path.join(
-                  workspace,
-                  "agent_extensions",
-                  "registry",
-                  "@acme",
-                  "skills",
-                  firstName,
-                );
-                fs.rmSync(firstCanonical, { recursive: true, force: true });
-                measure(append, mode, "warm-exact-restore", count, "warm", yield* invoke(["sync"]));
-                fs.rmSync(firstCanonical, { recursive: true, force: true });
-                fs.rmSync(archiveCacheRoot(userHome), { recursive: true, force: true });
-                measure(
-                  append,
-                  mode,
-                  "cold-exact-restore",
-                  count,
-                  "cleared",
-                  yield* invoke(["sync"]),
-                );
-
-                for (const name of names) {
-                  fixture.writeSkill(name, [
-                    {
-                      version: "1.0.0",
-                      body: `${name === names[0] ? (largeContent ?? "") : ""}Baseline ${name}.`,
-                    },
-                    {
-                      version: "2.0.0",
-                      body: `${name === names[0] ? (largeContent ?? "") : ""}Changed ${name}.`,
-                    },
-                  ]);
-                }
-                registry.failNextMetadata(firstName);
-                measure(
-                  append,
-                  mode,
-                  "transient-metadata-failure-preview",
-                  count,
-                  "warm",
-                  yield* invoke(["update", "--preview"]),
-                );
-                measure(
-                  append,
-                  mode,
-                  "changed-version-update-preview",
-                  count,
-                  "warm",
-                  yield* invoke(["update", "--preview"]),
-                );
-                if (skillVersion(firstCanonical) !== "1.0.0") {
-                  throw new LifecycleBenchmarkError("Update preview changed the accepted skill.");
-                }
-                measure(
-                  append,
-                  mode,
-                  "changed-version-update",
-                  count,
-                  "warm",
-                  yield* invoke(["update"]),
-                );
-                if (skillVersion(firstCanonical) !== "2.0.0") {
-                  throw new LifecycleBenchmarkError(
-                    "Update did not select the changed skill version.",
+                if (lifecycleVariants) {
+                  const firstCanonical = path.join(
+                    workspace,
+                    "agent_extensions",
+                    "registry",
+                    "@acme",
+                    "skills",
+                    firstName,
                   );
+                  fs.rmSync(firstCanonical, { recursive: true, force: true });
+                  measure(
+                    append,
+                    mode,
+                    "warm-exact-restore",
+                    count,
+                    "warm",
+                    yield* invoke(["sync"]),
+                  );
+                  fs.rmSync(firstCanonical, { recursive: true, force: true });
+                  fs.rmSync(archiveCacheRoot(userHome), { recursive: true, force: true });
+                  measure(
+                    append,
+                    mode,
+                    "cold-exact-restore",
+                    count,
+                    "cleared",
+                    yield* invoke(["sync"]),
+                  );
+
+                  for (const name of names) {
+                    fixture.writeSkill(name, [
+                      {
+                        version: "1.0.0",
+                        body: `${name === names[0] ? (largeContent ?? "") : ""}Baseline ${name}.`,
+                      },
+                      {
+                        version: "2.0.0",
+                        body: `${name === names[0] ? (largeContent ?? "") : ""}Changed ${name}.`,
+                      },
+                    ]);
+                  }
+                  registry.failNextMetadata(firstName);
+                  measure(
+                    append,
+                    mode,
+                    "transient-metadata-failure-preview",
+                    count,
+                    "warm",
+                    yield* invoke(["update", "--preview"]),
+                  );
+                  measure(
+                    append,
+                    mode,
+                    "changed-version-update-preview",
+                    count,
+                    "warm",
+                    yield* invoke(["update", "--preview"]),
+                  );
+                  if (skillVersion(firstCanonical) !== "1.0.0") {
+                    throw new LifecycleBenchmarkError("Update preview changed the accepted skill.");
+                  }
+                  measure(
+                    append,
+                    mode,
+                    "changed-version-update",
+                    count,
+                    "warm",
+                    yield* invoke(["update"]),
+                  );
+                  if (skillVersion(firstCanonical) !== "2.0.0") {
+                    throw new LifecycleBenchmarkError(
+                      "Update did not select the changed skill version.",
+                    );
+                  }
+                  if (count === 1) {
+                    yield* runSourceScenarios(root, builtCli, mode, append);
+                  }
                 }
-                if (count === 1) {
-                  yield* runSourceScenarios(root, builtCli, mode, append);
-                }
-                if (mode === "diagnostic" && count === selectedSizes()[0]) {
+                if (
+                  mode === "diagnostic" &&
+                  workload === "package-count" &&
+                  count === selectedSizes()[0]
+                ) {
                   registry.reset(true);
                   const probeUrl = `${registry.url}/v1/extensions/@acme/skills/${firstName}`;
                   yield* probeRegistryIndex(probeUrl);
@@ -774,16 +804,20 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
           );
         }
       }
-      for (const count of selectedSizes()) {
+      for (const count of selectedModes().includes("diagnostic") && selectedSizes().includes(1)
+        ? [1]
+        : []) {
         const warm = samples.find(
           (sample) =>
             sample.mode === "diagnostic" &&
+            sample.workload === "package-count" &&
             sample.extensions === count &&
             sample.scenario === "warm-exact-restore",
         );
         const cold = samples.find(
           (sample) =>
             sample.mode === "diagnostic" &&
+            sample.workload === "package-count" &&
             sample.extensions === count &&
             sample.scenario === "cold-exact-restore",
         );
@@ -817,6 +851,8 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
           sources: ["loopback HTTP Registry", "local path", "loopback Git daemon"],
           owner: "@acme",
           sizes: selectedSizes(),
+          modes: selectedModes(),
+          workloads,
           seed: "0x1234abcd",
           execution: {
             runtime: "built-js",
@@ -829,18 +865,15 @@ export const runLifecycleBenchmark = (repoRoot: string, outputPath: string): Pro
           },
           dimensions: {
             shortBody: "One short skill document per extension, with real ZIP integrity.",
-            largeBodyAtSize: 200,
+            largeBodyWorkload: { name: "large-content", extensions: 1 },
             largeBodyBytes,
-            irrelevantDirectoryCountAtSize: 200,
-            irrelevantDirectories,
-            overlappingPacksAtSize: 10,
-            overlappingPackCount: 2,
+            lifecycleVariantsAtSize: 1,
             archiveBodyDelayMs,
             sourceFamilyCasesAtSize: 1,
           },
         },
         method:
-          "One control run without process sampling or request capture, then one diagnostic run per scenario and size. Setup is excluded from timing. Directory/write counts intercept Node filesystem APIs, hash bytes count node:crypto Hash.update input, and Git process counts intercept child_process spawn/execFile; these are not physical I/O totals.",
+          "One run per selected mode, scenario and size; when both modes are selected, control precedes diagnostic. Control excludes diagnostic preloading and request capture. Diagnostic RSS comes from Node process.resourceUsage().maxRSS, converted from KiB to bytes; counters are collected through a temporary file descriptor outside the workspace. Setup is excluded from timing. Directory/write counts intercept Node filesystem APIs, hash bytes count node:crypto Hash.update input, and Git process counts intercept child_process spawn/execFile; these are not physical I/O totals.",
         unavailableMetrics: {
           perClosureWrites: "The current CLI exposes no closure-attributed write counter.",
           lockWaitMs: "The current CLI exposes no lock acquisition timer to this runner.",

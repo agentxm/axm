@@ -55,7 +55,7 @@ const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => 
   identity: {
     authority: "registry",
     fqn: `${OWNER}/knowledge/${name}`,
-    registry: { sourceName: undefined, endpoint: undefined },
+    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
   },
   source: `${OWNER}/knowledge/${name}@^1.0.0`,
   enabled: true,
@@ -150,7 +150,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
                 : {}),
               ...(args.instructionFiles === false ? {} : { instructionFiles: {} }),
             },
-            lockfile: { lockfileVersion: 9, skills: {}, knowledge: args.locked },
+            lockfile: { lockfileVersion: 10, skills: {}, knowledge: args.locked },
             graph: args.graph,
           }),
           Layer.mock(SettingsWriter, {}),

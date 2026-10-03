@@ -22,7 +22,9 @@ import {
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { packMemberBindings } from "./desired-pack-members.js";
 import { DesiredStateReader, type DesiredStateReaderService } from "./desired-state-reader.js";
-import { observeInstallRoot } from "./install-root.js";
+import { observeInstallRoot, type InstallRootInventory } from "./install-root.js";
+import type { WorkspaceReadModel } from "../observed/service.js";
+import type { WorkspaceReadViewReaders } from "./configured-agent-outcomes-provider.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js";
 import {
@@ -61,6 +63,11 @@ export const makeWorkspaceRecords = (
   location: WorkspaceLocationService,
   desiredState: DesiredStateReaderService,
   locks: Pick<LockfileReaderService, "lockfile">,
+  view?: {
+    readonly model: WorkspaceReadModel;
+    readonly installRoot: Read<InstallRootInventory>;
+    readonly readers: WorkspaceReadViewReaders;
+  },
 ): WorkspaceRecordsService => {
   const withScoped = <A>(
     use: (context: {
@@ -87,25 +94,29 @@ export const makeWorkspaceRecords = (
         );
       const graph = yield* provide(desiredState.graph());
       const layout = yield* Ref.get(location.layout);
-      const installRoot = yield* provide(observeInstallRoot({ layout, graph, locks }));
+      const installRoot = yield* provide(
+        view?.installRoot ?? observeInstallRoot({ layout, graph, locks }),
+      );
+      const useModel = (scoped: WorkspaceReadModel) =>
+        Effect.gen(function* () {
+          const settings = Option.getOrElse(yield* scoped.state.settings, () =>
+            createDefaultSettings(),
+          );
+          const configuredAgents = settings.agents ?? [];
+          const project = (type: InstallableExtensionType) =>
+            projectWorkspaceRecords(scoped, type, {
+              bindings: packMemberBindings(graph, location.scope, type),
+              installRoot,
+              configuredAgents,
+              relative: (absolute) => path.relative(location.baseDir, absolute),
+              isWithin: (root, target) => isWithinOrEqual(path, root, target),
+            });
+          return yield* use({ configuredAgents, provider, project });
+        });
       return yield* provide(
-        readScopedModel(location, location.runtimeDir, (scoped) =>
-          Effect.gen(function* () {
-            const settings = Option.getOrElse(yield* scoped.state.settings, () =>
-              createDefaultSettings(),
-            );
-            const configuredAgents = settings.agents ?? [];
-            const project = (type: InstallableExtensionType) =>
-              projectWorkspaceRecords(scoped, type, {
-                bindings: packMemberBindings(graph, location.scope, type),
-                installRoot,
-                configuredAgents,
-                relative: (absolute) => path.relative(location.baseDir, absolute),
-                isWithin: (root, target) => isWithinOrEqual(path, root, target),
-              });
-            return yield* use({ configuredAgents, provider, project });
-          }),
-        ),
+        view === undefined
+          ? readScopedModel(location, location.runtimeDir, useModel)
+          : useModel(view.model),
       );
     });
 
@@ -121,6 +132,7 @@ export const makeWorkspaceRecords = (
         isDesiredInventoryLifecycle(row.classification.lifecycle),
       );
       const request = {
+        ...(view === undefined ? {} : { readers: view.readers }),
         type,
         state: "current" as const,
         scope: location.scope,

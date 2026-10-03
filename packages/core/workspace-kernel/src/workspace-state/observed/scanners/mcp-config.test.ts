@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -20,7 +20,7 @@ describe("makeMcpConfigScanner", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-scan-"));
+        const workspaceRoot = realpathSync(mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-scan-")));
         try {
           // A workspace .mcp.json with one valid AXM name and one that is not a
           // valid extension name (uppercase + underscore). The invalid name must
@@ -62,7 +62,9 @@ describe("makeMcpConfigScanner", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-scan-"));
+        const workspaceRoot = realpathSync(
+          mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-scan-")),
+        );
         try {
           mkdirSync(nodePath.join(workspaceRoot, ".codex"), { recursive: true });
           writeFileSync(
@@ -108,7 +110,9 @@ describe("makeMcpConfigScanner", () => {
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
-          const workspaceRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-mcp-malformed-" });
+          const workspaceRoot = yield* fs
+            .makeTempDirectoryScoped({ prefix: "axm-mcp-malformed-" })
+            .pipe(Effect.flatMap(fs.realPath));
           const configPath = path.join(workspaceRoot, ".codex/config.toml");
           yield* fs.makeDirectory(path.dirname(configPath), { recursive: true });
           yield* fs.writeFileString(configPath, content);

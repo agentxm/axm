@@ -98,7 +98,12 @@ if (process.env.AXM_BENCH_DIAGNOSTICS === "1") {
   moduleApi.syncBuiltinESMExports();
   process.once("exit", () => {
     try {
-      fs.writeSync(3, JSON.stringify(metrics));
+      // Node reports maxRSS in KiB on every supported platform.
+      // https://nodejs.org/api/process.html#processresourceusage
+      fs.writeSync(
+        3,
+        JSON.stringify({ ...metrics, peakRssBytes: process.resourceUsage().maxRSS * 1024 }),
+      );
     } catch {
       // The diagnostic pipe may have closed when the benchmark stopped the child.
     }

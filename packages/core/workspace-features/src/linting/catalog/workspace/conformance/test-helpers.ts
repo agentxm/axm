@@ -30,7 +30,7 @@ export interface WorkspaceRuleConformanceCase {
 
 export const validLockfile = {
   _tag: "valid" as const,
-  contents: { lockfileVersion: 9, skills: {} },
+  contents: { lockfileVersion: 10, skills: {} },
 };
 
 export const validSettings = (contents: object = { agents: ["claude-code"] }) => ({

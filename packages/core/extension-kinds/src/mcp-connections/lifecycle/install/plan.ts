@@ -65,6 +65,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceHostProviders,
   resolveSource,
@@ -106,7 +107,7 @@ export interface ParsedMcpServerInstallRequest {
   readonly owner: Option.Option<Handle>;
   readonly serverName: Option.Option<ExtensionName>;
   readonly localName: Option.Option<ExtensionName>;
-  readonly versionRange: Option.Option<string>;
+  readonly versionRange: Option.Option<VersionRange>;
   readonly resolvedInput: string;
   readonly force: boolean;
   readonly nonInteractive: boolean;
@@ -262,7 +263,7 @@ export const parseMcpServerInstallRequest: (
           owner: Option.none<Handle>(),
           serverName: Option.none<ExtensionName>(),
           localName: explicitLocalName,
-          versionRange: Option.none<string>(),
+          versionRange: Option.none<VersionRange>(),
           resolvedInput: trimmed,
           force: args.force,
           nonInteractive: args.nonInteractive,
@@ -317,7 +318,7 @@ export const parseMcpServerInstallRequest: (
     owner: Option.some(owner),
     serverName: Option.some(parsed.success.name),
     localName: Option.orElse(explicitLocalName, () => Option.some(parsed.success.name)),
-    versionRange: Option.none<string>(),
+    versionRange: Option.none<VersionRange>(),
     resolvedInput: `${owner}/mcps/${parsed.success.name}`,
     force: args.force,
     nonInteractive: args.nonInteractive,

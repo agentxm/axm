@@ -26,12 +26,46 @@
       "description": "A semver version like 1.0.0. Ranges are not allowed here.",
       "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
     },
-    "ExtensionFqn": {
+    "NonPackExtensionFqn": {
       "type": "string",
-      "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
-      "title": "Extension FQN",
-      "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+      "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "title": "Non-Pack Extension FQN",
+      "description": "Extension identifier restricted to non-pack types (skills, mcps, subagents, rules, hooks, knowledge).",
       "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+    },
+    "VersionRange": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+      "title": "Version Range",
+      "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+      "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+    },
+    "PackMemberRegistrySource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["registry"] },
+        "url": { "type": "string" }
+      },
+      "required": ["type", "url"],
+      "additionalProperties": false,
+      "description": "A self-describing Registry locator for one Pack member."
+    },
+    "ExplicitRegistryPackMemberConstraint": {
+      "type": "object",
+      "properties": {
+        "source": { "$ref": "#/definitions/PackMemberRegistrySource" },
+        "versionRange": { "$ref": "#/definitions/VersionRange" }
+      },
+      "required": ["source", "versionRange"],
+      "additionalProperties": false
+    },
+    "PackMemberConstraint": {
+      "anyOf": [
+        { "$ref": "#/definitions/VersionRange" },
+        { "$ref": "#/definitions/ExplicitRegistryPackMemberConstraint" }
+      ],
+      "description": "A version range that inherits the Pack source, or an explicit Registry locator and range."
     },
     "PackLockEntry": {
       "anyOf": [
@@ -101,9 +135,14 @@
             "manifestVersion": { "$ref": "#/definitions/Version" },
             "manifestContentIdentity": {
               "type": "string",
-              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+              "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
             },
-            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } },
+            "dependencies": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/PackMemberConstraint" },
+              "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
+              "description": "Map of fully-qualified non-Pack extension names to inherited ranges or explicit Registry locators. Packs cannot depend on other Packs."
+            },
             "sourceRoot": {
               "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
             }
@@ -115,7 +154,7 @@
             "treeIntegrity",
             "manifestVersion",
             "manifestContentIdentity",
-            "members"
+            "dependencies"
           ],
           "additionalProperties": false
         },
@@ -157,9 +196,14 @@
             "manifestVersion": { "$ref": "#/definitions/Version" },
             "manifestContentIdentity": {
               "type": "string",
-              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+              "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
             },
-            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } }
+            "dependencies": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/PackMemberConstraint" },
+              "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
+              "description": "Map of fully-qualified non-Pack extension names to inherited ranges or explicit Registry locators. Packs cannot depend on other Packs."
+            }
           },
           "required": [
             "source",
@@ -168,7 +212,7 @@
             "treeIntegrity",
             "manifestVersion",
             "manifestContentIdentity",
-            "members"
+            "dependencies"
           ],
           "additionalProperties": false
         },
@@ -236,9 +280,14 @@
             "manifestVersion": { "$ref": "#/definitions/Version" },
             "manifestContentIdentity": {
               "type": "string",
-              "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+              "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
             },
-            "members": { "type": "array", "items": { "$ref": "#/definitions/ExtensionFqn" } },
+            "dependencies": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/definitions/PackMemberConstraint" },
+              "propertyNames": { "$ref": "#/definitions/NonPackExtensionFqn" },
+              "description": "Map of fully-qualified non-Pack extension names to inherited ranges or explicit Registry locators. Packs cannot depend on other Packs."
+            },
             "sourceRoot": { "type": "string" }
           },
           "required": [
@@ -248,23 +297,21 @@
             "treeIntegrity",
             "manifestVersion",
             "manifestContentIdentity",
-            "members",
+            "dependencies",
             "sourceRoot"
           ],
           "additionalProperties": false
         }
-      ],
-      "title": "Pack Lock Entry",
-      "description": "Accepted immutable resolution and declared members for a Pack."
+      ]
     },
     "Lockfile": {
       "type": "object",
       "properties": {
         "lockfileVersion": {
           "type": "number",
-          "enum": [9],
+          "enum": [10],
           "description": "Lockfile schema version.",
-          "default": 9
+          "default": 10
         },
         "skills": {
           "type": "object",

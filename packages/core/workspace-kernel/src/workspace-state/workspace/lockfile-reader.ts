@@ -12,6 +12,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
 import type { LockfileValidationError } from "../desired/lockfile/errors.js";
 import type { Lockfile } from "../desired/lockfile/schema.js";
@@ -58,15 +59,26 @@ export class LockfileReader extends ServiceMap.Service<LockfileReader, LockfileR
 export const makeLockfileReader = (
   documents: WorkspaceDocumentsService,
   desiredState: DesiredStateReaderService,
+  acceptedGraph?: DesiredStateGraph,
 ): LockfileReaderService => {
   const lockfile = documents.acceptedResolutions;
+  const acceptedConnections =
+    acceptedGraph === undefined
+      ? undefined
+      : new Map(
+          acceptedGraph.nodes
+            .filter((node) => node.type === "mcp-server")
+            .map((node) => [node.name, acceptedRowKey(node)] as const),
+        );
   const mcpConnectionKey = (localName: string) =>
-    Effect.map(desiredState.graph(), (graph) => {
-      const node = graph.nodes.find(
-        (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
-      );
-      return node === undefined ? Option.none() : acceptedRowKey(node);
-    });
+    acceptedConnections === undefined
+      ? Effect.map(desiredState.graph(), (graph) => {
+          const node = graph.nodes.find(
+            (candidate) => candidate.type === "mcp-server" && candidate.name === localName,
+          );
+          return node === undefined ? Option.none() : acceptedRowKey(node);
+        })
+      : Effect.succeed(acceptedConnections.get(localName) ?? Option.none());
   return {
     lockfile,
     state: documents.acceptedResolutionState.pipe(Effect.withSpan("LockfileReader.state")),

@@ -393,7 +393,7 @@ describe("classifyTargetedUpdate", () => {
 
     expect(context.public.blocker).toBe("incomplete-graph");
     expect(context.public.relevantProblems).toEqual([
-      "pack-manifest-unavailable: @acme/packs/toolkit: installed pack manifest is absent",
+      "pack-manifest-unavailable: @acme/packs/toolkit: authored Pack manifest is absent",
     ]);
     expect(JSON.stringify(context.public)).not.toContain("/secret/workspace");
   });

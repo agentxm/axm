@@ -1,3 +1,4 @@
+import { withInspectionReadView } from "../read-view.js";
 /**
  * The cross-type extension inventory behind `axm list`.
  *
@@ -121,12 +122,6 @@ const coverageFor = (items: ReadonlyArray<ExtensionListItem>) => ({
   notApplicable: items.filter((item) => item.assessment.state === "not-applicable").length,
 });
 
-/** The whole-inventory view names deprecation but does not carry its detail. */
-const withoutDeprecationDetail = (item: ExtensionListItem): ExtensionListItem => {
-  const { deprecation: _deprecation, ...assessment } = item.assessment;
-  return { ...item, assessment };
-};
-
 export interface ListExtensionsResult {
   readonly document: ExtensionListDocument;
   /** The kept items with their full assessments, for rendering. */
@@ -136,13 +131,11 @@ export interface ListExtensionsResult {
 export const ListExtensions = {
   query: Effect.fn("ListExtensions.query")(function* (request: ListExtensionsRequest) {
     const collected = yield* collectExtensionListItems(request.type);
-    // The assessment always runs one of the two lifecycle checks; the whole
-    // inventory view reports what deprecation found without filtering on it.
-    const assessmentFilter = request.filter === "outdated" ? "outdated" : "deprecated";
-    const assessed = yield* Effect.scoped(assessExtensionListItems(collected, assessmentFilter));
-    const items = assessed
-      .filter((item) => matchesFilter(item, request.filter))
-      .map((item) => (request.filter === "all" ? withoutDeprecationDetail(item) : item));
+    const assessed =
+      request.filter === "all"
+        ? collected
+        : yield* Effect.scoped(assessExtensionListItems(collected, request.filter));
+    const items = assessed.filter((item) => matchesFilter(item, request.filter));
     const native = combineNativeLocationOutcomes(
       items.flatMap((item) => item.nativeLocations ?? []),
     );
@@ -171,5 +164,5 @@ export const ListExtensions = {
       },
       items,
     } satisfies ListExtensionsResult;
-  }),
+  }, withInspectionReadView),
 };

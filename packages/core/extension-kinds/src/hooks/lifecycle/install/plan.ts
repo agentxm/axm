@@ -129,7 +129,6 @@ export const planHookInstall: (
       ? undefined
       : new Map([[configuredRef.ref.hook.name, intent.configuration]]);
   const location = yield* WorkspaceLocation;
-  const lockfile = yield* LockfileReader;
   const hookManager = yield* HookManager;
   const priorGraph = yield* (yield* DesiredStateReader).graph().pipe(
     Effect.mapError((cause) =>
@@ -242,7 +241,7 @@ export const planHookInstall: (
                 hookManager.configuredAgentOutcomesForRef === undefined
                   ? []
                   : yield* hookManager.configuredAgentOutcomesForRef(ref, "current");
-              const currentLockEntry = yield* lockfile
+              const currentLockEntry = yield* (yield* LockfileReader)
                 .entry("hook", ref.hook.name)
                 .pipe(Effect.catch(() => Effect.succeed(Option.none())));
               if (Option.isNone(currentLockEntry)) {

@@ -414,20 +414,16 @@ export const KnowledgeManagerLive = Layer.effect(
 
     // The active Knowledge set is complete exactly when the Knowledge
     // contributor set is: a problem about another type does not hide it.
-    const activeKnowledgeNodes = () =>
-      desiredState
-        .graph()
-        .pipe(
-          Effect.flatMap((graph) =>
-            contributorSetComplete(contributorSetBlockers(graph, "knowledge"))
-              ? Effect.succeed(
-                  graph.nodes
-                    .filter(isSourcedDesiredExtension)
-                    .filter((node) => node.type === "knowledge" && node.enabled),
-                )
-              : new KnowledgeDesiredStateUnreconcilable(),
-          ),
-        );
+    const activeKnowledgeNodes = (proposedGraph?: DesiredStateGraph) =>
+      Effect.gen(function* () {
+        const graph = proposedGraph ?? (yield* desiredState.graph());
+        if (!contributorSetComplete(contributorSetBlockers(graph, "knowledge"))) {
+          return yield* new KnowledgeDesiredStateUnreconcilable();
+        }
+        return graph.nodes
+          .filter(isSourcedDesiredExtension)
+          .filter((node) => node.type === "knowledge" && node.enabled);
+      });
 
     /**
      * Classify a bundle whose package could not be inspected. Only the
@@ -832,7 +828,9 @@ export const KnowledgeManagerLive = Layer.effect(
       ManagerRequirements | Scope.Scope
     > =>
       Effect.gen(function* () {
-        const desired = yield* activeKnowledgeNodes();
+        const desired = yield* activeKnowledgeNodes(
+          dryRun ? nativeProjection?.desiredGraph : undefined,
+        );
         const locked = yield* lockfile.entries("knowledge");
         const prepared: Array<PreparedKnowledgePackage> = [];
         for (const node of desired) {

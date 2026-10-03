@@ -3,11 +3,15 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  decodeExtensionNameSync,
+  PackMemberConstraintMapSchema,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { SettingsSchema } from "../desired/settings/index.js";
 import { evaluateDesiredState } from "./desired-state-evaluation.js";
 import { captureDesiredStateInputs } from "./desired-state-reader.js";
+import { makeRegistryPackLockEntry } from "./test-stubs.js";
 import { observePackManifest, type PackManifestsPort } from "./pack-manifests.js";
 
 const OWNER = "@acme";
@@ -101,6 +105,51 @@ describe("desired-state collection", () => {
         expect(added.packDocuments.map(({ settingsName }) => settingsName)).toEqual([
           "alpha",
           "beta",
+        ]);
+      }),
+  );
+
+  it.effect(
+    "reads acquired Pack declarations from the lock without observing installed copies",
+    () =>
+      Effect.gen(function* () {
+        const { manifests, reads } = countingManifests();
+        const accepted = makeRegistryPackLockEntry({
+          owner: decodeHandleSync(OWNER),
+          name: "alpha",
+          dependencies: Schema.decodeUnknownSync(PackMemberConstraintMapSchema)({
+            "@acme/skills/review": "^1.0.0",
+            "@acme/rules/guard": {
+              source: { type: "registry", url: "https://other.example/" },
+              versionRange: "^2.0.0",
+            },
+          }),
+        });
+        const inputs = yield* captureDesiredStateInputs({
+          manifests,
+          baseDir: "/workspace",
+          settings: settings({ packs: { alpha: "@acme/packs/alpha" } }),
+          registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
+          acceptedResolutions: { lockfileVersion: 10, skills: {}, packs: { alpha: accepted } },
+          readSet: [{ path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" }],
+        });
+        const graph = evaluateDesiredState(inputs);
+        expect(reads).toEqual([]);
+        expect(inputs.readSet).toEqual([
+          { path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" },
+        ]);
+        expect(inputs.packDocuments[0]?.provenance).toEqual({
+          kind: "accepted-lock",
+          lockPath: "/workspace/axm-lock.yaml",
+          settingsName: "alpha",
+        });
+        expect(graph.problems).toEqual([]);
+        expect(graph.nodes.find((node) => node.type === "rule")?.origins).toEqual([
+          expect.objectContaining({
+            manifestPath: 'axm-lock.yaml#packs.alpha.dependencies["@acme/rules/guard"]',
+            sourceAuthority: { authority: "registry", endpoint: new URL("https://other.example/") },
+            constraint: "^2.0.0",
+          }),
         ]);
       }),
   );

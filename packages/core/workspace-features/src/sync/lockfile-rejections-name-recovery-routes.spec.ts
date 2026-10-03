@@ -16,6 +16,7 @@ import {
   publishSharedMemberScenario,
   sharedMemberSettings,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
@@ -113,6 +114,57 @@ describe("Lockfile rejection recovery routes", () => {
     },
   );
 
+  it.effect("re-accepts installed Packs and their complete shared instruction contributors", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeRule("guidance", [{ version: "1.0.0", body: "Accepted guidance." }]);
+    registry.writeKnowledge("reference", [{ version: "1.0.0", body: "Accepted reference." }]);
+    registry.writeKnowledge("direct", [{ version: "1.0.0", body: "Direct reference." }]);
+    registry.writeSkill("independent", [{ version: "1.0.0", body: "Independent guidance." }]);
+    registry.writePack("rules", [
+      { version: "1.0.0", dependencies: { "@acme/rules/guidance": "*" } },
+    ]);
+    registry.writePack("knowledge", [
+      { version: "1.0.0", dependencies: { "@acme/knowledge/reference": "*" } },
+    ]);
+    registry.writePack("tools", [
+      { version: "1.0.0", dependencies: { "@acme/skills/independent": "*" } },
+    ]);
+    const workspace = fixture({
+      sources: [registry.source],
+      agents: ["codex"],
+      instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+      packs: {
+        rules: "@acme/packs/rules",
+        knowledge: "@acme/packs/knowledge",
+        tools: "@acme/packs/tools",
+      },
+      knowledge: { direct: "@acme/knowledge/direct" },
+    });
+    const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+      workspace.provide(effect).pipe(Effect.provide(NodeServices.layer));
+    return Effect.gen(function* () {
+      const first = expectResolved(yield* run(applySync()));
+      expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
+      const instructions = workspace.readFile("AGENTS.md");
+      expect(instructions).toContain("Accepted guidance.");
+      expect(instructions).toContain("@acme/knowledge/reference");
+      const backupPath = nodePath.join(
+        nodePath.dirname(workspace.root),
+        `${nodePath.basename(workspace.root)}-accepted-backup.yaml`,
+      );
+      cleanups.push(() => fs.rmSync(backupPath, { force: true }));
+      fs.renameSync(nodePath.join(workspace.root, "axm-lock.yaml"), backupPath);
+      const before = workspace.snapshot();
+      yield* run(previewSync());
+      expect(workspace.snapshot()).toEqual(before);
+      const recovered = expectResolved(yield* run(applySync()));
+      expect(deriveOperationOutcome(recovered), JSON.stringify(recovered)).toBe("applied");
+      expect(workspace.readFile("AGENTS.md")).toBe(instructions);
+      expect((yield* run(applySync()))._tag).toBe("AlreadyReconciled");
+    });
+  });
+
   it.effect("re-accepts a shared Pack member at the direct pin every Pack admits", () => {
     const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
@@ -160,8 +212,7 @@ describe("Lockfile rejection recovery routes", () => {
       const conflict = [
         `skill ${SHARED_MEMBER.name}: incompatible constraints settings range=${SHARED_MEMBER_PIN.outside} location=axm.json`,
         ...SHARED_MEMBER_PACKS.map(
-          (pack) =>
-            `${pack.fqn} range=${pack.range} location=agent_extensions/registry/${SHARED_MEMBER.owner}/packs/${pack.name}/pack.json`,
+          (pack) => `${pack.fqn} range=${pack.range} location=proposed ${pack.fqn}`,
         ),
       ].join(", ");
       const blockedUnits = [

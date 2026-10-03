@@ -240,8 +240,8 @@ describe("generated schemas", () => {
 
     expect(lockSchema["$ref"]).toBe("#/definitions/Lockfile");
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([9]);
-    expect(lockfileVersion["default"]).toBe(9);
+    expect(lockfileVersion["enum"]).toEqual([10]);
+    expect(lockfileVersion["default"]).toBe(10);
     expect(lockfile["required"]).toEqual(["lockfileVersion", "skills"]);
   });
 
@@ -410,7 +410,7 @@ describe("generated schemas", () => {
     }
     for (const variant of variants) {
       expect(getRecord(variant, "properties")).toHaveProperty("manifestContentIdentity");
-      expect(getRecord(variant, "properties")).toHaveProperty("members");
+      expect(getRecord(variant, "properties")).toHaveProperty("dependencies");
       expect(getRecord(variant, "properties")).not.toHaveProperty("resolvedSkills");
     }
   });

@@ -67,6 +67,7 @@ export interface HttpRegistry {
   readonly publishes: ReadonlyArray<PublishRecord>;
   readonly requests: ReadonlyArray<RequestRecord>;
   readonly metadataRequests: ReadonlyArray<ReadonlyArray<string>>;
+  readonly metadataPurposes: ReadonlyArray<ReadonlyArray<string>>;
   /** Every refresh token presented to the token endpoint, in order. */
   readonly presentedRefreshTokens: ReadonlyArray<string>;
   /** Every token-exchange request's form fields, in order. */
@@ -393,6 +394,7 @@ export const startHttpRegistry = async (
   };
   const requests: Array<RequestRecord> = [];
   const metadataRequests: Array<ReadonlyArray<string>> = [];
+  const metadataPurposes: Array<ReadonlyArray<string>> = [];
   const presentedRefreshTokens: Array<string> = [];
   const tokenExchanges: Array<Readonly<Record<string, string>>> = [];
   let session =
@@ -919,6 +921,7 @@ export const startHttpRegistry = async (
         }
         const items: ReadonlyArray<unknown> = body["items"];
         const identities: string[] = [];
+        const purposes: string[] = [];
         for (const item of items) {
           if (!isRecord(item) || !isRecord(item["identity"])) {
             sendProblem(response, 400, "Invalid batch metadata item.");
@@ -927,6 +930,7 @@ export const startHttpRegistry = async (
           const identity = item["identity"];
           if (
             typeof item["key"] !== "string" ||
+            typeof item["purpose"] !== "string" ||
             typeof identity["owner"] !== "string" ||
             typeof identity["type"] !== "string" ||
             typeof identity["name"] !== "string"
@@ -935,8 +939,10 @@ export const startHttpRegistry = async (
             return;
           }
           identities.push(`${identity["owner"]}/${identity["type"]}/${identity["name"]}`);
+          purposes.push(item["purpose"]);
         }
         metadataRequests.push(identities);
+        metadataPurposes.push(purposes);
         await Promise.all(
           identities.map((identity) => {
             const [, type = "", name = ""] = identity.split("/");
@@ -1151,6 +1157,7 @@ export const startHttpRegistry = async (
     publishes,
     requests,
     metadataRequests,
+    metadataPurposes,
     presentedRefreshTokens,
     tokenExchanges,
     failNextIndex: (pluralAndName) => void pendingIndexFailures.add(pluralAndName),

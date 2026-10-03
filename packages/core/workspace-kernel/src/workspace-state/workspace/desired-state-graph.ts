@@ -50,6 +50,7 @@ export type DesiredExtensionOrigin =
       readonly type: "pack";
       /** The Pack that declares this member. */
       readonly pack: DesiredPackIdentity;
+      /** Declaration location: authored document, accepted lock row, or proposed Pack. */
       readonly manifestPath: string;
       readonly source: string;
       /** The source the member is acquired from: declared by the Pack, or inherited from it. */
@@ -171,16 +172,6 @@ export type DesiredStateProblem =
       readonly detail: string;
     }
   | {
-      readonly type: "pack-manifest-content-mismatch";
-      readonly pack: string;
-      readonly path: string;
-      readonly status: "changed";
-      readonly acceptedVersion: string;
-      readonly acceptedContentIdentity: string;
-      readonly observedVersion: string;
-      readonly observedContentIdentity: string;
-    }
-  | {
       /** Every identity competing for one local name; the graph represents one and retains the rest. */
       readonly type: "projection-collision";
       readonly extensionType: ExtensionType;
@@ -227,7 +218,13 @@ export interface DesiredMemberSubject {
 
 /** Why a configured Pack's declared membership could not be established. */
 export type DesiredMembershipUnknownReason =
-  "unidentified" | "absent" | "unreadable" | "malformed" | "schema-invalid" | "identity-mismatch";
+  | "unidentified"
+  | "absent"
+  | "unreadable"
+  | "malformed"
+  | "schema-invalid"
+  | "identity-mismatch"
+  | "resolution-unavailable";
 
 /**
  * Whether a Pack's declared members contribute routes to the effective

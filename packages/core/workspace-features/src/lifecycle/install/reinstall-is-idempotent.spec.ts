@@ -1,4 +1,5 @@
 import * as nodePath from "node:path";
+import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -6,7 +7,9 @@ import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 
+import { makeGitSkillRepository } from "../../testing/git-repositories.js";
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { entriesUnder, localLifecycleRows, readSettings } from "./test-helpers.js";
 import {
@@ -93,6 +96,213 @@ describe("Repeat installs are safe", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
+  it.effect.each(["root", "skill", "pack", "explicit"] as const)(
+    "configured %s install replays a warm accepted closure without source operations",
+    (route) => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      world.registry.writeSkill("member", [{ version: "1.0.0", body: "Accepted member." }]);
+      world.registry.writePack("repeat", [
+        { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+      ]);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/repeat@^1.0.0" },
+              }),
+            );
+            yield* applyInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source: "@acme/skills/member@^1.0.0" },
+              }),
+            );
+            const before = durableState(world);
+            world.registry.writeSkill("member", [
+              { version: "1.0.0", body: "Accepted member." },
+              { version: "1.1.0", body: "New member." },
+            ]);
+            world.registry.writePack("repeat", [
+              { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+              { version: "1.1.0", dependencies: {} },
+            ]);
+            const sources = yield* SourceHostProviders;
+            const unexpected = () =>
+              Effect.die(
+                new Error("A warm configured install must not consult or acquire from sources"),
+              );
+            const repeated = yield* applyInstall(
+              installRequest({
+                ...(route === "root" ? {} : { type: route === "explicit" ? "pack" : route }),
+                subject:
+                  route === "explicit"
+                    ? { kind: "source", source: "@acme/packs/repeat@^1.0.0" }
+                    : { kind: "configured" },
+              }),
+            ).pipe(
+              Effect.provideService(SourceHostProviders, {
+                ...sources,
+                find: unexpected,
+                resolveNamedRegistry: unexpected,
+                fetch: unexpected,
+                acquireForTransition: unexpected,
+              }),
+            );
+            expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
+            expect(durableState(world)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect.each(["missing-pack", "missing-member", "changed-pack"] as const)(
+    "configured install restores the exact accepted closure when %s despite newer releases",
+    (state) => {
+      const world = makeInstallWorld();
+      cleanups.push(world.cleanup);
+      const dependency = { "@acme/skills/member": "^1.0.0" };
+      world.registry.writeSkill("member", [{ version: "1.0.0", body: "Accepted member." }]);
+      world.registry.writePack("repeat", [{ version: "1.0.0", dependencies: dependency }]);
+      return world.workspace
+        .provide(
+          Effect.gen(function* () {
+            const first = yield* applyInstall(
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/repeat@^1.0.0" },
+              }),
+            );
+            expect(deriveOperationOutcome(first)).toBe("applied");
+            const before = durableState(world);
+            world.registry.writeSkill("member", [
+              { version: "1.0.0", body: "Accepted member." },
+              { version: "1.1.0", body: "New member." },
+            ]);
+            world.registry.writePack("repeat", [
+              { version: "1.0.0", dependencies: dependency },
+              { version: "1.1.0", dependencies: {} },
+            ]);
+            const pack = "agent_extensions/registry/@acme/packs/repeat";
+            if (state === "changed-pack") {
+              world.workspace.writeFile(`${pack}/pack.json`, "{}\n");
+            } else {
+              fs.rmSync(
+                nodePath.join(
+                  world.workspace.root,
+                  state === "missing-pack" ? pack : "agent_extensions/registry/@acme/skills/member",
+                ),
+                { recursive: true },
+              );
+            }
+            const sources = yield* SourceHostProviders;
+            const repeated = yield* applyInstall(
+              installRequest({ subject: { kind: "configured" } }),
+            ).pipe(
+              Effect.provideService(SourceHostProviders, {
+                ...sources,
+                find: () => Effect.die("Restoration must not resolve a newer release"),
+                resolveNamedRegistry: () =>
+                  Effect.die("Restoration must use the accepted Registry endpoint"),
+              }),
+            );
+            expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("applied");
+            expect(durableState(world)).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect("configured install uses the accepted local copy after the source disappears", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    const source = nodePath.dirname(
+      writeLocalSkillPackage(world.workspace.root, { name: "repeat" }),
+    );
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({ type: "skill", subject: { kind: "source", source } }),
+          );
+          const before = durableState(world);
+          fs.rmSync(source, { recursive: true });
+          const repeated = yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
+          expect(durableState(world)).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect.each(["root", "skill"] as const)(
+    "configured %s install preserves an accepted Git commit after its branch advances",
+    (route) =>
+      Effect.gen(function* () {
+        const world = makeInstallWorld();
+        cleanups.push(world.cleanup);
+        const repository = yield* makeGitSkillRepository({ name: "repeat" });
+        cleanups.push(repository.cleanup);
+        yield* world.workspace
+          .provide(
+            Effect.gen(function* () {
+              yield* applyInstall(
+                installRequest({
+                  type: "skill",
+                  subject: { kind: "source", source: repository.url },
+                }),
+              );
+              const before = durableState(world);
+              repository.advance();
+              const sources = yield* SourceHostProviders;
+              const unexpected = () =>
+                Effect.die(new Error("Warm Git install consulted the moved source"));
+              const repeated = yield* applyInstall(
+                installRequest({
+                  ...(route === "root" ? {} : { type: route }),
+                  subject: { kind: "configured" },
+                }),
+              ).pipe(
+                Effect.provideService(SourceHostProviders, {
+                  ...sources,
+                  find: unexpected,
+                  fetch: unexpected,
+                  resolveNamedRegistry: unexpected,
+                  acquireForTransition: unexpected,
+                }),
+              );
+              expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
+              expect(durableState(world)).toEqual(before);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      }),
+  );
+
+  it.effect("configured install preserves accepted local content after its source changes", () => {
+    const world = makeInstallWorld();
+    cleanups.push(world.cleanup);
+    const source = writeLocalSkillPackage(world.workspace.root, { name: "repeat" });
+    return world.workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({ type: "skill", subject: { kind: "source", source } }),
+          );
+          const before = durableState(world);
+          fs.appendFileSync(nodePath.join(source, "src", "SKILL.md"), "\nNew source content.\n");
+          const repeated = yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
+          expect(durableState(world)).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect.each(repeatRows)(
     "repeating the install of $label reports an unchanged no-op",
     (row) => {
@@ -108,7 +318,7 @@ describe("Repeat installs are safe", () => {
 
             const repeated = yield* applyInstall(request);
 
-            expect(deriveOperationOutcome(repeated)).toBe("no-op");
+            expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
             // Every unit, including each Pack member, reports that it changed
             // nothing; the outcome is derived from those units, never decided.
             expect(repeated.units.map((unit) => ({ id: unit.id, state: unit.state }))).toEqual(

@@ -21,6 +21,7 @@ import type { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { ManagerRequirements, McpServerManager } from "../materialization/index.js";
 import {
   ExtensionResolutionFailed,
+  type AcceptedPackMemberIncompatible,
   type HeldReleasePolicy,
   type PackDependencyRefResolver,
 } from "../resolution/index.js";
@@ -164,8 +165,15 @@ export interface ResolvedInstallRef<TRef> {
  * ref comes from the accepted resolution already recorded for it.
  */
 export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
-  AcceptedCanonicalRefError | ExtensionResolutionFailed,
-  WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
+  AcceptedCanonicalRefError | ExtensionResolutionFailed | AcceptedPackMemberIncompatible,
+  | WorkspaceLocation
+  | SettingsReader
+  | LockfileReader
+  | DesiredStateReader
+  | SourceHostProviders
+  | Scope.Scope
+  | FileSystem.FileSystem
+  | Path.Path
 >;
 
 /**

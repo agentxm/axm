@@ -153,6 +153,7 @@ describe("Pack state inspection", () => {
             name: "toolkit",
             resolvedVersion: decodeVersionSync("2.3.4"),
             endpoint,
+            dependencies: Schema.decodeUnknownSync(PackManifestSchema)(manifest).dependencies,
             sourceHash: computePackManifestContentIdentity(
               Schema.decodeUnknownSync(PackManifestSchema)(manifest),
             ),

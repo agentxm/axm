@@ -6,7 +6,7 @@ import {
   LifecyclePostconditionViolated,
   ScaffoldedExtensionUnresolved,
   type ArtifactChange,
-  type StepFailure,
+  StepFailure,
   type JobStepArtifact,
   type JobStepResult,
   type PlannedJobStep,
@@ -45,6 +45,8 @@ import {
   desiredReachability,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
+import { observeSatisfiedInstall } from "./satisfied-install.js";
+import { LockfileReader } from "../../workspace-state/index.js";
 import * as Option from "effect/Option";
 
 import { SourceAuthorityBlocked } from "../../resolution/index.js";
@@ -246,6 +248,7 @@ export interface StepFailureAdapter<F = never> {
  * platform dependencies still required by those state writers.
  */
 export type RecipeRequirements =
+  | LockfileReader
   | NativeWriteAuthority
   | WorkspaceTransactionScope
   | FootprintRecorder
@@ -450,10 +453,6 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
     // The desired-state graph is the one authority for what the workspace
     // already holds for this target.
     const priorGraph = yield* (yield* DesiredStateReader).graph();
-    const priorAuthority =
-      target.type === "hook" || target.type === "rule" || target.type === "knowledge"
-        ? yield* captureAgentOutputAuthority()
-        : undefined;
     const configured = priorGraph.nodes.find(
       (node) => node.type === target.type && node.name === target.name,
     );
@@ -477,6 +476,45 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
         recovery: authority.fact.recovery,
       });
     }
+    const satisfied =
+      args.sourceReplacements?.length || args.hookConfiguration !== undefined
+        ? Option.none()
+        : yield* observeSatisfiedInstall(args);
+    if (Option.isSome(satisfied)) {
+      const presentation =
+        args.buildArtifact === undefined
+          ? undefined
+          : yield* args.buildArtifact({ change: "unchanged", materialization: Option.none() });
+      const registryLifecycle = extensionRefRegistryLifecycle(args.ref);
+      return {
+        result: "success" as const,
+        message: args.message ?? "Applied install operation",
+        disposition: "unchanged" as const,
+        ...(presentation === undefined
+          ? {}
+          : {
+              artifact: {
+                ...presentation,
+                change: "unchanged" as const,
+                ...(args.ref.type === "pack"
+                  ? {}
+                  : {
+                      nativeLocations: satisfied.value.nativeLocations,
+                      ...(presentation.agents === undefined
+                        ? {}
+                        : {
+                            agents: satisfied.value.agentOutcomes.map(({ agentId }) => agentId),
+                          }),
+                    }),
+                ...(registryLifecycle === undefined ? {} : { registryLifecycle }),
+              },
+            }),
+      } satisfies JobStepResult;
+    }
+    const priorAuthority =
+      target.type === "hook" || target.type === "rule" || target.type === "knowledge"
+        ? yield* captureAgentOutputAuthority()
+        : undefined;
     const installedBefore = yield* manager.isInstalled({ target });
     const { value: transaction, footprint } = yield* observeFootprint(
       runWorkspaceTransaction({
@@ -597,7 +635,11 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
         ? {}
         : { warnings: transaction.projectionWarnings }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(args.toStepFailure));
+  }).pipe(
+    Effect.mapError((failure) =>
+      failure instanceof StepFailure ? failure : args.toStepFailure(failure),
+    ),
+  );
 
 /**
  * Build a PlannedJobStep for an install operation.

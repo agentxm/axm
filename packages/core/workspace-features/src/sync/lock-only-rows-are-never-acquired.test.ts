@@ -12,6 +12,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
+import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
 
 import { makeSyncFixture, previewSync, applySync } from "../testing/sync-fixture.js";
 
@@ -29,7 +30,17 @@ const acceptedRegistryRow = (
   },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   ...(extensionType === "pack"
-    ? { manifestVersion: "1.0.0", manifestContentIdentity: "test-content", members: [] }
+    ? {
+        manifestVersion: "1.0.0",
+        manifestContentIdentity: computePackManifestContentIdentity({
+          owner: "@acme",
+          type: "pack",
+          name,
+          version: "1.0.0",
+          dependencies: {},
+        }),
+        dependencies: {},
+      }
     : {}),
 });
 

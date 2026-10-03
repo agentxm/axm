@@ -68,8 +68,9 @@ the source family is `registry`, `git`, or `path`. Portable packages without a
 publisher identity use the reserved `@portable` owner segment. The identity
 suffix is independent of the Registry name, Git repository, or local source
 path used to reach the package. `axm.json` and authored pack manifests declare
-intent; the v7 `axm-lock.yaml` records accepted immutable resolutions and the
-exact materialized-tree integrity of desired external extensions.
+intent; `axm-lock.yaml` records accepted immutable resolutions and the
+exact materialized-tree integrity of desired external extensions. See
+`axm help workspace-state` for the supported lockfile format and recovery.
 Project-authored packages live directly under type roots such as
 `skills/<name>`, `rules/<name>`, and `packs/<name>`; each root can be changed by
 its corresponding `*Config.dir` setting. `.axm/` is ignored project runtime

@@ -327,6 +327,39 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
         routes: dormantRoutes,
       });
     };
+    const routes: DesiredPackRoutes = packEnabled ? "active" : "dormant";
+    if (identity.identity.authority !== "workspace" && document?.provenance.kind !== "proposed") {
+      const packNode: DesiredExtensionNode = {
+        type: "pack",
+        name: identity.name,
+        identity: identity.identity,
+        authority: "sourced",
+        source: entry.source,
+        enabled: packEnabled,
+        origins: [packSettingsOrigin],
+        constraint: settleDesiredNodeConstraint({
+          type: "pack",
+          name: identity.name,
+          origins: [packSettingsOrigin],
+        }),
+      };
+      const authorization = authorizeExternalPackRoutes({
+        node: packNode,
+        accepted: acceptedPack,
+        declarationLocation: document?.relativePath ?? `axm-lock.yaml#packs.${settingsName}`,
+      });
+      if (!authorization.authorized) {
+        if (packEnabled) problems.push(authorization.problem);
+        packMembership.push({
+          settingsName,
+          pack: identity.fqn,
+          enabled: packEnabled,
+          declared: unknownMembership("resolution-unavailable"),
+          routes: packEnabled ? "unauthorized" : "dormant",
+        });
+        continue;
+      }
+    }
     const manifestPath = document?.path ?? "";
     const observed = document?.observation ?? { status: "absent" as const };
     // A disabled Pack routes nothing, so a document it cannot supply is not
@@ -364,7 +397,7 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       case "decoded":
         break;
     }
-    const { manifest, contentIdentity } = observed;
+    const { manifest } = observed;
     if (
       manifest.owner !== identity.owner ||
       manifest.name !== identity.name ||
@@ -390,41 +423,6 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       members.push({ type: parsed.type, name: parsed.name });
     }
 
-    // An enabled external Pack's observed manifest routes members only when
-    // its accepted resolution authorizes it; the Pack stays desired and its
-    // membership stays known while its routes are withheld.
-    let routes: DesiredPackRoutes = packEnabled ? "active" : "dormant";
-    if (
-      packEnabled &&
-      identity.identity.authority !== "workspace" &&
-      document?.provenance.kind !== "proposed"
-    ) {
-      const packNode: DesiredExtensionNode = {
-        type: "pack",
-        name: identity.name,
-        identity: identity.identity,
-        authority: "sourced",
-        source: entry.source,
-        enabled: packEnabled,
-        origins: [packSettingsOrigin],
-        constraint: settleDesiredNodeConstraint({
-          type: "pack",
-          name: identity.name,
-          origins: [packSettingsOrigin],
-        }),
-      };
-      const authorization = authorizeExternalPackRoutes({
-        node: packNode,
-        accepted: acceptedPack,
-        manifestPath,
-        manifest,
-        contentIdentity,
-      });
-      if (!authorization.authorized) {
-        problems.push(authorization.problem);
-        routes = "unauthorized";
-      }
-    }
     packMembership.push({
       settingsName,
       pack: identity.fqn,
@@ -485,7 +483,10 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
         origin: {
           type: "pack",
           pack: packOrigin,
-          manifestPath: relativePath,
+          manifestPath:
+            document?.provenance.kind === "accepted-lock"
+              ? `${relativePath}.dependencies[${JSON.stringify(fqn)}]`
+              : relativePath,
           source: declaredSource?.url.href ?? fqn,
           ...(memberAuthority === undefined ? {} : { sourceAuthority: memberAuthority }),
           constraint,

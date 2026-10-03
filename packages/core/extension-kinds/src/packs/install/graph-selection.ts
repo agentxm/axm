@@ -41,6 +41,8 @@ import {
   packMemberSourceAuthority,
   usableAcceptedCanonical,
   usableAcceptedCanonicalFrom,
+  acceptedLockedResolutionRef,
+  computePackManifestContentIdentity,
   type DesiredConstraintConflict,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
@@ -61,6 +63,7 @@ import {
   type WorkspacePackDependencyResolver,
 } from "@agentxm/workspace-kernel/resolution";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import type { PackRecoveryDependencyResolver } from "@agentxm/workspace-kernel/reconciliation";
 import type { AcceptedMemberMismatch } from "../lifecycle/constraint-gate.js";
 import { expandPackInstallRefsWithReleaseAge } from "../lifecycle/expansion.js";
@@ -86,16 +89,51 @@ export interface PackGraphSelectionRequest {
 
 /** The desired state as it would be with these Pack manifests, before anything is written. */
 export const readProposedGraph = (prospectivePacks: ReadonlyArray<PackRef>) =>
-  Effect.flatMap(DesiredStateReader, (desiredState) =>
-    // With no proposed manifest the proposal is the current desired state.
-    desiredState.graph(prospectivePacks.length === 0 ? undefined : { prospectivePacks }).pipe(
-      Effect.mapError((cause) =>
-        installRefused({
-          category: "internal",
-          detail: "Proposed desired state could not be read",
-          cause,
-        }),
-      ),
+  Effect.gen(function* () {
+    const desiredState = yield* DesiredStateReader;
+    const current = yield* desiredState.graph();
+    const changed = yield* Effect.filter(prospectivePacks, (ref) =>
+      Effect.gen(function* () {
+        if (ref.refType === "workspace") return true;
+        if (
+          !current.nodes.some(
+            (node) =>
+              node.type === "pack" &&
+              node.name === ref.name &&
+              desiredPackageKey(node.identity) === desiredPackageKey(desiredIdentityOfRef(ref)),
+          )
+        )
+          return true;
+        const accepted = yield* acceptedLockedResolutionRef({ type: "pack", name: ref.name });
+        if (
+          Option.isNone(accepted) ||
+          accepted.value.type !== "pack" ||
+          sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
+        )
+          return true;
+        const identity = (pack: PackRef) =>
+          computePackManifestContentIdentity({
+            owner: pack.owner,
+            type: "pack",
+            name: pack.pack.name,
+            version: pack.version,
+            dependencies: pack.pack.dependencies,
+          });
+        return identity(accepted.value) !== identity(ref);
+      }),
+    );
+    // Replaying an accepted declaration retains its lock provenance. Only a
+    // changed declaration supplies prospective constraint locations.
+    return yield* desiredState.graph(
+      changed.length === 0 ? undefined : { prospectivePacks: changed },
+    );
+  }).pipe(
+    Effect.mapError((cause) =>
+      installRefused({
+        category: "internal",
+        detail: "Proposed desired state could not be read",
+        cause,
+      }),
     ),
   );
 

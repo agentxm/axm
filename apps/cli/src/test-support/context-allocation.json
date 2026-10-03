@@ -418,7 +418,7 @@
     },
     "deprecation-read": {
       "requirements": [
-        "cli/list/ordinary-inventory-identifies-deprecation",
+        "cli/list/ordinary-inventory-is-local",
         "cli/view/reports-deprecation-and-replacement-availability",
         "cli/view/reports-archival-and-effective-lifecycle-state"
       ],

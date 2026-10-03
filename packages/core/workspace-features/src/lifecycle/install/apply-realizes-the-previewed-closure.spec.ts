@@ -3,7 +3,9 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
+import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
+import { InstallExtensions } from "./install-extensions.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
@@ -18,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/apply-realizes-the-previewed-closure",
   title: "An unchanged install request applies the plan shown in its preview",
   statement:
-    "When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards.",
+    "When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards; if material workspace state changes after preparation, apply shall reject the stale candidate without overwriting the intervening change, including warm no-op and forced installs.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "extension-adoption"],
@@ -35,6 +37,41 @@ describe("Install apply realizes the previewed closure", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  it.effect.each([false, true])("rejects a stale warm install with reinstall=%s", (reinstall) => {
+    const { workspace, cleanup } = makeInstallWorld();
+    cleanups.push(cleanup);
+    const source = writeLocalSkillPackage(workspace.root, { name: "code-review" });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({ type: "skill", subject: { kind: "source", source } }),
+          );
+          const candidate = yield* InstallExtensions.prepare(
+            installRequest({
+              subject: { kind: "configured" },
+              reinstall,
+            }),
+          );
+          const beforePreview = workspace.snapshot();
+          yield* InstallExtensions.previewOrApply(candidate, previewPlanExecution);
+          expect(workspace.snapshot()).toEqual(beforePreview);
+          workspace.writeFile(
+            "agent_extensions/path/@acme/skills/code-review/src/SKILL.md",
+            "Intervening edit.\n",
+          );
+          const intervening = workspace.snapshot();
+          const result = yield* InstallExtensions.previewOrApply(
+            candidate,
+            preapprovedPlanExecution,
+          );
+          expect(result.blocking?.class, JSON.stringify(result)).toBe("stale-candidate");
+          expect(workspace.snapshot()).toEqual(intervening);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
   });
 
   it.effect("apply commits the same plan candidate and units the preview described", () => {

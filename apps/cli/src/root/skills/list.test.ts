@@ -11,12 +11,14 @@ import * as path from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
 import * as Layer from "effect/Layer";
 import { afterEach, beforeEach } from "vitest";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import {
   WorkspaceRecords,
+  WorkspaceReadViews,
   countExtensionInventory,
   type WorkspaceStateOptions,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -192,11 +194,18 @@ describe("list.handler", () => {
     ]);
     return provide(
       Effect.gen(function* () {
+        const views = yield* WorkspaceReadViews;
         yield* handleList({ agents: [] }).pipe(
-          Effect.provideService(WorkspaceRecords, {
-            getInventory: () => Effect.succeed(inventory),
-            getExtensionInventory: () => Effect.succeed(inventory),
-            rows: () => Effect.succeed(inventory.items),
+          Effect.provideService(WorkspaceReadViews, {
+            capture: views.capture.pipe(
+              Effect.map((readers) =>
+                Context.add(readers, WorkspaceRecords, {
+                  getInventory: () => Effect.succeed(inventory),
+                  getExtensionInventory: () => Effect.succeed(inventory),
+                  rows: () => Effect.succeed(inventory.items),
+                }),
+              ),
+            ),
           }),
         );
         const output = rendererState.docs

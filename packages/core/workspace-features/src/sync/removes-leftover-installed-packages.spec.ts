@@ -2,12 +2,14 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 
 import {
   applySync,
@@ -93,6 +95,56 @@ describe("Sync removes leftover installed packages", () => {
             expect(fs.existsSync(nodePath.join(workspace.root, ".claude/skills/stale"))).toBe(
               false,
             );
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect.each([false, true])(
+    "retires stale content after first accepting shared Packs (accepted stale row: %s)",
+    (accepted) => {
+      const registry = makeFileRegistry();
+      cleanups.push(registry.cleanup);
+      registry.writeSkill("stale", [{ version: "1.0.0", body: "Stale." }]);
+      registry.writeSkill("member", [{ version: "1.0.0", body: "Member." }]);
+      for (const name of ["first", "second"]) {
+        registry.writePack(name, [
+          { version: "1.0.0", dependencies: { "@acme/skills/member": "^1.0.0" } },
+        ]);
+      }
+      const settings = { ...BASE, sources: [registry.source] };
+      const workspace = fixture({
+        ...settings,
+        ...(accepted ? { skills: { stale: "test:@acme/skills/stale@^1.0.0" } } : {}),
+      });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            if (accepted) yield* applySync();
+            else writeInstalledSkill(workspace.root, STALE, "stale");
+            workspace.writeSettings({
+              ...settings,
+              packs: {
+                first: "test:@acme/packs/first@^1.0.0",
+                second: "test:@acme/packs/second@^1.0.0",
+              },
+            });
+            const before = workspace.snapshot();
+            expect(deriveOperationOutcome(expectResolved(yield* previewSync()))).toBe("previewed");
+            expect(workspace.snapshot()).toEqual(before);
+
+            const resolution = expectResolved(yield* applySync());
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(workspace.exists(STALE)).toBe(false);
+            expect(Option.isNone(yield* (yield* LockfileReader).entry("skill", "stale"))).toBe(
+              true,
+            );
+            expect(workspace.exists("agent_extensions/registry/@acme/skills/member")).toBe(true);
+            for (const name of ["first", "second"]) {
+              expect(workspace.exists(`agent_extensions/registry/@acme/packs/${name}`)).toBe(true);
+            }
             expect((yield* applySync())._tag).toBe("AlreadyReconciled");
           }),
         )

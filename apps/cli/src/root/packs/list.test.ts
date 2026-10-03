@@ -48,7 +48,7 @@ const initWorkspace = (axmDir: string, lockfilePacks: Record<string, unknown> = 
       ...value,
       manifestVersion: version,
       manifestContentIdentity: computePackManifestContentIdentity(manifest),
-      members: [],
+      dependencies: manifest.dependencies,
       treeIntegrity: computeMaterializedTreeIntegritySync(packDir),
     };
   }

@@ -11,6 +11,6 @@
                                      workspace
  ▲   @legacy/skills/    skill        installed but no   yes         -                  -                      -
      changelog                       longer selected
-     Not shown at this width: Version, Source, Assessment, Guidance
+     Not shown at this width: Version, Source
 
 6 extensions · 3 enabled · 1 needs attention · axm lint explains

@@ -121,16 +121,9 @@ export const buildPackMemberStep: (
     enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
     ...(args.force === undefined ? {} : { force: args.force }),
   } as const;
-  const observed = (
-    observation: Effect.Effect<
-      MaterializationObservation,
-      ExtensionManagerFailure,
-      ManagerRequirements
-    >,
-  ) => ({
-    buildArtifact: ({ change }: { readonly change: JobStepArtifact["change"] }) =>
-      memberPresentation({ ref, scope: location.scope, change, observation }),
-  });
+  // Shared aggregate observations belong after every contributor is materialized.
+  const canonical = ({ change }: { readonly change: JobStepArtifact["change"] }) =>
+    Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, change }));
   const materialized = ({
     change,
     materialization,
@@ -221,7 +214,7 @@ export const buildPackMemberStep: (
       return buildInstallOperation(manager, {
         ...common,
         ref,
-        ...observed(manager.aggregateProjectionObservation),
+        buildArtifact: canonical,
       });
     }
     case "hook": {
@@ -229,15 +222,14 @@ export const buildPackMemberStep: (
       return buildInstallOperation(manager, {
         ...common,
         ref,
-        ...observed(manager.aggregateProjectionObservation),
+        buildArtifact: canonical,
       });
     }
     case "knowledge":
       return buildInstallOperation(yield* KnowledgeManager, {
         ...common,
         ref,
-        buildArtifact: ({ change }) =>
-          Effect.succeed(registrySourceArtifact({ ref, scope: location.scope, change })),
+        buildArtifact: canonical,
       });
     case "mcp-server": {
       const manager = yield* McpServerManager;

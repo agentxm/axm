@@ -1,3 +1,4 @@
+import { withInspectionReadView } from "../read-view.js";
 /**
  * What one extension type's inventory means.
  *
@@ -119,7 +120,7 @@ export const listSkills = Effect.fn("Inspection.listSkills")(function* (request:
     })),
     rows,
   } satisfies TypeListResult<SkillListRow>;
-});
+}, withInspectionReadView);
 
 /** Subagents: an empty agent list means every configured agent receives it. */
 export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (request: {
@@ -130,7 +131,7 @@ export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (re
     inventory,
     rows: inventory.items.map(baseRow),
   } satisfies TypeListResult<TypeListRow>;
-});
+}, withInspectionReadView);
 
 const sourcedRows = (
   inventory: ExtensionInventory,
@@ -162,7 +163,7 @@ export const listRules = Effect.fn("Inspection.listRules")(function* () {
   const configured = yield* settings.entries("rule");
   const locked = yield* lockfile.entries("rule");
   return sourcedRows(inventory, configured, locked);
-});
+}, withInspectionReadView);
 
 /** Hooks consume the resolved per-agent outcomes carried by inventory rows. */
 export const listHooks = Effect.fn("Inspection.listHooks")(function* () {
@@ -172,7 +173,7 @@ export const listHooks = Effect.fn("Inspection.listHooks")(function* () {
   const configured = yield* settings.entries("hook");
   const locked = yield* lockfile.entries("hook");
   return sourcedRows(inventory, configured, locked);
-});
+}, withInspectionReadView);
 
 /**
  * Packs: the owner comes from the accepted entry, then the source-qualified
@@ -210,7 +211,7 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
     }),
     rows,
   } satisfies TypeListResult<PackListRow>;
-});
+}, withInspectionReadView);
 
 /** MCP servers: the inventory join plus the projection's per-agent drift facts. */
 // The MCP inventory is the one per-type list that reads native agent
@@ -283,6 +284,6 @@ export const listMcpServers: () => Effect.Effect<
     }),
     rows,
   } satisfies TypeListResult<McpServerListRow>;
-});
+}, withInspectionReadView);
 
 export type { McpServerListRow, McpServerMachineSource, McpServerResolution };

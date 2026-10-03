@@ -13,6 +13,8 @@
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
+import * as Context from "effect/Context";
+import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
@@ -442,7 +444,7 @@ const inspectedDeclaration = (
  * from, so a currency judgment and a write never disagree about what an
  * agent should hold.
  */
-export const inspectDesiredMcpServer = (
+const inspectDesiredMcpServerUncached = (
   args: InspectDesiredMcpServerArgs,
 ): Effect.Effect<
   DesiredMcpServerInspection,
@@ -668,4 +670,49 @@ export const collectManagedAgentMcpServers = (
       { concurrency: 16 },
     );
     return perGroup.flat();
+  });
+
+class McpInspectionReadView extends Context.Service<
+  McpInspectionReadView,
+  {
+    readonly inspect: typeof inspectDesiredMcpServerUncached;
+  }
+>()("@agentxm/workspace-kernel/projection/McpInspectionReadView") {}
+
+/** Share detailed MCP observations only for the duration of one read phase. */
+export const withMcpInspectionReadView = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+  Effect.gen(function* () {
+    const cells = yield* Ref.make(
+      new Map<string, ReturnType<typeof inspectDesiredMcpServerUncached>>(),
+    );
+    const inspect: typeof inspectDesiredMcpServerUncached = (args) =>
+      Effect.gen(function* () {
+        const key = JSON.stringify({
+          nativeDirectoryInputs: args.nativeDirectoryInputs,
+          workspaceRoot: args.workspaceRoot,
+          scope: args.scope,
+          agentIds: args.agentIds,
+          node: args.node,
+          entry: args.entry,
+          canonicalPaths: args.canonicalPaths,
+          state: args.state ?? "current",
+        });
+        const cell = yield* Effect.cached(inspectDesiredMcpServerUncached(args));
+        const selected = yield* Ref.modify(cells, (current) => {
+          const existing = current.get(key);
+          if (existing !== undefined) return [existing, current] as const;
+          return [cell, new Map(current).set(key, cell)] as const;
+        });
+        return yield* selected;
+      });
+    return yield* effect.pipe(Effect.provideService(McpInspectionReadView, { inspect }));
+  });
+
+/** Use the phase's detailed observation when one is explicitly in scope. */
+export const inspectDesiredMcpServer: typeof inspectDesiredMcpServerUncached = (args) =>
+  Effect.gen(function* () {
+    const view = yield* Effect.serviceOption(McpInspectionReadView);
+    return yield* Option.isSome(view)
+      ? view.value.inspect(args)
+      : inspectDesiredMcpServerUncached(args);
   });

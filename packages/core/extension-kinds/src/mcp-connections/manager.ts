@@ -23,6 +23,7 @@ import {
   computeExtensionPathsForLayout,
   validateExactResolvedVersion,
   acceptedCanonicalObservation,
+  acceptedLockedResolutionRef,
   removableAcceptedCanonicalPath,
   computeMaterializedTreeIntegrity,
   type MaterializedTreeInvalid,
@@ -82,6 +83,7 @@ import {
   configuredMcpServersToDiskRefs,
   copyExtensionDirectory,
   replaceCanonicalDirectoryWithInspection,
+  sourceRefContentKey,
 } from "@agentxm/workspace-kernel/acquisition";
 
 // Build lock entry from registry ref
@@ -164,6 +166,19 @@ export const McpServerManagerLive = Layer.effect(
         return acquired(Option.none());
       }
       if (ref.refType !== "registry") {
+        if (force !== true) {
+          const target = { type: "mcp-server" as const, name: ref.server.name };
+          const canonical = yield* acceptedCanonicalObservation(target);
+          const accepted = yield* acceptedLockedResolutionRef(target);
+          if (
+            Option.isSome(canonical) &&
+            canonical.value.accepted !== undefined &&
+            canonical.value.observation.status === "usable" &&
+            Option.isSome(accepted) &&
+            sourceRefContentKey(accepted.value) === sourceRefContentKey(ref)
+          )
+            return acquired(Option.some(canonical.value.accepted.treeIntegrity));
+        }
         return yield* Effect.scoped(
           Effect.gen(function* () {
             const canonicalPath = computeExtensionPathsForLayout(

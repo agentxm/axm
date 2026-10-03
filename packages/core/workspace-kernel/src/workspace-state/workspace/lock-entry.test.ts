@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { SkillLockEntrySchema } from "../desired/lockfile/index.js";
+import { SkillLockEntrySchema, PackLockEntrySchema } from "../desired/lockfile/index.js";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { TreeIntegritySchema } from "./materialized-tree.js";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -17,6 +17,7 @@ import {
   lockEntryMatchesSourceLocator,
   printSkillLockSourceLocator,
 } from "./lock-entry.js";
+import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { LockEntryEndpointConflict } from "./errors.js";
 
 const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
@@ -118,6 +119,69 @@ describe("lock entry source authority", () => {
       if (ref.refType !== "git-hosted") throw new Error("Expected Git plugin reference");
       expect(ref.location).toMatch(/\/review\/skills\/review$/u);
       expect(ref.sourcePath).toBe("plugins/reviews/skills/review");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reconstructs complete accepted Pack declarations without source reads", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const dependencies = {
+        "@acme/skills/review": "^1.0.0",
+        "@other/rules/guard": {
+          source: { type: "registry" as const, url: "https://other.example/" },
+          versionRange: "^2.0.0",
+        },
+      };
+      const packFields = {
+        identity: { owner: "@acme", name: "toolkit" },
+        manifestVersion: "1.0.0",
+        manifestContentIdentity: computePackManifestContentIdentity({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "1.0.0",
+          dependencies,
+        }),
+        dependencies,
+        treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+      };
+      const sources = [
+        {
+          source: { type: "registry", url: "https://registry.example/" },
+          resolved: { version: "1.0.0", integrity: "sha512-test", publisherBindingId: "binding" },
+        },
+        {
+          source: {
+            type: "git",
+            url: "https://github.com/acme/tools.git",
+            path: "catalog/packs/toolkit",
+          },
+          resolved: { commit: "commit", tree: "tree" },
+          sourceRoot: "catalog",
+        },
+        {
+          source: { type: "path", path: "catalog/packs/toolkit" },
+          resolved: { tree: "tree" },
+          sourceRoot: "catalog",
+        },
+      ];
+      for (const source of sources) {
+        const locked = Schema.decodeUnknownSync(PackLockEntrySchema)({ ...packFields, ...source });
+        const ref = yield* lockEntryToRef.pack("toolkit", locked, {
+          baseDir: "/workspace",
+          path,
+          scope: "project",
+          getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+        });
+        expect(ref.pack.dependencies).toEqual(locked.dependencies);
+        expect(ref.version).toBe("1.0.0");
+        if (ref.refType === "git-hosted") {
+          expect(ref.source.subPath).toEqual(Option.some("catalog"));
+        }
+        if (ref.refType === "local") {
+          expect(ref.source.path).toBe(path.join("/workspace", "catalog"));
+        }
+      }
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

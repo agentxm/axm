@@ -55,7 +55,13 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const result = yield* withLiveOperation(
     { command: "list", name: "List extensions", mode: "preview" },
     observeUnit(
-      { id: "assessment", label: `${filter === "outdated" ? "update" : "deprecation"} status` },
+      {
+        id: filter === "all" ? "inventory" : "assessment",
+        label:
+          filter === "all"
+            ? "inventory"
+            : `${filter === "outdated" ? "update" : "deprecation"} status`,
+      },
       ListExtensions.query({
         ...(Option.isSome(args.type) ? { type: args.type.value } : {}),
         filter,

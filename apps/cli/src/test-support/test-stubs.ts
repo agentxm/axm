@@ -10,6 +10,7 @@ import YAML from "yaml";
 import {
   TreeIntegritySchema,
   computePackageContentHash,
+  computePackManifestContentIdentity,
   type TreeIntegrity,
   type RegistryPackLockEntry,
   type SkillLockEntry,
@@ -25,6 +26,8 @@ import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/sour
 
 import {
   ExtensionDependencyConstraintMapSchema,
+  PackMemberConstraintMapSchema,
+  type PackMemberConstraintMap,
   decodeExtensionNameSync,
   type ExtensionDependencyConstraintMap,
   type ExtensionName,
@@ -136,7 +139,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v8 accepted resolutions to the workspace under test.
+ * valid v10 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -180,9 +183,16 @@ const normalizeTestLockMap = (
                     manifestVersion: value["manifestVersion"] ?? value["resolvedVersion"],
                     manifestContentIdentity:
                       value["manifestContentIdentity"] ??
-                      value["sourceHash"] ??
-                      TEST_CONTENT_IDENTITY,
-                    members: value["members"] ?? [],
+                      computePackManifestContentIdentity({
+                        owner: String(value["owner"]),
+                        type: "pack",
+                        name: String(value["workspaceName"] ?? name),
+                        version: String(value["manifestVersion"] ?? value["resolvedVersion"]),
+                        dependencies: Schema.decodeUnknownSync(PackMemberConstraintMapSchema)(
+                          value["dependencies"] ?? {},
+                        ),
+                      }),
+                    dependencies: value["dependencies"] ?? {},
                   }
                 : {}),
             },
@@ -357,7 +367,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 9,
+    lockfileVersion: 10,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -493,6 +503,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly endpoint?: URL;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
+  readonly dependencies?: PackMemberConstraintMap;
   readonly resolvedSkills?: Readonly<Record<string, unknown>>;
   readonly resolvedMcpServers?: Readonly<Record<string, unknown>>;
   readonly resolvedSubagents?: Readonly<Record<string, unknown>>;
@@ -513,7 +524,13 @@ export const makeRegistryPackLockEntry = (opts: {
   manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
   manifestContentIdentity:
     opts.sourceHash === undefined
-      ? TEST_CONTENT_IDENTITY
+      ? computePackManifestContentIdentity({
+          owner: normalizeHandle(opts.owner),
+          type: "pack",
+          name: opts.name,
+          version: opts.resolvedVersion ?? "1.0.0",
+          dependencies: opts.dependencies ?? {},
+        })
       : Schema.decodeUnknownSync(SourceHashSchema)(opts.sourceHash),
-  members: [],
+  dependencies: opts.dependencies ?? {},
 });

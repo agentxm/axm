@@ -3830,7 +3830,7 @@
           "parameters": ["flag:deprecated"],
           "requirements": [
             "cli/list/reports-deprecation-guidance",
-            "cli/list/ordinary-inventory-identifies-deprecation",
+            "cli/list/ordinary-inventory-is-local",
             "cli/list/reports-incomplete-assessment",
             "cli/list/fails-when-registry-assessment-fails"
           ],

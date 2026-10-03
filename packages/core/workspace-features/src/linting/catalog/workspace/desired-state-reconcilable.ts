@@ -2,7 +2,6 @@ import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import {
   formatConstraintContributors,
-  packManifestContentMismatchText,
   packManifestInvalidText,
   packManifestUnavailableText,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -40,8 +39,6 @@ export const desiredStateReconcilableRule: AdvisoryRule<WorkspaceRuleContext> = 
       });
       const graphFindings = graph.success.problems.map((problem): AdvisoryFinding => {
         switch (problem.type) {
-          case "pack-manifest-content-mismatch":
-            return packFinding(problem.pack, ` ${packManifestContentMismatchText(problem)}.`);
           case "pack-manifest-unavailable":
             return packFinding(problem.pack, ` The ${packManifestUnavailableText(problem)}.`);
           case "pack-manifest-invalid":

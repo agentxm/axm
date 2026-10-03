@@ -389,7 +389,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         identity: {
           authority: "registry",
           fqn: "@acme/rules/release",
-          registry: { sourceName: undefined, endpoint: undefined },
+          registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
         },
         source,
         enabled: true,

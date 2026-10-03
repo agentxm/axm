@@ -148,11 +148,11 @@ const affectedRoutes: ReadonlyArray<{
       ),
   },
   {
-    route: "skills install of the same extension",
+    route: "skills install with a changed version constraint",
     run: (workspace, execution) =>
       workspace.provide(
         resolveInstall(
-          installRequest({ type: "skill", subject: { kind: "source", source: FQN } }),
+          installRequest({ type: "skill", subject: { kind: "source", source: `${FQN}@^2.0.0` } }),
           execution,
         ),
       ),

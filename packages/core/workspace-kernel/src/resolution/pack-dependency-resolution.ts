@@ -141,7 +141,7 @@ export type PackDependencyRefResolver<E = never, R = never> = (args: {
   readonly name: ExtensionName;
   readonly constraint: VersionRange;
   readonly root: string;
-}) => Effect.Effect<ExtensionRef, E, R>;
+}) => Effect.Effect<Option.Option<ExtensionRef>, E, R>;
 
 const validateSelectedDependency = (
   candidate: ExtensionRef,
@@ -315,38 +315,42 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
     }
 
     if (dependencyResolver !== undefined) {
-      const candidate = yield* dependencyResolver({
+      const accepted = yield* dependencyResolver({
         owner: parsed.owner,
         type: expectedType,
         name: parsed.name,
         constraint,
         root,
       });
-      // The accepted resolution is the member's authority, so one outside the
-      // range it is selected within is a decision for an explicit update.
-      if (
-        (candidate.refType === "registry" || candidate.refType === "workspace") &&
-        candidate.type === expectedType &&
-        candidate.owner === parsed.owner &&
-        candidate.name === parsed.name &&
-        !semver.satisfies(candidate.version, constraint)
-      ) {
-        return yield* new AcceptedPackMemberIncompatible({
-          type: expectedType,
-          name: parsed.name,
-          dependencyTarget: formatFqn(parsed),
-          acceptedVersion: candidate.version,
-          constraint,
-        });
+      if (Option.isSome(accepted)) {
+        const candidate = accepted.value;
+        // The accepted resolution is the member's authority, so one outside the
+        // range it is selected within is a decision for an explicit update.
+        if (
+          (candidate.refType === "registry" || candidate.refType === "workspace") &&
+          candidate.type === expectedType &&
+          candidate.owner === parsed.owner &&
+          candidate.name === parsed.name &&
+          !semver.satisfies(candidate.version, constraint)
+        ) {
+          return yield* new AcceptedPackMemberIncompatible({
+            type: expectedType,
+            name: parsed.name,
+            dependencyTarget: formatFqn(parsed),
+            acceptedVersion: candidate.version,
+            constraint,
+          });
+        }
+        return selectedWithoutReleaseAge(
+          yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint),
+        );
       }
-      return selectedWithoutReleaseAge(
-        yield* validateSelectedDependency(candidate, expectedType, parsed, fqn, constraint),
-      );
     }
 
     if (
       sourceOverride === undefined &&
-      (pack.refType === "git-hosted" || pack.refType === "local")
+      (pack.refType === "git-hosted" || pack.refType === "local") &&
+      pack.sourceMembers.length > 0
     ) {
       const matches = pack.sourceMembers.filter(
         (candidate) =>
@@ -368,7 +372,11 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
       );
     }
 
-    const source = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
+    const inheritedSource = yield* sourceForDependency(pack, parsed.owner, sourceOverride);
+    const source =
+      inheritedSource.type === "git" && pack.refType === "git-hosted"
+        ? { ...inheritedSource, ref: Option.some(pack.gitCommitSha) }
+        : inheritedSource;
     if (source.type !== "registry") {
       const matches = yield* Effect.scoped(
         sources.find(source, {
@@ -378,17 +386,24 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
           versionRange: Option.none<string>(),
         }),
       );
-      const matchingRef = matches.find(
+      const matchingRefs = matches.filter(
         (candidate): candidate is PackDependencyRef =>
           candidate.type === expectedType &&
           candidate.owner === parsed.owner &&
           candidate.name === parsed.name,
       );
-      if (matchingRef === undefined) {
+      const selected = matchingRefs[0];
+      if (selected === undefined || matchingRefs.length !== 1) {
         return yield* new PackDependencyInvalid({
           detail: `Unable to resolve pack dependency ${fqn}@${constraint}`,
         });
       }
+      // Discovery pins the accepted source view, while the recorded locator
+      // remains the declared selector used by inherited authority checks.
+      const matchingRef =
+        selected.refType === "git-hosted" && inheritedSource.type === "git"
+          ? { ...selected, source: inheritedSource }
+          : selected;
       return selectedWithoutReleaseAge({
         owner: parsed.owner,
         type: expectedType,

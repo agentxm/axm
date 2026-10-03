@@ -17,24 +17,21 @@ import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers
 import { handleList } from "./command.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/list/human-inventory-points-to-deprecation-guidance",
-  title: "Human inventories point readers at the deprecation guidance command",
+  requirement: "cli/list/human-inventory-reports-local-state",
+  title: "Human inventories report local state without assessment columns",
   statement:
-    "When an ordinary inventory rendered for a person includes a deprecated installation, AXM shall name the command that reports that extension's full deprecation guidance.",
+    "When an ordinary inventory is rendered for a person, AXM shall omit remote Assessment and Guidance columns while retaining local missing or leftover diagnostics.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: [
-    "cli/list/ordinary-inventory-identifies-deprecation",
-    "apps/cli/src/root/list/command.ts",
-  ],
-  supersedes: [],
+  derivedFrom: ["cli/list/ordinary-inventory-is-local", "apps/cli/src/root/list/command.ts"],
+  supersedes: ["cli/list/human-inventory-points-to-deprecation-guidance"],
   assumptions: [],
   openQuestions: [],
 });
 
-describe("Deprecation guidance in human inventories", () => {
+describe("Local human inventories", () => {
   let tempDir: string;
   let originalCwd: string;
 
@@ -49,7 +46,7 @@ describe("Deprecation guidance in human inventories", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("names the guidance command for the deprecated row", () => {
+  it.effect("omits remote assessment and guidance for ordinary rows", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({});
     const registryDir = path.join(tempDir, "registry");
     const skillDir = path.join(tempDir, "agent_extensions", "company", "@acme", "skills", "review");
@@ -60,7 +57,10 @@ describe("Deprecation guidance in human inventories", () => {
     );
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
       sources: [{ name: "company", type: "registry", location: pathToFileURL(registryDir).href }],
-      skills: { review: { source: "company:@acme/skills/review@^1.0.0", enabled: true } },
+      skills: {
+        review: { source: "company:@acme/skills/review@^1.0.0", enabled: true },
+        missing: { source: "company:@acme/skills/missing@^1.0.0", enabled: true },
+      },
       lockfileSkills: {
         review: {
           type: "registry",
@@ -104,8 +104,12 @@ describe("Deprecation guidance in human inventories", () => {
       Effect.gen(function* () {
         yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
         const rendered = JSON.stringify(rendererState.docs);
-        expect(rendered).toContain("deprecated");
-        expect(rendered).toContain("axm view @acme/skills/review deprecation");
+        expect(rendered).toContain("review");
+        expect(rendered).not.toContain("Assessment");
+        expect(rendered).not.toContain("Guidance");
+        expect(rendered).not.toContain("deprecated");
+        expect(rendered).toContain("missing");
+        expect(rendered).toContain("axm lint explains");
       }),
     );
   });

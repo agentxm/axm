@@ -32,11 +32,11 @@ import {
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
-import * as FileSystem from "effect/FileSystem";
 import {
   SettingsReader,
   WorkspaceLocation,
   acceptedLockedCanonicalPath,
+  LockfileReader,
   acceptedLockedResolutionRef,
   isRequiredByAnotherOrigin,
   desiredReachability,
@@ -668,7 +668,6 @@ export const planPackInstall: (
 > = Effect.fn("InstallExtensions.planPack")(function* (intent: PackInstallIntent) {
   const conversion = yield* StepFailureConversion;
   const location = yield* WorkspaceLocation;
-  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const packManager = yield* PackManager;
   const skillManager = yield* SkillManager;
@@ -1025,61 +1024,27 @@ export const planPackInstall: (
     }),
   );
 
-  const acceptedPackPath = yield* acceptedLockedCanonicalPath({
-    type: "pack",
-    name: intent.packToInstall.name,
-  }).pipe(
-    Effect.mapError((cause) =>
-      installRefused({
-        category: "internal",
-        detail: `The accepted path for Pack ${packIdentity} could not be read`,
-        cause,
-      }),
+  const acceptedPack = yield* (yield* LockfileReader)
+    .acceptedEntry("pack", intent.packToInstall.name)
+    .pipe(
+      Effect.mapError((cause) =>
+        installRefused({
+          category: "internal",
+          detail: `The accepted dependencies for Pack ${packIdentity} could not be read`,
+          cause,
+        }),
+      ),
+    );
+  const previousMemberIdentities = new Set(
+    Object.keys(Option.isSome(acceptedPack) ? acceptedPack.value.dependencies : {}).flatMap(
+      (fqn) => {
+        const member = parseExtensionFqnParts(fqn);
+        return member === undefined || member.type === "pack"
+          ? []
+          : [`${member.type}:${member.name}`];
+      },
     ),
   );
-  const previousMemberIdentities = yield* Option.match(acceptedPackPath, {
-    onNone: () => Effect.succeed(new Set<string>()),
-    onSome: (packPath) =>
-      fs.readFileString(path.join(packPath, "pack.json")).pipe(
-        Effect.mapError((cause) =>
-          installRefused({
-            category: "conflict",
-            detail: `The accepted manifest for Pack ${packIdentity} could not be read`,
-            cause,
-          }),
-        ),
-        Effect.flatMap((raw) =>
-          Effect.try({
-            try: () => {
-              const parsed: unknown = JSON.parse(raw);
-              if (
-                typeof parsed !== "object" ||
-                parsed === null ||
-                !("dependencies" in parsed) ||
-                typeof parsed.dependencies !== "object" ||
-                parsed.dependencies === null
-              ) {
-                throw new TypeError("Pack manifest dependencies are unavailable");
-              }
-              return new Set(
-                Object.keys(parsed.dependencies).flatMap((fqn) => {
-                  const member = parseExtensionFqnParts(fqn);
-                  return member === undefined || member.type === "pack"
-                    ? []
-                    : [`${member.type}:${member.name}`];
-                }),
-              );
-            },
-            catch: (cause) =>
-              installRefused({
-                category: "conflict",
-                detail: `The accepted manifest for Pack ${packIdentity} could not be inspected`,
-                cause,
-              }),
-          }),
-        ),
-      ),
-  });
   const previousMembers = yield* Effect.forEach(
     graph.nodes.filter(
       (node) => node.type !== "pack" && previousMemberIdentities.has(`${node.type}:${node.name}`),

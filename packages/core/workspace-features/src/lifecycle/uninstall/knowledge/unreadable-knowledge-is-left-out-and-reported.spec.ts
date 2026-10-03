@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/unreadable-knowledge-is-left-out-and-reported",
   title: "A Knowledge bundle AXM cannot read is left out of the instructions file and reported",
   statement:
-    "When a desired Knowledge bundle's package cannot be read, or its acquired content differs from the accepted resolution, AXM shall leave that bundle out of the generated instructions file, shall report the omission with its reason and remedy on every command that writes or inspects that file, and shall not fail another extension's operation because of it.",
+    "When an otherwise authorized operation projects instructions and a desired Knowledge bundle's package cannot be read or differs from its accepted resolution, AXM shall exclude that bundle, report the omission with its reason and remedy on commands that write or inspect the file, and preserve independent operations. Sync and activation that encounter present acquired-content drift shall instead refuse the unsafe closure, preserve its existing files, and report the explicit restoration route.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],

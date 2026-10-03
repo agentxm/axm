@@ -75,6 +75,63 @@ describe("Sync preserves configuration and accepted resolutions", () => {
     return created;
   };
 
+  it.effect(
+    "restores a missing accepted Pack root while its lock still supplies the member graph",
+    () => {
+      const published = registry();
+      published.writeSkill(SKILL, [{ version: "1.0.0", body: "Accepted member." }]);
+      published.writePack("toolkit", [
+        { version: "1.0.0", dependencies: { [`@acme/skills/${SKILL}`]: "^1.0.0" } },
+      ]);
+      const workspace = fixture({
+        agents: ["claude-code"],
+        sources: [published.source],
+        packs: { toolkit: "test:@acme/packs/toolkit@^1.0.0" },
+      });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            const lock = workspace.readFile("axm-lock.yaml");
+            const settings = workspace.readFile("axm.json");
+            workspace.remove("agent_extensions/registry/@acme/packs/toolkit");
+            published.writePack("toolkit", [
+              { version: "1.0.0", dependencies: { [`@acme/skills/${SKILL}`]: "^1.0.0" } },
+              { version: "1.1.0", dependencies: {} },
+            ]);
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            expect(
+              workspace.readFile("agent_extensions/registry/@acme/packs/toolkit/pack.json"),
+            ).toContain(SKILL);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(lock);
+            expect(workspace.readFile("axm.json")).toBe(settings);
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect("refuses present accepted package drift without overwriting it", () => {
+    const workspace = fixture({
+      agents: ["claude-code"],
+      skills: { [SKILL]: `./vendor/${SKILL}` },
+    });
+    writeLocalSkillPackage(workspace.root, { name: SKILL });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          workspace.writeFile(`${CANONICAL}/src/SKILL.md`, "Locally edited acquired content.\n");
+          const before = workspace.snapshot();
+          const refusal = yield* applySync().pipe(Effect.flip);
+          expect(refusal).toMatchObject({ _tag: "WorkspaceSyncFailed", category: "conflict" });
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect("blocks incompatible accepted authority without advancing it", () => {
     const published = registry();
     published.writeSkill(SKILL, [
@@ -461,8 +518,21 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             );
             const before = workspace.snapshot();
 
+            if (canonicalState === "modified") {
+              const refusal = yield* applySync().pipe(Effect.flip);
+              expect(refusal).toMatchObject({
+                category: "conflict",
+                detail: expect.stringContaining(
+                  "present package content differs from the accepted resolution",
+                ),
+              });
+              expect(workspace.snapshot()).toEqual(before);
+              return;
+            }
             const resolution = expectResolved(yield* applySync());
 
+            // Missing content needs restoration; unavailable accepted bytes fail
+            // the closure without accepting the changed source.
             // One typed outcome, not a hedge: the reconciliation settles, the
             // restoration unit fails with a conflict, and the closure restores
             // everything it touched.

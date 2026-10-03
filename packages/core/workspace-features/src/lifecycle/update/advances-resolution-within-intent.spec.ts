@@ -1,4 +1,6 @@
 import * as DateTime from "effect/DateTime";
+import * as fs from "node:fs";
+import * as nodePath from "node:path";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -8,6 +10,7 @@ import YAML from "yaml";
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
+import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { makeGitSkillRepository } from "../../testing/git-repositories.js";
@@ -34,6 +37,7 @@ import {
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import {
   applyUpdate,
+  previewUpdate,
   configuredUpdateRequest,
   expectResolved,
   targetedUpdateRequest,
@@ -68,6 +72,59 @@ const UNRELATED = "release-notes";
 const CANONICAL_SKILL_DOCUMENT = `agent_extensions/registry/@acme/skills/${REVIEW}/src/SKILL.md`;
 
 const firstVersion: RegistrySkillVersion = { version: "1.0.0", body: "First guidance." };
+
+it.effect("updates a member within a missing acquired Pack's accepted constraint", () => {
+  const { workspace, registry, cleanup } = makeInstallWorld();
+  registry.writeSkill(REVIEW, [firstVersion]);
+  registry.writePack("toolkit", [{ version: "1.0.0", dependencies: { [FQN]: "^1.0.0" } }]);
+  return workspace
+    .provide(
+      Effect.gen(function* () {
+        yield* applyInstall(
+          installRequest({
+            type: "pack",
+            subject: { kind: "source", source: "@acme/packs/toolkit@^1.0.0" },
+          }),
+        );
+        fs.rmSync(nodePath.join(workspace.root, "agent_extensions/registry/@acme/packs/toolkit"), {
+          recursive: true,
+        });
+        registry.writeSkill(REVIEW, [
+          firstVersion,
+          { version: "1.1.0", body: "Compatible guidance." },
+          { version: "2.0.0", body: "Outside the accepted Pack constraint." },
+        ]);
+        const before = workspace.snapshot();
+        const sources = yield* SourceHostProviders;
+        yield* Effect.gen(function* () {
+          const request = targetedUpdateRequest({ source: FQN });
+          const preview = expectResolved(yield* previewUpdate(request));
+          expect(deriveOperationOutcome(preview), JSON.stringify(preview)).toBe("previewed");
+          expect(workspace.snapshot()).toEqual(before);
+          const applied = expectResolved(yield* applyUpdate(request));
+          expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
+          expect(lockSkill(workspace.readFile("axm-lock.yaml"), REVIEW)).toMatchObject({
+            resolved: { version: "1.1.0" },
+          });
+          expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("Compatible guidance.");
+          expect(workspace.exists("agent_extensions/registry/@acme/packs/toolkit")).toBe(false);
+        }).pipe(
+          Effect.provideService(SourceHostProviders, {
+            ...sources,
+            fetch: (ref) =>
+              ref.type === "pack"
+                ? Effect.die("Update planning must not fetch accepted Pack declarations")
+                : sources.fetch(ref),
+            acquireForTransition: (ref) =>
+              ref.type === "pack"
+                ? Effect.die("Update planning must not acquire accepted Pack declarations")
+                : sources.acquireForTransition(ref),
+          }),
+        );
+      }),
+    )
+    .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
+});
 
 /** The two spellings of one Registry binding a direct declaration may carry. */
 const DECLARATION_SPELLINGS = ["bare", "registry-qualified"] as const;

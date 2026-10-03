@@ -3,56 +3,75 @@
  *
  * Recovering an accepted Pack must not re-select its members: every member
  * ref comes from the accepted resolution recorded for that member's
- * configured name, and a member without one is a conflict rather than a new
- * selection. That is resolution authority, so the resolver is built here and
+ * configured name. A member without a row falls through to first resolution
+ * under the Pack source authority and effective constraints. That is resolution authority, so the resolver is built here and
  * the application only chooses when to use it.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
 import * as Effect from "effect/Effect";
+import * as semver from "semver";
+import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
+import type * as Scope from "effect/Scope";
 
 import {
   acceptedLockedResolutionRef,
+  DesiredStateReader,
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
 } from "../workspace-state/index.js";
 import type { AcceptedCanonicalRefError } from "../workspace-state/index.js";
 
-import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-
-import { ExtensionResolutionFailed } from "./errors.js";
+import { AcceptedPackMemberIncompatible, type ExtensionResolutionFailed } from "./errors.js";
+import { acceptedConfiguredResolution } from "./accepted-configured-entry.js";
+import type { SourceHostProviders } from "../sources/index.js";
 import type { PackDependencyRefResolver } from "./pack-dependency-resolution.js";
 
 /**
  * Resolve every Pack member from the accepted resolution recorded for its
- * configured name, refusing the recovery when a member has none.
+ * configured name, allowing normal first resolution when a member has none.
  */
 export const acceptedPackDependencyResolver =
   (): PackDependencyRefResolver<
-    AcceptedCanonicalRefError | ExtensionResolutionFailed,
-    WorkspaceLocation | SettingsReader | LockfileReader | FileSystem.FileSystem | Path.Path
+    AcceptedCanonicalRefError | ExtensionResolutionFailed | AcceptedPackMemberIncompatible,
+    | WorkspaceLocation
+    | SettingsReader
+    | LockfileReader
+    | DesiredStateReader
+    | SourceHostProviders
+    | Scope.Scope
+    | FileSystem.FileSystem
+    | Path.Path
   > =>
-  ({ owner, type, name, root }) =>
+  ({ type, name, owner, constraint }) =>
     Effect.gen(function* () {
-      const accepted = yield* acceptedLockedResolutionRef({ type, name });
-      if (Option.isNone(accepted)) {
-        // Restoration replays accepted state exactly. With no accepted row for
-        // this member there is nothing to replay, and choosing a version here
-        // would silently turn a restore into a new selection. Name the Pack,
-        // the member, and the route that is allowed to choose instead.
-        const packName = parseExtensionFqnParts(root)?.name;
-        return yield* new ExtensionResolutionFailed({
-          category: "conflict",
-          detail: `Accepted Pack recovery for ${root} has no accepted ${type} resolution for ${owner}/${name}`,
-          recover:
-            "Restoring a Pack replays its accepted member resolutions and never selects a new one. Restore the accepted resolution file, or update the Pack explicitly to select new accepted state within its declared intent.",
-          ...(packName === undefined ? {} : { cmd: `axm packs update ${packName}` }),
-        });
+      // Preserve the typed Pack mismatch so graph selection can report every
+      // contributor and the explicit update route before attempting restoration.
+      const locked = yield* acceptedLockedResolutionRef({ type, name });
+      if (Option.isSome(locked)) {
+        const candidate = locked.value;
+        if (
+          candidate.refType === "registry" &&
+          candidate.type === type &&
+          candidate.owner === owner &&
+          candidate.name === name &&
+          !semver.satisfies(candidate.version, constraint)
+        ) {
+          return yield* new AcceptedPackMemberIncompatible({
+            type,
+            name,
+            dependencyTarget: formatFqn({ owner, type, name }),
+            acceptedVersion: candidate.version,
+            constraint,
+          });
+        }
       }
-      return accepted.value;
+      return yield* acceptedConfiguredResolution({ type, name }).pipe(
+        Effect.map(Option.map(({ ref }) => ref)),
+      );
     });

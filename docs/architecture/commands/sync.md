@@ -81,9 +81,10 @@ is missing, the affected closure blocks. AXM never substitutes current source
 bytes. Missing, malformed, or incompatible lock authority is consequential and
 is never reconstructed from installed content or Pack member metadata.
 
-A Registry Pack contributes dependencies only from its accepted locked manifest
-or a local manifest that semantically matches that identity. Lock-only member
-maps cannot create dependency routes.
+A configured acquired Pack contributes dependencies from its matching accepted
+declaration. Missing installed files do not erase those relationships; restoring
+the package still requires exact accepted content and acquisition verification.
+An orphan Pack row cannot create a root or retain its members.
 
 Source availability and acquisition failure may block sync without becoming
 lint findings. Capabilities without external sources do not participate in

@@ -161,6 +161,7 @@ export const validateNativeOutputPostconditions = (
   evidence: ReadonlyArray<NativeLocationOutcome>,
   expected: ReadonlyArray<NativeLocationOutcome> = [],
   retained: ReadonlyArray<NativeRetentionWitness> = [],
+  subjects?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
 ) =>
   Effect.gen(function* () {
     if (retained.length > 0) {
@@ -179,7 +180,7 @@ export const validateNativeOutputPostconditions = (
         (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0),
     );
     if (required.length === 0) return;
-    const observed = yield* observeNativeOutputs();
+    const observed = yield* observeNativeOutputs(subjects);
     if (required.some((unit) => unit.policyReasons.includes("instruction-propagation"))) {
       const settings = yield* SettingsReader;
       const location = yield* WorkspaceLocation;

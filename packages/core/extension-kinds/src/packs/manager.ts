@@ -36,6 +36,7 @@ import {
   pathSourceLockFields,
   registrySourceLockFields,
   computeMaterializedTreeIntegrity,
+  decodePackManifestDocument,
   type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -56,6 +57,7 @@ import type {
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
+import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   reusableCanonicalTree,
@@ -92,7 +94,7 @@ const buildSetPackArgs = (
       version: ref.version,
       dependencies: ref.pack.dependencies,
     }),
-    members: Object.keys(ref.pack.dependencies),
+    dependencies: ref.pack.dependencies,
   },
   versionRange,
 });
@@ -115,7 +117,7 @@ const buildExternalSetPackArgs = (args: {
       version: args.ref.version,
       dependencies: args.ref.pack.dependencies,
     }),
-    members: Object.keys(args.ref.pack.dependencies),
+    dependencies: args.ref.pack.dependencies,
   };
   if (args.ref.refType === "local") {
     const localSourcePath = args.ref.source.path;
@@ -258,7 +260,10 @@ export const PackManagerLive = Layer.effect(
             );
           const materialized = yield* replaceCanonicalDirectoryWithInspection<
             TreeIntegrity,
-            PackStagingFailed | MaterializedTreeInvalid | PackageMaterializationFailed,
+            | PackStagingFailed
+            | PackDefinitionInvalid
+            | MaterializedTreeInvalid
+            | PackageMaterializationFailed,
             FileSystem.FileSystem | Path.Path | NativeWriteAuthority
           >({
             baseDir,
@@ -275,7 +280,38 @@ export const PackManagerLive = Layer.effect(
               copyExtensionDirectory(fetched.directory, stagingPath).pipe(
                 Effect.mapError((cause) => new PackStagingFailed({ packDir, cause })),
               ),
-            inspect: computeMaterializedTreeIntegrity,
+            inspect: (stagingPath) =>
+              Effect.gen(function* () {
+                const manifestPath = path.join(stagingPath, PACK_MANIFEST_FILENAME);
+                const contents = yield* fs.readFileString(manifestPath).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new PackDefinitionInvalid({
+                        detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
+                        cause,
+                      }),
+                  ),
+                );
+                const observed = decodePackManifestDocument(contents);
+                if (observed.status !== "decoded") {
+                  return yield* new PackDefinitionInvalid({
+                    detail: `Fetched Pack manifest is ${observed.status}: ${manifestPath}`,
+                  });
+                }
+                const expected = computePackManifestContentIdentity({
+                  owner: ref.owner,
+                  type: "pack",
+                  name: ref.pack.name,
+                  version: ref.version,
+                  dependencies: ref.pack.dependencies,
+                });
+                if (observed.contentIdentity !== expected) {
+                  return yield* new PackDefinitionInvalid({
+                    detail: `Fetched Pack ${observed.manifest.owner}/packs/${observed.manifest.name}@${observed.manifest.version} does not match the selected Pack ${ref.owner}/packs/${ref.pack.name}@${ref.version} dependency declaration`,
+                  });
+                }
+                return yield* computeMaterializedTreeIntegrity(stagingPath);
+              }),
           });
           return acquired(materialized.inspection);
         }),

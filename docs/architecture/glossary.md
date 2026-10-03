@@ -41,15 +41,16 @@ A path, name, or matching content alone does not establish authority.
 The exact external version or immutable content identity AXM accepted after
 resolving a desired sourced extension. The authoritative lockfile records this
 baseline so AXM can verify or, where supported, reacquire the same content. An
-accepted resolution does not create desired-state reachability.
+accepted resolution alone does not create a desired root.
 
 ## Authoritative lockfile
 
 The generated, committed `axm-lock.yaml` project state (or user-scope
 `axm-lock.yaml`) that records accepted external resolutions, package-tree
-integrity, and provenance. It participates in planning and exact
-materialization, but never creates desired membership, activation, Pack
-reachability, projection ownership, or cleanup authority.
+integrity, provenance, and complete acquired-Pack dependency declarations.
+Configured Packs use matching accepted declarations to derive member routes;
+settings still establish roots and activation. A lock row alone never establishes
+projection ownership or physical cleanup authority.
 
 ## Authoring inventory
 

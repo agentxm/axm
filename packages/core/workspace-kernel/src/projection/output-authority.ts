@@ -40,15 +40,16 @@ export interface AgentOutputAuthority {
 }
 
 /** A path's location beneath a store is never, by itself, ownership evidence. */
-export const deriveAgentOutputAuthority = (args: {
+interface OutputAuthorityInputs {
   readonly path: Path.Path;
   readonly baseDir: string;
   readonly layout: WorkspaceLayout;
   readonly acceptedResolutions: Lockfile;
   readonly desired: Pick<DesiredStateGraph, "nodes">;
   readonly settings: Settings;
-}): AgentOutputAuthority => {
-  const skillSources: Record<string, string[]> = {};
+}
+
+export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOutputAuthority => {
   const subagentFiles: Record<string, Array<{ ext: string; src: string }>> = {};
   const mcpEntries: Record<string, AxmMcpMetadata[]> = {};
   const expectedHooks: HookOwnership[] = [];
@@ -103,27 +104,12 @@ export const deriveAgentOutputAuthority = (args: {
       expectedHooks.push({ name, ref, root, scope: args.layout.scope });
     }
   };
-  const addSkill = (name: string, source: string) => {
-    const sources = skillSources[name] ?? [];
-    if (!sources.includes(source)) sources.push(source);
-    skillSources[name] = sources;
-  };
   const addSubagent = (name: string, ext: string, source: string) => {
     const src = args.path.relative(args.baseDir, args.path.join(source, "..", "subagent.json"));
     const files = subagentFiles[name] ?? [];
     if (!files.some((file) => file.ext === ext && file.src === src)) files.push({ ext, src });
     subagentFiles[name] = files;
   };
-  for (const [name, entry] of Object.entries(args.acceptedResolutions.skills)) {
-    const paths = computeExtensionPathsForLayout(
-      args.path.join,
-      args.layout,
-      extensionPathSourceFromLockEntry(entry),
-      "skills",
-      entry.identity.name,
-    );
-    addSkill(name, paths.extensionSrcPath);
-  }
   for (const [name, entry] of Object.entries(args.acceptedResolutions.subagents ?? {})) {
     const paths = computeExtensionPathsForLayout(
       args.path.join,
@@ -159,16 +145,6 @@ export const deriveAgentOutputAuthority = (args: {
         `${args.layout.owner}/hooks/${name}`,
         args.path.join(args.layout.authoredRoot("hook"), name),
       );
-    }
-  }
-  for (const [name, entry] of Object.entries(args.settings.skills ?? {})) {
-    if (entry.origin === "bundled") {
-      addSkill(
-        name,
-        args.path.join(bundledSkillCanonicalRoot(args.path.join, args.layout, name), "src"),
-      );
-    } else if (entry.source === "workspace" && args.layout.scope === "project") {
-      addSkill(name, args.path.join(args.layout.authoredRoot("skill"), name, "src"));
     }
   }
   for (const [name, entry] of Object.entries(args.settings.subagents ?? {})) {
@@ -229,30 +205,113 @@ export const deriveAgentOutputAuthority = (args: {
         ];
       }
     }
-    if (node.type !== "skill" && node.type !== "subagent") continue;
-    if (node.identity.authority === "bundled" && node.type === "skill") {
-      addSkill(
+    if (
+      node.type === "subagent" &&
+      node.identity.authority === "workspace" &&
+      args.layout.scope === "project"
+    ) {
+      addSubagent(
         node.name,
-        args.path.join(bundledSkillCanonicalRoot(args.path.join, args.layout, node.name), "src"),
+        node.identity.fqn,
+        args.path.join(args.layout.authoredRoot("subagent"), node.name, "src"),
       );
     }
-    if (node.identity.authority !== "workspace" || args.layout.scope !== "project") continue;
-    const source = args.path.join(args.layout.authoredRoot(node.type), node.name, "src");
-    if (node.type === "skill") addSkill(node.name, source);
-    else addSubagent(node.name, node.identity.fqn, source);
   }
   for (const [name, entry] of Object.entries(args.settings.mcpServers ?? {})) {
     if (entry.kind === "inline")
       mcpEntries[name] = [buildAxmMcpMetadataFromSettingsSource("inline", name)];
   }
   return {
-    expectedSkillSources: skillSources,
+    expectedSkillSources: deriveSkillOutputSources(args),
     expectedSubagentFiles: subagentFiles,
     expectedMcpEntries: mcpEntries,
     expectedHooks,
     expectedRegions,
   };
 };
+
+/** Derive only skill ownership; a selected name never enumerates other accepted rows. */
+export const deriveSkillOutputSources = (
+  args: Pick<
+    OutputAuthorityInputs,
+    "path" | "layout" | "acceptedResolutions" | "settings" | "desired"
+  >,
+  selectedName?: string,
+): Readonly<Record<string, ReadonlyArray<string>>> => {
+  const skillSources: Record<string, string[]> = {};
+  const addSkill = (name: string, source: string) => {
+    const sources = skillSources[name] ?? [];
+    if (!sources.includes(source)) sources.push(source);
+    skillSources[name] = sources;
+  };
+  const accepted = args.acceptedResolutions.skills;
+  const configured = args.settings.skills ?? {};
+  const acceptedEntries =
+    selectedName === undefined
+      ? Object.entries(accepted)
+      : accepted[selectedName] === undefined
+        ? []
+        : [[selectedName, accepted[selectedName]] as const];
+  const configuredEntries =
+    selectedName === undefined
+      ? Object.entries(configured)
+      : configured[selectedName] === undefined
+        ? []
+        : [[selectedName, configured[selectedName]] as const];
+  for (const [name, entry] of acceptedEntries) {
+    const paths = computeExtensionPathsForLayout(
+      args.path.join,
+      args.layout,
+      extensionPathSourceFromLockEntry(entry),
+      "skills",
+      entry.identity.name,
+    );
+    addSkill(name, paths.extensionSrcPath);
+  }
+  for (const [name, entry] of configuredEntries) {
+    if (entry.origin === "bundled") {
+      addSkill(
+        name,
+        args.path.join(bundledSkillCanonicalRoot(args.path.join, args.layout, name), "src"),
+      );
+    } else if (entry.source === "workspace" && args.layout.scope === "project") {
+      addSkill(name, args.path.join(args.layout.authoredRoot("skill"), name, "src"));
+    }
+  }
+  for (const node of args.desired.nodes) {
+    if (node.type !== "skill" || (selectedName !== undefined && node.name !== selectedName))
+      continue;
+    if (node.identity.authority === "bundled") {
+      addSkill(
+        node.name,
+        args.path.join(bundledSkillCanonicalRoot(args.path.join, args.layout, node.name), "src"),
+      );
+    } else if (node.identity.authority === "workspace" && args.layout.scope === "project") {
+      addSkill(node.name, args.path.join(args.layout.authoredRoot("skill"), node.name, "src"));
+    }
+  }
+  return skillSources;
+};
+
+export const captureSkillOutputSources = (name: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const location = yield* WorkspaceLocation;
+    const layout = yield* Ref.get(location.layout);
+    const evaluation = yield* (yield* DesiredStateReader).evaluate();
+    return (
+      deriveSkillOutputSources(
+        {
+          path,
+          layout,
+          acceptedResolutions: evaluation.inputs.acceptedResolutions,
+          desired: evaluation.graph,
+          settings: evaluation.inputs.settings,
+        },
+        name,
+      )[name] ?? []
+    );
+  });
 
 /** Capture before publishing a transition; retirement keeps its original authority. */
 export const captureAgentOutputAuthority = () =>

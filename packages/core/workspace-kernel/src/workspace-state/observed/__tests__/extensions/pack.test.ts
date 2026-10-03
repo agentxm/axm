@@ -6,10 +6,12 @@
  * namespace passes an empty installed-pack set into the projection helper for
  * its own derivation.
  *
- * Pack membership comes from authored manifests; the accepted Pack lock row
- * carries only external resolution and manifest identity.
+ * Accepted Pack rows carry the dependency declarations needed for graph reads.
  */
 
+import { computePackManifestContentIdentity } from "../../../workspace/pack-manifest-content-identity.js";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
+import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -46,7 +48,7 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
   // (HandleSchema, ExtensionNameSchema, VersionSchema,
   // ExtensionFqnSchema) carry the correct brands.
   decodedLockfile({
-    lockfileVersion: 9,
+    lockfileVersion: 10,
     skills: {},
     packs: {
       [packName]: {
@@ -58,8 +60,14 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
           publisherBindingId: "hbnd_test",
         },
         manifestVersion: "1.0.0",
-        manifestContentIdentity: "sha256-manifest",
-        members: [],
+        manifestContentIdentity: computePackManifestContentIdentity({
+          type: "pack",
+          owner: decodeHandleSync("@team"),
+          name: packName,
+          version: decodeVersionSync("1.0.0"),
+          dependencies: {},
+        }),
+        dependencies: {},
         treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
       },
     },
@@ -79,7 +87,7 @@ describe("makePackExtensionsApi", () => {
     }),
   );
 
-  it.effect("resolved exposes accepted Pack provenance without member authority", () =>
+  it.effect("resolved exposes accepted Pack provenance and dependency declarations", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithPacks({
         "team-pack": { source: "registry:@team/team-pack" },
@@ -92,7 +100,7 @@ describe("makePackExtensionsApi", () => {
       expect(arr[0]?.name).toBe("team-pack");
       expect(arr[0]?.lockEntry).toMatchObject({
         resolved: { version: "1.0.0" },
-        manifestContentIdentity: "sha256-manifest",
+        dependencies: {},
       });
       expect("resolvedSkills" in (arr[0]?.lockEntry ?? {})).toBe(false);
     }),

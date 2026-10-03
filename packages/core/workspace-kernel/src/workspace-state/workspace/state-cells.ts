@@ -64,7 +64,7 @@ const scopeForDir = (
       ? "user"
       : "project";
 
-const readModelFor = (
+export const readModelFor = (
   cells: StateCellPaths,
   scope: WorkspaceScope,
 ): Effect.Effect<WorkspaceReadModel, WorkspaceRootEscape, FileSystem.FileSystem | Path.Path> =>

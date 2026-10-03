@@ -12,6 +12,7 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
@@ -23,12 +24,13 @@ import {
   type ExtensionName,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   AcceptedResolutionWriter,
   WorkspaceLocation,
   computeMaterializedTreeIntegrity,
+  computePackManifestContentIdentity,
   mcpRegistryResolutionKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -44,8 +46,6 @@ export const SPEC_REGISTRY_SOURCE = {
   type: "registry",
   location: SPEC_REGISTRY_ENDPOINT,
 } as const;
-
-const decodeSourceHash = Schema.decodeUnknownSync(SourceHashSchema);
 
 export interface AcceptedRegistryResolution {
   readonly type: ExtensionType;
@@ -97,15 +97,20 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
         return yield* accepted.setAccepted("hook", resolution.name, shared);
       case "knowledge":
         return yield* accepted.setAccepted("knowledge", resolution.name, shared);
-      case "pack":
+      case "pack": {
         // A Pack row is flat rather than nested, and carries the manifest
-        // identity the Registry accepted alongside the tree integrity.
+        // declaration the fixture accepts alongside the tree integrity.
+        const fs = yield* FileSystem.FileSystem;
+        const manifest = yield* Schema.decodeUnknownEffect(
+          Schema.fromJsonString(PackManifestSchema),
+        )(yield* fs.readFileString(path.join(canonicalPath, "pack.json")));
         return yield* accepted.setAccepted("pack", resolution.name, {
           ...shared,
           manifestVersion: shared.resolved.version,
-          manifestContentIdentity: decodeSourceHash(`sha256-${resolution.name}-manifest`),
-          members: [],
+          manifestContentIdentity: computePackManifestContentIdentity(manifest),
+          dependencies: manifest.dependencies,
         });
+      }
       case "mcp-server":
         return yield* accepted.setAccepted(
           "mcp-server",

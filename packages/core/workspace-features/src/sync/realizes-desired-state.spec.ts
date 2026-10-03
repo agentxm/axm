@@ -9,6 +9,7 @@ import { afterEach } from "vitest";
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import * as Option from "effect/Option";
 
+import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
 import { SubagentManager } from "@agentxm/workspace-kernel/materialization";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -234,7 +235,10 @@ describe("Sync realizes desired workspace state", () => {
               workspace.readFile("agent_extensions/registry/@acme/skills/retained/src/SKILL.md"),
             ).toBe(retained);
             expect(workspace.readFile("axm.json")).toBe(settings);
-            expect((yield* applySync())._tag).not.toBe("AlreadyReconciled");
+            const refusal = yield* applySync().pipe(Effect.flip);
+            expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
+            if (refusal instanceof WorkspaceSyncFailed)
+              expect(refusal.detail).toContain("accepted-resolution-incompatible");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

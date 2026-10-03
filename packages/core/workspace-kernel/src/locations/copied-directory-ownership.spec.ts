@@ -7,9 +7,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   captureCopiedDirectory,
+  copiedDirectoryReceiptPath,
+  copiedDirectoryCanReplace,
+  copiedDirectoryIsCurrent,
   readCopiedDirectory,
   retireCopiedDirectory,
-  COPIED_DIRECTORY_RECEIPT,
 } from "./index.js";
 
 export const specification = defineSpecification({
@@ -66,10 +68,8 @@ describe("Bounded copied projection ownership", () => {
   it.effect("rejects a transplanted receipt on a replacement directory", () =>
     Effect.gen(function* () {
       const { fs, path, root, copy } = yield* fixture;
-      const receipt = yield* fs.readFileString(path.join(copy, COPIED_DIRECTORY_RECEIPT));
       yield* fs.rename(copy, path.join(root, "old-copy"));
       yield* fs.makeDirectory(copy);
-      yield* fs.writeFileString(path.join(copy, COPIED_DIRECTORY_RECEIPT), receipt);
       yield* fs.writeFileString(path.join(copy, "SKILL.md"), "# Replacement\n");
       expect(Option.isNone(yield* readCopiedDirectory(copy))).toBe(true);
       expect(yield* retireCopiedDirectory(copy)).toBe(false);
@@ -85,6 +85,46 @@ describe("Bounded copied projection ownership", () => {
       yield* fs.writeFileString(file, "# Owned skill\n");
       yield* retireCopiedDirectory(copy);
       expect(yield* fs.readFileString(file)).toBe("# Owned skill\n");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+  it.effect(
+    "keeps management evidence outside authored files and retires only unchanged links",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-copy-links-" });
+        const copy = path.join(root, "copy");
+        yield* fs.makeDirectory(copy);
+        yield* fs.writeFileString(path.join(copy, ".axm-copy.json"), "authored bytes");
+        yield* fs.writeFileString(path.join(copy, "target"), "target");
+        yield* fs.symlink("target", path.join(copy, "original"));
+        yield* fs.symlink("target", path.join(copy, "modified"));
+        yield* fs.symlink("missing", path.join(copy, "dangling"));
+        yield* fs.symlink(".", path.join(copy, "self"));
+        expect(Option.isSome(yield* captureCopiedDirectory(copy, copy))).toBe(true);
+        expect(yield* fs.readFileString(path.join(copy, ".axm-copy.json"))).toBe("authored bytes");
+        expect(yield* fs.exists(yield* copiedDirectoryReceiptPath(copy))).toBe(true);
+        expect(yield* copiedDirectoryCanReplace(copy)).toBe(true);
+        expect(yield* copiedDirectoryIsCurrent(copy, copy)).toBe(true);
+        yield* fs.rename(path.join(copy, "modified"), path.join(root, "old-link"));
+        yield* fs.symlink("target", path.join(copy, "modified"));
+        expect(yield* copiedDirectoryCanReplace(copy)).toBe(false);
+        yield* retireCopiedDirectory(copy);
+        expect(yield* fs.readLink(path.join(copy, "modified"))).toBe("target");
+        expect(yield* fs.readDirectory(copy)).toEqual(["modified"]);
+        expect(yield* fs.exists(yield* copiedDirectoryReceiptPath(copy))).toBe(false);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("refuses an occupied management sibling without changing it", () =>
+    Effect.gen(function* () {
+      const { fs, copy } = yield* fixture;
+      const receiptPath = yield* copiedDirectoryReceiptPath(copy);
+      const before = yield* fs.readFileString(receiptPath);
+      const refused = yield* captureCopiedDirectory(copy, "replacement").pipe(Effect.flip);
+      expect(refused._tag).toBe("NativeLocationError");
+      expect(yield* fs.readFileString(receiptPath)).toBe(before);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

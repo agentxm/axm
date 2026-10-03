@@ -46,7 +46,35 @@
                 "path": {
                   "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
                 },
-                "revision": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] }
+                "revision": { "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }] },
+                "distribution": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "format": {
+                          "type": "string",
+                          "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                        },
+                        "packageRoot": { "type": "string" },
+                        "componentPath": { "type": "string" },
+                        "manifestPath": { "type": "string" },
+                        "marketplace": {
+                          "type": "object",
+                          "properties": {
+                            "path": { "type": "string" },
+                            "name": { "type": "string" }
+                          },
+                          "required": ["path", "name"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": ["format", "packageRoot", "componentPath"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                }
               },
               "required": ["type", "url"],
               "additionalProperties": false
@@ -151,7 +179,35 @@
               "type": "object",
               "properties": {
                 "type": { "type": "string", "enum": ["path"] },
-                "path": { "type": "string" }
+                "path": { "type": "string" },
+                "distribution": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "format": {
+                          "type": "string",
+                          "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                        },
+                        "packageRoot": { "type": "string" },
+                        "componentPath": { "type": "string" },
+                        "manifestPath": { "type": "string" },
+                        "marketplace": {
+                          "type": "object",
+                          "properties": {
+                            "path": { "type": "string" },
+                            "name": { "type": "string" }
+                          },
+                          "required": ["path", "name"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": ["format", "packageRoot", "componentPath"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                }
               },
               "required": ["type", "path"],
               "additionalProperties": false
@@ -206,30 +262,239 @@
       "properties": {
         "lockfileVersion": {
           "type": "number",
-          "enum": [8],
+          "enum": [9],
           "description": "Lockfile schema version.",
-          "default": 8
+          "default": 9
         },
         "skills": {
           "type": "object",
           "additionalProperties": {
             "anyOf": [
               {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["git"] },
+                          "url": { "type": "string" },
+                          "path": {
+                            "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
+                          },
+                          "revision": {
+                            "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "required": ["type", "url"],
+                        "additionalProperties": false
+                      },
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
+                          },
+                          "name": { "$ref": "#/definitions/ExtensionName" }
+                        },
+                        "required": ["name"],
+                        "additionalProperties": false
+                      },
+                      "resolved": {
+                        "type": "object",
+                        "properties": {
+                          "commit": { "type": "string", "minLength": 1 },
+                          "tree": { "type": "string", "minLength": 1 }
+                        },
+                        "required": ["commit", "tree"],
+                        "additionalProperties": false
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
+                    },
+                    "required": ["source", "identity", "resolved", "treeIntegrity"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["registry"] },
+                          "url": { "type": "string" }
+                        },
+                        "required": ["type", "url"],
+                        "additionalProperties": false
+                      },
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "owner": { "$ref": "#/definitions/Handle" },
+                          "name": { "$ref": "#/definitions/ExtensionName" }
+                        },
+                        "required": ["owner", "name"],
+                        "additionalProperties": false
+                      },
+                      "resolved": {
+                        "type": "object",
+                        "properties": {
+                          "version": { "$ref": "#/definitions/Version" },
+                          "integrity": {
+                            "type": "string",
+                            "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                          },
+                          "publisherBindingId": { "type": "string", "minLength": 1 }
+                        },
+                        "required": ["version", "integrity", "publisherBindingId"],
+                        "additionalProperties": false
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
+                    },
+                    "required": ["source", "identity", "resolved", "treeIntegrity"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "type": { "type": "string", "enum": ["path"] },
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
+                        },
+                        "required": ["type", "path"],
+                        "additionalProperties": false
+                      },
+                      "identity": {
+                        "type": "object",
+                        "properties": {
+                          "owner": {
+                            "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
+                          },
+                          "name": { "$ref": "#/definitions/ExtensionName" }
+                        },
+                        "required": ["name"],
+                        "additionalProperties": false
+                      },
+                      "resolved": {
+                        "type": "object",
+                        "properties": {
+                          "tree": {
+                            "type": "string",
+                            "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                          }
+                        },
+                        "required": ["tree"],
+                        "additionalProperties": false
+                      },
+                      "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
+                    },
+                    "required": ["source", "identity", "resolved", "treeIntegrity"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
+              {
                 "type": "object",
                 "properties": {
                   "source": {
                     "type": "object",
                     "properties": {
-                      "type": { "type": "string", "enum": ["git"] },
+                      "type": { "type": "string", "enum": ["http"] },
                       "url": { "type": "string" },
-                      "path": {
-                        "anyOf": [{ "$ref": "#/definitions/SourceSubPath" }, { "type": "null" }]
-                      },
-                      "revision": {
+                      "kind": { "type": "string", "enum": ["skill-md", "archive", "index"] },
+                      "entry": {
                         "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                      },
+                      "path": { "$ref": "#/definitions/SourceSubPath" },
+                      "portable": { "type": "boolean" },
+                      "distribution": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "format": {
+                                "type": "string",
+                                "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                              },
+                              "packageRoot": { "type": "string" },
+                              "componentPath": { "type": "string" },
+                              "manifestPath": { "type": "string" },
+                              "marketplace": {
+                                "type": "object",
+                                "properties": {
+                                  "path": { "type": "string" },
+                                  "name": { "type": "string" }
+                                },
+                                "required": ["path", "name"],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": ["format", "packageRoot", "componentPath"],
+                            "additionalProperties": false
+                          },
+                          { "type": "null" }
+                        ]
                       }
                     },
-                    "required": ["type", "url"],
+                    "required": ["type", "url", "kind", "path", "portable"],
                     "additionalProperties": false
                   },
                   "identity": {
@@ -244,91 +509,43 @@
                     "additionalProperties": false
                   },
                   "resolved": {
-                    "type": "object",
-                    "properties": {
-                      "commit": { "type": "string", "minLength": 1 },
-                      "tree": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["commit", "tree"],
-                    "additionalProperties": false
-                  },
-                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
-                },
-                "required": ["source", "identity", "resolved", "treeIntegrity"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "source": {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["registry"] },
-                      "url": { "type": "string" }
-                    },
-                    "required": ["type", "url"],
-                    "additionalProperties": false
-                  },
-                  "identity": {
-                    "type": "object",
-                    "properties": {
-                      "owner": { "$ref": "#/definitions/Handle" },
-                      "name": { "$ref": "#/definitions/ExtensionName" }
-                    },
-                    "required": ["owner", "name"],
-                    "additionalProperties": false
-                  },
-                  "resolved": {
-                    "type": "object",
-                    "properties": {
-                      "version": { "$ref": "#/definitions/Version" },
-                      "integrity": {
-                        "type": "string",
-                        "description": "SRI sha512 of the published archive, verified against downloaded bytes before extraction. The supply-chain guarantee for registry installs; never compared against installed files on disk."
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "format": {
+                            "type": "string",
+                            "enum": ["skill-md", "zip", "tar", "tar.gz"]
+                          },
+                          "url": { "type": "string" },
+                          "digest": { "type": "string" }
+                        },
+                        "required": ["format", "url", "digest"],
+                        "additionalProperties": false
                       },
-                      "publisherBindingId": { "type": "string", "minLength": 1 }
-                    },
-                    "required": ["version", "integrity", "publisherBindingId"],
-                    "additionalProperties": false
-                  },
-                  "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
-                },
-                "required": ["source", "identity", "resolved", "treeIntegrity"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "source": {
-                    "type": "object",
-                    "properties": {
-                      "type": { "type": "string", "enum": ["path"] },
-                      "path": { "type": "string" }
-                    },
-                    "required": ["type", "path"],
-                    "additionalProperties": false
-                  },
-                  "identity": {
-                    "type": "object",
-                    "properties": {
-                      "owner": {
-                        "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
-                      },
-                      "name": { "$ref": "#/definitions/ExtensionName" }
-                    },
-                    "required": ["name"],
-                    "additionalProperties": false
-                  },
-                  "resolved": {
-                    "type": "object",
-                    "properties": {
-                      "tree": {
-                        "type": "string",
-                        "description": "Advisory SHA-256 change-detection marker of canonical content at install time. Not a tamper guarantee: installed content is workspace-owned and may be rewritten by content-preserving tools after install."
+                      {
+                        "type": "object",
+                        "properties": {
+                          "format": { "type": "string", "enum": ["files"] },
+                          "files": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "path": { "type": "string", "minLength": 1 },
+                                "url": { "type": "string" },
+                                "digest": { "type": "string" }
+                              },
+                              "required": ["path", "url", "digest"],
+                              "additionalProperties": false
+                            }
+                          }
+                        },
+                        "required": ["format", "files"],
+                        "additionalProperties": false
                       }
-                    },
-                    "required": ["tree"],
-                    "additionalProperties": false
+                    ]
                   },
                   "treeIntegrity": { "$ref": "#/definitions/TreeIntegrity" }
                 },
@@ -357,6 +574,34 @@
                           },
                           "revision": {
                             "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
                           }
                         },
                         "required": ["type", "url"],
@@ -431,7 +676,35 @@
                         "type": "object",
                         "properties": {
                           "type": { "type": "string", "enum": ["path"] },
-                          "path": { "type": "string" }
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["type", "path"],
                         "additionalProperties": false
@@ -486,6 +759,34 @@
                           },
                           "revision": {
                             "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
                           }
                         },
                         "required": ["type", "url"],
@@ -494,10 +795,12 @@
                       "identity": {
                         "type": "object",
                         "properties": {
-                          "owner": { "$ref": "#/definitions/Handle" },
+                          "owner": {
+                            "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
+                          },
                           "name": { "$ref": "#/definitions/ExtensionName" }
                         },
-                        "required": ["owner", "name"],
+                        "required": ["name"],
                         "additionalProperties": false
                       },
                       "resolved": {
@@ -560,7 +863,35 @@
                         "type": "object",
                         "properties": {
                           "type": { "type": "string", "enum": ["path"] },
-                          "path": { "type": "string" }
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["type", "path"],
                         "additionalProperties": false
@@ -568,10 +899,12 @@
                       "identity": {
                         "type": "object",
                         "properties": {
-                          "owner": { "$ref": "#/definitions/Handle" },
+                          "owner": {
+                            "anyOf": [{ "$ref": "#/definitions/Handle" }, { "type": "null" }]
+                          },
                           "name": { "$ref": "#/definitions/ExtensionName" }
                         },
-                        "required": ["owner", "name"],
+                        "required": ["name"],
                         "additionalProperties": false
                       },
                       "resolved": {
@@ -615,6 +948,34 @@
                           },
                           "revision": {
                             "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
                           }
                         },
                         "required": ["type", "url"],
@@ -689,7 +1050,35 @@
                         "type": "object",
                         "properties": {
                           "type": { "type": "string", "enum": ["path"] },
-                          "path": { "type": "string" }
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["type", "path"],
                         "additionalProperties": false
@@ -744,6 +1133,34 @@
                           },
                           "revision": {
                             "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
                           }
                         },
                         "required": ["type", "url"],
@@ -818,7 +1235,35 @@
                         "type": "object",
                         "properties": {
                           "type": { "type": "string", "enum": ["path"] },
-                          "path": { "type": "string" }
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["type", "path"],
                         "additionalProperties": false
@@ -873,6 +1318,34 @@
                           },
                           "revision": {
                             "anyOf": [{ "type": "string", "minLength": 1 }, { "type": "null" }]
+                          },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
                           }
                         },
                         "required": ["type", "url"],
@@ -947,7 +1420,35 @@
                         "type": "object",
                         "properties": {
                           "type": { "type": "string", "enum": ["path"] },
-                          "path": { "type": "string" }
+                          "path": { "type": "string" },
+                          "distribution": {
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "format": {
+                                    "type": "string",
+                                    "enum": ["agent-plugins", "claude", "codex", "cursor"]
+                                  },
+                                  "packageRoot": { "type": "string" },
+                                  "componentPath": { "type": "string" },
+                                  "manifestPath": { "type": "string" },
+                                  "marketplace": {
+                                    "type": "object",
+                                    "properties": {
+                                      "path": { "type": "string" },
+                                      "name": { "type": "string" }
+                                    },
+                                    "required": ["path", "name"],
+                                    "additionalProperties": false
+                                  }
+                                },
+                                "required": ["format", "packageRoot", "componentPath"],
+                                "additionalProperties": false
+                              },
+                              { "type": "null" }
+                            ]
+                          }
                         },
                         "required": ["type", "path"],
                         "additionalProperties": false

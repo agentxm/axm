@@ -5,7 +5,7 @@
  * @packageDocumentation
  */
 
-import { toFileLocation } from "@agentxm/host-primitives";
+import { fromFileLocation, toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
@@ -43,6 +43,7 @@ import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensi
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type {
   GitBasedSource,
+  HttpSource,
   LocalSource,
   RegistrySource,
   SourceParams,
@@ -59,6 +60,11 @@ export type LockEntryToRefError =
   LockEntryNameInvalid | LockEntryEndpointConflict | LockEntrySourceLookupError;
 
 export type LockEntry = LockEntryByType[InstallableExtensionType];
+
+export const isHttpLockEntry = <E extends LockEntry>(
+  entry: E,
+): entry is Extract<E, { readonly source: { readonly type: "http" } }> =>
+  entry.source.type === "http";
 
 export const isRegistryLockEntry = <E extends LockEntry>(
   entry: E,
@@ -129,6 +135,9 @@ const registrySourceFromEntry = (
   });
 
 export function lockEntrySource(
+  entry: Extract<LockEntry, { readonly source: { readonly type: "http" } }>,
+): HttpSource;
+export function lockEntrySource(
   entry: Extract<LockEntry, { readonly source: { readonly type: "registry" } }>,
 ): RegistrySource;
 export function lockEntrySource(
@@ -137,8 +146,12 @@ export function lockEntrySource(
 export function lockEntrySource(
   entry: Extract<LockEntry, { readonly source: { readonly type: "path" } }>,
 ): LocalSource;
-export function lockEntrySource(entry: LockEntry): RegistrySource | GitBasedSource | LocalSource;
-export function lockEntrySource(entry: LockEntry): RegistrySource | GitBasedSource | LocalSource {
+export function lockEntrySource(
+  entry: LockEntry,
+): RegistrySource | GitBasedSource | LocalSource | HttpSource;
+export function lockEntrySource(
+  entry: LockEntry,
+): RegistrySource | GitBasedSource | LocalSource | HttpSource {
   if (isRegistryLockEntry(entry))
     return {
       type: "registry",
@@ -153,6 +166,13 @@ export function lockEntrySource(entry: LockEntry): RegistrySource | GitBasedSour
       ref: Option.fromUndefinedOr(entry.source.revision),
       subPath: Option.fromUndefinedOr(entry.source.path),
     };
+  if (isHttpLockEntry(entry))
+    return {
+      type: "http",
+      url: entry.source.url,
+      kind: entry.source.kind,
+      ...(entry.source.entry === undefined ? {} : { entry: entry.source.entry }),
+    };
   return { type: "local", path: entry.source.path };
 }
 
@@ -166,6 +186,17 @@ export const extensionPathSourceFromLockEntry = (
       source: lockEntrySource(entry),
     };
   }
+  if (isHttpLockEntry(entry))
+    return {
+      refType: "http",
+      source: lockEntrySource(entry),
+      sourcePath: entry.source.path,
+      portable: entry.source.portable,
+      ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+      ...(entry.source.distribution === undefined
+        ? {}
+        : { distribution: entry.source.distribution }),
+    };
   if (!isGitLockEntry(entry)) {
     return {
       refType: "local",
@@ -173,6 +204,9 @@ export const extensionPathSourceFromLockEntry = (
       source: lockEntrySource(entry),
       sourcePath: entry.source.path,
       portable: entry.identity.owner === undefined,
+      ...(entry.source.distribution === undefined
+        ? {}
+        : { distribution: entry.source.distribution }),
     };
   }
   return {
@@ -181,6 +215,7 @@ export const extensionPathSourceFromLockEntry = (
     source: lockEntrySource(entry),
     ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
     portable: entry.identity.owner === undefined,
+    ...(entry.source.distribution === undefined ? {} : { distribution: entry.source.distribution }),
   };
 };
 
@@ -237,6 +272,7 @@ const acceptedLocalFields = (
     source: { type: "local" as const, path: absolute },
     location: fileHref(absolute),
     sourcePath: entry.source.path,
+    ...(entry.source.distribution === undefined ? {} : { distribution: entry.source.distribution }),
   };
 };
 
@@ -250,7 +286,13 @@ const acceptedGitFields = (
   name: entry.identity.name,
   source: lockEntrySource(entry),
   ...(entry.source.path === undefined ? {} : { sourcePath: entry.source.path }),
-  location: lockEntryLocation(deps, entry, type, name),
+  location: fileHref(
+    deps.path.join(
+      fromFileLocation(lockEntryLocation(deps, entry, type, name)),
+      entry.source.distribution?.componentPath ?? ".",
+    ),
+  ),
+  ...(entry.source.distribution === undefined ? {} : { distribution: entry.source.distribution }),
   gitTreeSha: entry.resolved.tree,
   gitCommitSha: entry.resolved.commit,
 });
@@ -264,6 +306,27 @@ const skillLockEntryToRef = (
     decodeLockEntryName(name),
     (extensionName): Effect.Effect<SkillExtensionRef, LockEntryToRefError> => {
       const skill = { name: extensionName, description: Option.none(), metadata: Option.none() };
+      if (isHttpLockEntry(entry))
+        return Effect.succeed({
+          type: "skill",
+          refType: "http",
+          name: entry.identity.name,
+          skill,
+          source: lockEntrySource(entry),
+          sourcePath: entry.source.path,
+          portable: entry.source.portable,
+          snapshot: entry.resolved,
+          location: fileHref(
+            deps.path.join(
+              fromFileLocation(lockEntryLocation(deps, entry, "skill", extensionName)),
+              entry.source.distribution?.componentPath ?? ".",
+            ),
+          ),
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
+          ...(entry.source.distribution === undefined
+            ? {}
+            : { distribution: entry.source.distribution }),
+        });
       if (isRegistryLockEntry(entry))
         return Effect.map(acceptedRegistryFields(entry, deps), (fields) => ({
           ...fields,
@@ -309,14 +372,14 @@ const mcpServerLockEntryToRef = (
         return Effect.succeed({
           ...acceptedLocalFields(deps, entry),
           type: "mcp-server" as const,
-          owner: entry.identity.owner,
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
           server,
         });
       if (isGitLockEntry(entry))
         return Effect.succeed({
-          ...acceptedGitFields(deps, entry, "mcp-server", extensionName),
+          ...acceptedGitFields(deps, entry, "mcp-server", entry.identity.name),
           type: "mcp-server" as const,
-          owner: entry.identity.owner,
+          ...(entry.identity.owner === undefined ? {} : { owner: entry.identity.owner }),
           server,
         });
       return Effect.die("Unrecognized lock entry source family");
@@ -547,15 +610,29 @@ export const lockEntryToSourceParams = (entry: LockEntry): SourceParams => {
 export const lockEntryMatchesSourceLocator = (entry: LockEntry, locator: string): boolean => {
   if (printSourceParams(lockEntryToSourceParams(entry)) === locator) return true;
   if (!isGitLockEntry(entry)) return false;
-  return Option.exists(
-    forgeCoordinateFromGitUrl(
-      entry.source.url,
-      Option.fromUndefinedOr(entry.source.revision),
-      Option.fromUndefinedOr(entry.source.path),
-    ),
-    (coordinate) =>
-      coordinate.forge === "github" && locator === printForgeCoordinateBody(coordinate),
-  );
+  // A declaration can select a named member from any containing source view.
+  // Keep repository and revision exact while comparing the accepted path's ancestors.
+  const segments = (entry.source.path ?? "")
+    .split("/")
+    .filter((part) => part !== "" && part !== ".");
+  return Array.from({ length: segments.length + 1 }, (_, length) =>
+    length === 0 ? Option.none<string>() : Option.some(segments.slice(0, length).join("/")),
+  ).some((subPath) => {
+    const source = {
+      type: "git",
+      url: entry.source.url,
+      ref: Option.fromUndefinedOr(entry.source.revision),
+      subPath,
+    } as const;
+    return (
+      printSourceParams(source) === locator ||
+      Option.exists(
+        forgeCoordinateFromGitUrl(source.url, source.ref, subPath),
+        (coordinate) =>
+          coordinate.forge === "github" && locator === printForgeCoordinateBody(coordinate),
+      )
+    );
+  });
 };
 
 /** Print an accepted Skill source locator with its immutable Registry identity. */

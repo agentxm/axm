@@ -22,14 +22,16 @@ import {
   assertNoPhysicalOverlap,
   resolveNativeEntry,
   resolveNativeReferent,
+  NativeLocationError,
   captureCopiedDirectory,
+  copiedDirectoryReceiptPath,
   copiedDirectoryIsCurrent,
   copiedDirectoryCanReplace,
   readCopiedDirectory,
   retireCopiedDirectory,
 } from "@agentxm/workspace-kernel/locations";
 import { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
-import { SkillMaterializationFailed } from "./errors.js";
+import { SkillActivationUnsupported, SkillMaterializationFailed } from "./errors.js";
 import { acquireCanonicalForRef } from "@agentxm/workspace-kernel/materialization";
 import {
   validatePathSafety,
@@ -60,7 +62,7 @@ import {
  * so the canonical tree is either the same directory or a copy of it.
  */
 const materializeFromDisk = (
-  ref: Extract<SkillExtensionRef, { refType: "git-hosted" | "local" }>,
+  ref: Extract<SkillExtensionRef, { refType: "git-hosted" | "local" | "http" }>,
   sanitizedName: string,
   baseDir: string,
   layout: WorkspaceLayout,
@@ -77,7 +79,9 @@ const materializeFromDisk = (
     yield* validatePathSafety(pathService, baseDir, canonicalPath);
     const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
     const sourceSkillPath =
-      ref.portable === true ? packageRoot : pathService.join(packageRoot, "src");
+      ref.portable === true
+        ? pathService.join(packageRoot, ref.distribution?.componentPath ?? ".")
+        : pathService.join(packageRoot, "src");
     yield* validateAxmSkillCandidate({
       ref,
       packageRoot,
@@ -187,6 +191,7 @@ export const materializeSkillCanonical = (args: {
   readonly reuse?: CanonicalReuseContext;
 }) => {
   switch (args.ref.refType) {
+    case "http":
     case "git-hosted":
     case "local":
       return materializeFromDisk(
@@ -225,6 +230,7 @@ const unsupportedSymlink = (cause: unknown): boolean => {
 
 export const ensureSkillAgentArtifact = (args: {
   readonly canonicalSkillSrcPath: string;
+  readonly requiresPackageContext?: boolean;
   readonly previousCanonicalSkillSrcPaths?: ReadonlyArray<string>;
   readonly targetDir: string;
   readonly sanitizedName: string;
@@ -259,7 +265,11 @@ export const ensureSkillAgentArtifact = (args: {
       ownedPreviousLink =
         previousSources.includes(immediate.entryPath) && immediate.kind !== "symlink";
     }
-    if (yield* copiedDirectoryIsCurrent(address.entryPath, source)) return "unchanged" as const;
+    if (
+      !args.requiresPackageContext &&
+      (yield* copiedDirectoryIsCurrent(address.entryPath, source))
+    )
+      return "unchanged" as const;
     if (address.kind !== "absent" && !ownedPreviousLink) {
       const receipt = yield* readCopiedDirectory(address.entryPath);
       if (
@@ -302,6 +312,10 @@ export const ensureSkillAgentArtifact = (args: {
       Effect.catchTag("SymlinkCreationError", (error) =>
         Effect.gen(function* () {
           if (error.step !== "symlink" || !unsupportedSymlink(error.cause)) return yield* error;
+          if (args.requiresPackageContext)
+            return yield* new SkillActivationUnsupported({
+              detail: `Skill ${args.sanitizedName} requires directory-link support to retain its package context at ${agentSkillPath}; enable directory links or select a supported filesystem`,
+            });
           yield* Effect.scoped(
             Effect.gen(function* () {
               const fs = yield* FileSystem.FileSystem;
@@ -311,7 +325,7 @@ export const ensureSkillAgentArtifact = (args: {
               });
               const staged = path.join(temporary, "entry");
               yield* fs.makeDirectory(staged);
-              yield* copyExtensionDirectory(source, staged, { forAgentArtifact: true });
+              yield* copyExtensionDirectory(source, staged);
               const receipt = yield* captureCopiedDirectory(staged, source);
               if (Option.isNone(receipt))
                 return yield* new SkillMaterializationFailed({
@@ -324,7 +338,22 @@ export const ensureSkillAgentArtifact = (args: {
                   detail: `Skill target changed before copied publication: ${agentSkillPath}`,
                   cause: undefined,
                 });
+              const receiptTarget = yield* copiedDirectoryReceiptPath(address.entryPath);
+              yield* assertNativeMutationWithinRoots(
+                args.nativeRoots,
+                receiptTarget,
+                "entry",
+                args.baseDir,
+              );
+              if ((yield* resolveNativeEntry(receiptTarget)).kind !== "absent")
+                return yield* new NativeLocationError({
+                  target: receiptTarget,
+                  reason: "workspace-conflict",
+                });
+              yield* protectWorkspacePath(receiptTarget);
               yield* protectWorkspacePath(address.entryPath);
+              yield* fs.rename(yield* copiedDirectoryReceiptPath(staged), receiptTarget);
+              yield* recordFootprint({ path: receiptTarget, change: "created" });
               yield* fs.rename(staged, address.entryPath);
               yield* recordFootprint({ path: address.entryPath, change: "created" });
             }),
@@ -336,7 +365,7 @@ export const ensureSkillAgentArtifact = (args: {
     return address.kind === "absent" ? ("created" as const) : ("updated" as const);
   }).pipe(
     Effect.mapError((cause) =>
-      cause instanceof SkillMaterializationFailed
+      cause instanceof SkillMaterializationFailed || cause instanceof SkillActivationUnsupported
         ? cause
         : new SkillMaterializationFailed({
             detail: `Failed to materialize skill artifact at ${args.targetDir}`,

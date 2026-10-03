@@ -248,8 +248,8 @@ describe("A non-success result names a fitting recovery", () => {
     const error = workspaceFailureToStepFailure(
       new LockfileVersionUnsupported({
         path: "/w/axm-lock.yaml",
-        observedVersion: 9,
-        supportedVersion: 8,
+        observedVersion: 10,
+        supportedVersion: 9,
       }),
     );
     const resolution = resolutionOf([unitFailedWith("research", error)]);

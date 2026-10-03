@@ -458,6 +458,8 @@ const toResolvedMap = (
                 sourceIdentity: `workspace:${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
                 contentIdentity: ref.sourceHash,
               };
+            case "http":
+              return { source: "http" as const, snapshot: ref.snapshot };
             case "git-hosted":
               return {
                 source: "git" as const,

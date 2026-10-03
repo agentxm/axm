@@ -112,6 +112,7 @@ export const acquireExternalSource = (
           origin,
         };
       }
+      case "http":
       case "registry":
       case "workspace":
         return yield* new SourceNotResolvable({
@@ -140,6 +141,7 @@ export const findExtensionPackagesFromSource = (
       case "local":
       case "git":
         return yield* findLocalOrGitExtensionPackagesFromSource(source, filter);
+      case "http":
       case "registry": {
         const providers = yield* SourceHostProviders;
         const origin = providers.origin(source);

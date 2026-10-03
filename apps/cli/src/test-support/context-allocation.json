@@ -614,7 +614,7 @@
       "family": "source-kinds",
       "groups": [
         {
-          "members": ["git"],
+          "members": ["git", "http"],
           "bindings": ["locator", "acquisition"]
         },
         {
@@ -640,7 +640,7 @@
       "family": "source-kinds",
       "groups": [
         {
-          "members": ["git-hosted", "registry", "local", "workspace"],
+          "members": ["git-hosted", "http", "registry", "local", "workspace"],
           "bindings": ["ref-shape"]
         }
       ],

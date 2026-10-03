@@ -175,3 +175,5 @@ export {
   type DemoteRequirements,
   type PrepareDemoteRequirements,
 } from "./demote/demote-to-external-source.js";
+
+export { HandoffSkills, type HandoffRequest } from "./handoff.js";

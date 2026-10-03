@@ -23,7 +23,7 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(8);
+      expect(lock.lockfileVersion).toBe(9);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
       expect(lock.skills["another-skill"]).toMatchObject({ source: { type: "path" } });
     } finally {

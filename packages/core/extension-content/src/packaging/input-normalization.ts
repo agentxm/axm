@@ -1,11 +1,10 @@
 import * as Effect from "effect/Effect";
-import { inflateRawSync } from "node:zlib";
 import type { ExtensionName, ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   ArchiveGuardrailError,
   type ArchiveGuardrailLimits,
-  ZIP_LOCAL_SIGNATURE,
+  defaultReadEntry,
   type ZipEntry,
   validateArchive,
 } from "./archive-guardrails.js";
@@ -59,103 +58,6 @@ export interface PublishInput {
   readonly clientIntegrity?: string;
   readonly digestHeader?: string;
 }
-
-const LOCAL_FILE_HEADER_SIZE = 30;
-const INFLATE_CHUNK_SIZE = 16 * 1024;
-
-export const defaultReadEntry = (
-  archiveBytes: Uint8Array,
-  entry: ZipEntry,
-): Effect.Effect<Uint8Array, ArchiveGuardrailError> =>
-  Effect.gen(function* () {
-    const { localHeaderOffset, compressedSize, compressionMethod, fileName } = entry;
-
-    if (localHeaderOffset + LOCAL_FILE_HEADER_SIZE > archiveBytes.length) {
-      return yield* new ArchiveGuardrailError({
-        code: "malformed_archive",
-        message: `Local file header for entry "${fileName}" exceeds archive bounds.`,
-        entry: fileName,
-      });
-    }
-
-    const view = new DataView(
-      archiveBytes.buffer,
-      archiveBytes.byteOffset,
-      archiveBytes.byteLength,
-    );
-
-    const signature = view.getUint32(localHeaderOffset, true);
-    if (signature !== ZIP_LOCAL_SIGNATURE) {
-      return yield* new ArchiveGuardrailError({
-        code: "malformed_archive",
-        message: `Invalid local file header signature for entry "${fileName}".`,
-        entry: fileName,
-      });
-    }
-
-    const fileNameLength = view.getUint16(localHeaderOffset + 26, true);
-    const extraFieldLength = view.getUint16(localHeaderOffset + 28, true);
-    const dataStart =
-      localHeaderOffset + LOCAL_FILE_HEADER_SIZE + fileNameLength + extraFieldLength;
-
-    if (dataStart + compressedSize > archiveBytes.length) {
-      return yield* new ArchiveGuardrailError({
-        code: "malformed_archive",
-        message: `Compressed data for entry "${fileName}" exceeds archive bounds.`,
-        entry: fileName,
-      });
-    }
-
-    const compressedData = archiveBytes.slice(dataStart, dataStart + compressedSize);
-
-    if (compressionMethod === 0) {
-      return compressedData;
-    }
-
-    if (compressionMethod === 8) {
-      const expansionFailure = () =>
-        new ArchiveGuardrailError({
-          code: "decompression_limit_exceeded",
-          message: `Entry "${fileName}" decompresses beyond its declared size of ${entry.uncompressedSize} bytes.`,
-          entry: fileName,
-        });
-      // workerd grows its bounded zlib buffer by whole chunks, including the
-      // final partial chunk. Reserve one chunk of codec headroom, then enforce
-      // the exact declared size below. Expansion remains bounded during decode.
-      const result = yield* Effect.try({
-        try: () =>
-          inflateRawSync(compressedData, {
-            chunkSize: INFLATE_CHUNK_SIZE,
-            maxOutputLength: entry.uncompressedSize + INFLATE_CHUNK_SIZE,
-          }),
-        catch: (error) => {
-          const errorCode =
-            typeof error === "object" &&
-            error !== null &&
-            "code" in error &&
-            typeof error.code === "string"
-              ? error.code
-              : "";
-          return errorCode === "ERR_BUFFER_TOO_LARGE" ||
-            (error instanceof RangeError && error.message === "Memory limit exceeded")
-            ? expansionFailure()
-            : new ArchiveGuardrailError({
-                code: "malformed_archive",
-                message: `Failed to decompress entry "${fileName}".`,
-                entry: fileName,
-              });
-        },
-      });
-      if (result.byteLength > entry.uncompressedSize) return yield* expansionFailure();
-      return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
-    }
-
-    return yield* new ArchiveGuardrailError({
-      code: "unsupported_compression",
-      message: `Unsupported compression method ${compressionMethod} for entry "${fileName}".`,
-      entry: fileName,
-    });
-  });
 
 export const normalizePublishInput = (
   args: NormalizePublishInputArgs,

@@ -31,11 +31,24 @@ describe("computeMaterializedTreeIntegrity", () => {
     }),
   );
 
-  it.effect("rejects symlinks", () =>
+  it.effect("includes contained link targets, executable bits, and empty directories", () =>
     Effect.gen(function* () {
       const root = nodeFs.mkdtempSync(nodePath.join(nodeOs.tmpdir(), "axm-tree-link-"));
       nodeFs.writeFileSync(nodePath.join(root, "target.txt"), "target");
       nodeFs.symlinkSync("target.txt", nodePath.join(root, "link.txt"));
+      const first = yield* computeMaterializedTreeIntegrity(root).pipe(Effect.provide(layer));
+      nodeFs.unlinkSync(nodePath.join(root, "link.txt"));
+      nodeFs.symlinkSync("./target.txt", nodePath.join(root, "link.txt"));
+      const changedLink = yield* computeMaterializedTreeIntegrity(root).pipe(Effect.provide(layer));
+      expect(changedLink).not.toBe(first);
+      nodeFs.chmodSync(nodePath.join(root, "target.txt"), 0o755);
+      const executable = yield* computeMaterializedTreeIntegrity(root).pipe(Effect.provide(layer));
+      expect(executable).not.toBe(changedLink);
+      nodeFs.mkdirSync(nodePath.join(root, "empty"));
+      const directory = yield* computeMaterializedTreeIntegrity(root).pipe(Effect.provide(layer));
+      expect(directory).not.toBe(executable);
+      nodeFs.unlinkSync(nodePath.join(root, "link.txt"));
+      nodeFs.symlinkSync("../outside.txt", nodePath.join(root, "link.txt"));
       const result = yield* Effect.result(
         computeMaterializedTreeIntegrity(root).pipe(Effect.provide(layer)),
       );

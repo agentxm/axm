@@ -58,13 +58,19 @@ type _InputNoMissing = [Exclude<_InputExpected, InputType>] extends [never] ? tr
 const _inputNoMissing = true as const satisfies _InputNoMissing;
 
 type _MissingInstallabilityDecision = {
-  [Family in ExtensionSourceFamily]: Exclude<ExtensionType, InstallableFrom<Family>>;
+  [Family in ExtensionSourceFamily]: Exclude<
+    Family extends "http" ? "skill" : ExtensionType,
+    InstallableFrom<Family>
+  >;
 }[ExtensionSourceFamily];
 type _InstallableFromEveryFamily = [_MissingInstallabilityDecision] extends [never] ? true : false;
 const _installableFromEveryFamily = true as const satisfies _InstallableFromEveryFamily;
 
 type _ExtraInstallabilityDecision = {
-  [Family in ExtensionSourceFamily]: Exclude<InstallableFrom<Family>, ExtensionType>;
+  [Family in ExtensionSourceFamily]: Exclude<
+    InstallableFrom<Family>,
+    Family extends "http" ? "skill" : ExtensionType
+  >;
 }[ExtensionSourceFamily];
 type _EveryFamilyHasNoExtraInstallableType = [_ExtraInstallabilityDecision] extends [never]
   ? true

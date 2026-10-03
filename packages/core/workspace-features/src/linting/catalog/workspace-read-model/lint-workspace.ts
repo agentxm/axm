@@ -683,6 +683,11 @@ const installedSkillToInfo = (
     const packageRoot = actual.packageRoot ?? actual.contentRoot;
     return {
       info: {
+        validationPurpose:
+          skill.installationOrigin._tag === "direct" &&
+          skill.installationOrigin.declared.entry.source === "workspace"
+            ? "authoring"
+            : "management",
         isNative: isNativeSkill(skill, actual),
         skillJson: undefined,
         expectedName: skill.key.name,
@@ -1108,6 +1113,7 @@ export const buildNativeInstalledSkillInfo = (
   );
   const contentRoot = args.platform.path.resolve(packageRoot, "src");
   return {
+    validationPurpose: "management",
     isNative: true,
     skillJson: args.skillJson,
     expectedName: args.name,
@@ -1148,6 +1154,7 @@ export const buildAcquiredInstalledSkillInfo = (
       ? packageRoot
       : args.platform.path.resolve(packageRoot, "src");
   return {
+    validationPurpose: "management",
     isNative: args.lockEntry.identity.owner !== undefined,
     skillJson: undefined,
     expectedName: args.name,

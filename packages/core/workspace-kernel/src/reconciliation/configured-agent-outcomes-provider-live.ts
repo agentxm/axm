@@ -298,21 +298,20 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                   "mcp-server",
                   row.name,
                 );
-                const canonicalPaths =
-                  row.paths ??
-                  (Option.isSome(accepted)
-                    ? [
-                        computeExtensionPathsForLayout(
-                          path.join,
-                          layout,
-                          extensionPathSourceFromLockEntry(accepted.value),
-                          "mcps",
-                          accepted.value.identity.name,
-                        ).canonicalPath,
-                      ]
-                    : layout.scope === "project"
+                const canonicalPaths = Option.isSome(accepted)
+                  ? [
+                      computeExtensionPathsForLayout(
+                        path.join,
+                        layout,
+                        extensionPathSourceFromLockEntry(accepted.value),
+                        "mcps",
+                        accepted.value.identity.name,
+                      ).canonicalPath,
+                    ]
+                  : (row.paths ??
+                    (layout.scope === "project"
                       ? [path.join(layout.authoredRoot("mcp-server"), row.name)]
-                      : []);
+                      : []));
                 const inspection = yield* inspectDesiredMcpServer({
                   workspaceRoot: location.baseDir,
                   scope: location.scope,

@@ -38,7 +38,7 @@ const REGISTRY_LOCK_ENTRY = {
     integrity: "sha512-abc123",
     publisherBindingId: "hbnd_test",
   },
-  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
 } as const;
 
 type LockEntrySchema = (typeof LOCK_ENTRY_SCHEMA_BY_TYPE)[CatalogExtensionType];
@@ -66,7 +66,7 @@ const CHECKS: Record<ObligationIdForTier<typeof TIER>, (type: CatalogExtensionTy
       },
       identity: { owner: "@acme", name: "example" },
       resolved: { commit: "commit-1", tree: "tree-1" },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     }),
 };
 

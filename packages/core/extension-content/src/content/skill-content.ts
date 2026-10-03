@@ -98,6 +98,37 @@ const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 
 const allowedFrontmatterFields = new Set<string>(AGENT_SKILLS_FRONTMATTER_FIELDS);
 
+/** Best-effort display metadata from an externally distributed skill. */
+export interface ExtractedSkillMetadata {
+  readonly name?: string;
+  readonly description?: string;
+  readonly metadata?: unknown;
+  readonly frontmatter?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Read external metadata without applying AXM's authoring contract. The source
+ * remains authoritative: unknown fields, display names and metadata values are
+ * retained as declared. Missing or malformed metadata does not make an explicit
+ * SKILL.md path unavailable to acquisition.
+ */
+export const extractSkillMetadata = (content: string): ExtractedSkillMetadata => {
+  try {
+    const { frontmatter } = parseFrontmatterSync(content.replace(/^\uFEFF/, ""));
+    if (!isRecord(frontmatter)) return {};
+    const name = frontmatter["name"];
+    const description = frontmatter["description"];
+    return {
+      ...(typeof name === "string" && name.trim().length > 0 ? { name } : {}),
+      ...(typeof description === "string" && description.trim().length > 0 ? { description } : {}),
+      ...(frontmatter["metadata"] === undefined ? {} : { metadata: frontmatter["metadata"] }),
+      frontmatter,
+    };
+  } catch {
+    return {};
+  }
+};
+
 /** Validate parsed YAML against the pinned Agent Skills metadata contract. */
 export const validateSkillFrontmatter = (
   input: unknown,

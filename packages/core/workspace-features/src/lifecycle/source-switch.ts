@@ -46,6 +46,8 @@ const REGISTRY_GUARANTEES = [
 
 const sourceFamily = (ref: ExtensionRef): SourceSwitchFamily => {
   switch (ref.refType) {
+    case "http":
+      return "http";
     case "registry":
       return "registry";
     case "git-hosted":
@@ -71,6 +73,8 @@ const publicUrl = (value: URL): string => {
 
 const sourceLocator = (ref: ExtensionRef): string => {
   switch (ref.refType) {
+    case "http":
+      return `${publicUrl(ref.source.url)}#skill=${encodeURIComponent(ref.source.entry ?? ref.sourcePath)}`;
     case "registry":
       return publicUrl(ref.source.location);
     case "git-hosted":
@@ -84,6 +88,10 @@ const sourceLocator = (ref: ExtensionRef): string => {
 
 const sourceResolution = (ref: ExtensionRef, treeIntegrity: string): string => {
   switch (ref.refType) {
+    case "http":
+      return ref.snapshot.format === "files"
+        ? `files ${ref.snapshot.files.map((file) => `${file.path} ${file.digest}`).join("; ")}`
+        : ref.snapshot.digest;
     case "registry":
       return `version ${ref.version}`;
     case "git-hosted":
@@ -100,6 +108,8 @@ const sourceIdentity = (ref: ExtensionRef): string =>
 
 const packMemberEndpoint = (ref: ExtensionRef): PackMemberSourceSwitchEndpoint => {
   switch (ref.refType) {
+    case "http":
+      return { family: "http", locator: sourceLocator(ref), resolution: sourceResolution(ref, "") };
     case "registry":
       return {
         family: "registry",

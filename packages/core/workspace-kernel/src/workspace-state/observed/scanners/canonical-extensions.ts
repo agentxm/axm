@@ -42,7 +42,7 @@ import {
   extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
   MANIFEST_FILENAMES,
-  parseSkillMd,
+  extractSkillMetadata,
 } from "@agentxm/extension-content";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -243,9 +243,7 @@ const inspectAcquiredDirectory = (
         deps.diagnostics,
         deps.path.join(dir, "SKILL.md"),
       );
-      const parsed = Option.flatMap(raw, (content) =>
-        parseSkillMd(content, deps.path.basename(dir)),
-      );
+      const parsed = Option.map(raw, (content) => extractSkillMetadata(content));
       if (Option.isSome(parsed)) {
         return {
           children: [],
@@ -254,7 +252,7 @@ const inspectAcquiredDirectory = (
               extensionType: "skill",
               origin: "external-axm",
               nameDir: dir,
-              name: parsed.value.name,
+              name: deps.path.basename(dir),
               owner: null,
             }),
           ],

@@ -5,6 +5,8 @@
  * @packageDocumentation
  */
 
+import { createHash } from "node:crypto";
+import * as FileSystem from "effect/FileSystem";
 import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -139,8 +141,8 @@ const relativeTreePath = (
 const parseHeadBlobs = (
   output: string,
   repositoryDirectory: string,
-): ReadonlyMap<string, string> => {
-  const blobs = new Map<string, string>();
+): ReadonlyMap<string, { readonly mode: string; readonly objectId?: string }> => {
+  const blobs = new Map<string, { readonly mode: string; readonly objectId?: string }>();
   for (const record of output.split("\0")) {
     if (record.length === 0) continue;
     const separator = record.indexOf("\t");
@@ -149,39 +151,11 @@ const parseHeadBlobs = (
     if (mode === undefined || objectType === undefined || objectId === undefined) {
       throw new Error(`Unexpected ls-tree output: ${record}`);
     }
-    if (objectType !== "blob" || !mode.startsWith("100")) continue;
+    if (objectType !== "blob" || (!mode.startsWith("100") && mode !== "120000")) continue;
     const path = relativeTreePath(repositoryDirectory, record.slice(separator + 1));
-    if (path !== undefined) blobs.set(path, objectId);
+    if (path !== undefined) blobs.set(path, { mode, objectId });
   }
   return blobs;
-};
-
-const hashWorkingFiles = async (
-  git: SimpleGit,
-  directory: string,
-  paths: ReadonlyArray<string>,
-): Promise<ReadonlyMap<string, string>> => {
-  if (paths.length === 0) return new Map();
-  const workingBlobs = new Map<string, string>();
-  for (let offset = 0; offset < paths.length; offset += 128) {
-    const batch = paths.slice(offset, offset + 128);
-    const output = await git.raw([
-      "hash-object",
-      "--no-filters",
-      "--",
-      ...batch.map((path) => `${directory}/${path}`),
-    ]);
-    const hashes = output.trimEnd().split("\n");
-    if (hashes.length !== batch.length) {
-      throw new Error(`Expected ${batch.length} working-tree hashes, received ${hashes.length}`);
-    }
-    for (const [index, path] of batch.entries()) {
-      const hash = hashes[index];
-      if (hash === undefined) throw new Error(`Missing working-tree hash for '${path}'`);
-      workingBlobs.set(path, hash);
-    }
-  }
-  return workingBlobs;
 };
 
 const readHeadRevision = async (git: SimpleGit): Promise<string | undefined> => {
@@ -201,7 +175,7 @@ const readHeadRevision = async (git: SimpleGit): Promise<string | undefined> => 
   }
 };
 
-/** One raw regular-file difference between a Git HEAD subtree and the working tree. */
+/** One raw payload-entry difference between a Git HEAD subtree and the working tree. */
 export interface GitDirectoryDifference {
   readonly path: string;
   readonly change: "added" | "modified" | "deleted";
@@ -380,6 +354,8 @@ export const getTreeSha = (repoPath: string, subPath = ".") =>
       }
       // Parse the output: "040000 tree <sha>\t<path>" or "100644 blob <sha>\t<path>"
       const parts = trimmed.split(/\s+/);
+      if (parts[0] !== "040000" || parts[1] !== "tree")
+        throw new Error(`Path '${subPath}' is not a directory tree`);
       const sha = Option.getOrThrowWith(
         Array.get(parts, 2),
         () => new Error(`Unexpected ls-tree output: ${trimmed}`),
@@ -390,7 +366,7 @@ export const getTreeSha = (repoPath: string, subPath = ".") =>
   }).pipe(withGitOperationDeadline("get-tree-sha"), Effect.withSpan("Git.getTreeSha"));
 
 /**
- * Compare an exact set of current regular files with the corresponding Git
+ * Compare an exact set of current payload entries with the corresponding Git
  * HEAD subtree. The caller owns which current paths belong to its material
  * boundary; deleted HEAD paths remain present in the returned difference set
  * so that boundary can classify them too.
@@ -399,25 +375,21 @@ export const compareDirectoryToHead = (
   repositoryRoot: string,
   directory: string,
   currentPaths: ReadonlyArray<string>,
-) =>
+): Effect.Effect<
+  GitDirectoryComparisonResult,
+  GitOperationFailed,
+  FileSystem.FileSystem | Path.Path
+> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    return yield* Effect.tryPromise({
+    const fs = yield* FileSystem.FileSystem;
+    const repositoryDirectory = toPosixPath(path.relative(repositoryRoot, directory), path.sep);
+    const normalizedDirectory = repositoryDirectory.length === 0 ? "." : repositoryDirectory;
+    const head = yield* Effect.tryPromise({
       try: async (signal) => {
         const git = createGit(repositoryRoot, signal);
-        const repositoryDirectory = toPosixPath(path.relative(repositoryRoot, directory), path.sep);
-        const normalizedDirectory = repositoryDirectory.length === 0 ? "." : repositoryDirectory;
-        const headRevision = await readHeadRevision(git);
-        if (headRevision === undefined) {
-          return {
-            repositoryRoot,
-            repositoryDirectory: normalizedDirectory,
-            differences: [...currentPaths]
-              .sort((left, right) => left.localeCompare(right))
-              .map((currentPath) => ({ path: currentPath, change: "added" as const })),
-          } satisfies GitDirectoryComparisonResult;
-        }
-
+        const revision = await readHeadRevision(git);
+        if (revision === undefined) return undefined;
         const treeOutput = await git.raw([
           "ls-tree",
           "-r",
@@ -427,40 +399,89 @@ export const compareDirectoryToHead = (
           "--",
           normalizedDirectory,
         ]);
-        const headBlobs = parseHeadBlobs(treeOutput, normalizedDirectory);
-        const workingBlobs = await hashWorkingFiles(git, directory, currentPaths);
-        const allPaths = [...new Set([...headBlobs.keys(), ...workingBlobs.keys()])].sort(
-          (left, right) => left.localeCompare(right),
-        );
-        const differences = allPaths.flatMap(
-          (currentPath): ReadonlyArray<GitDirectoryDifference> => {
-            const headObject = headBlobs.get(currentPath);
-            const workingObject = workingBlobs.get(currentPath);
-            if (headObject === workingObject) return [];
-            if (headObject === undefined) {
-              return workingObject === undefined
-                ? []
-                : [{ path: currentPath, change: "added", workingObject }];
-            }
-            if (workingObject === undefined) {
-              return [{ path: currentPath, change: "deleted", headObject }];
-            }
-            return [{ path: currentPath, change: "modified", headObject, workingObject }];
-          },
-        );
-        return {
-          repositoryRoot,
-          repositoryDirectory: normalizedDirectory,
-          headRevision,
-          differences,
-        } satisfies GitDirectoryComparisonResult;
+        const objectFormat = (await git.revparse(["--show-object-format"])).trim();
+        if (objectFormat !== "sha1" && objectFormat !== "sha256") {
+          throw new Error(`Unsupported Git object format: ${objectFormat}`);
+        }
+        return { revision, blobs: parseHeadBlobs(treeOutput, normalizedDirectory), objectFormat };
       },
-      catch: mapGitError(
-        "compare-directory-to-head",
-        `Failed to compare '${directory}' with Git HEAD`,
-      ),
+      catch: mapGitError("compare-directory-to-head"),
     });
+    if (head === undefined) {
+      return {
+        repositoryRoot,
+        repositoryDirectory: normalizedDirectory,
+        differences: [...currentPaths]
+          .sort((a, b) => a.localeCompare(b))
+          .map((currentPath) => ({ path: currentPath, change: "added" as const })),
+      } satisfies GitDirectoryComparisonResult;
+    }
+
+    // Git hashes a link's raw target, not its referent. Read payload entries
+    // without following links so dangling links and cycles remain comparable.
+    const workingBlobs = new Map<string, { readonly mode: string; readonly objectId?: string }>();
+    for (const currentPath of currentPaths) {
+      const absolute = path.join(directory, currentPath);
+      const target = yield* fs.readLink(absolute).pipe(Effect.option);
+      let bytes: Uint8Array;
+      let mode: string;
+      if (Option.isSome(target)) {
+        bytes = new TextEncoder().encode(target.value);
+        mode = "120000";
+      } else {
+        const info = yield* fs.stat(absolute);
+        if (info.type === "Directory") {
+          // Git cannot represent an empty directory; report it as added without
+          // inventing a Git blob identity for it.
+          workingBlobs.set(currentPath, { mode: "040000" });
+          continue;
+        }
+        if (info.type !== "File") {
+          return yield* new GitOperationFailed({
+            operation: "compare-directory-to-head",
+            detail: `Unsupported payload entry: ${currentPath}`,
+          });
+        }
+        bytes = yield* fs.readFile(absolute);
+        mode = (info.mode & 0o111) === 0 ? "100644" : "100755";
+      }
+      const objectId = createHash(head.objectFormat)
+        .update(`blob ${bytes.byteLength}\0`)
+        .update(bytes)
+        .digest("hex");
+      workingBlobs.set(currentPath, { mode, objectId });
+    }
+    const allPaths = [...new Set([...head.blobs.keys(), ...workingBlobs.keys()])].sort((a, b) =>
+      a.localeCompare(b),
+    );
+    const differences = allPaths.flatMap((currentPath): ReadonlyArray<GitDirectoryDifference> => {
+      const previous = head.blobs.get(currentPath);
+      const current = workingBlobs.get(currentPath);
+      if (previous?.objectId === current?.objectId && previous?.mode === current?.mode) return [];
+      return [
+        {
+          path: currentPath,
+          change: previous === undefined ? "added" : current === undefined ? "deleted" : "modified",
+          ...(previous?.objectId === undefined ? {} : { headObject: previous.objectId }),
+          ...(current?.objectId === undefined ? {} : { workingObject: current.objectId }),
+        },
+      ];
+    });
+    return {
+      repositoryRoot,
+      repositoryDirectory: normalizedDirectory,
+      headRevision: head.revision,
+      differences,
+    } satisfies GitDirectoryComparisonResult;
   }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof GitOperationFailed
+        ? cause
+        : mapGitError(
+            "compare-directory-to-head",
+            `Failed to compare '${directory}' with Git HEAD`,
+          )(cause),
+    ),
     withGitOperationDeadline("compare-directory-to-head"),
     Effect.withSpan("Git.compareDirectoryToHead"),
   );

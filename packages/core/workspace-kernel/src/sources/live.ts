@@ -1,3 +1,5 @@
+import { ArtifactHttpClient } from "./http-download.js";
+import { createHttpSourceHostProvider } from "./providers/http.js";
 /**
  * Environment-backed Live layers for `SourceHostProviders` and the workspace
  * catalog port.
@@ -75,9 +77,11 @@ export const SourceHostProvidersLive: Layer.Layer<
   | AxmSkillCandidateGate
   | RegistryResolutionPolicy
   | RegistryClientFactory
+  | ArtifactHttpClient
 > = Layer.effect(
   SourceHostProviders,
   Effect.gen(function* () {
+    const artifactClient = yield* ArtifactHttpClient;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const catalog = yield* WorkspaceCatalog;
@@ -85,12 +89,14 @@ export const SourceHostProvidersLive: Layer.Layer<
     const resolutionPolicy = yield* RegistryResolutionPolicy;
     const registryClients = yield* RegistryClientFactory;
 
+    const httpProvider = createHttpSourceHostProvider();
     const localProvider = createLocalSourceHostProvider();
     const gitProvider = createGitSourceHostProvider();
     const registryMetaProvider = createRegistryMetaProvider();
 
     // Captured layer for providing to provider operations
     const depLayer = Layer.mergeAll(
+      Layer.succeed(ArtifactHttpClient, artifactClient),
       Layer.succeed(FileSystem.FileSystem, fs),
       Layer.succeed(Path.Path, path),
       Layer.succeed(AxmSkillCandidateGate, axmSkillGate),
@@ -130,6 +136,8 @@ export const SourceHostProvidersLive: Layer.Layer<
 
     const findImpl = (source: Source, options: FindOptions) => {
       switch (source.type) {
+        case "http":
+          return httpProvider.find(source, options).pipe(Effect.provide(depLayer));
         case "local":
           return localProvider.find(localSourceForWorkspace(source), options).pipe(
             Effect.provide(depLayer),
@@ -155,6 +163,8 @@ export const SourceHostProvidersLive: Layer.Layer<
       ref: ExtensionRef,
     ): Effect.Effect<AcquiredSourceFiles, SourceResolutionFailure, Scope.Scope> => {
       switch (source.type) {
+        case "http":
+          return httpProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
         case "local":
           return localProvider.fetch(source, ref).pipe(Effect.provide(depLayer));
         case "git":
@@ -200,7 +210,7 @@ export const SourceHostProvidersLive: Layer.Layer<
             ),
             (scratch) => fs.remove(scratch, { recursive: true }).pipe(Effect.ignore),
           );
-          yield* copyExtensionDirectory(files.directory, directory).pipe(
+          yield* copyExtensionDirectory(files.packageDirectory ?? files.directory, directory).pipe(
             Effect.provide(depLayer),
             Effect.mapError((cause) =>
               cause instanceof DirectoryCopyLimitExceeded
@@ -215,7 +225,14 @@ export const SourceHostProvidersLive: Layer.Layer<
                   }),
             ),
           );
-          return { directory, scratchRoot: directory };
+          return files.componentPath === undefined
+            ? { directory, scratchRoot: directory }
+            : {
+                directory: path.join(directory, files.componentPath),
+                packageDirectory: directory,
+                componentPath: files.componentPath,
+                scratchRoot: directory,
+              };
         }).pipe(Effect.withSpan("SourceHostProviders.acquireForTransition")),
       // A fetch under the workspace transition is remote retrieval: it
       // consumes the acquired tree, and the transition refuses any the plan

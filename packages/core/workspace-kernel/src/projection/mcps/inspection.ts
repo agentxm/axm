@@ -21,6 +21,7 @@ import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
   decodeMcpServerManifestAt,
+  readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
   hasTomlMcpEntry,
   isAxmManagedMcpEntry,
@@ -468,11 +469,18 @@ export const inspectDesiredMcpServer = (
           conflict: Option.none<string>(),
         };
       const path = yield* Path.Path;
-      const manifest = Option.isNone(manifestRoot)
-        ? undefined
-        : yield* decodeMcpServerManifestAt(
-            path.join(manifestRoot.value, MCP_SERVER_MANIFEST_FILENAME),
-          );
+      const nativeComponent =
+        args.entry?.kind === "sourced" ? args.entry.nativeComponent : undefined;
+      const nativeDefinition =
+        nativeComponent === undefined || Option.isNone(manifestRoot)
+          ? undefined
+          : yield* readPluginMcpDefinition(manifestRoot.value, nativeComponent);
+      const manifest =
+        Option.isNone(manifestRoot) || nativeComponent !== undefined
+          ? undefined
+          : yield* decodeMcpServerManifestAt(
+              path.join(manifestRoot.value, MCP_SERVER_MANIFEST_FILENAME),
+            );
       const groups = yield* resolveConfiguredMcpTargets(args);
       const plan = planMcpServerTargets({
         groups,
@@ -481,6 +489,7 @@ export const inspectDesiredMcpServer = (
         serverName: args.node.name,
         declaration,
         manifest,
+        ...(nativeDefinition === undefined ? {} : { nativeDefinition }),
         resolvedCwd:
           declaration.connection?.transport === "stdio" &&
           declaration.connection.cwd?.base === "scope"

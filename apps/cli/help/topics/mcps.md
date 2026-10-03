@@ -26,7 +26,35 @@ The governing standard for this extension type is the
 definitions in the protocol's own registry shape rather than an AXM-specific
 one, so a manifest stays portable across agents and registries.
 
-## mcp.json
+## Install a portable plugin connection
+
+Agent Plugins 1.0 packages from local directories and Git can expose remote
+connections in their root `mcp.json`. Select the upstream connection name and
+optionally give it a local alias:
+
+```sh
+axm mcps install ./plugin --mcp context --as work-context --agent claude-code
+```
+
+Use `--preview` first. On first install, repeat `--agent` for each destination;
+existing workspaces retain their configured agents. No Registry account or AXM
+manifest is required. For duplicate names in a repository, select
+`--mcp plugins/review#context` with the exact package path.
+
+AXM retains the complete package unchanged and activates only selected
+connections. Several aliases share the accepted package snapshot; updating one
+advances the shared source and reconciles its connections. Reinstall restores
+the accepted snapshot. Removing the last connection releases its package.
+
+Supported portable connections declare `streamable-http` or `sse` explicitly.
+AXM preserves that transport and literal URL/header values, and reports a host
+as unsupported if its configuration would change those values. Portable stdio
+connections are currently unsupported because their plugin working directory
+and variable semantics require runtime support. Vendor-specific MCP manifest
+loaders and unknown plugin runtime components are not activated. Retaining
+those files does not claim runtime compatibility.
+
+## Registry mcp.json
 
 [`mcp.json`](https://axm.sh/schemas/mcp.schema.json)
 
@@ -94,8 +122,8 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   refuses the batch; repeat `--name <entry>` to select an explicit subset.
   Unsupported native fields and literal credentials remain untouched.
   `--as` explicitly converts an entry into an authored package.
-- `axm mcps update` — update configured Registry servers to their latest
-  eligible resolution. Use `--name <local-name-or-glob>` to select connections,
+- `axm mcps update` — advance configured servers to an eligible Registry resolution or
+  the current selected Git/local source. Use `--name <local-name-or-glob>` to select connections,
   or `--source @owner/mcps/<name>` to select an exact source. Every selected
   connection that shares a source advances together.
 - `axm mcps list` — show local connection names, sources, accepted resolutions,

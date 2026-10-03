@@ -134,7 +134,11 @@ export const prepareAcceptedCanonicalTransition = (
       layout,
       args.ref,
       toExtensionTypePlural(args.ref.type),
-      extensionRefName(args.ref),
+      args.ref.type === "mcp-server" &&
+        "nativeComponent" in args.ref &&
+        args.ref.nativeComponent !== undefined
+        ? args.ref.name
+        : extensionRefName(args.ref),
     ).canonicalPath;
     if (path.resolve(previous.value) === path.resolve(next)) {
       return yield* Effect.succeed(Effect.void);
@@ -193,7 +197,16 @@ const refFromAcceptedResolution = <T extends InstallableExtensionType>(
     const settings = yield* SettingsReader;
     const entry = yield* (yield* LockfileReader).acceptedEntry(type, name);
     if (Option.isNone(entry)) return yield* missingAccepted(lockEntryLabels[type], name);
-    return yield* lockEntryToRef[type](name, entry.value, lockRefDeps(location, settings, path));
+    const ref = yield* lockEntryToRef[type](
+      name,
+      entry.value,
+      lockRefDeps(location, settings, path),
+    );
+    if (ref.type === "mcp-server" && (ref.refType === "local" || ref.refType === "git-hosted")) {
+      const nativeComponent = (yield* settings.entries("mcp-server"))[name]?.nativeComponent;
+      if (nativeComponent !== undefined) return { ...ref, nativeComponent };
+    }
+    return ref;
   });
 
 /** Reconstruct a ref directly from accepted lock authority without desired reachability. */
@@ -356,8 +369,17 @@ export const usableAcceptedCanonicalFrom = (
     const ref = yield* refForDesired(usable.value.desired);
     // A usable local acquisition is the accepted copy, even if the original
     // directory has changed or disappeared. Keep sourcePath as its identity.
+    const path = yield* Path.Path;
     const retainedRef =
-      ref.refType === "local" ? { ...ref, location: usable.value.observation.path } : ref;
+      ref.refType === "local"
+        ? {
+            ...ref,
+            location: path.join(
+              usable.value.observation.path,
+              ref.distribution?.componentPath ?? ".",
+            ),
+          }
+        : ref;
     return Option.some({ ...usable.value, ref: retainedRef });
   });
 

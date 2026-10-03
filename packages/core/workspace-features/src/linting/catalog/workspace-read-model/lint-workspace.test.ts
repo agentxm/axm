@@ -20,7 +20,7 @@ import { buildLintWorkspace } from "./lint-workspace.js";
 const WORKSPACE_ROOT = "/workspace";
 const USER_HOME = "/home/user";
 
-const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
 
 const baseManifest = {
   owner: "@acme",
@@ -70,7 +70,7 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 8,
+  lockfileVersion: 9,
   skills: {
     "bad-skill": {
       source: { type: "registry", url: "https://registry.agentxm.ai" },
@@ -205,13 +205,15 @@ const buildAndEvaluate = (
   });
 
 describe("buildLintWorkspace manifest JSON population", () => {
-  it.effect("feeds raw installed manifest JSON into all per-extension catalogs", () =>
+  it.effect("preserves acquired manifest data without applying skill authoring diagnostics", () =>
     Effect.gen(function* () {
       const { view, rendered } = yield* buildAndEvaluate(fixture(manifestFixtures.pack));
       const ruleIds = rendered.map((finding) => finding.finding.ruleId);
 
-      expect(ruleIds).toContain("skill/manifest-schema-valid");
-      expect(ruleIds).toContain("skill/manifest-keys-recognized");
+      expect(ruleIds).not.toContain("skill/manifest-schema-valid");
+      expect(ruleIds).not.toContain("skill/manifest-keys-recognized");
+      expect(view.installedSkills[0]?.validationPurpose).toBe("management");
+      expect(view.installedSkills[0]?.skillJson).toEqual(manifestFixtures.skill);
       expect(ruleIds).toContain("subagent/manifest-schema-valid");
       expect(ruleIds).toContain("subagent/manifest-keys-recognized");
       expect(ruleIds).toContain("mcp-server/manifest-schema-valid");
@@ -221,6 +223,32 @@ describe("buildLintWorkspace manifest JSON population", () => {
 
       const packJson = expectRecord(view.installedPacks[0]?.packJson);
       expect(packJson["packs"]).toEqual({});
+    }),
+  );
+
+  it.effect("checks authoring conventions for workspace-authored skills", () =>
+    Effect.gen(function* () {
+      const source = fixture(manifestFixtures.pack);
+      const authored: FixtureSpec = {
+        ...source,
+        project: {
+          ...source.project,
+          settings: {
+            _tag: "valid",
+            contents: { ...settings, skills: { "bad-skill": { source: "workspace" } } },
+          },
+          axmExtensions: {
+            ...source.project?.axmExtensions,
+            "skills/bad-skill/src/SKILL.md": "---\nname: bad-skill\ndescription: Bad skill\n---\n",
+            "skills/bad-skill/skill.json": { _tag: "valid", contents: manifestFixtures.skill },
+          },
+        },
+      };
+      const { view, rendered } = yield* buildAndEvaluate(authored);
+      expect(view.installedSkills[0]?.validationPurpose).toBe("authoring");
+      expect(rendered.map((entry) => entry.finding.ruleId)).toContain(
+        "skill/manifest-schema-valid",
+      );
     }),
   );
 

@@ -3,7 +3,7 @@ import {
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 /**
- * Reconstructing a forced Git reinstall from accepted lock authority.
+ * Reconstructing a forced immutable-source reinstall from accepted lock authority.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -13,8 +13,9 @@ import { toFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
-import type { GitSource } from "@agentxm/extension-model/unstable/sources/types";
+import type { GitSource, HttpSource } from "@agentxm/extension-model/unstable/sources/types";
 import {
   DesiredStateReader,
   acceptedLockedResolutionRef,
@@ -24,23 +25,34 @@ import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { installRefused } from "@agentxm/workspace-kernel/operations";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
 
-const sameGitLocator = (left: GitSource, right: GitSource): boolean =>
-  left.url.href === right.url.href &&
-  Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
-  Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath);
+const sameLocator = (left: GitSource | HttpSource, right: GitSource | HttpSource): boolean => {
+  if (left.type === "http" && right.type === "http")
+    return (
+      left.url.href === right.url.href &&
+      left.kind === right.kind &&
+      (right.entry === undefined || left.entry === right.entry)
+    );
+  return (
+    left.type === "git" &&
+    right.type === "git" &&
+    left.url.href === right.url.href &&
+    Option.getOrUndefined(left.ref) === Option.getOrUndefined(right.ref) &&
+    Option.getOrUndefined(left.subPath) === Option.getOrUndefined(right.subPath)
+  );
+};
 
-const reacquireAcceptedGitRef = (
-  ref: Extract<ExtensionRef, { readonly refType: "git-hosted" }>,
+const reacquireAcceptedSourceRef = (
+  ref: Extract<ExtensionRef, { readonly refType: "git-hosted" | "http" }>,
   configuredName: string,
 ) =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
     const lockedCandidate =
       ref.type === "pack" ? yield* hydrateAcceptedPackRef(configuredName, ref) : ref;
-    if (lockedCandidate.refType !== "git-hosted") {
+    if (lockedCandidate.refType !== "git-hosted" && lockedCandidate.refType !== "http") {
       return yield* installRefused({
         category: "conflict",
-        detail: `Accepted Git resolution for ${configuredName} changed source family`,
+        detail: `Accepted source resolution for ${configuredName} changed source family`,
       });
     }
     const fetched = yield* sources
@@ -53,16 +65,18 @@ const reacquireAcceptedGitRef = (
   });
 
 /** Find matching accepted refs before any movable selector is resolved. */
-export const findGitReinstallRefs = (
-  source: GitSource,
+export const findSourceReinstallRefs = (
+  source: GitSource | HttpSource,
   type: ExtensionType,
   names: ReadonlyArray<string>,
 ) =>
   Effect.gen(function* () {
     const desired = yield* DesiredStateReader;
     const graph = yield* desired.graph();
-    const nodes = graph.nodes.filter(
-      (node) => node.type === type && (names.length === 0 || names.includes(node.name)),
+    const nodes = graph.nodes.filter((node) => node.type === type);
+    const selectedNames = expandGlobs(
+      names,
+      nodes.map((node) => node.name),
     );
     const accepted = yield* Effect.forEach(
       nodes,
@@ -71,7 +85,7 @@ export const findGitReinstallRefs = (
           Effect.mapError((cause) =>
             installRefused({
               category: "conflict",
-              detail: `Accepted Git resolution for ${node.name} could not be read`,
+              detail: `Accepted source resolution for ${node.name} could not be read`,
               cause,
             }),
           ),
@@ -79,8 +93,14 @@ export const findGitReinstallRefs = (
             Option.match({
               onNone: () => Effect.succeed(Option.none<ExtensionRef>()),
               onSome: (ref) =>
-                ref.refType === "git-hosted" && sameGitLocator(ref.source, source)
-                  ? reacquireAcceptedGitRef(ref, node.name).pipe(Effect.map(Option.some))
+                (ref.refType === "git-hosted" || ref.refType === "http") &&
+                sameLocator(ref.source, source) &&
+                (names.length === 0 ||
+                  selectedNames.includes(node.name) ||
+                  (ref.type === "skill" &&
+                    ref.sourcePath !== undefined &&
+                    names.includes(ref.sourcePath)))
+                  ? reacquireAcceptedSourceRef(ref, node.name).pipe(Effect.map(Option.some))
                   : Effect.succeed(Option.none<ExtensionRef>()),
             }),
           ),
@@ -90,13 +110,13 @@ export const findGitReinstallRefs = (
     return accepted.filter(Option.isSome).map((ref) => ref.value);
   });
 
-/** Use a matching accepted Git ref and make its recorded commit available locally. */
-export const pinGitReinstallRef = (
+/** Use a matching accepted ref and make its recorded content available locally. */
+export const pinSourceReinstallRef = (
   ref: ExtensionRef,
   configuredName: string = extensionRefName(ref),
 ) =>
   Effect.gen(function* () {
-    if (ref.refType !== "git-hosted") return ref;
+    if (ref.refType !== "git-hosted" && ref.refType !== "http") return ref;
     const accepted = yield* acceptedLockedResolutionRef({
       type: ref.type,
       name: configuredName,
@@ -104,19 +124,19 @@ export const pinGitReinstallRef = (
       Effect.mapError((cause) =>
         installRefused({
           category: "conflict",
-          detail: `Accepted Git resolution for ${configuredName} could not be read`,
+          detail: `Accepted source resolution for ${configuredName} could not be read`,
           cause,
         }),
       ),
     );
     if (
       Option.isNone(accepted) ||
-      accepted.value.refType !== "git-hosted" ||
+      (accepted.value.refType !== "git-hosted" && accepted.value.refType !== "http") ||
       accepted.value.type !== ref.type ||
-      !sameGitLocator(accepted.value.source, ref.source)
+      !sameLocator(accepted.value.source, ref.source)
     ) {
       return ref;
     }
 
-    return yield* reacquireAcceptedGitRef(accepted.value, configuredName);
+    return yield* reacquireAcceptedSourceRef(accepted.value, configuredName);
   });

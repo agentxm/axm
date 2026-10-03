@@ -5,7 +5,11 @@
  * @packageDocumentation
  */
 
-export { SkillDefinitionInvalid, SkillMaterializationFailed } from "./errors.js";
+export {
+  SkillActivationUnsupported,
+  SkillDefinitionInvalid,
+  SkillMaterializationFailed,
+} from "./errors.js";
 export {
   buildCompanionPackagesSection,
   planSkillInstall,

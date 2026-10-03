@@ -1,3 +1,5 @@
+import { httpSourceKind } from "@agentxm/extension-model/unstable/sources/http-artifact";
+import { validateArtifactUrl } from "./http-download.js";
 /**
  * Source resolution: classifies input via parseInputPattern, then routes
  * each pattern type to the appropriate resolution logic.
@@ -139,6 +141,56 @@ export const routeUrlInput = (url: URL, _input: string) =>
       });
     }
 
+    const kind = httpSourceKind(url);
+    if (kind !== undefined) {
+      yield* validateArtifactUrl(url);
+      const fragment = url.hash.slice(1);
+      if (fragment !== "" && !fragment.startsWith("skill="))
+        return yield* new SourceSyntaxInvalid({
+          detail: "HTTP source fragments must select skill=<name>",
+        });
+      const entry =
+        fragment === ""
+          ? undefined
+          : yield* Effect.try({
+              try: () => decodeURIComponent(fragment.slice(6)),
+              catch: () => new SourceSyntaxInvalid({ detail: "Invalid HTTP skill selector" }),
+            });
+      if (entry === "")
+        return yield* new SourceSyntaxInvalid({ detail: "HTTP skill selector cannot be empty" });
+      return {
+        type: "http" as const,
+        url: stripUrlHash(url),
+        kind,
+        ...(entry === undefined ? {} : { entry }),
+      };
+    }
+    if (url.hash.startsWith("#axm:")) {
+      const selection = new URLSearchParams(url.hash.slice(5));
+      const selectedPath = selection.get("path");
+      const selectedRef = selection.get("ref");
+      if (
+        selectedPath === null ||
+        selectedPath === "" ||
+        selectedPath.startsWith("/") ||
+        /^[A-Za-z]:/u.test(selectedPath) ||
+        selectedPath.includes("\\") ||
+        selectedPath.split("/").some((part) => part === "" || part === "." || part === "..") ||
+        selection.getAll("path").length !== 1 ||
+        selection.getAll("ref").length > 1 ||
+        selectedRef === "" ||
+        [...selection.keys()].some((key) => key !== "path" && key !== "ref")
+      )
+        return yield* new SourceSyntaxInvalid({
+          detail: "Invalid repository-relative Git package selector",
+        });
+      return {
+        type: "git" as const,
+        url: stripUrlHash(url),
+        subPath: Option.some(selectedPath),
+        ref: Option.fromNullishOr(selectedRef),
+      };
+    }
     const parsed = parseForgeBrowserUrl(url);
     return Option.isSome(parsed)
       ? {

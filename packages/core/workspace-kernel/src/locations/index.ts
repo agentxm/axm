@@ -38,7 +38,7 @@ export {
   type StructuralInverse,
 } from "./container-receipts.js";
 export {
-  COPIED_DIRECTORY_RECEIPT,
+  copiedDirectoryReceiptPath,
   captureCopiedDirectory,
   copiedDirectoryIsCurrent,
   copiedDirectoryCanReplace,
@@ -60,3 +60,4 @@ export {
   assertNativeMutationWithinRoots,
   type NativeAuthorityRootWitness,
 } from "./native-authority-roots.js";
+export { validateContainedLink } from "./contained-link.js";

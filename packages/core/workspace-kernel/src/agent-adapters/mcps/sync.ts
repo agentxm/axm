@@ -53,6 +53,8 @@ import type {
 } from "../agents/coding-agent.js";
 import type { McpServerDeclaration } from "./expected-entry.js";
 import { decodeMcpServerManifestAt } from "./manifest.js";
+import { readPluginMcpDefinition, type PluginMcpDefinition } from "./plugin-definition.js";
+import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { resolveSharedMcpContainer } from "./shared-target.js";
 import { matchesAcceptedMcpOwnership, type AxmMcpMetadata } from "./entry-semantics.js";
 
@@ -158,7 +160,10 @@ export interface PruneManagedMcpServersArgs {
   readonly containerDesiredNames?: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
-export interface SyncManifestMcpServerArgs extends AddMcpServerArgs {
+export interface SyncManifestMcpServerArgs extends Omit<
+  AddMcpServerArgs,
+  "owner" | "resolvedVersion"
+> {
   readonly agentIds: ReadonlyArray<string>;
   readonly nativeInsertionEligible: boolean;
   /** Captured newly configured physical routes; existing routes require durable ownership. */
@@ -777,6 +782,90 @@ export const validateManifestMcpServerTargets = (args: ValidateManifestMcpServer
       args.serverName,
       plan.writes,
       args,
+    );
+  });
+
+export interface ValidatePluginMcpServerTargetsArgs extends Omit<
+  ValidateManifestMcpServerTargetsArgs,
+  "manifest"
+> {
+  readonly source: string;
+  readonly definition: PluginMcpDefinition;
+}
+
+/** Validate the selected native component with the same target plan used to write it. */
+export const validatePluginMcpServerTargets = (args: ValidatePluginMcpServerTargetsArgs) =>
+  Effect.gen(function* () {
+    const plan = yield* plannedTargets(
+      planMcpServerTargets({
+        groups: yield* resolveConfiguredMcpTargets(args),
+        agentIds: args.agentIds,
+        scope: args.scope,
+        serverName: args.serverName,
+        declaration: {
+          kind: "sourced",
+          source: args.source,
+          ...(args.distribution === undefined ? {} : { distribution: args.distribution }),
+          ...(args.bindings === undefined ? {} : { bindings: args.bindings }),
+          ...(args.auth === undefined ? {} : { auth: args.auth }),
+          enabled: args.enabled,
+        },
+        nativeDefinition: args.definition,
+        enabled: args.enabled,
+      }),
+    );
+    yield* validatePlannedWrites(
+      args.agentIds,
+      args.workspaceRoot,
+      args.serverName,
+      plan.writes,
+      args,
+    );
+  });
+
+export interface SyncPluginMcpServerArgs extends Omit<
+  SyncManifestMcpServerArgs,
+  "owner" | "resolvedVersion"
+> {
+  readonly source: string;
+  readonly nativeComponent: NativeMcpComponent;
+}
+
+/** Project only a selected plugin connection, retaining its original package as content. */
+export const syncPluginMcpServerToAgents = (args: SyncPluginMcpServerArgs) =>
+  Effect.gen(function* () {
+    if (args.agentIds.length === 0) return [];
+    const definition = yield* readPluginMcpDefinition(args.canonicalPath, args.nativeComponent);
+    const plan = yield* plannedTargets(
+      planMcpServerTargets({
+        groups: yield* resolveConfiguredMcpTargets({ ...args, scope: args.scope ?? "project" }),
+        agentIds: args.agentIds,
+        scope: args.scope ?? "project",
+        serverName: args.serverName,
+        declaration: {
+          kind: "sourced",
+          source: args.source,
+          ...(args.distribution === undefined ? {} : { distribution: args.distribution }),
+          ...(args.bindings === undefined ? {} : { bindings: args.bindings }),
+          ...(args.auth === undefined ? {} : { auth: args.auth }),
+          enabled: args.enabled ?? true,
+        },
+        nativeDefinition: definition,
+        enabled: args.enabled ?? true,
+      }),
+    );
+    const written = yield* applyPlannedWrites(
+      args.agentIds,
+      args.workspaceRoot,
+      args.serverName,
+      plan.writes,
+      args,
+    );
+    return args.agentIds.map((agentId) =>
+      mcpAgentSyncOutcome(
+        plan.agents.filter((agent) => agent.agentId === agentId),
+        written.get(agentId) ?? [],
+      ),
     );
   });
 

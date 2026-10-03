@@ -1,3 +1,4 @@
+import { makeArtifactHttpClientLayer } from "../../runtime.js";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 /**
  * Integration tests for the `axm lint` handler.
@@ -87,7 +88,7 @@ describe("axm lint handler", () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 8\nskills: {}\nmcpServers: {}\n",
+      "lockfileVersion: 9\nskills: {}\nmcpServers: {}\n",
     );
   };
 
@@ -121,6 +122,7 @@ describe("axm lint handler", () => {
     const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
     const baseLayer = Layer.mergeAll(
       Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer),
+      makeArtifactHttpClientLayer(globalThis.fetch),
       FetchHttpClient.layer,
       Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
       renderer.layer,

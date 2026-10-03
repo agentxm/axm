@@ -28,7 +28,7 @@ const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
   },
   identity: { name: "react-router" },
   resolved: { commit: "commit", tree: "tree" },
-  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
 });
 
 const registryEntry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
@@ -39,7 +39,7 @@ const registryEntry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
     integrity: "sha512-review",
     publisherBindingId: "hbnd_review",
   },
-  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
 });
 
 it("covers every installable lock-entry ref type", () => {
@@ -63,7 +63,7 @@ it("derives Registry, Git, and local sources from accepted rows", () => {
     source: { type: "path", path: "../review" },
     identity: { owner: "@acme", name: "review" },
     resolved: { tree: "sha256-content" },
-    treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+    treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   });
   expect(lockEntrySource(local)).toEqual({ type: "local", path: "../review" });
 });
@@ -86,6 +86,38 @@ describe("lock entry source authority", () => {
           url: new URL("https://github.com/remix-run/react-router.git"),
         });
       }
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("rehydrates the selected Git plugin component within its retained package", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const distribution = {
+        format: "claude",
+        packageRoot: "plugins/reviews",
+        componentPath: "skills/review",
+        manifestPath: ".claude-plugin/plugin.json",
+        marketplace: { path: ".claude-plugin/marketplace.json", name: "reviews" },
+      };
+      const pluginEntry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
+        ...entry,
+        source: {
+          type: "git",
+          url: "https://github.com/acme/plugins.git",
+          path: "plugins/reviews/skills/review",
+          distribution,
+        },
+      });
+      const ref = yield* lockEntryToRef.skill("review", pluginEntry, {
+        baseDir: "/workspace",
+        path,
+        scope: "project",
+        getConfiguredSourceByName: () => Effect.succeed(Option.none()),
+      });
+      expect(ref).toMatchObject({ distribution });
+      if (ref.refType !== "git-hosted") throw new Error("Expected Git plugin reference");
+      expect(ref.location).toMatch(/\/review\/skills\/review$/u);
+      expect(ref.sourcePath).toBe("plugins/reviews/skills/review");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -120,7 +152,7 @@ describe("lock entry source authority", () => {
 
 const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 describe("lock entry printers", () => {
@@ -204,6 +236,28 @@ describe("lock entry printers", () => {
         "acme/extensions//skills/review@main",
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    ["git://git.example.test/collection.git#main", true],
+    ["git://git.example.test/collection.git#axm:path=skills&ref=main", true],
+    ["git://git.example.test/collection.git#axm:path=skills%2Freview&ref=main", true],
+    ["git://git.example.test/collection.git#axm:path=skills%2Fother&ref=main", false],
+    ["git://git.example.test/collection.git#other", false],
+    ["git://git.example.test/other.git#main", false],
+  ])("compares the accepted Git member against containing views: %s", (locator, matches) => {
+    const accepted = Schema.decodeUnknownSync(SkillLockEntrySchema)({
+      source: {
+        type: "git",
+        url: "git://git.example.test/collection.git",
+        path: "skills/review",
+        revision: "main",
+      },
+      identity: { name: "review" },
+      resolved: { commit: "commit-1", tree: "tree-1" },
+      treeIntegrity,
+    });
+    expect(lockEntryMatchesSourceLocator(accepted, locator)).toBe(matches);
   });
 
   it("matches an Azure Repos locator", () => {

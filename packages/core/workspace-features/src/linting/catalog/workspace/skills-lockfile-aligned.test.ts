@@ -15,7 +15,7 @@ import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interp
 import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";
 import { skillsLockfileAlignedRule } from "./skills-lockfile-aligned.js";
 
-const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
 
 const desiredSkill = (
   source: string,
@@ -103,7 +103,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: {} };
       state.lockfile = {
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {
           review: {
             source: {
@@ -134,7 +134,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const source = "@acme/skills/reviewer@^0.1.0";
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
-      state.lockfile = { lockfileVersion: 8, skills: {} };
+      state.lockfile = { lockfileVersion: 9, skills: {} };
 
       const findings = yield* runCheck(
         state,
@@ -155,7 +155,7 @@ describe("workspace/skills-lockfile-aligned", () => {
       const state = emptyWorkspaceState();
       state.settings = { agents: ["claude-code"], skills: { reviewer: source } };
       state.lockfile = {
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: { reviewer: registryResolution("1.0.0") },
       };
 

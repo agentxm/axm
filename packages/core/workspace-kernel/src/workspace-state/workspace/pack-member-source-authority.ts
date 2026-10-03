@@ -43,7 +43,7 @@ export type PackMemberSourceView =
   | { readonly kind: "accepted"; readonly entry: PackLockEntry }
   | {
       readonly kind: "resolved";
-      readonly source: Source;
+      readonly source: Exclude<Source, { readonly type: "http" }>;
       readonly path: Path.Path;
       /** The workspace root a local view root is spelled relative to. */
       readonly baseDir: string;

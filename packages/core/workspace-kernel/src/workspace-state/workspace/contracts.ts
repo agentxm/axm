@@ -1,4 +1,5 @@
 import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/index.js";
+import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 /** Shared workspace-state operation types and failure unions. */
 
 import type * as Effect from "effect/Effect";
@@ -27,7 +28,7 @@ import type {
   SkillLockEntry,
   SubagentLockEntry,
 } from "../desired/lockfile/index.js";
-import type { SourceHostConfig } from "../desired/settings/index.js";
+import type { Settings, SourceHostConfig } from "../desired/settings/index.js";
 import type { WorkspaceRecordRow } from "../observed/records.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "../observed/extensions/inventory.js";
@@ -190,6 +191,7 @@ export interface SetSubagentArgs {
  * Arguments for `setMcpServer` -- bundles the MCP server name with the lock entry.
  */
 export interface SetMcpServerArgs {
+  readonly nativeComponent?: NativeMcpComponent;
   readonly name: string;
   /** Canonical source-resolution key. Unlike name, this is not connection-scoped. */
   readonly resolutionKey: string;
@@ -243,6 +245,8 @@ export interface WorkspaceStateOptions {
   readonly preview?: boolean;
   /** Built-in registry source configs. */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
+  /** Initial settings supplied by source-first install; used only while the selected document is absent. */
+  readonly initialSettings?: Settings;
   /** Allow read-only inspection when settings are absent. */
   readonly allowUninitialized?: boolean;
 }

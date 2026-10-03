@@ -20,7 +20,11 @@ export {
   sourceRefContentKey,
 } from "./acquired-content.js";
 export { selectAcquisitionQueue } from "./acquisition-queue.js";
-export { AcquiredTreeLimitExceeded, measureAcquiredTree } from "./measure-acquired-tree.js";
+export {
+  AcquiredTreeLimitExceeded,
+  MAX_ACQUIRED_TREE_ENTRIES,
+  measureAcquiredTree,
+} from "./measure-acquired-tree.js";
 
 // Canonical package staging, copy, reuse, and on-disk materializability
 export { prepareCanonicalParents, retireCanonicalDirectory } from "./canonical-parent-receipts.js";
@@ -61,3 +65,5 @@ export {
   StagedPackageInvalid,
   type MaterializationError,
 } from "./errors.js";
+
+export { ExternalArchiveInvalid, extractExternalArchive } from "./external-archive.js";

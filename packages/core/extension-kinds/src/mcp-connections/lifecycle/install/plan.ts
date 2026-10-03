@@ -1,3 +1,4 @@
+import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 /**
  * Installing an MCP connection from a resolved source.
  *
@@ -53,6 +54,8 @@ import {
   McpValueSchema,
   type McpBinding,
   type McpValue,
+  validatePluginMcpServerTargets,
+  readPluginMcpDefinition,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import {
@@ -628,6 +631,48 @@ export const planMcpServerInstall: (
               });
             })
           : fromFileLocation(ref.location);
+      const nativeComponent =
+        ref.refType === "local" || ref.refType === "git-hosted" ? ref.nativeComponent : undefined;
+      if (nativeComponent !== undefined) {
+        if (
+          intent.distributionId !== undefined ||
+          (intent.bindingRequests?.length ?? 0) > 0 ||
+          intent.nativeOauth === true
+        )
+          return yield* installRefused({
+            category: "validation",
+            detail:
+              "Plugin MCP connections retain their upstream declaration; Registry distribution, binding and authentication overrides are unsupported",
+          });
+        const definition = yield* readPluginMcpDefinition(manifestPath, nativeComponent);
+        const entries = yield* settings.entries("mcp-server");
+        const entry = entries[intent.localName];
+        const authority = yield* captureAgentOutputAuthority();
+        yield* validatePluginMcpServerTargets({
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          nativeInsertionEligible: false,
+          workspaceRoot: location.baseDir,
+          definition,
+          source: printSourceParams(ref.source),
+          ...(entry?.distribution === undefined ? {} : { distribution: entry?.distribution }),
+          ...(entry?.bindings === undefined ? {} : { bindings: entry?.bindings }),
+          ...(entry?.auth === undefined ? {} : { auth: entry?.auth }),
+          agentIds: yield* settings.configuredAgents,
+          scope: location.scope,
+          serverName: intent.localName,
+          enabled: entries[intent.localName]?.enabled ?? true,
+          previousManagedEntries: authority.expectedMcpEntries[intent.localName] ?? [],
+        }).pipe(
+          Effect.mapError((cause) =>
+            installRefused({
+              category: "conflict",
+              detail: kernelFailureToStepFailure(cause).detail,
+              cause,
+            }),
+          ),
+        );
+        return {};
+      }
       const manifest = yield* decodeMcpServerManifestAt(
         path.join(manifestPath, MCP_SERVER_MANIFEST_FILENAME),
       ).pipe(

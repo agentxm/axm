@@ -9,6 +9,8 @@ among AXM extension types.
   bounded capability-based enhancements
 - [Skills](skills.md) — portable Agent Skills content and agent skill-directory
   projections
+- [Source-compatible distribution](source-compatible-distribution.md) — existing
+  formats, unchanged payloads, creator publication, and installation handoff
 - [MCP Servers](mcp-servers.md) — server definitions from extension content or
   inline configuration merged into native MCP configuration
 - [Subagents](subagents.md) — portable delegated-agent definitions rendered to

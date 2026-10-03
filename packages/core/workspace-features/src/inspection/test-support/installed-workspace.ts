@@ -1,3 +1,5 @@
+import * as HttpClient from "effect/unstable/http/HttpClient";
+import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /**
  * A real workspace with a real Registry behind it, so an inspection
  * specification can arrange an installation by performing one.
@@ -123,6 +125,10 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
     Layer.mergeAll(
       AxmSkillCandidateGateLive,
       RegistryResolutionPolicyLive,
+      Layer.succeed(
+        ArtifactHttpClient,
+        HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
+      ),
       Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, environment)),
     ),
     projection,

@@ -1,3 +1,4 @@
+import { makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   WorkspaceFileWriteLocksLive,
   WorkspaceTransactionScopesLive,
@@ -109,6 +110,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
       Layer.merge(platformLayer, WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory)),
     ),
     foundation,
+    makeArtifactHttpClientLayer(globalThis.fetch),
     FetchHttpClient.layer,
     Layer.provide(
       RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),

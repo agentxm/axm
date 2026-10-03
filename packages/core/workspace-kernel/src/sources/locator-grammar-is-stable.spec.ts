@@ -67,10 +67,13 @@ type Projection =
     }
   | { readonly family: "path"; readonly path: string }
   | { readonly family: "registry"; readonly url: string; readonly owner: string | null }
+  | { readonly family: "http"; readonly url: string }
   | { readonly family: "workspace" };
 
 const project = (source: Source): Projection => {
   switch (source.type) {
+    case "http":
+      return { family: "http", url: source.url.href };
     case "git":
       return {
         family: "git",

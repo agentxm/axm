@@ -96,6 +96,131 @@ describe("validateArchive", () => {
     }),
   );
 
+  for (const target of [
+    "../outside",
+    "nested/../../outside",
+    "C:outside",
+    "\\outside",
+    "",
+    "bad\0target",
+  ]) {
+    it.effect(`rejects unsafe link target ${JSON.stringify(target)}`, () =>
+      Effect.gen(function* () {
+        const error = yield* validateArchive(buildSymlinkZip("link", target)).pipe(Effect.flip);
+        expect(error.code).toBe("symlink_entry");
+      }),
+    );
+  }
+
+  it.effect("resolves intermediate links before parent segments", () =>
+    Effect.gen(function* () {
+      const error = yield* validateArchive(
+        buildZip([
+          {
+            fileName: "nested/root",
+            content: textContent(".."),
+            externalAttributes: 0o120777 << 16,
+          },
+          {
+            fileName: "escape",
+            content: textContent("nested/root/../outside"),
+            externalAttributes: 0o120777 << 16,
+          },
+        ]),
+      ).pipe(Effect.flip);
+      expect(error.code).toBe("symlink_entry");
+    }),
+  );
+
+  it.effect("allows repeated finite links and contained dangling targets", () =>
+    Effect.gen(function* () {
+      const entries = yield* validateArchive(
+        buildZip([
+          { fileName: "root", content: textContent("."), externalAttributes: 0o120777 << 16 },
+          {
+            fileName: "repeat",
+            content: textContent("root/root/absent"),
+            externalAttributes: 0o120777 << 16,
+          },
+        ]),
+      );
+      expect(entries).toHaveLength(2);
+    }),
+  );
+
+  it.effect("rejects invalid UTF-8 link targets", () =>
+    Effect.gen(function* () {
+      const error = yield* validateArchive(
+        buildZip([
+          { fileName: "link", content: new Uint8Array([0xff]), externalAttributes: 0o120777 << 16 },
+        ]),
+      ).pipe(Effect.flip);
+      expect(error.code).toBe("symlink_entry");
+    }),
+  );
+
+  for (const attrs of [0o100644 << 16, 0o120777 << 16]) {
+    it.effect(`rejects entries nested under a non-directory (${attrs})`, () =>
+      Effect.gen(function* () {
+        const error = yield* validateArchive(
+          buildZip([
+            { fileName: "parent", content: textContent("target"), externalAttributes: attrs },
+            { fileName: "parent/child", content: textContent("child") },
+          ]),
+        ).pipe(Effect.flip);
+        expect(error.code).toBe("malformed_archive");
+      }),
+    );
+  }
+
+  for (const name of ["a//b", "a/./b", "a\\b", "bad\0name"]) {
+    it.effect(`rejects ambiguous member ${JSON.stringify(name)}`, () =>
+      Effect.gen(function* () {
+        const error = yield* validateArchive(
+          buildZip([{ fileName: name, content: textContent("content") }]),
+        ).pipe(Effect.flip);
+        expect(error.code).toBe("malformed_archive");
+      }),
+    );
+  }
+
+  it.effect("rejects special files and file/directory aliases", () =>
+    Effect.gen(function* () {
+      const special = yield* validateArchive(
+        buildZip([
+          { fileName: "fifo", content: new Uint8Array(), externalAttributes: 0o10644 << 16 },
+        ]),
+      ).pipe(Effect.flip);
+      expect(special.code).toBe("malformed_archive");
+      const alias = yield* validateArchive(
+        buildZip([
+          { fileName: "folder", content: textContent("content") },
+          { fileName: "folder/", content: new Uint8Array() },
+        ]),
+      ).pipe(Effect.flip);
+      expect(alias.code).toBe("duplicate_entry");
+    }),
+  );
+
+  it.effect("bounds link-target decoding before allocating path segments", () =>
+    Effect.gen(function* () {
+      const error = yield* validateArchive(buildSymlinkZip("link", "a/".repeat(32769))).pipe(
+        Effect.flip,
+      );
+      expect(error.code).toBe("symlink_entry");
+      expect(error.message).toContain("65536-byte validation limit");
+    }),
+  );
+
+  it.effect("allows filenames beginning with two dots when they are not parent segments", () =>
+    Effect.gen(function* () {
+      const entries = yield* validateArchive(
+        buildZip([{ fileName: "src/..metadata", content: textContent("unchanged") }]),
+      );
+      expect(entries[0]?.fileName).toBe("src/..metadata");
+    }),
+  );
+
   it.effect("rejects compression bombs", () =>
     Effect.gen(function* () {
       const zip = buildDecompressionBombZip(300 * 1024 * 1024, 100);

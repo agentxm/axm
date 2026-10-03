@@ -163,7 +163,13 @@ export {
 } from "./error-mapping.js";
 
 // Utilities
-export { extensionDir, extensionLifecycleWarnings, extractZip, pluralizeType } from "./utils.js";
+export {
+  extensionDir,
+  extensionLifecycleWarnings,
+  extractZip,
+  pluralizeType,
+  type ArchiveExtractionLimits,
+} from "./utils.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
 export { RegistryUrl } from "./registry-url.js";
@@ -186,3 +192,10 @@ export {
   redactRegistryText,
   redactRegistryValue,
 } from "./redaction.js";
+
+export {
+  collectBufferedArchive,
+  MAX_ARCHIVE_ENTRIES,
+  MAX_BUFFERED_ARCHIVE_BYTES,
+  MAX_EXTRACTED_ARCHIVE_BYTES,
+} from "./archive-limits.js";

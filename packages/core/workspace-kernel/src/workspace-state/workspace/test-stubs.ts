@@ -323,7 +323,7 @@ export const WorkspaceReadTest = (
 
 export const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 const hasEntries = (
@@ -359,7 +359,7 @@ export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFile
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 8,
+    lockfileVersion: 9,
     skills: opts.lockfileSkills ?? {},
     ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
     ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),

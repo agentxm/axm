@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "extension-installability/source-family-policy-is-total",
   title: "Every extension type decides installability for every source family",
   statement:
-    "Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources.",
+    "Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources; HTTPS artifact and discovery sources shall install skills only.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
@@ -25,8 +25,11 @@ export const specification = defineSpecification({
 });
 
 describe("Installability by source family", () => {
-  it.each(extensionSourceFamilies)("makes every extension type installable from %s", (family) => {
-    expect(extensionTypesInstallableFrom(family)).toEqual(extensionTypes);
-    expect(extensionTypes.every((type) => isInstallableFrom(type, family))).toBe(true);
+  it.each(extensionSourceFamilies)("decides the supported extension types for %s", (family) => {
+    const expected = family === "http" ? ["skill"] : extensionTypes;
+    expect(extensionTypesInstallableFrom(family)).toEqual(expected);
+    for (const type of extensionTypes) {
+      expect(isInstallableFrom(type, family)).toBe(expected.includes(type));
+    }
   });
 });

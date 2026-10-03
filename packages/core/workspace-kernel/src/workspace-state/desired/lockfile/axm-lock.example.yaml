@@ -1,4 +1,4 @@
-lockfileVersion: 8
+lockfileVersion: 9
 skills:
   code-review:
     source:
@@ -11,7 +11,7 @@ skills:
     resolved:
       commit: 0123456789abcdef0123456789abcdef01234567
       tree: abc123def456
-    treeIntegrity: sha256-tree-v1:0000000000000000000000000000000000000000000000000000000000000000
+    treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
   local-skill:
     source:
       type: path
@@ -21,7 +21,7 @@ skills:
       name: local-skill
     resolved:
       tree: sha256-local-skill
-    treeIntegrity: sha256-tree-v1:0000000000000000000000000000000000000000000000000000000000000000
+    treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
   published-skill:
     source:
       type: registry
@@ -33,4 +33,4 @@ skills:
       version: 1.0.0
       integrity: sha512-example
       publisherBindingId: hbnd_example
-    treeIntegrity: sha256-tree-v1:0000000000000000000000000000000000000000000000000000000000000000
+    treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000

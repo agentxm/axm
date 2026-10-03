@@ -19,10 +19,10 @@ describe("authoritative external-resolution lockfile", () => {
   });
 
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(8);
+    expect(LOCKFILE_VERSION).toBe(9);
     expect(
-      decodeLockfile({ lockfileVersion: 8, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 8, skills: {} });
+      decodeLockfile({ lockfileVersion: 9, skills: {} }, { onExcessProperty: "error" }),
+    ).toEqual({ lockfileVersion: 9, skills: {} });
     expect(() =>
       decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();
@@ -70,13 +70,13 @@ describe("authoritative external-resolution lockfile", () => {
         commit: "8d7f9e94a9c6db2b886560179252de77739c0b32",
         tree: "5a21b5d70e623dcf6af0885eb595d9d8bfb3a148",
       },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
     const local = {
       source: { type: "path", path: "../extension-sources/review" },
       identity: { owner: "@acme", name: "review" },
       resolved: { tree: "sha256-local-tree" },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
 
     expect(
@@ -104,9 +104,9 @@ describe("authoritative external-resolution lockfile", () => {
   });
 
   it("round-trips every self-describing source locator", () => {
-    const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+    const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
     const lockfile = {
-      lockfileVersion: 8,
+      lockfileVersion: 9,
       skills: {
         git: {
           source: {
@@ -152,7 +152,7 @@ describe("authoritative external-resolution lockfile", () => {
         integrity: "sha512-archive",
         publisherBindingId: "hbnd_acme",
       },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
 
     expect(
@@ -188,7 +188,7 @@ describe("authoritative external-resolution lockfile", () => {
       manifestVersion: "2.0.0",
       manifestContentIdentity: "sha256-pack-manifest",
       members: ["@acme/skills/review"],
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
 
     expect(
@@ -210,7 +210,7 @@ describe("authoritative external-resolution lockfile", () => {
       sourceRoot: "catalog",
       identity: { owner: "@acme", name: "toolkit" },
       resolved: { tree: "sha256-pack-content" },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
       manifestVersion: "2.0.0",
       manifestContentIdentity: "sha256-pack-manifest",
       members: ["@acme/skills/review", "@acme/rules/house-style"],
@@ -229,7 +229,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 8, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 9, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

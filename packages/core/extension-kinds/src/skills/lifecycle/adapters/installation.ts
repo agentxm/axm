@@ -53,15 +53,15 @@ const countFiles = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   dir: string,
-): Effect.Effect<number> =>
+): Effect.Effect<number, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const entries = yield* fs.readDirectory(dir).pipe(Effect.catch(() => Effect.succeed([])));
     let total = 0;
     for (const entry of entries) {
       const fullPath = path.join(dir, entry);
-      const statOption = yield* fs.stat(fullPath).pipe(Effect.option);
-      if (Option.isNone(statOption)) continue;
-      if (statOption.value.type === "Directory") {
+      const observed = yield* resolveNativeEntry(fullPath).pipe(Effect.option);
+      if (Option.isNone(observed) || observed.value.kind === "absent") continue;
+      if (observed.value.kind === "directory") {
         total += yield* countFiles(fs, path, fullPath);
       } else {
         total += 1;
@@ -72,6 +72,8 @@ const countFiles = (
 
 const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
   switch (ref.refType) {
+    case "http":
+      return ref;
     case "registry":
       return { refType: "registry", owner: ref.owner, source: ref.source };
     case "git-hosted":

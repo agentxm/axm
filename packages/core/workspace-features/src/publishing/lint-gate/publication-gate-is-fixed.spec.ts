@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/publication-gate-is-fixed",
   title: "The publication gate is fixed and ignores locally relaxed lint rules",
   statement:
-    "When a selected extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.",
+    "When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],

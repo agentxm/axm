@@ -21,7 +21,6 @@ import * as semver from "semver";
 import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   RegistryClientFactory,
-  extractZip,
   extensionLifecycleWarnings,
   withBufferedArchiveBudget,
   type RegistryClient,
@@ -69,6 +68,7 @@ import type {
   RegistrySourceHost,
 } from "@agentxm/extension-model/unstable/sources/types";
 import { makeThrottledUnitProgress } from "../../../operations/index.js";
+import { extractExternalArchive } from "../../../acquisition/index.js";
 import { RegistryIndexMemo } from "./index-memo.js";
 type RegistryProviderRequirements =
   | FileSystem.FileSystem
@@ -253,7 +253,16 @@ const probeAxmSkillCompatibility = (
       ),
       (directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
     );
-    yield* extractZip(archive, tmpDir);
+    yield* extractExternalArchive(archive, "zip", tmpDir).pipe(
+      Effect.mapError(
+        (cause) =>
+          new SourceNotResolvable({
+            category: "validation",
+            detail: "Registry archive cannot be materialized safely",
+            cause,
+          }),
+      ),
+    );
     const result = yield* gate.evaluate({
       ref: ref.value,
       packageRoot: tmpDir,
@@ -680,7 +689,16 @@ const fetchRegistryExtension = (client: RegistryClient, ref: ExtensionRef) =>
       (dir) => fs.remove(dir, { recursive: true }).pipe(Effect.ignore),
     );
 
-    yield* extractZip(archiveBytes, tmpDir);
+    yield* extractExternalArchive(archiveBytes, "zip", tmpDir).pipe(
+      Effect.mapError(
+        (cause) =>
+          new SourceNotResolvable({
+            category: "validation",
+            detail: "Registry archive cannot be materialized safely",
+            cause,
+          }),
+      ),
+    );
 
     return { directory: tmpDir } satisfies ExtensionFiles;
   }).pipe(withBufferedArchiveBudget);

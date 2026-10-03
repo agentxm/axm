@@ -210,8 +210,18 @@ export const deriveAgentOutputAuthority = (args: {
     }
     if (node.type === "mcp-server") {
       const identity = node.identity;
+      const configured = args.settings.mcpServers?.[node.name];
       if (identity.authority === "inline") {
         mcpEntries[node.name] = [buildAxmMcpMetadataFromSettingsSource("inline", node.name)];
+      } else if (
+        (identity.authority === "path" || identity.authority === "git") &&
+        identity.resolutionKey !== undefined &&
+        configured?.kind === "sourced" &&
+        configured.nativeComponent !== undefined
+      ) {
+        mcpEntries[node.name] = [
+          buildAxmMcpMetadataFromSettingsSource(configured.source, node.name),
+        ];
       } else if (identity.fqn !== undefined) {
         // Native sourced MCP metadata names the accepted manifest identity.
         mcpEntries[node.name] = [

@@ -405,7 +405,7 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
       lockfile: {
         _tag: "valid",
         contents: {
-          lockfileVersion: 8,
+          lockfileVersion: 9,
           skills: {},
           knowledge: {
             handbook: {
@@ -419,7 +419,7 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
               packageName: "handbook",
               path: "knowledge-source",
               contentIdentity: "accepted-content",
-              treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+              treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
             },
           },
         },

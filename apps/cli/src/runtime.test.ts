@@ -1,3 +1,4 @@
+import { downloadHttpArtifact } from "@agentxm/workspace-kernel/sources";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -11,6 +12,7 @@ import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
 import { afterEach, beforeEach, vi } from "vitest";
 import {
   getBuiltInSources,
+  makeArtifactHttpClientLayer,
   makeCliLoggerLayer,
   withAxmFetchPolicy,
   withAxmUserAgent,
@@ -123,7 +125,7 @@ describe("withWorkspace settings gate", () => {
     fs.mkdirSync(path.join(projectDir, ".axm"), { recursive: true });
     fs.mkdirSync(path.join(userHome, ".axm"), { recursive: true });
     fs.writeFileSync(path.join(projectDir, "axm.json"), JSON.stringify({ agents: [] }));
-    fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: 8\nskills: {}\n");
+    fs.writeFileSync(path.join(projectDir, "axm-lock.yaml"), "lockfileVersion: 9\nskills: {}\n");
     process.chdir(projectDir);
     process.env["HOME"] = userHome;
   });
@@ -162,4 +164,30 @@ describe("withWorkspace settings gate", () => {
       }),
     );
   }
+});
+
+describe("artifact transport policy", () => {
+  it.effect("uses credential-free manual redirects through the runtime-owned Fetch client", () =>
+    Effect.gen(function* () {
+      const fetchImplementation = Object.assign(
+        vi.fn(() => Promise.resolve(new Response("original bytes"))),
+        { preconnect: vi.fn() },
+      );
+      const result = yield* downloadHttpArtifact(new URL("https://example.test/SKILL.md")).pipe(
+        Effect.provide(makeArtifactHttpClientLayer(fetchImplementation)),
+      );
+      expect(new TextDecoder().decode(result.bytes)).toBe("original bytes");
+      expect(fetchImplementation).toHaveBeenCalledWith(
+        expect.any(URL),
+        expect.objectContaining({
+          redirect: "manual",
+          credentials: "omit",
+          headers: expect.not.objectContaining({
+            authorization: expect.anything(),
+            cookie: expect.anything(),
+          }),
+        }),
+      );
+    }),
+  );
 });

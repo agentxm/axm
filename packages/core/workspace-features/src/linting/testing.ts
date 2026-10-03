@@ -450,7 +450,7 @@ const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrang
       const { acceptedVersion: _accepted, ...unaccepted } = registryAccepted(
         FIXTURE_CLI_VERSION,
         FIXTURE_CLI_VERSION_RANGE,
-        { "axm-lock.yaml": "lockfileVersion: 8\nskills: {}\n" },
+        { "axm-lock.yaml": "lockfileVersion: 9\nskills: {}\n" },
       );
       return unaccepted;
     }
@@ -538,7 +538,7 @@ export const makeOfficialAxmSkillWorkspace = (
     fixture.writeFile(
       "axm-lock.yaml",
       `${JSON.stringify({
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: {
           axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
             ? {

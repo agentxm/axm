@@ -88,7 +88,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(8);
+        expect(lock.lockfileVersion).toBe(9);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should carry a self-describing source and immutable resolution.
@@ -266,7 +266,7 @@ describe("axm skills install", () => {
                   integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
                   publisherBindingId: "hbnd_test",
                 },
-                treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+                treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
               },
             },
           }),
@@ -411,7 +411,7 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(8);
+        expect(lock.lockfileVersion).toBe(9);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
@@ -534,7 +534,8 @@ describe("axm skills install", () => {
       expect(result.stdout).toContain("--preview");
       // Verify removed flags are not in help output
       expect(result.stdout).not.toContain("--list");
-      expect(result.stdout).not.toContain("--agent");
+      expect(result.stdout).toContain("--agent");
+      expect(result.stdout).toContain("Configure an agent on first install");
     });
   });
 

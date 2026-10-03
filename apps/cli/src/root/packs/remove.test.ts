@@ -83,7 +83,7 @@ const createPackManifest = (
         integrity: `sha512-${skillName}`,
         publisherBindingId: `hbnd_${skillName}`,
       },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
   }
   fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, skills: updatedSkills }));

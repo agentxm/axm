@@ -255,6 +255,10 @@ export {
   removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
+  syncPluginMcpServerToAgents,
+  validatePluginMcpServerTargets,
+  type SyncPluginMcpServerArgs,
+  type ValidatePluginMcpServerTargetsArgs,
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
   type PruneManagedMcpServersArgs,
@@ -340,3 +344,4 @@ export {
   type McpDistributionCandidate,
   type McpDistributionSelection,
 } from "./mcps/distribution.js";
+export { readPluginMcpDefinition, type PluginMcpDefinition } from "./mcps/plugin-definition.js";

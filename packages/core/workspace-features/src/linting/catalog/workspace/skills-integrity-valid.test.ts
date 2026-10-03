@@ -14,7 +14,7 @@ import { emptyWorkspaceState, type WorkspaceState } from "../test-support/interp
 import { scopeFilesFromWorkspaceState } from "../test-support/fixture-state.js";
 import { skillsIntegrityValidRule } from "./skills-integrity-valid.js";
 
-const treeIntegrity = `sha256-tree-v1:${"0".repeat(64)}`;
+const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
 
 const contextFor = (
   state: WorkspaceState,
@@ -79,7 +79,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 8, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 9, skills: { "my-skill": resolution } };
   return state;
 };
 

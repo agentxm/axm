@@ -1,6 +1,8 @@
 import { OutputWriteFailed, Screen } from "../../screen/index.js";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
+import * as Path from "effect/Path";
+import { ExecutionDirectory } from "../../execution-directory.js";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
@@ -50,6 +52,8 @@ import { backfillFlag } from "../shared/publish-flags.js";
 
 /** The CLI-supplied inputs a publish invocation carries beyond the request. */
 export interface RootPublishHandlerArgs {
+  readonly from?: string;
+  readonly packageVersion?: string;
   readonly selectors: ReadonlyArray<string>;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<(typeof selectableTypes)[number]>;
@@ -74,7 +78,14 @@ export interface RootPublishHandlerArgs {
 export const makeExactPublishRecovery = (
   args: Pick<
     RootPublishHandlerArgs,
-    "registry" | "registryUrl" | "backfill" | "visibility" | "acceptWarnings" | "recoveryCommand"
+    | "registry"
+    | "registryUrl"
+    | "backfill"
+    | "visibility"
+    | "acceptWarnings"
+    | "recoveryCommand"
+    | "from"
+    | "packageVersion"
   >,
   candidateFqns: ReadonlyArray<string>,
 ) =>
@@ -91,6 +102,12 @@ export const makeExactPublishRecovery = (
           recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
         ],
       }),
+      ...(args.from === undefined
+        ? []
+        : [recoveryOption("--from", publicRecoveryValue(args.from))]),
+      ...(args.packageVersion === undefined
+        ? []
+        : [recoveryOption("--package-version", publicRecoveryValue(args.packageVersion))]),
       recoverySwitch("--backfill", args.backfill),
       recoverySwitch("--accept-warnings", args.acceptWarnings),
       ...Option.match(args.visibility, {
@@ -102,6 +119,8 @@ export const makeExactPublishRecovery = (
   );
 
 const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): PublishRequest => ({
+  ...(args.from === undefined ? {} : { from: args.from }),
+  ...(args.packageVersion === undefined ? {} : { packageVersion: args.packageVersion }),
   selectors: args.selectors,
   owners: args.owners,
   types: args.types,
@@ -275,6 +294,14 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
 );
 
 const publishConfig = {
+  from: Flag.String("from").pipe(
+    Flag.withDescription("Publish an existing skill directory without converting its source"),
+    Flag.optional,
+  ),
+  packageVersion: Flag.String("package-version").pipe(
+    Flag.withDescription("Exact publisher-envelope version for --from"),
+    Flag.optional,
+  ),
   selectors: Argument.String("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
@@ -310,27 +337,42 @@ const publishConfig = {
 } as const;
 
 export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
-  handleRootPublish({
-    selectors: [...parsed.selectors],
-    owners: [...parsed.owner],
-    types: [...parsed.type],
-    excludes: [...parsed.exclude],
-    registry: parsed.registry,
-    registryUrl: parsed.registryUrl,
-    backfill: parsed.backfill,
-    acceptWarnings: parsed.acceptWarnings,
-    preview: parsed.preview,
-    scope: "project",
-    visibility: parsed.visibility,
-    includeDependencies: parsed.includeDependencies,
-  }).pipe(withWorkspace("project"), withRuntime("publish")),
+  Effect.gen(function* () {
+    const executionDirectory = yield* ExecutionDirectory;
+    const path = yield* Path.Path;
+    return yield* handleRootPublish({
+      ...(Option.isNone(parsed.from)
+        ? {}
+        : { from: path.resolve(executionDirectory.path, parsed.from.value) }),
+      ...(Option.isNone(parsed.packageVersion)
+        ? {}
+        : { packageVersion: parsed.packageVersion.value }),
+      selectors: [...parsed.selectors],
+      owners: [...parsed.owner],
+      types: [...parsed.type],
+      excludes: [...parsed.exclude],
+      registry: parsed.registry,
+      registryUrl: parsed.registryUrl,
+      backfill: parsed.backfill,
+      acceptWarnings: parsed.acceptWarnings,
+      preview: parsed.preview,
+      scope: "project",
+      visibility: parsed.visibility,
+      includeDependencies: parsed.includeDependencies,
+    }).pipe(
+      withWorkspace({
+        scope: "project",
+        allowUninitialized: Option.isSome(parsed.from) || Option.isSome(parsed.packageVersion),
+      }),
+    );
+  }).pipe(withRuntime("publish")),
 ).pipe(
   withArgvTracking(publishConfig),
   withCommandCapabilities(
     previewableCapabilities("registry", { inputs: "explicit-or-documented-defaults" }),
   ),
   Command.withDescription(
-    "Publish project-workspace extensions to a registry (archive policy: axm help publish)",
+    "Publish project-workspace extensions or an existing skill directory to a registry (archive policy: axm help publish)",
   ),
   Command.withShortDescription("Publish project extensions to a registry"),
   Command.withExamples([

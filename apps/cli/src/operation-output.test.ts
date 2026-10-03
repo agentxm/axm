@@ -205,13 +205,13 @@ describe("toPlanResolutionResult", () => {
         family: "git" as const,
         locator: "https://person:secret@example.com/review.git",
         resolution: "commit abc; tree def",
-        treeIntegrity: "sha256-tree-v1:before",
+        treeIntegrity: "sha256-tree-v2:before",
       },
       after: {
         family: "registry" as const,
         locator: "https://person:secret@registry.example.com/",
         resolution: "version 1.0.0",
-        treeIntegrity: "sha256-tree-v1:after",
+        treeIntegrity: "sha256-tree-v2:after",
       },
       content: "changed" as const,
       dependencies: {

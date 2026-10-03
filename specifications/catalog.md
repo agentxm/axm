@@ -1227,6 +1227,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Supersedes: `cli/install/root-and-type-forms-express-same-intent`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/install-forms-express-same-intent.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/install-forms-express-same-intent.spec.ts)
 
+##### First install establishes only selected management state
+
+- Requirement: `cli/install/first-install-establishes-minimal-state`
+- Owner: `cli-e2e`
+- Statement: An explicit source install into an uninitialized scope shall establish the requested agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: process; selection: per-change
+- Boundary rationale: A shipped CLI process owns first-use argument handling and workspace initialization; each case runs against isolated application and platform homes with no credentials.
+- Methods: example, decision-table
+- Source: [`apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts`](../apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts)
+
 ##### Installing an extension places its source content in the workspace
 
 - Requirement: `cli/install/materializes-canonical-content`
@@ -1270,6 +1283,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts)
 
+##### Selected plugin MCP connections retain unchanged package authority
+
+- Requirement: `cli/mcps/install/selected-plugin-connections-retain-package-authority`
+- Owner: `workspace-features`
+- Statement: AXM shall install explicitly selected portable plugin MCP connections under independent local names, retain unchanged package bytes and inactive components, preserve native connection selection independently from the local alias, and record the actual upstream source without inventing a publisher or package version. Restore and reinstall shall retain accepted package content; updating one selected connection shall reproject other selected connections sharing that package. Removing one connection shall retain the shared package until its last connection is removed.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/selected-plugin-connections-retain-package-authority.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/selected-plugin-connections-retain-package-authority.spec.ts)
+
 ##### Direct MCP installation warns about deprecation
 
 - Requirement: `cli/mcps/install/warns-when-deprecated`
@@ -1282,11 +1308,86 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts)
 
+##### Creators can publish an existing directory without creating an AXM workspace
+
+- Requirement: `cli/publish/existing-directory-needs-no-workspace-setup`
+- Owner: `cli-e2e`
+- Statement: The publish command shall accept an explicit existing-directory source and separate publisher identity/version without setup or an upstream AXM manifest. Preview and publication shall leave the creator directory and scope configuration unchanged. The resulting skill shall be installable through the ordinary Registry lifecycle with its original metadata, supporting files, and executable modes.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built command owns first-use flags and runtime workspace resolution; a separate consumer process proves the archive can be installed.
+- Methods: example
+- Source: [`apps/cli-e2e/src/publish-existing-directory-without-setup.spec.ts`](../apps/cli-e2e/src/publish-existing-directory-without-setup.spec.ts)
+
+##### Explicit publication preserves an existing skill directory under a publisher envelope
+
+- Requirement: `cli/publish/existing-directory-uses-a-separate-envelope`
+- Owner: `workspace-features`
+- Statement: When a creator explicitly supplies an existing skill directory, a fully qualified skill identity, and an exact package version, AXM shall publish the unchanged payload under a separate identity/version envelope without requiring an upstream AXM manifest, rewriting metadata, or claiming workspace authorship. Preview shall upload nothing; ordinary configured publication shall retain its authorship policy. The existing authorization, immutable-version, source-state, freshness, and settlement rules shall govern the publication, with source comparisons referring to original payload paths rather than generated envelope paths.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example, contract
+- Source: [`packages/core/workspace-features/src/publishing/existing-directory-publication.spec.ts`](../packages/core/workspace-features/src/publishing/existing-directory-publication.spec.ts)
+
+##### Management handoff transfers only verified selected installations
+
+- Requirement: `cli/skills/handoff-preserves-selected-ownership`
+- Owner: `workspace-features`
+- Statement: Explicit Skills-manager handoff shall transfer selected verified native installations and their source tracking into AXM, retire only their former manager records, and preserve unrelated records and unknown fields. Modified installations and stale ownership evidence shall be refused without changing either manager's state; content or folder hashes shall never be treated as historical Git commits.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/lifecycle/handoff-preserves-selected-ownership.spec.ts`](../packages/core/workspace-features/src/lifecycle/handoff-preserves-selected-ownership.spec.ts)
+
+##### HTTP skills retain accepted bytes through their lifecycle
+
+- Requirement: `cli/skills/install/http-skills-retain-accepted-artifacts`
+- Owner: `workspace-features`
+- Statement: AXM shall install HTTPS skills without rewriting their payload, record exact downloaded artifact digests separately from materialized tree integrity, restore and explicitly reinstall accepted artifacts without advancing a discovery index, advance them only through explicit update, and withdraw their owned native artifacts and accepted resolution on uninstall. Changed bytes at an accepted artifact URL shall be refused without accepting a new digest.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/lifecycle/install/skills/http-skills-retain-accepted-artifacts.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/http-skills-retain-accepted-artifacts.spec.ts)
+
+##### Pinned upstream skill layouts complete acquisition and management without conversion
+
+- Requirement: `cli/skills/install/pinned-upstream-skills-complete-lifecycle`
+- Owner: `workspace-features`
+- Statement: For the pinned compatibility corpus, AXM shall install each selected upstream skill directory without rewriting its contents, retain its supporting files and native metadata, restore or explicitly update the accepted payload, and remove only its managed installation while preserving upstream source bytes.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `trustworthy-distribution`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Pinned upstream payloads exercise the public lifecycle services with real directories and agent projections; source instructions are data and are never executed.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-features/src/lifecycle/install/skills/pinned-upstream-skills-complete-lifecycle.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/pinned-upstream-skills-complete-lifecycle.spec.ts)
+
+##### Selected plugin skills retain their upstream package context
+
+- Requirement: `cli/skills/install/retains-plugin-package-context`
+- Owner: `workspace-features`
+- Statement: When a consumer selects a skill from a supported plugin package, AXM shall retain the complete package and its relative layout unchanged, activate only the selected skill, and preserve that skill's contained links to package resources outside its component directory. If the target filesystem cannot realize that package context without changing the payload, AXM shall report the unsupported activation and roll back the installation.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts)
+
 ##### Installation selects the requested extensions from a source
 
 - Requirement: `cli/skills/install/selects-requested-source-skills`
 - Owner: `workspace-features`
-- Statement: For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.
+- Statement: For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; external skills shall also be selectable by exact source-relative path, including distinct same-name candidates; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
@@ -1294,7 +1395,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: decision-table, example
 - Derived from: `packages/core/workspace-features/src/lifecycle/install/selection.ts`, `packages/core/workspace-features/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?; How should an all selection and a name selection be combined or refused when both are supplied?
-- Limitation: The source populations are local native trees: three uniquely named skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, collision handling, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
+- Limitation: The source populations are local native trees with unique and same-name skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts)
 
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
@@ -2711,6 +2812,20 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/setup/preview-resolves-inputs-without-prompts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/setup/preview-is-pure.spec.ts)
 
+##### Handoff preview preserves both managers' authority
+
+- Requirement: `cli/skills/handoff/preview-is-pure`
+- Owner: `cli-e2e`
+- Statement: Skills handoff preview shall describe the selected transfer without creating AXM settings or changing the former manager lock or native payload; applying the same explicit selection shall transfer management while preserving unrelated records.
+- Class: functional
+- Role: experience
+- Product goals: `safe-repetition`, `workspace-intent-fidelity`
+- Boundary: process; selection: per-change
+- Boundary rationale: The shipped CLI owns selecting the manager's default scope, first-use workspace state, preview mode, and the subsequent apply invocation.
+- Methods: example, decision-table
+- Derived from: `cli/skills/handoff-preserves-selected-ownership`
+- Source: [`apps/cli-e2e/src/handoff-preview-is-pure.spec.ts`](../apps/cli-e2e/src/handoff-preview-is-pure.spec.ts)
+
 ##### Skill import preview describes the conversion without changing any state
 
 - Requirement: `cli/skills/import/preview-is-pure`
@@ -3146,7 +3261,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/publication-gate-is-fixed`
 - Owner: `workspace-features`
-- Statement: When a selected extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
+- Statement: When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
@@ -3183,11 +3298,11 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/preflight/reports-pack-resolution-differences.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/reports-pack-resolution-differences.spec.ts)
 
-##### Publish refuses extensions the workspace does not author
+##### Configured publication refuses extensions the workspace does not author
 
 - Requirement: `cli/publish/requires-established-authorship`
 - Owner: `workspace-features`
-- Statement: Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.
+- Statement: When selecting from workspace configuration, publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -3255,7 +3370,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/share-prints-live-install-command`
 - Owner: `workspace-features`
-- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors exactly name the distributable authored extensions found from that repository; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
+- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -3425,7 +3540,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: contract, example
-- Derived from: `axm setup --agent`, `axm skills list --agent`, `axm subagents list --agent`, `cli/sync/realizes-desired-state`, `cli/agents/membership-changes-realize-affected-outputs`
+- Derived from: `axm setup --agent`, `axm install --agent`, `axm skills list --agent`, `axm subagents list --agent`, `cli/sync/realizes-desired-state`, `cli/agents/membership-changes-realize-affected-outputs`
 - Assumptions: The agent catalog shipped with the CLI is the only source of supported agent identifiers, so an identifier outside it can be refused without consulting the workspace.
 - Source: [`apps/cli/src/cli-flags/agent-selection-is-membership-or-filter.spec.ts`](../apps/cli/src/cli-flags/agent-selection-is-membership-or-filter.spec.ts)
 
@@ -4432,6 +4547,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts)
 
+##### Acquired skills stay quiet about authoring conventions
+
+- Requirement: `skills/lint/acquired-content-has-management-checks`
+- Owner: `extension-content`
+- Statement: When checking an acquired Skill, AXM shall check its management state without emitting authoring conformance findings for its upstream content; an explicit authoring check shall retain conformance diagnostics and neither check shall modify the content.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/extension-content/src/lint/acquired-skills-have-management-checks.spec.ts`](../packages/core/extension-content/src/lint/acquired-skills-have-management-checks.spec.ts)
+
 ##### Resolution withholds a release that has not aged, unless it is exempt
 
 - Requirement: `source-resolution/minimum-release-age-withholds-unaged-releases`
@@ -4834,7 +4961,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `extension-installability/source-family-policy-is-total`
 - Owner: `extension-model`
-- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources.
+- Statement: Installability by source family shall be a total policy over every extension type, and every extension type shall be installable from Git, registry, path, and workspace sources; HTTPS artifact and discovery sources shall install skills only.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
@@ -4856,6 +4983,18 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-features/src/lifecycle/source-family-conformance.spec.ts`](../packages/core/workspace-features/src/lifecycle/source-family-conformance.spec.ts)
 
+##### Skill publication separates publisher identity from unchanged upstream content
+
+- Requirement: `extensions/publishing/skill-envelope-keeps-upstream-content`
+- Owner: `extension-content`
+- Statement: Skill distribution admission shall validate publisher identity and version in the package envelope independently of the upstream SKILL.md display name and metadata, require the skill payload, and return the submitted archive unchanged; cosmetic authoring conformance shall not be an ingest requirement. Contained relative links, including cycles, shall remain payload; escaping links and ambiguous extraction topology shall be refused.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/extension-content/src/packaging/skill-envelope-keeps-upstream-content.spec.ts`](../packages/core/extension-content/src/packaging/skill-envelope-keeps-upstream-content.spec.ts)
+
 ##### Pack and MCP installs use the shared source grammar
 
 - Requirement: `install/pack-and-mcp-use-shared-source-resolution`
@@ -4869,6 +5008,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example, invariant
 - Derived from: `extension-installability/source-family-policy-is-total`, `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/pack-and-mcp-install-use-shared-source-resolution.spec.ts)
+
+##### Selected plugin MCP connections preserve declared transport and literal configuration
+
+- Requirement: `mcps/activation/plugin-mcps-preserve-selected-transport`
+- Owner: `workspace-kernel`
+- Statement: AXM shall read a selected MCP connection from its unchanged plugin package, preserve its explicitly declared remote transport and literal portable headers in native projection, and report unsupported activation without changing unrelated components. Plugin configuration paths shall remain within the retained package. Portable remote endpoints shall meet the Agent Plugins 1.0 URL and header constraints.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real plugin files and physical paths establish package containment; native target plans expose transport and header semantics.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/mcps/plugin-mcps-preserve-selected-transport.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/mcps/plugin-mcps-preserve-selected-transport.spec.ts)
 
 ##### Git and path Packs inherit members from one source view
 
@@ -4884,6 +5036,45 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-kernel/src/resolution/packs-inherit-members-from-one-source-view.spec.ts`](../packages/core/workspace-kernel/src/resolution/packs-inherit-members-from-one-source-view.spec.ts)
 
+##### External skill discovery preserves source selection and payload boundaries
+
+- Requirement: `skills/acquisition/external-skills-keep-source-boundaries`
+- Owner: `workspace-kernel`
+- Statement: When discovering external skills, AXM shall recognize conventional and nested skill directories regardless of descriptive frontmatter, distinguish same-name candidates by source path, honor exact source-path selection, and stop discovery at each skill payload boundary.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real directory trees establish conventional discovery, exact path selection, and stopping at payload boundaries through the public source-discovery entry.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/sources/external-skills-keep-source-boundaries.spec.ts`](../packages/core/workspace-kernel/src/sources/external-skills-keep-source-boundaries.spec.ts)
+
+##### Local plugin marketplace members retain their dialect's selection rules
+
+- Requirement: `skills/acquisition/plugin-marketplaces-select-local-members`
+- Owner: `workspace-kernel`
+- Statement: AXM shall discover local members of supported Claude, Codex, and Cursor marketplaces within the source boundary, retain each member's package root independently from its selected skill paths, and record the marketplace declaration separately from upstream payloads. Claude root marketplace selections shall suppress default skill discovery, ordinary Claude additions shall augment it, and Cursor manifest declarations shall override marketplace fields and default discovery. Conflicting Claude strict declarations, malformed local source declarations, escaping local members, and Cursor marketplace manifests larger than 10 MB shall be refused. Unselected remote entries shall not trigger acquisition; a request naming such an unsupported entry shall explain how to install its source directly.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real directories and links establish package containment and source-relative selection through the public discovery API.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/sources/plugin-marketplaces-select-local-members.spec.ts`](../packages/core/workspace-kernel/src/sources/plugin-marketplaces-select-local-members.spec.ts)
+
+##### Plugin skill discovery retains package context and declared layout
+
+- Requirement: `skills/acquisition/plugin-skills-respect-package-layout`
+- Owner: `workspace-kernel`
+- Statement: When discovering skills from a supported plugin manifest, AXM shall retain the package root and selected component paths, discover Agent Plugins 1.0 skills only from immediate children of skills, augment Claude's default skill directory with declared paths, apply Cursor's replacement paths and Codex's recursive explicit-root discovery separately from Claude's defaults, validate Agent Plugins core manifest fields by their declared JSON types and name constraints without imposing semantic-version or URL formats on descriptive metadata, and refuse declared skill paths that escape the package.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real files and symlinks establish manifest interpretation and physical containment through public discovery.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/sources/plugin-skills-respect-package-layout.spec.ts`](../packages/core/workspace-kernel/src/sources/plugin-skills-respect-package-layout.spec.ts)
+
 ##### Hosted Git syntax expands to self-describing Git locators
 
 - Requirement: `source-resolution/locator-grammar-is-stable`
@@ -4897,6 +5088,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Limitation: This grammar specification proves expansion and classification without contacting a Git remote. Retires when: The CLI end-to-end suite exercises each transport against controlled Git remotes.
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
 - Source: [`packages/core/workspace-kernel/src/sources/locator-grammar-is-stable.spec.ts`](../packages/core/workspace-kernel/src/sources/locator-grammar-is-stable.spec.ts)
+
+##### Generic Git source locators retain selected package paths and revisions
+
+- Requirement: `sources/git/retained-package-paths-roundtrip`
+- Owner: `workspace-kernel`
+- Statement: AXM shall preserve a selected repository-relative package path and requested revision when serializing and resolving a Git source hosted outside the built-in forge grammars. It shall reject malformed or escaping package selectors before acquisition.
+- Class: functional
+- Role: interface
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: The public source parser and printer determine the identity passed to acquisition.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/sources/retained-package-paths-roundtrip.spec.ts`](../packages/core/workspace-kernel/src/sources/retained-package-paths-roundtrip.spec.ts)
 
 ##### Combining version constraints keeps every contributor's limits or reports the combination unsatisfiable
 
@@ -5477,7 +5681,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/archive-inventory-matches-published-bytes`
 - Owner: `workspace-features`
-- Statement: Publish shall include every regular package-root file unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`
@@ -6012,6 +6216,24 @@ Changes and releases land through the governed repository process with required 
 - Assumptions: Publishing credentials are available only to the canonical workflow, so no manual or external path can publish release artifacts.
 - Source: [`scripts/releases-publish-through-canonical-workflow.spec.ts`](../scripts/releases-publish-through-canonical-workflow.spec.ts)
 
+### Goal: extension-adoption
+
+People and agents can find, install, update, and remove reusable extensions across coding agents through dependable product surfaces.
+
+#### Functional
+
+##### Well-known discovery distinguishes artifact digests from legacy file lists
+
+- Requirement: `extensions/discovery/well-known-index-formats`
+- Owner: `workspace-kernel`
+- Statement: AXM shall interpret the v0.2 discovery schema as single-artifact entries with required SHA-256 digests, resolve artifact URLs against the index URL, and support deployed v0.1 file inventories without inventing publisher digests. Unknown fields and unsupported entry types shall not prevent supported v0.2 entries from discovery; unknown schema versions, unsafe operational paths, duplicate entry names, and indexes exceeding the acquisition entry budget shall be refused before payload acquisition.
+- Class: functional
+- Role: supporting
+- Product goals: `extension-adoption`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/sources/well-known-index-formats.spec.ts`](../packages/core/workspace-kernel/src/sources/well-known-index-formats.spec.ts)
+
 ### Goal: machine-automation
 
 Machine consumers can drive AgentXM surfaces non-interactively with complete, schema-backed results separated from diagnostics.
@@ -6268,6 +6490,31 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 #### Functional
 
+##### External archives retain package bytes, modes, and contained links
+
+- Requirement: `extensions/acquisition/external-archives-retain-payloads`
+- Owner: `workspace-kernel`
+- Statement: AXM shall acquire ZIP, tar, and gzip-compressed tar payloads without rewriting content or executable modes, retain contained relative symbolic links, and refuse unsafe archive paths, ambiguous members, non-directory ancestors, escaping links, unsupported special entries, and content exceeding bounded acquisition limits.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `extension-adoption`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real staging directories expose archive modes and link behavior.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/acquisition/external-archives-retain-payloads.spec.ts`](../packages/core/workspace-kernel/src/acquisition/external-archives-retain-payloads.spec.ts)
+
+##### HTTP artifacts are bounded and verified against accepted bytes
+
+- Requirement: `extensions/acquisition/http-artifacts-verify-content`
+- Owner: `workspace-kernel`
+- Statement: AXM shall download public source artifacts over credential-free HTTPS, validate each bounded redirect without protocol downgrade, enforce a finite response-body limit even without Content-Length, and reject a digest mismatch before returning content for acquisition.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, boundary-value
+- Source: [`packages/core/workspace-kernel/src/sources/http-artifacts-verify-content.spec.ts`](../packages/core/workspace-kernel/src/sources/http-artifacts-verify-content.spec.ts)
+
 ##### Archive acquisition refuses content that exceeds finite resource limits
 
 - Requirement: `registry-client/archive-acquisition-is-bounded`
@@ -6281,6 +6528,21 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: boundary-value, example
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts`](../packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts)
+
+#### Quality
+
+##### Acquired package copies preserve contained links and supporting content
+
+- Requirement: `extensions/acquisition/retains-contained-payload-links`
+- Owner: `workspace-kernel`
+- Statement: When copying an acquired package, AXM shall preserve file bytes, executable permissions, relative layout, empty directories, supporting files, and relocatable links contained within the package, and shall refuse escaping links before writing the destination.
+- Class: quality (integrity)
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Native file modes and symbolic links establish payload fidelity and containment during a real copy.
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/acquisition/retains-contained-payload-links.spec.ts`](../packages/core/workspace-kernel/src/acquisition/retains-contained-payload-links.spec.ts)
 
 #### Constraints
 
@@ -6428,6 +6690,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `settings-contract/saving-settings-preserves-authored-formatting`
 - Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts)
+
+##### External skill metadata describes content without gating acquisition
+
+- Requirement: `skills/acquisition/external-metadata-is-descriptive`
+- Owner: `extension-content`
+- Statement: When reading externally distributed SKILL.md content, AXM shall extract available display metadata without rejecting additional fields, nonstandard names or metadata values, and shall leave unavailable metadata absent without altering the source content or applying authoring conformance checks.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/extension-content/src/content/external-metadata-is-descriptive.spec.ts`](../packages/core/extension-content/src/content/external-metadata-is-descriptive.spec.ts)
 
 ##### Every apply has a selected-content boundary
 

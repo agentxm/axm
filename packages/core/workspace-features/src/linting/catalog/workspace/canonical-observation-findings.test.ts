@@ -144,33 +144,36 @@ describe("per-extension rules over present but unusable canonical content", () =
     return { workspace, manifestPath };
   };
 
-  it.effect("still reports a missing skill.json for an incomplete canonical tree", () => {
-    const { workspace, manifestPath } = realizedSkill();
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          yield* applySync();
-          fs.rmSync(manifestPath);
+  it.effect(
+    "reports incomplete acquired state without asking the consumer to author a manifest",
+    () => {
+      const { workspace, manifestPath } = realizedSkill();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            fs.rmSync(manifestPath);
 
-          expect(yield* findings(workspace)).toEqual(
-            expect.arrayContaining([
-              {
-                ruleId: "skill/manifest-present",
-                message:
-                  "skill.json is missing for this native skill. Create skill.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
-              },
-              {
-                ruleId: "workspace/desired-state-reconcilable",
-                message: expect.stringContaining("has canonical state incomplete"),
-              },
-            ]),
-          );
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+            const reported = yield* findings(workspace);
+            expect(reported).toEqual(
+              expect.arrayContaining([
+                {
+                  ruleId: "workspace/desired-state-reconcilable",
+                  message: expect.stringContaining("has canonical state incomplete"),
+                },
+              ]),
+            );
+            expect(reported.some(({ ruleId }) => ruleId === "skill/manifest-present")).toBe(false);
+            expect(reported.some(({ message }) => message.includes("Create skill.json"))).toBe(
+              false,
+            );
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
-  it.effect("still reports an unreadable skill.json for a corrupt canonical tree", () => {
+  it.effect("reports corrupt acquired state without applying authoring conformance", () => {
     const { workspace, manifestPath } = realizedSkill();
     return workspace
       .provide(
@@ -179,11 +182,16 @@ describe("per-extension rules over present but unusable canonical content", () =
           fs.writeFileSync(manifestPath, "{ not-json");
 
           const reported = yield* findings(workspace);
-          expect(reported.map(({ ruleId }) => ruleId)).toEqual(
+          expect(reported).toEqual(
             expect.arrayContaining([
-              "skill/manifest-schema-valid",
-              "workspace/desired-state-reconcilable",
+              {
+                ruleId: "workspace/desired-state-reconcilable",
+                message: expect.stringContaining("has canonical state corrupt"),
+              },
             ]),
+          );
+          expect(reported.some(({ ruleId }) => ruleId === "skill/manifest-schema-valid")).toBe(
+            false,
           );
         }),
       )

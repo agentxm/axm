@@ -7,7 +7,6 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { parseNativeConfigRoot } from "../agent-adapters/index.js";
 import {
-  COPIED_DIRECTORY_RECEIPT,
   nativeUnitKey,
   readCopiedDirectory,
   resolveNativeReadLocation,
@@ -157,7 +156,11 @@ const observeRetention = (
     ) {
       const receipt = yield* readCopiedDirectory(address.entryPath);
       const files = Option.isSome(receipt)
-        ? [COPIED_DIRECTORY_RECEIPT, ...receipt.value.files.map((file) => file.path)]
+        ? [
+            ...receipt.value.files.map((file) => file.path),
+            ...receipt.value.links.map((link) => link.path),
+            ...receipt.value.directories.map((entry) => entry.path),
+          ]
         : yield* fs.readDirectory(address.referentPath, { recursive: true });
       content = yield* Effect.forEach([...files].sort(), (relative) =>
         Effect.gen(function* () {
@@ -167,9 +170,10 @@ const observeRetention = (
           const info = yield* fs.stat(target);
           return info.type === "Directory"
             ? [relative, "directory"]
-            : [relative, "file", sha512Integrity(yield* fs.readFile(target))];
+            : [relative, "file", info.mode & 0o111, sha512Integrity(yield* fs.readFile(target))];
         }),
       );
+      if (Option.isSome(receipt)) content = [receipt.value, content];
     } else content = sha512Integrity(yield* fs.readFile(address.referentPath));
     // Shared-file siblings may legitimately replace the containing file. Whole
     // entries promised unchanged also retain their observed entry identity.

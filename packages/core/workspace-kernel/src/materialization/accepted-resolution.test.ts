@@ -16,7 +16,7 @@ import { acceptedResolutionFor } from "./accepted-resolution.js";
 
 const sourceHash = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 const acquired = Option.some({
   sourceHash,
@@ -85,9 +85,18 @@ describe("acceptedResolutionFor", () => {
         location: "file:///tmp/clone",
         gitCommitSha: "commit-123",
         gitTreeSha: "tree-456",
+        distribution: {
+          format: "claude",
+          packageRoot: "plugins/reviews",
+          componentPath: "skills/review",
+          manifestPath: ".claude-plugin/plugin.json",
+        },
       };
 
       const resolution = yield* acceptedResolutionFor({ ref, acquired });
+      expect(Option.getOrUndefined(resolution)?.entry.source).toMatchObject({
+        distribution: ref.distribution,
+      });
       expect(Option.getOrUndefined(resolution)?.entry.identity).toEqual({
         name: extensionName("review"),
       });

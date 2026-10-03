@@ -127,7 +127,7 @@ describe("rejected lockfile recovery", () => {
         mcpServers: { [DISABLED_MCP.name]: { source: DISABLED_MCP.fqn, enabled: false } },
       });
       const lockPath = path.join(workspace.path, "axm-lock.yaml");
-      fs.writeFileSync(lockPath, "lockfileVersion: 7\nskills: {}\n");
+      fs.writeFileSync(lockPath, "lockfileVersion: 8\nskills: {}\n");
 
       const rejected = await run(["list", "--json"]);
       expect(rejected.exitCode, rejected.stdout + rejected.stderr).toBe(9);
@@ -136,8 +136,8 @@ describe("rejected lockfile recovery", () => {
         ok: false,
         problem: {
           code: "workspace-lockfile-version-unsupported",
-          observedVersion: 7,
-          supportedVersion: 8,
+          observedVersion: 8,
+          supportedVersion: 9,
           direction: "older",
         },
       });
@@ -158,7 +158,7 @@ describe("rejected lockfile recovery", () => {
 
       const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
       expect(lockfile).toMatchObject({
-        lockfileVersion: 8,
+        lockfileVersion: 9,
         skills: { [MEMBER.name]: { resolved: { version: MEMBER_PIN } } },
       });
       // The disabled connection is still accepted: its row is keyed by the
@@ -173,7 +173,7 @@ describe("rejected lockfile recovery", () => {
           resolved: expect.objectContaining({ version: "1.0.0" }),
         }),
       );
-      expect(fs.readFileSync(backupPath, "utf8")).toContain("lockfileVersion: 7");
+      expect(fs.readFileSync(backupPath, "utf8")).toContain("lockfileVersion: 8");
 
       const lint = await run(["lint", "--json"]);
       expectSuccess(lint);

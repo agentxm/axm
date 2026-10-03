@@ -8,7 +8,9 @@ describe("root share command help", () => {
     Effect.gen(function* () {
       const output = yield* captureHelpText(["share"]);
 
-      expect(output).toContain("Print a Git locator install command");
+      expect(output).toContain(
+        "Print a Git install command for existing skills or extensions without AXM setup",
+      );
       expect(output).toContain("origin's self-describing locator");
       expect(output).toContain("package metadata with the Git source");
       expect(output).toContain("locator for the tag at HEAD");

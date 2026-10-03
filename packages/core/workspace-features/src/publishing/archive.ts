@@ -12,7 +12,10 @@
 
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import { validateArchive } from "@agentxm/extension-content";
+import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
 import { PublishFailed } from "./errors.js";
 import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
@@ -32,10 +35,12 @@ export interface BuildZipArchiveOptions {
    * option.
    */
   readonly ignore?: ReadonlyArray<string> | undefined;
+  /** Wrap an existing skill root under src/ with a separately supplied manifest. */
+  readonly skillEnvelope?: Uint8Array;
 }
 
-/** One file in the deterministic Registry archive plan. */
-export interface ArchivePlanFile {
+/** One file, link, or empty directory in the deterministic Registry archive plan. */
+export interface ArchivePlanEntry {
   readonly path: string;
   readonly size: number;
   readonly matchedPatterns: ReadonlyArray<string>;
@@ -49,8 +54,8 @@ export interface ArchivePlanPattern {
 
 /** The effective Registry-only distribution boundary before ZIP construction. */
 export interface ArchivePlan {
-  readonly included: ReadonlyArray<ArchivePlanFile>;
-  readonly excluded: ReadonlyArray<ArchivePlanFile>;
+  readonly included: ReadonlyArray<ArchivePlanEntry>;
+  readonly excluded: ReadonlyArray<ArchivePlanEntry>;
   readonly patterns: ReadonlyArray<ArchivePlanPattern>;
   readonly warnings: ReadonlyArray<string>;
   readonly includedCount: number;
@@ -67,7 +72,7 @@ export interface PlannedZipArchive {
 /**
  * Build a zip archive of a directory.
  * Files are stored at the root of the zip (no enclosing directory).
- * Directory entries are not emitted.
+ * Empty directories have explicit entries; populated directories are implied by their children.
  */
 export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   Effect.gen(function* () {
@@ -75,38 +80,77 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     const path = yield* Path.Path;
 
     const files = yield* Effect.gen(function* () {
-      const rawEntries = yield* fs.readDirectory(dir, { recursive: true });
-      const toZipPath =
-        path.sep === "/" ? (s: string) => s : (s: string) => s.split(path.sep).join("/");
-
-      const candidates = yield* Effect.forEach(
-        rawEntries,
-        (relRaw) =>
-          Effect.gen(function* () {
-            const abs = path.join(dir, relRaw);
-            const info = yield* fs.stat(abs);
-            return {
-              rel: toZipPath(relRaw),
+      const candidates: Array<{
+        readonly rel: string;
+        readonly abs: string;
+        readonly size: number;
+        readonly mode: number;
+        readonly payload?: Uint8Array;
+      }> = [];
+      if (options?.skillEnvelope !== undefined) {
+        candidates.push({
+          rel: "skill.json",
+          abs: "",
+          size: options.skillEnvelope.byteLength,
+          mode: 0o100644,
+          payload: options.skillEnvelope,
+        });
+      }
+      const pending = [""];
+      while (pending.length > 0) {
+        const parent = pending.pop();
+        if (parent === undefined) break;
+        const children = yield* fs.readDirectory(path.join(dir, parent));
+        for (const name of children) {
+          const relative = path.join(parent, name);
+          const abs = path.join(dir, relative);
+          const relativePath = relative.split(path.sep).join("/");
+          const rel = options?.skillEnvelope === undefined ? relativePath : `src/${relativePath}`;
+          const target = yield* fs.readLink(abs).pipe(Effect.option);
+          if (Option.isSome(target)) {
+            yield* validateContainedLink(dir, abs, target.value);
+            const payload = new TextEncoder().encode(target.value);
+            candidates.push({ rel, abs, size: payload.length, mode: 0o120777, payload });
+            continue;
+          }
+          const info = yield* fs.stat(abs);
+          if (info.type === "Directory") {
+            const contents = yield* fs.readDirectory(abs);
+            if (contents.length === 0) {
+              candidates.push({
+                rel: `${rel}/`,
+                abs,
+                size: 0,
+                mode: 0o40000 | (info.mode & 0o777),
+                payload: new Uint8Array(),
+              });
+            } else pending.push(relative);
+          } else if (info.type === "File") {
+            candidates.push({
+              rel,
               abs,
-              isFile: info.type === "File",
               size: Number(info.size),
-            } as const;
-          }),
-        { concurrency: READ_CONCURRENCY },
-      );
-
-      const onlyFiles = candidates.filter((c) => c.isFile);
-      onlyFiles.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
-
-      return onlyFiles;
+              mode: 0o100000 | (info.mode & 0o777),
+            });
+          } else {
+            return yield* new PublishFailed({
+              category: "validation",
+              detail: `Cannot archive unsupported filesystem entry: ${rel}`,
+            });
+          }
+        }
+      }
+      candidates.sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+      return candidates;
     }).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PublishFailed({
-            category: "internal",
-            detail: "Failed to read source directory for zip archive",
-            cause,
-          }),
+      Effect.mapError((cause) =>
+        cause instanceof PublishFailed
+          ? cause
+          : new PublishFailed({
+              category: "validation",
+              detail: "Failed to read a contained source payload for zip archive",
+              cause,
+            }),
       ),
     );
 
@@ -116,7 +160,7 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       pattern,
       matches: new Set(expandGlob(pattern, paths)),
     }));
-    const planned = files.map((file): ArchivePlanFile => ({
+    const planned = files.map((file): ArchivePlanEntry => ({
       path: file.rel,
       size: file.size,
       matchedPatterns: matchesByPattern
@@ -129,7 +173,10 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
 
     const contents = yield* Effect.forEach(
       files.filter((file) => includedPaths.has(file.rel)),
-      ({ rel, abs }) => fs.readFile(abs).pipe(Effect.map((bytes) => [rel, bytes] as const)),
+      ({ rel, abs, payload, mode }) =>
+        (payload === undefined ? fs.readFile(abs) : Effect.succeed(payload)).pipe(
+          Effect.map((bytes) => [rel, bytes, mode] as const),
+        ),
       { concurrency: READ_CONCURRENCY },
     ).pipe(
       Effect.mapError(
@@ -143,8 +190,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
     );
 
     const zippable: Zippable = {};
-    for (const [rel, bytes] of contents) {
-      zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME }];
+    for (const [rel, bytes, mode] of contents) {
+      zippable[rel] = [bytes, { mtime: DETERMINISTIC_MTIME, os: 3, attrs: mode << 16 }];
     }
 
     const archive = yield* Effect.try({
@@ -159,6 +206,18 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           cause,
         }),
     });
+    // Shared admission also resolves the virtual link graph, including links
+    // whose targets change meaning after an earlier link and a '..' segment.
+    yield* validateArchive(archive).pipe(
+      Effect.mapError(
+        (cause) =>
+          new PublishFailed({
+            category: "validation",
+            detail: cause.message,
+            cause,
+          }),
+      ),
+    );
     const patternPlans = matchesByPattern.map(({ pattern, matches }) => ({
       pattern,
       matchCount: matches.size,

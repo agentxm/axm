@@ -30,7 +30,7 @@ export {
   buildZipArchive,
   planZipArchive,
   type ArchivePlan,
-  type ArchivePlanFile,
+  type ArchivePlanEntry,
   type ArchivePlanPattern,
   type BuildZipArchiveOptions,
   type PlannedZipArchive,

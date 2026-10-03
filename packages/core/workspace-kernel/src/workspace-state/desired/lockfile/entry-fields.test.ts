@@ -9,7 +9,7 @@ import { gitSourceLockFields } from "./entry-fields.js";
 describe("gitSourceLockFields", () => {
   it("persists a generic Git locator plus immutable commit and tree identities", () => {
     const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-      `sha256-tree-v1:${"0".repeat(64)}`,
+      `sha256-tree-v2:${"0".repeat(64)}`,
     );
     expect(
       gitSourceLockFields(
@@ -51,7 +51,7 @@ describe("gitSourceLockFields", () => {
       "tree-1",
       decodeHandleSync("@acme"),
       decodeExtensionNameSync("review"),
-      Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v1:${"0".repeat(64)}`),
+      Schema.decodeUnknownSync(TreeIntegritySchema)(`sha256-tree-v2:${"0".repeat(64)}`),
     );
     expect(fields.source).toEqual({
       type: "git",

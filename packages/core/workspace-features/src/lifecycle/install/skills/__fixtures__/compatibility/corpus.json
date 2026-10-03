@@ -1,0 +1,272 @@
+{
+  "description": "Unchanged selected upstream skill directories, retaining repository-relative paths and applicable license/notice files. Other repository contents are not included.",
+  "sources": [
+    {
+      "repository": "https://github.com/vercel-labs/skills",
+      "commit": "18f96ea131dab3b0fcc9b27cf7c6f6cbb6174680",
+      "archive": "vercel-skills.tar.gz",
+      "sha256": "8dd142465a01c2bbb2a3971d2ab3cf9f78015dd8760c198e6d7bc78b0acd8c90",
+      "skills": ["skills/find-skills"],
+      "entries": {
+        "LICENSE": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "661142e53c313d2bb5e1b055f5c0a39001450ff1b5e27b89dc4bc7de9a6352ca"
+        },
+        "skills/find-skills": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/find-skills/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "c00eeea0e13e74fe4a9d84ba0a8542205a1b736d65f13134fe1a6647eb14976f"
+        }
+      }
+    },
+    {
+      "repository": "https://github.com/mattpocock/skills",
+      "commit": "d81f3a183412e71a5b1e84ca21bc1a35eea03a60",
+      "archive": "matt-skills.tar.gz",
+      "sha256": "e2f7007effd8f7d5186da1eb33d65b1270958d634eed4136f87e648fef2259ac",
+      "skills": [
+        "skills/engineering/grill-with-docs",
+        "skills/engineering/improve-codebase-architecture",
+        "skills/engineering/setup-matt-pocock-skills",
+        "skills/engineering/tdd",
+        "skills/engineering/triage",
+        "skills/productivity/grill-me",
+        "skills/productivity/handoff"
+      ],
+      "entries": {
+        "LICENSE": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "0e7ac423bf2c6e223b7c5b156f8cf72da49d748e56a1641402c31f22ad07dbb5"
+        },
+        "skills/engineering/grill-with-docs": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/grill-with-docs/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "7de372c13488f1ee96cc11cd8907b56b6809cc93eef776eeddd37de6b6cbe3fe"
+        },
+        "skills/engineering/grill-with-docs/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/grill-with-docs/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "94cd0ab161fb468a836349f5ed482ba58ce8e709a05c57ce533d739dbd35cca9"
+        },
+        "skills/engineering/improve-codebase-architecture": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/improve-codebase-architecture/HTML-REPORT.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "581e8bb5a521e46bbda8ca7e19b15948bed882187108092ebb90c62513b77528"
+        },
+        "skills/engineering/improve-codebase-architecture/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "552240a5ab5cec6b67c15dd1ad6e9f6962b1bca6ce870059a8c2713760c20392"
+        },
+        "skills/engineering/improve-codebase-architecture/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/improve-codebase-architecture/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "c8cb20f68ebf0edb4e497bc11ae5fcaa196004e661cd189015b04f4109ced7f1"
+        },
+        "skills/engineering/setup-matt-pocock-skills": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/setup-matt-pocock-skills/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "9a0c21694be19fa3eefc39343355d3af7414716ba364882c7432c2f821eac3e9"
+        },
+        "skills/engineering/setup-matt-pocock-skills/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/setup-matt-pocock-skills/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "9527de0110541c45712319025155aeab8dc7d77c6ed6e5e83271bab1851ab939"
+        },
+        "skills/engineering/setup-matt-pocock-skills/domain.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "593a7042218689f1d24df89df14eaf0a20e19e0d0a7d479a01947ac78f0784b9"
+        },
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-github.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "afd6852a80185217bd28aa5cbe456bef1e85be25be7bd1fba382d5b8ee428325"
+        },
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-gitlab.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "ea175f73d193b3f55819c0ed9bbccf6ee0e70ad8f928e3d7607596c53380acd6"
+        },
+        "skills/engineering/setup-matt-pocock-skills/issue-tracker-local.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "7dcda20a2eb4bdc89b95d1143423c0691309921cadae3132e6424f371030506e"
+        },
+        "skills/engineering/setup-matt-pocock-skills/triage-labels.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "4f53c9b40ce2651e3611aa090eaedbd6dbc9b71ef8c5f7e65eac0d8263190d0d"
+        },
+        "skills/engineering/tdd": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/tdd/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "93ea419b76e9caaf26153b828e984f7c3fb136f4caa67b14af95f32ea965a1cc"
+        },
+        "skills/engineering/tdd/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/tdd/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "ea6f01cf1b8c06a4b0f5b649d74b1b8ce8685e72af1b38d70d877693e092af0b"
+        },
+        "skills/engineering/tdd/mocking.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "3ceb807fdf4a47d6a93d4d9a891e5ba6d362a6247bd08adc451feebfc17361ef"
+        },
+        "skills/engineering/tdd/tests.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "859f9e592c188fda4fc7277dd180e4ce9c7a2e13f6efe1f6f29eccc9d28c106a"
+        },
+        "skills/engineering/triage": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/triage/AGENT-BRIEF.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "7f5f87fed3033df1b06e083c480f3e847b1fbb0647746b8a4c6a50f9f26ef44f"
+        },
+        "skills/engineering/triage/OUT-OF-SCOPE.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "1fbf9b432130c6380aa65813b55553cfda150309b27c595e183f8e335b8a190d"
+        },
+        "skills/engineering/triage/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "917b0baf74be583e74f110857ed45df2766617f75c00baf61fd136d7af515edf"
+        },
+        "skills/engineering/triage/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/engineering/triage/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "2e683717720cf456d165d0bb1a68bb600d0b6a8ccb61841c172e50d26f95351c"
+        },
+        "skills/productivity/grill-me": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/productivity/grill-me/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "caaf8b8de1684f96e26b28f3c29189db5c89cce4b73e1c93d86164f66ef88637"
+        },
+        "skills/productivity/grill-me/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/productivity/grill-me/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "c061e39c3e0f9d865fb1b97556d485704af2a8a58f4b8221a8917a5c2074a32b"
+        },
+        "skills/productivity/handoff": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/productivity/handoff/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "7c62de979fdc7ac32fb5ddb2146156c917f80ee070d30fadc9d40343c4b6ed25"
+        },
+        "skills/productivity/handoff/agents": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/productivity/handoff/agents/openai.yaml": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "5c479fd562c691851690e8b18c8501045bef0943c10743d636b2fae26add1d28"
+        }
+      }
+    },
+    {
+      "repository": "https://github.com/vercel-labs/agent-browser",
+      "commit": "39a74c70d7759d5a6de7a22c04570bb626bbd081",
+      "archive": "agent-browser.tar.gz",
+      "sha256": "df7a7b71d9b7dfbebd089a0b704dff16025a0b85ce744e8ef44350e74adc6697",
+      "skills": ["skills/agent-browser"],
+      "entries": {
+        "LICENSE": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "014bb31e83d5c2e76aea1cc6e82217346ab41362f32cb355ad0f5c10aa0aeaff"
+        },
+        "skills/agent-browser": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/agent-browser/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "3a7520e64de2dfaa516b6721c001e84e06e3c06a187b82af029ae721540ebfac"
+        }
+      }
+    },
+    {
+      "repository": "https://github.com/anthropics/skills",
+      "commit": "8a1541c4a3ffa5a20a5a91de0dcf3f0bab1d1ef4",
+      "archive": "anthropic-skills.tar.gz",
+      "sha256": "91b26d202236d45dbff09bf8160cf5c1ec6753c0babd8e498351f8938311f620",
+      "skills": ["skills/frontend-design"],
+      "entries": {
+        "skills/frontend-design": {
+          "kind": "directory",
+          "mode": "0o775"
+        },
+        "skills/frontend-design/LICENSE.txt": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594"
+        },
+        "skills/frontend-design/SKILL.md": {
+          "kind": "file",
+          "mode": "0o664",
+          "sha256": "d91970639e9f5c37682ac7ab60094d35f1c7c1f38d731bd56396563aee10c1d3"
+        }
+      }
+    }
+  ]
+}

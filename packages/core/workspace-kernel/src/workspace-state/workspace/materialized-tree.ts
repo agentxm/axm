@@ -1,3 +1,4 @@
+import { validateContainedLink } from "../../locations/index.js";
 import * as crypto from "node:crypto";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
@@ -6,21 +7,21 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-const TREE_INTEGRITY_PREFIX = "sha256-tree-v1:";
+const TREE_INTEGRITY_PREFIX = "sha256-tree-v2:";
 
 export const TreeIntegritySchema = Schema.String.pipe(
   Schema.check(
     Schema.makeFilter((value: string) =>
-      /^sha256-tree-v1:[0-9a-f]{64}$/u.test(value)
+      /^sha256-tree-v2:[0-9a-f]{64}$/u.test(value)
         ? undefined
-        : "Expected a sha256-tree-v1 materialized-tree digest",
+        : "Expected a sha256-tree-v2 materialized-tree digest",
     ),
   ),
   Schema.brand("TreeIntegrity"),
 ).annotate({
   identifier: "TreeIntegrity",
   description:
-    "Strict SHA-256 integrity of regular-file paths and bytes using AXM materialized-tree framing v1.",
+    "Strict SHA-256 integrity of paths, entry kinds, file bytes, executable bits, and contained link targets using AXM materialized-tree framing v2.",
 });
 
 export type TreeIntegrity = Schema.Schema.Type<typeof TreeIntegritySchema>;
@@ -48,13 +49,18 @@ const frame = (hash: crypto.Hash, bytes: Uint8Array): void => {
   hash.update(bytes);
 };
 
-interface MaterializedFile {
-  readonly relativePath: string;
-  readonly absolutePath: string;
-}
+type MaterializedEntry =
+  | {
+      readonly kind: "file";
+      readonly relativePath: string;
+      readonly absolutePath: string;
+      readonly executable: number;
+    }
+  | { readonly kind: "directory"; readonly relativePath: string }
+  | { readonly kind: "symlink"; readonly relativePath: string; readonly target: string };
 
 export interface MaterializedTreeIntegrityOptions {
-  /** Include one regular file in the digest. Directories are always traversed. */
+  /** Include one file or link in the digest. Directories are always traversed. */
   readonly includeFile?: (relativePath: string) => boolean;
 }
 
@@ -65,13 +71,13 @@ export const computeMaterializedTreeIntegrity = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const files: MaterializedFile[] = [];
+    const files: MaterializedEntry[] = [];
     const caseFoldedPaths = new Map<string, string>();
 
     const walk = (
       directory: string,
       relativeDirectory: string,
-    ): Effect.Effect<void, MaterializedTreeInvalid> =>
+    ): Effect.Effect<void, MaterializedTreeInvalid, FileSystem.FileSystem | Path.Path> =>
       Effect.gen(function* () {
         const entries = yield* fs
           .readDirectory(directory)
@@ -109,7 +115,12 @@ export const computeMaterializedTreeIntegrity = (
           const absolutePath = path.join(directory, entry);
           const link = yield* fs.readLink(absolutePath).pipe(Effect.option);
           if (Option.isSome(link)) {
-            return yield* treeError(root, `symlink is not allowed: ${relativePath}`);
+            yield* validateContainedLink(root, absolutePath, link.value).pipe(
+              Effect.mapError((cause) => treeError(root, `unsafe symlink: ${relativePath}`, cause)),
+            );
+            if (options.includeFile?.(relativePath) !== false)
+              files.push({ kind: "symlink", relativePath, target: link.value });
+            continue;
           }
           const info = yield* fs
             .stat(absolutePath)
@@ -117,10 +128,16 @@ export const computeMaterializedTreeIntegrity = (
               Effect.mapError((cause) => treeError(root, `cannot inspect ${relativePath}`, cause)),
             );
           if (info.type === "Directory") {
+            files.push({ kind: "directory", relativePath });
             yield* walk(absolutePath, relativePath);
           } else if (info.type === "File") {
             if (options.includeFile?.(relativePath) !== false) {
-              files.push({ relativePath, absolutePath });
+              files.push({
+                kind: "file",
+                relativePath,
+                absolutePath,
+                executable: info.mode & 0o111,
+              });
             }
           } else {
             return yield* treeError(root, `unsupported filesystem entry: ${relativePath}`);
@@ -132,9 +149,16 @@ export const computeMaterializedTreeIntegrity = (
     files.sort((left, right) => left.relativePath.localeCompare(right.relativePath, "en"));
     const hash = crypto.createHash("sha256");
     frame(hash, Buffer.from("agentxm-materialized-tree"));
-    frame(hash, Buffer.from("1"));
+    frame(hash, Buffer.from("2"));
     for (const file of files) {
+      frame(hash, Buffer.from(file.kind));
       frame(hash, Buffer.from(file.relativePath, "utf8"));
+      if (file.kind === "directory") continue;
+      if (file.kind === "symlink") {
+        frame(hash, Buffer.from(file.target, "utf8"));
+        continue;
+      }
+      frame(hash, Buffer.from(String(file.executable)));
       frame(
         hash,
         yield* fs

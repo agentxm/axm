@@ -1,3 +1,4 @@
+import type { PluginMcpDefinition } from "./plugin-definition.js";
 import type { ResolvedMcpConfig } from "./shared-target.js";
 /**
  * The one decision of what each configured agent's native configuration
@@ -43,6 +44,7 @@ export interface PlanMcpServerTargetsArgs {
   readonly declaration: McpServerDeclaration;
   /** The canonical manifest of a sourced connection; absent for an inline one. */
   readonly manifest?: McpServerManifest | undefined;
+  readonly nativeDefinition?: PluginMcpDefinition;
   readonly resolvedCwd?: string | undefined;
   readonly enabled: boolean;
 }
@@ -236,6 +238,35 @@ export const unresolvedMcpAgentTargets = (
 
 /** Plan the native entry every configured agent should hold for one connection. */
 export const planMcpServerTargets = (input: PlanMcpServerTargetsArgs): McpTargetPlan => {
+  if (input.nativeDefinition?.kind === "unsupported") {
+    const reason = input.nativeDefinition.reason;
+    return {
+      _tag: "planned",
+      writes: [],
+      agents: input.agentIds.map((agentId) => ({ _tag: "unsupported", agentId, reason })),
+    };
+  }
+  if (input.nativeDefinition !== undefined && input.declaration.source === undefined)
+    return { _tag: "invalid", detail: "Plugin MCP activation requires a source declaration" };
+  if (
+    input.nativeDefinition !== undefined &&
+    (input.declaration.distribution !== undefined ||
+      input.declaration.bindings !== undefined ||
+      input.declaration.auth !== undefined)
+  )
+    return {
+      _tag: "invalid",
+      detail:
+        "Plugin MCP connections retain their upstream declaration; Registry distribution, binding and authentication overrides are unsupported",
+    };
+  const nativeConnection =
+    input.nativeDefinition?.kind === "remote"
+      ? {
+          transport: input.nativeDefinition.transport,
+          url: input.nativeDefinition.url,
+          headers: input.nativeDefinition.headers,
+        }
+      : undefined;
   const resolution =
     input.declaration.connection !== undefined
       ? undefined
@@ -248,6 +279,7 @@ export const planMcpServerTargets = (input: PlanMcpServerTargetsArgs): McpTarget
             auth: input.declaration.auth,
           });
   const connection =
+    nativeConnection ??
     input.declaration.connection ??
     (resolution?._tag === "resolved" ? resolution.connection : undefined);
   if (connection === undefined)

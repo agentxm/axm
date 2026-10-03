@@ -1,5 +1,8 @@
 import * as Effect from "effect/Effect";
-import { Command, Flag } from "effect/unstable/cli";
+import * as Option from "effect/Option";
+import * as Path from "effect/Path";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
@@ -11,6 +14,7 @@ import {
 import { observeUnit } from "@agentxm/workspace-kernel/operations";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { ExecutionDirectory } from "../../execution-directory.js";
 import { shareFailureToAppError } from "../../feature-errors.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { emitResult } from "../../screen/index.js";
@@ -27,6 +31,12 @@ const ecosystemFlag = (ecosystem: string) =>
   );
 
 const shareConfig = {
+  directory: Argument.String("directory").pipe(
+    Argument.withDescription(
+      "Repository or skill collection to share; defaults to the current directory",
+    ),
+    Argument.optional,
+  ),
   bazel: ecosystemFlag("bazel"),
   cargo: ecosystemFlag("cargo"),
   cocoapods: ecosystemFlag("cocoapods"),
@@ -81,14 +91,27 @@ const handleShare = Effect.fn("Share.handle")(function* (config: {
 });
 
 export const shareCommand = Command.make("share", shareConfig, (config) =>
-  handleShare(config).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("share")),
+  Effect.gen(function* () {
+    const directory = yield* ExecutionDirectory;
+    const path = yield* Path.Path;
+    const projectRoot = makeAbsolutePath(
+      path,
+      path.resolve(
+        directory.path,
+        Option.getOrElse(config.directory, () => "."),
+      ),
+    );
+    return yield* handleShare(config).pipe(
+      withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, projectRoot, allowUninitialized: true }),
+    );
+  }).pipe(withRuntime("share")),
 ).pipe(
   withArgvTracking(shareConfig),
   withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription(
-    "Print a Git locator install command for distributable authored extensions; opt-out is not confidentiality",
+    "Print a Git install command for existing skills or extensions without AXM setup; opt-out is not confidentiality",
   ),
-  Command.withShortDescription("Print a Git install command for an authored extension"),
+  Command.withShortDescription("Print an install command for an existing repository"),
   Command.withExamples([
     {
       command: "axm share",

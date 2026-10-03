@@ -15,9 +15,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/publish/requires-established-authorship",
-  title: "Publish refuses extensions the workspace does not author",
+  title: "Configured publication refuses extensions the workspace does not author",
   statement:
-    "Publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.",
+    "When selecting from workspace configuration, publish shall distribute only extensions the workspace authors: an explicitly selected acquired extension shall fail with a conflict that suggests adopting it and upload nothing, while bulk publication shall report acquired entries as not authored and may publish eligible authored entries without uploading acquired entries.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],

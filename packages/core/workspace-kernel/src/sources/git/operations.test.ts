@@ -240,6 +240,28 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
       }),
     );
 
+    it.effect.each(["file", "symlink"] as const)("refuses a %s blob as a directory tree", (kind) =>
+      Effect.gen(function* () {
+        const repoPath = path.join(tempDir, "repo");
+        yield* Effect.promise(() => createLocalRepo(repoPath));
+        fs.mkdirSync(path.join(repoPath, "payload"));
+        fs.writeFileSync(path.join(repoPath, "payload", "SKILL.md"), "# Skill\n");
+        if (kind === "symlink") fs.symlinkSync("payload", path.join(repoPath, "selected"));
+        else fs.writeFileSync(path.join(repoPath, "selected"), "payload");
+        const { execFileSync } = yield* Effect.promise(() => import("node:child_process"));
+        const gitOptions = {
+          cwd: repoPath,
+          env: isolatedGitEnv(process.env),
+          stdio: "pipe",
+        } as const;
+        execFileSync("git", ["add", "."], gitOptions);
+        execFileSync("git", ["commit", "-m", "Add selected entry"], gitOptions);
+        const failure = yield* getTreeSha(repoPath, "selected").pipe(Effect.flip);
+        expect(failure.operation).toBe("get-tree-sha");
+        expect(failure.detail).toContain("not a directory tree");
+      }),
+    );
+
     it.effect("fails with a typed git failure for non-existent path", () =>
       Effect.gen(function* () {
         const repoPath = path.join(tempDir, "repo");
@@ -437,6 +459,48 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
         expect(comparison.repositoryDirectory).toBe(".");
         expect(comparison.differences).toEqual([]);
       }),
+    );
+
+    it.effect(
+      "compares link bytes, cycles, executable modes, and empty directories truthfully",
+      () =>
+        Effect.gen(function* () {
+          const repoPath = path.join(tempDir, "repo");
+          yield* Effect.promise(() => createLocalRepo(repoPath));
+          fs.symlinkSync("README.md", path.join(repoPath, "readme"));
+          fs.symlinkSync("b", path.join(repoPath, "a"));
+          fs.symlinkSync("a", path.join(repoPath, "b"));
+          const options = {
+            cwd: repoPath,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          } as const;
+          execFileSync("git", ["add", "."], options);
+          execFileSync("git", ["commit", "-m", "Add links"], options);
+          const paths = ["README.md", "readme", "a", "b"];
+          const unchanged = yield* compareDirectoryToHead(repoPath, repoPath, paths).pipe(
+            Effect.provide(NodeServices.layer),
+          );
+          expect(unchanged.differences).toEqual([]);
+          fs.chmodSync(path.join(repoPath, "README.md"), 0o755);
+          fs.unlinkSync(path.join(repoPath, "readme"));
+          fs.symlinkSync("./README.md", path.join(repoPath, "readme"));
+          fs.mkdirSync(path.join(repoPath, "empty"));
+          const changed = yield* compareDirectoryToHead(repoPath, repoPath, [
+            ...paths,
+            "empty/",
+          ]).pipe(Effect.provide(NodeServices.layer));
+          expect(changed.differences.map(({ path, change }) => ({ path, change }))).toEqual(
+            [
+              { path: "empty/", change: "added" },
+              { path: "README.md", change: "modified" },
+              { path: "readme", change: "modified" },
+            ].sort((a, b) => a.path.localeCompare(b.path)),
+          );
+          expect(
+            changed.differences.find(({ path }) => path === "empty/")?.workingObject,
+          ).toBeUndefined();
+        }),
     );
 
     it.effect("treats every current file as added when the worktree has no HEAD", () =>

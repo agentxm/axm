@@ -176,8 +176,9 @@
     "semver": "catalog:",
     "simple-git": "catalog:",
     "smol-toml": "catalog:",
-    "toml-eslint-parser": "1.0.3",
-    "yaml": "catalog:"
+    "yaml": "catalog:",
+    "tar-stream": "catalog:",
+    "toml-eslint-parser": "1.0.3"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
@@ -189,7 +190,8 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "fflate": "catalog:"
   },
   "private": true
 }

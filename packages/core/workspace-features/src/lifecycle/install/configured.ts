@@ -100,7 +100,7 @@ import {
   nameFromLabel,
   StepFailureConversion,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { findGitReinstallRefs, pinGitReinstallRef } from "./git-reinstall.js";
+import { findSourceReinstallRefs, pinSourceReinstallRef } from "./accepted-source-reinstall.js";
 import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 
 /** Which extension types a configured-entry sweep covers. */
@@ -390,8 +390,8 @@ const collectSimpleTypePlans = (
           const resolvedSource = yield* resolveSource(source).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
           );
-          if (resolvedSource.type === "git") {
-            const accepted = yield* findGitReinstallRefs(resolvedSource, expectedType, [name]);
+          if (resolvedSource.type === "git" || resolvedSource.type === "http") {
+            const accepted = yield* findSourceReinstallRefs(resolvedSource, expectedType, [name]);
             const ref = accepted.at(0);
             if (ref !== undefined) {
               return {
@@ -461,7 +461,7 @@ const collectSimpleTypePlans = (
               entry.source,
               fallback,
             ).pipe(Effect.mapError(configuredEntryResolutionRefused(name)));
-            const ref = force ? yield* pinGitReinstallRef(resolved.ref, name) : resolved.ref;
+            const ref = force ? yield* pinSourceReinstallRef(resolved.ref, name) : resolved.ref;
             if (ref.type !== type) {
               return yield* installRefused({
                 category: "internal",
@@ -560,7 +560,10 @@ const collectSimpleTypePlans = (
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              (force
+                ? pinSourceReinstallRef(resolved.ref, name)
+                : Effect.succeed(resolved.ref)
+              ).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "skill"
                     ? planSkillInstall({
@@ -593,7 +596,10 @@ const collectSimpleTypePlans = (
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              (force
+                ? pinSourceReinstallRef(resolved.ref, name)
+                : Effect.succeed(resolved.ref)
+              ).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "subagent"
                     ? planSubagentInstall({
@@ -625,7 +631,10 @@ const collectSimpleTypePlans = (
           ).pipe(
             Effect.mapError(configuredEntryResolutionRefused(name)),
             Effect.flatMap((resolved) =>
-              (force ? pinGitReinstallRef(resolved.ref, name) : Effect.succeed(resolved.ref)).pipe(
+              (force
+                ? pinSourceReinstallRef(resolved.ref, name)
+                : Effect.succeed(resolved.ref)
+              ).pipe(
                 Effect.flatMap((ref) =>
                   ref.type === "mcp-server"
                     ? Effect.gen(function* () {

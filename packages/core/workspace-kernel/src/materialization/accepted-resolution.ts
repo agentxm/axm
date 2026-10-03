@@ -87,25 +87,46 @@ type AcceptedResolutionEffect<TEntry> = Effect.Effect<
  */
 const lockEntry = (ref: AcquiredRef, acquired: AcquiredContentIdentity): SkillLockEntry => {
   switch (ref.refType) {
-    case "git-hosted":
-      return ref.owner === undefined
-        ? portableGitSourceLockFields(
-            ref.source,
-            Option.fromUndefinedOr(ref.sourcePath),
-            ref.gitCommitSha,
-            ref.gitTreeSha,
-            ref.name,
-            acquired.treeIntegrity,
-          )
-        : gitSourceLockFields(
-            ref.source,
-            Option.fromUndefinedOr(ref.sourcePath),
-            ref.gitCommitSha,
-            ref.gitTreeSha,
-            ref.owner,
-            ref.name,
-            acquired.treeIntegrity,
-          );
+    case "http":
+      return {
+        source: {
+          ...ref.source,
+          path: ref.sourcePath,
+          portable: ref.portable,
+          ...(ref.distribution === undefined ? {} : { distribution: ref.distribution }),
+        },
+        identity: { name: ref.name, ...(ref.owner === undefined ? {} : { owner: ref.owner }) },
+        resolved: ref.snapshot,
+        treeIntegrity: acquired.treeIntegrity,
+      };
+    case "git-hosted": {
+      const entry =
+        ref.owner === undefined
+          ? portableGitSourceLockFields(
+              ref.source,
+              Option.fromUndefinedOr(ref.sourcePath),
+              ref.gitCommitSha,
+              ref.gitTreeSha,
+              ref.name,
+              acquired.treeIntegrity,
+            )
+          : gitSourceLockFields(
+              ref.source,
+              Option.fromUndefinedOr(ref.sourcePath),
+              ref.gitCommitSha,
+              ref.gitTreeSha,
+              ref.owner,
+              ref.name,
+              acquired.treeIntegrity,
+            );
+      return {
+        ...entry,
+        source: {
+          ...entry.source,
+          ...(ref.distribution === undefined ? {} : { distribution: ref.distribution }),
+        },
+      };
+    }
     case "local": {
       const path = Option.getOrElse(
         acquired.workspaceRelativeLocalSourcePath,
@@ -113,7 +134,11 @@ const lockEntry = (ref: AcquiredRef, acquired: AcquiredContentIdentity): SkillLo
       );
       return ref.owner === undefined
         ? {
-            source: { type: "path", path },
+            source: {
+              type: "path",
+              path,
+              ...(ref.distribution === undefined ? {} : { distribution: ref.distribution }),
+            },
             identity: { name: ref.name },
             resolved: { tree: acquired.sourceHash },
             treeIntegrity: acquired.treeIntegrity,

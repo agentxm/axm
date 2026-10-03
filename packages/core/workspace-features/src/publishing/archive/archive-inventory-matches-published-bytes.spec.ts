@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
+import { parseZipCentralDirectory } from "@agentxm/extension-content";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -21,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/archive-inventory-matches-published-bytes",
   title: "The publication archive matches its complete reported inventory",
   statement:
-    "Publish shall include every regular package-root file unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
+    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
@@ -121,6 +122,33 @@ describe("Published archive inventory", () => {
         }),
     );
   }
+
+  it.effect("publishes the full payload without dereferencing its links", () =>
+    Effect.gen(function* () {
+      const { world, packageRoot } = authoredWorld();
+      fs.writeFileSync(nodePath.join(packageRoot, "src", "run.sh"), "#!/bin/sh\necho ok\n");
+      fs.chmodSync(nodePath.join(packageRoot, "src", "run.sh"), 0o755);
+      fs.mkdirSync(nodePath.join(packageRoot, "src", "empty"));
+      fs.symlinkSync("run.sh", nodePath.join(packageRoot, "src", "run"));
+      fs.symlinkSync("b", nodePath.join(packageRoot, "src", "a"));
+      fs.symlinkSync("a", nodePath.join(packageRoot, "src", "b"));
+      const outcome = yield* world.provide(runPublish(requestFor(world, { preview: false })));
+      expect(publishDocument(outcome).counts.published).toBe(1);
+      const actual = world.archive("review");
+      const contents = yield* archiveContents(actual);
+      const entries = yield* parseZipCentralDirectory(actual);
+      expect(contents["src/run"]).toEqual(Buffer.from("run.sh"));
+      expect(contents["src/a"]).toEqual(Buffer.from("b"));
+      expect(contents["src/b"]).toEqual(Buffer.from("a"));
+      expect(contents["src/empty/"]).toEqual(Buffer.alloc(0));
+      expect(
+        (entries.find(({ fileName }) => fileName === "src/run.sh")?.externalAttributes ?? 0) >>> 16,
+      ).toBe(0o100755);
+      expect(
+        (entries.find(({ fileName }) => fileName === "src/run")?.externalAttributes ?? 0) >>> 16,
+      ).toBe(0o120777);
+    }),
+  );
 
   it.effect("preserves extension manifest metadata in the actual uploaded archive", () =>
     Effect.gen(function* () {

@@ -1,3 +1,4 @@
+import { httpSourceKind } from "@agentxm/extension-model/unstable/sources/http-artifact";
 /**
  * The typed identity of a desired node: who is authoritative for the
  * package a node names, and the name it carries under that authority. The
@@ -17,7 +18,8 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 
 /** Who is authoritative for the package a desired node names. */
-export type DesiredAuthority = "workspace" | "registry" | "git" | "path" | "bundled" | "inline";
+export type DesiredAuthority =
+  "workspace" | "registry" | "git" | "http" | "path" | "bundled" | "inline";
 
 /** The configured Registry a registry-authoritative node binds to. */
 export interface DesiredRegistryBinding {
@@ -57,7 +59,7 @@ export type DesiredNodeIdentity =
     }
   | {
       /** Acquired from a git repository or a local path the declaration spells. */
-      readonly authority: "git" | "path";
+      readonly authority: "git" | "http" | "path";
       readonly locator: string;
       /** The name accepted state gives the package, once it has been resolved. */
       readonly fqn?: string;
@@ -112,6 +114,7 @@ export const desiredPackageKey = (identity: DesiredNodeIdentity): string => {
     case "bundled":
     case "registry":
       return identity.fqn;
+    case "http":
     case "git":
     case "path":
       return identity.fqn ?? identity.locator;
@@ -132,6 +135,7 @@ export const formatDesiredIdentity = (identity: DesiredNodeIdentity): string => 
       return `${identity.authority}:${identity.fqn}`;
     case "registry":
       return identity.fqn;
+    case "http":
     case "git":
     case "path":
       return identity.locator;
@@ -187,10 +191,15 @@ export const sameDesiredSourceAuthority = (
  * locator declares: a local path, or otherwise a git repository, which is
  * every remaining spelling the source grammar resolves.
  */
-export const locatorAuthority = (locator: string): "git" | "path" =>
+export const locatorAuthority = (locator: string): "git" | "http" | "path" =>
   Option.match(parseInputPattern(locator), {
     onNone: () => "git",
-    onSome: (parsed) => (parsed.pattern.pattern === "file-path-pattern" ? "path" : "git"),
+    onSome: (parsed) =>
+      parsed.pattern.pattern === "file-path-pattern"
+        ? "path"
+        : parsed.pattern.pattern === "url-input" && httpSourceKind(parsed.pattern.url) !== undefined
+          ? "http"
+          : "git",
   });
 
 /**
@@ -210,6 +219,8 @@ export const desiredIdentityOfRef = (ref: ExtensionRef): DesiredNodeIdentity => 
       };
     case "local":
       return { authority: "path", locator: printSourceParams(ref.source), fqn };
+    case "http":
+      return { authority: "http", locator: printSourceParams(ref.source), fqn };
     case "git-hosted":
       return { authority: "git", locator: printSourceParams(ref.source), fqn };
   }

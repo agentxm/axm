@@ -45,6 +45,7 @@ import type { SkillFileAccessor, SkillRuleContext } from "../../context.js";
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstalledSkillInfo {
+  readonly validationPurpose?: "authoring" | "management";
   readonly isNative: boolean;
   readonly skillJson: unknown;
   readonly expectedName?: string;
@@ -71,6 +72,9 @@ export const buildSkillRuleContexts = (input: {
 }): ReadonlyArray<SkillRuleContext> =>
   input.installedSkills.map((info): SkillRuleContext => ({
     subject: {
+      ...(info.validationPurpose === undefined
+        ? {}
+        : { validationPurpose: info.validationPurpose }),
       isNative: info.isNative,
       skillJson: info.skillJson,
       ...(info.expectedName === undefined ? {} : { expectedName: info.expectedName }),

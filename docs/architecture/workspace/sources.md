@@ -19,8 +19,8 @@ them.
 
 ## Responsibilities
 
-Git, Registry, and path locators are self-describing once AXM accepts them.
-Workspace authorship is the fourth source family and uses the intrinsic
+Git, Registry, HTTP, and path locators are self-describing once AXM accepts them.
+Workspace authorship is a separate source family and uses the intrinsic
 settings value `workspace`; it has no external locator or lock row.
 
 Only registries have configured names. The `sources` array maps a name to a
@@ -39,7 +39,10 @@ Git shorthands and hosted browser URLs are also input sugar. They normalize to
 one Git locator containing a clone URL, optional revision selector, and optional
 package path. The accepted locator contains no provider discriminator,
 configured source name, or credential. A path locator carries the selected
-filesystem path directly.
+filesystem path directly. For Git hosts without a dedicated shorthand, a
+selected package path round-trips in the reserved fragment
+`#axm:path=<form-encoded-relative-path>&ref=<optional-revision>`. This preserves
+nested selections without mistaking a package path for a Git revision.
 
 Version constraints and accepted Pack metadata limit eligible extension
 versions. Resolution policy may additionally hold back newly published Registry
@@ -51,7 +54,8 @@ Every accepted external result records locator, declared package identity,
 family-specific immutable resolution, and family-independent tree integrity:
 
 - Registry resolution binds version, extension-archive integrity, and publisher;
-- Git resolution binds commit and tree identity; and
+- Git resolution binds commit and tree identity;
+- HTTP resolution binds artifact and tree integrity; and
 - path resolution binds a tree identity independent of later path contents.
 
 The local installation name remains the settings key and does not become part
@@ -60,15 +64,19 @@ of the source locator or accepted package identity.
 ## Input and acquisition
 
 `axm install <source>` accepts Registry FQNs, bare GitHub coordinates, hosted
-Git shorthand, full Git clone URLs, and paths. Repository discovery selects
+Git shorthand, full Git clone URLs, paths, and HTTPS skill artifacts or supported
+well-known indexes. Repository discovery selects
 manifests by their declared identity; an omitted selector prompts interactively
 and requires explicit selectors or `--all` in non-interactive use.
 
 Git acquisition uses credentials already available to the `git` process,
 including credential helpers and SSH agents, with terminal prompting disabled.
-AXM never stores, forwards, or prints a Git credential. Submodules, Git LFS
-object hydration, and symlink materialization are unsupported: selected package
-content must consist of ordinary files.
+AXM never stores, forwards, or prints a Git credential. Submodules and Git LFS
+object hydration are unsupported. Contained relative links and executable modes
+are retained; escaping links and special files are rejected. HTTP acquisition
+is credential-free, follows bounded HTTPS redirects, and verifies artifact
+integrity before accepting content. [Source-compatible distribution](../extensions/source-compatible-distribution.md)
+owns package discovery, payload boundaries, and activation limits.
 
 ## Package recommendations
 
@@ -118,7 +126,8 @@ Registry updates may advance within their configured version constraints. Git
 updates advance branch selectors to a new commit, while tag and commit
 selectors hold; a newer semantic-version tag is reported without silently
 changing the selector. Path updates may accept the current tree at the declared
-path. Every successful advancement records a new accepted resolution.
+path. HTTP updates may accept a new artifact at the selected locator. Every successful
+advancement records a new accepted resolution.
 
 Installing an already installed FQN from a different authority requests a
 source switch. Preview compares the prior and target source, resolution, tree,
@@ -141,7 +150,7 @@ approval contract.
 
 ## Invariants
 
-- Only configured Registry names use settings precedence; Git and path
+- Only configured Registry names use settings precedence; Git, HTTP, and path
   locators are self-describing.
 - Registry configuration, authored constraints, and accepted lock state remain
   distinct authority.

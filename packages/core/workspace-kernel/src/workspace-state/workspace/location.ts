@@ -178,6 +178,9 @@ export const makeWorkspaceLocation = (
       options.scope === "user" ? initialUserLayout.lockPath : initialProjectState.lockPath;
     const baseDir: AbsolutePath = options.scope === "user" ? userHome : projectRoot;
     const cells: StateCellPaths = {
+      ...(options.initialSettings === undefined
+        ? {}
+        : { initialSettings: options.initialSettings }),
       ...(options.observationView === undefined
         ? {}
         : { observationView: options.observationView }),
@@ -189,6 +192,10 @@ export const makeWorkspaceLocation = (
       userRuntimeDir,
     };
 
+    if (options.initialSettings !== undefined) {
+      // First install may supply missing settings, never replace malformed or newer state.
+      yield* readLockfileCell(cells, runtimeDir);
+    }
     if (options.allowUninitialized !== true) {
       yield* requireInitializedWorkspace(
         settingsPath,

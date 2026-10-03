@@ -10,6 +10,30 @@ such as `@acme/skills/review` lives at
 `github:remix-run/react-router//.agents/skills/react-router@main` lives at
 `./agent_extensions/git/@portable/skills/react-router`.
 
+## Install existing distributions
+
+Install from an existing Git repository, local directory, HTTPS `SKILL.md`,
+ZIP/tar artifact, or supported well-known discovery index. Select a skill by
+its name or exact source-relative path. Unknown frontmatter remains unchanged;
+external acquisition does not require an AXM manifest or authoring conformance.
+
+```sh
+axm install ./upstream --skill skills/review --agent claude-code
+axm skills install https://example.com/review/SKILL.md --agent claude-code
+```
+
+On first install, `--agent` establishes workspace destinations. Repeat it for
+each agent. Existing workspaces keep their configured destinations. This path
+does not require setup, Registry sign-in, bundled skills, or instruction-file
+synchronization. Use `--preview` to inspect the operation first.
+
+Plugin skills retain their package context, including inactive siblings and
+shared assets. A selected skill that relies on content outside its own directory
+requires directory-link support; AXM refuses a copy fallback that would lose
+that context. Standalone skills support faithful copies, including contained
+relative links and executable files. Preserved plugin hooks and other runtime
+components are not automatically activated.
+
 ## skill.json
 
 [`skill.json`](https://axm.sh/schemas/skill.schema.json)
@@ -25,7 +49,7 @@ source is preserved exactly at its selected source path: `SKILL.md`,
 `references/`, and other sibling content remain at that canonical root, and AXM
 does not fabricate `skill.json` or a publisher identity.
 
-`SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
+For AXM-authored skills, `SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
 required, and `name` must match both the manifest's `name` and the agent-facing
 skill directory name. AXM validates the pinned Agent Skills fields: `name`,
 `description`, `license`, `compatibility`, `metadata`, and the experimental
@@ -73,8 +97,9 @@ Weaker: `description: Helps with code.` — no triggers, so the model rarely
 knows when to load it.
 
 Invocation behavior outside the standard frontmatter is agent-specific. Keep
-such configuration outside `SKILL.md`; AXM does not accept vendor-only
-frontmatter fields in a portable skill.
+such configuration outside `SKILL.md` in authored packages; authoring lint
+reports vendor-only frontmatter fields. External acquisition preserves these
+fields without claiming that every agent implements them.
 
 ## Authoring and editing skills
 
@@ -88,7 +113,8 @@ file. Acquired packages are immutable accepted state—fork one before editing i
 
 Agent-native skills without AXM ownership remain outside reconciliation. Choose one resolution per skill or related group:
 
-- **Adopt** when the skill has an AXM-resolvable source and you want AXM to track updates: `axm skills install <source>`.
+- **Transfer management** for an existing Skills-manager installation: `axm skills handoff --skill review --agent claude-code --preview`, then repeat without `--preview` to apply.
+- **Install** from an upstream source when the destination is free: `axm skills install <source>`. Ordinary install does not take over foreign content.
 - **Import** unmanaged/native content when you want to own, customize, or publish it: `axm skills import <source> <extension>`, then `axm skills publish`.
 - **Fork** an existing managed AXM skill when you want a separately authored derivative: `axm fork <source> <extension>`.
 - **Leave it unowned** when another tool owns its lifecycle. AXM does not delete it.
@@ -97,6 +123,15 @@ Import only when you deliberately create an AXM-owned copy. The native source
 remains unchanged. Sync removes obsolete output only when the projection
 adapter proves unit-local AXM ownership; unknown artifacts are retained.
 
+Handoff reads project `skills-lock.json` version 1 or user `.skill-lock.json`
+version 3. User discovery uses `$XDG_STATE_HOME/skills/.skill-lock.json` when
+nonempty, otherwise `~/.agents/.skill-lock.json`. Use `--scope user` for user
+installations or `--lock <path>` for an explicit manager lock. Repeat `--skill`
+to select entries; `--all` selects every entry for verification. An unverifiable
+selection stops the transfer. Local edits and unrelated manager records remain
+untouched. AXM retains upstream tracking and does not turn the skill into
+authored content. Folder hashes are never interpreted as historical commits.
+
 ## Lockfile and integrity
 
 AXM records accepted immutable resolution for externally sourced skills:
@@ -104,9 +139,12 @@ AXM records accepted immutable resolution for externally sourced skills:
 - **`integrity`** — the SRI sha512 of the published archive. AXM verifies it against the downloaded bytes before extracting, every time it fetches. This is the supply-chain guarantee: a tampered or corrupted download fails the install.
 - **Git identity** — source URL, optional selected path and revision, plus immutable commit and tree identities.
 - **Local-source identity** — workspace-relative locator and immutable tree identity for an accepted local source.
+- **HTTPS artifact identity** — exact downloaded SHA-256 digests, separate from
+  the materialized tree. Reinstall and restoration use those accepted artifacts;
+  explicit update resolves the source again.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v8 separates each row into its
+observed materialization. Lockfile v9 separates each row into its
 self-describing `source`, package `identity`, immutable `resolved` identity,
 and strict `treeIntegrity` for the complete materialized package tree. If any
 path or byte changes locally, AXM preserves the

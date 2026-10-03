@@ -252,6 +252,7 @@ export const makeDesiredStateWriter = (
 
   const declareMcpServer = ({
     name,
+    nativeComponent,
     resolutionKey,
     lockEntry,
     versionRange,
@@ -272,6 +273,7 @@ export const makeDesiredStateWriter = (
       yield* writeSettings(
         settingsEntries["mcp-server"].set(current, name, {
           kind: "sourced" as const,
+          ...(nativeComponent === undefined ? {} : { nativeComponent }),
           source: yield* sourceFor("mcp-server", lockEntry, versionRange),
           enabled: enabled ?? existing?.enabled ?? true,
           ...(selected === undefined ? {} : { distribution: selected }),

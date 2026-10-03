@@ -1,3 +1,4 @@
+import { inflateRawSync } from "node:zlib";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 
@@ -24,6 +25,9 @@ export const ZIP_LOCAL_SIGNATURE = 0x04034b50;
 const COMPRESSION_STORE = 0;
 const COMPRESSION_DEFLATE = 8;
 const SUPPORTED_COMPRESSION = new Set([COMPRESSION_STORE, COMPRESSION_DEFLATE]);
+
+// Bound target decoding and segment allocation separately from ordinary payload files.
+const MAX_LINK_TARGET_BYTES = 64 * 1024;
 
 const S_IFLNK = 0xa000;
 const S_IFMT = 0xf000;
@@ -152,12 +156,116 @@ export const parseZipCentralDirectory = (
     return entries;
   });
 
+const LOCAL_FILE_HEADER_SIZE = 30;
+const INFLATE_CHUNK_SIZE = 16 * 1024;
+
+export const defaultReadEntry = (
+  archiveBytes: Uint8Array,
+  entry: ZipEntry,
+): Effect.Effect<Uint8Array, ArchiveGuardrailError> =>
+  Effect.gen(function* () {
+    const { localHeaderOffset, compressedSize, compressionMethod, fileName } = entry;
+
+    if (localHeaderOffset + LOCAL_FILE_HEADER_SIZE > archiveBytes.length) {
+      return yield* new ArchiveGuardrailError({
+        code: "malformed_archive",
+        message: `Local file header for entry "${fileName}" exceeds archive bounds.`,
+        entry: fileName,
+      });
+    }
+
+    const view = new DataView(
+      archiveBytes.buffer,
+      archiveBytes.byteOffset,
+      archiveBytes.byteLength,
+    );
+
+    const signature = view.getUint32(localHeaderOffset, true);
+    if (signature !== ZIP_LOCAL_SIGNATURE) {
+      return yield* new ArchiveGuardrailError({
+        code: "malformed_archive",
+        message: `Invalid local file header signature for entry "${fileName}".`,
+        entry: fileName,
+      });
+    }
+
+    const fileNameLength = view.getUint16(localHeaderOffset + 26, true);
+    const extraFieldLength = view.getUint16(localHeaderOffset + 28, true);
+    const dataStart =
+      localHeaderOffset + LOCAL_FILE_HEADER_SIZE + fileNameLength + extraFieldLength;
+
+    if (dataStart + compressedSize > archiveBytes.length) {
+      return yield* new ArchiveGuardrailError({
+        code: "malformed_archive",
+        message: `Compressed data for entry "${fileName}" exceeds archive bounds.`,
+        entry: fileName,
+      });
+    }
+
+    const compressedData = archiveBytes.slice(dataStart, dataStart + compressedSize);
+
+    if (compressionMethod === 0) {
+      if (compressedData.byteLength !== entry.uncompressedSize) {
+        return yield* new ArchiveGuardrailError({
+          code: "malformed_archive",
+          message: `Stored entry size does not match its declaration: "${fileName}".`,
+          entry: fileName,
+        });
+      }
+      return compressedData;
+    }
+
+    if (compressionMethod === 8) {
+      const expansionFailure = () =>
+        new ArchiveGuardrailError({
+          code: "decompression_limit_exceeded",
+          message: `Entry "${fileName}" decompresses beyond its declared size of ${entry.uncompressedSize} bytes.`,
+          entry: fileName,
+        });
+      // workerd grows its bounded zlib buffer by whole chunks, including the
+      // final partial chunk. Reserve one chunk of codec headroom, then enforce
+      // the exact declared size below. Expansion remains bounded during decode.
+      const result = yield* Effect.try({
+        try: () =>
+          inflateRawSync(compressedData, {
+            chunkSize: INFLATE_CHUNK_SIZE,
+            maxOutputLength: entry.uncompressedSize + INFLATE_CHUNK_SIZE,
+          }),
+        catch: (error) => {
+          const errorCode =
+            typeof error === "object" &&
+            error !== null &&
+            "code" in error &&
+            typeof error.code === "string"
+              ? error.code
+              : "";
+          return errorCode === "ERR_BUFFER_TOO_LARGE" ||
+            (error instanceof RangeError && error.message === "Memory limit exceeded")
+            ? expansionFailure()
+            : new ArchiveGuardrailError({
+                code: "malformed_archive",
+                message: `Failed to decompress entry "${fileName}".`,
+                entry: fileName,
+              });
+        },
+      });
+      if (result.byteLength > entry.uncompressedSize) return yield* expansionFailure();
+      return new Uint8Array(result.buffer, result.byteOffset, result.byteLength);
+    }
+
+    return yield* new ArchiveGuardrailError({
+      code: "unsupported_compression",
+      message: `Unsupported compression method ${compressionMethod} for entry "${fileName}".`,
+      entry: fileName,
+    });
+  });
+
 const checkPathTraversal = (
   entries: readonly ZipEntry[],
 ): Effect.Effect<void, ArchiveGuardrailError> => {
   for (const entry of entries) {
     const normalized = entry.fileName.replace(/\\/g, "/");
-    if (normalized.includes("../") || normalized.includes("/..") || normalized === "..") {
+    if (normalized.split("/").includes("..")) {
       return Effect.fail(
         new ArchiveGuardrailError({
           code: "path_traversal",
@@ -195,7 +303,7 @@ const checkDuplicateEntries = (
 ): Effect.Effect<void, ArchiveGuardrailError> => {
   const seen = new Set<string>();
   for (const entry of entries) {
-    const normalized = entry.fileName.toLowerCase();
+    const normalized = entry.fileName.replace(/\/$/, "").normalize("NFC").toLowerCase();
     if (seen.has(normalized)) {
       return Effect.fail(
         new ArchiveGuardrailError({
@@ -212,24 +320,132 @@ const checkDuplicateEntries = (
   return Effect.void;
 };
 
-const checkSymlinks = (
-  entries: readonly ZipEntry[],
-): Effect.Effect<void, ArchiveGuardrailError> => {
-  for (const entry of entries) {
-    const unixMode = entry.externalAttributes >>> 16;
-    if ((unixMode & S_IFMT) === S_IFLNK) {
-      return Effect.fail(
-        new ArchiveGuardrailError({
-          code: "symlink_entry",
-          message: `Archive contains symlink entry: "${entry.fileName}".`,
-          entry: entry.fileName,
-        }),
-      );
-    }
-  }
+// Normalize only for portable identity comparisons; preserve original archive bytes.
+const memberKey = (name: string) => name.normalize("NFC").toLowerCase();
 
-  return Effect.void;
-};
+const checkMemberTopology = (entries: readonly ZipEntry[]) =>
+  Effect.gen(function* () {
+    const members = new Map<string, ZipEntry>();
+    for (const entry of entries) {
+      const name = entry.fileName.replace(/\/$/, "");
+      const kind = (entry.externalAttributes >>> 16) & S_IFMT;
+      if (
+        name.length === 0 ||
+        /[\\\0:]/.test(name) ||
+        name.split("/").some((part) => part === "" || part === "." || part === "..") ||
+        ![0, 0x8000, 0x4000, S_IFLNK].includes(kind) ||
+        (entry.fileName.endsWith("/") && kind !== 0 && kind !== 0x4000) ||
+        (kind === 0x4000 && !entry.fileName.endsWith("/"))
+      ) {
+        return yield* new ArchiveGuardrailError({
+          code: "malformed_archive",
+          message: `Archive entry has an ambiguous path or unsupported file kind: "${entry.fileName}".`,
+          entry: entry.fileName,
+        });
+      }
+      members.set(memberKey(name), entry);
+    }
+    for (const entry of entries) {
+      const parts = entry.fileName.replace(/\/$/, "").split("/");
+      parts.pop();
+      while (parts.length > 0) {
+        const ancestor = members.get(memberKey(parts.join("/")));
+        if (
+          ancestor !== undefined &&
+          !ancestor.fileName.endsWith("/") &&
+          ((ancestor.externalAttributes >>> 16) & S_IFMT) !== 0x4000
+        ) {
+          return yield* new ArchiveGuardrailError({
+            code: "malformed_archive",
+            message: `Archive entry is nested beneath a file or link: "${entry.fileName}".`,
+            entry: entry.fileName,
+          });
+        }
+        parts.pop();
+      }
+    }
+  });
+
+const checkSymlinks = (archiveBytes: Uint8Array, entries: readonly ZipEntry[]) =>
+  Effect.gen(function* () {
+    const targets = new Map<string, string>();
+    for (const entry of entries) {
+      if (((entry.externalAttributes >>> 16) & S_IFMT) !== S_IFLNK) continue;
+      if (entry.uncompressedSize > MAX_LINK_TARGET_BYTES) {
+        return yield* new ArchiveGuardrailError({
+          code: "symlink_entry",
+          entry: entry.fileName,
+          message: `Archive link target exceeds the ${MAX_LINK_TARGET_BYTES}-byte validation limit: "${entry.fileName}".`,
+        });
+      }
+      const bytes = yield* defaultReadEntry(archiveBytes, entry);
+      const target = yield* Effect.try({
+        try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
+        catch: () =>
+          new ArchiveGuardrailError({
+            code: "symlink_entry",
+            message: `Archive link target is not UTF-8: "${entry.fileName}".`,
+            entry: entry.fileName,
+          }),
+      });
+      if (target.length === 0 || target.startsWith("/") || /[\\\0:]/.test(target)) {
+        return yield* new ArchiveGuardrailError({
+          code: "symlink_entry",
+          message: `Archive link target must be a relative contained path: "${entry.fileName}".`,
+          entry: entry.fileName,
+        });
+      }
+      targets.set(memberKey(entry.fileName), target);
+    }
+
+    // Expand links before processing subsequent '..' segments, as a filesystem
+    // does. Exit markers distinguish a cycle from a repeated finite traversal.
+    // Bound total interpretation work independently of decompressed byte limits.
+    let remainingSteps = 1_000_000;
+    for (const [name, target] of targets) {
+      const resolved = name.split("/").slice(0, -1);
+      const pending: Array<string | { readonly leave: string }> = target.split("/").reverse();
+      const active = new Set([name]);
+      while (pending.length > 0) {
+        if (--remainingSteps < 0) {
+          return yield* new ArchiveGuardrailError({
+            code: "symlink_entry",
+            message: "Archive link resolution exceeds the bounded validation budget.",
+            entry: name,
+          });
+        }
+        const part = pending.pop();
+        if (part === undefined) break;
+        if (typeof part !== "string") {
+          active.delete(part.leave);
+          continue;
+        }
+        if (part === "" || part === ".") continue;
+        if (part === "..") {
+          if (resolved.length === 0) {
+            return yield* new ArchiveGuardrailError({
+              code: "symlink_entry",
+              message: `Archive link escapes its package: "${name}".`,
+              entry: name,
+            });
+          }
+          resolved.pop();
+          continue;
+        }
+        const next = memberKey([...resolved, part].join("/"));
+        const nested = targets.get(next);
+        if (nested === undefined) {
+          resolved.push(part);
+          continue;
+        }
+        // A cycle remains inert payload; a filesystem cannot traverse beyond it.
+        if (active.has(next)) break;
+        active.add(next);
+        pending.push({ leave: next });
+        for (const segment of nested.split("/").reverse()) pending.push(segment);
+      }
+    }
+  });
 
 const checkCompressionMethods = (
   entries: readonly ZipEntry[],
@@ -364,11 +580,12 @@ export const validateArchive = (
     yield* checkPathTraversal(entries);
     yield* checkAbsolutePaths(entries);
     yield* checkDuplicateEntries(entries);
-    yield* checkSymlinks(entries);
     yield* checkCompressionMethods(entries);
     yield* checkEntryCount(entries, appliedLimits);
     yield* checkDecompressedSize(entries, appliedLimits);
     yield* checkCompressionRatio(entries, appliedLimits);
+    yield* checkMemberTopology(entries);
+    yield* checkSymlinks(archiveBytes, entries);
 
     return entries;
   });

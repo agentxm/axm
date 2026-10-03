@@ -149,7 +149,7 @@ const makeHookManagerLayer = (
           hooks: entries,
         },
         acceptedResolutions: readLockedHooks().pipe(
-          Effect.map((hooks) => ({ lockfileVersion: 8, skills: {}, hooks })),
+          Effect.map((hooks) => ({ lockfileVersion: 9, skills: {}, hooks })),
         ),
         graph: {
           packMembership: [],

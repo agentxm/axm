@@ -1,4 +1,4 @@
-/** Read-only repository sharing output for one authored AXM workspace. */
+/** Read-only sharing output for an existing repository or skill collection. */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -36,6 +36,7 @@ export class ShareFailed extends Schema.TaggedError<ShareFailed>()("ShareFailed"
 export const SharedExtensionSchema = Schema.Struct({
   type: ExtensionTypeSchema,
   name: Schema.String,
+  selector: Schema.String,
 });
 
 export const packageMetadataEcosystems = [
@@ -300,7 +301,16 @@ export const ShareWorkspace = {
     const extensions = discovered.map((candidate): SharedExtension => {
       const type = candidate.kind === "manifest" ? candidate.identity.type : "skill";
       const name = candidate.kind === "manifest" ? candidate.identity.name : candidate.name;
-      return { type, name };
+      return {
+        type,
+        name,
+        selector:
+          candidate.kind === "manifest"
+            ? name
+            : candidate.sourcePath === "."
+              ? name
+              : candidate.sourcePath,
+      };
     });
     extensions.sort((left, right) => {
       const typeOrder = extensionTypes.indexOf(left.type) - extensionTypes.indexOf(right.type);
@@ -319,7 +329,7 @@ export const ShareWorkspace = {
         command: ["install"],
         arguments: [
           ...extensions.map((extension) =>
-            recoveryOption(selectorFlag[extension.type], publicRecoveryValue(extension.name)),
+            recoveryOption(selectorFlag[extension.type], publicRecoveryValue(extension.selector)),
           ),
           recoveryPositional(credentialFreeLocatorRecoveryValue(locator)),
         ],

@@ -147,14 +147,14 @@ const StepArtifactReferenceSchema = Schema.Struct({
 });
 
 const SourceSwitchEndpointSchema = Schema.Struct({
-  family: Schema.Literals(["registry", "git", "path"] as const),
+  family: Schema.Literals(["registry", "git", "path", "http"] as const),
   locator: Schema.String,
   resolution: Schema.String,
   treeIntegrity: Schema.String,
 });
 
 const PackMemberSourceSwitchEndpointSchema = Schema.Struct({
-  family: Schema.Literals(["registry", "git", "path", "workspace"] as const),
+  family: Schema.Literals(["registry", "git", "path", "http", "workspace"] as const),
   locator: Schema.String,
   resolution: Schema.String,
 });

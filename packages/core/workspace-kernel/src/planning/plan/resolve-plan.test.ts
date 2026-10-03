@@ -1505,6 +1505,41 @@ describe("previewOrApply", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("fingerprints nested link text and executable modes without following cycles", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "axm-candidate-links-" });
+      const payload = path.join(directory, "payload");
+      yield* fs.makeDirectory(payload);
+      const script = path.join(payload, "run.sh");
+      const link = path.join(payload, "cycle");
+      yield* fs.writeFileString(script, "#!/bin/sh\n");
+      yield* fs.chmod(script, 0o644);
+      yield* fs.symlink(".", link);
+      const plan: Plan = {
+        _tag: "Plan",
+        name: "Observe retained payload",
+        description: Option.none(),
+        materialPaths: [payload],
+        jobs: [{ concurrency: 1, steps: [] }],
+      };
+      const paths = {
+        settingsPath: path.join(directory, "axm.json"),
+        lockPath: path.join(directory, "axm-lock.yaml"),
+        baseDir: directory,
+      };
+      const original = yield* makeExecutionCandidate(plan, paths);
+      expect(yield* isExecutionCandidateFresh(original)).toBe(true);
+      yield* fs.chmod(script, 0o755);
+      expect(yield* isExecutionCandidateFresh(original)).toBe(false);
+      const executable = yield* makeExecutionCandidate(plan, paths);
+      yield* fs.remove(link);
+      yield* fs.symlink("run.sh", link);
+      expect(yield* isExecutionCandidateFresh(executable)).toBe(false);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("fingerprints the layout's exact settings and lock paths", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -1512,7 +1547,7 @@ describe("previewOrApply", () => {
       const settingsPath = `${directory}/axm.json`;
       const lockPath = `${directory}/axm-lock.yaml`;
       yield* fs.writeFileString(settingsPath, "{}");
-      yield* fs.writeFileString(lockPath, "lockfileVersion: 8\nskills: {}\n");
+      yield* fs.writeFileString(lockPath, "lockfileVersion: 9\nskills: {}\n");
       const plan: Plan = {
         _tag: "Plan",
         name: "Layout material",

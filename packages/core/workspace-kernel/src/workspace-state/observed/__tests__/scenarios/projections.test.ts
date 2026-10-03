@@ -84,7 +84,7 @@ const packMemberBinding = (name: string, pack: string, enabled = true): PackMemb
 });
 
 const lockfileWithSkill = (skillName: string): object => ({
-  lockfileVersion: 8,
+  lockfileVersion: 9,
   skills: {
     [skillName]: {
       source: {
@@ -94,7 +94,7 @@ const lockfileWithSkill = (skillName: string): object => ({
       },
       identity: { owner: "@owner", name: skillName },
       resolved: { commit: "commit-main", tree: "tree-main" },
-      treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+      treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     },
   },
 });
@@ -395,7 +395,7 @@ describe("projection: packs are not installed as pack members", () => {
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 8,
+              lockfileVersion: 9,
               skills: {},
               packs: {
                 // nested-pack is in the lockfile but not declared in settings;
@@ -411,7 +411,7 @@ describe("projection: packs are not installed as pack members", () => {
                   manifestVersion: "1.0.0",
                   manifestContentIdentity: "nested-content",
                   members: [],
-                  treeIntegrity: `sha256-tree-v1:${"0".repeat(64)}`,
+                  treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
                 },
               },
             },

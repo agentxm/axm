@@ -42,7 +42,7 @@ const desiredSkill = (source = "github:acme/tools//skills/review@main"): Desired
   origins: [{ type: "settings", source, enabled: true }],
 });
 const placeholderTreeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
-  `sha256-tree-v1:${"0".repeat(64)}`,
+  `sha256-tree-v2:${"0".repeat(64)}`,
 );
 const acceptedGit = (treeIntegrity = placeholderTreeIntegrity) => ({
   source: {

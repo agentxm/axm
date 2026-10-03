@@ -789,14 +789,18 @@ export const collectMaterializeSteps = (args: {
             };
           });
           let ref = resolved.ref;
-          if (forceCanonical && accepted !== undefined && ref.refType === "git-hosted") {
+          if (
+            forceCanonical &&
+            accepted !== undefined &&
+            (ref.refType === "git-hosted" || ref.refType === "http")
+          ) {
             const acceptedGitRef = ref;
             const files = yield* providers.fetch(acceptedGitRef).pipe(
               Effect.mapError(
                 (cause) =>
                   new WorkspaceSyncFailed({
                     category: "conflict",
-                    detail: `Cannot restore ${node.type} ${node.name} from its accepted Git commit ${acceptedGitRef.gitCommitSha}`,
+                    detail: `Cannot restore ${node.type} ${node.name} from its accepted ${acceptedGitRef.refType === "http" ? "HTTP artifacts" : `Git commit ${acceptedGitRef.gitCommitSha}`}`,
                     cause,
                   }),
               ),

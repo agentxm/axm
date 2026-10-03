@@ -48,11 +48,19 @@ export const assessPublishSourceState = (args: {
   readonly directory: string;
   readonly archivePlan: ArchivePlan;
   readonly ignore?: ReadonlyArray<string>;
+  /** A generated envelope prefixes payload paths but is not upstream source. */
+  readonly payloadPrefix?: string;
 }): Effect.Effect<PublishSourceAssessment, GitOperationFailed, GitDirectoryComparison> =>
   Effect.gen(function* () {
     const git = yield* GitDirectoryComparison;
     const currentPaths = [...args.archivePlan.included, ...args.archivePlan.excluded]
-      .map(({ path }) => path)
+      .flatMap(({ path }) =>
+        args.payloadPrefix === undefined
+          ? [path]
+          : path.startsWith(args.payloadPrefix)
+            ? [path.slice(args.payloadPrefix.length)]
+            : [],
+      )
       .sort((left, right) => left.localeCompare(right));
     const comparison = yield* git.compare({ directory: args.directory, currentPaths });
     if (Option.isNone(comparison)) {
@@ -60,7 +68,7 @@ export const assessPublishSourceState = (args: {
     }
 
     const materialDifferences = comparison.value.differences.filter(({ path }) =>
-      isArchivePathIncluded(path, args.ignore),
+      isArchivePathIncluded(`${args.payloadPrefix ?? ""}${path}`, args.ignore),
     );
     const status =
       comparison.value.headRevision === undefined

@@ -14,6 +14,16 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { platform } from "node:os";
+import { computeIntegrity } from "@agentxm/host-primitives";
+import { normalizePublishInput } from "@agentxm/extension-content";
+import { HookManifestSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
+import {
+  agentById,
+  isConfigurableAgentId,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
+import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operations";
+import { evaluateHookAgentOutcome } from "@agentxm/workspace-kernel/projection";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
@@ -54,6 +64,13 @@ const ViewDocumentFields = {
   lifecycleState: Schema.Literals(["active", "deprecated", "archived"] as const),
   archival: Schema.NullOr(ArchivalViewSchema),
   deprecation: Schema.NullOr(DeprecationViewSchema),
+  hook: Schema.optionalKey(
+    Schema.Struct({
+      manifest: HookManifestSchema,
+      evidence: Schema.Literal("published-static-only"),
+      agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
+    }),
+  ),
 } satisfies Schema.Struct.Fields;
 
 export const ViewDocumentSchema = Schema.Struct(ViewDocumentFields);
@@ -255,6 +272,10 @@ export interface ReadPublishedExtensionRequest {
   readonly parts: ExtensionFqnParts;
   readonly targetRegistry: ViewTargetRegistry;
   readonly field: Option.Option<string>;
+  readonly hookContext?: {
+    readonly scope: "project" | "user";
+    readonly agents: ReadonlyArray<string>;
+  };
 }
 
 export const ViewExtension = {
@@ -274,6 +295,91 @@ export const ViewExtension = {
       });
     }
     const document = toDocument(index.value, index.value.visibility ?? "public");
+    const latest = index.value.versions[0];
+    if (index.value.type === "hook" && latest !== undefined && Option.isNone(request.field)) {
+      const { archive } = yield* client.getExtensionPackage({
+        owner: index.value.owner,
+        type: "hook",
+        name: index.value.name,
+        exact: {
+          version: latest.version,
+          integrity: latest.integrity,
+          publisherBindingId: index.value.publisherBindingId,
+        },
+        usagePurpose: "verification",
+      });
+      if ((yield* computeIntegrity(archive)) !== latest.integrity)
+        return yield* new PublishedMetadataUnavailable({
+          reason: "field-unavailable",
+          detail: "Published Hook archive integrity does not match its selected version.",
+        });
+      const normalized = yield* normalizePublishInput({
+        declaredIdentity: {
+          owner: index.value.owner,
+          type: "hook",
+          name: index.value.name,
+          version: latest.version,
+        },
+        archive: { archiveBytes: archive, archiveContentType: "application/zip" },
+      }).pipe(
+        Effect.mapError(
+          () =>
+            new PublishedMetadataUnavailable({
+              reason: "field-unavailable",
+              detail: "Published Hook archive does not contain a valid native Hook package.",
+            }),
+        ),
+      );
+      const manifest = yield* Schema.decodeUnknownEffect(HookManifestSchema)(
+        normalized.manifest.raw,
+        { onExcessProperty: "error" },
+      ).pipe(
+        Effect.mapError(
+          () =>
+            new PublishedMetadataUnavailable({
+              reason: "field-unavailable",
+              detail: "Published Hook manifest is invalid.",
+            }),
+        ),
+      );
+      const scope = request.hookContext?.scope ?? "project";
+      const agentOutcomes = (request.hookContext?.agents ?? []).map((id) => {
+        if (!isConfigurableAgentId(id))
+          return {
+            extensionType: "hook" as const,
+            name: manifest.name,
+            agentId: id,
+            outcome: "blocked" as const,
+            reasonCode: "unknown-agent",
+            reason: "Configured agent has no supported native Hook writer.",
+          };
+        const agent = agentById(id);
+        const hook = agent.capabilities.hook;
+        const writer = hook.axm.writer;
+        const nativeLocation =
+          writer !== null && "locations" in hook.native
+            ? hook.native.locations.find(
+                (candidate) =>
+                  candidate.scope === scope && writer.locationIds.includes(candidate.id),
+              )
+            : undefined;
+        return evaluateHookAgentOutcome({
+          agent,
+          manifest,
+          target: nativeLocation === undefined ? {} : { nativePath: nativeLocation.path },
+          scope,
+          host: { platform: platform() },
+          state: "projected",
+        });
+      });
+      return {
+        outcome: "document",
+        document: {
+          ...document,
+          hook: { manifest, evidence: "published-static-only", agentOutcomes },
+        },
+      } satisfies ViewExtensionResult;
+    }
     if (Option.isNone(request.field)) {
       return { outcome: "document", document } satisfies ViewExtensionResult;
     }

@@ -363,7 +363,21 @@ describe("new intent and precise withdrawal across CLI processes", () => {
               ? { description: "Context helper", core: { instructions: "src/context.md" } }
               : {}),
             ...(kind === "hook"
-              ? { runtime: "bash", entrypoint: "src/hook.sh", bindings: [{ on: "session.start" }] }
+              ? {
+                  implementations: [
+                    {
+                      id: "claude",
+                      protocol: "claude-code",
+                      bindings: [
+                        {
+                          id: "start",
+                          event: "SessionStart",
+                          handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+                        },
+                      ],
+                    },
+                  ],
+                }
               : {}),
             ...(kind === "knowledge"
               ? {

@@ -84,7 +84,7 @@ shell-like formats and explicitly allowed basenames use `#`. AXM refuses
 unknown extensions and JSON-like dotfiles because guessing a comment syntax
 could corrupt user data.
 
-The closed region vocabulary is `rules`, `knowledge`, `hook-fallbacks`,
+The closed region vocabulary is `rules`, `knowledge`,
 `instruction-aliases`, and `mcp-server:<name>`. Region identity is the
 `region` value alone. That address does not establish the owner: source,
 reference, and scope evidence must match the accepted authority for the unit.
@@ -122,7 +122,7 @@ changes and sync replaces the generated body. A version-1 generated document
 without `gen` has ownership evidence but no currency evidence; sync reconciles
 it once. It does not fall back to body normalization.
 
-Rules, Knowledge discovery, and Hook fallbacks use generated whole-body
+Rules and Knowledge discovery use generated whole-body
 regions. Managed Subagent Markdown and TOML, and instruction copies use generated whole-file banners.
 Instruction alias ignores use a pattern-list region in `.gitignore`. MCP TOML
 uses one keyed fence per server. TOML deliberately remains fenced: replacing

@@ -161,7 +161,7 @@ const instructionsDisableConfig = {
 } as const;
 
 const instructionsAdoptConfig = {
-  region: Argument.Literals("region", ["rules", "knowledge", "hook-fallbacks"]).pipe(
+  region: Argument.Literals("region", ["rules", "knowledge"]).pipe(
     Argument.withDescription("Exact managed region to adopt"),
   ),
   fileName: Flag.String("file").pipe(

@@ -1275,6 +1275,14 @@
           }
         },
         {
+          "name": "configuration",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
           "name": "all",
           "rawHelp": {
             "aliases": [],
@@ -1381,6 +1389,10 @@
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["flag:configuration"],
+          "requirements": ["extensions/hooks/resolve-typed-consumer-configuration"]
         }
       ]
     },
@@ -1427,10 +1439,18 @@
           }
         },
         {
-          "name": "event",
+          "name": "protocol",
           "rawHelp": {
             "aliases": [],
             "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "event",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
             "required": false
           }
         },
@@ -1466,7 +1486,7 @@
         {
           "parameters": ["argument:name"],
           "requirements": [
-            "cli/hooks/new/creates-enabled-workspace-content",
+            "cli/hooks/new/creates-inactive-workspace-content",
             "cli/creation-refuses-existing-content",
             "cli/authoring-uses-project-workspace"
           ],
@@ -1483,17 +1503,21 @@
         },
         {
           "parameters": ["flag:runtime"],
-          "requirements": ["cli/hooks/new/creates-enabled-workspace-content"]
+          "requirements": ["cli/hooks/new/creates-inactive-workspace-content"]
         },
         {
           "parameters": ["flag:event"],
-          "requirements": ["cli/hooks/new/creates-enabled-workspace-content"]
+          "requirements": ["cli/hooks/new/creates-inactive-workspace-content"]
         },
         {
           "parameters": ["flag:matcher"],
-          "requirements": ["cli/hooks/new/creates-enabled-workspace-content"],
+          "requirements": ["cli/hooks/new/creates-inactive-workspace-content"],
           "when": "Raw native matcher semantics depend on the selected event.",
           "openTopics": ["hook-matchers"]
+        },
+        {
+          "parameters": ["flag:protocol"],
+          "requirements": ["cli/hooks/new/creates-inactive-workspace-content"]
         }
       ]
     },
@@ -9784,6 +9808,228 @@
         {
           "parameters": ["flag:preview"],
           "requirements": ["cli/skills/handoff/preview-is-pure"]
+        }
+      ]
+    },
+    "hooks import": {
+      "flags": [
+        {
+          "name": "protocol",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": true
+          }
+        },
+        {
+          "name": "config",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "resource",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "source",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        },
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": [
+            "argument:source",
+            "argument:extension",
+            "flag:protocol",
+            "flag:config",
+            "flag:resource"
+          ],
+          "requirements": ["cli/hooks/import/preserves-native-source"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/hooks/import/preview-is-pure"]
+        }
+      ]
+    },
+    "hooks export": {
+      "flags": [
+        {
+          "name": "implementation",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "directory",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        },
+        {
+          "name": "destination",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:directory", "argument:destination", "flag:implementation"],
+          "requirements": ["cli/hooks/export/creates-safe-native-bundle"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/hooks/export/preview-is-pure"]
+        }
+      ]
+    },
+    "hooks configure": {
+      "flags": [
+        {
+          "name": "configuration",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:name", "flag:configuration"],
+          "requirements": ["cli/hooks/configure/preserves-acquisition-and-package-content"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/hooks/configure/preview-is-pure"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        }
+      ]
+    },
+    "hooks test": {
+      "flags": [
+        {
+          "name": "configuration",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "fixture",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "directory",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:directory", "flag:fixture", "flag:configuration"],
+          "requirements": ["cli/hooks/test/executes-declared-fixtures"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
         }
       ]
     }

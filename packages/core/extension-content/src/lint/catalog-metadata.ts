@@ -180,18 +180,12 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: bothViews,
   },
   {
-    id: "hook/decision-portability",
-    defaultSeverity: "warning",
+    id: "hook/native-bindings-supported",
+    defaultSeverity: "error",
     group: "hook",
     views: bothViews,
   },
-  {
-    id: "hook/matcher-raw-portability",
-    defaultSeverity: "warning",
-    group: "hook",
-    views: bothViews,
-  },
-  { id: "hook/entrypoint-exists", defaultSeverity: "error", group: "hook", views: bothViews },
+  { id: "hook/referenced-files-exist", defaultSeverity: "error", group: "hook", views: bothViews },
   {
     id: "hook/standalone-declaration-valid",
     defaultSeverity: "warning",

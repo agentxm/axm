@@ -63,7 +63,7 @@ import {
   type FqnInvalidError,
 } from "@agentxm/extension-model/unstable/extensions";
 import type {
-  HookEvent,
+  HookImplementation,
   HookRuntime,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import {
@@ -158,7 +158,8 @@ export interface CreateRuleRequest extends CreateRequestBase {
 export interface CreateHookRequest extends CreateRequestBase {
   readonly type: "hook";
   readonly runtime: HookRuntime;
-  readonly event: HookEvent;
+  readonly protocol: HookImplementation["protocol"];
+  readonly event: string;
   readonly matcher: Option.Option<string>;
 }
 export interface CreateKnowledgeRequest extends CreateRequestBase {
@@ -300,6 +301,7 @@ const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredSc
         name: request.name,
         owner,
         runtime: request.runtime,
+        protocol: request.protocol,
         event: request.event,
         matcher: request.matcher,
       });
@@ -625,7 +627,7 @@ export const prepareCreateExtension: (
       return yield* preflightAuthoredNativeProjection({
         identity: { type: request.type, owner, name: extensionName },
         packageRoot: stagedPackage,
-        enabled: true,
+        enabled: request.type !== "hook",
       });
     }),
   );
@@ -765,21 +767,23 @@ export const prepareCreateExtension: (
         });
       case "hook": {
         const hook = yield* HookManager;
-        return authoredStep(hook, {
+        return authoredPackageStep(hook, {
           ...common,
-          ref: {
-            ...sourceRef,
-            type: "hook",
-            source: { ...sourceRef.source, extensionType: "hook" as const },
-            hook: { name: extensionName },
-          },
+          enabled: false,
+          finalizeAuthored: authoredDeclaration(
+            { settings, settingsWriter, accepted, desiredStateWriter },
+            "hook",
+            name,
+          ).declare({ enabled: false }),
+          location,
+          nativeInsertionEligible: false,
           target: { type: "hook", name },
           buildArtifact: ({ change }) =>
             authoredNativeArtifact({
               type: "hook",
               artifact: plannedArtifact,
               change,
-              projected: true,
+              projected: false,
             }),
         });
       }

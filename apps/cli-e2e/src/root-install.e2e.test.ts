@@ -588,7 +588,6 @@ describe("axm install", () => {
       const initialSettings = readSettings(workspace.path);
       initialSettings.lint = {
         rules: {
-          "hook/matcher-raw-portability": "off",
           "workspace/agents-detected-declared": "off",
         },
       };

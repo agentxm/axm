@@ -3376,7 +3376,7 @@
           {
             "name": "new",
             "aliases": [],
-            "description": "Create a new hook in the project-workspace authoring root",
+            "description": "Create an inactive project-workspace native hook with executable example fixtures",
             "arguments": [
               {
                 "name": "name",
@@ -3403,27 +3403,36 @@
                 "choices": [{ "value": "bash" }, { "value": "node" }, { "value": "python" }]
               },
               {
-                "name": "event",
+                "name": "protocol",
                 "aliases": [],
                 "type": "choice",
                 "required": false,
-                "description": "Canonical hook event to bind to",
+                "description": "Native host protocol implemented by this example",
                 "choices": [
-                  { "value": "tool.pre" },
-                  { "value": "tool.post" },
-                  { "value": "prompt.submit" },
-                  { "value": "session.start" },
-                  { "value": "turn.end" },
-                  { "value": "subagent.stop" },
-                  { "value": "compaction.pre" }
+                  { "value": "claude-code" },
+                  { "value": "codex" },
+                  { "value": "cursor" },
+                  { "value": "gemini-cli" },
+                  { "value": "qwen-code" },
+                  { "value": "qoder" },
+                  { "value": "codebuddy" },
+                  { "value": "augment" },
+                  { "value": "devin" }
                 ]
+              },
+              {
+                "name": "event",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Exact native event name, such as SessionStart or sessionStart"
               },
               {
                 "name": "matcher",
                 "aliases": [],
                 "type": "string",
                 "required": false,
-                "description": "Raw native matcher for tool.pre/tool.post (e.g., Write|Edit)"
+                "description": "Native matcher supported by the selected protocol and event"
               },
               {
                 "name": "preview",
@@ -3437,12 +3446,213 @@
             "examples": [
               { "command": "axm hooks new tool-audit", "description": "Scaffold a new hook" },
               {
-                "command": "axm hooks new tool-audit --event tool.post --matcher Bash",
+                "command": "axm hooks new tool-audit --protocol claude-code --event PostToolUse --matcher Bash",
                 "description": "Bind to a specific event and tool matcher"
               },
               {
                 "command": "axm hooks new tool-audit --owner @acme --runtime python",
                 "description": "Create under a specific owner with a Python entrypoint"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "test",
+            "aliases": [],
+            "description": "Execute declared fixtures and record evidence; execution is not sandboxed",
+            "arguments": [
+              {
+                "name": "directory",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Hook package directory containing hook.json; executes package code"
+              }
+            ],
+            "options": [
+              {
+                "name": "configuration",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Typed consumer values as JSON; use {env: NAME} for secrets"
+              },
+              {
+                "name": "fixture",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Run only named fixtures; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Configuration scope: project (default) or user",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm hooks test hooks/tool-audit",
+                "description": "Execute a package's declared fixtures"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "configure",
+            "aliases": [],
+            "description": "Configure an installed Hook without changing package content or acquisition intent",
+            "arguments": [{ "name": "name", "aliases": [], "type": "string", "required": true }],
+            "options": [
+              {
+                "name": "configuration",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Replace consumer values with this JSON object; omitted keys use publisher defaults"
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Validate values and describe native changes without applying"
+              },
+              {
+                "name": "scope",
+                "aliases": [],
+                "type": "choice",
+                "required": false,
+                "description": "Configuration scope: project (default) or user",
+                "choices": [{ "value": "project" }, { "value": "user" }]
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm hooks configure tool-audit --configuration '{}' --preview",
+                "description": "Preview configuration using publisher defaults"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "import",
+            "aliases": [],
+            "description": "Import a native command bundle as an inactive Hook; original registrations remain",
+            "arguments": [
+              {
+                "name": "source",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Local native bundle directory"
+              },
+              {
+                "name": "extension",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "New managed Hook FQN"
+              }
+            ],
+            "options": [
+              {
+                "name": "protocol",
+                "aliases": [],
+                "type": "choice",
+                "required": true,
+                "description": "Native protocol of the source definitions",
+                "choices": [
+                  { "value": "claude-code" },
+                  { "value": "codex" },
+                  { "value": "cursor" },
+                  { "value": "gemini-cli" },
+                  { "value": "qwen-code" },
+                  { "value": "qoder" },
+                  { "value": "codebuddy" },
+                  { "value": "augment" },
+                  { "value": "devin" }
+                ]
+              },
+              {
+                "name": "config",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "JSON file relative to the bundle directory"
+              },
+              {
+                "name": "resource",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Additional package-relative resource file; repeatable",
+                "variadic": { "min": 0 }
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Validate and preview import without creating a package"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm hooks import ./native-hooks @me/hooks/audit --protocol claude-code --preview",
+                "description": "Preview a nonexecuting native bundle import"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "export",
+            "aliases": [],
+            "description": "Export a self-contained native command bundle without activation",
+            "arguments": [
+              {
+                "name": "directory",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Hook package directory"
+              },
+              {
+                "name": "destination",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "New directory under an existing workspace parent"
+              }
+            ],
+            "options": [
+              {
+                "name": "implementation",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Exact implementation ID to export"
+              },
+              {
+                "name": "preview",
+                "aliases": [],
+                "type": "boolean",
+                "required": false,
+                "description": "Validate and preview the bundle without writing files"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm hooks export hooks/audit ./native-audit --implementation native --preview",
+                "description": "Preview a native bundle in a new directory"
               }
             ],
             "subcommands": []
@@ -3553,6 +3763,13 @@
                 "required": false,
                 "description": "Select a hook by name or glob; repeatable",
                 "variadic": { "min": 0 }
+              },
+              {
+                "name": "configuration",
+                "aliases": [],
+                "type": "string",
+                "required": false,
+                "description": "Consumer values for one selected Hook as JSON"
               },
               {
                 "name": "all",
@@ -7377,11 +7594,7 @@
                 "type": "choice",
                 "required": true,
                 "description": "Exact managed region to adopt",
-                "choices": [
-                  { "value": "rules" },
-                  { "value": "knowledge" },
-                  { "value": "hook-fallbacks" }
-                ]
+                "choices": [{ "value": "rules" }, { "value": "knowledge" }]
               }
             ],
             "options": [

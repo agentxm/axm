@@ -5,20 +5,32 @@
   "name": "tool-audit",
   "version": "0.1.0",
   "description": "Blocks writes that look like secrets.",
-  "runtime": "bash",
-  "entrypoint": "src/hook.sh",
-  "bindings": [
-    {
-      "on": "tool.pre",
-      "match": { "tools": ["file.write", "file.edit"] },
-      "requires": { "decision": { "kind": "block" } }
-    }
-  ],
-  "timeoutMs": 5000,
   "capabilities": {
     "network": false,
     "filesystemWrite": false,
     "exec": [],
     "env": []
-  }
+  },
+  "implementations": [
+    {
+      "id": "claude",
+      "protocol": "claude-code",
+      "bindings": [
+        {
+          "id": "protect-secrets",
+          "event": "PreToolUse",
+          "matcher": "Write|Edit",
+          "requires": {
+            "outcomes": ["deny"]
+          },
+          "handler": {
+            "type": "command",
+            "runtime": "bash",
+            "entrypoint": "src/hook.sh",
+            "timeoutMs": 5000
+          }
+        }
+      ]
+    }
+  ]
 }

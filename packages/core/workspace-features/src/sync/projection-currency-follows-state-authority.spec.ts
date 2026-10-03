@@ -293,12 +293,12 @@ describe("Generated document projection currency", () => {
   }
 
   it.effect(
-    "previews the root instruction copy created by a Hook fallback beside a nested source",
+    "projects native Hooks without inventing a root instruction source beside nested guidance",
     () => {
       const workspace = makeSyncFixture({
         settings: {
           owner: "@acme",
-          agents: ["claude-code", "windsurf"],
+          agents: ["claude-code"],
           instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
           hooks: { review: "./vendor/review" },
         },
@@ -311,43 +311,30 @@ describe("Generated document projection currency", () => {
           Effect.gen(function* () {
             const before = workspace.snapshot();
             const planned = expectResolved(yield* previewSync());
-            expect(operationNativeLocations(planned)).toContainEqual(
-              expect.objectContaining({
-                address: {
-                  kind: "region",
-                  path: nodePath.join(workspace.root, "AGENTS.md"),
-                  region: "hook-fallbacks",
-                },
-                ownership: "absent",
-                state: "created",
-              }),
-            );
-            expect(operationNativeLocations(planned)).toContainEqual(
-              expect.objectContaining({
-                address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
-                ownership: "absent",
-                state: "created",
-                configuredConsumers: ["claude-code"],
-              }),
-            );
+            expect(
+              operationNativeLocations(planned).some(
+                (unit) =>
+                  unit.address.path === nodePath.join(workspace.root, "AGENTS.md") &&
+                  (unit.state === "created" || unit.state === "updated"),
+              ),
+            ).toBe(false);
             expect(workspace.snapshot()).toEqual(before);
-            expect(workspace.exists("AGENTS.md")).toBe(false);
-            expect(workspace.exists("CLAUDE.md")).toBe(false);
             const applied = expectResolved(yield* applySync());
             expect(
               applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
             ).toBeUndefined();
             expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(workspace.readFile("AGENTS.md")).toContain("region=hook-fallbacks");
-            expect(workspace.readFile("CLAUDE.md")).toContain(workspace.readFile("AGENTS.md"));
-            expect(fs.lstatSync(nodePath.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
-              false,
-            );
+            expect(workspace.readFile(".claude/settings.json")).toContain("PreToolUse");
+            expect(workspace.exists("AGENTS.md")).toBe(false);
+            expect(workspace.exists("CLAUDE.md")).toBe(false);
+            expect(workspace.readFile("docs/AGENTS.md")).toBe("Unrelated nested guidance.\n");
+            expect(workspace.readFile("docs/CLAUDE.md")).toContain("Unrelated nested guidance.");
           }),
         )
         .pipe(Effect.provide(copyPlatform));
     },
-    { timeout: FIXTURE_TIMEOUT },
+    // This full preview-plus-apply filesystem scenario measured 25 seconds on a shared host.
+    { timeout: 60_000 },
   );
 
   it.effect(

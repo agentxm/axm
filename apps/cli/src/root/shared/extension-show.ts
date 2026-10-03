@@ -138,6 +138,70 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
           { caption: "Agent placements" },
         )
       : []),
+    ...result.agents.flatMap((agent) => {
+      const hook = agent.hook;
+      if (hook === undefined) return [];
+      return [
+        ...headlineDoc("neutral", `${agent.agent}: ${hook.implementationId}`),
+        ...fieldsDoc(
+          {
+            protocol: hook.protocol,
+            runtime: hook.runtimeAvailability,
+            invocation: hook.nativeInvocation,
+            conditions: hook.conditions.join("; ") || ABSENT,
+            evidence: `${hook.fixtureEvidence.state}: ${hook.fixtureEvidence.reason}`,
+          },
+          [
+            { label: "Protocol", value: (row) => row.protocol },
+            { label: "Runtime availability", value: (row) => row.runtime },
+            { label: "Native invocation", value: (row) => row.invocation },
+            { label: "Conditions", value: (row) => row.conditions },
+            { label: "Fixture evidence", value: (row) => row.evidence },
+          ],
+        ),
+        ...tableDoc(hook.bindings, [
+          { header: "Binding", value: (row) => row.id },
+          { header: "Event", value: (row) => row.event },
+          { header: "Matcher", value: (row) => row.matcher ?? ABSENT },
+          { header: "Runtime", value: (row) => row.runtime },
+          { header: "Entrypoint", value: (row) => row.entrypoint },
+          {
+            header: "Required outcomes",
+            value: (row) => row.requiredOutcomes.join(", ") || ABSENT,
+          },
+          {
+            header: "Required operations",
+            value: (row) => row.requiredOperations.join(", ") || ABSENT,
+          },
+        ]),
+        ...fieldsDoc(hook.configuration, [{ label: "Configuration", value: (row) => row.status }]),
+        ...tableDoc(hook.configuration.fields, [
+          { header: "Setting", value: (row) => row.key },
+          { header: "Source", value: (row) => row.source },
+          {
+            header: "Value",
+            value: (row) =>
+              row.redacted ? "[redacted]" : row.value === null ? ABSENT : JSON.stringify(row.value),
+          },
+        ]),
+        ...tableDoc(hook.configuration.issues, [
+          { header: "Setting", value: (row) => row.key },
+          { header: "Issue", value: (row) => row.message },
+        ]),
+        ...(hook.fixtureEvidence.receipt === undefined
+          ? []
+          : tableDoc(
+              hook.fixtureEvidence.receipt.fixtures,
+              [
+                { header: "Fixture", value: (row) => row.fixture },
+                { header: "Implementation", value: (row) => row.implementation },
+                { header: "Result", value: (row) => row.outcome },
+                { header: "Detail", value: (row) => row.detail },
+              ],
+              { caption: "Recorded fixture execution; native invocation was not observed" },
+            )),
+      ];
+    }),
   ]);
 });
 

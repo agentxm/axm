@@ -2,6 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
+
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { authoringTypes } from "../../test-support/authoring-fixtures.js";
@@ -35,7 +37,15 @@ export const specification = defineSpecification({
 describe("Install guidance for inspected extensions", () => {
   for (const row of authoringTypes)
     it.effect(`${row.type} is offered the ${row.plural} install route`, () => {
-      const workspace = makeReadSpecWorkspace();
+      const registry = row.type === "hook" ? makeFileRegistry() : undefined;
+      registry?.writeHook("example", [{ version: "1.0.0" }]);
+      const workspace = makeReadSpecWorkspace(
+        registry === undefined
+          ? {}
+          : {
+              settings: { sources: [registry.source], defaultRegistry: registry.source.name },
+            },
+      );
       const fqn = `@acme/${row.plural}/example`;
       return workspace.withRegistry(
         Effect.gen(function* () {
@@ -50,7 +60,14 @@ describe("Install guidance for inspected extensions", () => {
           // reader, so the offer is checked against the real command tree.
           const registered = yield* collectCommandPaths();
           expect(registered.has(`axm ${row.plural} install`)).toBe(true);
-        }).pipe(Effect.ensuring(Effect.sync(workspace.cleanup))),
+        }).pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
+              workspace.cleanup();
+              registry?.cleanup();
+            }),
+          ),
+        ),
         () => ({ body: { ...readExtensionIndex, type: row.type, name: "example" } }),
       );
     });

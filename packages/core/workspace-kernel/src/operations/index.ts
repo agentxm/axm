@@ -247,3 +247,11 @@ export {
   InstallSelectionUnavailable,
   type InstallSelectionCandidate,
 } from "./install-selection.js";
+
+export {
+  HookTestResultSchema,
+  HookFixtureResultSchema,
+  HookEvidenceStatusSchema,
+  type HookTestResult,
+  type HookEvidenceStatus,
+} from "./hook-evidence.js";

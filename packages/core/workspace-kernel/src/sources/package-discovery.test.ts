@@ -70,9 +70,19 @@ describe("discoverExtensionPackages", () => {
         type: "hook",
         name: "audit",
         version: "1.0.0",
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
-        bindings: [{ on: "turn.end", requires: { decision: { kind: "block" } } }],
+        implementations: [
+          {
+            id: "claude",
+            protocol: "claude-code",
+            bindings: [
+              {
+                id: "stop",
+                event: "Stop",
+                handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+              },
+            ],
+          },
+        ],
       });
       writeManifest(path.join(tempDir, "knowledge-package"), "knowledge.json", {
         owner: "@acme",

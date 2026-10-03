@@ -265,7 +265,6 @@ describe("extension activation lifecycle", () => {
         agents: ["claude-code"],
         lint: {
           rules: {
-            "hook/matcher-raw-portability": "off",
             "workspace/agents-detected-declared": "off",
             "workspace/configured-but-not-installed": "off",
           },
@@ -278,6 +277,10 @@ describe("extension activation lifecycle", () => {
           cwd: temp.path,
         });
         expect(created.exitCode, `create ${row.type}\n${created.stdout}${created.stderr}`).toBe(0);
+        if (row.type === "hook") {
+          await expectInventoryOutcome(temp.path, row.plural, name, "not-applicable");
+          await runLifecycleMutation(temp.path, [row.plural, "enable", name]);
+        }
       }
       await expectCleanWorkspace(temp.path, "initial enabled state");
       for (const row of EXTENSION_TYPE_MATRIX) {

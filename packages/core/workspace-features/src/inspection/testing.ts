@@ -549,9 +549,18 @@ export const authoredExtensionFiles = (
     case "hook":
       return {
         [authoredManifestPath(type, name)]: manifest({
-          runtime: "bash",
-          entrypoint: "src/hook.sh",
-          bindings: [{ on: "tool.pre", matcherRaw: "Write|Edit" }],
+          implementations: ["claude-code", "codex"].map((protocol) => ({
+            id: protocol,
+            protocol,
+            bindings: [
+              {
+                id: "audit",
+                event: "PreToolUse",
+                matcher: "Write|Edit",
+                handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+              },
+            ],
+          })),
         }),
         [`hooks/${name}/src/hook.sh`]: "#!/usr/bin/env bash\nset -euo pipefail\nexit 0\n",
       };

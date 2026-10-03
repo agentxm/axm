@@ -42,6 +42,7 @@ export interface InstallHandlerArgs {
   readonly bindEnv: ReadonlyArray<string>;
   readonly distributionId?: string;
   readonly nativeOauth?: boolean;
+  readonly configuration?: import("@agentxm/extension-model/unstable/hooks/manifest-schema").HookConfigurationValues;
   readonly localName: Option.Option<string>;
   readonly bundled: boolean;
 }
@@ -177,6 +178,7 @@ export const handleInstall = (args: InstallHandlerArgs) =>
         bindEnv: args.bindEnv,
         ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
         ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
+        ...(args.configuration === undefined ? {} : { configuration: args.configuration }),
         nonInteractive,
         planName: Option.isSome(args.type)
           ? `Install ${extensionTypeToPlural[args.type.value]}`

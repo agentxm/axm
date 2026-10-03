@@ -302,20 +302,233 @@ export const cursorAgent = {
           state: "active",
         },
         notes:
-          "Cursor hooks run custom scripts around agent-loop stages. The native hooks.json shape is a direct event-to-command array, not AXM's current grouped command-stdin serializer shape.",
+          "Command handlers use flat event arrays. User handlers run from the Cursor configuration directory; project handlers run from the project root. Runtime execution remains unverified.",
         docs: [],
-        sources: ["https://cursor.com/docs/hooks.md"],
+        sources: ["https://cursor.com/docs/hooks"],
         scopes: ["user", "project"],
-        modeling: "native-unmodeled",
-        locations: [],
-        entryDialect: null,
+        mechanism: ["command-stdin"],
+        locations: [
+          {
+            id: "user",
+            scope: "user",
+            root: "home",
+            path: ".cursor/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["hooks"],
+            gitignored: false,
+            configRootRelativePath: "hooks.json",
+          },
+          {
+            id: "project",
+            scope: "project",
+            root: "project",
+            path: ".cursor/hooks.json",
+            shape: "file",
+            role: "primary",
+            status: "canonical",
+            applicability: {
+              kind: "always",
+            },
+            provenance: {
+              kind: "capability-sources",
+            },
+            format: "json",
+            keyPath: ["hooks"],
+            gitignored: false,
+          },
+        ],
+        events: [
+          {
+            nativeName: "preToolUse",
+            canonical: "tool.pre",
+            matcher: {
+              kind: "regex",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["modify-input"],
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "postToolUse",
+            canonical: "tool.post",
+            matcher: {
+              kind: "regex",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "modify",
+                operations: ["modify-output", "inject-context"],
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "beforeSubmitPrompt",
+            canonical: "prompt.submit",
+            matcher: {
+              kind: "regex",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "sessionStart",
+            canonical: "session.start",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+              {
+                kind: "block",
+                outcomes: ["allow", "deny"],
+              },
+              {
+                kind: "modify",
+                operations: ["inject-context"],
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "stop",
+            canonical: "turn.end",
+            matcher: {
+              kind: "regex",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "subagentStop",
+            canonical: "subagent.stop",
+            matcher: {
+              kind: "regex",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "preCompact",
+            canonical: "compaction.pre",
+            matcher: {
+              kind: "none-imperative",
+              example: null,
+              notes: null,
+            },
+            decision: [
+              {
+                kind: "observe",
+              },
+            ],
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+        ],
+        tools: [
+          {
+            nativeName: "Shell",
+            canonical: "shell.exec",
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "Read",
+            canonical: "file.read",
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+          {
+            nativeName: "Write",
+            canonical: "file.write",
+            sources: ["https://cursor.com/docs/hooks"],
+            lastVerified: "2026-10-02",
+          },
+        ],
+        entryDialect: {
+          serializer: "flat-command-stdin",
+          matcherKind: "regex",
+          matcherSerialization: "bare",
+          timeoutSerialization: "seconds",
+          commandNameSerialization: "omit",
+        },
+        review: {
+          reviewedAt: "2026-10-02",
+          sources: ["https://cursor.com/docs/hooks"],
+          claimScope:
+            "Documented native command event grammar, native decisions, and project/user locations",
+          conditions: [],
+          limitations: [
+            "AXM projects command handlers only. The preToolUse ask response is not enforced and is not advertised. Cloud profiles do not load user hooks or sessionStart. No native host execution was observed.",
+          ],
+        },
       },
       axm: {
-        status: "unsupported",
-        writer: null,
+        status: "supported",
+        writer: {
+          locationIds: ["project", "user"],
+          eventMap: "native.events",
+        },
         lastVerified: null,
-        reason:
-          "Cursor's hooks.json maps each event to a flat command array; AXM's only hook serializer emits grouped command-stdin entries, so a writer needs a new serializer rather than catalog data.",
       },
     },
   },

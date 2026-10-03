@@ -36,9 +36,19 @@ const manifests = {
     type: "hook",
     name: "audit",
     version: "1.0.0",
-    runtime: "bash",
-    entrypoint: "src/hook.sh",
-    bindings: [{ on: "turn.end", requires: { decision: { kind: "block" } } }],
+    implementations: [
+      {
+        id: "claude",
+        protocol: "claude-code",
+        bindings: [
+          {
+            id: "audit",
+            event: "Stop",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+    ],
   },
   knowledge: {
     owner: "@acme",
@@ -51,6 +61,34 @@ const manifests = {
 } satisfies Record<ExtensionType, object>;
 
 layer(NodeServices.layer, { excludeTestServices: true })("readExtensionManifest", (it) => {
+  it.effect.each([
+    { ...manifests.hook, fallback: "auto" },
+    {
+      ...manifests.hook,
+      implementations: [
+        {
+          id: "claude",
+          protocol: "claude-code",
+          bindings: [
+            {
+              id: "audit",
+              event: "Stop",
+              handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh", async: true },
+            },
+          ],
+        },
+      ],
+    },
+  ])("rejects obsolete or unsupported native Hook fields %#", (manifest) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(path.join(root, "hook.json"), JSON.stringify(manifest));
+      const failure = yield* Effect.flip(readExtensionManifest(root, "hook"));
+      expect(failure.code).toBe("manifest_schema_invalid");
+    }).pipe(Effect.scoped),
+  );
   it.effect("reads and validates every manifest kind", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

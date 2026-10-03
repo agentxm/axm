@@ -115,9 +115,17 @@ export const writeLocalHookPackage = (root: string, fixture: LocalPackageFixture
     name: fixture.name,
     version: fixture.version ?? "1.0.0",
     description,
-    runtime: "bash",
-    entrypoint: "src/hook.sh",
-    bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+    implementations: ["claude-code", "codex"].map((protocol) => ({
+      id: protocol,
+      protocol,
+      bindings: [
+        {
+          id: "audit",
+          event: "PreToolUse",
+          handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+        },
+      ],
+    })),
   });
   writePackageFile(packageRoot, "src/hook.sh", `#!/usr/bin/env bash\necho "${fixture.name}"\n`);
   return packageRoot;

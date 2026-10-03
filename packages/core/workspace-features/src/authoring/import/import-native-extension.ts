@@ -40,6 +40,7 @@ import {
   SkillManager,
   SubagentManager,
   McpServerManager,
+  HookManager,
   type ExtensionManagerFailure,
   type ManagerRequirements,
   type AuthorMaterialization,
@@ -132,6 +133,8 @@ import {
   recoverCanonicalDirectory,
   replaceCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
+import { prepareNativeHookImport, writeNativeHookImport } from "../hooks/interchange.js";
 
 /** The version an imported package starts at. */
 const INITIAL_IMPORT_VERSION = decodeVersionSync("0.1.0");
@@ -141,7 +144,7 @@ const INITIAL_IMPORT_VERSION = decodeVersionSync("0.1.0");
 // -----------------------------------------------------------------------------
 
 /** The extension types native content can be imported as. */
-export type NativeImportType = "skill" | "subagent" | "mcp-server";
+export type NativeImportType = "skill" | "subagent" | "mcp-server" | "hook";
 
 interface ImportRequestBase {
   /** Owner-qualified identity the imported package will carry. */
@@ -160,6 +163,16 @@ export interface ImportNativeSubagentRequest extends ImportRequestBase {
   readonly type: "subagent";
   readonly source: string;
   readonly sourceAgent?: AgentId;
+}
+
+export interface ImportNativeHookRequest {
+  readonly type: "hook";
+  readonly target: string;
+  readonly source: string;
+  readonly protocol: ConfigurableAgentId;
+  readonly configPath?: string;
+  readonly resources?: ReadonlyArray<string>;
+  readonly enable: false;
 }
 
 /** One native MCP connection the workspace discovered, in package terms. */
@@ -199,7 +212,10 @@ export interface ImportNativeMcpServerRequest extends ImportRequestBase {
 
 /** What a person asked to import. */
 export type ImportNativeExtensionRequest =
-  ImportNativeSkillRequest | ImportNativeSubagentRequest | ImportNativeMcpServerRequest;
+  | ImportNativeSkillRequest
+  | ImportNativeSubagentRequest
+  | ImportNativeMcpServerRequest
+  | ImportNativeHookRequest;
 
 // -----------------------------------------------------------------------------
 // Candidate
@@ -211,6 +227,7 @@ export type ImportNativeExtensionRequirements =
   | ManagerRequirements
   | RecipeRequirements
   | McpServerManager
+  | HookManager
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsReader
@@ -275,6 +292,7 @@ export type PrepareImportNativeExtensionRequirements =
   | SkillManager
   | SubagentManager
   | McpServerManager
+  | HookManager
   | SourceHostProviders
   | WorkspaceCatalog
   | ConfiguredAgentOutcomesProvider;
@@ -592,6 +610,49 @@ const mcpConversion = Effect.fn("ImportNativeExtension.mcpConversion")(function*
   } satisfies SettledConversion;
 });
 
+const hookConversion = Effect.fn("ImportNativeExtension.hookConversion")(function* (
+  request: ImportNativeHookRequest,
+  target: ExtensionFqnParts,
+) {
+  const bundle = yield* prepareNativeHookImport({
+    source: request.source,
+    target,
+    protocol: request.protocol,
+    ...(request.configPath === undefined ? {} : { configPath: request.configPath }),
+    ...(request.resources === undefined ? {} : { resources: request.resources }),
+  }).pipe(
+    Effect.mapError((cause) =>
+      cause instanceof AuthoringFailed
+        ? cause
+        : new AuthoringFailed({
+            category: "validation",
+            detail: "Native Hook bundle could not be read",
+            cause,
+          }),
+    ),
+  );
+  return {
+    origin: request.source,
+    mcpPreferences: {},
+    materialPaths: [],
+    nativeTargets: [],
+    requiredFiles: ["hook.json", ...bundle.files.map((file) => file.path)],
+    populate: (publicationPath: string) =>
+      writeNativeHookImport(publicationPath, bundle).pipe(
+        Effect.mapError(
+          (cause) =>
+            new AuthoringFailed({
+              category: "internal",
+              detail: "Native Hook import could not be staged",
+              cause,
+            }),
+        ),
+      ),
+    validate: undefined,
+    retireNative: Effect.void,
+  } satisfies SettledConversion;
+});
+
 // -----------------------------------------------------------------------------
 // prepare
 // -----------------------------------------------------------------------------
@@ -705,16 +766,20 @@ export const prepareImportNativeExtension: (
           name,
           workspaceRoot: location.baseDir,
         })
-      : yield* nativeConversion({
-          request,
-          target,
-          ...(updateExisting ? { existingPackagePath: targetDir } : {}),
-        });
+      : request.type === "hook"
+        ? yield* hookConversion(request, target)
+        : yield* nativeConversion({
+            request,
+            target,
+            ...(updateExisting ? { existingPackagePath: targetDir } : {}),
+          });
 
   const enabled =
-    request.type === "mcp-server" || (request.type === "subagent" && !updateExisting)
-      ? request.enable
-      : request.enable || Option.getOrElse(current.enabled, () => false);
+    request.type === "hook"
+      ? false
+      : request.type === "mcp-server" || (request.type === "subagent" && !updateExisting)
+        ? request.enable
+        : request.enable || Option.getOrElse(current.enabled, () => false);
   const mcpPreferences =
     request.type === "mcp-server" ? settled.mcpPreferences : current.mcpPreferences;
   const nativePreflight =
@@ -753,7 +818,10 @@ export const prepareImportNativeExtension: (
     ...(settled.nativeTargets.length === 0 ? {} : { transactionTargets: settled.nativeTargets }),
     versionRange: Option.none<string>(),
     label: `Import ${settled.origin} -> ${fqn}`,
-    message: `Imported ${fqn}`,
+    message:
+      request.type === "hook"
+        ? `Imported ${fqn} inactive. Original registrations remain; enabling this package may execute the same hook twice.`
+        : `Imported ${fqn}`,
     enabled,
     nativeInsertionEligible: false,
     allowConfiguredSourceTransition: request.type !== "subagent",
@@ -840,6 +908,8 @@ export const prepareImportNativeExtension: (
                 : [],
             }),
         });
+      case "hook":
+        return importStep(yield* HookManager, { ...common, target: { type: "hook", name } });
     }
   });
 

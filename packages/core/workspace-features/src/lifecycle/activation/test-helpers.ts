@@ -47,9 +47,18 @@ const manifestFor = (type: ExtensionType, name: string): Readonly<Record<string,
       return {
         ...base,
         description: `The ${name} hook.`,
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
-        bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+        implementations: ["claude-code", "codex"].map((protocol) => ({
+          id: protocol,
+          protocol,
+          bindings: [
+            {
+              id: "audit",
+              event: "PreToolUse",
+              matcher: "Write|Edit",
+              handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+            },
+          ],
+        })),
       };
     case "subagent":
       return {

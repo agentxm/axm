@@ -47,7 +47,7 @@ All commands accept `--scope project` (default) or `--scope user`:
 - `axm instructions disable` — remove current AXM-owned aliases and the managed
   `.gitignore` block while preserving the canonical source and authored prose,
   then set `instructionFiles: false`. Add `--preview` to inspect the plan.
-- `axm instructions adopt <rules|knowledge|hook-fallbacks> [--file AGENTS.md]`
+- `axm instructions adopt <rules|knowledge> [--file AGENTS.md]`
   — explicitly accept ownership of one existing contributor region. Add
   `--preview` to inspect the transfer without writing.
 
@@ -74,7 +74,6 @@ Enabled extension capabilities may contribute independently managed content:
 - Rules contribute ordered behavior guidance.
 - Knowledge contributes a compact discovery table for enabled bundles admitted
   by the Knowledge-wide switch and each bundle's manifest/workspace policy.
-- Hooks may contribute an explicitly supported instruction fallback.
 
 Each region remains owned by its contributor. Global instruction-file
 management owns propagation and aliases; it does not own those extensions or

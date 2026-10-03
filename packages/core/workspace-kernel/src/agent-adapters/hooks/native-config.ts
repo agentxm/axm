@@ -31,8 +31,9 @@ const hooksForOwner = (
   const selected: Record<string, unknown> = {};
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) continue;
-    const matching = groups.flatMap((group) => {
-      if (!isRecord(group) || !Array.isArray(group["hooks"])) return [];
+    const matching = groups.flatMap((group): ReadonlyArray<Record<string, unknown>> => {
+      if (!isRecord(group)) return [];
+      if (!Array.isArray(group["hooks"])) return isOwnedHookEntry(group, [owner]) ? [group] : [];
       const entries = group["hooks"].filter((entry) => isOwnedHookEntry(entry, [owner]));
       return entries.length === 0 ? [] : [{ ...group, hooks: entries }];
     });
@@ -52,6 +53,7 @@ export interface NativeHookConfigArgs {
   readonly configuredAgentIds?: ReadonlyArray<string>;
   readonly settingsKey: string;
   readonly format: "json" | "jsonc";
+  readonly configVersion?: 1;
   readonly rendered: Readonly<Record<string, unknown>>;
   readonly ownership: ReadonlyArray<HookOwnership>;
   /** Captured intent/route transition authority, never inferred from missing native bytes. */
@@ -114,6 +116,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         { ...args.rendered },
         args.ownership,
         args.format,
+        args.configVersion,
       );
       const readers = yield* preflightNativeConfigReaders({
         workspaceRoot: args.workspaceRoot,
@@ -159,6 +162,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
             hooksForOwner(args.rendered, owner),
             [owner],
             args.format,
+            args.configVersion,
           )) === raw
         ) {
           observedNames.push(owner.name);
@@ -229,6 +233,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
             ownerHooks,
             [owner],
             args.format,
+            args.configVersion,
           );
           if (next === oldRaw) continue;
           const unit = unitFor(owner);
@@ -277,6 +282,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
           { ...args.rendered },
           args.ownership,
           args.format,
+          args.configVersion,
         );
         if (remaining !== Option.getOrElse(after, () => ""))
           return yield* new HookConfigInvalid({

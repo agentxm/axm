@@ -189,6 +189,42 @@ const defineResultFamily = (input: {
   documentation: ["docs/architecture/commands/output.md"],
 });
 
+const hookTestFamily = defineResultFamily({
+  id: "hook-fixture-execution",
+  liveness: "progress",
+  humanOutputKind: "mutation",
+  humanCoverage: [
+    {
+      file: "apps/cli/src/root/hooks/test.test.ts",
+      scenarios: ["passing", "failing", "native evidence limitation"],
+    },
+  ],
+  schemaNames: ["HookTestResultSchema"],
+  requiredTopLevelKeys: [
+    "kind",
+    "package",
+    "version",
+    "contentHash",
+    "configurationHash",
+    "startedAt",
+    "completedAt",
+    "cwd",
+    "scope",
+    "platform",
+    "environment",
+    "environmentFreshness",
+    "nativeInvocation",
+    "sandboxed",
+    "fixtures",
+    "passed",
+    "receiptPath",
+  ],
+  scenarios: ["passing fixtures", "failing fixtures"],
+  rationale:
+    "Explicit package execution records historical fixture evidence without claiming native host invocation.",
+  commandCoverage: ["apps/cli/src/root/hooks/test.test.ts"],
+});
+
 const agentsListFamily = defineResultFamily({
   id: "agents-list",
   liveness: "progress",
@@ -928,6 +964,9 @@ const planPaths = [
   "axm demote",
   "axm fork",
   "axm hooks disable",
+  "axm hooks configure",
+  "axm hooks import",
+  "axm hooks export",
   "axm hooks enable",
   "axm hooks install",
   "axm hooks new",
@@ -1010,6 +1049,7 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm visibility"]),
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
+  ...rowsFor(hookTestFamily, ["axm hooks test"]),
   ...rowsFor(registryTransitionFamily, ["axm yank", "axm unyank"]),
   ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
   ...rowsFor(archivalTransitionFamily, ["axm archive", "axm unarchive"]),

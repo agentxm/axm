@@ -7,7 +7,6 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   HookManifestSchema,
-  type HookEvent,
   type HookRuntime,
 } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 
@@ -20,10 +19,10 @@ import {
 } from "../../test-support/authoring-workspace.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/hooks/new/creates-enabled-workspace-content",
+  requirement: "cli/hooks/new/creates-inactive-workspace-content",
   title: "Creating a hook records editable workspace content",
   statement:
-    "When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested event with a matcher only where the event is tool-scoped, register it as enabled workspace-authored content, and project it into the agent hook configurations.",
+    "When a person creates a hook, AXM shall create its manifest and a runnable starter entrypoint for the requested runtime in the workspace authoring directory, bind it to the requested native protocol and event with its explicit matcher, register it as inactive workspace-authored content with applicable and nonapplicable fixtures, and leave native agent configurations unchanged.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -32,7 +31,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.",
   derivedFrom: ["packages/core/workspace-features/src/authoring/create/scaffolds/hook.ts"],
-  supersedes: [],
+  supersedes: ["cli/hooks/new/creates-enabled-workspace-content"],
   assumptions: [],
   openQuestions: [],
 });
@@ -41,7 +40,7 @@ const createHook = (
   target: AuthoringWorkspace,
   hook: {
     readonly runtime: HookRuntime;
-    readonly event: HookEvent;
+    readonly event: string;
     readonly matcher: Option.Option<string>;
   },
 ) =>
@@ -51,10 +50,16 @@ const createHook = (
       name: "review",
       owner: Option.none(),
       runtime: hook.runtime,
+      protocol: "claude-code",
       event: hook.event,
       matcher: hook.matcher,
     });
-    return yield* CreateExtension.previewOrApply(candidate, applyExecution);
+    const result = yield* CreateExtension.previewOrApply(candidate, applyExecution);
+    expect(
+      result.units.every((unit) => unit.state === "committed"),
+      JSON.stringify(result),
+    ).toBe(true);
+    return result;
   }).pipe(Effect.provide(authoringWorkspaceLayer(target)));
 
 describe("Creating a hook", () => {
@@ -69,13 +74,13 @@ describe("Creating a hook", () => {
     return created;
   };
 
-  it.effect("creates editable content and an enabled workspace declaration", () =>
+  it.effect("creates editable content and an inactive workspace declaration", () =>
     Effect.gen(function* () {
       const created = workspace();
 
       yield* createHook(created, {
         runtime: "bash",
-        event: "tool.pre",
+        event: "PreToolUse",
         matcher: Option.none(),
       });
 
@@ -86,13 +91,41 @@ describe("Creating a hook", () => {
         owner: "@acme",
         type: "hook",
         name: "review",
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
+        implementations: [
+          {
+            protocol: "claude-code",
+            bindings: [
+              { event: "PreToolUse", handler: { runtime: "bash", entrypoint: "src/hook.sh" } },
+            ],
+          },
+        ],
       });
-      expect(created.settings()).toMatchObject({ hooks: { review: "workspace" } });
-      expect(JSON.stringify(created.settings())).not.toContain('"enabled":false');
+      expect(created.settings()).toMatchObject({
+        hooks: { review: { source: "workspace", enabled: false } },
+      });
+      expect(manifest.fixtures?.map((fixture) => fixture.id)).toEqual([
+        "applicable",
+        "nonapplicable",
+      ]);
       expect(created.read("hooks/review/src/hook.sh")).toContain("#!/usr/bin/env bash");
-      expect(created.read(".claude/settings.json")).toContain("review");
+      expect(created.exists(".claude/settings.json")).toBe(false);
+    }),
+  );
+
+  it.effect("leaves existing native configuration untouched while inactive", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      const foreign = "Native configuration that AXM cannot decode\n";
+      created.write(".claude/settings.json", foreign);
+      yield* createHook(created, {
+        runtime: "node",
+        event: "SessionStart",
+        matcher: Option.none(),
+      });
+      expect(created.read(".claude/settings.json")).toBe(foreign);
+      expect(created.settings()).toMatchObject({
+        hooks: { review: { source: "workspace", enabled: false } },
+      });
     }),
   );
 
@@ -100,23 +133,23 @@ describe("Creating a hook", () => {
     {
       runtime: "bash",
       filename: "hook.sh",
-      event: "tool.pre",
+      event: "PreToolUse",
       matcher: Option.some("Write|Edit"),
-      binding: { on: "tool.pre", matcherRaw: "Write|Edit" },
+      binding: { event: "PreToolUse", matcher: "Write|Edit" },
     },
     {
       runtime: "node",
       filename: "hook.js",
-      event: "tool.post",
+      event: "PostToolUse",
       matcher: Option.some("Write"),
-      binding: { on: "tool.post", matcherRaw: "Write" },
+      binding: { event: "PostToolUse", matcher: "Write" },
     },
     {
       runtime: "python",
       filename: "hook.py",
-      event: "session.start",
+      event: "SessionStart",
       matcher: Option.some("Write"),
-      binding: { on: "session.start" },
+      binding: { event: "SessionStart", matcher: "Write" },
     },
   ] as const)
     it.effect(`scaffolds ${example.runtime} for ${example.event}`, () =>
@@ -129,13 +162,19 @@ describe("Creating a hook", () => {
           matcher: example.matcher,
         });
 
-        expect(JSON.parse(created.read("hooks/review/hook.json") ?? "null")).toEqual(
-          expect.objectContaining({
-            runtime: example.runtime,
-            entrypoint: `src/${example.filename}`,
-            bindings: [example.binding],
-          }),
-        );
+        expect(JSON.parse(created.read("hooks/review/hook.json") ?? "null")).toMatchObject({
+          implementations: [
+            {
+              protocol: "claude-code",
+              bindings: [
+                {
+                  ...example.binding,
+                  handler: { runtime: example.runtime, entrypoint: `src/${example.filename}` },
+                },
+              ],
+            },
+          ],
+        });
         expect(created.exists(`hooks/review/src/${example.filename}`)).toBe(true);
       }),
     );

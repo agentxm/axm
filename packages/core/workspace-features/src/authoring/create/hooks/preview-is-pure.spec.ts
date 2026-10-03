@@ -53,7 +53,8 @@ describe("Hook creation preview purity", () => {
         name: HOOK,
         owner,
         runtime: "bash",
-        event: "tool.pre",
+        protocol: "claude-code",
+        event: "PreToolUse",
         matcher: Option.none(),
       });
       return yield* CreateExtension.previewOrApply(candidate, previewExecution);

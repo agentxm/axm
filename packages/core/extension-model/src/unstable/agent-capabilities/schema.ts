@@ -1450,7 +1450,10 @@ export const HookEventMappingSchema = Schema.Struct({
 export type HookEventMapping = Schema.Schema.Type<typeof HookEventMappingSchema>;
 
 /** @experimental This API is unstable and may change without notice. */
-export const HooksSerializerSchema = Schema.Literals(["command-stdin"]).annotate({
+export const HooksSerializerSchema = Schema.Literals([
+  "command-stdin",
+  "flat-command-stdin",
+]).annotate({
   identifier: "HooksSerializer",
   title: "Hooks Serializer",
   description: "Native settings serializer AXM uses for managed hook declarations.",

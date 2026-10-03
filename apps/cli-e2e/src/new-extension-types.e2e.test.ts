@@ -219,7 +219,7 @@ describe("axm mcps new", () => {
 });
 
 describe("axm hooks new", () => {
-  it("updates existing Claude Code settings without a workspace backup", async () => {
+  it("preserves Claude Code settings until explicit enable, without a workspace backup", async () => {
     const temp = createTempDir();
 
     try {
@@ -244,6 +244,13 @@ describe("axm hooks new", () => {
         cwd: temp.path,
       });
       expect(result.exitCode).toBe(0);
+      expect(readJson(settingsPath)).toEqual({
+        hooks: { Stop: [{ hooks: [{ type: "command", command: "echo keep" }] }] },
+      });
+      const enabled = await runCli(["hooks", "enable", "tool-audit", "--non-interactive"], {
+        cwd: temp.path,
+      });
+      expect(enabled.exitCode, enabled.stdout + enabled.stderr).toBe(0);
 
       const settings = readJson(settingsPath);
       expect(fs.existsSync(`${settingsPath}.bak`)).toBe(false);

@@ -59,6 +59,7 @@ describe("example files", () => {
     expect(result.owner).toBe("@acme");
     expect(result.type).toBe("hook");
     expect(result.name).toBe("tool-audit");
-    expect(result.bindings).toHaveLength(1);
+    expect(result.implementations).toHaveLength(1);
+    expect(result.implementations[0].bindings).toHaveLength(1);
   });
 });

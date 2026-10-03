@@ -345,6 +345,11 @@
       "types": "./dist/src/unstable/sources/http-artifact.d.ts",
       "axm-source": "./src/unstable/sources/http-artifact.ts",
       "default": "./dist/src/unstable/sources/http-artifact.js"
+    },
+    "./unstable/hooks/resolution": {
+      "types": "./dist/src/unstable/hooks/resolution.d.ts",
+      "axm-source": "./src/unstable/hooks/resolution.ts",
+      "default": "./dist/src/unstable/hooks/resolution.js"
     }
   },
   "files": [

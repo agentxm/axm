@@ -41,7 +41,8 @@ describe("authored native projection outcomes", () => {
                     name: "review",
                     owner: Option.none(),
                     runtime: "bash",
-                    event: "session.start",
+                    protocol: "claude-code",
+                    event: "SessionStart",
                     matcher: Option.none(),
                   });
           return yield* CreateExtension.previewOrApply(candidate, applyExecution);
@@ -49,6 +50,11 @@ describe("authored native projection outcomes", () => {
         const nativeLocations = resolution.units.flatMap(
           (unit) => unit.artifact?.nativeLocations ?? [],
         );
+        if (type === "hook") {
+          expect(nativeLocations).toEqual([]);
+          expect(created.exists(".claude/settings.json")).toBe(false);
+          return;
+        }
         expect(nativeLocations.length).toBeGreaterThan(0);
         expect(
           nativeLocations.every((location) => location.address.path.startsWith(`${created.root}/`)),

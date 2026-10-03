@@ -11,6 +11,7 @@ import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace-features/inspection";
 import { handleExtensionShow } from "./extension-show.js";
 import { paintText } from "../../screen/index.js";
+import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-kernel/workspace-state";
 
 /**
  * Settings key per catalog type. Written by hand rather than derived so the
@@ -42,6 +43,97 @@ describe("extension show", () => {
     process.chdir(originalCwd);
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
+
+  for (const machine of [false, true]) {
+    it.effect(
+      `preserves native hook selection facts in ${machine ? "JSON" : "human"} output`,
+      () => {
+        const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine });
+        writeWorkspaceFiles(path.join(tempDir, ".axm"), {
+          ...settingsFor.hook,
+          agents: ["claude-code"],
+        });
+        const hook = {
+          implementationId: "shell-audit",
+          protocol: "claude-code",
+          bindings: [
+            {
+              id: "audit-shell",
+              event: "PreToolUse",
+              matcher: "Bash",
+              runtime: "node",
+              entrypoint: "src/audit.js",
+              requiredOutcomes: ["deny"],
+              requiredOperations: [],
+            },
+          ],
+          conditions: ["Host version has not been verified"],
+          configuration: {
+            status: "valid",
+            fields: [{ key: "token", source: "consumer", value: null, redacted: true }],
+            issues: [],
+          },
+          runtimeAvailability: "unverified",
+          nativeInvocation: "not-observed",
+          fixtureEvidence: { state: "absent", reason: "No local fixture execution was recorded" },
+        } as const;
+        return provide(
+          Effect.gen(function* () {
+            yield* handleExtensionShow({ type: "hook", name: "thing" }).pipe(
+              Effect.provideService(ConfiguredAgentOutcomesProvider, {
+                byExtensionType: {
+                  hook: () =>
+                    Effect.succeed(
+                      new Map([
+                        [
+                          "thing",
+                          {
+                            nativeLocations: [],
+                            agentOutcomes: [
+                              {
+                                extensionType: "hook",
+                                name: "thing",
+                                agentId: "claude-code",
+                                outcome: "current",
+                                reasonCode: "hook-native-conditional",
+                                reason:
+                                  "Native settings are present; host execution remains unverified",
+                                hook,
+                              },
+                            ],
+                          },
+                        ],
+                      ]),
+                    ),
+                },
+              }),
+            );
+            if (machine) {
+              expect(rendererState.results[0]?.data).toMatchObject({ agents: [{ hook }] });
+            } else {
+              const stdout = rendererState.docs
+                .filter((entry) => entry.channel === "stdout")
+                .flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }))
+                .join("\n");
+              for (const value of [
+                "shell-audit",
+                "PreToolUse",
+                "Bash",
+                "src/audit.js",
+                "deny",
+                "unverified",
+                "not-observed",
+                "[redacted]",
+                ...hook.conditions,
+              ]) {
+                expect(stdout).toContain(value);
+              }
+            }
+          }),
+        );
+      },
+    );
+  }
 
   for (const type of CATALOG_EXTENSION_TYPES) {
     it.effect(`prints the ${type} identity and source on stdout`, () => {

@@ -35,6 +35,7 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { inspectDesiredMcpServer } from "@agentxm/workspace-kernel/projection";
+import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operations";
 import {
   configuredRowsByName,
   DesiredStateReader,
@@ -65,6 +66,7 @@ const ShowAgentSchema = Schema.Struct({
   readiness: Schema.optionalKey(Schema.Literals(["blocked", "unverified"])),
   runtime: Schema.optionalKey(Schema.Literal("not-checked")),
   manualActions: Schema.optionalKey(Schema.Array(Schema.String)),
+  hook: ConfiguredAgentOutcomeSchema.fields.hook,
 });
 
 /**
@@ -234,6 +236,7 @@ export const ShowExtension = {
       ...(outcome.path === undefined ? {} : { path: outcome.path }),
       fields: [],
       warnings: [],
+      ...(outcome.hook === undefined ? {} : { hook: outcome.hook }),
       reason:
         outcome.mechanism === undefined
           ? outcome.reason

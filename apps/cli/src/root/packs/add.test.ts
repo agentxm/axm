@@ -99,7 +99,21 @@ const initWorkspace = (
       fs.mkdirSync(path.join(packageDir, "src"), { recursive: true });
       const extras =
         type === "hook"
-          ? { runtime: "bash", entrypoint: "src/hook.sh", bindings: [] }
+          ? {
+              implementations: [
+                {
+                  id: "claude",
+                  protocol: "claude-code",
+                  bindings: [
+                    {
+                      id: "start",
+                      event: "SessionStart",
+                      handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+                    },
+                  ],
+                },
+              ],
+            }
           : type === "knowledge"
             ? { format: { name: "okf", version: "0.2" }, bundleRoot: "src" }
             : {};
@@ -107,6 +121,8 @@ const initWorkspace = (
         path.join(packageDir, `${type}.json`),
         JSON.stringify({ owner, type, name: packageName, version, ...extras }),
       );
+      if (type === "hook")
+        fs.writeFileSync(path.join(packageDir, "src", "hook.sh"), "#!/usr/bin/env bash\n");
       if (type === "skill") {
         fs.writeFileSync(
           path.join(packageDir, "src", "SKILL.md"),

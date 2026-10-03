@@ -1,73 +1,105 @@
 ---
 type: Architecture
 status: stable
-description: How AXM projects portable lifecycle Hooks into supported agent hook systems.
+description: How native Hook implementations, consumer configuration, owned activation, and execution evidence remain separate.
 depends-on:
   - ./overview.md
   - ./targeting.md
-  - ../workspace/instruction-files.md
+  - ../workspace/overview.md
 ---
 
 # Hooks
 
-A Hook is lifecycle automation that AXM realizes through a configured agent's
-native hook system or an explicitly defined fallback.
+A Hook packages native event handlers and their resources. AXM selects a
+compatible implementation and manages its native registration. The configured
+host owns event delivery, execution, trust, and interpretation of responses.
+Native payloads and decisions retain their host's meaning; selecting an event
+with a similar name in another host does not establish equivalent behavior.
 
-## Responsibilities
+## Package, configuration, and activation
 
-AXM retains the canonical Hook content, determines whether each target can
-represent its events and behavior, and writes only the owned native entries or
-fallback projections required for activation. It exposes target capability
-information so unsupported realization is understandable before mutation.
+One immutable package can contain several identified native implementations
+sharing resources. An implementation declares its host protocol and identified
+bindings. The same resolver evaluates those bindings for projection and
+inspection. A host's generic Hook capability does not establish compatibility
+with a particular package version. Missing or ambiguous implementations and
+unsupported required behavior block the affected mutation closure.
 
-## Non-responsibilities
+Consumer configuration belongs to desired workspace state, separate from
+package content and accepted resolution. Explicit values override publisher
+defaults; secret inputs remain symbolic environment references. A Pack member's
+source-less configuration changes its preferences without creating a direct
+acquisition route. Package updates are checked against the effective consumer
+values before activation.
 
-AXM does not execute hooks itself, guarantee that an agent will invoke them,
-install undeclared runtimes, or weaken an unsupported Hook until it appears to
-work. It does not own unrelated hooks or an entire native hook configuration.
-
-## State and realization
-
-The Hook's executable or instructional body is canonical extension content.
-Native configuration and fallback instructions are derived outputs. A fallback
-is valid only when the Hook declares behavior that the fallback can preserve;
-otherwise the target is unsupported.
+Native configuration is derived output. Hooks do not contribute instruction
+regions: model guidance cannot preserve executable effects or enforcement.
+Project and user activation use their respective native locations. Authoring
+and native import create inactive packages so that creating or converting
+executable content does not also activate it.
 
 ## Ownership and coexistence
 
-Hooks realize through two aggregate ownership units, both under the shared
+Native registrations form an aggregate ownership unit under the shared
 [output reconciliation contract](../workspace/overview.md#output-reconciliation).
+Its contributors are all active Hooks reached through the desired graph for
+that physical native target. Removing one acquisition route retains a Hook
+while another route reaches it; one rendered contribution represents the Hook.
 
-The native unit is the set of AXM-owned entries in one configured agent's hook
-configuration. Its contributor set is every active Hook the desired state
-reaches that realizes natively for that agent. Unrelated events, groups, and
-entries coexist, and their relative order and content remain unchanged. Each
-owned entry stays traceable to its one Hook, but no entry is written in
-isolation: every write renders the whole set. Recognizing ownership from an
-executable path or command text alone is insufficient.
+Each owned entry identifies its package, scope, canonical source root, binding,
+and selected implementations. Command text or an executable's location alone
+does not prove ownership. Reconciliation preserves foreign entries, their
+relative order, and unrelated settings. Several configured readers can share
+one physical registration only when their complete native renderings agree.
 
-The Hook fallback region is the shared-instruction-surface unit. Its
-contributor set is every active Hook the desired state reaches that realizes
-through the fallback. It is written under the shared
-[instruction-file](../workspace/instruction-files.md) ownership rules.
-Writing that region refreshes owned instruction aliases under the same ownership gate.
+Changing configuration or implementation replaces the affected owned
+registrations. Disabling a Hook withdraws activation while retaining its
+package and preferences. Final removal withdraws only registrations whose
+ownership is proven. Preview performs the same selection and validation without
+executing package code or writing the proposed state.
 
-If a native format cannot identify AXM's entries, preserve unrelated ordering,
-or represent the Hook without merging ownership, reconciliation is unsupported.
+## Evidence and inspection
 
-## Invariants
+Registration currency, fixture execution, and native invocation answer
+different questions. A current registration establishes what AXM wrote, not
+whether the host loaded or invoked it. Unknown runtime, host-version, profile,
+or trust prerequisites remain qualifications rather than verified support.
 
-- Every realized entry is traceable to one desired Hook and AXM ownership.
-- Unsupported events or capabilities are reported before partial projection.
-- Fallback behavior is explicit and does not masquerade as native equivalence.
-- Disabling a Hook removes owned activation without deleting canonical content.
-- Unowned native hook entries and instruction content are preserved.
+Fixture execution requires an explicit command. It uses bounded input, output,
+and duration and records package and configuration identity, selected fixtures,
+scope, execution platform, observed results, and limitations. Raw process output
+is excluded from receipts. This execution is not sandboxed and does not prove
+host enforcement or event coverage.
 
-## Testing strategy
+Inspection retains missing, invalid, historical, and stale evidence as distinct
+facts. Content, effective configuration, scope, and known execution-platform
+changes invalidate matching receipts. Even a matching receipt is historical:
+runtime environment values and native host prerequisites have not been
+reverified. Plans, inventory, and installed-state inspection carry the same
+structured implementation, binding, configuration-provenance, and evidence
+facts; human rendering does not infer them from a prose reason.
 
-Behavior tests prove event and target capability checks, independent native
-entries, same-entry collisions, ordering preservation, ownership provenance,
-fallback-region boundaries, executable-content preservation, activation, safe
-removal, rollback, and repeated reconciliation. The shared
-[multi-route contributor coverage](overview.md#testing-strategy) applies to
-both the native unit and the fallback region.
+## Native interchange
+
+Native import preserves original registrations and creates an inactive package
+with source provenance. Enabling that copy can cause duplicate execution.
+Export uses the projection serializer for an explicitly selected implementation
+and creates a new destination containing its scripts, declared resources, native
+definitions, and package provenance. Exported registrations carry no AXM
+ownership and assume execution from the bundle root.
+
+The interchange subset requires self-contained command resources. It refuses
+unsupported native fields, shell expressions, escaping dependencies, private
+consumer configuration, and occupied export destinations. It does not infer
+dependencies by executing scripts or convert arbitrary plugin environments.
+The [Hook command reference](../../../apps/cli/help/topics/hooks.md) owns the
+supported inputs and commands.
+
+## Verification boundaries
+
+The [specification catalog](../../../specifications/catalog.md) identifies the
+owning contract, lifecycle, configuration, authoring, fixture-execution, and
+interchange obligations. Filesystem evidence covers pure preview, ownership,
+coexistence, source preservation, and convergent reconciliation. Explicit
+process tests cover fixture execution and receipts. Native-host exercises are
+separate evidence: serializer or fixture tests cannot establish host invocation.

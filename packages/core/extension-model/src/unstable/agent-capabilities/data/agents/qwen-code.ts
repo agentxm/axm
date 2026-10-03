@@ -346,7 +346,7 @@ export const qwenCodeAgent = {
       axm: {
         status: "supported",
         writer: {
-          locationIds: ["project"],
+          locationIds: ["user", "project"],
 
           eventMap: "native.events",
         },

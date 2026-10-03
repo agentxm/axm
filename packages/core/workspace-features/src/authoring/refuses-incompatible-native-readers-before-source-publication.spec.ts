@@ -37,6 +37,8 @@ describe("authored native projection preflight", () => {
 
   for (const type of ["rule", "knowledge", "hook"] as const) {
     for (const operation of ["create", "fork", "adopt"] as const) {
+      // New Hooks are inactive; enabled fork/adopt retain the native reader preflight.
+      if (type === "hook" && operation === "create") continue;
       it.effect(`refuses ${operation} of ${type} before publishing or moving content`, () =>
         Effect.gen(function* () {
           const agents = type === "hook" ? ["claude-code", "codex"] : ["claude-code"];
@@ -87,7 +89,8 @@ describe("authored native projection preflight", () => {
                   name: "review",
                   owner: Option.none(),
                   runtime: "bash",
-                  event: "session.start",
+                  protocol: "claude-code",
+                  event: "SessionStart",
                   matcher: Option.none(),
                 });
             } else if (operation === "fork") {

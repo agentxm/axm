@@ -85,7 +85,7 @@ help remain authoritative for exact manifest fields and command inputs.
 | MCP Server | Per agent | Extension content; settings for inline definitions | Native MCP configuration                          |
 | Subagent   | Per agent | Extension content                                  | Selected native profiles                          |
 | Rule       | Workspace | Extension content                                  | Managed Rule contribution to instruction files    |
-| Hook       | Per agent | Extension content                                  | Native hook configuration or explicit fallback    |
+| Hook       | Per agent | Extension content                                  | Native hook configuration                         |
 | Knowledge  | Workspace | Extension content                                  | Knowledge index and compact discovery surface     |
 | Pack       | Container | Pack manifest                                      | Activated route into the desired dependency graph |
 
@@ -112,7 +112,6 @@ carries. A **single-contributor unit** carries exactly one extension; an
 | MCP Server | One named native configuration entry                         | One          | That MCP Server or inline definition               |
 | Subagent   | One native profile file or named entry                       | One          | That Subagent                                      |
 | Hook       | The AXM-owned hook entries in one agent's hook configuration | Many         | Every active Hook realized natively for that agent |
-| Hook       | The Hook fallback region                                     | Many         | Every active Hook realized through the fallback    |
 | Rule       | The managed Rule contribution region                         | Many         | Every active Rule                                  |
 | Knowledge  | The managed discovery region                                 | Many         | Every active bundle admitted to publish discovery  |
 | Pack       | None; a Pack realizes only desired-state relationships       | —            | —                                                  |

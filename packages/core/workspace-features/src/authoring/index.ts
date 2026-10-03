@@ -155,6 +155,7 @@ export {
   type ImportNativeExtensionRequest,
   type ImportNativeExtensionRequirements,
   type ImportNativeMcpServerRequest,
+  type ImportNativeHookRequest,
   type ImportNativeSkillRequest,
   type ImportNativeSubagentRequest,
   type NativeImportType,
@@ -184,3 +185,6 @@ export {
   VersionTargetNotAuthored,
   type AuthoredVersionError,
 } from "./version/errors.js";
+
+export { TestHook, HOOK_TEST_MAX_BYTES } from "./hooks/test-hook.js";
+export { ExportHook } from "./hooks/export-hook.js";

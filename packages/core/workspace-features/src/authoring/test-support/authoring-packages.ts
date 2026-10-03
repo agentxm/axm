@@ -85,9 +85,18 @@ const manifestFor = (
     case "hook":
       return {
         ...base,
-        runtime: "bash",
-        entrypoint: "src/hook.sh",
-        bindings: [{ on: "tool.pre", match: { tools: ["file.write"] } }],
+        implementations: ["claude-code", "codex"].map((protocol) => ({
+          id: protocol,
+          protocol,
+          bindings: [
+            {
+              id: "before-write",
+              event: "PreToolUse",
+              matcher: "Write",
+              handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+            },
+          ],
+        })),
       };
     case "knowledge":
       return { ...base, format: { name: "okf", version: "0.2" }, bundleRoot: "src" };

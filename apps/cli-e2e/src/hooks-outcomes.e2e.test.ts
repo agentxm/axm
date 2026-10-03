@@ -27,7 +27,15 @@ const agentOutcomes = (stdout: string): ReadonlyArray<Readonly<Record<string, un
 };
 
 const outcomeDecisions = (stdout: string) =>
-  agentOutcomes(stdout).map(({ outcome: _outcome, ...decision }) => decision);
+  agentOutcomes(stdout).map(({ outcome: _outcome, ...decision }) => {
+    const hook = decision["hook"];
+    if (!isRecord(hook) || !isRecord(hook["fixtureEvidence"])) return decision;
+    // Install inspects a source; sync inspects the materialized package.
+    // Their evidence explanations name those different locations, while the
+    // evidence state and every realization decision must agree.
+    const { reason: _reason, ...fixtureEvidence } = hook["fixtureEvidence"];
+    return { ...decision, hook: { ...hook, fixtureEvidence } };
+  });
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   const snapshot: Record<string, string> = {};
@@ -50,20 +58,37 @@ const snapshotTree = (root: string): Readonly<Record<string, string>> => {
   return snapshot;
 };
 
-const writeHook = (
-  root: string,
-  name: string,
-  bindings: ReadonlyArray<Record<string, unknown>>,
-): string => {
+const writeHook = (root: string, name: string): string => {
   const packageRoot = path.join(root, "fixtures", name);
   writeJson(path.join(packageRoot, "hook.json"), {
     owner: "@test",
     type: "hook",
     name,
     version: "1.0.0",
-    runtime: "bash",
-    entrypoint: "src/hook.sh",
-    bindings,
+    implementations: [
+      {
+        id: "claude",
+        protocol: "claude-code",
+        bindings: [
+          {
+            id: "audit",
+            event: "PreToolUse",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+      {
+        id: "cursor",
+        protocol: "cursor",
+        bindings: [
+          {
+            id: "audit",
+            event: "preToolUse",
+            handler: { type: "command", runtime: "bash", entrypoint: "src/hook.sh" },
+          },
+        ],
+      },
+    ],
   });
   fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
   fs.writeFileSync(path.join(packageRoot, "src", "hook.sh"), "#!/usr/bin/env bash\n");
@@ -82,9 +107,9 @@ describe("hook configured-agent outcomes", () => {
       const settingsPath = path.join(temp.path, "axm.json");
       writeJson(settingsPath, {
         ...readJson(settingsPath),
-        agents: ["claude-code", "windsurf"],
+        agents: ["claude-code", "cursor"],
       });
-      const observational = writeHook(temp.path, "audit", [{ on: "tool.pre" }]);
+      const observational = writeHook(temp.path, "audit");
 
       const beforePreview = snapshotTree(temp.path);
       const humanPreview = await runCli(
@@ -117,7 +142,7 @@ describe("hook configured-agent outcomes", () => {
         "claude-code: available at .claude/settings.json",
       );
       expect(verbosePreview.stdout + verbosePreview.stderr).toContain(
-        "windsurf: available at AGENTS.md",
+        "cursor: available at .cursor/hooks.json",
       );
       expect(snapshotTree(temp.path)).toEqual(beforePreview);
       const preview = await runCli(
@@ -143,9 +168,9 @@ describe("hook configured-agent outcomes", () => {
         { name: "audit", agentId: "claude-code", outcome: "projected", mechanism: "native" },
         {
           name: "audit",
-          agentId: "windsurf",
+          agentId: "cursor",
           outcome: "projected",
-          mechanism: "advisory-fallback",
+          mechanism: "native",
         },
       ]);
 
@@ -167,15 +192,13 @@ describe("hook configured-agent outcomes", () => {
         { name: "audit", agentId: "claude-code", outcome: "current", mechanism: "native" },
         {
           name: "audit",
-          agentId: "windsurf",
+          agentId: "cursor",
           outcome: "current",
-          mechanism: "advisory-fallback",
+          mechanism: "native",
         },
       ]);
       expect(outcomeDecisions(applied.stdout)).toEqual(outcomeDecisions(preview.stdout));
-      expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
-        "managed advisory rule",
-      );
+      expect(snapshotTree(temp.path)["AGENTS.md"]).toEqual(beforePreview["AGENTS.md"]);
 
       const show = await runCli(["hooks", "show", "audit", "--json"], { cwd: temp.path });
       expect(show.exitCode, show.stdout + show.stderr).toBe(0);
@@ -185,16 +208,16 @@ describe("hook configured-agent outcomes", () => {
           agents: [
             { agent: "claude-code", status: "current", reason: expect.stringContaining("native") },
             {
-              agent: "windsurf",
+              agent: "cursor",
               status: "current",
-              reason: expect.stringContaining("advisory-fallback"),
+              reason: expect.stringContaining("native"),
             },
           ],
         },
       });
       const humanShow = await runCli(["hooks", "show", "audit"], { cwd: temp.path });
       expect(humanShow.exitCode, humanShow.stdout + humanShow.stderr).toBe(0);
-      expect(humanShow.stdout + humanShow.stderr).toContain("advisory-fallback");
+      expect(humanShow.stdout + humanShow.stderr).toContain("native");
 
       fs.rmSync(path.join(temp.path, ".claude", "settings.json"));
       const beforeSyncPreview = snapshotTree(temp.path);
@@ -212,7 +235,7 @@ describe("hook configured-agent outcomes", () => {
         "claude-code: available at .claude/settings.json",
       );
       expect(humanSyncVerbose.stdout + humanSyncVerbose.stderr).toContain(
-        "windsurf: available at AGENTS.md",
+        "cursor: available at .cursor/hooks.json",
       );
       expect(snapshotTree(temp.path)).toEqual(beforeSyncPreview);
       const syncPreview = await runCli(["sync", "--preview", "--json", "--non-interactive"], {
@@ -231,9 +254,11 @@ describe("hook configured-agent outcomes", () => {
       );
       expect(outcomeDecisions(syncApply.stdout)).toEqual(outcomeDecisions(syncPreview.stdout));
 
-      const blocked = writeHook(temp.path, "enforce", [
-        { on: "tool.pre", requires: { decision: { kind: "block" } } },
-      ]);
+      writeJson(settingsPath, {
+        ...readJson(settingsPath),
+        agents: ["claude-code", "cursor", "windsurf"],
+      });
+      const blocked = writeHook(temp.path, "enforce");
       const beforeBlocked = snapshotTree(temp.path);
       for (const flags of [["--preview"], []]) {
         const refused = await runCli(
@@ -258,7 +283,7 @@ describe("hook configured-agent outcomes", () => {
             {
               _tag: "HookDefinitionInvalid",
               message:
-                "Hook enforce is blocked for windsurf: No native Hook writer is declared for the selected scope. Advisory fallback cannot preserve block decisions.",
+                "Hook audit is blocked for windsurf: No native Hook writer is declared for the selected scope.; Hook enforce is blocked for windsurf: No native Hook writer is declared for the selected scope.",
             },
           ],
         });

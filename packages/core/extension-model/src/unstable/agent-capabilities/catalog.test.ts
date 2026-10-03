@@ -290,16 +290,24 @@ describe("agent capability catalog", () => {
     expect(hook?.axm).toMatchObject({
       status: "supported",
       writer: {
-        locationIds: ["project"],
+        locationIds: ["user", "project"],
       },
     });
   });
-  it("models native hooks for Cursor and OpenCode without AXM writers", () => {
+  it("models Cursor's flat native hooks with scoped AXM writers", () => {
+    const hook = AGENTS.find((agent) => agent.id === "cursor")?.capabilities.hook;
+    expect(hook?.native).toHaveProperty("entryDialect.serializer", "flat-command-stdin");
+    expect(hook?.axm).toMatchObject({
+      status: "supported",
+      writer: { locationIds: ["project", "user"] },
+    });
+  });
+  it("models native hooks for OpenCode without an AXM writer", () => {
     const decoded = Schema.decodeUnknownSync(Schema.Array(AgentSchema))(AGENTS, {
       onExcessProperty: "error",
     });
     const byId = new Map(decoded.map((agent) => [agent.id, agent]));
-    for (const id of ["cursor", "opencode"]) {
+    for (const id of ["opencode"]) {
       const hook = byId.get(id)?.capabilities.hook;
       expect(hook?.native.availability).toEqual({ via: "native" });
       expect(hook?.native).toMatchObject({ modeling: "native-unmodeled" });

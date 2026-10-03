@@ -26,6 +26,7 @@ import {
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
+import { HookConfigurationValuesSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { LintConfigSchema } from "@agentxm/extension-content/lint";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
@@ -724,28 +725,69 @@ export type RulesMap = Schema.Schema.Type<typeof RulesMapSchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HookEntryObjectSchema = memberEntryObjectSchema("hook", "hooks", {
-  title: "Hook Entry Object",
-  description:
-    "A hook entry with source and optional enabled and distribution state, or a source-less Pack-member configuration.",
-});
+export const HookEntryObjectSchema = Schema.Struct({
+  source: Schema.optionalKey(entrySourceFieldSchema("hook", "hooks")),
+  enabled: enabledFieldSchema,
+  distribute: distributeFieldSchema,
+  configuration: Schema.optionalKey(HookConfigurationValuesSchema),
+})
+  .check(
+    Schema.makeFilter((entry) =>
+      entry.source === undefined
+        ? memberConfigurationIssue("hook", entry, ["enabled", "configuration"])
+        : undefined,
+    ),
+  )
+  .annotate({
+    title: "Hook Entry Object",
+    description: "Hook source and consumer configuration, or source-less Pack-member preferences.",
+  });
 
-/**
- * Union of hook entry forms: plain source string or object with source + enabled.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const HookEntrySchema = compactEnabledEntry(HookEntryObjectSchema, {
-  identifier: "HookEntry",
-  title: "Hook Entry",
-  description:
-    "A hook entry: a source string, an object with source plus optional flags, or a source-less object configuring a Pack-supplied hook.",
-  examples: [
-    "@acme/hooks/block-secrets@^1.0.0",
-    { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
-    { enabled: false },
-  ],
-});
+const HookEntryCanonicalSchema = Schema.Union([
+  Schema.Struct({
+    ...SourcedEnabledEntryCanonicalSchema.fields,
+    configuration: Schema.optionalKey(HookConfigurationValuesSchema),
+  }),
+  Schema.Struct({
+    ...MemberConfigurationCanonicalSchema.fields,
+    configuration: Schema.optionalKey(HookConfigurationValuesSchema),
+  }),
+]);
+
+type HookEntryObject = typeof HookEntryObjectSchema.Type;
+type CanonicalHookEntry = typeof HookEntryCanonicalSchema.Type;
+
+export const HookEntrySchema = compactOrVerboseEntry(
+  HookEntryObjectSchema,
+  HookEntryCanonicalSchema,
+  {
+    decode: (entry: string | HookEntryObject): CanonicalHookEntry => ({
+      ...decodeEnabledEntry(entry),
+      ...(typeof entry === "string" || entry.configuration === undefined
+        ? {}
+        : { configuration: entry.configuration }),
+    }),
+    encode: (entry: CanonicalHookEntry): string | HookEntryObject => {
+      const base = encodeEnabledEntry(entry);
+      if (entry.configuration === undefined) return base;
+      return {
+        ...(typeof base === "string" ? { source: base } : base),
+        configuration: entry.configuration,
+      };
+    },
+  },
+  {
+    identifier: "HookEntry",
+    title: "Hook Entry",
+    description:
+      "Hook acquisition and typed consumer values. Configuring a Pack member does not acquire it directly.",
+    examples: [
+      "@acme/hooks/block-secrets@^1.0.0",
+      { source: "@acme/hooks/block-secrets@^1.0.0", enabled: false },
+      { configuration: { mode: "strict" } },
+    ],
+  },
+);
 
 /** @experimental */
 export type HookEntry = Schema.Schema.Type<typeof HookEntrySchema>;

@@ -8,18 +8,11 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
-  applyInstall,
-  installRequest,
-  makeInstallWorld,
-  previewInstall,
-} from "../../testing/install-world.js";
-import {
   applyActivation,
   previewActivation,
   workspaceWithAuthoredExtension,
 } from "./test-helpers.js";
 import type { LifecycleFixture } from "../testing.js";
-import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
 export const specification = defineSpecification({
   requirement: "workspace/instructions/aliases-follow-shared-surface-writes",
@@ -39,14 +32,14 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const configureInstructions = (workspace: LifecycleFixture, type: "hook" | "knowledge") => {
+const configureInstructions = (workspace: LifecycleFixture) => {
   workspace.writeFile(
     "axm.json",
     `${JSON.stringify({
       owner: "@acme",
-      agents: type === "hook" ? ["claude-code", "windsurf"] : ["claude-code"],
+      agents: ["claude-code"],
       instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-      [type === "hook" ? "hooks" : "knowledge"]: {
+      knowledge: {
         review: { source: "workspace", enabled: false },
       },
     })}\n`,
@@ -60,86 +53,25 @@ describe("Instruction aliases follow shared-surface writes", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  for (const type of ["hook", "knowledge"] as const) {
-    it.effect(`refreshes an owned alias after enabling ${type}`, () => {
-      const workspace = workspaceWithAuthoredExtension({ type, name: "review", enabled: false });
-      cleanups.push(workspace.cleanup);
-      configureInstructions(workspace, type);
-      workspace.writeFile(
-        "CLAUDE.md",
-        "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
-      );
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            const result = yield* applyActivation({ type, name: "review", enabled: true });
-            expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
-            const canonical = workspace.readFile("AGENTS.md");
-            const alias = workspace.readFile("CLAUDE.md");
-            expect(canonical).toContain(
-              type === "hook" ? "region=hook-fallbacks" : "region=knowledge",
-            );
-            expect(alias).toContain(canonical.trim());
-            expect(alias).not.toContain("# Old copy");
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    });
-  }
-
-  it.effect("refreshes an owned alias after installing a Hook with an advisory fallback", () => {
-    const world = makeInstallWorld({
-      settings: {
-        agents: ["claude-code", "windsurf"],
-        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-      },
-    });
-    cleanups.push(world.cleanup);
-    world.registry.writeHook("review", [{ version: "1.0.0" }]);
-    world.workspace.writeFile("AGENTS.md", "# Workspace\n");
-    world.workspace.writeFile(
+  it.effect("refreshes an owned alias after enabling Knowledge", () => {
+    const type = "knowledge";
+    const workspace = workspaceWithAuthoredExtension({ type, name: "review", enabled: false });
+    cleanups.push(workspace.cleanup);
+    configureInstructions(workspace);
+    workspace.writeFile(
       "CLAUDE.md",
       "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
     );
-    return world.workspace
+    return workspace
       .provide(
         Effect.gen(function* () {
-          yield* applyInstall(
-            installRequest({
-              type: "hook",
-              subject: { kind: "source", source: "@acme/hooks/review" },
-            }),
-          );
-          expect(world.workspace.readFile("AGENTS.md")).toContain("region=hook-fallbacks");
-          expect(world.workspace.readFile("CLAUDE.md")).toContain("# Workspace");
-          expect(world.workspace.readFile("CLAUDE.md")).not.toContain("# Old copy");
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
-
-  it.effect("blocks an advisory Hook install preview when an alias is unowned", () => {
-    const world = makeInstallWorld({
-      settings: {
-        agents: ["claude-code", "windsurf"],
-        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-      },
-    });
-    cleanups.push(world.cleanup);
-    world.registry.writeHook("review", [{ version: "1.0.0" }]);
-    world.workspace.writeFile("AGENTS.md", "# Workspace\n");
-    world.workspace.writeFile("CLAUDE.md", "# Human-owned\n");
-    return world.workspace
-      .provide(
-        Effect.gen(function* () {
-          const resolution = yield* previewInstall(
-            installRequest({
-              type: "hook",
-              subject: { kind: "source", source: "@acme/hooks/review" },
-            }),
-          );
-          expect(deriveOperationOutcome(resolution)).toBe("blocked");
-          expect(world.workspace.readFile("CLAUDE.md")).toBe("# Human-owned\n");
+          const result = yield* applyActivation({ type, name: "review", enabled: true });
+          expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
+          const canonical = workspace.readFile("AGENTS.md");
+          const alias = workspace.readFile("CLAUDE.md");
+          expect(canonical).toContain("region=knowledge");
+          expect(alias).toContain(canonical.trim());
+          expect(alias).not.toContain("# Old copy");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -152,7 +84,7 @@ describe("Instruction aliases follow shared-surface writes", () => {
       enabled: false,
     });
     cleanups.push(workspace.cleanup);
-    configureInstructions(workspace, "knowledge");
+    configureInstructions(workspace);
     workspace.writeFile("CLAUDE.md", "# Human-owned\n");
     const canonicalPath = nodePath.join(workspace.root, "AGENTS.md");
     return workspace

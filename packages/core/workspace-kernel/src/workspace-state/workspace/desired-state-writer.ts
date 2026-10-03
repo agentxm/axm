@@ -144,7 +144,7 @@ export const makeDesiredStateWriter = (
     type: "rule" | "hook",
     configured: EntriesAccessor<Settings, SettingsEntry>,
     accepted: EntriesAccessor<Lockfile, LockEntry>,
-    makeEntry: (source: string) => SettingsEntry,
+    makeEntry: (source: string, existing: SettingsEntry | undefined) => SettingsEntry,
     name: string,
     lockEntry: LockEntry,
     versionRange: Option.Option<string>,
@@ -152,7 +152,13 @@ export const makeDesiredStateWriter = (
     Effect.gen(function* () {
       const currentSettings = yield* settings;
       const source = yield* sourceFor(type, lockEntry, versionRange);
-      yield* writeSettings(configured.set(currentSettings, name, makeEntry(source)));
+      yield* writeSettings(
+        configured.set(
+          currentSettings,
+          name,
+          makeEntry(source, configured.entries(currentSettings)[name]),
+        ),
+      );
       const current = yield* lockfile;
       const previous = accepted.entries(current)[name];
       if (lockEntrySemanticallyEqual(previous, lockEntry)) return;
@@ -317,7 +323,14 @@ export const makeDesiredStateWriter = (
         "hook",
         settingsEntries.hook,
         lockEntries.hook,
-        (source): HookEntry => ({ source, enabled: true }),
+        (source, existing): HookEntry => ({
+          source,
+          enabled: existing?.enabled ?? true,
+          ...(existing?.distribute === undefined ? {} : { distribute: existing.distribute }),
+          ...(existing?.configuration === undefined
+            ? {}
+            : { configuration: existing.configuration }),
+        }),
         name,
         lockEntry,
         versionRange,

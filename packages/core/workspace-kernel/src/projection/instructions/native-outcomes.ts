@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import {
   combineNativeLocationOutcomes,
-  resolveNativeEntry,
+  captureNativeLocationSet,
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
   type NativeLocationOutcome,
@@ -22,19 +22,9 @@ export const observeInstructionNativeLocations = (args: {
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const resolvedPaths = new Map<string, string | undefined>();
-    const physicalPath = (lexical: string) =>
-      Effect.gen(function* () {
-        if (resolvedPaths.has(lexical)) return resolvedPaths.get(lexical);
-        const address = yield* resolveNativeEntry(lexical).pipe(Effect.option);
-        const physical = Option.isSome(address) ? address.value.entryPath : undefined;
-        resolvedPaths.set(lexical, physical);
-        return physical;
-      });
-    const readers: Array<{
+    const declaredReaders: Array<{
       agentId: string;
       lexical: string;
-      physical: string;
       condition?: string;
     }> = [];
     for (const root of args.scope === "user" ? [args.workspaceRoot] : args.roots)
@@ -50,109 +40,123 @@ export const observeInstructionNativeLocations = (args: {
             { includeConditional: true },
           );
           if (resolved === undefined) continue;
-          const physical =
-            (yield* physicalPath(resolved.path)) ??
-            (declaration.applicability.kind === "conditional" ? resolved.path : undefined);
-          if (physical !== undefined)
-            readers.push({
-              agentId: descriptor.id,
-              lexical: resolved.path,
-              physical,
-              ...(declaration.applicability.kind === "conditional"
-                ? { condition: declaration.applicability.condition }
-                : {}),
-            });
+          declaredReaders.push({
+            agentId: descriptor.id,
+            lexical: resolved.path,
+            ...(declaration.applicability.kind === "conditional"
+              ? { condition: declaration.applicability.condition }
+              : {}),
+          });
         }
       }
-    const locations = yield* Effect.forEach(
-      args.items.filter((item) => item.mechanism !== "none" && item.mechanism !== "adapter"),
-      (item) =>
-        Effect.gen(function* () {
-          const address = yield* resolveNativeEntry(item.targetFile).pipe(Effect.option);
-          const physical = Option.isSome(address) ? address.value.entryPath : item.targetFile;
-          const claimants = readers.filter((reader) => reader.physical === physical);
-          const potentialReaders = [...new Set(claimants.map((reader) => reader.agentId))].sort();
-          const configuredConsumers = [
-            ...new Set([
-              ...(args.configuredAgentIds.includes(item.agentId) ? [item.agentId] : []),
-              ...claimants
-                .filter(
-                  (reader) =>
-                    reader.condition === undefined &&
-                    args.configuredAgentIds.includes(reader.agentId),
-                )
-                .map((reader) => reader.agentId),
-            ]),
-          ].sort();
-          const ownership = Option.isNone(address)
-            ? "unverified"
-            : address.value.kind === "absent" || item.ownership === "absent"
-              ? "absent"
-              : item.ownership === "unowned"
-                ? "unowned"
-                : "owned";
-          return {
-            scope: args.scope,
-            address: { kind: item.mechanism === "native" ? "file" : "entry", path: physical },
-            aliases: [
-              ...new Set([item.targetFile, ...claimants.map((reader) => reader.lexical)]),
-            ].sort(),
-            configuredConsumers,
-            potentialReaders,
-            policyReasons: ["instruction-propagation"],
-            ownership,
-            ...(ownership === "owned"
-              ? {
-                  proof:
-                    item.mechanism === "native"
-                      ? "canonical-source-coincidence"
-                      : item.observedForm === "symlink" || item.observedForm === "broken-link"
-                        ? "exact-canonical-source-link"
-                        : "exact-instruction-copy-banner",
-                }
+    const items = args.items.filter(
+      (item) => item.mechanism !== "none" && item.mechanism !== "adapter",
+    );
+    // One finite inventory shares ancestor reads; the next observation captures anew.
+    const observed = yield* captureNativeLocationSet({
+      entries: [
+        ...declaredReaders.map((reader) => reader.lexical),
+        ...items.map((item) => item.targetFile),
+      ],
+    });
+    const readers = yield* Effect.forEach(declaredReaders, (reader) =>
+      Effect.gen(function* () {
+        const address = yield* observed.entry(reader.lexical).pipe(Effect.option);
+        const physical = Option.isSome(address)
+          ? address.value.entryPath
+          : reader.condition === undefined
+            ? undefined
+            : reader.lexical;
+        return physical === undefined ? [] : [{ ...reader, physical }];
+      }),
+    ).pipe(Effect.map((groups) => groups.flat()));
+    const locations = yield* Effect.forEach(items, (item) =>
+      Effect.gen(function* () {
+        const address = yield* observed.entry(item.targetFile).pipe(Effect.option);
+        const physical = Option.isSome(address) ? address.value.entryPath : item.targetFile;
+        const claimants = readers.filter((reader) => reader.physical === physical);
+        const potentialReaders = [...new Set(claimants.map((reader) => reader.agentId))].sort();
+        const configuredConsumers = [
+          ...new Set([
+            ...(args.configuredAgentIds.includes(item.agentId) ? [item.agentId] : []),
+            ...claimants
+              .filter(
+                (reader) =>
+                  reader.condition === undefined &&
+                  args.configuredAgentIds.includes(reader.agentId),
+              )
+              .map((reader) => reader.agentId),
+          ]),
+        ].sort();
+        const ownership = Option.isNone(address)
+          ? "unverified"
+          : address.value.kind === "absent" || item.ownership === "absent"
+            ? "absent"
+            : item.ownership === "unowned"
+              ? "unowned"
+              : "owned";
+        return {
+          scope: args.scope,
+          address: { kind: item.mechanism === "native" ? "file" : "entry", path: physical },
+          aliases: [
+            ...new Set([item.targetFile, ...claimants.map((reader) => reader.lexical)]),
+          ].sort(),
+          configuredConsumers,
+          potentialReaders,
+          policyReasons: ["instruction-propagation"],
+          ownership,
+          ...(ownership === "owned"
+            ? {
+                proof:
+                  item.mechanism === "native"
+                    ? "canonical-source-coincidence"
+                    : item.observedForm === "symlink" || item.observedForm === "broken-link"
+                      ? "exact-canonical-source-link"
+                      : "exact-instruction-copy-banner",
+              }
+            : {}),
+          ...(item.mechanism === "symlink"
+            ? { mechanism: "symlink" as const }
+            : item.mechanism === "copy"
+              ? { mechanism: "generated-file" as const }
               : {}),
-            ...(item.mechanism === "symlink"
-              ? { mechanism: "symlink" as const }
-              : item.mechanism === "copy"
-                ? { mechanism: "generated-file" as const }
-                : {}),
-            state:
-              ownership === "unverified"
-                ? "unverified"
-                : ownership === "absent"
-                  ? "absent"
-                  : item.health === "ok"
-                    ? "unchanged"
-                    : "retained",
-            availability: [...new Set([...configuredConsumers, ...potentialReaders])].map(
-              (agentId) => ({
-                agentId,
-                state: "unverified" as const,
-                reason: claimants.some(
-                  (reader) => reader.agentId === agentId && reader.condition !== undefined,
-                )
-                  ? `Native reader applicability is unverified: ${claimants
-                      .filter(
-                        (reader) => reader.agentId === agentId && reader.condition !== undefined,
-                      )
-                      .map((reader) => reader.condition)
-                      .join("; ")}`
-                  : "Native instruction content was observed; running-agent path selection and precedence are not observable.",
-              }),
-            ),
-            ...(item.health === "ok" ? {} : { reason: item.details }),
-          } satisfies NativeLocationOutcome;
-        }),
+          state:
+            ownership === "unverified"
+              ? "unverified"
+              : ownership === "absent"
+                ? "absent"
+                : item.health === "ok"
+                  ? "unchanged"
+                  : "retained",
+          availability: [...new Set([...configuredConsumers, ...potentialReaders])].map(
+            (agentId) => ({
+              agentId,
+              state: "unverified" as const,
+              reason: claimants.some(
+                (reader) => reader.agentId === agentId && reader.condition !== undefined,
+              )
+                ? `Native reader applicability is unverified: ${claimants
+                    .filter(
+                      (reader) => reader.agentId === agentId && reader.condition !== undefined,
+                    )
+                    .map((reader) => reader.condition)
+                    .join("; ")}`
+                : "Native instruction content was observed; running-agent path selection and precedence are not observable.",
+            }),
+          ),
+          ...(item.health === "ok" ? {} : { reason: item.details }),
+        } satisfies NativeLocationOutcome;
+      }),
     );
     const conditionalLocations = yield* Effect.forEach(
       readers.filter((reader) => reader.condition !== undefined),
       (reader) =>
         Effect.gen(function* () {
-          const observed = yield* resolveNativeEntry(reader.lexical).pipe(Effect.result);
+          const address = yield* observed.entry(reader.lexical).pipe(Effect.result);
           const ownership =
-            observed._tag === "Failure"
+            address._tag === "Failure"
               ? ("unverified" as const)
-              : observed.success.kind === "absent"
+              : address.success.kind === "absent"
                 ? ("absent" as const)
                 : ("unowned" as const);
           return {

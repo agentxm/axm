@@ -10,6 +10,7 @@ import * as Ref from "effect/Ref";
 import {
   assertNativeMutationWithin,
   pathsOverlap,
+  resolveNativeEntry,
   resolveNativeReferent,
 } from "./native-address.js";
 import { observationViewLayer } from "./observation-view.js";
@@ -17,6 +18,46 @@ import { observationViewLayer } from "./observation-view.js";
 // Model realPath preserving caller spelling on both path syntaxes.
 // Native process CI separately establishes behavior on the real volume.
 describe("physical spelling", () => {
+  it.effect("resolves ordinary entries once and reads a changed parent alias live", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const temporary = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.realPath(temporary);
+      const first = path.join(root, "first");
+      const second = path.join(root, "second");
+      yield* fs.makeDirectory(first);
+      yield* fs.makeDirectory(second);
+      for (const directory of [first, second])
+        yield* fs.writeFileString(path.join(directory, "config.json"), "{}");
+      const ancestor = path.parse(root).root;
+      const ancestorReads = yield* Ref.make(0);
+      const observedFs = {
+        ...fs,
+        readDirectory: (target, options) =>
+          target === ancestor
+            ? Ref.update(ancestorReads, (count) => count + 1).pipe(
+                Effect.andThen(fs.readDirectory(target, options)),
+              )
+            : fs.readDirectory(target, options),
+      } satisfies FileSystem.FileSystem;
+      const observe = resolveNativeEntry(path.join(first, "config.json")).pipe(
+        Effect.provideService(FileSystem.FileSystem, observedFs),
+      );
+      const before = yield* observe;
+      expect(before.kind).toBe("file");
+      expect(before.entryPath).toBe(path.join(first, "config.json"));
+      expect(before.referentPath).toBe(before.entryPath);
+      expect(yield* Ref.get(ancestorReads)).toBe(1);
+      yield* fs.rename(first, path.join(root, "original"));
+      yield* fs.symlink(second, first);
+      const after = yield* observe;
+      expect(after.entryPath).toBe(path.join(second, "config.json"));
+      expect(after.referentPath).toBe(after.entryPath);
+      expect(yield* Ref.get(ancestorReads)).toBeGreaterThan(1);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   for (const syntax of ["posix", "win32"] as const) {
     const pathLayer = syntax === "win32" ? NodePath.layerWin32 : NodePath.layerPosix;
     for (const sensitive of [false, true]) {

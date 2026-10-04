@@ -4,6 +4,7 @@ import * as Context from "effect/Context";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import type * as PlatformError from "effect/PlatformError";
 import { nativeInode } from "./native-inode.js";
 
@@ -137,6 +138,41 @@ export const resolveNativeEntry = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const lexicalPath = path.resolve(target);
+    const lexicalLink = yield* fs.readLink(lexicalPath).pipe(Effect.result);
+    if (Result.isFailure(lexicalLink) && !notFound(lexicalLink.failure)) {
+      const info = yield* fs.stat(lexicalPath).pipe(
+        Effect.map(Option.some),
+        Effect.catch((cause) =>
+          notFound(cause)
+            ? Effect.succeedNone
+            : Effect.fail(new NativeLocationError({ target, reason: "unreadable", cause })),
+        ),
+      );
+      if (Option.isSome(info)) {
+        // An existing ordinary leaf has one entry/referent path. Resolve it live
+        // once rather than independently normalizing its parent and then the leaf.
+        const referentPath = yield* resolveNativeReferent(lexicalPath);
+        // Aliases must still admit reads through their physical spelling.
+        if (referentPath === lexicalPath) {
+          const inode = yield* nativeInode(lexicalPath, info.value);
+          return {
+            lexicalPath,
+            entryPath: referentPath,
+            referentPath,
+            kind:
+              info.value.type === "File"
+                ? "file"
+                : info.value.type === "Directory"
+                  ? "directory"
+                  : "other",
+            linkTarget: undefined,
+            device: info.value.dev,
+            inode: Option.getOrUndefined(inode),
+            links: Option.getOrUndefined(info.value.nlink),
+          };
+        }
+      }
+    }
     const parent = yield* resolveNativeReferent(path.dirname(lexicalPath));
     const entryPath = path.join(parent, path.basename(lexicalPath));
     const link = yield* fs.readLink(entryPath).pipe(Effect.option);

@@ -85,6 +85,40 @@ const runScanner = (
   });
 
 layer(Path.layer, { excludeTestServices: true })("agent-dir scanner", (it) => {
+  it.effect("shares ancestor reads within a scan and observes them afresh on the next scan", () =>
+    Effect.gen(function* () {
+      const deps = yield* buildFixture({
+        workspaceRoot: WORKSPACE_ROOT,
+        userHome: USER_HOME,
+        project: {
+          agentDirs: { "claude-code": { "skills/review/SKILL.md": "# Review\n" } },
+        },
+      });
+      const rootReads = yield* Ref.make(0);
+      const warnings = yield* Ref.make<ReadonlyArray<Warning>>([]);
+      const scan = makeAgentDirScanner({
+        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+        fs: {
+          ...deps.fs,
+          readDirectory: (target, options) =>
+            (target === "/" ? Ref.update(rootReads, (count) => count + 1) : Effect.void).pipe(
+              Effect.andThen(deps.fs.readDirectory(target, options)),
+            ),
+        },
+        path: deps.path,
+        workspaceRoot: WORKSPACE_ROOT,
+        scope: "project",
+        diagnostics: makeDiagnostics(warnings),
+      });
+      const first = yield* scan;
+      expect(first.some((occurrence) => occurrence.name === "review")).toBe(true);
+      expect(yield* Ref.get(rootReads)).toBe(1);
+      expect(yield* scan).toEqual(first);
+      expect(yield* Ref.get(rootReads)).toBe(2);
+      expect(yield* Ref.get(warnings)).toEqual([]);
+    }),
+  );
+
   it.effect("emits no occurrences when no agent directory exists", () =>
     Effect.gen(function* () {
       const { occurrences, warnings } = yield* runScanner({

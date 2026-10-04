@@ -1,5 +1,5 @@
 import { nativeSubagentMarker } from "../../../agent-adapters/index.js";
-import { resolveNativeReferent } from "../../../locations/index.js";
+import { captureNativeLocationSet } from "../../../locations/index.js";
 import {
   resolveDeclaredNativeLocations,
   type NativeDirectoryInputs,
@@ -263,10 +263,14 @@ const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(functi
   const declarations = Object.values(registry).flatMap((descriptor) =>
     subjectsForAgent(descriptor, deps).map((subject) => ({ agentId: descriptor.id, subject })),
   );
+  const observed = yield* captureNativeLocationSet({
+    referents: declarations.map((request) => request.subject.relativeDir),
+  }).pipe(
+    Effect.provideService(FileSystem.FileSystem, deps.fs),
+    Effect.provideService(Path.Path, deps.path),
+  );
   const requests = yield* Effect.forEach(declarations, (request) =>
-    resolveNativeReferent(request.subject.relativeDir).pipe(
-      Effect.provideService(FileSystem.FileSystem, deps.fs),
-      Effect.provideService(Path.Path, deps.path),
+    observed.referent(request.subject.relativeDir).pipe(
       Effect.map((physical) => [
         { ...request, subject: { ...request.subject, relativeDir: physical } },
       ]),

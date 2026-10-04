@@ -94,7 +94,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
     });
 
   it.effect(
-    "reads one lock document per inventory and observes a changed lock on the next read",
+    "reads one fresh lock document per inventory without scanning authored directories",
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -141,7 +141,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         };
         const first = yield* observeInstallRoot({ layout, graph: graph([]), locks });
         expect(first.packages.find((entry) => entry.name === "review")?.lockKey).toBeUndefined();
-        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 1 });
+        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 0 });
 
         write(
           "axm-lock.yaml",
@@ -157,7 +157,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         yield* Ref.set(counts, { documents: 0, authoredDirectories: 0 });
         const second = yield* observeInstallRoot({ layout, graph: graph([]), locks });
         expect(second.packages.find((entry) => entry.name === "review")?.lockKey).toBe("review");
-        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 1 });
+        expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 0 });
       }),
   );
 

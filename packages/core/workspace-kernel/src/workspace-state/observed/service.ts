@@ -171,7 +171,7 @@ export type ResolvedWorkspaceRoot = string & Brand.Brand<"ResolvedWorkspaceRoot"
 const ResolvedWorkspaceRoot = Brand.nominal<ResolvedWorkspaceRoot>();
 
 /** Resolve and validate a workspace root resides within `allowedRoot`. */
-const validateRoot = (
+export const validateWorkspaceReadRoot = (
   pathSvc: Path.Path,
   candidate: AbsolutePath,
   allowedRoot: AbsolutePath,
@@ -481,12 +481,16 @@ export const makeWorkspaceReadModel = (
     const resolver = yield* AgentRootResolver;
 
     // Validate roots eagerly — the only path that surfaces `WorkspaceRootEscape`.
-    const projectRootResolved = yield* validateRoot(
+    const projectRootResolved = yield* validateWorkspaceReadRoot(
       pathSvc,
       config.projectRoot,
       config.allowedRoot,
     );
-    const userHomeResolved = yield* validateRoot(pathSvc, config.userHome, config.allowedRoot);
+    const userHomeResolved = yield* validateWorkspaceReadRoot(
+      pathSvc,
+      config.userHome,
+      config.allowedRoot,
+    );
 
     // Workspace path layout per scope.
     const workspaceRoot = scope === "project" ? projectRootResolved : userHomeResolved;

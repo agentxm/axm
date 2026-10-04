@@ -318,6 +318,11 @@ jobs:
           rm -rf test-results
           pnpm run verify:pr:preflight
 
+      - name: Isolate verification scratch space
+        run: |
+          verification_tmp="$(mktemp -d "$RUNNER_TEMP/axm-verification.XXXXXX")"
+          echo "TMPDIR=$verification_tmp" >> "$GITHUB_ENV"
+
       - name: Verify affected source
         id: verify
         env:
@@ -381,7 +386,7 @@ jobs:
             echo "| Remaining E2E | ${E2E_OUTCOME:-not-run} |"
             echo "| Report generation | ${REPORT_OUTCOME:-not-run} |"
             echo "| pnpm cache | $(cache_status "$PNPM_CACHE_HIT") ($(cache_size "$PNPM_CACHE_PATH")) |"
-            echo "| Concurrency | Nx 3; Vitest 2 |"
+            echo "| Concurrency | Nx $NX_PARALLEL; Vitest $VITEST_MAX_WORKERS |"
             echo "| Affected base | $NX_BASE |"
             echo "| Verified head | $NX_HEAD |"
             echo
@@ -480,6 +485,9 @@ jobs:
     permissions:
       checks: write
       contents: read
+    env:
+      NX_PARALLEL: "1"
+      VITEST_MAX_WORKERS: "2"
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -494,11 +502,13 @@ jobs:
       - name: Clear prior workspace evidence
         run: rm -rf "$GITHUB_WORKSPACE/test-results"
 
+      - name: Isolate verification scratch space
+        run: |
+          verification_tmp="$(mktemp -d "$RUNNER_TEMP/axm-verification.XXXXXX")"
+          echo "TMPDIR=$verification_tmp" >> "$GITHUB_ENV"
+
       - name: Verify workspace
         id: verify
-        env:
-          NX_PARALLEL: "1"
-          VITEST_MAX_WORKERS: "2"
         run: pnpm run ci:workspace:report
 
       - name: Publish workspace verification summary
@@ -513,7 +523,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
             echo "| Scope | Clean checkout, formatting, lint, typecheck, build, and unit tests |"
-            echo "| Concurrency | Nx 2; Vitest 2 |"
+            echo "| Concurrency | Nx $NX_PARALLEL; Vitest $VITEST_MAX_WORKERS |"
             echo "| Cache | Fresh hosted workspace |"
           } >> "$GITHUB_STEP_SUMMARY"
 

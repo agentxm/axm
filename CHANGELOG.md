@@ -1,3 +1,18 @@
+## 0.39.0 (2026-10-04)
+
+### 🩹 Fixes
+
+- Share finite native location observations during read-only workspace discovery, preserving fresh filesystem resolution for later scans and mutation admission. ([93a7ae2f7](https://github.com/agentxm/axm/commit/93a7ae2f7))
+
+### ⚠️ Breaking Changes
+
+- Replace the universal Hook manifest with explicit native implementations, typed consumer configuration, scoped native activation, bounded fixture testing, and conservative native import/export. Hook creation starts inactive; executable hooks no longer fall back to instructions. Existing Hook manifests must be reauthored for the new contract. ([ef3377fb6](https://github.com/agentxm/axm/commit/ef3377fb6))
+- `axm publish` now skips any selected version the registry already has, yanked versions included, before linting, building, or validating it, and reports it as already published; the `--on-existing` flag is removed from every publish command. ([e6f4479d5](https://github.com/agentxm/axm/commit/e6f4479d5))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.38.0 (2026-10-01)
 
 ### 🩹 Fixes

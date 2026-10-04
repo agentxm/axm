@@ -720,12 +720,12 @@ importers:
       smol-toml:
         specifier: 'catalog:'
         version: 1.8.0
-      toml-eslint-parser:
-        specifier: 1.0.3
-        version: 1.0.3
       tar-stream:
         specifier: 'catalog:'
         version: 3.2.1
+      toml-eslint-parser:
+        specifier: 1.0.3
+        version: 1.0.3
       yaml:
         specifier: 'catalog:'
         version: 2.9.1

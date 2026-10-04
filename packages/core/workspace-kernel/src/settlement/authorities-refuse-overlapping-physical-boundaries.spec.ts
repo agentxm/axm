@@ -392,7 +392,7 @@ for (const spelling of uncertainSpellings) {
 }
 
 for (const runtime of ["node", "bun"] as const) {
-  it(`shares the production namespace in ${runtime} despite distinct HOME, AXM_USER_HOME, and TMPDIR`, async () => {
+  it(`shares the production namespace in ${runtime} despite distinct HOME, USERPROFILE, AXM_USER_HOME, and TMPDIR`, async () => {
     const f = fixture();
     const first = f.start({
       owner: f.firstOwner,

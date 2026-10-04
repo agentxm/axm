@@ -101,6 +101,7 @@ export const startBoundaryClaimProcess = (options: BoundaryProcessOptions) => {
       env: {
         ...process.env,
         HOME: options.owner,
+        USERPROFILE: options.owner,
         AXM_USER_HOME: options.owner,
         TMPDIR: options.owner,
       },

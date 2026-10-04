@@ -15,6 +15,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import {
+  captureNativeLocationSet,
   resolveNativeEntry,
   resolveNativeReferent,
   readCopiedDirectory,
@@ -106,8 +107,11 @@ interface ResolvedContainer {
 const groupContainers = (containers: ReadonlyArray<ResolvedContainer>) =>
   Effect.gen(function* () {
     const grouped = new Map<string, { claimants: Set<string>; sharedPolicy: boolean }>();
+    const observed = yield* captureNativeLocationSet({
+      referents: containers.map((container) => container.path),
+    });
     for (const container of containers) {
-      const resolved = yield* resolveNativeReferent(container.path).pipe(Effect.option);
+      const resolved = yield* observed.referent(container.path).pipe(Effect.option);
       if (Option.isNone(resolved)) continue;
       const group = grouped.get(resolved.value) ?? {
         claimants: new Set<string>(),
@@ -374,37 +378,44 @@ export const observeAgentOutputs = (
       string,
       { readonly path: string; readonly settingsKey: string; readonly claimants: Set<string> }
     >();
-    for (const agent of CAPABILITY_AGENTS) {
+    const hookReaders = CAPABILITY_AGENTS.flatMap((agent) => {
       const native = agent.capabilities.hook.native;
-      if (!("locations" in native)) continue;
+      if (!("locations" in native)) return [];
       const declarations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
-      for (const file of declarations.filter(
-        (candidate) =>
-          candidate.scope === args.scope &&
-          (candidate.format === "json" || candidate.format === "jsonc"),
-      )) {
-        const settingsKey = file.keyPath?.[0];
-        if (file.keyPath?.length !== 1 || settingsKey === undefined) continue;
-        const location = resolveNativeReadLocation(
-          path,
-          agent.id,
-          file,
-          args,
-          args.nativeDirectoryInputs,
-        );
-        if (location === undefined) continue;
-        const resolved = yield* resolveNativeReferent(location.path).pipe(Effect.option);
-        if (Option.isNone(resolved)) continue;
-        const configPath = resolved.value;
-        const key = `${configPath}\u0000${settingsKey}`;
-        const group = hookContainers.get(key) ?? {
-          path: configPath,
-          settingsKey,
-          claimants: new Set<string>(),
-        };
-        group.claimants.add(agent.id);
-        hookContainers.set(key, group);
-      }
+      return declarations
+        .filter(
+          (candidate) =>
+            candidate.scope === args.scope &&
+            (candidate.format === "json" || candidate.format === "jsonc"),
+        )
+        .flatMap((file) => {
+          const settingsKey = file.keyPath?.[0];
+          if (file.keyPath?.length !== 1 || settingsKey === undefined) return [];
+          const location = resolveNativeReadLocation(
+            path,
+            agent.id,
+            file,
+            args,
+            args.nativeDirectoryInputs,
+          );
+          return location === undefined ? [] : [{ agentId: agent.id, settingsKey, location }];
+        });
+    });
+    const observedHooks = yield* captureNativeLocationSet({
+      referents: hookReaders.map((reader) => reader.location.path),
+    });
+    for (const { agentId, settingsKey, location } of hookReaders) {
+      const resolved = yield* observedHooks.referent(location.path).pipe(Effect.option);
+      if (Option.isNone(resolved)) continue;
+      const configPath = resolved.value;
+      const key = `${configPath}\u0000${settingsKey}`;
+      const group = hookContainers.get(key) ?? {
+        path: configPath,
+        settingsKey,
+        claimants: new Set<string>(),
+      };
+      group.claimants.add(agentId);
+      hookContainers.set(key, group);
     }
     for (const group of hookContainers.values()) {
       const exists = yield* fs.exists(group.path).pipe(Effect.catch(() => Effect.succeed(false)));

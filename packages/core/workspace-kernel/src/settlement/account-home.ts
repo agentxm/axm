@@ -4,6 +4,7 @@ import { userInfo } from "node:os";
 import { promisify } from "node:util";
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
 const execute = promisify(execFile);
@@ -25,40 +26,39 @@ export const accountHome = Effect.gen(function* () {
     });
   }
 
-  const uid = process.geteuid?.();
+  // Bun documents BUN_BE_BUN for standalone executables. Use this runtime's
+  // own executable so compiled installations need no additional Node or Bun.
+  // Windows spawn may restore USERPROFILE automatically; clear it inside the
+  // isolated child before asking the runtime's OS-backed homedir fallback.
   const query =
-    process.platform === "linux" && uid !== undefined
-      ? { command: "getent", args: ["passwd", String(uid)] }
-      : process.platform === "darwin" && uid !== undefined
-        ? { command: "/usr/bin/dscacheutil", args: ["-q", "user", "-a", "uid", String(uid)] }
-        : process.platform === "win32"
-          ? {
-              command: "powershell.exe",
-              args: [
-                "-NoLogo",
-                "-NoProfile",
-                "-NonInteractive",
-                "-Command",
-                "[Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false); [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)",
-              ],
-            }
-          : undefined;
-  if (query === undefined)
-    return yield* Effect.fail(
-      new Error("Operating-system account lookup is unsupported", {
-        cause: { reason: "account-lookup-unsupported" },
-      }),
+    "delete process.env.HOME; delete process.env.USERPROFILE; process.stdout.write(JSON.stringify(require('node:os').homedir()));";
+  const fs = yield* FileSystem.FileSystem;
+  // Use a regular file rather than a platform-specific null device for Bun config.
+  const config = yield* fs
+    .makeTempFileScoped({ prefix: "axm-account-home-", suffix: ".toml" })
+    .pipe(
+      Effect.mapError(
+        () =>
+          new Error("Operating-system account home query configuration is unavailable", {
+            cause: { reason: "account-query-config-unavailable" },
+          }),
+      ),
     );
 
   const { stdout } = yield* Effect.tryPromise({
     try: (signal) =>
-      execute(query.command, query.args, {
-        encoding: "utf8",
-        windowsHide: true,
-        timeout: 10_000,
-        maxBuffer: 16_384,
-        signal,
-      }),
+      execute(
+        process.execPath,
+        ["--no-env-file", `--config=${path.resolve(config)}`, "--eval", query],
+        {
+          env: { BUN_BE_BUN: "1", HOME: "", USERPROFILE: "", XDG_CONFIG_HOME: "" },
+          encoding: "utf8",
+          windowsHide: true,
+          timeout: 10_000,
+          maxBuffer: 16_384,
+          signal,
+        },
+      ),
     catch: (cause) => {
       const failure = typeof cause === "object" && cause !== null ? cause : {};
       const code = "code" in failure ? failure.code : undefined;
@@ -80,25 +80,18 @@ export const accountHome = Effect.gen(function* () {
       });
     },
   });
-  const lines = stdout.replace(/(?:\r?\n)+$/u, "").split(/\r?\n/u);
-  const home =
-    process.platform === "linux"
-      ? lines.length === 1 && lines[0]?.split(":")[2] === String(uid)
-        ? lines[0].split(":")[5]
-        : undefined
-      : process.platform === "darwin"
-        ? lines.filter((line) => line.startsWith("dir: ")).length === 1 &&
-          lines.includes(`uid: ${String(uid)}`)
-          ? lines.find((line) => line.startsWith("dir: "))?.slice(5)
-          : undefined
-        : lines.length === 1
-          ? lines[0]
-          : undefined;
-  if (home === undefined || !path.isAbsolute(home) || home.includes("\u0000"))
+  const home = yield* Effect.try({
+    try: (): unknown => JSON.parse(stdout),
+    catch: () =>
+      new Error("Operating-system account home response is invalid", {
+        cause: { reason: "account-home-response-invalid" },
+      }),
+  });
+  if (typeof home !== "string" || !path.isAbsolute(home) || home.includes("\u0000"))
     return yield* Effect.fail(
       new Error("Operating-system account home response is invalid", {
         cause: { reason: "account-home-response-invalid" },
       }),
     );
   return home;
-});
+}).pipe(Effect.scoped);

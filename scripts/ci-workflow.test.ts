@@ -369,6 +369,172 @@ describe("aggregate required verification", () => {
     );
   });
 
+  it("keeps complete source coverage across independent verification partitions", () => {
+    const projectNames = (exclude?: string): readonly string[] => {
+      const value: unknown = JSON.parse(
+        execFileSync(
+          "pnpm",
+          [
+            "exec",
+            "nx",
+            "show",
+            "projects",
+            "--json",
+            ...(exclude === undefined ? [] : [`--exclude=${exclude}`]),
+          ],
+          {
+            cwd: repoRoot,
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              NX_TUI: "false",
+              NX_DEFAULT_OUTPUT_STYLE: "static",
+              NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+            },
+          },
+        ),
+      );
+      if (!Array.isArray(value) || !value.every((name: unknown) => typeof name === "string")) {
+        throw new Error("Nx must return the selected project names.");
+      }
+      return value;
+    };
+    const allProjects = [...projectNames()].sort();
+    const workflow = readWorkflow();
+    for (const name of ["verify-pr", "verify-main"]) {
+      const job = workflow.jobs[name];
+      if (typeof job !== "object" || job === null || !("strategy" in job)) {
+        throw new Error(`${name} must declare independent source partitions.`);
+      }
+      const strategy = job.strategy;
+      if (typeof strategy !== "object" || strategy === null || !("matrix" in strategy)) {
+        throw new Error(`${name} must declare a source matrix.`);
+      }
+      expect(strategy).toHaveProperty("fail-fast", false);
+      expect(job).toHaveProperty("timeout-minutes", 60);
+      expect(job).toHaveProperty("env.NX_PARALLEL", "1");
+      expect(job).toHaveProperty("env.VITEST_MAX_WORKERS", "2");
+      const matrix = strategy.matrix;
+      if (
+        typeof matrix !== "object" ||
+        matrix === null ||
+        !("include" in matrix) ||
+        !Array.isArray(matrix.include)
+      ) {
+        throw new Error(`${name} must declare its complete partition set.`);
+      }
+      const selected = matrix.include.flatMap((partition: unknown) => {
+        if (
+          typeof partition !== "object" ||
+          partition === null ||
+          !("exclude" in partition) ||
+          typeof partition.exclude !== "string"
+        ) {
+          throw new Error(`${name} must select its partitions through native Nx exclusions.`);
+        }
+        return projectNames(partition.exclude);
+      });
+      expect([...selected].sort(), name).toEqual(allProjects);
+      expect(new Set(selected).size, name).toBe(selected.length);
+    }
+  });
+
+  it("reports selected source and E2E tests while accepting an empty partition", () => {
+    const job = readWorkflow().jobs["verify-pr"];
+    if (typeof job !== "object" || job === null || !("steps" in job) || !Array.isArray(job.steps))
+      throw new Error("Proposed-change verification must declare reporting steps.");
+    const scope: unknown = job.steps.find(
+      (step: unknown) =>
+        typeof step === "object" && step !== null && "id" in step && step.id === "report-scope",
+    );
+    if (
+      typeof scope !== "object" ||
+      scope === null ||
+      !("run" in scope) ||
+      typeof scope.run !== "string"
+    )
+      throw new Error("Reporting scope must execute its native selection script.");
+    expect(scope).toHaveProperty("if", "always() && steps.verify.outcome != 'skipped'");
+    expect(scope).toHaveProperty("env.SOURCE_PARTITION", "${{ matrix.partition }}");
+    const report: unknown = job.steps.find(
+      (step: unknown) =>
+        typeof step === "object" && step !== null && "id" in step && step.id === "report",
+    );
+    expect(report).toMatchObject({
+      if: "always() && steps.verify.outcome != 'skipped' && steps.report-scope.outputs.selected == 'true'",
+      run: "pnpm exec nx run axm:allure-report",
+    });
+
+    const directory = fs.mkdtempSync(path.join(repoRoot, "node_modules", ".report-scope-"));
+    try {
+      fs.writeFileSync(
+        path.join(directory, "pnpm"),
+        `#!/usr/bin/env bash
+printf '%s\\n' "$*" >> "$SELECTION_CALLS"
+case "$*" in
+  *--withTarget=test*) printf '%s\\n' "$SOURCE_SELECTION" ;;
+  *--withTarget=e2e*) printf '%s\\n' "$E2E_SELECTION" ;;
+  *) exit 1 ;;
+esac
+`,
+        { mode: 0o700 },
+      );
+      const outputPath = path.join(directory, "output");
+      const callsPath = path.join(directory, "calls");
+      const cases = [
+        { source: "[]", e2e: "[]", partition: "workspace-features", selected: false },
+        {
+          source: '["workspace-features"]',
+          e2e: "[]",
+          partition: "workspace-features",
+          selected: true,
+        },
+        { source: "[]", e2e: '["other-e2e"]', partition: "remaining-projects", selected: true },
+        { source: "[]", e2e: "[]", partition: "remaining-projects", selected: false },
+        { source: "{}", e2e: "[]", partition: "workspace-features", selected: undefined },
+        { source: "not JSON", e2e: "[]", partition: "workspace-features", selected: undefined },
+        { source: "[]", e2e: "[42]", partition: "remaining-projects", selected: undefined },
+      ];
+      for (const fixture of cases) {
+        fs.writeFileSync(outputPath, "");
+        fs.writeFileSync(callsPath, "");
+        const execution = spawnSync("bash", ["-e", "-o", "pipefail", "-c", scope.run], {
+          cwd: repoRoot,
+          encoding: "utf8",
+          env: {
+            ...process.env,
+            PATH: `${directory}${path.delimiter}${process.env["PATH"] ?? ""}`,
+            NX_TUI: "false",
+            NX_DEFAULT_OUTPUT_STYLE: "static",
+            NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false",
+            NX_BASE: "fixture-base",
+            NX_HEAD: "fixture-head",
+            SOURCE_EXCLUDE: "fixture-exclusion",
+            SOURCE_PARTITION: fixture.partition,
+            SOURCE_SELECTION: fixture.source,
+            E2E_SELECTION: fixture.e2e,
+            SELECTION_CALLS: callsPath,
+            GITHUB_OUTPUT: outputPath,
+          },
+        });
+        if (execution.error !== undefined) throw execution.error;
+        expect(execution.status === 0, execution.stderr).toBe(fixture.selected !== undefined);
+        expect(fs.readFileSync(outputPath, "utf8")).toBe(
+          fixture.selected === undefined ? "" : `selected=${fixture.selected}\n`,
+        );
+        const calls = fs.readFileSync(callsPath, "utf8");
+        expect(calls).toContain(
+          "--withTarget=test --exclude=fixture-exclusion --base=fixture-base --head=fixture-head --json",
+        );
+        expect(calls.includes("--withTarget=e2e --exclude=cli-e2e")).toBe(
+          fixture.partition === "remaining-projects",
+        );
+      }
+    } finally {
+      fs.rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
   it("builds publication artifacts only for a canonical release commit", () => {
     const jobs = readWorkflow().jobs;
     expect(JSON.stringify(jobs["classify"])).toContain("HEAD_REF");

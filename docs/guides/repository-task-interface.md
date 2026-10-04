@@ -187,11 +187,27 @@ Proposed-change prerequisites check formatting in the affected range through
 the existing Nx command; full-workspace CI retains the full formatting scan.
 After changing formatter configuration or its toolchain, run the full
 `format:check` locally to verify its effect on unchanged files too.
-The job starts with empty test results and uses the fresh `axm:allure-report`
-target after execution, including a source failure, so reporting does not hide
-the failed phase or discard preceding results. Other projects' E2E targets stay in the proposed-change
-job. Main and recovery runs use the full partitions. Each partition must succeed
-for Required CI; splitting execution does not make E2E optional. Locally,
+Hosted source verification partitions the selected projects through native Nx
+exclusions: workspace features and every remaining project. The partitions
+retain their owning targets and prerequisite graph, including shared builds and
+typechecks. Each runner keeps one Nx task and two Vitest workers; both matrix
+entries must succeed within the existing job budget. This separates the largest
+suite from the other source work without reducing the selected checks or
+increasing contention inside a runner. Local workflows remain complete by
+default; an explicit `--exclude` selects the final Nx phase for partition
+reproduction.
+
+Each proposed-change partition starts with empty test results. Native Nx
+selection identifies whether source tests or remaining E2E tests are expected.
+A partition with no selected tests skips report generation; a selected partition
+uses the fresh `axm:allure-report` target after execution, including a source
+failure. Missing results still fail reporting for selected tests. Artifact
+verification and other projects' E2E targets run once in the remaining-projects
+partition. Main,
+scheduled, and recovery verification apply the same project partitioning to
+the full workspace. Reports and artifacts identify their partition separately.
+Each partition must succeed for Required CI; splitting execution does not make
+E2E optional. Locally,
 `verify:pr` remains the complete local reproduction command.
 
 `axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:source`

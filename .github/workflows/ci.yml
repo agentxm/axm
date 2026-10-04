@@ -256,13 +256,21 @@ jobs:
         run: git diff --check "$BASE_SHA...$HEAD_SHA" -- '*.md' '*.mdx'
 
   verify-pr:
-    name: Verify proposed change
+    name: Verify proposed change - ${{ matrix.partition }}
     needs: classify
     if: >-
       (github.event_name == 'pull_request' || github.event_name == 'merge_group') &&
       needs.classify.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - partition: workspace-features
+            exclude: "*,!workspace-features"
+          - partition: remaining-projects
+            exclude: workspace-features
     permissions:
       checks: write
       contents: read
@@ -272,6 +280,7 @@ jobs:
       VITEST_MAX_WORKERS: "2"
       NX_BASE: ${{ needs.classify.outputs.base }}
       NX_HEAD: ${{ needs.classify.outputs.head }}
+      SOURCE_EXCLUDE: ${{ matrix.exclude }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -327,23 +336,39 @@ jobs:
         id: verify
         env:
           NX_PROFILE: test-results/nx-source-profile.json
-        run: pnpm run verify:affected
+        run: pnpm run verify:affected --exclude="$SOURCE_EXCLUDE"
+
+      - name: Select verification reporting scope
+        id: report-scope
+        if: always() && steps.verify.outcome != 'skipped'
+        env:
+          SOURCE_PARTITION: ${{ matrix.partition }}
+        run: |
+          selected_test_projects="$(pnpm exec nx show projects --affected --withTarget=test --exclude="$SOURCE_EXCLUDE" --base="$NX_BASE" --head="$NX_HEAD" --json)"
+          selected_e2e_projects='[]'
+          if [[ "$SOURCE_PARTITION" == 'remaining-projects' ]]; then
+            selected_e2e_projects="$(pnpm exec nx show projects --affected --withTarget=e2e --exclude=cli-e2e --base="$NX_BASE" --head="$NX_HEAD" --json)"
+          fi
+          selected="$(jq -nr --argjson source "$selected_test_projects" --argjson e2e "$selected_e2e_projects" '[ $source, $e2e ] | if all(.[]; type == "array" and all(.[]; type == "string")) then any(.[]; length > 0) else error("Nx must return selected test projects") end')"
+          printf 'selected=%s\n' "$selected" >> "$GITHUB_OUTPUT"
 
       - name: Verify installable artifacts
         id: artifacts
+        if: matrix.partition == 'remaining-projects'
         env:
           NX_PROFILE: test-results/nx-artifacts-profile.json
         run: pnpm exec nx run axm:verify-artifacts
 
       - name: Verify remaining affected E2E
         id: e2e
+        if: matrix.partition == 'remaining-projects'
         env:
           NX_PROFILE: test-results/nx-e2e-profile.json
         run: pnpm exec nx affected -t e2e --exclude=cli-e2e --nxBail --parallel=1
 
       - name: Generate verification report
         id: report
-        if: always() && steps.verify.outcome != 'skipped'
+        if: always() && steps.verify.outcome != 'skipped' && steps.report-scope.outputs.selected == 'true'
         run: pnpm exec nx run axm:allure-report
 
       - name: Publish verification summary
@@ -358,6 +383,8 @@ jobs:
           ARTIFACT_OUTCOME: ${{ steps.artifacts.outcome }}
           E2E_OUTCOME: ${{ steps.e2e.outcome }}
           REPORT_OUTCOME: ${{ steps.report.outcome }}
+          SOURCE_PARTITION: ${{ matrix.partition }}
+          TESTS_SELECTED: ${{ steps.report-scope.outputs.selected }}
         run: |
           cache_status() {
             case "$1" in
@@ -382,6 +409,8 @@ jobs:
             echo "| Release plan | ${RELEASE_PLAN_OUTCOME:-not-run} |"
             echo "| Repository prerequisites | ${PREFLIGHT_OUTCOME:-not-run} |"
             echo "| Affected source | ${VERIFY_OUTCOME:-not-run} |"
+            echo "| Source partition | $SOURCE_PARTITION |"
+            echo "| Test projects selected | ${TESTS_SELECTED:-not-run} |"
             echo "| Installable artifacts | ${ARTIFACT_OUTCOME:-not-run} |"
             echo "| Remaining E2E | ${E2E_OUTCOME:-not-run} |"
             echo "| Report generation | ${REPORT_OUTCOME:-not-run} |"
@@ -391,7 +420,7 @@ jobs:
             echo "| Verified head | $NX_HEAD |"
             echo
             echo 'Step durations separate setup, prerequisite checks, source, artifacts, E2E, and reporting.'
-            echo 'Completed Nx invocations retain timing/cache profiles in test-results-pr: nx-source-profile.json, nx-artifacts-profile.json, and nx-e2e-profile.json.'
+            echo "Completed Nx invocations retain timing/cache profiles in test-results-pr-$SOURCE_PARTITION: nx-source-profile.json, nx-artifacts-profile.json, and nx-e2e-profile.json."
             echo 'Each profile covers its final Nx command; prerequisite checks and whole-job duration remain visible in the steps above.'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -404,7 +433,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-pr
+          name: test-results-pr-${{ matrix.partition }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -413,7 +442,7 @@ jobs:
         if: always() && steps.report.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-pr
+          name: allure-report-pr-${{ matrix.partition }}
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -423,7 +452,7 @@ jobs:
         uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
         with:
           report_paths: "test-results/**/junit.xml"
-          check_name: Test Results
+          check_name: Test Results - ${{ matrix.partition }}
           include_passed: true
           # Dependabot PRs have a read-only token, including maintainer reruns.
           # Keep annotations and job summaries without creating a check run.
@@ -475,19 +504,28 @@ jobs:
           key: axm-ci-pnpm-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
 
   verify-main:
-    name: Verify main workspace
+    name: Verify main workspace - ${{ matrix.partition }}
     needs: classify
     if: >-
       github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'push' && needs.classify.outputs.release-artifacts == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - partition: workspace-features
+            exclude: "*,!workspace-features"
+          - partition: remaining-projects
+            exclude: workspace-features
     permissions:
       checks: write
       contents: read
     env:
       NX_PARALLEL: "1"
       VITEST_MAX_WORKERS: "2"
+      SOURCE_EXCLUDE: ${{ matrix.exclude }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -509,12 +547,13 @@ jobs:
 
       - name: Verify workspace
         id: verify
-        run: pnpm run ci:workspace:report
+        run: pnpm run ci:workspace:report --exclude="$SOURCE_EXCLUDE"
 
       - name: Publish workspace verification summary
         if: always()
         env:
           VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+          SOURCE_PARTITION: ${{ matrix.partition }}
         run: |
           {
             echo "## Hosted workspace verification"
@@ -523,6 +562,7 @@ jobs:
             echo "| --- | --- |"
             echo "| Outcome | ${VERIFY_OUTCOME:-not run} |"
             echo "| Scope | Clean checkout, formatting, lint, typecheck, build, and unit tests |"
+            echo "| Source partition | $SOURCE_PARTITION |"
             echo "| Concurrency | Nx $NX_PARALLEL; Vitest $VITEST_MAX_WORKERS |"
             echo "| Cache | Fresh hosted workspace |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -531,7 +571,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-results-main-workspace
+          name: test-results-main-workspace-${{ matrix.partition }}
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
@@ -540,7 +580,7 @@ jobs:
         if: always() && steps.verify.outcome != 'skipped'
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: allure-report-main-workspace
+          name: allure-report-main-workspace-${{ matrix.partition }}
           path: test-results/allure-report/
           if-no-files-found: ignore
           retention-days: 14
@@ -550,7 +590,7 @@ jobs:
         uses: mikepenz/action-junit-report@a9170d5795813c01ab4901ffb045b52bab4ab09d # v6.5.0
         with:
           report_paths: "test-results/**/junit.xml"
-          check_name: Workspace Test Results
+          check_name: Workspace Test Results - ${{ matrix.partition }}
           include_passed: true
 
   verify-e2e:

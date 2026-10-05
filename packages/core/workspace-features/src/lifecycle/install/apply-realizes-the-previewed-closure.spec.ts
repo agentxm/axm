@@ -1,4 +1,6 @@
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -38,6 +40,43 @@ describe("Install apply realizes the previewed closure", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  it.effect.each(["directory", "symlink"] as const)(
+    "bundled recovery reports an existing unowned %s in both preview and apply",
+    (kind) => {
+      const { workspace, cleanup } = makeInstallWorld({
+        settings: { skills: { axm: { source: "workspace", origin: "bundled" } } },
+      });
+      cleanups.push(cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const target = path.join(workspace.root, ".claude/skills/axm");
+            if (kind === "directory") {
+              workspace.writeFile(".claude/skills/axm/SKILL.md", "Preserve these instructions.\n");
+            } else {
+              workspace.writeFile("older-skill/SKILL.md", "Preserve this source.\n");
+              yield* fs.makeDirectory(path.dirname(target), { recursive: true });
+              yield* fs.symlink(path.join(workspace.root, "older-skill"), target);
+            }
+            const before = workspace.snapshot();
+            const request = installRequest({ type: "skill", subject: { kind: "bundled" } });
+            const preview = yield* previewInstall(request);
+            expect(deriveOperationOutcome(preview)).toBe("blocked");
+            expect(JSON.stringify(preview)).toContain("Preserved unowned skill artifact");
+            expect(JSON.stringify(preview)).toContain(target);
+            expect(workspace.snapshot()).toEqual(before);
+            const applied = yield* applyInstall(request);
+            expect(deriveOperationOutcome(applied)).toBe("blocked");
+            expect(applied.candidateId).toBe(preview.candidateId);
+            expect(workspace.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect.each([false, true])("rejects a stale warm install with reinstall=%s", (reinstall) => {
     const { workspace, cleanup } = makeInstallWorld();

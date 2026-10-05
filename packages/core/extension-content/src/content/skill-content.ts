@@ -107,7 +107,7 @@ export interface ExtractedSkillMetadata {
 }
 
 /**
- * Read external metadata without applying AXM's authoring contract. The source
+ * Read descriptive metadata without imposing a conformance gate. The source
  * remains authoritative: unknown fields, display names and metadata values are
  * retained as declared. Missing or malformed metadata does not make an explicit
  * SKILL.md path unavailable to acquisition.
@@ -127,6 +127,31 @@ export const extractSkillMetadata = (content: string): ExtractedSkillMetadata =>
   } catch {
     return {};
   }
+};
+
+/**
+ * Choose a native directory component without changing the skill declaration.
+ * The fallback is the caller's already validated source/package identity, never
+ * the physical content directory (which may be named src in an AXM envelope).
+ */
+export const skillDirectoryName = (declaredName: string | undefined, fallback: string): string => {
+  const reserved = /^(?:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu;
+  if (
+    declaredName === undefined ||
+    declaredName.length === 0 ||
+    declaredName.trim() !== declaredName ||
+    declaredName === "." ||
+    declaredName === ".." ||
+    declaredName.endsWith(".") ||
+    /[<>:"/\\|?*]/u.test(declaredName) ||
+    [...declaredName].some(
+      (character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    ) ||
+    reserved.test(declaredName) ||
+    new TextEncoder().encode(declaredName).length > 255
+  )
+    return reserved.test(fallback) ? `skill-${fallback}` : fallback;
+  return declaredName;
 };
 
 /** Validate parsed YAML against the pinned Agent Skills metadata contract. */

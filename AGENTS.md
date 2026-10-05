@@ -63,6 +63,7 @@ procedures; [DevOps](devops/index.md) owns environments and operations.
 Shared product language belongs to the AgentXM Knowledge bundle below.
 
 <!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery src={"scope":"project","root":".","owners":[{"name":"agent-engineering","ref":"@agentxm/knowledge/agent-engineering","root":"agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agent-engineering"},{"name":"agentxm","ref":"@agentxm/knowledge/agentxm","root":"agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm"},{"name":"docs","ref":"@craigsmitham/knowledge/docs","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs"},{"name":"effect-v4","ref":"@craigsmitham/knowledge/effect-v4","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4"},{"name":"product-engineering","ref":"@craigsmitham/knowledge/product-engineering","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering"}]} gen=b265355b164f036532bb43a99a330156a63492cfd56142f9f4e30d339a49384a -->
+
 ## Knowledge Bundles
 
 Use `axm knowledge concepts --help` to search, read, and explore these bundles.
@@ -72,10 +73,10 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@agentxm/knowledge/agent-engineering kind=knowledge -->
 <!-- axm:point v=1 ext=@agentxm/knowledge/agentxm kind=knowledge -->
 
-| Bundle | Description |
-| --- | --- |
+| Bundle                                                                                                      | Description                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | [agent-engineering](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md) | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing |
+| [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
@@ -83,11 +84,12 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/effect-v4 kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/product-engineering kind=knowledge -->
 
-| Bundle | Description |
-| --- | --- |
-| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md) | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
-| [effect-v4](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/index.md) | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript |
-| [product-engineering](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations |
+| Bundle                                                                                                               | Description                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
+| [effect-v4](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
+| [product-engineering](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
+
 <!-- axm:end v=1 region=knowledge -->
 <!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions src={"scope":"project","root":".","owners":[{"name":"use-effect-v4","ref":"@craigsmitham/rules/use-effect-v4","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/rules/use-effect-v4"}]} gen=f5de3767a11636a462e7541bfdcbb0f8db679c40835ef5b7a0cf1e8048253b88 -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->

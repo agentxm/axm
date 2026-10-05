@@ -84,9 +84,7 @@ describe("fork and native import", () => {
         name: "forked-review",
         version: "0.1.0",
       });
-      expect(fs.readFileSync(path.join(forkedDir, "src", "SKILL.md"), "utf8")).toContain(
-        "name: forked-review",
-      );
+      expect(fs.readFileSync(path.join(forkedDir, "src", "SKILL.md"), "utf8")).toBe(original);
     } finally {
       temp.cleanup();
     }

@@ -188,10 +188,9 @@ upload settlement, and exact-version verification. The source directory is not
 converted into an AXM authoring workspace.
 
 The shared distribution validator checks the envelope and required payload
-structure. Current authored workspace publication still runs authoring lint
-before building that archive; [Skills implementation alignment](skills.md#implementation-alignment-and-verification)
-records the gap between this behavior and the accepted design. Consumers do not
-implicitly republish acquired packages.
+structure for both existing-directory and authored skill publication.
+[Skills](skills.md) explains content preservation and explicit conformance
+checks. Consumers do not implicitly republish acquired packages.
 
 ## Verification and delivery
 
@@ -210,8 +209,8 @@ ownership state unchanged.
 
 The implementation order keeps shared contracts ahead of their consumers:
 
-1. Separate acquired metadata extraction and management health from authoring
-   lint; establish exact payload fidelity specifications.
+1. Separate metadata extraction and management health from explicit conformance
+   checks; establish exact payload fidelity specifications.
 2. Add source and package descriptors, format readers, artifact transports, and
    durable resolution/materialization support.
 3. Compose minimal first install, source-aware sharing, and explicit manager

@@ -39,7 +39,7 @@ publication remain with their respective features.
 
 ## Content, declaration, and activation
 
-Canonical package files hold the portable content and manifest. Workspace
+Canonical package files hold extension content and its manifest. Workspace
 settings record which source supplies the named extension and whether it is
 enabled. Activation controls the managed outputs produced for configured
 agents; disabling an extension does not turn it into an unconfigured package.
@@ -59,10 +59,15 @@ establish that authority for version editing or publication. This distinction
 lets inspection describe content it finds without silently making that
 content eligible for an authoring or Registry mutation.
 
+Skill import, fork, and adoption preserve the content directory, including
+frontmatter and supporting resources. The requested package identity can differ
+from the skill's declared name. [Skills](../extensions/skills.md) owns that
+identity and placement model; authorship does not select a stricter content gate.
+
 ## Local editing and publication
 
 Local creation prepares content for editing. Publication applies its own
-stronger checks to the selected authored packages. This separation lets an
+distribution checks to the selected packages. This separation lets an
 empty Pack or an unfinished MCP package remain editable without inventing
 external runtime configuration or pretending the package is ready to publish.
 

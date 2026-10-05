@@ -13,6 +13,7 @@ import {
 } from "../locations/index.js";
 import {
   DesiredStateReader,
+  readSkillDirectoryName,
   WorkspaceLocation,
   type ConfiguredAgentOutcomesRequest,
   type ConfiguredExtensionObservation,
@@ -40,6 +41,16 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
       },
       request.rows.length === 1 ? request.rows[0]?.name : undefined,
     );
+    const namedRows = yield* Effect.forEach(request.rows, (row) =>
+      Effect.gen(function* () {
+        const source = sourcesByName[row.name]?.[0];
+        return {
+          ...row,
+          directoryName:
+            source === undefined ? row.name : yield* readSkillDirectoryName(source, row.name),
+        };
+      }),
+    );
     const readers = (yield* Effect.forEach(agents, (agent) =>
       agent
         .resolveNativeReadLocations({
@@ -52,9 +63,9 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
         ),
     )).flat();
     const locations = yield* captureNativeLocationSet({
-      entries: request.rows.flatMap((row) => [
-        path.join(location.baseDir, ".agents/skills", row.name),
-        ...readers.map((reader) => path.join(reader.path, row.name)),
+      entries: namedRows.flatMap((row) => [
+        path.join(location.baseDir, ".agents/skills", row.directoryName),
+        ...readers.map((reader) => path.join(reader.path, row.directoryName)),
       ]),
       referents: [
         path.join(location.baseDir, ".agents/skills"),
@@ -68,15 +79,15 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
       location,
     }));
     const results = new Map<string, ConfiguredExtensionObservation>();
-    for (const row of request.rows) {
+    for (const row of namedRows) {
       const sources = yield* Effect.forEach(sourcesByName[row.name] ?? [], locations.referent);
       const targets = new Set(
         row.targetState === "absent"
           ? []
-          : [path.join(location.baseDir, ".agents/skills", row.name)],
+          : [path.join(location.baseDir, ".agents/skills", row.directoryName)],
       );
       for (const reader of readers) {
-        const target = path.join(reader.path, row.name);
+        const target = path.join(reader.path, row.directoryName);
         const address = yield* locations.entry(target);
         if (
           (address.kind !== "absent" &&
@@ -156,7 +167,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
         const units = nativeLocations.filter((unit) => unit.configuredConsumers.includes(agentId));
         const required = readers
           .filter((reader) => reader.agentId === agentId && reader.declaration.role === "primary")
-          .map((reader) => path.join(reader.path, row.name));
+          .map((reader) => path.join(reader.path, row.directoryName));
         const requiredUnit = (unit: NativeLocationOutcome) =>
           unit.policyReasons.includes("workspace-shared-skills") ||
           unit.aliases.some((alias) => required.includes(alias));

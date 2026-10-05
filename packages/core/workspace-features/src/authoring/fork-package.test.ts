@@ -69,7 +69,7 @@ describe("forkExtensionPackage", () => {
         dependencies: { "@source/skills/helper": "^1.0.0" },
       });
       expect(fs.readFileSync(path.join(targetDir, "src", "SKILL.md"), "utf8")).toContain(
-        "name: review-plus",
+        "name: review",
       );
     }),
   );

@@ -81,7 +81,7 @@ describe("Publishing an existing directory", () => {
         "--non-interactive",
       ]);
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
-      const native = path.join(consumer.invoking, ".claude", "skills", "review");
+      const native = path.join(consumer.invoking, ".claude", "skills", "Upstream Display");
       expect(fs.readFileSync(path.join(native, "SKILL.md"), "utf8")).toBe(body);
       expect(fs.readFileSync(path.join(native, "metadata.json"), "utf8")).toBe(
         '{"unchanged":true}\n',

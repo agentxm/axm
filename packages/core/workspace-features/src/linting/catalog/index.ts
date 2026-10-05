@@ -42,6 +42,7 @@ const describeRules = <C>(
   rules.map((rule) => ({
     id: rule.id,
     defaultSeverity: rule.severity,
+    ...(rule.enabledByDefault === false ? { enabledByDefault: false as const } : {}),
     group,
     views,
   }));
@@ -60,6 +61,7 @@ export const allCatalogRuleMetadata: ReadonlyArray<LintCatalogRuleMetadata> = Ob
   ...workspaceRules.map((rule) => ({
     id: rule.id,
     defaultSeverity: rule.severity,
+    ...(rule.enabledByDefault === false ? { enabledByDefault: false as const } : {}),
     group: "workspace" as const,
     views: repositoryWorkspaceRuleIds.has(rule.id) ? repositoryViews : liveWorkspaceView,
   })),

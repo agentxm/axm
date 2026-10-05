@@ -278,7 +278,9 @@ export const reconcileAgentOutputs = (
     const selected = (output: AgentOutputObservation) =>
       args.subjects === undefined ||
       args.subjects.some(
-        (subject) => subject.type === output.extensionType && subject.name === output.entryName,
+        (subject) =>
+          subject.type === output.extensionType &&
+          subject.name === (output.extensionName ?? output.entryName),
       );
     const candidates = before.ownedResidue.filter(selected);
     // Preserve every unselected entry in shared containers, including other residue.
@@ -292,25 +294,25 @@ export const reconcileAgentOutputs = (
                 ...args.expectedNames.skill,
                 ...before.outputs
                   .filter((output) => output.extensionType === "skill" && !selected(output))
-                  .map((output) => output.entryName),
+                  .map((output) => output.extensionName ?? output.entryName),
               ]),
               subagent: new Set([
                 ...args.expectedNames.subagent,
                 ...before.outputs
                   .filter((output) => output.extensionType === "subagent" && !selected(output))
-                  .map((output) => output.entryName),
+                  .map((output) => output.extensionName ?? output.entryName),
               ]),
               "mcp-server": new Set([
                 ...args.expectedNames["mcp-server"],
                 ...before.outputs
                   .filter((output) => output.extensionType === "mcp-server" && !selected(output))
-                  .map((output) => output.entryName),
+                  .map((output) => output.extensionName ?? output.entryName),
               ]),
               hook: new Set([
                 ...args.expectedNames.hook,
                 ...before.outputs
                   .filter((output) => output.extensionType === "hook" && !selected(output))
-                  .map((output) => output.entryName),
+                  .map((output) => output.extensionName ?? output.entryName),
               ]),
             },
           };

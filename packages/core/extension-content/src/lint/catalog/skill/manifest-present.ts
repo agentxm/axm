@@ -30,7 +30,7 @@ export const manifestPresentRule = makeManifestPresentRule<SkillRuleContext>({
   description: "Native skills include a root skill.json manifest.",
   manifestFile: SKILL_JSON,
   missingMessage:
-    "skill.json is missing for this native skill. Create skill.json with the required manifest fields (`owner`, `type`, `name`, `version`).",
+    "This AXM skill package is missing its required skill.json manifest. Restore the package manifest before managing it.",
   getFiles: (context) => context.packageFiles,
   applies: (context) => context.subject.isNative,
 });

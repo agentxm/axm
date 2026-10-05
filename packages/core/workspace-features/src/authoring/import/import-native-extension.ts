@@ -126,7 +126,7 @@ import {
   type AuthoredNativeProjection,
 } from "../native-projection.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
-import { readExtensionManifest, type FrontmatterParseFailure } from "@agentxm/extension-content";
+import { readExtensionManifest } from "@agentxm/extension-content";
 import {
   copyExtensionDirectory,
   createCanonicalDirectory,
@@ -261,7 +261,6 @@ export type ImportNativeExtensionFailure =
   | AuthoringFailed
   | ExtensionManagerFailure
   | AuthoredPackageError
-  | FrontmatterParseFailure
   | AuthoringOwnerRequired
   | AuthoringOwnerMismatch
   | AuthoringScopeUnsupported

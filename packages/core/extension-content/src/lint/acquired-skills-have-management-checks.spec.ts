@@ -10,9 +10,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "skills/lint/acquired-content-has-management-checks",
-  title: "Acquired skills stay quiet about authoring conventions",
+  title: "Skill conformance is explicit regardless of authorship",
   statement:
-    "When checking an acquired Skill, AXM shall check its management state without emitting authoring conformance findings for its upstream content; an explicit authoring check shall retain conformance diagnostics and neither check shall modify the content.",
+    "When checking a Skill, AXM shall validate its management obligations regardless of authorship without emitting content-conformance findings unless explicitly configured; neither check shall modify the content.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -23,22 +23,21 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const check = (
-  content: string | undefined,
-  validationPurpose: "authoring" | "management",
-  isNative = false,
-) => {
+const check = (content: string | undefined, conformance = false, isNative = false) => {
   const bytes = content === undefined ? undefined : new TextEncoder().encode(content);
+  const skillJson = isNative
+    ? { type: "skill", owner: "@example", name: "upstream-path", version: "1.0.0" }
+    : undefined;
   const files = makeVftSkillFileAccessor({
-    hasFile: (path) => path === "SKILL.md" && bytes !== undefined,
+    hasFile: (path) =>
+      (path === "SKILL.md" && bytes !== undefined) || (path === "skill.json" && isNative),
     getFile: (path) => (path === "SKILL.md" ? bytes : undefined),
   });
   const contexts = buildSkillRuleContexts({
     installedSkills: [
       {
-        validationPurpose,
         isNative,
-        skillJson: undefined,
+        skillJson,
         expectedName: "upstream-path",
         displayRoot: "external/upstream-path",
         files,
@@ -46,9 +45,18 @@ const check = (
       },
     ],
   });
-  return evaluateContexts(skillRules, contexts, {}).pipe(
-    Effect.map((results) => results.flatMap((result) => result.findings)),
-  );
+  return evaluateContexts(
+    skillRules,
+    contexts,
+    conformance
+      ? {
+          rules: {
+            "skill/frontmatter-parseable": "error",
+            "skill/frontmatter-standard-valid": "error",
+          },
+        }
+      : {},
+  ).pipe(Effect.map((results) => results.flatMap((result) => result.findings)));
 };
 
 describe("Acquired skill checks", () => {
@@ -59,15 +67,16 @@ describe("Acquired skill checks", () => {
     "---\nname: [upstream malformed metadata\n---\n",
   ])("keeps external content quiet: %s", (content) =>
     Effect.gen(function* () {
-      expect(yield* check(content, "management")).toEqual([]);
-      expect(yield* check(content, "management", true)).toEqual([]);
-      expect((yield* check(content, "authoring")).length).toBeGreaterThan(0);
+      expect(yield* check(content)).toEqual([]);
+      expect(yield* check(content, false, true)).toEqual([]);
+      expect((yield* check(content, true)).length).toBeGreaterThan(0);
+      expect((yield* check(content, true, true)).length).toBeGreaterThan(0);
     }),
   );
 
   it.effect("still reports a missing managed skill entry point", () =>
     Effect.gen(function* () {
-      expect(yield* check(undefined, "management")).toMatchObject([
+      expect(yield* check(undefined)).toMatchObject([
         { ruleId: "skill/skill-md-present", severity: "error" },
       ]);
     }),

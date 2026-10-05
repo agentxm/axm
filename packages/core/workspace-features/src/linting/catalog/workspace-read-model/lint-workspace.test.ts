@@ -205,14 +205,13 @@ const buildAndEvaluate = (
   });
 
 describe("buildLintWorkspace manifest JSON population", () => {
-  it.effect("preserves acquired manifest data without applying skill authoring diagnostics", () =>
+  it.effect("validates acquired AXM manifests without imposing content conformance", () =>
     Effect.gen(function* () {
       const { view, rendered } = yield* buildAndEvaluate(fixture(manifestFixtures.pack));
       const ruleIds = rendered.map((finding) => finding.finding.ruleId);
 
-      expect(ruleIds).not.toContain("skill/manifest-schema-valid");
-      expect(ruleIds).not.toContain("skill/manifest-keys-recognized");
-      expect(view.installedSkills[0]?.validationPurpose).toBe("management");
+      expect(ruleIds).toContain("skill/manifest-schema-valid");
+      expect(ruleIds).toContain("skill/manifest-keys-recognized");
       expect(view.installedSkills[0]?.skillJson).toEqual(manifestFixtures.skill);
       expect(ruleIds).toContain("subagent/manifest-schema-valid");
       expect(ruleIds).toContain("subagent/manifest-keys-recognized");
@@ -226,7 +225,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
     }),
   );
 
-  it.effect("checks authoring conventions for workspace-authored skills", () =>
+  it.effect("validates workspace-authored AXM manifests", () =>
     Effect.gen(function* () {
       const source = fixture(manifestFixtures.pack);
       const authored: FixtureSpec = {
@@ -244,8 +243,7 @@ describe("buildLintWorkspace manifest JSON population", () => {
           },
         },
       };
-      const { view, rendered } = yield* buildAndEvaluate(authored);
-      expect(view.installedSkills[0]?.validationPurpose).toBe("authoring");
+      const { rendered } = yield* buildAndEvaluate(authored);
       expect(rendered.map((entry) => entry.finding.ruleId)).toContain(
         "skill/manifest-schema-valid",
       );

@@ -10,7 +10,8 @@ depends-on:
 
 # Publish
 
-`axm publish` validates and distributes workspace-authored extensions. Its
+`axm publish` distributes workspace-authored extensions and explicitly selected
+existing skill directories under a separate package envelope. Its
 fixed distribution contract is distinct from configurable local lint policy
 and from workspace reconciliation.
 
@@ -37,16 +38,16 @@ publish gate rejects it.
 The fixed gate separates these obligations:
 
 - schema, canonical-content, and archive safety;
-- explicit legal status, expressed as a valid SPDX license expression or the
-  deliberate `UNLICENSED` value;
+- validation of declared distribution metadata;
 - Registry identity, authentication, ownership, and immutable version rules;
 - real type-specific external identity and runtime requirements, including
   software-package or MCP connection declarations where the type requires
   them; and
 - minimum discovery quality for people and agents evaluating the extension.
 
-Missing legal status, missing required external identity, or known example and
-placeholder identity is a hard publication failure. Description, README, and
+Missing required external identity or known example and placeholder identity
+is a hard publication failure. License metadata is optional; AXM never infers a
+license or adds an incidental license requirement. Description, README, and
 similar discovery material may begin as quality diagnostics rather than hard
 requirements unless a governing extension standard or Registry contract
 requires them.
@@ -55,6 +56,12 @@ Publish validates authored intent; it never guesses, fills, normalizes, or
 rewrites a manifest to make the package eligible. The
 [authoring model](authoring.md) owns what scaffolding may populate before this
 gate.
+
+Skill admission is shared between existing-directory and authored publication.
+The archive contains `skill.json` and the unchanged skill root at `src/`.
+Publication checks the envelope, required payload, and archive safety without
+applying an additional frontmatter conformance gate. Explicit local conformance
+lint does not change this distribution contract. See [Skills](../extensions/skills.md).
 
 ## Non-responsibilities
 

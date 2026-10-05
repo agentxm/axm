@@ -113,11 +113,11 @@ describe("ImportNativeExtension across native content types", () => {
           const content = created.read(
             `${plural}/custom/${type === "skill" ? "src/SKILL.md" : "native/claude-code/reviewer.md"}`,
           );
-          expect(content).toContain(type === "skill" ? "name: custom" : "name: original");
+          expect(content).toBe(body);
           expect(content).toContain("Keep every recommendation evidence backed.");
           expect(
             created.exists(
-              type === "skill" ? ".claude/skills/custom" : ".claude/agents/original.md",
+              type === "skill" ? ".claude/skills/original" : ".claude/agents/original.md",
             ),
           ).toBe(enable);
         }),

@@ -3,7 +3,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 
 import {
   ForkPackageConflict,
@@ -15,8 +14,6 @@ import {
   manifestFilenameForType,
   manifestSchemaForType,
   type ManifestIdentity,
-  parseFrontmatterEffect,
-  type FrontmatterParseFailure,
 } from "@agentxm/extension-content";
 import type {
   ExtensionFqnParts,
@@ -129,77 +126,11 @@ const validateContainedSymlinks = (
     );
   });
 
-const rewriteFrontmatterName = (
-  filePath: string,
-  targetName: ExtensionName,
-): Effect.Effect<
-  void,
-  ForkPackageInvalid | ForkPackageFailed | FrontmatterParseFailure,
-  FileSystem.FileSystem
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs.readFileString(filePath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ForkPackageInvalid({
-            detail: `Extension content could not be read: ${filePath}`,
-            cause,
-          }),
-      ),
-    );
-    const parsed = yield* parseFrontmatterEffect(content);
-    if (!isRecord(parsed.frontmatter)) {
-      return yield* new ForkPackageInvalid({
-        detail: `Extension content must have YAML frontmatter: ${filePath}`,
-      });
-    }
-    const frontmatter = { ...parsed.frontmatter, name: targetName };
-    const yaml = YAML.stringify(frontmatter, { lineWidth: 0 }).trim();
-    const body = parsed.body.startsWith("\n") ? parsed.body : `\n${parsed.body}`;
-    yield* fs.writeFileString(filePath, `---\n${yaml}\n---${body}`).pipe(
-      Effect.mapError(
-        (cause) =>
-          new ForkPackageFailed({
-            detail: `Extension frontmatter could not be rewritten: ${filePath}`,
-            cause,
-          }),
-      ),
-    );
-  });
-
-const rewriteTypeSpecificIdentity = (
-  targetDir: string,
-  target: ExtensionFqnParts,
-): Effect.Effect<
-  void,
-  ForkPackageInvalid | ForkPackageFailed | FrontmatterParseFailure,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    switch (target.type) {
-      case "skill":
-        yield* rewriteFrontmatterName(path.join(targetDir, "src", "SKILL.md"), target.name).pipe(
-          Effect.provideService(FileSystem.FileSystem, fs),
-        );
-        return;
-      case "subagent":
-      case "mcp-server":
-      case "rule":
-      case "hook":
-      case "knowledge":
-      case "pack":
-        return;
-    }
-  });
-
 export const forkExtensionPackage = (
   args: ForkExtensionPackageArgs,
 ): Effect.Effect<
   void,
-  ForkPackageInvalid | ForkPackageConflict | ForkPackageFailed | FrontmatterParseFailure,
+  ForkPackageInvalid | ForkPackageConflict | ForkPackageFailed,
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
@@ -277,10 +208,6 @@ export const forkExtensionPackage = (
             cause,
           }),
       ),
-    );
-    yield* rewriteTypeSpecificIdentity(args.targetDir, args.target).pipe(
-      Effect.provideService(FileSystem.FileSystem, fs),
-      Effect.provideService(Path.Path, path),
     );
     yield* Schema.decodeUnknownEffect(manifestSchemaForType(args.target.type))(rewritten).pipe(
       Effect.mapError(

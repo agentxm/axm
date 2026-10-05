@@ -111,6 +111,7 @@ export {
 } from "./workspace/materialized-file-target.js";
 export {
   computeSkillPathsForLayout,
+  readSkillDirectoryName,
   type SkillPathSource,
   type SkillDirPaths,
 } from "./workspace/skill-paths.js";

@@ -3,7 +3,7 @@
 Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
-Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
+Project-authored skill packages live in `./skills/<package-name>`; acquired skills
 use source-addressed retained packages. A Registry skill
 such as `@acme/skills/review` lives at
 `./agent_extensions/registry.agentxm.ai/@acme/skills/review`; a portable GitHub skill at
@@ -49,12 +49,31 @@ source is preserved exactly at its selected source path: `SKILL.md`,
 `references/`, and other sibling content remain at that canonical root, and AXM
 does not fabricate `skill.json` or a publisher identity.
 
-For AXM-authored skills, `SKILL.md` is Markdown with YAML frontmatter. `name` and `description` are
-required, and `name` must match both the manifest's `name` and the agent-facing
-skill directory name. AXM validates the pinned Agent Skills fields: `name`,
-`description`, `license`, `compatibility`, `metadata`, and the experimental
-`allowed-tools`. The Markdown body and every other file under `src/` remain
-opaque and are materialized faithfully.
+`skill.json.name` identifies the AXM package; the existing `SKILL.md`
+frontmatter `name` determines its agent-facing directory. They may differ.
+When the declared name is missing or unusable as a safe path component, AXM
+uses the selected source or package name, never `src`. It does not rewrite
+frontmatter during import, fork, publication, or installation.
+
+Every agent receives the same skill content. Native fields, `agentOverrides`,
+conditional text, and tool names remain literal; AXM has no per-agent skill
+renderer. Unknown metadata alone does not cause a routine warning or error.
+
+To request strict Agent Skills conformance in `axm lint`, configure:
+
+```json
+{
+  "lint": {
+    "rules": {
+      "skill/frontmatter-parseable": "error",
+      "skill/frontmatter-standard-valid": "error"
+    }
+  }
+}
+```
+
+These checks are opt-in for both acquired and authored content. AXM manifest,
+entry-point, integrity, and ownership checks remain enabled independently.
 
 ## File references
 
@@ -97,13 +116,12 @@ Weaker: `description: Helps with code.` — no triggers, so the model rarely
 knows when to load it.
 
 Invocation behavior outside the standard frontmatter is agent-specific. Keep
-such configuration outside `SKILL.md` in authored packages; authoring lint
-reports vendor-only frontmatter fields. External acquisition preserves these
-fields without claiming that every agent implements them.
+author-provided native configuration intact. AXM preserves these fields without
+claiming that every agent implements them.
 
 ## Authoring and editing skills
 
-The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` only if symlinks or copies are broken.
+The contents of `src/` are symlinked by AXM into each configured agent's skill directory, so you do not need to run `axm sync` after an edit. Run `axm sync` after changing the declared skill name or when links or copies need reconciliation.
 
 If AXM had to copy a skill because symlinks are unavailable, edit `src/SKILL.md`
 in its authored package and run `axm sync`; do not edit the copied agent-side

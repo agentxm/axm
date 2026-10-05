@@ -1,3 +1,4 @@
+import { readSkillDirectoryName } from "../workspace-state/index.js";
 /**
  * Read-only inventory of agent-native outputs and their ownership proofs.
  *
@@ -64,6 +65,8 @@ export interface AgentOutputObservation {
   readonly containerPath: string;
   readonly path: string;
   readonly entryName: string;
+  /** Owning or uniquely expected package identity when its native name differs. */
+  readonly extensionName?: string;
   readonly claimantAgentIds: ReadonlyArray<string>;
   readonly ownership: "owned" | "unowned";
   readonly proof?: AgentOutputOwnershipProof;
@@ -178,15 +181,19 @@ export const observeAgentOutputs = (
     const agentRepo = yield* CodingAgentRepository;
     const agents = yield* agentRepo.all;
     const outputs: Array<AgentOutputObservation> = [];
-    const expectedSkillSources = new Map<string, ReadonlyArray<string>>();
-    for (const [name, sources] of Object.entries(args.expectedSkillSources)) {
-      const physical = yield* Effect.forEach(sources, (source) =>
-        resolveNativeReferent(source).pipe(Effect.option),
-      );
-      expectedSkillSources.set(
-        name,
-        physical.flatMap((source) => (Option.isSome(source) ? [source.value] : [])),
-      );
+    const expectedSkillSources: Array<{ packageName: string; source: string; nativeName: string }> =
+      [];
+    for (const [packageName, sources] of Object.entries(args.expectedSkillSources)) {
+      for (const source of sources) {
+        const physical = yield* resolveNativeReferent(source).pipe(Effect.option);
+        const nativeName = yield* readSkillDirectoryName(source, packageName).pipe(Effect.option);
+        if (Option.isNone(physical) || Option.isNone(nativeName)) continue;
+        expectedSkillSources.push({
+          packageName,
+          source: physical.value,
+          nativeName: nativeName.value,
+        });
+      }
     }
 
     const skillContainers = yield* Effect.forEach(agents, (agent) =>
@@ -217,6 +224,11 @@ export const observeAgentOutputs = (
         const artifactPath = path.join(container.path, entry);
         const address = yield* resolveNativeEntry(artifactPath).pipe(Effect.option);
         let proof: AgentOutputOwnershipProof | undefined;
+        const candidates = expectedSkillSources.filter(
+          (candidate) => candidate.nativeName === entry,
+        );
+        const packageNames = new Set(candidates.map((candidate) => candidate.packageName));
+        let extensionName = packageNames.size === 1 ? candidates[0]?.packageName : undefined;
         const extensionType: PerAgentType = "skill";
         if (
           Option.isSome(address) &&
@@ -229,16 +241,24 @@ export const observeAgentOutputs = (
           if (
             Option.isSome(immediate) &&
             immediate.value.kind !== "symlink" &&
-            (expectedSkillSources.get(entry) ?? []).includes(immediate.value.entryPath)
+            expectedSkillSources.some((candidate) => candidate.source === immediate.value.entryPath)
           ) {
             proof = "canonical-source-link";
+            extensionName = expectedSkillSources.find(
+              (candidate) => candidate.source === immediate.value.entryPath,
+            )?.packageName;
           }
         } else if (Option.isSome(address) && address.value.kind === "directory") {
           if (yield* isAuthoredSkillPackage(args.authoredSkills, artifactPath, entry)) continue;
           const receipt = yield* readCopiedDirectory(artifactPath);
           if (Option.isSome(receipt)) {
-            if ((expectedSkillSources.get(entry) ?? []).includes(receipt.value.source)) {
+            if (
+              expectedSkillSources.some((candidate) => candidate.source === receipt.value.source)
+            ) {
               proof = "copied-directory-receipt";
+              extensionName = expectedSkillSources.find(
+                (candidate) => candidate.source === receipt.value.source,
+              )?.packageName;
             }
           }
         }
@@ -247,6 +267,7 @@ export const observeAgentOutputs = (
           containerPath: container.path,
           path: artifactPath,
           entryName: entry,
+          ...(extensionName === undefined ? {} : { extensionName }),
           claimantAgentIds: container.claimantAgentIds,
           ownership: proof === undefined ? "unowned" : "owned",
           ...(proof === undefined ? {} : { proof }),
@@ -254,7 +275,8 @@ export const observeAgentOutputs = (
             (extensionType === "skill"
               ? desiredContainer
               : containerIsDesired(container.claimantAgentIds, args.desiredAgentIds)) &&
-            args.expectedNames[extensionType].has(entry),
+            args.expectedNames[extensionType].has(extensionName ?? entry) &&
+            candidates.some((candidate) => candidate.packageName === extensionName),
         });
       }
     }

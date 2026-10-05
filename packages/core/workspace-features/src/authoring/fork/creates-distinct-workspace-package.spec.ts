@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "cli/fork/creates-distinct-workspace-package",
   title: "Fork creates a distinct workspace package while preserving its source",
   statement:
-    "When a person forks one managed AXM package, AXM shall preserve the source and its reusable content while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.",
+    "When a person forks one managed AXM package, AXM shall preserve the source and all skill payload bytes while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -143,19 +143,7 @@ describe("Forking a managed package", () => {
         if (sourceBody !== undefined && targetBody !== undefined) {
           const originalContent = fs.readFileSync(nodePath.join(original, sourceBody), "utf8");
           const copiedContent = created.read(`${row.plural}/custom/${targetBody}`);
-          if (row.type === "skill") {
-            const originalBoundary = originalContent.indexOf("\n---\n");
-            const copiedBoundary = (copiedContent ?? "").indexOf("\n---\n");
-            expect(originalBoundary).toBeGreaterThan(0);
-            expect(copiedBoundary).toBeGreaterThan(0);
-            // Identity frontmatter and its separating blank lines can be
-            // rewritten; every instruction byte remains.
-            expect((copiedContent ?? "").slice(copiedBoundary + 5).replace(/^\n+/, "")).toBe(
-              originalContent.slice(originalBoundary + 5).replace(/^\n+/, ""),
-            );
-          } else {
-            expect(copiedContent).toBe(originalContent);
-          }
+          expect(copiedContent).toBe(originalContent);
         }
 
         expect(created.read(`${row.plural}/custom/notes.txt`)).toBe(
@@ -172,7 +160,7 @@ describe("Forking a managed package", () => {
           expect(created.exists("subagents/custom/src/custom.md")).toBe(false);
         }
         if (row.type === "skill") {
-          expect(created.read("skills/custom/src/SKILL.md")).toContain("name: custom");
+          expect(created.read("skills/custom/src/SKILL.md")).toContain('name: "original"');
         }
       }),
     );
@@ -226,8 +214,8 @@ describe("Forking a managed package", () => {
         });
 
         expect(created.settings()).toMatchObject({ skills: { custom: "workspace" } });
-        expect(created.exists(".agents/skills/custom")).toBe(true);
-        expect(created.exists(".claude/skills/custom")).toBe(true);
+        expect(created.exists(".agents/skills/original")).toBe(true);
+        expect(created.exists(".claude/skills/original")).toBe(true);
       }),
     );
 });

@@ -274,7 +274,7 @@ export const resolveManifest = (
     const schema = manifestSchemaForType(input.type);
     yield* Schema.decodeUnknownEffect(schema)(
       parsed,
-      input.type === "hook" ? { onExcessProperty: "error" } : undefined,
+      input.type === "hook" || input.type === "skill" ? { onExcessProperty: "error" } : undefined,
     ).pipe(
       Effect.mapError((error) => {
         const companionPackageError = classifyCompanionPackageManifestError(parsed);

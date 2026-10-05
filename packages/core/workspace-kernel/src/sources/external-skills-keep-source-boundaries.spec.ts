@@ -42,15 +42,15 @@ describe("External skill source boundaries", () => {
       const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-source-long-name-" });
       const name = `Review${"-".repeat(100_000)}Finish`;
       const content = `---\nname: ${name}\n---\nUnchanged guidance.\n`;
-      yield* write(root, "SKILL.md", content);
-      const found = yield* discoverExtensionPackages(root, filter);
+      yield* write(root, "review-package/SKILL.md", content);
+      const found = yield* discoverExtensionPackages(`${root}/review-package`, filter);
       expect(found).toHaveLength(1);
       expect(found[0]).toMatchObject({
         kind: "portable-skill",
-        name: "review",
+        name: "review-package",
         skill: { displayName: name },
       });
-      expect(yield* fs.readFileString(`${root}/SKILL.md`)).toBe(content);
+      expect(yield* fs.readFileString(`${root}/review-package/SKILL.md`)).toBe(content);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
   it.effect("does not let an unrelated plugin.json hide a repository collection", () =>

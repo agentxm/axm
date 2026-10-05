@@ -11,6 +11,7 @@ import {
   extensionTypeForManifestFilename,
   MANIFEST_FILENAME_BY_TYPE,
   extractSkillMetadata,
+  skillDirectoryName,
   readExtensionManifest,
   validateManifestHasNoAgentsField,
   type ExtensionManifest,
@@ -301,7 +302,7 @@ const readPortableSkill = (
     if (Option.isNone(content)) return Option.none<DiscoveredPortableSkillPackage>();
     const parsed = extractSkillMetadata(content.value);
     const name = sourceName(
-      sourcePath === "." ? (parsed.name ?? rootName) : path.basename(directory),
+      sourcePath === "." ? skillDirectoryName(parsed.name, rootName) : path.basename(directory),
     );
     const metadata =
       typeof parsed.metadata === "object" &&

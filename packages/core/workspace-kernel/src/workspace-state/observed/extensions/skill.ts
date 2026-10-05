@@ -319,9 +319,16 @@ export const makeSkillExtensionsApi = (
       const fromCanonical = filterMapOccurrences(canonical, "skill", (occ) =>
         canonicalToActualSkill(occ, scope),
       );
-      const fromAgentDir = filterMapOccurrences(agentDir, "skill", (occ) =>
-        agentDirToActualSkill(occ, scope),
-      );
+      const fromAgentDir = filterMapOccurrences(agentDir, "skill", (occ) => {
+        const owner = canonical.find(
+          (candidate) =>
+            candidate.type === "skill" && candidate.contentLocation === occ.skillSource,
+        );
+        return agentDirToActualSkill(
+          owner === undefined ? occ : { ...occ, name: owner.name },
+          scope,
+        );
+      });
       return [...fromCanonical, ...fromAgentDir];
     });
 

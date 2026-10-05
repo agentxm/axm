@@ -98,6 +98,8 @@ export type LintFinding = AdvisoryFinding;
  * @experimental This API is unstable and may change without notice.
  */
 export interface RuleBase {
+  /** Conformance rules run only when explicitly enabled in lint.rules. */
+  readonly enabledByDefault?: false;
   readonly id: string;
   readonly description: string;
   readonly severity: Severity;

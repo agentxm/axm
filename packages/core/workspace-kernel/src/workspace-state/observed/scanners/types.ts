@@ -113,6 +113,8 @@ export interface AgentDirOccurrence {
   readonly name: string;
   /** Marker claim; subject projection verifies it against a canonical package. */
   readonly managedPackage?: { readonly ext: string; readonly root: string };
+  /** Immediate skill source; subject projection checks it against canonical content. */
+  readonly skillSource?: string;
   readonly contentLocation: AbsolutePath;
   readonly pathSegments: ReadonlyArray<string>;
   readonly subjectFile: Option.Option<AbsolutePath>;

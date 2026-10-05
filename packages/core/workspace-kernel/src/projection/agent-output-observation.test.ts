@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import type * as Scope from "effect/Scope";
 
+import { captureCopiedDirectory } from "../locations/index.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { resolveProjectWorkspaceLayout, SettingsSchema } from "../workspace-state/index.js";
 import { codingAgentFromDescriptor } from "../agent-adapters/index.js";
@@ -110,6 +111,41 @@ const provide = <A, E>(
   effect.pipe(Effect.provide(Layer.mergeAll(repositoryLayer, NodeServices.layer)), Effect.scoped);
 
 describe("authored skill exclusion", () => {
+  it.effect("tracks copied outputs by package ownership across a skill rename", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, fs, path, root, write } = yield* fixture();
+        const source = path.join(root, "skills/review/src");
+        const oldTarget = path.join(root, ".claude/skills/review");
+        const newTarget = path.join(root, ".claude/skills/inspect");
+        yield* fs.makeDirectory(path.dirname(oldTarget), { recursive: true });
+        yield* fs.copy(source, oldTarget);
+        yield* captureCopiedDirectory(oldTarget, source);
+        yield* write("skills/review/src/SKILL.md", "---\nname: inspect\n---\nReview\n");
+        yield* fs.copy(source, newTarget);
+        yield* captureCopiedDirectory(newTarget, source);
+        const inventory = yield* observeAgentOutputs({
+          ...args,
+          desiredAgentIds: new Set(["claude-code"]),
+          expectedNames: { ...args.expectedNames, skill: new Set(["review"]) },
+          expectedSkillSources: { review: [source] },
+        });
+        expect(inventory.ownedResidue.find((output) => output.path === oldTarget)).toMatchObject({
+          extensionName: "review",
+          entryName: "review",
+          proof: "copied-directory-receipt",
+          desired: false,
+        });
+        expect(inventory.outputs.find((output) => output.path === newTarget)).toMatchObject({
+          extensionName: "review",
+          entryName: "inspect",
+          proof: "copied-directory-receipt",
+          desired: true,
+        });
+      }),
+    ),
+  );
+
   it.effect("observes scoped Hook aliases as one physical unit", () =>
     provide(
       Effect.gen(function* () {

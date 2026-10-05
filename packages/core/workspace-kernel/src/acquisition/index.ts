@@ -69,3 +69,4 @@ export {
 } from "./errors.js";
 
 export { ExternalArchiveInvalid, extractExternalArchive } from "./external-archive.js";
+export { skillDirectoryNameForRef } from "./skill-identity.js";

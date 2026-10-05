@@ -4,14 +4,12 @@ import type * as Path from "effect/Path";
 import { PublishFailed } from "./errors.js";
 import {
   makePlatformPackFileAccessor,
-  makePlatformSkillFileAccessor,
   platformCanonicalLintConfig,
   composePath,
   type HookRuleContext,
   type KnowledgeRuleContext,
   type McpServerRuleContext,
   type PackRuleContext,
-  type SkillRuleContext,
   type SubagentRuleContext,
   type RuleRuleContext,
   evaluateContexts,
@@ -19,7 +17,6 @@ import {
   publishKnowledgeRules as knowledgeRules,
   mcpServerRules,
   packRules,
-  skillRules,
   ruleRules,
   subagentRules,
   type LintFinding,
@@ -79,18 +76,11 @@ interface PublishLintFinding {
   readonly finding: LintFinding;
 }
 
-const manifestName = (manifestJson: unknown): string | undefined => {
-  if (manifestJson === null || typeof manifestJson !== "object" || Array.isArray(manifestJson)) {
-    return undefined;
-  }
-  const descriptor = Object.getOwnPropertyDescriptor(manifestJson, "name");
-  return typeof descriptor?.value === "string" ? descriptor.value : undefined;
-};
-
 export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, PublishFailed> => {
   switch (args.type) {
     case "skill":
-      return evaluateSkill(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
+      // Skill admission is shared by authored and existing-directory archives.
+      return Effect.void;
     case "pack":
       return evaluatePack(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
     case "subagent":
@@ -104,28 +94,6 @@ export const runPublishLintGate = (args: PublishLintArgs): Effect.Effect<void, P
     case "rule":
       return evaluateRule(args).pipe(Effect.flatMap(failOnErrorFindings(args.type)));
   }
-};
-
-const evaluateSkill = (args: Extract<PublishLintArgs, { readonly type: "skill" }>) => {
-  const packageFiles = makePlatformSkillFileAccessor(args.platform, args.extensionDir);
-  const files = makePlatformSkillFileAccessor(
-    args.platform,
-    args.platform.path.join(args.extensionDir, "src"),
-  );
-  const expectedName = manifestName(args.manifestJson);
-  const context: SkillRuleContext = {
-    subject: {
-      isNative: true,
-      skillJson: args.manifestJson,
-      ...(expectedName === undefined ? {} : { expectedName }),
-    },
-    files,
-    packageFiles,
-    displayRoot: "",
-  };
-  return evaluateContexts(skillRules, [context], platformCanonicalLintConfig).pipe(
-    Effect.map((evaluated) => collectErrors(evaluated, (ctx) => ctx.displayRoot)),
-  );
 };
 
 const evaluatePack = (args: Extract<PublishLintArgs, { readonly type: "pack" }>) => {

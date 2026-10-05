@@ -138,7 +138,9 @@ export const prepareUninstallArtifact = (
       authoredSkills: { layout, entries: yield* settings.entries("skill") },
     });
     for (const output of inventory.outputs.filter(
-      (output) => output.extensionType === target.type && output.entryName === target.name,
+      (output) =>
+        output.extensionType === target.type &&
+        (output.extensionName ?? output.entryName) === target.name,
     )) {
       if (target.type === "hook") continue;
       const relative = path.relative(

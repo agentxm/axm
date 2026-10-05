@@ -34,6 +34,7 @@ import {
   WorkspaceRecords,
   enabledConfiguredEntries,
   sanitizeName,
+  readSkillDirectoryName,
   computePackageContentHash,
   configuredRowsByName,
   acceptedCanonicalObservation,
@@ -93,14 +94,14 @@ export const SkillManagerLive = Layer.effect(
     const materializeInstall: SkillManagerService["materializeInstall"] = Effect.fn(
       "SkillManager.materializeInstall",
     )(function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
-      const sanitized = sanitizeName(ref.skill.name);
+      const packageName = sanitizeName(ref.skill.name);
 
       const lockedEntry = yield* lockfile.entry("skill", ref.skill.name);
       const previousCanonicalSkillSrcPaths = yield* captureSkillOutputSources(ref.skill.name);
 
       const materialized = yield* materializeSkillCanonical({
         ref,
-        sanitizedName: sanitized,
+        sanitizedName: packageName,
         baseDir,
         layout: currentLayout(),
         reuse: {
@@ -110,6 +111,11 @@ export const SkillManagerLive = Layer.effect(
         },
       });
       const skillSrcPath = materialized.skillSrcPath;
+      const sanitized = yield* readSkillDirectoryName(skillSrcPath, ref.skill.name).pipe(
+        Effect.mapError(
+          (cause) => new SkillDefinitionInvalid({ detail: "Cannot read skill identity", cause }),
+        ),
+      );
 
       const configuredAgents = yield* agentRepo
         .getMaterializationAgents()
@@ -193,6 +199,73 @@ export const SkillManagerLive = Layer.effect(
           });
         }),
       );
+      // A new version can rename the skill while retaining package identity.
+      // Retire only native entries whose direct source or copy receipt proves
+      // ownership by this package, including its previously accepted source.
+      const sourcePaths = [...new Set([...previousCanonicalSkillSrcPaths, skillSrcPath])];
+      const inventory = yield* observeAgentOutputs({
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        workspaceRoot: baseDir,
+        scope: location.scope,
+        desiredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
+        expectedNames: {
+          skill: new Set([ref.skill.name]),
+          subagent: new Set<string>(),
+          hook: new Set<string>(),
+          "mcp-server": new Set<string>(),
+        },
+        expectedSkillSources: { [ref.skill.name]: sourcePaths },
+        expectedSubagentFiles: {},
+        expectedMcpEntries: {},
+        expectedHooks: [],
+        authoredSkills: { layout: currentLayout(), entries: yield* settings.entries("skill") },
+      }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
+      const obsolete = inventory.ownedResidue.filter(
+        (output) =>
+          output.extensionType === "skill" &&
+          output.extensionName === ref.skill.name &&
+          output.entryName !== sanitized,
+      );
+      const previousLocations = yield* nativeArtifactLocationOutcomes({
+        workspaceRoot: baseDir,
+        scope: location.scope,
+        agents: yield* agentRepo.all,
+        configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
+        sharedSkillPolicy: true,
+        targets: obsolete.map((output) => ({
+          path: output.path,
+          kind: "skill" as const,
+          state: "unchanged" as const,
+        })),
+      }).pipe(
+        Effect.mapError(
+          (cause) =>
+            new SkillDefinitionInvalid({
+              detail: "Cannot observe previous Skill locations",
+              cause,
+            }),
+        ),
+      );
+      for (const output of obsolete) {
+        for (const source of sourcePaths) {
+          yield* removeSkillAgentArtifact({
+            targetDir: path.dirname(output.path),
+            sanitizedName: output.entryName,
+            canonicalSkillSrcPath: source,
+            baseDir,
+            nativeRoots,
+          });
+        }
+      }
+      const retiredLocations = yield* retiredNativeArtifactLocationOutcomes(previousLocations).pipe(
+        Effect.mapError(
+          (cause) =>
+            new SkillDefinitionInvalid({
+              detail: "Cannot verify previous Skill locations were retired",
+              cause,
+            }),
+        ),
+      );
       const sourceHash =
         ref.refType === "workspace"
           ? ref.sourceHash
@@ -208,27 +281,30 @@ export const SkillManagerLive = Layer.effect(
           ref.refType === "workspace" ? undefined : materialized.treeIntegrity,
         ),
         observation: {
-          nativeLocations: yield* nativeArtifactLocationOutcomes({
-            workspaceRoot: baseDir,
-            scope: location.scope,
-            agents: yield* agentRepo.all,
-            configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
-            sharedSkillPolicy: true,
-            targets: locations.map((target, index) => ({
-              path: path.join(target.targetDir, sanitized),
-              kind: "skill",
-              sourcePath: skillSrcPath,
-              state: changes[index] ?? "unverified",
-            })),
-          }).pipe(
-            Effect.mapError(
-              (cause) =>
-                new SkillDefinitionInvalid({
-                  detail: "Cannot observe native Skill locations",
-                  cause,
-                }),
-            ),
-          ),
+          nativeLocations: [
+            ...retiredLocations,
+            ...(yield* nativeArtifactLocationOutcomes({
+              workspaceRoot: baseDir,
+              scope: location.scope,
+              agents: yield* agentRepo.all,
+              configuredAgentIds: new Set(configuredAgents.map((agent) => agent.id)),
+              sharedSkillPolicy: true,
+              targets: locations.map((target, index) => ({
+                path: path.join(target.targetDir, sanitized),
+                kind: "skill",
+                sourcePath: skillSrcPath,
+                state: changes[index] ?? "unverified",
+              })),
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SkillDefinitionInvalid({
+                    detail: "Cannot observe native Skill locations",
+                    cause,
+                  }),
+              ),
+            )),
+          ],
           agents: Array.dedupe(installTargets.map((target) => target.agentId)),
           targets: locations.map((location) => {
             const agentIds = location.agentIds;
@@ -245,8 +321,6 @@ export const SkillManagerLive = Layer.effect(
       retainCanonical: boolean,
     ): SkillManagerService["materializeUninstall"] =>
       Effect.fn("SkillManager.materializeRemoval")(function* ({ target }) {
-        const sanitized = sanitizeName(target.name);
-
         const layout = currentLayout();
         const canonical = yield* acceptedCanonicalObservation({ type: "skill", name: target.name });
         const canonicalRoot = Option.isSome(canonical)
@@ -283,32 +357,26 @@ export const SkillManagerLive = Layer.effect(
             "mcp-server": new Set<string>(),
           },
           expectedSkillSources:
-            canonicalSkillSrcPath === undefined ? {} : { [sanitized]: [canonicalSkillSrcPath] },
+            canonicalSkillSrcPath === undefined ? {} : { [target.name]: [canonicalSkillSrcPath] },
           expectedSubagentFiles: {},
           expectedMcpEntries: {},
           expectedHooks: [],
           authoredSkills: { layout, entries: yield* settings.entries("skill") },
         }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
-        const distinctDirs = [
-          ...new Set(
-            inventory.outputs
-              .filter(
-                (output) =>
-                  output.extensionType === "skill" &&
-                  output.entryName === sanitized &&
-                  output.ownership === "owned",
-              )
-              .map((output) => path.dirname(output.path)),
-          ),
-        ];
+        const ownedOutputs = inventory.outputs.filter(
+          (output) =>
+            output.extensionType === "skill" &&
+            (output.extensionName ?? output.entryName) === target.name &&
+            output.ownership === "owned",
+        );
         const nativeBefore = yield* nativeArtifactLocationOutcomes({
           workspaceRoot: baseDir,
           scope: location.scope,
           agents: yield* agentRepo.all,
           configuredAgentIds,
           sharedSkillPolicy: true,
-          targets: distinctDirs.map((dir) => ({
-            path: path.join(dir, sanitized),
+          targets: ownedOutputs.map((output) => ({
+            path: output.path,
             kind: "skill",
             state: "unchanged",
             ...(canonicalSkillSrcPath === undefined ? {} : { sourcePath: canonicalSkillSrcPath }),
@@ -323,8 +391,8 @@ export const SkillManagerLive = Layer.effect(
           ),
         );
         yield* applyProjectionPlans(
-          distinctDirs.map((dir) => {
-            const targetFile = path.join(dir, sanitized);
+          ownedOutputs.map((output) => {
+            const targetFile = output.path;
             return planSingletonProjection({
               unitId: "skill:agent-skill-directory",
               targetFile,
@@ -342,8 +410,8 @@ export const SkillManagerLive = Layer.effect(
                 apply: () =>
                   removeSkillAgentArtifact({
                     nativeRoots,
-                    targetDir: dir,
-                    sanitizedName: sanitized,
+                    targetDir: path.dirname(output.path),
+                    sanitizedName: output.entryName,
                     ...(canonicalSkillSrcPath === undefined ? {} : { canonicalSkillSrcPath }),
                     baseDir,
                   }),
@@ -371,8 +439,8 @@ export const SkillManagerLive = Layer.effect(
           observation: {
             nativeLocations,
             agents: [],
-            targets: distinctDirs.map((dir) => ({
-              path: path.relative(baseDir, path.join(dir, sanitized)),
+            targets: ownedOutputs.map((output) => ({
+              path: path.relative(baseDir, output.path),
             })),
           },
         } satisfies SkillMaterializationFacts;

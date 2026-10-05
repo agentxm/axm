@@ -126,8 +126,8 @@ export type LintConfig = Schema.Schema.Type<typeof LintConfigSchema>;
 /**
  * The platform-canonical `LintConfig` — empty rules, no overrides.
  *
- * Registry publish uses this config; it carries no overrides so every rule
- * fires at its catalog severity.
+ * It carries no overrides: enabled rules use their catalog severity and
+ * opt-in conformance rules remain disabled.
  *
  * @experimental This API is unstable and may change without notice.
  */

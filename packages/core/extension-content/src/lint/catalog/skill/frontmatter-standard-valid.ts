@@ -44,6 +44,7 @@ const finding = (message: string): AdvisoryFinding => ({
 
 export const frontmatterStandardValidRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
+  enabledByDefault: false,
   description: "SKILL.md metadata conforms to the pinned Agent Skills standard.",
   kind: "advisory",
   severity: "error",

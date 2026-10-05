@@ -1,3 +1,4 @@
+import { skillDirectoryNameForRef } from "@agentxm/workspace-kernel/acquisition";
 import {
   type NativeLocationOutcome,
   resolveNativeEntry,
@@ -14,8 +15,6 @@ import {
   SettingsReader,
   WorkspaceLocation,
   lockEntryVersion,
-  sanitizeName,
-  type SkillPathSource,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -69,33 +68,6 @@ const countFiles = (
     }
     return total;
   });
-
-const skillPathSourceFor = (ref: SkillExtensionRef): SkillPathSource => {
-  switch (ref.refType) {
-    case "http":
-      return ref;
-    case "registry":
-      return { refType: "registry", owner: ref.owner, source: ref.source };
-    case "git-hosted":
-      return {
-        refType: "git-hosted",
-        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
-        source: ref.source,
-        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
-        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
-      };
-    case "local":
-      return {
-        refType: "local",
-        ...(ref.owner === undefined ? {} : { owner: ref.owner }),
-        source: ref.source,
-        ...(ref.sourcePath === undefined ? {} : { sourcePath: ref.sourcePath }),
-        ...(ref.portable === undefined ? {} : { portable: ref.portable }),
-      };
-    case "workspace":
-      return { refType: "workspace", owner: ref.owner };
-  }
-};
 
 interface ReleaseAgeFact {
   readonly minimumAge: string;
@@ -206,7 +178,7 @@ const inspect = (ref: SkillExtensionRef) =>
       onNone: () => undefined,
       onSome: lockEntryVersion,
     });
-    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
+    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, ref);
     const configuredAgents = yield* agentRepo.getMaterializationAgents();
     const resolvedAgents = yield* Effect.forEach(
       configuredAgents,
@@ -226,7 +198,7 @@ const inspect = (ref: SkillExtensionRef) =>
         ? [`${agentId}: ${outcome.reason}`]
         : [],
     );
-    const sanitizedName = sanitizeName(ref.skill.name);
+    const directoryName = yield* skillDirectoryNameForRef(ref);
     const installableTargets = resolvedAgents.flatMap(
       ({ agentId, outcome }): ReadonlyArray<InstallableSkillTarget> =>
         outcome._tag === "supported" ? [{ agentId, targetDir: path.normalize(outcome.dir) }] : [],
@@ -237,9 +209,11 @@ const inspect = (ref: SkillExtensionRef) =>
     );
     const artifactAgents = artifactAgentIdsFromTargets(installableTargets);
     const targets = yield* Effect.forEach(
-      targetLocations,
+      targetLocations.flatMap((location) =>
+        Option.toArray(directoryName).map((name) => ({ ...location, name })),
+      ),
       (location) => {
-        const linkPath = path.join(location.targetDir, sanitizedName);
+        const linkPath = path.join(location.targetDir, location.name);
         return targetState({
           linkPath,
           canonicalSkillSrcPath: skillSrcPath,
@@ -316,7 +290,7 @@ const readContent = (ref: SkillExtensionRef) =>
     const paths = yield* ExtensionPaths;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, skillPathSourceFor(ref));
+    const { skillSrcPath } = yield* paths.skillDir(ref.skill.name, ref);
     return { fileCount: yield* countFiles(fs, path, skillSrcPath) };
   });
 

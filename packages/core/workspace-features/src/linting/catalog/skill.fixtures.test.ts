@@ -22,7 +22,6 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {
-  platformCanonicalLintConfig,
   type SkillRuleContext,
   evaluateContexts,
   makeVftSkillFileAccessor,
@@ -111,11 +110,12 @@ describe("skill catalog — fixtures", () => {
           displayRoot: "",
         };
 
-        const evaluated = yield* evaluateContexts(
-          skillRules,
-          [context],
-          platformCanonicalLintConfig,
-        );
+        const evaluated = yield* evaluateContexts(skillRules, [context], {
+          rules: {
+            "skill/frontmatter-parseable": "error",
+            "skill/frontmatter-standard-valid": "error",
+          },
+        });
 
         const findings = evaluated.flatMap((e) => e.findings);
         expect(findings).toHaveLength(fixture.expectedFindings.length);

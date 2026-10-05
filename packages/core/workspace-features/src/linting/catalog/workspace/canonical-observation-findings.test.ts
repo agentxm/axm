@@ -164,7 +164,7 @@ describe("per-extension rules over present but unusable canonical content", () =
                 },
               ]),
             );
-            expect(reported.some(({ ruleId }) => ruleId === "skill/manifest-present")).toBe(false);
+            expect(reported.some(({ ruleId }) => ruleId === "skill/manifest-present")).toBe(true);
             expect(reported.some(({ message }) => message.includes("Create skill.json"))).toBe(
               false,
             );
@@ -192,7 +192,7 @@ describe("per-extension rules over present but unusable canonical content", () =
             ]),
           );
           expect(reported.some(({ ruleId }) => ruleId === "skill/manifest-schema-valid")).toBe(
-            false,
+            true,
           );
         }),
       )

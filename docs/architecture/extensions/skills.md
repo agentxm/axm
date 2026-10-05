@@ -9,129 +9,104 @@ depends-on:
 
 # Skills
 
-AXM manages Agent Skills content and makes it available through configured
-agents' skill surfaces. A skill may be portable or depend on native host
-behavior. AXM adds ownership, distribution, and lifecycle management while
-preserving the author's intended behavior.
-
-This document owns the design principles for that boundary. The
+AXM manages a skill as one content directory. Ownership and distribution may
+change; its instructions, frontmatter, supporting files, executable modes, and
+contained relative links remain the author's content. The
 [decision record](../decisions/skill-compatibility-is-independent-of-authorship.md)
-explains the choice; executable specifications own accepted functional
-requirements. Adoption of these principles is not evidence that every current
-validation or publication path already implements them.
+explains this choice. The [specification catalog](../../../specifications/catalog.md)
+links the executable obligations and their verification.
 
-## Compatibility and authorship are independent
+## Content and package identity
 
-Compatibility concerns the skill, the selected host, and its required
-environment. Authorship concerns editable ownership and provenance. Acquired
-skills can be portable, and workspace-authored skills can use native host
-features. Adopting unchanged content does not change its compatibility or
-require a rewrite into a universal portable baseline.
+An upstream skill can be installed directly from its existing directory:
 
-Successful installation means AXM preserves the selected payload and its
-package context and places it where the supported host can discover and load
-it. It does not certify task quality, install prerequisites inferred from
-prose, or prove behavior on every agent implementing the Agent Skills format.
-Claims about runtime behavior need evidence from that host; claims about task
-quality need behavioral evaluation.
+```text
+review/
+├── SKILL.md
+├── scripts/
+└── references/
+```
 
-The portable baseline and capability-conditioned enhancements described in
-[Agent-specific extension content](targeting.md) remain useful for skills that
-choose that contract. They are not a prerequisite for managing every skill.
+An AXM-authored or published skill adds an envelope around that directory:
 
-## Preserve meaning through the lifecycle
+```text
+review-package/
+├── skill.json
+└── src/
+    ├── SKILL.md
+    ├── scripts/
+    └── references/
+```
 
-Acquisition, adoption for authorship, publication, and reinstallation preserve
-effective behavior on the same supported host when content and environment
-have not changed. Supporting files, relative layout, executable modes, and
-package context are part of the payload, not incidental decoration.
+`src/` is the skill root; it contains `SKILL.md` directly. An individual skill
+has no nested `src/skills/<name>`, component selector, or payload-layout setting.
+Publishing an existing directory creates the envelope in the archive without
+restructuring the source checkout. Import copies the complete directory into
+`src/`. Fork changes package metadata while preserving the skill payload.
 
-Unknown frontmatter and native fields remain unchanged. AXM does not remove,
-rename, or relocate them under generic metadata merely to pass its validator.
-It validates fields it interprets or transforms against the contract of the
-requested operation. Preserving an opaque field does not claim that AXM or
-every host understands or activates it.
+`skill.json.name` identifies the package. `SKILL.md` frontmatter `name`
+identifies the skill and supplies its native directory name. For example,
+package `@alice/skills/review-package` can install as
+`<agent skills directory>/review/`. There is no additional `skillName` or
+`nativeName` manifest field and no requirement that the two identities match.
 
-A host-native control can be essential or optional. A known inability to
-realize required behavior blocks the affected activation. A known loss of an
-optional enhancement can warrant an actionable warning. AXM preserves an
-author-provided fallback; it does not invent an advisory instruction as a
-substitute for an enforced control. Unknown fields alone establish neither
-incompatibility nor essentiality.
+When the declaration is absent or unusable as a portable path component, AXM
+uses its safe selected source or package name, prefixing Windows device names
+with `skill-`. It never derives that fallback
+from the envelope's physical `src` directory or rewrites the declaration.
+The fallback is stable for the same selection across archive wrapping and
+reinstallation; choosing a different package identity can change the fallback
+of an unnamed skill. A deliberate skill rename is an author's content change.
 
-## Diagnostics justify their interruption
+## No per-agent skill rendering
 
-Routine install, sync, adoption, and publication diagnose operational
-consequences. They do not turn authoring preferences or unproven portability
-into default errors or warnings.
+Every destination receives the same selected skill directory. Agent-specific
+integration determines placement and native ownership, not payload content.
+AXM does not interpret `agentOverrides`, render conditional Markdown, translate
+tool names, strip fields, or turn enforced hooks into advisory prose. Those
+bytes remain literal even when an agent does not interpret them.
 
-| Condition                                                                                                 | Response                                                            |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| Unfamiliar metadata, extra files, or unconventional organization with no demonstrated operational problem | Preserve silently.                                                  |
-| Style preference or stricter standard-conformance advice                                                  | Report through explicitly requested conformance or quality checks.  |
-| Known unavailable optional behavior that affects a useful user decision                                   | Warn with the affected host and consequence.                        |
-| Known host rejection or inability to realize required behavior                                            | Fail the affected activation before committing a misleading result. |
-| Integrity failure, unsafe package paths, or conflicting native ownership                                  | Fail the affected operation.                                        |
-| Missing identity, authority, version, or legal declaration required for distribution                      | Fail publication at its owning boundary.                            |
+Compatibility concerns the content, host, and required environment. Authorship
+concerns editable ownership and provenance. Taking authorship does not make a
+skill more or less portable. Installation proves managed placement and content
+preservation; native runtime behavior and task quality require evidence from
+the relevant host and evaluation.
 
-A warning needs a known consequence and a useful decision. An unfamiliar key
-or an untested host is insufficient by itself. Compatibility evidence and
-uncertainty can be inspectable without adding routine warning noise. Strict
-standard conformance and stronger portability claims are explicit checks,
-separate from the minimum needed to perform an operation safely and honestly.
+An independently published skill contains its required file resources within
+its skill root. Moving shared scripts into that root and changing references is
+an explicit author edit. An upstream plugin with shared assets retains the
+package context described in [Source-compatible distribution](source-compatible-distribution.md).
+Converting a plugin component to an independent skill requires making it
+independently distributable; retaining plugin files alone does not establish
+native plugin activation.
 
-## Publication adds a distribution contract
+## Validation follows the operation
 
-Making a skill AXM-managed or publishing it to the Registry does not imply
-broadening its supported hosts. Publication adds the identity, publisher
-authority, immutable version, legal declaration, safe artifact structure, and
-discovery information required by the
-[publication boundary](../commands/publish.md). Each admission constraint needs
-a concrete distribution or consumer requirement.
+Discovery extracts available metadata without imposing a conformance gate.
+Routine install, sync, and lint check the obligations AXM manages: readable
+content, the required entry point, AXM manifests, safe paths, integrity, and
+ownership. Unknown native fields, extra files, and unconventional organization
+alone do not warrant a warning or failure.
 
-The existing directory can remain intact with an AXM distribution envelope;
-publication need not force a new source layout or normalize native fields.
-[Source-compatible distribution](source-compatible-distribution.md) owns that
-package and acquisition model. More demanding authoring advice belongs in an
-explicit check, not an implicit cost of adoption or Registry distribution.
+Strict Agent Skills conformance is explicit lint configuration. It is
+independent of whether AXM acquired the content or the workspace authored it.
+Publication uses the shared envelope and archive admission contract for both
+routes, with publisher authority and immutable version rules at the
+[publication boundary](../commands/publish.md). It adds no separate authored
+skill frontmatter gate. License metadata remains optional; AXM does not infer it.
 
-## Authority and ownership
+A warning needs a demonstrated consequence and a useful user decision. A
+failure needs a demonstrated inability to satisfy the requested operation.
+Unknown metadata alone establishes neither incompatibility nor essentiality.
+AXM preserves author-provided fallbacks without inventing behavior or claiming
+that a host activates a preserved field.
 
-Workspace-authored skill content is editable canonical content. Canonical
-content acquired from an external source is AXM-managed. Agent skill
-directories are projections, whether a particular writer uses links or copies.
-A projection never becomes an authoring source through incidental edits.
+## Ownership remains exact
 
-One agent-facing Skill directory is the native ownership unit. Directories
-with different names can coexist regardless of installer. A required name
-occupied by a directory or link AXM cannot prove it owns is a collision.
-A matching name or matching files are not sufficient ownership evidence;
-reconciliation never adopts or overwrites an unowned directory.
-
-AXM management identity, upstream declared identity, and native placement stay
-traceable without rewriting upstream bytes to make their strings equal.
-Coupling to another AXM extension uses explicit Pack composition and extension
-identity with host discovery, never a hidden path into another extension.
-Supporting files inside one selected upstream package retain their own context.
-
-## Implementation alignment and verification
-
-Current acquired-content metadata extraction is permissive, while authored
-frontmatter validation and authored publication still apply a stricter field
-contract. Those paths are an implementation gap against these principles;
-this design change does not alter their executable requirements. Convergence
-requires coordinated specification and implementation changes at each owner.
-
-Verification should cover the whole journey: install an existing source,
-adopt for authorship, publish, and install that version on the same supported
-host. Evidence must establish payload/context preservation and the selected
-host behavior, including native controls and author-provided fallbacks.
-Management success alone cannot establish runtime equivalence.
-
-Keep the existing ownership, collision, drift, disable/re-enable, safe removal,
-and idempotence coverage. Add decisive cases for harmless unknown fields,
-actual host rejection, missing required behavior, useful optional-behavior
-diagnostics, and publication admission. Concrete field interpretations,
-essentiality declarations, and any necessary host adaptation remain design
-choices to resolve from supported cases, not a new generic capability framework
-implied by these principles.
+Workspace-authored content is editable canonical content. Acquired content is
+AXM-managed; native skill directories are projections, whether linked or copied.
+One native directory is the ownership unit. A required name occupied by content
+AXM cannot prove it owns is a collision, including when two different packages
+declare the same skill name. Matching names or bytes alone do not establish
+ownership. Disable, removal, and reconciliation use package identity to select
+the operation and derived skill identity to locate the native content.

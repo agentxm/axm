@@ -53,7 +53,10 @@ import {
   WorkspaceCatalogLive,
 } from "@agentxm/workspace-kernel/sources/live";
 import { PlanInvocationTest } from "@agentxm/workspace-kernel/planning/testing";
-import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
+import {
+  WorkspaceFileWriteLocksLive,
+  WorkspaceTransactionScopesLive,
+} from "@agentxm/workspace-kernel/settlement/live";
 
 export interface WorkspaceDirectoriesOptions {
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
@@ -250,7 +253,8 @@ export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>)
   const managers = withKindManagers(layer);
   const observed = Layer.provideMerge(ConfiguredAgentOutcomesProviderLive, managers);
   const withParticipants = Layer.provideMerge(ProjectionParticipantsLive, observed);
-  return Layer.provideMerge(WorkspaceInvariantFactsLive, withParticipants).pipe(
-    Layer.provideMerge(WorkspaceFileWriteLocksLive),
-  );
+  return Layer.provideMerge(
+    Layer.mergeAll(WorkspaceInvariantFactsLive, WorkspaceTransactionScopesLive),
+    withParticipants,
+  ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
 };

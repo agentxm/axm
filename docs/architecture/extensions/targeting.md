@@ -12,10 +12,9 @@ depends-on:
 Portable extension content may gain agent-specific enhancements without making
 agent identity or the configured target set part of its canonical meaning.
 
-This document governs AXM's conditional enhancement model for content that
-chooses a portable baseline. It does not impose that baseline on opaque native
-skill fields or on every managed skill. [Skills](skills.md) owns the broader
-compatibility and authorship boundary.
+This document governs conditional enhancement for extension types with an
+AXM-owned renderer. It excludes Skills: [Skills](skills.md) are placed unchanged
+and have no per-agent rendering, including for apparently conditional text.
 
 ## Responsibilities
 
@@ -60,7 +59,7 @@ offer that target as persistent behavior.
 
 ## Rendering and authority
 
-Canonical extension content remains authoritative. AXM renders a projection
+Canonical extension content remains authoritative. For extension types that own a renderer, AXM renders a projection
 for each configured agent at install and reconciliation time because the
 workspace knows the target, layout, writer, and accepted capability input.
 Rendered projections are disposable and may be reformatted by workspace tools;
@@ -82,9 +81,8 @@ loops, or includes.
 AXM treats untrusted third-party conditional syntax conservatively: invalid
 enhancements do not justify corrupting the portable extension content or
 unrelated content. Publishing content that uses this portable enhancement contract applies its
-structural and zero-capability coherence gate. Authorship alone does not select
-that contract for a skill, and native fields passed through to a host are not
-automatically AXM conditional syntax.
+structural and zero-capability coherence gate. Skill authorship never selects this rendering contract. Skill fields and
+instructions remain opaque content passed through unchanged.
 
 ## Testing strategy
 

@@ -1,8 +1,8 @@
 /**
  * `skill/*` rule catalog.
  *
- * Per the lint design, registry publish and `axm lint`
- * run exactly these rules against each skill context:
+ * Ordinary lint checks management obligations; the two frontmatter
+ * conformance rules run only when explicitly configured:
  *
  * | ID                                     | Severity | Autofix |
  * | -------------------------------------- | -------- | ------- |
@@ -26,7 +26,6 @@
  * @packageDocumentation
  */
 
-import * as Effect from "effect/Effect";
 import type { LintRule } from "../rule.js";
 import type { SkillRuleContext } from "../context.js";
 import { skillMdPresentRule } from "./skill/skill-md-present.js";
@@ -39,17 +38,6 @@ import { recommendedPacksValidRule } from "./skill/recommended-packs-valid.js";
 import { standaloneDeclarationValidRule } from "./skill/standalone-declaration-valid.js";
 
 /**
- * Authoring rules do not run as routine health checks for acquired content.
- * Skill presence remains a management obligation; accepted identity, integrity,
- * ownership and projection checks are supplied by the workspace catalog.
- */
-const authoringOnly = (rule: LintRule<SkillRuleContext>): LintRule<SkillRuleContext> => ({
-  ...rule,
-  check: (context) =>
-    context.subject.validationPurpose === "management" ? Effect.succeed([]) : rule.check(context),
-});
-
-/**
  * Ordered `skill/*` rule catalog. Declaration order is the evaluation
  * order within a single `evaluateContexts` call (deterministic ordering is
  * test-observable; see `evaluate.ts`).
@@ -58,13 +46,11 @@ const authoringOnly = (rule: LintRule<SkillRuleContext>): LintRule<SkillRuleCont
  */
 export const skillRules: ReadonlyArray<LintRule<SkillRuleContext>> = [
   skillMdPresentRule,
-  ...[
-    manifestPresentRule,
-    frontmatterParseableRule,
-    frontmatterStandardValidRule,
-    manifestSchemaValidRule,
-    manifestKeysRecognizedRule,
-    standaloneDeclarationValidRule,
-    recommendedPacksValidRule,
-  ].map(authoringOnly),
+  manifestPresentRule,
+  frontmatterParseableRule,
+  frontmatterStandardValidRule,
+  manifestSchemaValidRule,
+  manifestKeysRecognizedRule,
+  standaloneDeclarationValidRule,
+  recommendedPacksValidRule,
 ];

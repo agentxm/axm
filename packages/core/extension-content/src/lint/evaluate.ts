@@ -103,11 +103,13 @@ const evaluateOne = <C, E>(
   context: C,
   config: LintConfig,
 ): Effect.Effect<Evaluated<C, E>, E> =>
-  Effect.map(rule.check(context), (rawFindings) => ({
-    rule,
-    context,
-    findings: applySeverityConfig(rule, rawFindings, config),
-  }));
+  rule.enabledByDefault === false && config.rules?.[rule.id] === undefined
+    ? Effect.succeed({ rule, context, findings: [] })
+    : Effect.map(rule.check(context), (rawFindings) => ({
+        rule,
+        context,
+        findings: applySeverityConfig(rule, rawFindings, config),
+      }));
 
 const applySeverityConfig = <C, E>(
   rule: LintRule<C, E>,

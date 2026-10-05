@@ -1,5 +1,9 @@
 import { nativeSubagentMarker } from "../../../agent-adapters/index.js";
-import { captureNativeLocationSet } from "../../../locations/index.js";
+import {
+  captureNativeLocationSet,
+  type NativeLocationSet,
+  readCopiedDirectory,
+} from "../../../locations/index.js";
 import {
   resolveDeclaredNativeLocations,
   type NativeDirectoryInputs,
@@ -142,6 +146,7 @@ type PhysicalOccurrence = Omit<AgentDirOccurrence, "agentId" | "readPathStatus">
 const scanSubjectDirectory = (
   deps: AgentDirScannerDeps,
   subject: SubjectDir,
+  locations: NativeLocationSet,
 ): Effect.Effect<ReadonlyArray<PhysicalOccurrence>> =>
   Effect.gen(function* () {
     const { fs, path, scope, workspaceRoot, diagnostics } = deps;
@@ -182,12 +187,31 @@ const scanSubjectDirectory = (
               subjectFilePath,
             );
             const contentLocation = makeAbsolutePath(path, nameDir);
+            const skillSource = yield* Effect.gen(function* () {
+              const entry = yield* locations.entry(nameDir);
+              if (entry.kind === "symlink" && entry.linkTarget !== undefined) {
+                const immediate = yield* locations.entry(
+                  path.resolve(path.dirname(entry.entryPath), entry.linkTarget),
+                );
+                return immediate.kind === "directory" ? immediate.entryPath : undefined;
+              }
+              if (entry.kind === "directory") {
+                const receipt = yield* readCopiedDirectory(entry.entryPath);
+                return Option.isSome(receipt) ? receipt.value.source : undefined;
+              }
+              return undefined;
+            }).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+              Effect.catch(() => Effect.succeed(undefined)),
+            );
             return {
               _tag: "agent-dir",
               scope,
               type: subject.type,
               name,
               contentLocation,
+              ...(skillSource === undefined ? {} : { skillSource }),
               pathSegments: splitAbsolutePathSegments(path, nameDir),
               subjectFile: Option.some(makeAbsolutePath(path, subjectFilePath)),
               subjectFileExists,
@@ -294,7 +318,7 @@ const scanAgentDirs = Effect.fn("workspace.read-model.scanner.agent-dir")(functi
     samePhysicalSubject,
   );
   const observations = yield* Effect.forEach(subjects, (subject) =>
-    scanSubjectDirectory(deps, subject).pipe(
+    scanSubjectDirectory(deps, subject, observed).pipe(
       Effect.map((facts) =>
         requests.flatMap((request, index) =>
           samePhysicalSubject(request.subject, subject)

@@ -11,7 +11,7 @@ import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/
  */
 
 import { newlyConfiguredMcpRoutePaths } from "../agent-adapters/index.js";
-import { acquiredFilesForRef } from "../acquisition/index.js";
+import { acquiredFilesForRef, skillDirectoryNameForRef } from "../acquisition/index.js";
 import { fromFileLocation, toFileLocation } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -61,7 +61,6 @@ import {
 import {
   settingsEntries,
   type Settings,
-  sanitizeName,
   acceptedResolutionRef,
   acceptedCanonicalObservation,
   observeDesiredCanonical,
@@ -297,10 +296,35 @@ const skillSyncArtifact = (args: {
     const targets = resolved.flatMap(({ agent, outcome }) =>
       outcome._tag === "supported" ? [{ agentId: agent.id, targetDir: outcome.dir }] : [],
     );
+    const directoryName = yield* skillDirectoryNameForRef(args.ref).pipe(
+      Effect.mapError(
+        (cause) =>
+          new WorkspaceSyncFailed({
+            category: "validation",
+            detail: `Cannot read Skill identity for ${args.ref.skill.name}`,
+            cause,
+          }),
+      ),
+    );
+    if (Option.isNone(directoryName))
+      return {
+        path: args.ref.skill.name,
+        scope: args.location.scope,
+        change: "updated" as const,
+        nativeLocations: [],
+        references: [
+          {
+            path: args.ref.skill.name,
+            state: "unknown" as const,
+            reason:
+              "Native output locations depend on skill content that has not been observed in this planning phase.",
+          },
+        ],
+      };
     const artifact = yield* skillArtifactFromTargets({
       targets,
       workspaceRoot: args.location.baseDir,
-      sanitizedName: sanitizeName(args.ref.skill.name),
+      sanitizedName: directoryName.value,
       scope: args.location.scope,
       change: "updated",
     }).pipe(

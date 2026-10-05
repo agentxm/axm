@@ -1,3 +1,8 @@
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import { extractSkillMetadata, skillDirectoryName } from "@agentxm/extension-content";
+import { sanitizeName } from "./extension-name.js";
 /**
  * Centralized skill path computation.
  *
@@ -42,3 +47,18 @@ export const computeSkillPathsForLayout = (
   const paths = computeExtensionPathsForLayout(join, layout, source, "skills", sanitizedName);
   return { canonicalPath: paths.canonicalPath, skillSrcPath: paths.extensionSrcPath };
 };
+
+/** Read native identity from content; absent content retains a diagnostic fallback. */
+export const readSkillDirectoryName = (contentRoot: string, packageName: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const content = yield* fs
+      .readFileString(path.join(contentRoot, "SKILL.md"))
+      .pipe(
+        Effect.catch((error) =>
+          error.reason._tag === "NotFound" ? Effect.succeed("") : Effect.fail(error),
+        ),
+      );
+    return skillDirectoryName(extractSkillMetadata(content).name, sanitizeName(packageName));
+  });

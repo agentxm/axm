@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/publication-gate-is-fixed",
   title: "The publication gate is fixed and ignores locally relaxed lint rules",
   statement:
-    "When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.",
+    "When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall identify the violated publication condition, and shall upload nothing, regardless of any lint rule relaxed in axm.json.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
@@ -69,9 +69,36 @@ describe("The fixed publication gate", () => {
 
       const failure = publishFailureOf(outcome);
       expect(failure.category).toBe("validation");
-      expect(failure.detail).toContain("skill/skill-md-present");
+      expect(failure.detail).toContain("src/SKILL.md is required");
       expect(world.target.storedFiles()).toEqual([]);
       expect(JSON.stringify(world.readSettings())).toBe(settingsBefore);
+    }),
+  );
+
+  it.effect.each([
+    "---\r\nname: original\r\nallowed-tools: [Read, Bash]\r\nvendor: true\r\n---\r\n# Instructions\r\n",
+    "# Plain instructions\n",
+    "---\nname: [unfinished\n---\n# Instructions\n",
+  ])("publishes authored skills without a separate content-conformance gate: %s", (content) =>
+    Effect.gen(function* () {
+      const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
+      worlds.push(world);
+      const directory = world.write("skill", { name: "review" });
+      fs.writeFileSync(nodePath.join(directory, "src", "SKILL.md"), content);
+      world.setLintRule("skill/frontmatter-parseable", "error");
+      world.setLintRule("skill/frontmatter-standard-valid", "error");
+      const preview = yield* world.provide(
+        runPublish(requestFor(world, { types: ["skill"], preview: true })),
+      );
+      expect(preview.disposition._tag).toBe("Completed");
+      expect(world.target.storedFiles()).toEqual([]);
+      const applied = yield* world.provide(
+        runPublish(requestFor(world, { types: ["skill"], preview: false })),
+      );
+      expect(applied.disposition._tag).toBe("Completed");
+      const contents = yield* archiveContents(world.archive("review"));
+      expect(contents["src/SKILL.md"]).toEqual(Buffer.from(content));
+      expect(fs.readFileSync(nodePath.join(directory, "src", "SKILL.md"), "utf8")).toBe(content);
     }),
   );
 

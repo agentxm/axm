@@ -86,8 +86,8 @@ describe("Importing native instructions", () => {
       nativePath: "native/SKILL.md",
       sourcePath: "native",
       authoredEntry: "src/SKILL.md",
-      projection: ".claude/skills/custom/SKILL.md",
-      projected: ".claude/skills/custom",
+      projection: ".claude/skills/original/SKILL.md",
+      projected: ".claude/skills/original",
     },
     {
       type: "subagent",
@@ -142,8 +142,7 @@ describe("Importing native instructions", () => {
             version: "0.1.0",
           });
           const content = created.read(`${type.plural}/custom/${type.authoredEntry}`);
-          expect(content).toContain(type.type === "skill" ? "name: custom" : "name: original");
-          if (type.type === "subagent") expect(content).toBe(NATIVE_BODY);
+          expect(content).toBe(NATIVE_BODY);
           expect(content).toContain("Keep every recommendation evidence backed.");
           expect(created.settings()).toMatchObject({
             [type.plural]: {

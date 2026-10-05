@@ -34,6 +34,7 @@ export {
   type SkillFrontmatterValidation,
   parseSkillMd,
   extractSkillMetadata,
+  skillDirectoryName,
   validateSkillFrontmatter,
 } from "./content/skill-content.js";
 export { type Skill } from "./content/skill-types.js";

@@ -899,7 +899,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/fork/creates-distinct-workspace-package`
 - Owner: `workspace-features`
-- Statement: When a person forks one managed AXM package, AXM shall preserve the source and its reusable content while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.
+- Statement: When a person forks one managed AXM package, AXM shall preserve the source and all skill payload bytes while creating a workspace-authored package of the same type under the requested identity, initially disabled unless activation is requested or already configured.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -3421,7 +3421,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/publication-gate-is-fixed`
 - Owner: `workspace-features`
-- Statement: When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall name the violated rule, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
+- Statement: When a selected workspace-authored extension violates the fixed publication gate, publish shall block it in preview and apply alike, shall identify the violated publication condition, and shall upload nothing, regardless of any lint rule relaxed in axm.json.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
@@ -4722,11 +4722,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts)
 
-##### Acquired skills stay quiet about authoring conventions
+##### Skill conformance is explicit regardless of authorship
 
 - Requirement: `skills/lint/acquired-content-has-management-checks`
 - Owner: `extension-content`
-- Statement: When checking an acquired Skill, AXM shall check its management state without emitting authoring conformance findings for its upstream content; an explicit authoring check shall retain conformance diagnostics and neither check shall modify the content.
+- Statement: When checking a Skill, AXM shall validate its management obligations regardless of authorship without emitting content-conformance findings unless explicitly configured; neither check shall modify the content.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4859,6 +4859,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `apps/cli/src/root/sync/handler.ts`
 - Source: [`apps/cli/src/root/sync/check-requires-preview.spec.ts`](../apps/cli/src/root/sync/check-requires-preview.spec.ts)
+
+##### All agents receive the same skill content
+
+- Requirement: `skills/projection/no-per-agent-rendering`
+- Owner: `workspace-features`
+- Statement: AXM shall place the selected skill directory unchanged at every applicable agent destination and shall not render or translate its frontmatter, instructions, hooks, tool names, conditional text, or supporting files per agent.
+- Class: constraint
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-features/src/sync/skill-content-is-agent-independent.spec.ts`](../packages/core/workspace-features/src/sync/skill-content-is-agent-independent.spec.ts)
 
 ## Programmatic interfaces
 
@@ -6237,6 +6249,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: golden-output, example
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/saving-settings-preserves-authored-formatting.spec.ts)
+
+##### Skill content names its native directory independently of package identity
+
+- Requirement: `skills/identity/content-names-native-directories`
+- Owner: `extension-content`
+- Statement: AXM shall use a skill's declared name unchanged as its native directory name when it is a safe portable path component, otherwise use the selected source or package identity as a stable safe fallback, without rewriting skill content or deriving the name from an envelope's src directory.
+- Class: functional
+- Role: interface
+- Product goals: `workspace-intent-fidelity`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`packages/core/extension-content/src/content/skill-directory-name.spec.ts`](../packages/core/extension-content/src/content/skill-directory-name.spec.ts)
 
 ##### Inventory reports as leftover exactly the installed packages desired state no longer reaches
 

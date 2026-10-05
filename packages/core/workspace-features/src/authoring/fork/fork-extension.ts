@@ -102,7 +102,6 @@ import { preflightCreateOnly } from "../create-preflight.js";
 import { AuthoringFailed } from "../errors.js";
 import type { AuthoredPackageError } from "../authored-package-errors.js";
 import { authoringStepFailure, type AuthoringStepFailure } from "../step-failure.js";
-import type { FrontmatterParseFailure } from "@agentxm/extension-content";
 import { requireAuthoredOwner, settingsRelativePath } from "../create/authoring-owner.js";
 import {
   AuthoringScopeUnsupported,
@@ -188,7 +187,6 @@ export type ForkExtensionFailure =
   | ExtensionManagerFailure
   | AuthoringFailed
   | AuthoredPackageError
-  | FrontmatterParseFailure
   | AuthoringOwnerRequired
   | AuthoringOwnerMismatch
   | AuthoringScopeUnsupported

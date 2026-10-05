@@ -15,8 +15,7 @@ adopting unchanged content can make a previously manageable skill invalid.
 Removing fields to satisfy that gate can remove behavior the author intended.
 
 The earlier Skills architecture treated a usable portable baseline as universal.
-That model remains useful for deliberate progressive enhancement, but it cannot
-represent all existing skills faithfully. AXM's ownership and distribution
+That model cannot represent all existing skills faithfully. AXM's ownership and distribution
 benefits should not depend on an author redesigning a skill for every host.
 
 ## Decision
@@ -24,8 +23,9 @@ benefits should not depend on an author redesigning a skill for every host.
 Treat compatibility, authorship, and distribution eligibility as separate
 questions. Adopt the [Skills design principles](../extensions/skills.md) as the
 canonical explanation of preservation, operation-specific validation,
-diagnostics, and publication. Limit the universal baseline requirement to
-content choosing AXM's portable enhancement contract.
+diagnostics, and publication. Use one unchanged content directory at every
+agent destination, with no per-agent skill renderer. Derive native identity
+from the existing frontmatter name; the AXM manifest identifies the package.
 
 ## Consequences
 
@@ -34,10 +34,10 @@ they meet the applicable operation's requirements. This does not certify
 unsupported hosts or waive package safety, ownership, publication authority,
 or current external protocol obligations.
 
-The stricter authored validator must be reconciled with this design through
-its owning executable specifications and implementation. This record accepts
-the direction; it does not claim that reconciliation has shipped or select a
-new native-field schema, translation system, or essentiality declaration.
+Ordinary validation is operation-specific, not selected by authorship. Explicit
+conformance checks remain available. Both skill publication routes use shared
+admission, and import/fork preserve payload bytes. This avoids an additional
+name declaration, payload-layout schema, and content transformation layer.
 
 ## Alternatives
 

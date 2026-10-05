@@ -171,7 +171,6 @@ export interface SkillRuleContext<S = SkillContent> {
  */
 export interface SkillContent {
   /** Authored checks are opt-in for acquired content; normal health checks use management. */
-  readonly validationPurpose?: "authoring" | "management";
   readonly isNative: boolean;
   readonly skillJson: unknown;
   /** Agent-facing skill directory name used for the standard name-match check. */

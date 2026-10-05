@@ -55,7 +55,10 @@ describe("Sharing an existing source", () => {
       ]);
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       expect(
-        fs.readFileSync(path.join(fixture.invoking, ".claude/skills/review/SKILL.md"), "utf8"),
+        fs.readFileSync(
+          path.join(fixture.invoking, ".claude/skills/Review Display/SKILL.md"),
+          "utf8",
+        ),
       ).toBe(payload);
       expect(fs.existsSync(path.join(source, "axm.json"))).toBe(false);
       expect(fs.existsSync(path.join(source, "axm-lock.yaml"))).toBe(false);

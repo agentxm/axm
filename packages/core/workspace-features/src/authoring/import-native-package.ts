@@ -2,14 +2,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 
 import {
   MANIFEST_FILENAMES,
   manifestFilenameForType,
   manifestSchemaForType,
-  parseFrontmatterEffect,
-  type FrontmatterParseFailure,
 } from "@agentxm/extension-content";
 import type { ExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions/common";
 import type { AgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
@@ -38,40 +35,12 @@ export type NativeImportError =
   | NativeImportInvalid
   | NativeImportUnsupported
   | NativeSubagentRuntimeRequired
-  | NativeSubagentImportUnsupported
-  | FrontmatterParseFailure;
+  | NativeSubagentImportUnsupported;
 
 const mapWriteError =
   (detail: string) =>
   (cause: unknown): NativeImportFailed =>
     new NativeImportFailed({ detail, cause });
-
-const rewriteFrontmatterName = (
-  filePath: string,
-  name: string,
-): Effect.Effect<
-  void,
-  NativeImportFailed | NativeImportInvalid | FrontmatterParseFailure,
-  FileSystem.FileSystem
-> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const content = yield* fs
-      .readFileString(filePath)
-      .pipe(Effect.mapError(mapWriteError(`Native content could not be read: ${filePath}`)));
-    const parsed = yield* parseFrontmatterEffect(content);
-    if (typeof parsed.frontmatter !== "object" || parsed.frontmatter === null) {
-      return yield* new NativeImportInvalid({
-        detail: `Native content must contain YAML frontmatter: ${filePath}`,
-      });
-    }
-    const frontmatter = { ...parsed.frontmatter, name };
-    const yaml = YAML.stringify(frontmatter, { lineWidth: 0 }).trim();
-    const body = parsed.body.startsWith("\n") ? parsed.body : `\n${parsed.body}`;
-    yield* fs
-      .writeFileString(filePath, `---\n${yaml}\n---${body}`)
-      .pipe(Effect.mapError(mapWriteError(`Native content could not be normalized: ${filePath}`)));
-  });
 
 const rejectManagedPackage = (
   sourcePath: string,
@@ -133,10 +102,6 @@ export const importNativeExtensionPackage = (
             .copyFile(args.sourcePath, path.join(args.targetDir, "src", "SKILL.md"))
             .pipe(Effect.mapError(mapWriteError("Native skill document could not be copied")));
         }
-        yield* rewriteFrontmatterName(
-          path.join(args.targetDir, "src", "SKILL.md"),
-          args.target.name,
-        );
         break;
       }
     }

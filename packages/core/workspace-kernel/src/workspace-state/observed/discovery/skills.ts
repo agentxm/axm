@@ -14,7 +14,7 @@ import { toFileLocation, envOption } from "@agentxm/host-primitives";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { MATERIALIZATION_TARGET_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import { parsePluginManifests } from "./plugin-manifests.js";
-import { parseSkillMd, type Skill } from "@agentxm/extension-content";
+import { extractSkillMetadata, skillDirectoryName, type Skill } from "@agentxm/extension-content";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -127,7 +127,7 @@ const shouldIncludeSkill = (
 
 /**
  * Try to find and parse a SKILL.md in a given directory.
- * Returns Option.some(Skill) if found and valid, Option.none() otherwise.
+ * Returns Option.some(Skill) when SKILL.md is readable, Option.none() otherwise.
  * All errors are silently swallowed.
  */
 const tryParseSkillInDir = (dir: string) =>
@@ -144,7 +144,18 @@ const tryParseSkillInDir = (dir: string) =>
     const content = yield* fs.readFileString(fullPath).pipe(Effect.option);
     if (Option.isNone(content)) return Option.none<Skill>();
 
-    return parseSkillMd(content.value, path.basename(dir));
+    const extracted = extractSkillMetadata(content.value);
+    const metadata: Record<string, string> = {};
+    if (typeof extracted.metadata === "object" && extracted.metadata !== null) {
+      for (const [key, value] of Object.entries(extracted.metadata)) {
+        if (typeof value === "string") metadata[key] = value;
+      }
+    }
+    return Option.some({
+      name: skillDirectoryName(extracted.name, path.basename(dir)),
+      description: extracted.description ?? "",
+      metadata: Object.keys(metadata).length === 0 ? Option.none() : Option.some(metadata),
+    } satisfies Skill);
   });
 
 const discoverSkillInDir = (

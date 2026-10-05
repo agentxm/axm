@@ -23,6 +23,7 @@ export type LintCatalogView = "workspace" | "git-index";
 export interface LintCatalogRuleMetadata {
   readonly id: string;
   readonly defaultSeverity: Severity;
+  readonly enabledByDefault?: false;
   readonly group: LintCatalogGroup;
   readonly views: ReadonlyArray<LintCatalogView>;
 }
@@ -62,9 +63,16 @@ const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMe
 export const lintCatalogRuleMetadata = defineLintCatalog([
   { id: "skill/skill-md-present", defaultSeverity: "error", group: "skill", views: bothViews },
   { id: "skill/manifest-present", defaultSeverity: "error", group: "skill", views: bothViews },
-  { id: "skill/frontmatter-parseable", defaultSeverity: "error", group: "skill", views: bothViews },
+  {
+    id: "skill/frontmatter-parseable",
+    enabledByDefault: false,
+    defaultSeverity: "error",
+    group: "skill",
+    views: bothViews,
+  },
   {
     id: "skill/frontmatter-standard-valid",
+    enabledByDefault: false,
     defaultSeverity: "error",
     group: "skill",
     views: bothViews,

@@ -1067,7 +1067,7 @@ describe("skillsInDir", () => {
       ),
     );
 
-    it.effect("returns empty array when SKILL.md has invalid frontmatter", () =>
+    it.effect("discovers readable SKILL.md even without frontmatter", () =>
       withFileSystem(
         Effect.gen(function* () {
           // Create a SKILL.md without valid frontmatter
@@ -1077,7 +1077,9 @@ describe("skillsInDir", () => {
 
           const skills = yield* skillsInDir(tempDir, Option.none(), defaultOptions);
 
-          expect(skills).toHaveLength(0);
+          expect(skills).toHaveLength(1);
+          expect(skills[0]?.skill.name).toBe("bad-skill");
+          expect(skills[0]?.skill.description).toBe("");
         }),
       ),
     );

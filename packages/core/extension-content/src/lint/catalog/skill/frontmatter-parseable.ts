@@ -44,6 +44,7 @@ const decoder = new TextDecoder("utf-8", { fatal: false, ignoreBOM: true });
 
 export const frontmatterParseableRule: AdvisoryRule<SkillRuleContext> = {
   id: RULE_ID,
+  enabledByDefault: false,
   description: "SKILL.md frontmatter is a valid YAML mapping.",
   kind: "advisory",
   severity: "error",

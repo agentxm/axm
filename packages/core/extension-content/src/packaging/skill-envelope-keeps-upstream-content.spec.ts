@@ -76,6 +76,26 @@ describe("Existing-format skill distribution admission", () => {
     }),
   );
 
+  it.effect("validates AXM-owned envelope fields independently of opaque skill metadata", () =>
+    Effect.gen(function* () {
+      const archiveBytes = buildZip([
+        {
+          fileName: "skill.json",
+          content: textContent(JSON.stringify({ ...identity, nativeName: "review" })),
+        },
+        {
+          fileName: "src/SKILL.md",
+          content: textContent("---\nname: review\nvendor: true\n---\n"),
+        },
+      ]);
+      const failure = yield* normalizePublishInput({
+        declaredIdentity: identity,
+        archive: { archiveBytes, archiveContentType: "application/zip" },
+      }).pipe(Effect.flip);
+      expect(failure).toMatchObject({ _tag: "ManifestError", code: "manifest_schema_invalid" });
+    }),
+  );
+
   it.effect("still refuses missing payloads and an inconsistent envelope identity", () =>
     Effect.gen(function* () {
       for (const archiveBytes of [archiveFor(undefined), archiveFor("# Review\n", "different")]) {

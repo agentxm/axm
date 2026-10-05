@@ -33,7 +33,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { groupInstallTargetsByDirectory } from "@agentxm/workspace-kernel/materialization";
-import { ensureSkillAgentArtifact } from "../../materialization.js";
+import { ensureSkillAgentArtifact, inspectSkillAgentArtifact } from "../../materialization.js";
 import {
   assessOfficialAxmSkill,
   selectOfficialAxmSkill,
@@ -102,6 +102,7 @@ export type BundledAxmSkillReadiness =
       readonly readiness: "error";
       readonly canonicalPath: string;
       readonly errorMessage: string;
+      readonly blocker: "authored" | "native-artifact";
     };
 
 /** Where the bundled skill's canonical package sits. */
@@ -117,13 +118,49 @@ export const inspectBundledAxmSkillReadiness = Effect.gen(function* () {
   const configured = yield* settings.entries("skill");
   const existing = configured[BUNDLED_AXM_SKILL_NAME];
   const canonicalPath = bundledAxmSkillCanonicalPath(layout, path);
-  return existing?.source === "workspace" && existing.origin !== "bundled"
-    ? ({
+  if (existing?.source === "workspace" && existing.origin !== "bundled")
+    return {
+      readiness: "error",
+      canonicalPath,
+      errorMessage: BUNDLED_AXM_SKILL_AUTHORED_BLOCKER,
+      blocker: "authored",
+    } satisfies BundledAxmSkillReadiness;
+  const agents = yield* (yield* CodingAgentRepository).getConfiguredAgents();
+  for (const agent of agents) {
+    const target = yield* agent.resolveEffectiveSkillsDir({
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+    });
+    if (target._tag === "misconfigured")
+      return {
         readiness: "error",
         canonicalPath,
-        errorMessage: BUNDLED_AXM_SKILL_AUTHORED_BLOCKER,
-      } satisfies BundledAxmSkillReadiness)
-    : ({ readiness: "ready", canonicalPath } satisfies BundledAxmSkillReadiness);
+        errorMessage: `Agent ${agent.id} has invalid skills directory settings`,
+        blocker: "native-artifact",
+      } satisfies BundledAxmSkillReadiness;
+    if (target._tag !== "supported") continue;
+    const inspection = yield* inspectSkillAgentArtifact({
+      nativeRoots: nativeAuthorityRoots(
+        path,
+        { workspaceRoot: location.baseDir, scope: location.scope },
+        location.nativeDirectoryInputs,
+      ),
+      nativeInsertionEligible: existing === undefined,
+      canonicalSkillSrcPath: path.join(canonicalPath, "src"),
+      targetDir: target.dir,
+      sanitizedName: BUNDLED_AXM_SKILL_NAME,
+      baseDir: location.baseDir,
+    }).pipe(Effect.result);
+    if (inspection._tag === "Failure")
+      return {
+        readiness: "error",
+        canonicalPath,
+        errorMessage:
+          "detail" in inspection.failure ? inspection.failure.detail : inspection.failure.message,
+        blocker: "native-artifact",
+      } satisfies BundledAxmSkillReadiness;
+  }
+  return { readiness: "ready", canonicalPath } satisfies BundledAxmSkillReadiness;
 });
 
 const writeFailed = (filePath: string) => (cause: unknown) =>
@@ -261,9 +298,9 @@ export const installBundledAxmSkill = Effect.gen(function* () {
   if (readiness.readiness === "error") {
     return yield* installRefused({
       category: "conflict",
-      detail: BUNDLED_AXM_SKILL_AUTHORED_BLOCKER,
-      recover: "Preserve the authored skill and inspect executable compatibility guidance",
-      cmd: "axm help upgrade",
+      detail: readiness.errorMessage,
+      recover: "Preserve the conflicting artifact and inspect workspace ownership",
+      cmd: "axm lint",
     });
   }
   const configuredAgents = yield* agentRepo.getConfiguredAgents().pipe(
@@ -415,7 +452,7 @@ export const planBundledAxmSkillInstall: Effect.Effect<
   const step: PlannedJobStep<InstallStepRequirements | BundledAxmSkillAsset> =
     readiness.readiness === "error"
       ? {
-          key: "bundled-axm-skill-authored",
+          key: `bundled-axm-skill-${readiness.blocker}`,
           readiness: "error",
           errorMessage: readiness.errorMessage,
           label: AXM_SKILL_FQN,
@@ -445,7 +482,8 @@ export const planBundledAxmSkillInstall: Effect.Effect<
     ),
     failureSuggestions: [
       {
-        description: "Preserve the authored skill and inspect executable compatibility guidance",
+        description:
+          "Preserve the conflicting artifact and inspect executable compatibility guidance",
         cmd: "axm help upgrade",
       },
     ],

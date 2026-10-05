@@ -119,6 +119,93 @@ describe("Selected lint filesystem view", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
+  it.effect("keeps findings and isolation unchanged through a symlinked temporary parent", () => {
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
+    cleanups.push(workspace.cleanup);
+    initializeGit(workspace.root);
+    const settings = workspace.readFile("axm.json");
+    workspace.writeFile("axm.json", addDeclaredSkill(settings));
+    workspace.writeFile("captured.txt", "staged bytes");
+    return Effect.gen(function* () {
+      const hostFs = yield* FileSystem.FileSystem;
+      const temporaryRoot = yield* hostFs
+        .makeTempDirectoryScoped()
+        .pipe(Effect.flatMap(hostFs.realPath));
+      const physicalParent = nodePath.join(temporaryRoot, "physical");
+      const aliasParent = nodePath.join(temporaryRoot, "alias");
+      yield* hostFs.makeDirectory(physicalParent);
+      yield* hostFs.symlink(physicalParent, aliasParent);
+      const externalFile = nodePath.join(temporaryRoot, "external.txt");
+      yield* hostFs.writeFileString(externalFile, "external bytes");
+      yield* hostFs.symlink(externalFile, nodePath.join(workspace.root, "escape"));
+      git(workspace.root, ["add", "."]);
+      workspace.writeFile("axm.json", settings);
+      workspace.writeFile("captured.txt", "live bytes");
+      workspace.writeFile("untracked.txt", "untracked bytes");
+      const indexBefore = git(workspace.root, ["ls-files", "--stage", "-z"]);
+
+      const results = yield* Effect.forEach([physicalParent, aliasParent], (directory) => {
+        const snapshots: string[] = [];
+        const temporaryFs = FileSystem.make({
+          ...hostFs,
+          makeTempDirectoryScoped: (options) =>
+            hostFs
+              .makeTempDirectoryScoped({ ...options, directory })
+              .pipe(Effect.tap((root) => Effect.sync(() => snapshots.push(root)))),
+        });
+        return Effect.gen(function* () {
+          const result = yield* Effect.gen(function* () {
+            const selection = yield* admitLintRequest({
+              path: workspace.root,
+              cwd: workspace.root,
+              userHome: workspace.root,
+              scope: "project",
+              view: "git-index",
+              fix: false,
+            });
+            const captured = yield* FileSystem.FileSystem.pipe(
+              Effect.provide(lintSelectionLayer(selection)),
+            );
+            expect(
+              yield* captured.readFileString(
+                nodePath.join(selection.workspaceRoot, "captured.txt"),
+              ),
+            ).toBe("staged bytes");
+            for (const name of ["untracked.txt", "escape"]) {
+              const read = yield* captured
+                .readFileString(nodePath.join(selection.workspaceRoot, name))
+                .pipe(Effect.result);
+              expect(read._tag).toBe("Failure");
+              if (name === "escape" && read._tag === "Failure") {
+                expect(read.failure.reason._tag).toBe("PermissionDenied");
+              }
+            }
+            return yield* queryLintWorkspace(selection, { strict: false }).pipe(
+              Effect.provide(
+                lintWorkspaceServices({
+                  workspaceRoot: lintSelectionRoot(selection),
+                  observationView: selection.nativeView,
+                  cliVersion: workspace.cliVersion,
+                }).pipe(Layer.provideMerge(lintSelectionLayer(selection))),
+              ),
+            );
+          }).pipe(Effect.scoped, Effect.provideService(FileSystem.FileSystem, temporaryFs));
+          expect(snapshots).toHaveLength(1);
+          for (const snapshot of snapshots) expect(yield* hostFs.exists(snapshot)).toBe(false);
+          expect(yield* hostFs.readDirectory(physicalParent)).toEqual([]);
+          return result;
+        });
+      });
+      const [direct, aliased] = results;
+      expect(direct?.outcome).toBe("fail");
+      expect(direct?.document.findings).toEqual(
+        expect.arrayContaining([expect.objectContaining({ ruleId: "workspace/lockfile-valid" })]),
+      );
+      expect(aliased?.document).toEqual(direct?.document);
+      expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
+    }).pipe(Effect.scoped, Effect.provide(viewServices));
+  });
+
   it.effect("constructs staged services without reading or inheriting live user settings", () => {
     const workspace = makeOfficialAxmSkillWorkspace("official-compatible");
     cleanups.push(workspace.cleanup);

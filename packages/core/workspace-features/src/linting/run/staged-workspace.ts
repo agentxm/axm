@@ -334,6 +334,9 @@ export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexW
     }
 
     const snapshotRoot = yield* fs.makeTempDirectoryScoped({ prefix: "axm-lint-git-index-" }).pipe(
+      // Establish the physical boundary before the captured view restricts reads.
+      // The scoped allocation still owns cleanup through its original path.
+      Effect.flatMap(fs.realPath),
       Effect.mapError(
         (cause) =>
           new LintStagingFailed({

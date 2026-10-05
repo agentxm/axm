@@ -67,3 +67,7 @@ specifications, never in these records.
   folder slices, with direction between packages enforced by Nx and direction,
   isolation, and acyclicity between slices enforced by lint and the
   source-graph check.
+
+- [Skill compatibility is independent of authorship](skill-compatibility-is-independent-of-authorship.md) —
+  managing or publishing a skill does not impose universal portability or
+  change its native behavior

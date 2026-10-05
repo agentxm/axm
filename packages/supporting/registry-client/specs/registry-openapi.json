@@ -5036,14 +5036,14 @@
         }
       }
     },
-    "/v1/libraries/{owner}": {
+    "/v1/libraries": {
       "get": {
         "tags": ["Libraries"],
         "operationId": "Libraries.listLibraries",
         "parameters": [
           {
             "name": "owner",
-            "in": "path",
+            "in": "query",
             "schema": {
               "$ref": "#/components/schemas/Handle"
             },
@@ -5204,24 +5204,16 @@
         "summary": "List owner Libraries"
       }
     },
-    "/v1/libraries/{owner}/{name}": {
+    "/v1/libraries/{libraryId}": {
       "get": {
         "tags": ["Libraries"],
         "operationId": "Libraries.getLibrary",
         "parameters": [
           {
-            "name": "owner",
+            "name": "libraryId",
             "in": "path",
             "schema": {
-              "$ref": "#/components/schemas/Handle"
-            },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/LibraryName"
+              "$ref": "#/components/schemas/LibraryId"
             },
             "required": true
           }
@@ -5273,16 +5265,6 @@
               }
             }
           },
-          "422": {
-            "description": "UnprocessableEntityError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
           "500": {
             "description": "InternalError",
             "content": {
@@ -5307,24 +5289,16 @@
         "summary": "Get a Library"
       }
     },
-    "/v1/libraries/{owner}/{name}/members": {
+    "/v1/libraries/{libraryId}/members": {
       "get": {
         "tags": ["Libraries"],
         "operationId": "Libraries.listLibraryMembers",
         "parameters": [
           {
-            "name": "owner",
+            "name": "libraryId",
             "in": "path",
             "schema": {
-              "$ref": "#/components/schemas/Handle"
-            },
-            "required": true
-          },
-          {
-            "name": "name",
-            "in": "path",
-            "schema": {
-              "$ref": "#/components/schemas/LibraryName"
+              "$ref": "#/components/schemas/LibraryId"
             },
             "required": true
           },
@@ -5428,16 +5402,6 @@
           },
           "404": {
             "description": "NotFoundError",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "UnprocessableEntityError",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -6726,6 +6690,10 @@
               }
             ],
             "description": "The management role required, if applicable."
+          },
+          "upgradeUrl": {
+            "type": "string",
+            "description": "Where a person with billing authority can raise the limit: the plan page for the owner, or the seats page when seats are short."
           }
         },
         "required": ["retryable"],
@@ -7237,27 +7205,24 @@
               "library_mutation_not_authorized",
               "team_extension_grant_delete_not_authorized",
               "team_extension_grant_not_authorized",
-              "resource_group_create_not_authorized",
-              "resource_group_update_not_authorized",
-              "resource_group_delete_not_authorized",
-              "resource_group_access_not_authorized",
-              "resource_move_not_authorized",
               "resource_access_not_authorized",
               "access_policy_not_authorized",
               "publish/quota-exceeded",
               "publish/insufficient-scope",
               "publish/resource-restriction",
               "publish/handle-not-owned",
-              "publish/publish-forbidden"
+              "publish/publish-forbidden",
+              "publish/plan-limit-reached",
+              "visibility/plan-limit-reached"
             ]
           },
           "details": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/AuthorizationDenyDetails"
+                "$ref": "#/components/schemas/PublishDetails"
               },
               {
-                "$ref": "#/components/schemas/PublishDetails"
+                "$ref": "#/components/schemas/AuthorizationDenyDetails"
               }
             ]
           }
@@ -8934,17 +8899,38 @@
         "maxLength": 128,
         "description": "Opaque caller correlation key. It grants no identity or authority."
       },
+      "Handle_1": {
+        "type": "string",
+        "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+        "title": "Handle",
+        "description": "A unique username or organization name starting with @, like @my-org.",
+        "examples": ["@my-org", "@username"]
+      },
+      "ExtensionType_1": {
+        "type": "string",
+        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
+        "title": "Extension Type",
+        "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
+      },
+      "ExtensionName_1": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "title": "Extension Name",
+        "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+        "examples": ["my-skill", "code-review", "prettier"]
+      },
       "ResolutionMetadataIdentity": {
         "type": "object",
         "properties": {
           "owner": {
-            "$ref": "#/components/schemas/Handle"
+            "$ref": "#/components/schemas/Handle_1"
           },
           "type": {
-            "$ref": "#/components/schemas/ExtensionType"
+            "$ref": "#/components/schemas/ExtensionType_1"
           },
           "name": {
-            "$ref": "#/components/schemas/ExtensionName"
+            "$ref": "#/components/schemas/ExtensionName_1"
           }
         },
         "required": ["owner", "type", "name"],
@@ -8960,6 +8946,13 @@
         "minLength": 1,
         "maxLength": 2048,
         "description": "Opaque token bound by the server to the request context and revision."
+      },
+      "Version_1": {
+        "type": "string",
+        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+        "title": "Version",
+        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
       },
       "ResolutionMetadataRequest": {
         "type": "object",
@@ -9092,7 +9085,7 @@
                       "type": "object",
                       "properties": {
                         "version": {
-                          "$ref": "#/components/schemas/Version"
+                          "$ref": "#/components/schemas/Version_1"
                         },
                         "integrity": {
                           "type": "string",
@@ -9115,11 +9108,17 @@
         "required": ["schemaVersion", "selectionPolicyVersion", "items"],
         "additionalProperties": false
       },
+      "IsoDateTimeString_2": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
       "ArchivalView": {
         "type": "object",
         "properties": {
           "archivedAt": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
+            "$ref": "#/components/schemas/IsoDateTimeString_2"
           },
           "reason": {
             "anyOf": [
@@ -9137,6 +9136,179 @@
         "required": ["archivedAt"],
         "additionalProperties": false,
         "description": "Canonical authorization-safe extension archival state."
+      },
+      "DeprecationMessage_1": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "description": "Optional publisher notes for consumers of a deprecated extension."
+      },
+      "ExtensionFqn_1": {
+        "type": "string",
+        "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+        "title": "Extension FQN",
+        "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
+        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+      },
+      "DeprecationReplacement_1": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["available"]
+              },
+              "fqn": {
+                "$ref": "#/components/schemas/ExtensionFqn_1"
+              }
+            },
+            "required": ["status", "fqn"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string",
+                "enum": ["unavailable"]
+              },
+              "fqn": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExtensionFqn_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["status"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Authorization-safe current availability of a recorded replacement identity."
+      },
+      "DeprecationView_1": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": {
+                "$ref": "#/components/schemas/IsoDateTimeString_2"
+              },
+              "reason": {
+                "type": "string",
+                "enum": ["superseded"]
+              },
+              "message": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeprecationMessage_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "replacement": {
+                "$ref": "#/components/schemas/DeprecationReplacement_1"
+              }
+            },
+            "required": ["deprecatedAt", "reason", "replacement"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": {
+                "$ref": "#/components/schemas/IsoDateTimeString_2"
+              },
+              "reason": {
+                "type": "string",
+                "enum": ["obsolete"]
+              },
+              "message": {
+                "$ref": "#/components/schemas/DeprecationMessage_1"
+              },
+              "replacement": {
+                "anyOf": [
+                  {
+                    "not": {}
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["deprecatedAt", "reason", "message"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": {
+                "$ref": "#/components/schemas/IsoDateTimeString_2"
+              },
+              "reason": {
+                "type": "string",
+                "enum": ["unmaintained"]
+              },
+              "message": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeprecationMessage_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "replacement": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeprecationReplacement_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["deprecatedAt", "reason"],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "deprecatedAt": {
+                "$ref": "#/components/schemas/IsoDateTimeString_2"
+              },
+              "reason": {
+                "type": "string",
+                "enum": ["other"]
+              },
+              "message": {
+                "$ref": "#/components/schemas/DeprecationMessage_1"
+              },
+              "replacement": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/DeprecationReplacement_1"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": ["deprecatedAt", "reason", "message"],
+            "additionalProperties": false
+          }
+        ],
+        "description": "Canonical authorization-safe identity deprecation guidance."
       },
       "Repository_1": {
         "anyOf": [
@@ -9278,6 +9450,22 @@
         "title": "Author",
         "description": "A person credited as a creator or maintainer of this extension."
       },
+      "VersionRange_1": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+        "title": "Version Range",
+        "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
+        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+      },
+      "PackageIdentityPurl_1": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+        "title": "Package Identity Purl",
+        "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+        "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
+      },
       "VersRangeEncoded": {
         "type": "string",
         "minLength": 1,
@@ -9287,7 +9475,7 @@
         "type": "object",
         "properties": {
           "purl": {
-            "$ref": "#/components/schemas/PackageIdentityPurl"
+            "$ref": "#/components/schemas/PackageIdentityPurl_1"
           },
           "versionRange": {
             "anyOf": [
@@ -9309,20 +9497,20 @@
         "type": "object",
         "properties": {
           "version": {
-            "$ref": "#/components/schemas/Version"
+            "$ref": "#/components/schemas/Version_1"
           },
           "published": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
+            "$ref": "#/components/schemas/IsoDateTimeString_2"
           },
           "dependencies": {
             "anyOf": [
               {
                 "type": "object",
                 "additionalProperties": {
-                  "$ref": "#/components/schemas/VersionRange"
+                  "$ref": "#/components/schemas/VersionRange_1"
                 },
                 "propertyNames": {
-                  "$ref": "#/components/schemas/ExtensionFqn"
+                  "$ref": "#/components/schemas/ExtensionFqn_1"
                 }
               },
               {
@@ -9349,7 +9537,7 @@
           "yankedAt": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/IsoDateTimeString"
+                "$ref": "#/components/schemas/IsoDateTimeString_2"
               },
               {
                 "type": "null"
@@ -9406,7 +9594,7 @@
           "deprecation": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/DeprecationView"
+                "$ref": "#/components/schemas/DeprecationView_1"
               },
               {
                 "type": "null"
@@ -9417,10 +9605,10 @@
             "$ref": "#/components/schemas/ResolutionMetadataRevision"
           },
           "observedAt": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
+            "$ref": "#/components/schemas/IsoDateTimeString_2"
           },
           "validUntil": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
+            "$ref": "#/components/schemas/IsoDateTimeString_2"
           },
           "description": {
             "anyOf": [
@@ -9519,7 +9707,7 @@
             "enum": ["1"]
           },
           "observedAt": {
-            "$ref": "#/components/schemas/IsoDateTimeString"
+            "$ref": "#/components/schemas/IsoDateTimeString_2"
           },
           "results": {
             "type": "array",
@@ -9573,7 +9761,7 @@
                     "deprecation": {
                       "anyOf": [
                         {
-                          "$ref": "#/components/schemas/DeprecationView"
+                          "$ref": "#/components/schemas/DeprecationView_1"
                         },
                         {
                           "type": "null"
@@ -9584,15 +9772,15 @@
                       "$ref": "#/components/schemas/ResolutionMetadataRevision"
                     },
                     "observedAt": {
-                      "$ref": "#/components/schemas/IsoDateTimeString"
+                      "$ref": "#/components/schemas/IsoDateTimeString_2"
                     },
                     "validUntil": {
-                      "$ref": "#/components/schemas/IsoDateTimeString"
+                      "$ref": "#/components/schemas/IsoDateTimeString_2"
                     },
                     "exactVersion": {
                       "anyOf": [
                         {
-                          "$ref": "#/components/schemas/Version"
+                          "$ref": "#/components/schemas/Version_1"
                         },
                         {
                           "type": "null"
@@ -10142,12 +10330,6 @@
         "description": "Identifies an account-owned curated collection of extension identities in the registry.",
         "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
       },
-      "LibraryName": {
-        "type": "string",
-        "title": "Library Name",
-        "description": "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
-        "examples": ["frontend", "team-tools"]
-      },
       "Library": {
         "type": "object",
         "properties": {
@@ -10156,9 +10338,6 @@
           },
           "owner": {
             "$ref": "#/components/schemas/Handle"
-          },
-          "name": {
-            "$ref": "#/components/schemas/LibraryName"
           },
           "title": {
             "type": "string"
@@ -10183,16 +10362,7 @@
             "$ref": "#/components/schemas/IsoDateTimeString"
           }
         },
-        "required": [
-          "id",
-          "owner",
-          "name",
-          "title",
-          "description",
-          "visibility",
-          "createdAt",
-          "updatedAt"
-        ],
+        "required": ["id", "owner", "title", "description", "visibility", "createdAt", "updatedAt"],
         "additionalProperties": false,
         "title": "Library"
       },

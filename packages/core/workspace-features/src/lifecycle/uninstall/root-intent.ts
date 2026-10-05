@@ -78,19 +78,6 @@ export const resolveRootUninstallIntent: (
     });
   }
 
-  if (pluralType === "libraries") {
-    return yield* installRefused({
-      category: "usage",
-      detail: "Libraries are curated registry collections and cannot be uninstalled",
-      suggestions: [
-        {
-          description:
-            "Uninstall individual extensions by FQN; Libraries do not create workspace state.",
-        },
-      ],
-    });
-  }
-
   const parsed = yield* decodeRegistrySourceRef(source).pipe(
     Effect.mapError((error) => {
       if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {

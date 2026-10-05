@@ -354,7 +354,7 @@ knowledge:
       owner: "@agentxm"
       name: agentxm
     resolved:
-      version: 1.3.0
-      integrity: sha512-gmL4UkUtmagoXN2Aj5pK/Z3nyi68YyzSAlOclt82Jn9f6HNN9vkmyDvsGO5CD+gev+wLqlT2ejafb2ybGkIpTg==
+      version: 1.4.0
+      integrity: sha512-ObXGKSRHCxUsw9DTJlVaN9sMc5tluQfY7HEtaJfbrpidJNmV2sftfm2GxU8plqKF7iVbl87E7B3yfCnlzuex0Q==
       publisherBindingId: hbnd_01ks5vvdf0efz9m4w5qsv4q5qp
-    treeIntegrity: sha256-tree-v2:9b66257d22d6cbc475ca25fccd0b61afe5caa88c2e4e76d84d5f5de943a10860
+    treeIntegrity: sha256-tree-v2:d5bd98af42d211c7deb42770203b1d827f075c07d247602c8dd401d3921241d3

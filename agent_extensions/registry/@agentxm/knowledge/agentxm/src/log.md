@@ -1,5 +1,23 @@
 # Directory Update Log
 
+## 2026-10-05
+
+- **Update**: Libraries use immutable IDs, editable non-unique titles,
+  authorized readable links, and immediate title reuse after deletion. Updated
+  identifier grammar, ownership, and visibility guidance.
+
+## 2026-10-01
+
+- **Update**: Defined marketplace and listing in
+  [The AgentXM product model](domain/extension-model.md), separating the
+  marketplace that presents extensions from the registry that distributes them.
+- **Update**: Defined product, execution surface, edition, ownership, and model
+  provider distinctions in
+  [The AgentXM product model](domain/extension-model.md#agent-identity-and-compatibility).
+  Native availability, AXM delivery, installation conditions, source review, and
+  execution verification now retain independent meanings. Linked the public
+  Agent Capability Catalog as the current per-agent inventory authority.
+
 ## 2026-09-29
 
 - **Update**: Defined native location, reader, and consumer in

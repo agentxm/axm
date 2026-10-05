@@ -76,20 +76,4 @@ describe("resolveRootUninstallIntent", () => {
       );
     }),
   );
-
-  it.effect("rejects Library uninstall refs", () =>
-    Effect.gen(function* () {
-      const failure = yield* resolveRootUninstallIntent("@acme/libraries/frontend").pipe(
-        Effect.flip,
-      );
-
-      expect(failure.category).toBe("usage");
-      expect(failure.detail).toBe(
-        "Libraries are curated registry collections and cannot be uninstalled",
-      );
-      expect(failure.suggestions?.[0]?.description).toContain(
-        "Libraries do not create workspace state",
-      );
-    }),
-  );
 });

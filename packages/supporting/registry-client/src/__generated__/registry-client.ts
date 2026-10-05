@@ -110,6 +110,7 @@ export type PublishDetails = {
   readonly requiredScope?: string;
   readonly tokenScopes?: ReadonlyArray<string>;
   readonly requiredRole?: string | null;
+  readonly upgradeUrl?: string;
 };
 export const PublishDetails = Schema.Struct({
   retryable: Schema.Boolean.annotate({ description: "Whether the client may retry the request." }),
@@ -131,6 +132,12 @@ export const PublishDetails = Schema.Struct({
   requiredRole: Schema.optionalKey(
     Schema.Union([Schema.String, Schema.Null]).annotate({
       description: "The management role required, if applicable.",
+    }),
+  ),
+  upgradeUrl: Schema.optionalKey(
+    Schema.String.annotate({
+      description:
+        "Where a person with billing authority can raise the limit: the plan page for the owner, or the seats page when seats are short.",
     }),
   ),
 }).annotate({
@@ -822,6 +829,47 @@ export const ResolutionMetadataCallerKey = Schema.String.annotate({
       identifier: "ResolutionMetadataCallerKey",
     }),
   );
+export type Handle_1 = string;
+export const Handle_1 = Schema.String.annotate({
+  title: "Handle",
+  description: "A unique username or organization name starting with @, like @my-org.",
+  examples: ["@my-org", "@username"],
+}).check(
+  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$", "u")).annotate({
+    expected: "a string matching the RegExp ^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
+    identifier: "Handle_1",
+  }),
+);
+export type ExtensionType_1 =
+  "skill" | "mcp-server" | "subagent" | "rule" | "hook" | "knowledge" | "pack";
+export const ExtensionType_1 = Schema.Literals([
+  "skill",
+  "mcp-server",
+  "subagent",
+  "rule",
+  "hook",
+  "knowledge",
+  "pack",
+]).annotate({
+  title: "Extension Type",
+  description:
+    "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack.",
+  identifier: "ExtensionType_1",
+});
+export type ExtensionName_1 = string;
+export const ExtensionName_1 = Schema.String.annotate({
+  title: "Extension Name",
+  description:
+    "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+  examples: ["my-skill", "code-review", "prettier"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", "u")).annotate({
+      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      identifier: "ExtensionName_1",
+    }),
+  );
 export type ResolutionMetadataRevision = string;
 export const ResolutionMetadataRevision = Schema.String.check(
   Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
@@ -842,6 +890,58 @@ export const ResolutionMetadataContinuation = Schema.String.annotate({
       identifier: "ResolutionMetadataContinuation",
     }),
   );
+export type Version_1 = string;
+export const Version_1 = Schema.String.annotate({
+  title: "Version",
+  description: "A semver version like 1.0.0. Ranges are not allowed here.",
+  examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+}).check(
+  Schema.isPattern(
+    new RegExp(
+      "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "u",
+    ),
+  ).annotate({
+    expected:
+      "a string matching the RegExp ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+    identifier: "Version_1",
+  }),
+);
+export type IsoDateTimeString_2 = string;
+export const IsoDateTimeString_2 = Schema.String.annotate({
+  title: "ISO Date-Time String",
+  description: "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+  format: "date-time",
+  identifier: "IsoDateTimeString_2",
+});
+export type DeprecationMessage_1 = string;
+export const DeprecationMessage_1 = Schema.String.annotate({
+  description: "Optional publisher notes for consumers of a deprecated extension.",
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isMaxCodePoints(500).annotate({
+      expected: "a string with at most 500 code points",
+      identifier: "DeprecationMessage_1",
+    }),
+  );
+export type ExtensionFqn_1 = string;
+export const ExtensionFqn_1 = Schema.String.annotate({
+  title: "Extension FQN",
+  description: "Canonical extension identifier in @owner/<type>s/<name> form.",
+  examples: ["@acme/skills/code-review", "@my-org/rules/typescript"],
+}).check(
+  Schema.isPattern(
+    new RegExp(
+      "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "u",
+    ),
+  ).annotate({
+    expected:
+      "a string matching the RegExp ^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+    identifier: "ExtensionFqn_1",
+  }),
+);
 export type Repository_1 =
   | string
   | { readonly type?: string | null; readonly url: string; readonly directory?: string | null };
@@ -942,6 +1042,34 @@ export const Author_1 = Schema.Struct({
   description: "A person credited as a creator or maintainer of this extension.",
   identifier: "Author_1",
 });
+export type VersionRange_1 = string;
+export const VersionRange_1 = Schema.String.annotate({
+  title: "Version Range",
+  description:
+    'A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use "*" to always resolve to the latest available version.',
+  examples: ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$", "u")).annotate({
+      expected: "a string matching the RegExp ^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
+      identifier: "VersionRange_1",
+    }),
+  );
+export type PackageIdentityPurl_1 = string;
+export const PackageIdentityPurl_1 = Schema.String.annotate({
+  title: "Package Identity Purl",
+  description:
+    "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
+  examples: ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$", "u")).annotate({
+      expected: "a string matching the RegExp ^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
+      identifier: "PackageIdentityPurl_1",
+    }),
+  );
 export type VersRangeEncoded = string;
 export const VersRangeEncoded = Schema.String.annotate({
   examples: ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"],
@@ -988,14 +1116,6 @@ export const LibraryId = Schema.String.annotate({
     identifier: "LibraryId",
   }),
 );
-export type LibraryName = string;
-export const LibraryName = Schema.String.annotate({
-  title: "Library Name",
-  description:
-    "Canonical Library name within an owner namespace. Uses the same normalized slug grammar as handles.",
-  examples: ["frontend", "team-tools"],
-  identifier: "LibraryName",
-});
 export type LibraryMemberId = string;
 export const LibraryMemberId = Schema.String.annotate({
   title: "Library Member ID",
@@ -1124,26 +1244,6 @@ export const TokenResponse = Schema.Struct({
     "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token.",
   identifier: "TokenResponse",
 });
-export type ArchivalView = {
-  readonly archivedAt: IsoDateTimeString;
-  readonly reason?: string | null;
-};
-export const ArchivalView = Schema.Struct({
-  archivedAt: IsoDateTimeString,
-  reason: Schema.optionalKey(
-    Schema.Union([
-      Schema.String.check(
-        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-      ).check(
-        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
-      ),
-      Schema.Null,
-    ]),
-  ),
-}).annotate({
-  description: "Canonical authorization-safe extension archival state.",
-  identifier: "ArchivalView",
-});
 export type AuthMeUser = {
   readonly id: UserId;
   readonly handle: string;
@@ -1253,19 +1353,16 @@ export type ForbiddenErrorEncoded = {
     | "library_mutation_not_authorized"
     | "team_extension_grant_delete_not_authorized"
     | "team_extension_grant_not_authorized"
-    | "resource_group_create_not_authorized"
-    | "resource_group_update_not_authorized"
-    | "resource_group_delete_not_authorized"
-    | "resource_group_access_not_authorized"
-    | "resource_move_not_authorized"
     | "resource_access_not_authorized"
     | "access_policy_not_authorized"
     | "publish/quota-exceeded"
     | "publish/insufficient-scope"
     | "publish/resource-restriction"
     | "publish/handle-not-owned"
-    | "publish/publish-forbidden";
-  readonly details?: AuthorizationDenyDetails | PublishDetails;
+    | "publish/publish-forbidden"
+    | "publish/plan-limit-reached"
+    | "visibility/plan-limit-reached";
+  readonly details?: PublishDetails | AuthorizationDenyDetails;
 };
 export const ForbiddenErrorEncoded = Schema.Struct({
   kind: Schema.Literal("ForbiddenError"),
@@ -1293,11 +1390,6 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "library_mutation_not_authorized",
     "team_extension_grant_delete_not_authorized",
     "team_extension_grant_not_authorized",
-    "resource_group_create_not_authorized",
-    "resource_group_update_not_authorized",
-    "resource_group_delete_not_authorized",
-    "resource_group_access_not_authorized",
-    "resource_move_not_authorized",
     "resource_access_not_authorized",
     "access_policy_not_authorized",
     "publish/quota-exceeded",
@@ -1305,8 +1397,10 @@ export const ForbiddenErrorEncoded = Schema.Struct({
     "publish/resource-restriction",
     "publish/handle-not-owned",
     "publish/publish-forbidden",
+    "publish/plan-limit-reached",
+    "visibility/plan-limit-reached",
   ]),
-  details: Schema.optionalKey(Schema.Union([AuthorizationDenyDetails, PublishDetails])),
+  details: Schema.optionalKey(Schema.Union([PublishDetails, AuthorizationDenyDetails])),
 }).annotate({ identifier: "ForbiddenErrorEncoded" });
 export type CreateTokenRequest = {
   readonly name: string;
@@ -1339,16 +1433,6 @@ export const CreateTokenRequest = Schema.Struct({
   description: "Request body for creating a new personal access token.",
   identifier: "CreateTokenRequest",
 });
-export type ResolutionMetadataIdentity = {
-  readonly owner: Handle;
-  readonly type: ExtensionType;
-  readonly name: ExtensionName;
-};
-export const ResolutionMetadataIdentity = Schema.Struct({
-  owner: Handle,
-  type: ExtensionType,
-  name: ExtensionName,
-}).annotate({ identifier: "ResolutionMetadataIdentity" });
 export type PublishIdentity = {
   readonly owner: Handle;
   readonly type: ExtensionType;
@@ -1655,12 +1739,55 @@ export const ArchivalTransition = Schema.Struct({
   disposition: Schema.Literals(["created", "edited", "restored", "unchanged"]),
   revision: ArchivalRevision,
 }).annotate({ identifier: "ArchivalTransition" });
+export type ResolutionMetadataIdentity = {
+  readonly owner: Handle_1;
+  readonly type: ExtensionType_1;
+  readonly name: ExtensionName_1;
+};
+export const ResolutionMetadataIdentity = Schema.Struct({
+  owner: Handle_1,
+  type: ExtensionType_1,
+  name: ExtensionName_1,
+}).annotate({ identifier: "ResolutionMetadataIdentity" });
+export type ArchivalView = {
+  readonly archivedAt: IsoDateTimeString_2;
+  readonly reason?: string | null;
+};
+export const ArchivalView = Schema.Struct({
+  archivedAt: IsoDateTimeString_2,
+  reason: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.check(
+        Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+      ).check(
+        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
+      ),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  description: "Canonical authorization-safe extension archival state.",
+  identifier: "ArchivalView",
+});
+export type DeprecationReplacement_1 =
+  | { readonly status: "available"; readonly fqn: ExtensionFqn_1 }
+  | { readonly status: "unavailable"; readonly fqn?: ExtensionFqn_1 | null };
+export const DeprecationReplacement_1 = Schema.Union([
+  Schema.Struct({ status: Schema.Literal("available"), fqn: ExtensionFqn_1 }),
+  Schema.Struct({
+    status: Schema.Literal("unavailable"),
+    fqn: Schema.optionalKey(Schema.Union([ExtensionFqn_1, Schema.Null])),
+  }),
+]).annotate({
+  description: "Authorization-safe current availability of a recorded replacement identity.",
+  identifier: "DeprecationReplacement_1",
+});
 export type CompanionPackage_1 = {
-  readonly purl: PackageIdentityPurl;
+  readonly purl: PackageIdentityPurl_1;
   readonly versionRange?: VersRangeEncoded | null;
 };
 export const CompanionPackage_1 = Schema.Struct({
-  purl: PackageIdentityPurl,
+  purl: PackageIdentityPurl_1,
   versionRange: Schema.optionalKey(Schema.Union([VersRangeEncoded, Schema.Null])),
 }).annotate({
   title: "Companion Package",
@@ -1670,7 +1797,6 @@ export const CompanionPackage_1 = Schema.Struct({
 export type Library = {
   readonly id: LibraryId;
   readonly owner: Handle;
-  readonly name: LibraryName;
   readonly title: string;
   readonly description: string | null;
   readonly visibility: LibraryVisibility;
@@ -1680,7 +1806,6 @@ export type Library = {
 export const Library = Schema.Struct({
   id: LibraryId,
   owner: Handle,
-  name: LibraryName,
   title: Schema.String,
   description: Schema.Union([Schema.String, Schema.Null]),
   visibility: LibraryVisibility,
@@ -1783,97 +1908,6 @@ export const TokenListResponse = Schema.Struct({
   description: "A page of your access tokens.",
   identifier: "TokenListResponse",
 });
-export type ResolutionMetadataRequest = {
-  readonly schemaVersion: 1;
-  readonly selectionPolicyVersion: "1";
-  readonly items: ReadonlyArray<
-    | {
-        readonly key: ResolutionMetadataCallerKey;
-        readonly identity: ResolutionMetadataIdentity;
-        readonly expectedPublisherBinding?: string | null;
-        readonly knownRevision?: ResolutionMetadataRevision | null;
-        readonly continuation?: {
-          readonly token: ResolutionMetadataContinuation;
-          readonly revision: ResolutionMetadataRevision;
-        } | null;
-        readonly purpose: "select";
-      }
-    | {
-        readonly key: ResolutionMetadataCallerKey;
-        readonly identity: ResolutionMetadataIdentity;
-        readonly expectedPublisherBinding?: string | null;
-        readonly knownRevision?: ResolutionMetadataRevision | null;
-        readonly continuation?: {
-          readonly token: ResolutionMetadataContinuation;
-          readonly revision: ResolutionMetadataRevision;
-        } | null;
-        readonly purpose: "restore-exact";
-        readonly accepted: { readonly version: Version; readonly integrity: string };
-      }
-  >;
-};
-export const ResolutionMetadataRequest = Schema.Struct({
-  schemaVersion: Schema.Literal(1),
-  selectionPolicyVersion: Schema.Literal("1"),
-  items: Schema.Array(
-    Schema.Union([
-      Schema.Struct({
-        key: ResolutionMetadataCallerKey,
-        identity: ResolutionMetadataIdentity,
-        expectedPublisherBinding: Schema.optionalKey(
-          Schema.Union([
-            Schema.String.check(
-              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-            ),
-            Schema.Null,
-          ]),
-        ),
-        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
-        continuation: Schema.optionalKey(
-          Schema.Union([
-            Schema.Struct({
-              token: ResolutionMetadataContinuation,
-              revision: ResolutionMetadataRevision,
-            }),
-            Schema.Null,
-          ]),
-        ),
-        purpose: Schema.Literal("select"),
-      }),
-      Schema.Struct({
-        key: ResolutionMetadataCallerKey,
-        identity: ResolutionMetadataIdentity,
-        expectedPublisherBinding: Schema.optionalKey(
-          Schema.Union([
-            Schema.String.check(
-              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-            ),
-            Schema.Null,
-          ]),
-        ),
-        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
-        continuation: Schema.optionalKey(
-          Schema.Union([
-            Schema.Struct({
-              token: ResolutionMetadataContinuation,
-              revision: ResolutionMetadataRevision,
-            }),
-            Schema.Null,
-          ]),
-        ),
-        purpose: Schema.Literal("restore-exact"),
-        accepted: Schema.Struct({
-          version: Version,
-          integrity: Schema.String.check(
-            Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
-          ),
-        }),
-      }),
-    ]),
-  )
-    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
-}).annotate({ identifier: "ResolutionMetadataRequest" });
 export type ExtensionIdentityMismatchErrorEncoded = {
   readonly kind: "ExtensionIdentityMismatchError";
   readonly type: string;
@@ -2076,22 +2110,167 @@ export const VisibilityEvaluationUnavailable = Schema.Struct({
   unavailable: Schema.Literal(true),
   findings: Schema.Array(VisibilityFinding),
 }).annotate({ identifier: "VisibilityEvaluationUnavailable" });
+export type ResolutionMetadataRequest = {
+  readonly schemaVersion: 1;
+  readonly selectionPolicyVersion: "1";
+  readonly items: ReadonlyArray<
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly identity: ResolutionMetadataIdentity;
+        readonly expectedPublisherBinding?: string | null;
+        readonly knownRevision?: ResolutionMetadataRevision | null;
+        readonly continuation?: {
+          readonly token: ResolutionMetadataContinuation;
+          readonly revision: ResolutionMetadataRevision;
+        } | null;
+        readonly purpose: "select";
+      }
+    | {
+        readonly key: ResolutionMetadataCallerKey;
+        readonly identity: ResolutionMetadataIdentity;
+        readonly expectedPublisherBinding?: string | null;
+        readonly knownRevision?: ResolutionMetadataRevision | null;
+        readonly continuation?: {
+          readonly token: ResolutionMetadataContinuation;
+          readonly revision: ResolutionMetadataRevision;
+        } | null;
+        readonly purpose: "restore-exact";
+        readonly accepted: { readonly version: Version_1; readonly integrity: string };
+      }
+  >;
+};
+export const ResolutionMetadataRequest = Schema.Struct({
+  schemaVersion: Schema.Literal(1),
+  selectionPolicyVersion: Schema.Literal("1"),
+  items: Schema.Array(
+    Schema.Union([
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        identity: ResolutionMetadataIdentity,
+        expectedPublisherBinding: Schema.optionalKey(
+          Schema.Union([
+            Schema.String.check(
+              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+            ),
+            Schema.Null,
+          ]),
+        ),
+        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
+        continuation: Schema.optionalKey(
+          Schema.Union([
+            Schema.Struct({
+              token: ResolutionMetadataContinuation,
+              revision: ResolutionMetadataRevision,
+            }),
+            Schema.Null,
+          ]),
+        ),
+        purpose: Schema.Literal("select"),
+      }),
+      Schema.Struct({
+        key: ResolutionMetadataCallerKey,
+        identity: ResolutionMetadataIdentity,
+        expectedPublisherBinding: Schema.optionalKey(
+          Schema.Union([
+            Schema.String.check(
+              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+            ),
+            Schema.Null,
+          ]),
+        ),
+        knownRevision: Schema.optionalKey(Schema.Union([ResolutionMetadataRevision, Schema.Null])),
+        continuation: Schema.optionalKey(
+          Schema.Union([
+            Schema.Struct({
+              token: ResolutionMetadataContinuation,
+              revision: ResolutionMetadataRevision,
+            }),
+            Schema.Null,
+          ]),
+        ),
+        purpose: Schema.Literal("restore-exact"),
+        accepted: Schema.Struct({
+          version: Version_1,
+          integrity: Schema.String.check(
+            Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+          ),
+        }),
+      }),
+    ]),
+  )
+    .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+    .check(Schema.isMaxLength(100).annotate({ expected: "a value with a length of at most 100" })),
+}).annotate({ identifier: "ResolutionMetadataRequest" });
+export type DeprecationView_1 =
+  | {
+      readonly deprecatedAt: IsoDateTimeString_2;
+      readonly reason: "superseded";
+      readonly message?: DeprecationMessage_1 | null;
+      readonly replacement: DeprecationReplacement_1;
+    }
+  | {
+      readonly deprecatedAt: IsoDateTimeString_2;
+      readonly reason: "obsolete";
+      readonly message: DeprecationMessage_1;
+      readonly replacement?: never | null;
+    }
+  | {
+      readonly deprecatedAt: IsoDateTimeString_2;
+      readonly reason: "unmaintained";
+      readonly message?: DeprecationMessage_1 | null;
+      readonly replacement?: DeprecationReplacement_1 | null;
+    }
+  | {
+      readonly deprecatedAt: IsoDateTimeString_2;
+      readonly reason: "other";
+      readonly message: DeprecationMessage_1;
+      readonly replacement?: DeprecationReplacement_1 | null;
+    };
+export const DeprecationView_1 = Schema.Union([
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString_2,
+    reason: Schema.Literal("superseded"),
+    message: Schema.optionalKey(Schema.Union([DeprecationMessage_1, Schema.Null])),
+    replacement: DeprecationReplacement_1,
+  }),
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString_2,
+    reason: Schema.Literal("obsolete"),
+    message: DeprecationMessage_1,
+    replacement: Schema.optionalKey(Schema.Union([Schema.Never, Schema.Null])),
+  }),
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString_2,
+    reason: Schema.Literal("unmaintained"),
+    message: Schema.optionalKey(Schema.Union([DeprecationMessage_1, Schema.Null])),
+    replacement: Schema.optionalKey(Schema.Union([DeprecationReplacement_1, Schema.Null])),
+  }),
+  Schema.Struct({
+    deprecatedAt: IsoDateTimeString_2,
+    reason: Schema.Literal("other"),
+    message: DeprecationMessage_1,
+    replacement: Schema.optionalKey(Schema.Union([DeprecationReplacement_1, Schema.Null])),
+  }),
+]).annotate({
+  description: "Canonical authorization-safe identity deprecation guidance.",
+  identifier: "DeprecationView_1",
+});
 export type VersionEntry = {
-  readonly version: Version;
-  readonly published: IsoDateTimeString;
-  readonly dependencies?: { readonly [x: string]: VersionRange } | null;
+  readonly version: Version_1;
+  readonly published: IsoDateTimeString_2;
+  readonly dependencies?: { readonly [x: string]: VersionRange_1 } | null;
   readonly packages?: ReadonlyArray<CompanionPackage_1> | null;
   readonly integrity: string;
-  readonly yankedAt?: IsoDateTimeString | null;
+  readonly yankedAt?: IsoDateTimeString_2 | null;
   readonly yankCategory?: string | null;
   readonly yankNotice?: string | null;
 };
 export const VersionEntry = Schema.Struct({
-  version: Version,
-  published: IsoDateTimeString,
+  version: Version_1,
+  published: IsoDateTimeString_2,
   dependencies: Schema.optionalKey(
     Schema.Union([
-      Schema.Record(Schema.String, VersionRange).check(
+      Schema.Record(Schema.String, VersionRange_1).check(
         Schema.isPropertyNames(
           Schema.String.check(
             Schema.isPattern(
@@ -2114,7 +2293,7 @@ export const VersionEntry = Schema.Struct({
   ),
   packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage_1), Schema.Null])),
   integrity: Schema.String,
-  yankedAt: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
+  yankedAt: Schema.optionalKey(Schema.Union([IsoDateTimeString_2, Schema.Null])),
   yankCategory: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   yankNotice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 }).annotate({
@@ -2289,10 +2468,10 @@ export type ResolutionMetadataPage = {
   readonly publisherBindingId: string;
   readonly visibility: "public" | "private";
   readonly archival: ArchivalView | null;
-  readonly deprecation: DeprecationView | null;
+  readonly deprecation: DeprecationView_1 | null;
   readonly revision: ResolutionMetadataRevision;
-  readonly observedAt: IsoDateTimeString;
-  readonly validUntil: IsoDateTimeString;
+  readonly observedAt: IsoDateTimeString_2;
+  readonly validUntil: IsoDateTimeString_2;
   readonly description?: string | null;
   readonly repository?: Repository_1 | null;
   readonly bugs?: Bugs_1 | null;
@@ -2307,10 +2486,10 @@ export const ResolutionMetadataPage = Schema.Struct({
   ),
   visibility: Schema.Literals(["public", "private"]),
   archival: Schema.Union([ArchivalView, Schema.Null]),
-  deprecation: Schema.Union([DeprecationView, Schema.Null]),
+  deprecation: Schema.Union([DeprecationView_1, Schema.Null]),
   revision: ResolutionMetadataRevision,
-  observedAt: IsoDateTimeString,
-  validUntil: IsoDateTimeString,
+  observedAt: IsoDateTimeString_2,
+  validUntil: IsoDateTimeString_2,
   description: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   repository: Schema.optionalKey(Schema.Union([Repository_1, Schema.Null])),
   bugs: Schema.optionalKey(Schema.Union([Bugs_1, Schema.Null])),
@@ -2425,7 +2604,7 @@ export const PreviewPublicationSetRequest = Schema.Struct({
 export type ResolutionMetadataResponse = {
   readonly schemaVersion: 1;
   readonly selectionPolicyVersion: "1";
-  readonly observedAt: IsoDateTimeString;
+  readonly observedAt: IsoDateTimeString_2;
   readonly results: ReadonlyArray<
     | {
         readonly key: ResolutionMetadataCallerKey;
@@ -2438,11 +2617,11 @@ export type ResolutionMetadataResponse = {
         readonly publisherBindingId: string;
         readonly visibility: "public" | "private";
         readonly archival: ArchivalView | null;
-        readonly deprecation: DeprecationView | null;
+        readonly deprecation: DeprecationView_1 | null;
         readonly revision: ResolutionMetadataRevision;
-        readonly observedAt: IsoDateTimeString;
-        readonly validUntil: IsoDateTimeString;
-        readonly exactVersion?: Version | null;
+        readonly observedAt: IsoDateTimeString_2;
+        readonly validUntil: IsoDateTimeString_2;
+        readonly exactVersion?: Version_1 | null;
       }
     | { readonly key: ResolutionMetadataCallerKey; readonly outcome: "unavailable" }
     | {
@@ -2465,7 +2644,7 @@ export type ResolutionMetadataResponse = {
 export const ResolutionMetadataResponse = Schema.Struct({
   schemaVersion: Schema.Literal(1),
   selectionPolicyVersion: Schema.Literal("1"),
-  observedAt: IsoDateTimeString,
+  observedAt: IsoDateTimeString_2,
   results: Schema.Array(
     Schema.Union([
       Schema.Struct({
@@ -2481,11 +2660,11 @@ export const ResolutionMetadataResponse = Schema.Struct({
         ),
         visibility: Schema.Literals(["public", "private"]),
         archival: Schema.Union([ArchivalView, Schema.Null]),
-        deprecation: Schema.Union([DeprecationView, Schema.Null]),
+        deprecation: Schema.Union([DeprecationView_1, Schema.Null]),
         revision: ResolutionMetadataRevision,
-        observedAt: IsoDateTimeString,
-        validUntil: IsoDateTimeString,
-        exactVersion: Schema.optionalKey(Schema.Union([Version, Schema.Null])),
+        observedAt: IsoDateTimeString_2,
+        validUntil: IsoDateTimeString_2,
+        exactVersion: Schema.optionalKey(Schema.Union([Version_1, Schema.Null])),
       }),
       Schema.Struct({ key: ResolutionMetadataCallerKey, outcome: Schema.Literal("unavailable") }),
       Schema.Struct({
@@ -3662,12 +3841,14 @@ export const PublishPreviewsPreviewExtensionPublishes500 = ProblemDetails;
 export type PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
 export const PublishPreviewsPreviewExtensionPublishes503 = ProblemDetails;
 export type LibrariesListLibrariesParams = {
+  readonly owner: Handle;
   readonly limit?: string | null;
   readonly offset?: string | null;
   readonly q?: string | null;
   readonly "filter[visibility]"?: LibraryVisibility | null;
 };
 export const LibrariesListLibrariesParams = Schema.Struct({
+  owner: Handle,
   limit: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   offset: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
   q: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -3705,8 +3886,6 @@ export type LibrariesGetLibrary401 = ProblemDetails;
 export const LibrariesGetLibrary401 = ProblemDetails;
 export type LibrariesGetLibrary404 = ProblemDetails;
 export const LibrariesGetLibrary404 = ProblemDetails;
-export type LibrariesGetLibrary422 = ProblemDetails;
-export const LibrariesGetLibrary422 = ProblemDetails;
 export type LibrariesGetLibrary500 = ProblemDetails;
 export const LibrariesGetLibrary500 = ProblemDetails;
 export type LibrariesGetLibrary503 = ProblemDetails;
@@ -3731,8 +3910,6 @@ export type LibrariesListLibraryMembers401 = ProblemDetails;
 export const LibrariesListLibraryMembers401 = ProblemDetails;
 export type LibrariesListLibraryMembers404 = ProblemDetails;
 export const LibrariesListLibraryMembers404 = ProblemDetails;
-export type LibrariesListLibraryMembers422 = ProblemDetails;
-export const LibrariesListLibraryMembers422 = ProblemDetails;
 export type LibrariesListLibraryMembers500 = ProblemDetails;
 export const LibrariesListLibraryMembers500 = ProblemDetails;
 export type LibrariesListLibraryMembers503 = ProblemDetails;
@@ -5314,46 +5491,35 @@ export const make = (
           }),
         ),
       ),
-    LibrariesListLibraries: (
-      owner,
-      options: Parameters<RegistryClient["LibrariesListLibraries"]>[1],
-    ) =>
-      __makePathRequest(
-        HttpClientRequest.get,
-        [owner],
-        () => "/v1/libraries/" + __encodePathParam(owner) + "",
-      ).pipe(
-        Effect.flatMap((request) =>
-          request.pipe(
-            HttpClientRequest.setUrlParams({
-              limit: options?.params?.["limit"] as any,
-              offset: options?.params?.["offset"] as any,
-              q: options?.params?.["q"] as any,
-              "filter[visibility]": options?.params?.["filter[visibility]"] as any,
-            }),
-            withResponse(options?.config)(
-              HttpClientResponse.matchStatus({
-                "2xx": decodeSuccess(LibrariesListLibraries200),
-                "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
-                "401": decodeError("LibrariesListLibraries401", LibrariesListLibraries401),
-                "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
-                "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
-                "503": decodeError("LibrariesListLibraries503", LibrariesListLibraries503),
-                orElse: unexpectedStatus,
-              }),
-            ),
-          ),
+    LibrariesListLibraries: (options: Parameters<RegistryClient["LibrariesListLibraries"]>[0]) =>
+      HttpClientRequest.get("/v1/libraries").pipe(
+        HttpClientRequest.setUrlParams({
+          owner: options.params["owner"] as any,
+          limit: options.params["limit"] as any,
+          offset: options.params["offset"] as any,
+          q: options.params["q"] as any,
+          "filter[visibility]": options.params["filter[visibility]"] as any,
+        }),
+        withResponse(options.config)(
+          HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(LibrariesListLibraries200),
+            "400": decodeError("LibrariesListLibraries400", LibrariesListLibraries400),
+            "401": decodeError("LibrariesListLibraries401", LibrariesListLibraries401),
+            "404": decodeError("LibrariesListLibraries404", LibrariesListLibraries404),
+            "500": decodeError("LibrariesListLibraries500", LibrariesListLibraries500),
+            "503": decodeError("LibrariesListLibraries503", LibrariesListLibraries503),
+            orElse: unexpectedStatus,
+          }),
         ),
       ),
     LibrariesGetLibrary: (
-      owner,
-      name,
-      options: Parameters<RegistryClient["LibrariesGetLibrary"]>[2],
+      libraryId,
+      options: Parameters<RegistryClient["LibrariesGetLibrary"]>[1],
     ) =>
       __makePathRequest(
         HttpClientRequest.get,
-        [owner, name],
-        () => "/v1/libraries/" + __encodePathParam(owner) + "/" + __encodePathParam(name) + "",
+        [libraryId],
+        () => "/v1/libraries/" + __encodePathParam(libraryId) + "",
       ).pipe(
         Effect.flatMap((request) =>
           request.pipe(
@@ -5363,7 +5529,6 @@ export const make = (
                 "400": decodeError("LibrariesGetLibrary400", LibrariesGetLibrary400),
                 "401": decodeError("LibrariesGetLibrary401", LibrariesGetLibrary401),
                 "404": decodeError("LibrariesGetLibrary404", LibrariesGetLibrary404),
-                "422": decodeError("LibrariesGetLibrary422", LibrariesGetLibrary422),
                 "500": decodeError("LibrariesGetLibrary500", LibrariesGetLibrary500),
                 "503": decodeError("LibrariesGetLibrary503", LibrariesGetLibrary503),
                 orElse: unexpectedStatus,
@@ -5373,15 +5538,13 @@ export const make = (
         ),
       ),
     LibrariesListLibraryMembers: (
-      owner,
-      name,
-      options: Parameters<RegistryClient["LibrariesListLibraryMembers"]>[2],
+      libraryId,
+      options: Parameters<RegistryClient["LibrariesListLibraryMembers"]>[1],
     ) =>
       __makePathRequest(
         HttpClientRequest.get,
-        [owner, name],
-        () =>
-          "/v1/libraries/" + __encodePathParam(owner) + "/" + __encodePathParam(name) + "/members",
+        [libraryId],
+        () => "/v1/libraries/" + __encodePathParam(libraryId) + "/members",
       ).pipe(
         Effect.flatMap((request) =>
           request.pipe(
@@ -5405,10 +5568,6 @@ export const make = (
                 "404": decodeError(
                   "LibrariesListLibraryMembers404",
                   LibrariesListLibraryMembers404,
-                ),
-                "422": decodeError(
-                  "LibrariesListLibraryMembers422",
-                  LibrariesListLibraryMembers422,
                 ),
                 "500": decodeError(
                   "LibrariesListLibraryMembers500",
@@ -7119,13 +7278,10 @@ export interface RegistryClient {
    * List owner Libraries
    */
   readonly LibrariesListLibraries: {
-    <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      options: {
-        readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
-        readonly config: Config;
-      },
-    ): Effect.Effect<
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params: typeof LibrariesListLibrariesParams.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
       WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
@@ -7135,15 +7291,10 @@ export interface RegistryClient {
       | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
       | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
     >;
-    <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      options:
-        | {
-            readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
-            readonly config?: Config | undefined;
-          }
-        | undefined,
-    ): Effect.Effect<
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params: typeof LibrariesListLibrariesParams.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
       WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
@@ -7159,8 +7310,7 @@ export interface RegistryClient {
    */
   readonly LibrariesGetLibrary: {
     <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      name: string,
+      libraryId: string,
       options: { readonly config: Config },
     ): Effect.Effect<
       WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config>,
@@ -7169,13 +7319,11 @@ export interface RegistryClient {
       | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
       | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
       | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
-      | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
       | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
       | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
     >;
     <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      name: string,
+      libraryId: string,
       options: { readonly config?: Config | undefined } | undefined,
     ): Effect.Effect<
       WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config | undefined>,
@@ -7184,7 +7332,6 @@ export interface RegistryClient {
       | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
       | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
       | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
-      | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
       | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
       | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
     >;
@@ -7194,8 +7341,7 @@ export interface RegistryClient {
    */
   readonly LibrariesListLibraryMembers: {
     <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      name: string,
+      libraryId: string,
       options: {
         readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
         readonly config: Config;
@@ -7217,10 +7363,6 @@ export interface RegistryClient {
           typeof LibrariesListLibraryMembers404.Type
         >
       | RegistryClientError<
-          "LibrariesListLibraryMembers422",
-          typeof LibrariesListLibraryMembers422.Type
-        >
-      | RegistryClientError<
           "LibrariesListLibraryMembers500",
           typeof LibrariesListLibraryMembers500.Type
         >
@@ -7230,8 +7372,7 @@ export interface RegistryClient {
         >
     >;
     <Config extends OperationConfig | undefined = undefined>(
-      owner: string,
-      name: string,
+      libraryId: string,
       options:
         | {
             readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
@@ -7253,10 +7394,6 @@ export interface RegistryClient {
       | RegistryClientError<
           "LibrariesListLibraryMembers404",
           typeof LibrariesListLibraryMembers404.Type
-        >
-      | RegistryClientError<
-          "LibrariesListLibraryMembers422",
-          typeof LibrariesListLibraryMembers422.Type
         >
       | RegistryClientError<
           "LibrariesListLibraryMembers500",

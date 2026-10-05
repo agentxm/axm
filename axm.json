@@ -16,7 +16,7 @@
     "research": "@craigsmitham/skills/research@>=3.0.1"
   },
   "knowledge": {
-    "agentxm": "agentxm:@agentxm/knowledge/agentxm",
+    "agentxm": "agentxm:@agentxm/knowledge/agentxm@1.4.0",
     "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering"
   },
   "packs": {

@@ -348,6 +348,7 @@ export interface DiscoverPackagesArgs {
  * Represents a single matched extension with its resolved version and integrity.
  */
 export interface RegistryExtensionManifest<T extends ExtensionType = ExtensionType> {
+  readonly visibility?: "public" | "private";
   readonly owner: Handle;
   readonly type: T;
   readonly name: ExtensionName;

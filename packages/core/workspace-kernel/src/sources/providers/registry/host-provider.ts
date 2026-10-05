@@ -156,6 +156,7 @@ const manifestForVersion = (
     type: index.type,
     name: index.name,
     publisherBindingId: index.publisherBindingId,
+    ...(index.visibility === undefined ? {} : { visibility: index.visibility }),
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),
@@ -543,6 +544,7 @@ const toExtensionRef = (
   const details = {
     owner: entry.owner,
     publisherBindingId: entry.publisherBindingId,
+    ...(entry.visibility === undefined ? {} : { visibility: entry.visibility }),
     name: entry.name,
     version: entry.version,
     integrity: Option.fromUndefinedOr(entry.integrity || undefined),

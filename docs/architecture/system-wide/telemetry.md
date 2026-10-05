@@ -16,9 +16,10 @@ and request data necessarily observed by a Registry service.
 
 AXM discloses that telemetry exists, keeps collection within its documented
 purpose, and gives the person running the CLI deterministic local control.
-Telemetry remains off unless `AXM_TELEMETRY` explicitly selects full or
-errors-only collection;
-`DO_NOT_TRACK` disables it regardless of the AXM-specific selection.
+Telemetry defaults to usage and errors when `AXM_TELEMETRY` is absent.
+Nonempty `DO_NOT_TRACK` or `DISABLE_TELEMETRY` disables it regardless of the
+AXM-specific selection; empty or invalid explicit AXM values also disable it.
+CI uses the same policy without prompting.
 
 Telemetry delivery never changes command behavior or success. Collection and
 transport failures remain invisible to the requested operation. Exact events
@@ -38,7 +39,7 @@ Telemetry does not:
 - collect extension content, authored instructions or Knowledge, credentials,
   secrets, or resolved secret values;
 - collect error messages, stack traces or stack frames, command arguments,
-  file paths, or environment values; or
+  local file paths, or environment values; or
 - control or describe Registry request logging, retention, or service
   analytics.
 
@@ -54,7 +55,7 @@ workspace setting or command merely to persist it. Environment configuration
 may be applied to one invocation, a shell, a user profile, or an automation
 environment without changing repository state.
 
-No lower-precedence control may override `DO_NOT_TRACK` (the executable
+No lower-precedence control may override either standard opt-out (the executable
 specification `system/security/telemetry-consent-and-precedence` in the
 [specification catalog](../../../specifications/catalog.md) owns consent and
 precedence). Invalid telemetry configuration fails closed for collection
@@ -77,7 +78,7 @@ A failure report carries only:
 - the lifecycle phase in which the invocation ended;
 - the canonical command identity when it is known, never its arguments;
 - client facts: the AXM client name and version, runtime and runtime version,
-  platform, architecture, and whether it runs in CI; and
+  platform, architecture, finite caller agent identity, and whether it runs in CI; and
 - correlation identities: the invocation and event identities, plus the
   installation and product activity identities when they exist.
 
@@ -85,11 +86,29 @@ A failure AXM cannot map to an enumerated kind is reported as unknown rather
 than described. Because no stack frames are collected, a report identifies what
 kind of failure ended an invocation, not where in the code it arose.
 
+## Skill installation observations
+
+Only explicit installs with fresh committed acquisition and verified usable native
+output yield observations. Packs contribute their actually installed skills;
+unchanged members, repair, preview, rollback, cancellation, and bootstrap do not
+count. Successful agent-native evidence determines target agents independently of
+the detected caller.
+
+The telemetry adapter permits production Registry skills only with current
+public metadata, and GitHub skills only after a fixed-origin unauthenticated
+public-visibility check. Unknown and unsupported sources are omitted. Git identity
+uses the canonical repository URL and actual repository-relative skill directory;
+Registry identity uses the endpoint, immutable publisher binding, type, and package
+name. Revision is separate from identity. Transport credentials, local paths,
+aliases, and authored content never enter these coordinates. Visibility probes and
+caller detection share the reporter's single shutdown budget.
+
 ## Identity
 
 Enabled telemetry uses a random installation identity persisted beneath the
 selected AXM user home. It is not derived from a hostname, workspace, or
-extension content, and usage events remain anonymous. Producer-assigned event
+extension content, and usage events carry no account identity or person profile. The persisted
+random identity is pseudonymous and correlates an installation over time. Producer-assigned event
 identities make retries deduplicable without turning best-effort delivery into
 an authoritative audit record. The usage events and failure report of one
 invocation share a random invocation identity, so they correlate without any
@@ -118,7 +137,8 @@ carries the exact sanitized wire payload: preview and delivery build it the same
 way and encode it with the published contract. Preview obeys consent. It never
 enables collection, and it writes nothing while telemetry is off. It loads or
 creates the installation identity as delivery would, so the previewed payload
-matches the one that would be sent.
+matches the one that would be sent. Preview starts no new GitHub public-visibility
+probes; it omits an install without sufficient existing evidence.
 
 ## Invariants
 
@@ -131,7 +151,7 @@ matches the one that would be sent.
   (the executable specification
   `system/reliability/telemetry-failure-never-alters-outcomes` owns the
   obligation).
-- An opted-in invocation reports at most one terminal failure, and none for
+- An enabled invocation reports at most one terminal failure, and none for
   success, cancellation, or a recovered failure (the executable specification
   `system/reliability/telemetry-reports-terminal-failures-once` owns the
   obligation).
@@ -140,7 +160,7 @@ matches the one that would be sent.
   values (the executable specification
   `system/security/telemetry-payloads-respect-data-boundary` owns the
   obligation).
-- Enabled telemetry uses an anonymous random installation identity and stable
+- Enabled telemetry uses an pseudonymous random installation identity and stable
   event identities rather than machine-derived identity, and never a shared
   fallback identity when identity storage fails (the executable specification
   `system/security/telemetry-uses-anonymous-installation-identity` owns the
@@ -156,8 +176,10 @@ matches the one that would be sent.
 
 ## Specifications
 
-Six executable specifications own telemetry's binding obligations:
+Executable specifications own telemetry's binding obligations:
 
+- `system/security/skill-install-telemetry-public-identity` for public-source eligibility and attribution;
+- `cli/install/installed-skills-follow-settlement` for successful acquisition observations;
 - `system/security/telemetry-consent-and-precedence` for consent and
   precedence;
 - `system/security/telemetry-payloads-respect-data-boundary` for the data
@@ -170,7 +192,7 @@ Six executable specifications own telemetry's binding obligations:
 - `system/reliability/telemetry-reports-terminal-failures-once` for reporting
   at most one terminal failure per invocation.
 
-Each lives beside the code it specifies in `apps/cli`; the
+Each lives beside the code it specifies in the CLI or workspace feature package; the
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file. The exact event and failure report
 schemas remain executable contracts owned by code and its internal tests.

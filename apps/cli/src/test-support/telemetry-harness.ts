@@ -61,7 +61,7 @@ const reportEventId = (body: unknown): unknown =>
 
 /**
  * The ingest service's answer to one captured request: a receipt naming the
- * report's event identity for an error report, an empty acceptance for a
+ * report's event identity for an error report, a counted acceptance receipt for a
  * usage event batch.
  */
 export const telemetryIngestResponse = (
@@ -76,7 +76,13 @@ export const telemetryIngestResponse = (
           headers: { "content-type": "application/json" },
         }),
       )
-    : HttpClientResponse.fromWeb(request, new Response("", { status: 202 }));
+    : HttpClientResponse.fromWeb(
+        request,
+        new Response(JSON.stringify({ receipt: "received", eventCount: 1 }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+      );
 
 export const captureTelemetry = () => {
   const requests: Array<{ readonly url: string; readonly body: unknown }> = [];
@@ -118,7 +124,7 @@ export const telemetryReporterLayer = (options: {
   readonly environment?: Readonly<Record<string, string>>;
 }) =>
   Layer.provide(
-    TelemetryClientLive(options.reporter),
+    TelemetryClientLive({ detectCaller: Effect.succeed("unknown"), ...options.reporter }),
     Layer.mergeAll(
       NodeServices.layer,
       Layer.succeed(HttpClient.HttpClient, options.client),

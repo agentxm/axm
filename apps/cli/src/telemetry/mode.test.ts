@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { resolveTelemetryMode } from "./mode.js";
 
 describe("resolveTelemetryMode", () => {
-  it("defaults to off", () => {
-    expect(resolveTelemetryMode({})).toBe("off");
+  it("defaults to all", () => {
+    expect(resolveTelemetryMode({})).toBe("all");
   });
 
   it("disables telemetry when DO_NOT_TRACK is set", () => {

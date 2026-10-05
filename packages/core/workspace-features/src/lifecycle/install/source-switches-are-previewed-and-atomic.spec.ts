@@ -151,7 +151,11 @@ const makeGitFixture = (): Effect.Effect<GitFixture> =>
 const resolveInstall = (request: InstallExtensionsRequest) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.prepare(request);
-    return yield* InstallExtensions.previewOrApply(candidate, execution);
+    const result = yield* InstallExtensions.previewOrApply(candidate, execution);
+    if (result.resolution.units.every((unit) => unit.state !== "committed")) {
+      expect(result.installedSkills).toEqual([]);
+    }
+    return result.resolution;
   });
 
 describe("install source switches", () => {

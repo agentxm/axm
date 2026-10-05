@@ -1,3 +1,4 @@
+import { nativeUnitKey } from "@agentxm/workspace-kernel/locations";
 /**
  * Installing extensions.
  *
@@ -19,12 +20,14 @@
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
+import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
+import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   operationPresentation,
@@ -105,6 +108,7 @@ import { resolveRootInstallIntent } from "./root-intent.js";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "./vocabulary.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
+  toStepKey,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
@@ -198,6 +202,12 @@ export interface InstallExtensionsCandidate {
   readonly diagnostics: InstallDiagnostics;
   readonly planName: string;
   readonly execution: ExecutionCandidate<InstallStepRequirements | BundledAxmSkillAsset>;
+  readonly skillCandidates: ReadonlyArray<{
+    readonly unitId: string;
+    readonly memberId: string;
+    readonly ref: SkillExtensionRef;
+  }>;
+  readonly installKind: "install" | "reinstall";
 }
 
 /**
@@ -943,6 +953,40 @@ export const prepareInstallExtensions: (
         })),
       }
     : sourceAware;
+  const skillCandidates =
+    request.subject.kind === "bundled"
+      ? []
+      : (yield* Effect.forEach(
+          gated.jobs.flatMap((job) => job.steps),
+          (step) =>
+            Effect.gen(function* () {
+              const skills = (step.acquisitionRefs ?? []).filter(
+                (ref): ref is SkillExtensionRef => ref.type === "skill",
+              );
+              return yield* Effect.filter(skills, (ref) =>
+                Effect.gen(function* () {
+                  if (request.reinstall) return true;
+                  // Unknown prior acceptance is insufficient evidence of a new acquisition.
+                  return yield* acceptedLockedResolutionRef({ type: "skill", name: ref.name }).pipe(
+                    Effect.match({
+                      onFailure: () => false,
+                      onSuccess: (accepted) =>
+                        Option.isNone(accepted) ||
+                        sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref),
+                    }),
+                  );
+                }),
+              ).pipe(
+                Effect.map((refs) =>
+                  refs.map((ref) => ({
+                    unitId: step.key ?? step.label,
+                    memberId: toStepKey({ type: "skill", name: ref.skill.name }),
+                    ref,
+                  })),
+                ),
+              );
+            }),
+        )).flat();
   const execution = yield* prepareExecutionCandidate(gated, {
     configuredAgentOperations: planned.configuredAgentOperations,
   });
@@ -953,6 +997,8 @@ export const prepareInstallExtensions: (
     diagnostics: planned.diagnostics,
     planName: sourceAware.name,
     execution,
+    skillCandidates,
+    installKind: request.reinstall ? "reinstall" : "install",
   } satisfies InstallExtensionsCandidate;
 }, withWorkspaceReadView);
 
@@ -968,15 +1014,92 @@ export const prepareInstallExtensions: (
 export type ResolveInstallExtensionsRequirements =
   PrepareInstallRequirements | BundledAxmSkillAsset;
 
+/** Neutral facts from fresh installation work and verified native output. */
+export interface InstalledSkill {
+  readonly ref: SkillExtensionRef;
+  readonly scope: "project" | "user";
+  readonly installKind: "install" | "reinstall";
+  readonly targetAgents: ReadonlyArray<string>;
+}
+
+export interface InstallExtensionsResult {
+  readonly resolution: OperationResolution;
+  readonly installedSkills: ReadonlyArray<InstalledSkill>;
+}
+
 /** Preview or apply a settled install, resolving to one operation outcome. */
 export const previewOrApplyInstallExtensions = (
   candidate: InstallExtensionsCandidate,
   execution: PlanExecution,
 ): Effect.Effect<
-  OperationResolution,
+  InstallExtensionsResult,
   InstallExtensionsFailure,
   ResolveInstallExtensionsRequirements
-> => resolveExecutionCandidate(candidate.execution, execution);
+> =>
+  Effect.gen(function* () {
+    const resolution = yield* resolveExecutionCandidate(candidate.execution, execution);
+    const installedSkills: InstalledSkill[] = [];
+    const path = yield* Path.Path;
+    const workspace = yield* WorkspaceLocation;
+    if (resolution.mode === "apply" && resolution.interruption === undefined) {
+      const seen = new Map<string, number>();
+      for (const entry of candidate.skillCandidates) {
+        const unit = resolution.units.find(
+          (unit) => unit.id === entry.unitId && unit.state === "committed",
+        );
+        if (unit?.artifact === undefined) continue;
+        const member = unit.artifact.members?.find((member) => member.id === entry.memberId);
+        const artifact =
+          entry.unitId === entry.memberId
+            ? unit.artifact
+            : member?.changed === true
+              ? member.artifact
+              : undefined;
+        if (artifact === undefined || artifact.change === "unchanged") continue;
+        const finalLocations = (artifact.nativeLocations ?? []).map(
+          (location) =>
+            unit.artifact?.nativeLocations?.find(
+              (final) => nativeUnitKey(final) === nativeUnitKey(location),
+            ) ?? location,
+        );
+        const usable = finalLocations.filter(
+          (location) =>
+            location.ownership === "owned" &&
+            ["created", "updated", "unchanged", "retained"].includes(location.state),
+        );
+        if (usable.length === 0) continue;
+        const key = sourceRefContentKey(entry.ref);
+        // A planned agent counts only when its exact native target is now usable.
+        // Catalog potential readers do not prove an installation target.
+        const targetAgents = (artifact.targets ?? []).flatMap((target) => {
+          const targetPath = path.resolve(workspace.baseDir, target.path);
+          return usable.some(
+            (location) =>
+              location.address.path === targetPath || location.aliases.includes(targetPath),
+          )
+            ? (target.agentIds ?? [])
+            : [];
+        });
+        const previousIndex = seen.get(key);
+        const previous = previousIndex === undefined ? undefined : installedSkills[previousIndex];
+        if (previous !== undefined && previousIndex !== undefined) {
+          installedSkills[previousIndex] = {
+            ...previous,
+            targetAgents: [...new Set([...previous.targetAgents, ...targetAgents])],
+          };
+        } else {
+          seen.set(key, installedSkills.length);
+          installedSkills.push({
+            ref: entry.ref,
+            scope: artifact.scope,
+            installKind: candidate.installKind,
+            targetAgents: [...new Set(targetAgents)],
+          });
+        }
+      }
+    }
+    return { resolution, installedSkills };
+  });
 
 /** The install use case: settle a request, then preview or apply it. */
 export const InstallExtensions = {

@@ -49,6 +49,8 @@ export {
   previewOrApplyInstallExtensions,
   type InstallDiagnostics,
   type InstallExtensionsCandidate,
+  type InstallExtensionsResult,
+  type InstalledSkill,
   type InstallExtensionsFailure,
   type InstallExtensionsRequest,
   type InstallExtensionSelectors,

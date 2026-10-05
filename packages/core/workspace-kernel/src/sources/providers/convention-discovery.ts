@@ -99,7 +99,7 @@ const sourceRefDetails = (
         return {
           refType: "git-hosted",
           source,
-          sourcePath,
+          sourcePath: sourcePath.split((yield* Path.Path).sep).join("/") || ".",
           location,
           gitTreeSha: yield* gitTreeShaFor(basePath, packageDirectory),
           gitCommitSha: yield* getCommitSha(basePath),

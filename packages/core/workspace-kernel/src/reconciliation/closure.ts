@@ -188,7 +188,7 @@ export const buildReconciliationClosure = <E, R>(
             ({ step, coverage }) =>
               step.run.pipe(
                 Effect.flatMap((result) => failedStep(step.label, result)),
-                Effect.map((result) => ({ result, coverage })),
+                Effect.map((result) => ({ result, coverage, id: step.key ?? step.label })),
               ),
             { concurrency: 1 },
           );
@@ -246,6 +246,18 @@ export const buildReconciliationClosure = <E, R>(
           ...args.artifact,
           ...(allChildrenUnchanged ? { change: "unchanged" as const } : {}),
           nativeLocations,
+          members: results.flatMap(({ id, result }) =>
+            result.result === "success" && result.artifact !== undefined
+              ? [
+                  {
+                    id,
+                    changed:
+                      result.disposition !== "unchanged" && result.artifact.change !== "unchanged",
+                    artifact: result.artifact,
+                  },
+                ]
+              : [],
+          ),
         };
         return {
           result: "success",

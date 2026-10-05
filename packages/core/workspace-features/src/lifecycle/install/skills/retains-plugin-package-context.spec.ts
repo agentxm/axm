@@ -8,7 +8,7 @@ import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { makeLifecycleFixture } from "../../testing.js";
-import { UninstallExtensions } from "../../index.js";
+import { InstallExtensions, UninstallExtensions } from "../../index.js";
 import { applySync } from "../../../testing/sync-fixture.js";
 import { applyUpdate, configuredUpdateRequest } from "../../update/test-helpers.js";
 import * as fs from "node:fs";
@@ -251,16 +251,26 @@ describe("Marketplace package installation", () => {
                   })
                 : undefined;
             const installSource = served?.url ?? source;
-            const installed = yield* world.workspace.provide(
-              applyInstall(
-                installRequest({
-                  type: "skill",
-                  subject: { kind: "source", source: installSource },
-                  names: ["packages/reviews/skills/review"],
-                  all: false,
-                }),
-              ),
+            const { resolution: installed, installedSkills } = yield* world.workspace.provide(
+              Effect.gen(function* () {
+                const candidate = yield* InstallExtensions.prepare(
+                  installRequest({
+                    type: "skill",
+                    subject: { kind: "source", source: installSource },
+                    names: ["packages/reviews/skills/review"],
+                    all: false,
+                  }),
+                );
+                return yield* InstallExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+              }),
             );
+            if (transport === "git") {
+              expect(installedSkills).toHaveLength(1);
+              expect(installedSkills[0]?.ref).toMatchObject({
+                refType: "git-hosted",
+                sourcePath: "packages/reviews/skills/review",
+              });
+            }
             expect(installed).toMatchObject({
               units: [expect.objectContaining({ state: "committed" })],
             });

@@ -60,6 +60,170 @@ export const IsoDateTimeString = Schema.String.annotate({
   format: "date-time",
   identifier: "IsoDateTimeString",
 });
+export type AgentId =
+  | "adal"
+  | "fx"
+  | "muse-code"
+  | "mimo-code"
+  | "coder-agents"
+  | "aider-desk"
+  | "amp"
+  | "antigravity"
+  | "antigravity-cli"
+  | "augment"
+  | "claude-code"
+  | "cline"
+  | "codearts-agent"
+  | "codebuddy"
+  | "codemaker"
+  | "codestudio"
+  | "codex"
+  | "command-code"
+  | "continue"
+  | "cortex"
+  | "crush"
+  | "cursor"
+  | "deepagents"
+  | "devin"
+  | "dexto"
+  | "droid"
+  | "firebender"
+  | "forgecode"
+  | "gemini-cli"
+  | "github-copilot-cli"
+  | "goose"
+  | "grok-cli"
+  | "hermes"
+  | "ibm-bob"
+  | "iflow-cli"
+  | "junie"
+  | "lingma"
+  | "kilo"
+  | "kimi-cli"
+  | "kiro-cli"
+  | "kode"
+  | "mcpjam"
+  | "minimax-code"
+  | "mistral-vibe"
+  | "mux"
+  | "neovate"
+  | "openclaw"
+  | "opencode"
+  | "openhands"
+  | "ona"
+  | "pi"
+  | "vscode"
+  | "pochi"
+  | "qoder"
+  | "qoder-cn"
+  | "qwen-code"
+  | "replit"
+  | "roo"
+  | "rovodev"
+  | "tabnine-cli"
+  | "trae-cn"
+  | "trae"
+  | "warp"
+  | "windsurf"
+  | "zencoder"
+  | "zed"
+  | "zenflow"
+  | "chatgpt"
+  | "claude-ai"
+  | "cowork"
+  | "gemini-app";
+export const AgentId = Schema.Literals([
+  "adal",
+  "fx",
+  "muse-code",
+  "mimo-code",
+  "coder-agents",
+  "aider-desk",
+  "amp",
+  "antigravity",
+  "antigravity-cli",
+  "augment",
+  "claude-code",
+  "cline",
+  "codearts-agent",
+  "codebuddy",
+  "codemaker",
+  "codestudio",
+  "codex",
+  "command-code",
+  "continue",
+  "cortex",
+  "crush",
+  "cursor",
+  "deepagents",
+  "devin",
+  "dexto",
+  "droid",
+  "firebender",
+  "forgecode",
+  "gemini-cli",
+  "github-copilot-cli",
+  "goose",
+  "grok-cli",
+  "hermes",
+  "ibm-bob",
+  "iflow-cli",
+  "junie",
+  "lingma",
+  "kilo",
+  "kimi-cli",
+  "kiro-cli",
+  "kode",
+  "mcpjam",
+  "minimax-code",
+  "mistral-vibe",
+  "mux",
+  "neovate",
+  "openclaw",
+  "opencode",
+  "openhands",
+  "ona",
+  "pi",
+  "vscode",
+  "pochi",
+  "qoder",
+  "qoder-cn",
+  "qwen-code",
+  "replit",
+  "roo",
+  "rovodev",
+  "tabnine-cli",
+  "trae-cn",
+  "trae",
+  "warp",
+  "windsurf",
+  "zencoder",
+  "zed",
+  "zenflow",
+  "chatgpt",
+  "claude-ai",
+  "cowork",
+  "gemini-app",
+]).annotate({
+  title: "Agent ID",
+  description: "Verified coding agent identifier in the capability catalog.",
+  examples: ["claude-code", "codex", "cursor"],
+  identifier: "AgentId",
+});
+export type ExtensionName = string;
+export const ExtensionName = Schema.String.annotate({
+  title: "Extension Name",
+  description:
+    "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+  examples: ["my-skill", "code-review", "prettier"],
+})
+  .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+  .check(
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", "u")).annotate({
+      expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+      identifier: "ExtensionName",
+    }),
+  );
 export type TelemetryEvent = {
   readonly eventId: string;
   readonly event: string;
@@ -90,6 +254,10 @@ export const TelemetryEvent = Schema.Struct({
   }).check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" })),
   event: Schema.String.check(
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ).check(
+    Schema.isPattern(new RegExp("^(?!skill_install_completed$).+$", "u")).annotate({
+      expected: "a string matching the RegExp ^(?!skill_install_completed$).+$",
+    }),
   ),
   distinctId: Schema.String.check(
     Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
@@ -200,6 +368,21 @@ export const TelemetryClientContext = Schema.Struct({
   description: "Identifies the client emitting telemetry, including its name and version.",
   identifier: "TelemetryClientContext",
 });
+export type TelemetryEventsReceipt = { readonly receipt: "received"; readonly eventCount: number };
+export const TelemetryEventsReceipt = Schema.Struct({
+  receipt: Schema.Literal("received"),
+  eventCount: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+    .check(
+      Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
+    )
+    .check(
+      Schema.isLessThanOrEqualTo(100).annotate({ expected: "a value less than or equal to 100" }),
+    ),
+}).annotate({
+  description:
+    "Validated and scheduled for bounded best-effort forwarding; not durable storage or provider ingestion.",
+  identifier: "TelemetryEventsReceipt",
+});
 export type TelemetryPayloadTooLargeErrorEncoded = {
   readonly kind: "TelemetryPayloadTooLargeError";
   readonly type: string;
@@ -225,6 +408,79 @@ export type TelemetryReportingClient = {
   readonly runtimeVersion: string;
   readonly platform: string;
   readonly architecture: string;
+  readonly callerAgent?:
+    | "adal"
+    | "fx"
+    | "muse-code"
+    | "mimo-code"
+    | "coder-agents"
+    | "aider-desk"
+    | "amp"
+    | "antigravity"
+    | "antigravity-cli"
+    | "augment"
+    | "claude-code"
+    | "cline"
+    | "codearts-agent"
+    | "codebuddy"
+    | "codemaker"
+    | "codestudio"
+    | "codex"
+    | "command-code"
+    | "continue"
+    | "cortex"
+    | "crush"
+    | "cursor"
+    | "deepagents"
+    | "devin"
+    | "dexto"
+    | "droid"
+    | "firebender"
+    | "forgecode"
+    | "gemini-cli"
+    | "github-copilot-cli"
+    | "goose"
+    | "grok-cli"
+    | "hermes"
+    | "ibm-bob"
+    | "iflow-cli"
+    | "junie"
+    | "lingma"
+    | "kilo"
+    | "kimi-cli"
+    | "kiro-cli"
+    | "kode"
+    | "mcpjam"
+    | "minimax-code"
+    | "mistral-vibe"
+    | "mux"
+    | "neovate"
+    | "openclaw"
+    | "opencode"
+    | "openhands"
+    | "ona"
+    | "pi"
+    | "vscode"
+    | "pochi"
+    | "qoder"
+    | "qoder-cn"
+    | "qwen-code"
+    | "replit"
+    | "roo"
+    | "rovodev"
+    | "tabnine-cli"
+    | "trae-cn"
+    | "trae"
+    | "warp"
+    | "windsurf"
+    | "zencoder"
+    | "zed"
+    | "zenflow"
+    | "chatgpt"
+    | "claude-ai"
+    | "cowork"
+    | "gemini-app"
+    | "unknown";
   readonly ci: boolean;
 };
 export const TelemetryReportingClient = Schema.Struct({
@@ -289,6 +545,82 @@ export const TelemetryReportingClient = Schema.Struct({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
+  callerAgent: Schema.optionalKey(
+    Schema.Literals([
+      "adal",
+      "fx",
+      "muse-code",
+      "mimo-code",
+      "coder-agents",
+      "aider-desk",
+      "amp",
+      "antigravity",
+      "antigravity-cli",
+      "augment",
+      "claude-code",
+      "cline",
+      "codearts-agent",
+      "codebuddy",
+      "codemaker",
+      "codestudio",
+      "codex",
+      "command-code",
+      "continue",
+      "cortex",
+      "crush",
+      "cursor",
+      "deepagents",
+      "devin",
+      "dexto",
+      "droid",
+      "firebender",
+      "forgecode",
+      "gemini-cli",
+      "github-copilot-cli",
+      "goose",
+      "grok-cli",
+      "hermes",
+      "ibm-bob",
+      "iflow-cli",
+      "junie",
+      "lingma",
+      "kilo",
+      "kimi-cli",
+      "kiro-cli",
+      "kode",
+      "mcpjam",
+      "minimax-code",
+      "mistral-vibe",
+      "mux",
+      "neovate",
+      "openclaw",
+      "opencode",
+      "openhands",
+      "ona",
+      "pi",
+      "vscode",
+      "pochi",
+      "qoder",
+      "qoder-cn",
+      "qwen-code",
+      "replit",
+      "roo",
+      "rovodev",
+      "tabnine-cli",
+      "trae-cn",
+      "trae",
+      "warp",
+      "windsurf",
+      "zencoder",
+      "zed",
+      "zenflow",
+      "chatgpt",
+      "claude-ai",
+      "cowork",
+      "gemini-app",
+      "unknown",
+    ]),
+  ),
   ci: Schema.Boolean.annotate({
     description: "Whether the client detected a continuous-integration host.",
   }),
@@ -317,6 +649,186 @@ export const TelemetryErrorReceipt = Schema.Struct({
     "Synchronous receipt for a validated report. It is not durable acceptance, provider ingestion, or issue creation.",
   identifier: "TelemetryErrorReceipt",
 });
+export type SkillInstallEvent = {
+  readonly eventId: string;
+  readonly event: "skill_install_completed";
+  readonly distinctId: string;
+  readonly timestamp: IsoDateTimeString;
+  readonly anonymous: true;
+  readonly userProperties?: never;
+  readonly groups?: never;
+  readonly sessionId?: never;
+  readonly properties:
+    | {
+        readonly scope: "project" | "user";
+        readonly installKind: "install" | "reinstall";
+        readonly targetAgents: ReadonlyArray<AgentId>;
+        readonly activityId?: string;
+        readonly skill: {
+          readonly kind: "git";
+          readonly repositoryUrl: string;
+          readonly skillPath: string;
+        };
+        readonly revision: { readonly kind: "git"; readonly commitSha: string };
+      }
+    | {
+        readonly scope: "project" | "user";
+        readonly installKind: "install" | "reinstall";
+        readonly targetAgents: ReadonlyArray<AgentId>;
+        readonly activityId?: string;
+        readonly skill: {
+          readonly kind: "registry";
+          readonly registryUrl: "https://registry.agentxm.ai";
+          readonly publisherBindingId: string;
+          readonly extensionType: "skill";
+          readonly packageName: ExtensionName;
+        };
+        readonly revision: {
+          readonly kind: "registry";
+          readonly version: string;
+          readonly integrity?: string;
+        };
+      };
+};
+export const SkillInstallEvent = Schema.Struct({
+  eventId: Schema.String.annotate({ format: "uuid" }).check(
+    Schema.isPattern(
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    }),
+  ),
+  event: Schema.Literal("skill_install_completed"),
+  distinctId: Schema.String.annotate({ format: "uuid" }).check(
+    Schema.isPattern(
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    }),
+  ),
+  timestamp: IsoDateTimeString,
+  anonymous: Schema.Literal(true),
+  userProperties: Schema.optionalKey(Schema.Never),
+  groups: Schema.optionalKey(Schema.Never),
+  sessionId: Schema.optionalKey(Schema.Never),
+  properties: Schema.Union([
+    Schema.Struct({
+      scope: Schema.Literals(["project", "user"]),
+      installKind: Schema.Literals(["install", "reinstall"]),
+      targetAgents: Schema.Array(AgentId).check(
+        Schema.isMaxLength(71).annotate({ expected: "a value with a length of at most 71" }),
+      ),
+      activityId: Schema.optionalKey(
+        Schema.String.annotate({ format: "uuid" }).check(
+          Schema.isPattern(
+            new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+          ).annotate({
+            expected:
+              "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          }),
+        ),
+      ),
+      skill: Schema.Struct({
+        kind: Schema.Literal("git"),
+        repositoryUrl: Schema.String.check(
+          Schema.isMaxCodePoints(2048).annotate({
+            expected: "a string with at most 2048 code points",
+          }),
+        ).check(
+          Schema.isPattern(
+            new RegExp(
+              "^https:\\/\\/github\\.com\\/[A-Za-z0-9][A-Za-z0-9-]*\\/[A-Za-z0-9_.-]+$",
+              "u",
+            ),
+          ).annotate({
+            expected:
+              "a string matching the RegExp ^https:\\/\\/github\\.com\\/[A-Za-z0-9][A-Za-z0-9-]*\\/[A-Za-z0-9_.-]+$",
+          }),
+        ),
+        skillPath: Schema.String.check(
+          Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+        ).check(
+          Schema.isMaxCodePoints(1024).annotate({
+            expected: "a string with at most 1024 code points",
+          }),
+        ),
+      }),
+      revision: Schema.Struct({
+        kind: Schema.Literal("git"),
+        commitSha: Schema.String.check(
+          Schema.isPattern(new RegExp("^[0-9a-f]{40}$", "u")).annotate({
+            expected: "a string matching the RegExp ^[0-9a-f]{40}$",
+          }),
+        ),
+      }),
+    }),
+    Schema.Struct({
+      scope: Schema.Literals(["project", "user"]),
+      installKind: Schema.Literals(["install", "reinstall"]),
+      targetAgents: Schema.Array(AgentId).check(
+        Schema.isMaxLength(71).annotate({ expected: "a value with a length of at most 71" }),
+      ),
+      activityId: Schema.optionalKey(
+        Schema.String.annotate({ format: "uuid" }).check(
+          Schema.isPattern(
+            new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+          ).annotate({
+            expected:
+              "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+          }),
+        ),
+      ),
+      skill: Schema.Struct({
+        kind: Schema.Literal("registry"),
+        registryUrl: Schema.Literal("https://registry.agentxm.ai"),
+        publisherBindingId: Schema.String.check(
+          Schema.isPattern(new RegExp("^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
+            expected: "a string matching the RegExp ^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$",
+          }),
+        ),
+        extensionType: Schema.Literal("skill"),
+        packageName: ExtensionName,
+      }),
+      revision: Schema.Struct({
+        kind: Schema.Literal("registry"),
+        version: Schema.String.annotate({
+          title: "Version",
+          description: "A semver version like 1.0.0. Ranges are not allowed here.",
+          examples: ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+        })
+          .check(
+            Schema.isMaxCodePoints(256).annotate({
+              expected: "a string with at most 256 code points",
+            }),
+          )
+          .check(
+            Schema.isPattern(
+              new RegExp(
+                "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+                "u",
+              ),
+            ).annotate({
+              expected:
+                "a string matching the RegExp ^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+            }),
+          ),
+        integrity: Schema.optionalKey(
+          Schema.String.check(
+            Schema.isPattern(new RegExp("^sha512-[A-Za-z0-9+/]{86}==$", "u")).annotate({
+              expected: "a string matching the RegExp ^sha512-[A-Za-z0-9+/]{86}==$",
+            }),
+          ),
+        ),
+      }),
+    }),
+  ]),
+}).annotate({
+  description:
+    "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption. Unknown fields are discarded.",
+  identifier: "SkillInstallEvent",
+});
 export type TelemetryContext = {
   readonly client: TelemetryClientContext;
   readonly os?: { readonly name: string; readonly version?: string };
@@ -324,6 +836,79 @@ export type TelemetryContext = {
   readonly device?: { readonly arch: string };
   readonly ide?: { readonly name: string; readonly version: string };
   readonly environment?: string;
+  readonly callerAgent?:
+    | "adal"
+    | "fx"
+    | "muse-code"
+    | "mimo-code"
+    | "coder-agents"
+    | "aider-desk"
+    | "amp"
+    | "antigravity"
+    | "antigravity-cli"
+    | "augment"
+    | "claude-code"
+    | "cline"
+    | "codearts-agent"
+    | "codebuddy"
+    | "codemaker"
+    | "codestudio"
+    | "codex"
+    | "command-code"
+    | "continue"
+    | "cortex"
+    | "crush"
+    | "cursor"
+    | "deepagents"
+    | "devin"
+    | "dexto"
+    | "droid"
+    | "firebender"
+    | "forgecode"
+    | "gemini-cli"
+    | "github-copilot-cli"
+    | "goose"
+    | "grok-cli"
+    | "hermes"
+    | "ibm-bob"
+    | "iflow-cli"
+    | "junie"
+    | "lingma"
+    | "kilo"
+    | "kimi-cli"
+    | "kiro-cli"
+    | "kode"
+    | "mcpjam"
+    | "minimax-code"
+    | "mistral-vibe"
+    | "mux"
+    | "neovate"
+    | "openclaw"
+    | "opencode"
+    | "openhands"
+    | "ona"
+    | "pi"
+    | "vscode"
+    | "pochi"
+    | "qoder"
+    | "qoder-cn"
+    | "qwen-code"
+    | "replit"
+    | "roo"
+    | "rovodev"
+    | "tabnine-cli"
+    | "trae-cn"
+    | "trae"
+    | "warp"
+    | "windsurf"
+    | "zencoder"
+    | "zed"
+    | "zenflow"
+    | "chatgpt"
+    | "claude-ai"
+    | "cowork"
+    | "gemini-app"
+    | "unknown";
   readonly ci?: boolean;
   readonly invocationId?: string;
 };
@@ -378,6 +963,82 @@ export const TelemetryContext = Schema.Struct({
     }),
   ),
   environment: Schema.optionalKey(Schema.String),
+  callerAgent: Schema.optionalKey(
+    Schema.Literals([
+      "adal",
+      "fx",
+      "muse-code",
+      "mimo-code",
+      "coder-agents",
+      "aider-desk",
+      "amp",
+      "antigravity",
+      "antigravity-cli",
+      "augment",
+      "claude-code",
+      "cline",
+      "codearts-agent",
+      "codebuddy",
+      "codemaker",
+      "codestudio",
+      "codex",
+      "command-code",
+      "continue",
+      "cortex",
+      "crush",
+      "cursor",
+      "deepagents",
+      "devin",
+      "dexto",
+      "droid",
+      "firebender",
+      "forgecode",
+      "gemini-cli",
+      "github-copilot-cli",
+      "goose",
+      "grok-cli",
+      "hermes",
+      "ibm-bob",
+      "iflow-cli",
+      "junie",
+      "lingma",
+      "kilo",
+      "kimi-cli",
+      "kiro-cli",
+      "kode",
+      "mcpjam",
+      "minimax-code",
+      "mistral-vibe",
+      "mux",
+      "neovate",
+      "openclaw",
+      "opencode",
+      "openhands",
+      "ona",
+      "pi",
+      "vscode",
+      "pochi",
+      "qoder",
+      "qoder-cn",
+      "qwen-code",
+      "replit",
+      "roo",
+      "rovodev",
+      "tabnine-cli",
+      "trae-cn",
+      "trae",
+      "warp",
+      "windsurf",
+      "zencoder",
+      "zed",
+      "zenflow",
+      "chatgpt",
+      "claude-ai",
+      "cowork",
+      "gemini-app",
+      "unknown",
+    ]),
+  ),
   ci: Schema.optionalKey(Schema.Boolean),
   invocationId: Schema.optionalKey(
     Schema.String.annotate({
@@ -527,16 +1188,16 @@ export const TelemetryErrorReport = Schema.Struct({
 }).annotate({
   title: "Telemetry Error Report",
   description:
-    "One bounded, allowlisted report of an opted-in client invocation's terminal failure. It carries no messages, stacks, arguments, paths, or other free-form content.",
+    "One bounded, allowlisted report of a consent-controlled client invocation's terminal failure. It carries no messages, stacks, arguments, paths, or other free-form content.",
   identifier: "TelemetryErrorReport",
 });
 export type TelemetryEventsRequest = {
-  readonly events: ReadonlyArray<TelemetryEvent>;
+  readonly events: ReadonlyArray<SkillInstallEvent | TelemetryEvent>;
   readonly sentAt?: string;
   readonly context: TelemetryContext;
 };
 export const TelemetryEventsRequest = Schema.Struct({
-  events: Schema.Array(TelemetryEvent),
+  events: Schema.Array(Schema.Union([SkillInstallEvent, TelemetryEvent])),
   sentAt: Schema.optionalKey(Schema.String.annotate({ format: "date-time" })),
   context: TelemetryContext,
 }).annotate({
@@ -706,6 +1367,8 @@ export type HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
 export const HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
 export type EventsIngestRequestJson = TelemetryEventsRequest;
 export const EventsIngestRequestJson = TelemetryEventsRequest;
+export type EventsIngest200 = TelemetryEventsReceipt;
+export const EventsIngest200 = TelemetryEventsReceipt;
 export type EventsIngest400 = DecodeErrorResponseEncoded;
 export const EventsIngest400 = DecodeErrorResponseEncoded;
 export type EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
@@ -859,9 +1522,9 @@ export const make = (
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
           HttpClientResponse.matchStatus({
+            "2xx": decodeSuccess(EventsIngest200),
             "400": decodeError("EventsIngest400", EventsIngest400),
             "413": decodeError("EventsIngest413", EventsIngest413),
-            "202": () => Effect.void,
             orElse: unexpectedStatus,
           }),
         ),
@@ -985,14 +1648,14 @@ export interface TelemetryClient {
     >;
   };
   /**
-   * Accepts a JSON batch of telemetry events. Content-Type must be application/json. Payloads exceeding 64 KB are rejected with 413.
+   * Validates a JSON batch and registers bounded best-effort forwarding. The 200 receipt does not imply durable storage or provider ingestion. Content-Type must be application/json. Ingress limits are owned by the edge.
    */
   readonly EventsIngest: {
     <Config extends OperationConfig | undefined = undefined>(options: {
       readonly payload: typeof EventsIngestRequestJson.Encoded;
       readonly config: Config;
     }): Effect.Effect<
-      WithOptionalResponse<void, Config>,
+      WithOptionalResponse<typeof EventsIngest200.Type, Config>,
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
@@ -1002,7 +1665,7 @@ export interface TelemetryClient {
       readonly payload: typeof EventsIngestRequestJson.Encoded;
       readonly config?: Config | undefined;
     }): Effect.Effect<
-      WithOptionalResponse<void, Config | undefined>,
+      WithOptionalResponse<typeof EventsIngest200.Type, Config | undefined>,
       | HttpClientError.HttpClientError
       | SchemaError
       | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
@@ -1010,7 +1673,7 @@ export interface TelemetryClient {
     >;
   };
   /**
-   * Receives one bounded, allowlisted failure report from an opted-in client invocation.
+   * Receives one bounded, allowlisted failure report from a consent-controlled client invocation.
    *
    * **Receipt.** A `200` response is a synchronous receipt: the report passed
    * validation and its forwarding was registered as bounded, best-effort

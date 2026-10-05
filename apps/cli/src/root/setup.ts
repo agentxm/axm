@@ -118,8 +118,8 @@ const setupSuggestions = (args: {
 
   suggestions.push({
     description: args.telemetryEnabled
-      ? "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls"
-      : "Telemetry is off; environment help explains the opt-in controls",
+      ? "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0"
+      : "Telemetry is off; environment help lists all controls",
   });
 
   return suggestions;
@@ -142,9 +142,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
   const machineOutput = Option.getOrElse(json, () => false);
   const nonInteractive = !(yield* screen.canAsk);
   const doNotTrackOpt = yield* envOption("DO_NOT_TRACK");
+  const disableTelemetryOpt = yield* envOption("DISABLE_TELEMETRY");
   const axmTelemetryOpt = yield* envOption("AXM_TELEMETRY");
   const telemetryMode = resolveTelemetryMode({
     doNotTrack: Option.getOrUndefined(doNotTrackOpt),
+    disableTelemetry: Option.getOrUndefined(disableTelemetryOpt),
     telemetry: Option.getOrUndefined(axmTelemetryOpt),
   });
   const telemetryEnabled = telemetryMode !== "off";

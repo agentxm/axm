@@ -71,6 +71,8 @@ export interface GitHostedRefDetails {
 
 /** Ref details for registry sources. @experimental */
 export interface RegistryRefDetails {
+  /** Current invocation resolution evidence. Never reconstructed from accepted state. */
+  readonly visibility?: "public" | "private";
   /** Registry owner that owns the published extension */
   readonly owner: Handle;
   /** Immutable registry publisher epoch. */

@@ -20,7 +20,6 @@
     "product-engineering": "agentxm:@craigsmitham/knowledge/product-engineering"
   },
   "packs": {
-    "field-notes": "agentxm:@craigsmitham/packs/field-notes",
     "effect-v4": "agentxm:@craigsmitham/packs/effect-v4",
     "agent-engineering": "agentxm:@agentxm/packs/agent-engineering",
     "docs": "agentxm:@craigsmitham/packs/docs",

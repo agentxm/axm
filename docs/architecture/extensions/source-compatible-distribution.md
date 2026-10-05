@@ -32,7 +32,10 @@ authorship or submit its prose to AXM's authoring policy.
 Metadata extraction is permissive and does not change the input. Unknown keys,
 host-specific fields, display names, and support-file naming conventions remain
 upstream data. Routine acquired-content health does not warn about cosmetic
-conformance. Explicit authoring lint retains its stricter contract.
+conformance. The [Skills principles](skills.md) govern validation across
+acquisition, authorship, and publication: a change in authorship does not itself
+change compatibility. Explicit conformance checks evaluate the selected format
+contract separately from routine management health.
 
 Operational failures remain meaningful: unresolved sources, digest mismatch,
 paths outside the selected package, conflicting native ownership, and requested
@@ -185,8 +188,10 @@ upload settlement, and exact-version verification. The source directory is not
 converted into an AXM authoring workspace.
 
 The shared distribution validator checks the envelope and required payload
-structure. Authored workspace publication still runs authoring lint before
-building that archive. Consumers do not implicitly republish acquired packages.
+structure. Current authored workspace publication still runs authoring lint
+before building that archive; [Skills implementation alignment](skills.md#implementation-alignment-and-verification)
+records the gap between this behavior and the accepted design. Consumers do not
+implicitly republish acquired packages.
 
 ## Verification and delivery
 

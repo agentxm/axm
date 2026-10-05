@@ -2,8 +2,8 @@ import { describe, expect, it } from "@effect/vitest";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { Command } from "effect/unstable/cli";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import { Command } from "effect/cli";
+import type { HelpDoc } from "effect/cli/HelpDoc";
 
 import { TestRenderer } from "./test-support/presenter-test.js";
 import { toJsonHelpDoc } from "./cli-runtime/index.js";

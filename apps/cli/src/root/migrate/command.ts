@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { MigrateDeprecated } from "@agentxm/workspace-features/lifecycle";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";

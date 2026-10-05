@@ -10,16 +10,15 @@ pmOnFail: ignore
 peerDependencyRules:
   allowedVersions:
     "@nx/vitest>vitest": "5"
-    "i18next>typescript": "6"
 
 catalog:
   "@effect/eslint-plugin": ^0.3.2
-  "@effect/language-service": ^0.87.2
-  "@effect/openapi-generator": 4.0.0-rc.117
-  "@effect/platform-node": 4.0.0-rc.117
-  "@effect/platform-node-shared": 4.0.0-rc.117
-  "@effect/tsgo": ^0.45.0
-  "@effect/vitest": 4.0.0-rc.117
+  "@effect/language-service": ^0.87.3
+  "@effect/openapi-generator": 4.0.1
+  "@effect/platform-node": 4.0.1
+  "@effect/platform-node-shared": 4.0.1
+  "@effect/tsgo": ^0.48.1
+  "@effect/vitest": 4.0.1
   "@eslint/js": ^10.0.0
   "@nx/devkit": 23.2.1
   "@nx/eslint": 23.2.1
@@ -31,13 +30,13 @@ catalog:
   "@types/bun": ^1.4.2
   "@types/node": 24.13.6
   "@types/semver": ^7.8.0
-  "@typescript-eslint/parser": ^8.70.0
+  "@typescript-eslint/parser": ^8.71.1
   "@typescript/native": npm:typescript@^7.0.2
   allure: ^3.17.0
   allure-js-commons: ^3.12.2
   allure-vitest: ^3.12.2
-  effect: 4.0.0-rc.117
-  eslint: ^10.10.0
+  effect: 4.0.1
+  eslint: ^10.12.0
   execa: ^10.0.1
   "@fast-check/vitest": ^0.5.0
   fflate: ^0.8.3
@@ -53,9 +52,9 @@ catalog:
   semver: ^7.8.5
   simple-git: ^3.36.0
   typescript: npm:@typescript/typescript6@^6.0.2
-  typescript-eslint: ^8.70.0
-  vite: ^8.3.0
-  vitest: ^5.0.1
+  typescript-eslint: ^8.71.1
+  vite: ^8.3.2
+  vitest: ^5.0.3
   yaml: ^2.9.1
   eslint-plugin-boundaries: 7.2.0
   dependency-cruiser: 18.4.0
@@ -73,13 +72,32 @@ allowBuilds:
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@agentxm/*"
-  - "@effect/openapi-generator@4.0.0-rc.117"
-  - "@effect/platform-node-shared@4.0.0-rc.117"
-  - "@effect/platform-node@4.0.0-rc.117"
-  - "@effect/vitest@4.0.0-rc.117"
+  - "@effect/tsgo@0.48.1"
+  - "@effect/tsgo-darwin-arm64@0.48.1"
+  - "@effect/tsgo-darwin-x64@0.48.1"
+  - "@effect/tsgo-linux-arm64@0.48.1"
+  - "@effect/tsgo-linux-arm@0.48.1"
+  - "@effect/tsgo-linux-x64@0.48.1"
+  - "@effect/tsgo-win32-arm64@0.48.1"
+  - "@effect/tsgo-win32-x64@0.48.1"
+  - "@typescript-eslint/eslint-plugin@8.71.1"
+  - "@typescript-eslint/parser@8.71.1"
+  - "@typescript-eslint/project-service@8.71.1"
+  - "@typescript-eslint/scope-manager@8.71.1"
+  - "@typescript-eslint/tsconfig-utils@8.71.1"
+  - "@typescript-eslint/type-utils@8.71.1"
+  - "@typescript-eslint/types@8.71.1"
+  - "@typescript-eslint/typescript-estree@8.71.1"
+  - "@typescript-eslint/utils@8.71.1"
+  - "@typescript-eslint/visitor-keys@8.71.1"
+  - "typescript-eslint@8.71.1"
+  - "@effect/openapi-generator@4.0.1"
+  - "@effect/platform-node-shared@4.0.1"
+  - "@effect/platform-node@4.0.1"
+  - "@effect/vitest@4.0.1"
   - "@fast-check/vitest@0.5.0"
   - axm.sh
-  - effect@4.0.0-rc.117
+  - effect@4.0.1
 
 overrides:
   # Compatible type consumers share the declared Node/Bun tooling cohort.

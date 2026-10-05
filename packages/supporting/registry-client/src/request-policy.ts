@@ -1,4 +1,4 @@
-import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Duration from "effect/Duration";

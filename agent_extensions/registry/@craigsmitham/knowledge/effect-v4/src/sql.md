@@ -6,24 +6,24 @@ tags: [effect, effect-v4, sql, transaction, schema, repository, database]
 status: stable
 sources:
   - id: effect-sql
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/40_sql/10_basics.ts
-    title: Effect 4.0.0-rc.117 SQL basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/40_sql/10_basics.ts
+    title: Effect 4.0.0 SQL basics
   - id: effect-sql-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/sql/SqlClient.ts
-    title: Effect 4.0.0-rc.117 SqlClient source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/sql/SqlClient.ts
+    title: Effect 4.0.0 SqlClient source
   - id: effect-sql-error
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/sql/SqlError.ts
-    title: Effect 4.0.0-rc.117 SqlError source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/sql/SqlError.ts
+    title: Effect 4.0.0 SqlError source
   - id: effect-pg-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgClient.ts
-    title: Effect 4.0.0-rc.117 native PostgreSQL client
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/pg/src/PgClient.ts
+    title: Effect 4.0.0 native PostgreSQL client
   - id: effect-pg-types
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgTypes.ts
-    title: Effect 4.0.0-rc.117 PostgreSQL binary codecs
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/pg/src/PgTypes.ts
+    title: Effect 4.0.0 PostgreSQL binary codecs
   - id: effect-sqlite-do-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/sqlite-do/src/SqliteClient.ts
-    title: Effect 4.0.0-rc.117 Durable Object SQLite client
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/sqlite-do/src/SqliteClient.ts
+    title: Effect 4.0.0 Durable Object SQLite client
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # SQL
@@ -52,12 +52,12 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [SQL basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/40_sql/10_basics.ts)
-- [SqlClient source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/sql/SqlClient.ts)
-- [SqlError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/sql/SqlError.ts)
-- [Native PostgreSQL client and pool configuration](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgClient.ts)
-- [Durable Object SQLite transactions](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/sqlite-do/src/SqliteClient.ts)
-- [PostgreSQL parameter and result codecs](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/pg/src/PgTypes.ts)
+- [SQL basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/40_sql/10_basics.ts)
+- [SqlClient source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/sql/SqlClient.ts)
+- [SqlError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/sql/SqlError.ts)
+- [Native PostgreSQL client and pool configuration](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/pg/src/PgClient.ts)
+- [Durable Object SQLite transactions](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/sqlite-do/src/SqliteClient.ts)
+- [PostgreSQL parameter and result codecs](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/pg/src/PgTypes.ts)
 
 [^effect-pg-types]: Effect PostgreSQL binary codecs.
 [^effect-pg-client]: Effect native PostgreSQL client.

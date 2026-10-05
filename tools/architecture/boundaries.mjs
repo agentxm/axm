@@ -162,7 +162,16 @@ export function capabilityBoundaries(rootPath, elements, files, roleDescriptors 
                   file: { categories: ["domain", "domain-api", "application", "application-api"] },
                 },
                 disallow: {
-                  to: { module: { source: "effect", internalPath: ["FileSystem", "unstable/**"] } },
+                  to: {
+                    module: {
+                      source: "effect",
+                      internalPath: [
+                        "FileSystem",
+                        "{ai,cli,cluster,devtools,eventlog,http,http-api,net,observability,persistence,process,reactivity,rpc,schema,socket,sql,workers,workflow}{,/**}",
+                        "encoding/{Ini,Ndjson,SchemaBinary,Sse,Toml,Yaml}",
+                      ],
+                    },
+                  },
                 },
                 message:
                   "Filesystem and provider access belong in adapters implementing capability-owned ports.",

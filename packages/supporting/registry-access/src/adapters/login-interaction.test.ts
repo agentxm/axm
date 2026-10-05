@@ -9,7 +9,7 @@ import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
 import * as Sink from "effect/Sink";
 import * as Stdio from "effect/Stdio";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { DeviceLoginInteraction } from "../authentication/device-login.js";
 import { AuthEnvironment } from "./environment.js";

@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { applyInstall, installRequest } from "../../../testing/install-world.js";

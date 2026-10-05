@@ -4,7 +4,7 @@ import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, Command, GlobalFlag } from "effect/cli";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 

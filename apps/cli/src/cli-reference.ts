@@ -1,10 +1,10 @@
 import * as JsonSchema from "effect/JsonSchema";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type * as CliCommand from "effect/unstable/cli/Command";
-import type * as GlobalFlag from "effect/unstable/cli/GlobalFlag";
-import * as Param from "effect/unstable/cli/Param";
-import * as Primitive from "effect/unstable/cli/Primitive";
+import type * as CliCommand from "effect/cli/Command";
+import type * as GlobalFlag from "effect/cli/GlobalFlag";
+import * as Param from "effect/cli/Param";
+import * as Primitive from "effect/cli/Primitive";
 
 interface ConfigReference {
   readonly arguments: ReadonlyArray<Param.AnyArgument>;

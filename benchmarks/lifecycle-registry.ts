@@ -47,7 +47,7 @@ const MetadataRequestSchema = Schema.Struct({
       identity: Schema.Struct({
         owner: Schema.Literal("@acme"),
         type: Schema.Literals(["skill", "pack"]),
-        name: Schema.String.check(Schema.isPattern(/^bench-(?:\d{3}|pack-[ab])$/)),
+        name: Schema.String.check(Schema.isPattern(/^bench-(?:\d{3}|pack-[ab])$/u)),
       }),
       purpose: Schema.Literals(["select", "restore-exact"]),
       expectedPublisherBinding: Schema.optional(Schema.String),

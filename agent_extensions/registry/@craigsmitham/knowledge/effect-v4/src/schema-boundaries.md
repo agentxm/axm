@@ -6,18 +6,18 @@ tags: [effect, effect-v4, schema, decoding, encoding, validation, boundaries]
 status: stable
 sources:
   - id: effect-schema
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/02_schema/10_schema-basics.ts
-    title: Effect 4.0.0-rc.117 schema basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/02_schema/10_schema-basics.ts
+    title: Effect 4.0.0 schema basics
   - id: effect-schema-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts
-    title: Effect 4.0.0-rc.117 Schema source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Schema.ts
+    title: Effect 4.0.0 Schema source
   - id: effect-parser-policy
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/SchemaAST.ts
-    title: Effect 4.0.0-rc.117 Schema parse options
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/SchemaAST.ts
+    title: Effect 4.0.0 Schema parse options
   - id: effect-parser-changes
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/.changeset/pre/schema-interpreter-backports.md
-    title: Effect 4.0.0-rc.117 Schema parsing migration
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/CHANGELOG.md#L1285
+    title: Effect 4.0.0 changelog, rc.113 Schema parsing changes
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Schema boundaries
@@ -46,10 +46,10 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Schema basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/02_schema/10_schema-basics.ts)
-- [Schema source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts)
-- [Schema parse options](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/SchemaAST.ts)
-- [Schema parsing migration](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/.changeset/pre/schema-interpreter-backports.md)
+- [Schema basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/02_schema/10_schema-basics.ts)
+- [Schema source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Schema.ts)
+- [Schema parse options](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/SchemaAST.ts)
+- [Schema parsing changes (rc.113 changelog)](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/CHANGELOG.md#L1285)
 
 [^effect-parser-policy]: Effect Schema parse options.
 [^effect-parser-changes]: Effect Schema parsing migration.

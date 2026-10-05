@@ -14,7 +14,7 @@ import * as Schema from "effect/Schema";
  *
  * @see https://github.com/package-url/purl-spec
  */
-const PACKAGE_TYPE_PATTERN = /^[a-z][a-z0-9.+-]*$/;
+const PACKAGE_TYPE_PATTERN = /^[a-z][a-z0-9.+-]*$/u;
 
 /**
  * Branded string schema for purl package types (e.g. "npm", "pypi", "maven").

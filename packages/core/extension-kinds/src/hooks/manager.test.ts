@@ -23,7 +23,7 @@ import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import {

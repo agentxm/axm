@@ -17,7 +17,7 @@ const readObject = (path: string): Record<string, unknown> => {
 };
 
 describe("published Effect runtime cohort", () => {
-  it("pins the CLI's Node runtime packages to the same Effect prerelease", () => {
+  it("pins the CLI's Node runtime packages to the same stable Effect 4 release", () => {
     const workspace: unknown = YAML.parse(
       readFileSync(resolve(repoRoot, "pnpm-workspace.yaml"), "utf8"),
     );
@@ -27,7 +27,7 @@ describe("published Effect runtime cohort", () => {
     const catalog = workspace["catalog"];
     const effectVersion = catalog["effect"];
 
-    expect(effectVersion).toMatch(/^4\.0\.0-rc\.\d+$/u);
+    expect(effectVersion).toMatch(/^4\.\d+\.\d+$/u);
     expect(catalog["@effect/platform-node"]).toBe(effectVersion);
     expect(catalog["@effect/platform-node-shared"]).toBe(effectVersion);
 
@@ -35,7 +35,7 @@ describe("published Effect runtime cohort", () => {
     const dependencies = cliManifest["dependencies"];
     if (!isRecord(dependencies)) throw new Error("The CLI must declare runtime dependencies.");
 
-    // platform-node permits newer prereleases of platform-node-shared. Keeping
+    // platform-node permits newer releases of platform-node-shared. Keeping
     // the shared package direct makes clean consumer installs use this cohort.
     expect(dependencies["@effect/platform-node"]).toBe("catalog:");
     expect(dependencies["@effect/platform-node-shared"]).toBe("catalog:");

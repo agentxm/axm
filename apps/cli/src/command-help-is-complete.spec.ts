@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
-import type { Command } from "effect/unstable/cli";
+import type { Command } from "effect/cli";
 
 import {
   captureHelpDoc,

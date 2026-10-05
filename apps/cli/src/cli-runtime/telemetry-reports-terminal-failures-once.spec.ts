@@ -25,9 +25,9 @@ import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
-import { CliOutput } from "effect/unstable/cli";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import type * as HttpClient from "effect/http/HttpClient";
+import { CliOutput } from "effect/cli";
 
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";

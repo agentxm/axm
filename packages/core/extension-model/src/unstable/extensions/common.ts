@@ -529,6 +529,7 @@ const makeExtensionNameSchema = () =>
  */
 export const FQN_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/(${EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+  "u",
 );
 
 /**
@@ -540,6 +541,7 @@ export const FQN_PATTERN = new RegExp(
  */
 export const NON_PACK_FQN_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/(${NON_PACK_EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+  "u",
 );
 
 /**
@@ -550,20 +552,23 @@ export const NON_PACK_FQN_PATTERN = new RegExp(
  */
 export const PACK_FQN_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/packs\\/(${EXTENSION_NAME_PATTERN_SOURCE})$`,
+  "u",
 );
 
 const EXTENSION_SPEC_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/(${EXTENSION_TYPE_PLURAL_PATTERN_SOURCE})\\/(${EXTENSION_NAME_PATTERN_SOURCE})(?:@.+)?$`,
+  "u",
 );
 
 const PACK_SPEC_PATTERN = new RegExp(
   `^(${HANDLE_PATTERN_SOURCE})\\/packs\\/(${EXTENSION_NAME_PATTERN_SOURCE})(?:@.+)?$`,
+  "u",
 );
 
 /**
  * Canonical extension short name regex.
  */
-export const EXTENSION_NAME_PATTERN = new RegExp(`^${EXTENSION_NAME_PATTERN_SOURCE}$`);
+export const EXTENSION_NAME_PATTERN = new RegExp(`^${EXTENSION_NAME_PATTERN_SOURCE}$`, "u");
 
 /**
  * Canonical extension short name schema shared by generic extension surfaces.
@@ -1068,7 +1073,7 @@ export const NonPackManifestFields = {
       Schema.NonEmptyString.pipe(
         Schema.check(
           Schema.isPattern(
-            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/,
+            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/u,
             {
               message:
                 "Expected a lowercase kebab-case capability key with an optional :grade suffix.",
@@ -1088,7 +1093,7 @@ export const NonPackManifestFields = {
       Schema.NonEmptyString.pipe(
         Schema.check(
           Schema.isPattern(
-            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/,
+            /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?$/u,
             {
               message:
                 "Expected a lowercase kebab-case capability key with an optional :grade suffix.",

@@ -9,8 +9,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliOutput, Command } from "effect/unstable/cli";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import { CliOutput, Command } from "effect/cli";
+import type { HelpDoc } from "effect/cli/HelpDoc";
 
 import { rootCommand } from "../../app.js";
 import { baseLayer } from "../../runtime.js";

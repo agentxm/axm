@@ -2,7 +2,7 @@
  * CLI command definition for `axm discover`.
  */
 
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";

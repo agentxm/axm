@@ -13,7 +13,7 @@
  * `Command.withSubcommands` keep inferring the error and service channels.
  */
 
-import type * as CliCommand from "effect/unstable/cli/Command";
+import type * as CliCommand from "effect/cli/Command";
 
 import { extensionTypes, type ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 

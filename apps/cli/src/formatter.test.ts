@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import type { HelpDoc } from "effect/cli/HelpDoc";
 import { describe, expect, it } from "vitest";
 
 import { LearnMore, formatLearnMore, learnMoreRows, makeAxmFormatter } from "./formatter.js";

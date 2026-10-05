@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { ConfigureHook } from "@agentxm/workspace-features/configuration";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

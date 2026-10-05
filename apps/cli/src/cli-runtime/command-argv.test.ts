@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Argument, Flag } from "effect/unstable/cli";
+import { Argument, Flag } from "effect/cli";
 import { extractParamKinds, serializeArgv } from "./command-argv.js";
 
 describe("extractParamKinds", () => {

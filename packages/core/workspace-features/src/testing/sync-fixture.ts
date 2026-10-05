@@ -18,7 +18,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type * as ConfigProvider from "effect/ConfigProvider";
 import * as Layer from "effect/Layer";
-import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClient from "effect/http/HttpClient";
 
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";

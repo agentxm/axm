@@ -12,7 +12,7 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { SetActivation, type SetActivationRequest } from "@agentxm/workspace-features/lifecycle";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";

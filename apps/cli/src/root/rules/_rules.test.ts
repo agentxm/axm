@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { rootCommand } from "../../app.js";
 import { baseLayer } from "../../runtime.js";

@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import { describe, expect, it } from "@effect/vitest";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 
 import { presentBuiltInOutput } from "./built-in-output.js";
 import { makeAxmFormatter } from "./formatter.js";

@@ -24,7 +24,7 @@ import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlemen
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";
 import {
   HooksLockMapSchema,

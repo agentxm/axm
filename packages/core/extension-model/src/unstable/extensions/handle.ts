@@ -3,8 +3,8 @@ import * as Schema from "effect/Schema";
 export const SLUG_PATTERN_SOURCE = "[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?";
 export const HANDLE_PATTERN_SOURCE = `@${SLUG_PATTERN_SOURCE}`;
 
-export const SLUG_PATTERN = new RegExp(`^${SLUG_PATTERN_SOURCE}$`);
-export const HANDLE_PATTERN = new RegExp(`^${HANDLE_PATTERN_SOURCE}$`);
+export const SLUG_PATTERN = new RegExp(`^${SLUG_PATTERN_SOURCE}$`, "u");
+export const HANDLE_PATTERN = new RegExp(`^${HANDLE_PATTERN_SOURCE}$`, "u");
 
 export const SlugSchema = Schema.String.pipe(
   Schema.check(

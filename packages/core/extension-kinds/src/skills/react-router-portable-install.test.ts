@@ -10,7 +10,7 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { NativeWriteAuthorityPermissive } from "@agentxm/workspace-kernel/agent-adapters/testing";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 

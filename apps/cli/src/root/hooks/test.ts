@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { TestHook } from "@agentxm/workspace-features/authoring";
 import { HookTestResultSchema, observeUnit } from "@agentxm/workspace-kernel/operations";
 import { withLiveOperation } from "../../operation-lifecycle.js";

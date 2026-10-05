@@ -43,10 +43,10 @@ import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/versio
  * @experimental This API is unstable and may change without notice.
  */
 const REGISTRY_NAME_PATTERN =
-  /^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+  /^(?!(?:azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/u;
 
 const SOURCE_NAME_PATTERN =
-  /^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/;
+  /^(?!(?:agentxm|azurerepos|bitbucket|git|github|gitlab|local|registry|workspace)$)[a-z0-9][a-z0-9.-]*$/u;
 
 const RegistryNameSchema = Schema.String.check(
   Schema.isPattern(REGISTRY_NAME_PATTERN, {
@@ -325,7 +325,7 @@ const memberConfigurationIssue = (
 };
 
 export const MinimumReleaseAgeSchema = Schema.String.check(
-  Schema.isPattern(/^\d+(ms|s|m|h|d)$/, {
+  Schema.isPattern(/^\d+(ms|s|m|h|d)$/u, {
     message: "minimumReleaseAge must be a duration such as 24h, 1440m, or 0s",
   }),
 ).annotate({

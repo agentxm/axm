@@ -6,15 +6,15 @@ tags: [effect, effect-v4, request, batching, cache, ttl, resolver]
 status: stable
 sources:
   - id: effect-request
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Request.ts
-    title: Effect 4.0.0-rc.117 Request source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Request.ts
+    title: Effect 4.0.0 Request source
   - id: effect-resolver
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/RequestResolver.ts
-    title: Effect 4.0.0-rc.117 RequestResolver source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/RequestResolver.ts
+    title: Effect 4.0.0 RequestResolver source
   - id: effect-cache
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cache.ts
-    title: Effect 4.0.0-rc.117 Cache source
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Cache.ts
+    title: Effect 4.0.0 Cache source
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Request batching and cache
@@ -37,6 +37,6 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [RequestResolver source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/RequestResolver.ts)
-- [Cache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cache.ts)
-- [ScopedCache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/ScopedCache.ts)
+- [RequestResolver source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/RequestResolver.ts)
+- [Cache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Cache.ts)
+- [ScopedCache source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/ScopedCache.ts)

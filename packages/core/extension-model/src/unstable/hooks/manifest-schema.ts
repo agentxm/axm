@@ -21,20 +21,20 @@ export const HookRuntimeSchema = Schema.Literals(["bash", "node", "python"]).ann
 export type HookRuntime = Schema.Schema.Type<typeof HookRuntimeSchema>;
 
 const HookIdSchema = Schema.NonEmptyString.check(
-  Schema.isPattern(/^[a-z][a-z0-9-]*$/),
+  Schema.isPattern(/^[a-z][a-z0-9-]*$/u),
   Schema.isMaxLength(80),
 );
 const ConfigurationKeySchema = Schema.NonEmptyString.check(
-  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_]*$/),
+  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_]*$/u),
   Schema.isMaxLength(64),
 );
 const EnvironmentKeySchema = Schema.NonEmptyString.check(
-  Schema.isPattern(/^[a-zA-Z_][a-zA-Z0-9_]*$/),
+  Schema.isPattern(/^[a-zA-Z_][a-zA-Z0-9_]*$/u),
 );
 export const HookPackagePathSchema = Schema.NonEmptyString.check(
   Schema.isPattern(
     // eslint-disable-next-line no-control-regex -- Package paths must reject control characters, including NUL.
-    /^(?!\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))(?!.*\/\/)(?!.*[\\:\u0000-\u001f])[^/]+(?:\/[^/]+)*$/,
+    /^(?!\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))(?!.*\/\/)(?!.*[\\:\u0000-\u001f])[^/]+(?:\/[^/]+)*$/u,
   ),
 ).annotate({
   identifier: "HookPackagePath",
@@ -122,7 +122,7 @@ export const HookCommandHandlerSchema = Schema.Struct({
 export type HookCommandHandler = Schema.Schema.Type<typeof HookCommandHandlerSchema>;
 
 export const HookEventSchema = Schema.NonEmptyString.check(
-  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_.:-]*$/),
+  Schema.isPattern(/^[a-zA-Z][a-zA-Z0-9_.:-]*$/u),
 ).annotate({
   identifier: "HookEvent",
   description: "Exact event name in the implementation's native host protocol.",

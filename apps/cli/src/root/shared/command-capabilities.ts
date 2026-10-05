@@ -16,7 +16,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 

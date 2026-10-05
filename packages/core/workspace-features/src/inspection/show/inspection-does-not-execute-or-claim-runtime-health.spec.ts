@@ -3,7 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { vi } from "vitest";
 import { ShowExtension } from "../index.js";
 import { makeInspectionFixture } from "../testing.js";

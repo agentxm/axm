@@ -205,6 +205,57 @@ describe("agent instructions", () => {
     );
   }
 
+  it.effect("accepts a canonical instruction route shared with conditional readers", () =>
+    run(
+      Effect.gen(function* () {
+        const source = path.join(tempDir, "AGENTS.md");
+        fs.writeFileSync(source, "# Authoritative guidance\n");
+        const workspace = WorkspaceReadTest({
+          baseDir: tempDir,
+          settings: {
+            agents: ["codex", "opencode"],
+            instructionFiles: { gitignoreAliases: false },
+          },
+        });
+        const observed = yield* Effect.gen(function* () {
+          const plan = yield* planAggregateProjection({
+            unitId: "knowledge:discovery-region",
+            targetFile: source,
+            graph: { nodes: [], mcpSourceClosures: [], problems: [], packMembership: [] },
+            select: () => Effect.succeed({ contributors: ["knowledge"], exclusions: [] }),
+            adapter: {
+              observe: () =>
+                Effect.succeed({
+                  unitId: "knowledge:discovery-region",
+                  path: source,
+                  present: true,
+                  current: true,
+                  expectedContributors: ["knowledge"],
+                  nativeLocations: [
+                    {
+                      scope: "project",
+                      address: { kind: "region", path: source, region: "knowledge" },
+                      aliases: [source],
+                      configuredConsumers: ["codex"],
+                      potentialReaders: [],
+                      policyReasons: ["shared-instructions"],
+                      ownership: "owned",
+                      state: "unchanged",
+                      availability: [],
+                    },
+                  ],
+                }),
+              apply: () => Effect.void,
+            },
+          });
+          return yield* observeInstructionSurfacePlans([plan]);
+        }).pipe(Effect.provide(workspace));
+        expect(observed).toHaveLength(1);
+        expect(fs.readFileSync(source, "utf8")).toBe("# Authoritative guidance\n");
+      }),
+    ),
+  );
+
   it("resolves own-file fallback mechanisms", () => {
     expect(
       resolveInstructionMechanism(

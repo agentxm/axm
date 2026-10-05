@@ -9,7 +9,7 @@
  * @packageDocumentation
  */
 
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
+import * as HttpClientError from "effect/http/HttpClientError";
 import * as Predicate from "effect/Predicate";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";

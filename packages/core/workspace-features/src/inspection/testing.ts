@@ -29,8 +29,8 @@ import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { MANIFEST_FILENAME_BY_TYPE } from "@agentxm/extension-content";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";

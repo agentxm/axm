@@ -1,6 +1,6 @@
 import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import { OutputWriteFailed } from "../screen/streams.js";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 import * as Effect from "effect/Effect";
 import {
   AppError,

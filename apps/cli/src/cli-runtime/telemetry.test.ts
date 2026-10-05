@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Ref from "effect/Ref";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 import { makeOperationLifecycle } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../app-error/index.js";

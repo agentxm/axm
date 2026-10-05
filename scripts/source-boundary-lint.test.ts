@@ -64,62 +64,51 @@ describe("production source boundary lint rules", () => {
   });
 
   it("reports every way of reaching Effect's Prompt widgets", async () => {
-    expect(
-      await violations('import { Prompt } from "effect/unstable/cli";', PRODUCTION_SOURCE),
-    ).toEqual([
+    expect(await violations('import { Prompt } from "effect/cli";', PRODUCTION_SOURCE)).toEqual([
       "axm-policy/no-effect-prompt: Ask through Screen.ask: Effect's Prompt widgets paint outside the painter and cannot take the gutter, the key hints, or the terminal's height.",
     ]);
     expect(
-      await violations('import type * as P from "effect/unstable/cli/Prompt";', PRODUCTION_SOURCE),
+      await violations('import type * as P from "effect/cli/Prompt";', PRODUCTION_SOURCE),
     ).toHaveLength(1);
     expect(
       await violations(
-        'import * as Cli from "effect/unstable/cli"; const p = Cli . Prompt;',
+        'import * as Cli from "effect/cli"; const p = Cli . Prompt;',
         PRODUCTION_SOURCE,
       ),
     ).toHaveLength(1);
     expect(
       await violations(
-        'import { Command } from "effect/unstable/cli"; Command.run(argv);',
+        'import { Command } from "effect/cli"; Command.run(argv);',
         PRODUCTION_SOURCE,
       ),
     ).toEqual([]);
     expect(
-      await violations('export { Prompt } from "effect/unstable/cli";', PRODUCTION_SOURCE),
+      await violations('export { Prompt } from "effect/cli";', PRODUCTION_SOURCE),
     ).toHaveLength(1);
-    expect(
-      await violations('export * from "effect/unstable/cli/Prompt";', PRODUCTION_SOURCE),
-    ).toHaveLength(1);
+    expect(await violations('export * from "effect/cli/Prompt";', PRODUCTION_SOURCE)).toHaveLength(
+      1,
+    );
     expect(
       await violations(
-        'import * as Cli from "effect/unstable/cli"; const { Prompt: P } = Cli;',
+        'import * as Cli from "effect/cli"; const { Prompt: P } = Cli;',
         PRODUCTION_SOURCE,
       ),
     ).toHaveLength(1);
     expect(
-      await violations(
-        'const { Prompt } = await import("effect/unstable/cli");',
-        PRODUCTION_SOURCE,
-      ),
+      await violations('const { Prompt } = await import("effect/cli");', PRODUCTION_SOURCE),
+    ).toHaveLength(1);
+    expect(await violations('await import("effect/cli/Prompt");', PRODUCTION_SOURCE)).toHaveLength(
+      1,
+    );
+    expect(
+      await violations('const Cli = await import("effect/cli"); Cli.Prompt;', PRODUCTION_SOURCE),
     ).toHaveLength(1);
     expect(
-      await violations('await import("effect/unstable/cli/Prompt");', PRODUCTION_SOURCE),
-    ).toHaveLength(1);
-    expect(
-      await violations(
-        'const Cli = await import("effect/unstable/cli"); Cli.Prompt;',
-        PRODUCTION_SOURCE,
-      ),
+      await violations('let Cli; Cli = await import("effect/cli"); Cli.Prompt;', PRODUCTION_SOURCE),
     ).toHaveLength(1);
     expect(
       await violations(
-        'let Cli; Cli = await import("effect/unstable/cli"); Cli.Prompt;',
-        PRODUCTION_SOURCE,
-      ),
-    ).toHaveLength(1);
-    expect(
-      await violations(
-        'import * as Cli from "effect/unstable/cli"; const p = Cli["Prompt"];',
+        'import * as Cli from "effect/cli"; const p = Cli["Prompt"];',
         PRODUCTION_SOURCE,
       ),
     ).toHaveLength(1);
@@ -166,9 +155,9 @@ describe("production source boundary lint rules", () => {
 
   it("exempts each owning boundary module from its own rule only", async () => {
     expect(await violations("process.stdout.write('x');", OUTPUT_BOUNDARY)).toEqual([]);
-    expect(
-      await violations('import { Prompt } from "effect/unstable/cli";', OUTPUT_BOUNDARY),
-    ).toHaveLength(1);
+    expect(await violations('import { Prompt } from "effect/cli";', OUTPUT_BOUNDARY)).toHaveLength(
+      1,
+    );
     expect(await violations("terminal.readInput;", OUTPUT_BOUNDARY)).toHaveLength(1);
   });
 

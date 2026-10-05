@@ -18,7 +18,7 @@ import { ScopedRoutesLive } from "./shared/scoped-command.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as YAML from "yaml";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach } from "vitest";
 import { RegistryUrl } from "@agentxm/registry-client";

@@ -1,8 +1,8 @@
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import { CliReleaseCatalog, selectUpgradeRelease } from "../../application/index.js";
 import { makeCliReleaseCatalog } from "./index.js";

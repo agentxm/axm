@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 import { classifyError } from "./handle-error.js";
 import { handleError } from "./handle-error.js";
 import { ExitCode, makeAppError } from "../app-error/index.js";

@@ -17,9 +17,9 @@ export interface VersionEntryLike {
  * whitespace, partial versions, and leading-zero numeric identifiers.
  */
 export const SEMVER_PATTERN =
-  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/;
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$/u;
 
-const SEMVER_RANGE_PATTERN = /^[~^<>=*xXvV0-9A-Za-z+| .-]+$/;
+const SEMVER_RANGE_PATTERN = /^[~^<>=*xXvV0-9A-Za-z+| .-]+$/u;
 
 /**
  * Schema for an exact semver version (no ranges).

@@ -1,4 +1,4 @@
-import { Flag } from "effect/unstable/cli";
+import { Flag } from "effect/cli";
 import {
   DEFAULT_WORKSPACE_SCOPE,
   WORKSPACE_SCOPES,

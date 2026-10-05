@@ -10,7 +10,7 @@
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
-import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { Flag, GlobalFlag } from "effect/cli";
 import { isCI } from "@agentxm/host-primitives";
 
 /** Raw --non-interactive global flag; {@link isNonInteractive} resolves it with the environment. */

@@ -1,7 +1,7 @@
 import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import {
   KnowledgeConceptGetOutputSchema,

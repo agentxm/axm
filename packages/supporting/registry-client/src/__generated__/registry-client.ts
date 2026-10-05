@@ -13,11 +13,11 @@ import type { SchemaError } from "effect/Schema";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import * as Sse from "effect/unstable/encoding/Sse";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
-import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as Sse from "effect/encoding/Sse";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 // non-recursive definitions
 export type MetaResponse = {
   readonly ok: true;
@@ -180,7 +180,7 @@ export const UserId = Schema.String.annotate({
     "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
   examples: ["user_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^user_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "UserId",
   }),
@@ -225,7 +225,7 @@ export const TrustedPublisherId = Schema.String.annotate({
     "Identifies a trusted publisher: a CI workflow identity a user allowed to exchange its OIDC token for a short-lived workload token.",
   examples: ["tpub_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "TrustedPublisherId",
   }),
@@ -237,7 +237,7 @@ export const TokenId = Schema.String.annotate({
     "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
   examples: ["tok_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "TokenId",
   }),
@@ -326,7 +326,7 @@ export const ExtensionName = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")).annotate({
+    Schema.isPattern(new RegExp("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$", "u")).annotate({
       expected: "a string matching the RegExp ^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
       identifier: "ExtensionName",
     }),
@@ -337,7 +337,7 @@ export const Handle = Schema.String.annotate({
   description: "A unique username or organization name starting with @, like @my-org.",
   examples: ["@my-org", "@username"],
 }).check(
-  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$")).annotate({
+  Schema.isPattern(new RegExp("^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$", "u")).annotate({
     expected: "a string matching the RegExp ^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
     identifier: "Handle",
   }),
@@ -367,6 +367,7 @@ export const Version = Schema.String.annotate({
   Schema.isPattern(
     new RegExp(
       "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+      "u",
     ),
   ).annotate({
     expected:
@@ -450,8 +451,8 @@ export const DeprecationMessage = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isMaxLength(500).annotate({
-      expected: "a value with a length of at most 500",
+    Schema.isMaxCodePoints(500).annotate({
+      expected: "a string with at most 500 code points",
       identifier: "DeprecationMessage",
     }),
   );
@@ -464,6 +465,7 @@ export const ExtensionFqn = Schema.String.annotate({
   Schema.isPattern(
     new RegExp(
       "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+      "u",
     ),
   ).annotate({
     expected:
@@ -505,7 +507,7 @@ export const VersionRange = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$")).annotate({
+    Schema.isPattern(new RegExp("^[~^<>=*xXvV0-9A-Za-z+| .-]+$", "u")).annotate({
       expected: "a string matching the RegExp ^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
       identifier: "VersionRange",
     }),
@@ -519,7 +521,7 @@ export const PackageIdentityPurl = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isPattern(new RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$")).annotate({
+    Schema.isPattern(new RegExp("^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$", "u")).annotate({
       expected: "a string matching the RegExp ^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
       identifier: "PackageIdentityPurl",
     }),
@@ -560,7 +562,7 @@ export const ExtensionDeletionOperationId = Schema.String.annotate({
   description: "Identifies a durable owner-requested whole-Extension deletion operation.",
   examples: ["edel_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "ExtensionDeletionOperationId",
   }),
@@ -589,14 +591,14 @@ export const VisibilityRevision = Schema.String.annotate({
 );
 export type VisibilityFingerprint = string;
 export const VisibilityFingerprint = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
+  Schema.isPattern(new RegExp("^[a-f0-9]{64}$", "u")).annotate({
     expected: "a string matching the RegExp ^[a-f0-9]{64}$",
     identifier: "VisibilityFingerprint",
   }),
 );
 export type Sha256Hex = string;
 export const Sha256Hex = Schema.String.check(
-  Schema.isPattern(new RegExp("^[a-f0-9]{64}$")).annotate({
+  Schema.isPattern(new RegExp("^[a-f0-9]{64}$", "u")).annotate({
     expected: "a string matching the RegExp ^[a-f0-9]{64}$",
     identifier: "Sha256Hex",
   }),
@@ -741,7 +743,7 @@ export const PutArchivalBody = Schema.Struct({
     Schema.String.annotate({
       description: "Optional publisher reason for archiving the extension.",
     }).check(
-      Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+      Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ),
     Schema.Null,
   ]),
@@ -776,7 +778,7 @@ export const YankVersionBody = Schema.Struct({
   notice: Schema.optionalKey(
     Schema.Union([
       Schema.String.check(
-        Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ),
       Schema.Null,
     ]),
@@ -799,7 +801,7 @@ export const YankAvailableVersionsBody = Schema.Struct({
   notice: Schema.optionalKey(
     Schema.Union([
       Schema.String.check(
-        Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ),
       Schema.Null,
     ]),
@@ -815,8 +817,8 @@ export const ResolutionMetadataCallerKey = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isMaxLength(128).annotate({
-      expected: "a value with a length of at most 128",
+    Schema.isMaxCodePoints(128).annotate({
+      expected: "a string with at most 128 code points",
       identifier: "ResolutionMetadataCallerKey",
     }),
   );
@@ -824,8 +826,8 @@ export type ResolutionMetadataRevision = string;
 export const ResolutionMetadataRevision = Schema.String.check(
   Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
 ).check(
-  Schema.isMaxLength(256).annotate({
-    expected: "a value with a length of at most 256",
+  Schema.isMaxCodePoints(256).annotate({
+    expected: "a string with at most 256 code points",
     identifier: "ResolutionMetadataRevision",
   }),
 );
@@ -835,8 +837,8 @@ export const ResolutionMetadataContinuation = Schema.String.annotate({
 })
   .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
   .check(
-    Schema.isMaxLength(2048).annotate({
-      expected: "a value with a length of at most 2048",
+    Schema.isMaxCodePoints(2048).annotate({
+      expected: "a string with at most 2048 code points",
       identifier: "ResolutionMetadataContinuation",
     }),
   );
@@ -981,7 +983,7 @@ export const LibraryId = Schema.String.annotate({
     "Identifies an account-owned curated collection of extension identities in the registry.",
   examples: ["lib_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "LibraryId",
   }),
@@ -1000,7 +1002,7 @@ export const LibraryMemberId = Schema.String.annotate({
   description: "Identifies an extension identity membership inside a curated registry library.",
   examples: ["lmem_01h455vb4pexka56gq5w2r7cpc"],
 }).check(
-  Schema.isPattern(new RegExp("^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$")).annotate({
+  Schema.isPattern(new RegExp("^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$", "u")).annotate({
     expected: "a string matching the RegExp ^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
     identifier: "LibraryMemberId",
   }),
@@ -1133,7 +1135,7 @@ export const ArchivalView = Schema.Struct({
       Schema.String.check(
         Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
       ).check(
-        Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
       ),
       Schema.Null,
     ]),
@@ -1961,7 +1963,7 @@ export const PutDeprecationBody = Schema.Struct({
     Schema.String.annotate({
       description: "Optional publisher notes, normalized by the Registry.",
     }).check(
-      Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+      Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ),
     Schema.Null,
   ]),
@@ -2095,6 +2097,7 @@ export const VersionEntry = Schema.Struct({
             Schema.isPattern(
               new RegExp(
                 "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
+                "u",
               ),
             ).annotate({
               expected:
@@ -3449,7 +3452,7 @@ export const ExtensionsYankVersion200 = Schema.Struct({
   ]),
   yankNotice: Schema.Union([
     Schema.String.check(
-      Schema.isMaxLength(500).annotate({ expected: "a value with a length of at most 500" }),
+      Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ),
     Schema.Null,
   ]),
@@ -4062,7 +4065,7 @@ export type DebugDebugStream200Sse =
   | { readonly id?: string; readonly event: string; readonly data: DebugStreamEventEncoded }
   | {
       readonly id?: string;
-      readonly event: "effect/httpapi/stream/failure";
+      readonly event: "effect/http-api/stream/failure";
       readonly data: string;
     };
 export const DebugDebugStream200Sse = Schema.Union([
@@ -4073,7 +4076,7 @@ export const DebugDebugStream200Sse = Schema.Union([
   }),
   Schema.Struct({
     id: Schema.optional(Schema.String),
-    event: Schema.Literal("effect/httpapi/stream/failure"),
+    event: Schema.Literal("effect/http-api/stream/failure"),
     data: Schema.String,
   }),
 ]);
@@ -4098,11 +4101,13 @@ export interface OperationConfig {
  * of an operation based upon the value of the `includeResponse` configuration
  * option.
  */
-export type WithOptionalResponse<A, Config extends OperationConfig> = Config extends {
+export type WithOptionalResponse<A, Config extends OperationConfig | undefined> = Config extends {
   readonly includeResponse: true;
 }
   ? [A, HttpClientResponse.HttpClientResponse]
-  : A;
+  : Config extends { readonly includeResponse?: false | undefined } | undefined
+    ? A
+    : A | [A, HttpClientResponse.HttpClientResponse];
 
 export const make = (
   httpClient: HttpClient.HttpClient,
@@ -4226,7 +4231,7 @@ export const make = (
       );
   return {
     httpClient,
-    MetaGet: (options) =>
+    MetaGet: (options: Parameters<RegistryClient["MetaGet"]>[0]) =>
       HttpClientRequest.get("/v1").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -4236,7 +4241,7 @@ export const make = (
           }),
         ),
       ),
-    AuthIssueDeviceCode: (options) =>
+    AuthIssueDeviceCode: (options: Parameters<RegistryClient["AuthIssueDeviceCode"]>[0]) =>
       HttpClientRequest.post("/v1/auth/device/code").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
@@ -4248,7 +4253,7 @@ export const make = (
           }),
         ),
       ),
-    AuthExchangeToken: (options) =>
+    AuthExchangeToken: (options: Parameters<RegistryClient["AuthExchangeToken"]>[0]) =>
       HttpClientRequest.post("/v1/auth/token").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
@@ -4261,7 +4266,7 @@ export const make = (
           }),
         ),
       ),
-    AuthRevokeOAuthToken: (options) =>
+    AuthRevokeOAuthToken: (options: Parameters<RegistryClient["AuthRevokeOAuthToken"]>[0]) =>
       HttpClientRequest.post("/v1/auth/revoke").pipe(
         HttpClientRequest.bodyUrlParams(options.payload as any),
         withResponse(options.config)(
@@ -4273,7 +4278,7 @@ export const make = (
           }),
         ),
       ),
-    AuthGetMe: (options) =>
+    AuthGetMe: (options: Parameters<RegistryClient["AuthGetMe"]>[0]) =>
       HttpClientRequest.get("/v1/auth/me").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -4286,7 +4291,7 @@ export const make = (
           }),
         ),
       ),
-    TokensList: (options) =>
+    TokensList: (options: Parameters<RegistryClient["TokensList"]>[0]) =>
       HttpClientRequest.get("/v1/tokens").pipe(
         HttpClientRequest.setUrlParams({
           cursor: options?.params?.["cursor"] as any,
@@ -4304,7 +4309,7 @@ export const make = (
           }),
         ),
       ),
-    TokensCreate: (options) =>
+    TokensCreate: (options: Parameters<RegistryClient["TokensCreate"]>[0]) =>
       HttpClientRequest.post("/v1/tokens").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -4321,7 +4326,7 @@ export const make = (
           }),
         ),
       ),
-    TokensDelete: (tokenId, options) =>
+    TokensDelete: (tokenId, options: Parameters<RegistryClient["TokensDelete"]>[1]) =>
       __makePathRequest(
         HttpClientRequest.delete,
         [tokenId],
@@ -4343,7 +4348,7 @@ export const make = (
           ),
         ),
       ),
-    OwnersGetOwner: (handle, options) =>
+    OwnersGetOwner: (handle, options: Parameters<RegistryClient["OwnersGetOwner"]>[1]) =>
       __makePathRequest(
         HttpClientRequest.get,
         [handle],
@@ -4363,7 +4368,10 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsListByOwner: (owner, options) =>
+    ExtensionsListByOwner: (
+      owner,
+      options: Parameters<RegistryClient["ExtensionsListByOwner"]>[1],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner],
@@ -4384,7 +4392,11 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsListByType: (owner, type, options) =>
+    ExtensionsListByType: (
+      owner,
+      type,
+      options: Parameters<RegistryClient["ExtensionsListByType"]>[2],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type],
@@ -4410,7 +4422,7 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGet: (owner, type, name, options) =>
+    ExtensionsGet: (owner, type, name, options: Parameters<RegistryClient["ExtensionsGet"]>[3]) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name],
@@ -4441,7 +4453,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsDeleteExtension: (owner, type, name, options) =>
+    ExtensionsDeleteExtension: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsDeleteExtension"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.delete,
         [owner, type, name],
@@ -4473,7 +4490,7 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsHead: (owner, type, name, options) =>
+    ExtensionsHead: (owner, type, name, options: Parameters<RegistryClient["ExtensionsHead"]>[3]) =>
       __makePathRequest(
         HttpClientRequest.head,
         [owner, type, name],
@@ -4503,7 +4520,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsUpdateVisibility: (owner, type, name, options) =>
+    ExtensionsUpdateVisibility: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsUpdateVisibility"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.patch,
         [owner, type, name],
@@ -4538,7 +4560,13 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetVersion: (owner, type, name, version, options) =>
+    ExtensionsGetVersion: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsGetVersion"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name, version],
@@ -4571,7 +4599,13 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsPublishVersion: (owner, type, name, version, options) =>
+    ExtensionsPublishVersion: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsPublishVersion"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.put,
         [owner, type, name, version],
@@ -4618,7 +4652,10 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetDeletionOperation: (operationId, options) =>
+    ExtensionsGetDeletionOperation: (
+      operationId,
+      options: Parameters<RegistryClient["ExtensionsGetDeletionOperation"]>[1],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [operationId],
@@ -4659,7 +4696,13 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsDownloadArchive: (owner, type, name, version, options) =>
+    ExtensionsDownloadArchive: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsDownloadArchive"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name, version],
@@ -4708,7 +4751,13 @@ export const make = (
             "/archive",
         ).pipe(Effect.map((request) => request.pipe(binaryRequest))),
       ),
-    ExtensionsHeadArchive: (owner, type, name, version, options) =>
+    ExtensionsHeadArchive: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsHeadArchive"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.head,
         [owner, type, name, version],
@@ -4740,7 +4789,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetVisibility: (owner, type, name, options) =>
+    ExtensionsGetVisibility: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsGetVisibility"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name],
@@ -4775,7 +4829,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetArchival: (owner, type, name, options) =>
+    ExtensionsGetArchival: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsGetArchival"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name],
@@ -4805,7 +4864,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsPutArchival: (owner, type, name, options) =>
+    ExtensionsPutArchival: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsPutArchival"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.put,
         [owner, type, name],
@@ -4839,7 +4903,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsDeleteArchival: (owner, type, name, options) =>
+    ExtensionsDeleteArchival: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsDeleteArchival"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.delete,
         [owner, type, name],
@@ -4872,7 +4941,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetDeprecation: (owner, type, name, options) =>
+    ExtensionsGetDeprecation: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsGetDeprecation"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name],
@@ -4902,7 +4976,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsPutDeprecation: (owner, type, name, options) =>
+    ExtensionsPutDeprecation: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsPutDeprecation"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.put,
         [owner, type, name],
@@ -4936,7 +5015,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsDeleteDeprecation: (owner, type, name, options) =>
+    ExtensionsDeleteDeprecation: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsDeleteDeprecation"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.delete,
         [owner, type, name],
@@ -4993,7 +5077,13 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsYankVersion: (owner, type, name, version, options) =>
+    ExtensionsYankVersion: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsYankVersion"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.post,
         [owner, type, name, version],
@@ -5027,7 +5117,13 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsUnyankVersion: (owner, type, name, version, options) =>
+    ExtensionsUnyankVersion: (
+      owner,
+      type,
+      name,
+      version,
+      options: Parameters<RegistryClient["ExtensionsUnyankVersion"]>[4],
+    ) =>
       __makePathRequest(
         HttpClientRequest.delete,
         [owner, type, name, version],
@@ -5060,7 +5156,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsYankAvailableVersions: (owner, type, name, options) =>
+    ExtensionsYankAvailableVersions: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsYankAvailableVersions"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.post,
         [owner, type, name],
@@ -5113,7 +5214,12 @@ export const make = (
           ),
         ),
       ),
-    ExtensionsGetDeletionPreview: (owner, type, name, options) =>
+    ExtensionsGetDeletionPreview: (
+      owner,
+      type,
+      name,
+      options: Parameters<RegistryClient["ExtensionsGetDeletionPreview"]>[3],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, type, name],
@@ -5161,7 +5267,7 @@ export const make = (
           ),
         ),
       ),
-    ResolutionsPostMetadata: (options) =>
+    ResolutionsPostMetadata: (options: Parameters<RegistryClient["ResolutionsPostMetadata"]>[0]) =>
       HttpClientRequest.post("/v1/resolutions/metadata").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -5176,7 +5282,9 @@ export const make = (
           }),
         ),
       ),
-    PublishPreviewsPreviewExtensionPublishes: (options) =>
+    PublishPreviewsPreviewExtensionPublishes: (
+      options: Parameters<RegistryClient["PublishPreviewsPreviewExtensionPublishes"]>[0],
+    ) =>
       HttpClientRequest.post("/v1/publish-previews").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -5206,7 +5314,10 @@ export const make = (
           }),
         ),
       ),
-    LibrariesListLibraries: (owner, options) =>
+    LibrariesListLibraries: (
+      owner,
+      options: Parameters<RegistryClient["LibrariesListLibraries"]>[1],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner],
@@ -5234,7 +5345,11 @@ export const make = (
           ),
         ),
       ),
-    LibrariesGetLibrary: (owner, name, options) =>
+    LibrariesGetLibrary: (
+      owner,
+      name,
+      options: Parameters<RegistryClient["LibrariesGetLibrary"]>[2],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, name],
@@ -5257,7 +5372,11 @@ export const make = (
           ),
         ),
       ),
-    LibrariesListLibraryMembers: (owner, name, options) =>
+    LibrariesListLibraryMembers: (
+      owner,
+      name,
+      options: Parameters<RegistryClient["LibrariesListLibraryMembers"]>[2],
+    ) =>
       __makePathRequest(
         HttpClientRequest.get,
         [owner, name],
@@ -5305,7 +5424,7 @@ export const make = (
           ),
         ),
       ),
-    DiscoveryPostDiscovery: (options) =>
+    DiscoveryPostDiscovery: (options: Parameters<RegistryClient["DiscoveryPostDiscovery"]>[0]) =>
       HttpClientRequest.post("/v1/discovery").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -5318,7 +5437,7 @@ export const make = (
           }),
         ),
       ),
-    HealthGetShallowHealth: (options) =>
+    HealthGetShallowHealth: (options: Parameters<RegistryClient["HealthGetShallowHealth"]>[0]) =>
       HttpClientRequest.get("/v1/health").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -5328,7 +5447,7 @@ export const make = (
           }),
         ),
       ),
-    HealthGetDeepHealth: (options) =>
+    HealthGetDeepHealth: (options: Parameters<RegistryClient["HealthGetDeepHealth"]>[0]) =>
       HttpClientRequest.get("/v1/health/dependencies").pipe(
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
@@ -5341,7 +5460,7 @@ export const make = (
           }),
         ),
       ),
-    SearchSearchExtensions: (options) =>
+    SearchSearchExtensions: (options: Parameters<RegistryClient["SearchSearchExtensions"]>[0]) =>
       HttpClientRequest.get("/v1/search").pipe(
         HttpClientRequest.setUrlParams({
           q: options.params["q"] as any,
@@ -5366,7 +5485,9 @@ export const make = (
           }),
         ),
       ),
-    SecretScanningReportAlert: (options) =>
+    SecretScanningReportAlert: (
+      options: Parameters<RegistryClient["SecretScanningReportAlert"]>[0],
+    ) =>
       HttpClientRequest.post("/v1/secret-scanning/alerts").pipe(
         HttpClientRequest.setHeaders({
           "github-public-key-identifier":
@@ -5385,7 +5506,7 @@ export const make = (
           }),
         ),
       ),
-    DebugDebugStream: (options) =>
+    DebugDebugStream: (options: Parameters<RegistryClient["DebugDebugStream"]>[0]) =>
       HttpClientRequest.get("/v1/debug/stream").pipe(
         HttpClientRequest.setUrlParams({
           count: options?.params?.["count"] as any,
@@ -5414,393 +5535,836 @@ export interface RegistryClient {
   /**
    * Returns service metadata and documentation entrypoints when docs are enabled.
    */
-  readonly MetaGet: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof MetaGet200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"MetaGet400", typeof MetaGet400.Type>
-  >;
+  readonly MetaGet: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof MetaGet200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"MetaGet400", typeof MetaGet400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof MetaGet200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"MetaGet400", typeof MetaGet400.Type>
+    >;
+  };
   /**
    * Initiate OAuth device authorization flow
    */
-  readonly AuthIssueDeviceCode: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthIssueDeviceCodeRequestFormUrlEncoded.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof AuthIssueDeviceCode200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthIssueDeviceCode400", typeof AuthIssueDeviceCode400.Type>
-    | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
-  >;
+  readonly AuthIssueDeviceCode: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthIssueDeviceCodeRequestFormUrlEncoded.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof AuthIssueDeviceCode200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthIssueDeviceCode400", typeof AuthIssueDeviceCode400.Type>
+      | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthIssueDeviceCodeRequestFormUrlEncoded.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof AuthIssueDeviceCode200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthIssueDeviceCode400", typeof AuthIssueDeviceCode400.Type>
+      | RegistryClientError<"AuthIssueDeviceCode500", typeof AuthIssueDeviceCode500.Type>
+    >;
+  };
   /**
    * Issues a signed-in session's token pair for an authorization code, device code, or refresh token. With the RFC 8693 token-exchange grant, exchanges a GitHub Actions ID token that a trusted publisher trusts for a short-lived workload token with no refresh token; every refusal of the subject token is the same `invalid_grant`.
    */
-  readonly AuthExchangeToken: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof AuthExchangeToken200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
-    | RegistryClientError<"AuthExchangeToken500", typeof AuthExchangeToken500.Type>
-    | RegistryClientError<"AuthExchangeToken503", typeof AuthExchangeToken503.Type>
-  >;
+  readonly AuthExchangeToken: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof AuthExchangeToken200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
+      | RegistryClientError<"AuthExchangeToken500", typeof AuthExchangeToken500.Type>
+      | RegistryClientError<"AuthExchangeToken503", typeof AuthExchangeToken503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthExchangeTokenRequestFormUrlEncoded.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof AuthExchangeToken200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthExchangeToken400", typeof AuthExchangeToken400.Type>
+      | RegistryClientError<"AuthExchangeToken500", typeof AuthExchangeToken500.Type>
+      | RegistryClientError<"AuthExchangeToken503", typeof AuthExchangeToken503.Type>
+    >;
+  };
   /**
    * Revoke an OAuth token (RFC 7009)
    */
-  readonly AuthRevokeOAuthToken: <Config extends OperationConfig>(options: {
-    readonly payload: typeof AuthRevokeOAuthTokenRequestFormUrlEncoded.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
-    | RegistryClientError<"AuthRevokeOAuthToken503", typeof AuthRevokeOAuthToken503.Type>
-  >;
+  readonly AuthRevokeOAuthToken: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthRevokeOAuthTokenRequestFormUrlEncoded.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
+      | RegistryClientError<"AuthRevokeOAuthToken503", typeof AuthRevokeOAuthToken503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof AuthRevokeOAuthTokenRequestFormUrlEncoded.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthRevokeOAuthToken400", typeof AuthRevokeOAuthToken400.Type>
+      | RegistryClientError<"AuthRevokeOAuthToken503", typeof AuthRevokeOAuthToken503.Type>
+    >;
+  };
   /**
    * Return authenticated user info
    */
-  readonly AuthGetMe: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof AuthGetMe200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
-    | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
-    | RegistryClientError<"AuthGetMe500", typeof AuthGetMe500.Type>
-    | RegistryClientError<"AuthGetMe503", typeof AuthGetMe503.Type>
-  >;
+  readonly AuthGetMe: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof AuthGetMe200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
+      | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
+      | RegistryClientError<"AuthGetMe500", typeof AuthGetMe500.Type>
+      | RegistryClientError<"AuthGetMe503", typeof AuthGetMe503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof AuthGetMe200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"AuthGetMe400", typeof AuthGetMe400.Type>
+      | RegistryClientError<"AuthGetMe401", typeof AuthGetMe401.Type>
+      | RegistryClientError<"AuthGetMe500", typeof AuthGetMe500.Type>
+      | RegistryClientError<"AuthGetMe503", typeof AuthGetMe503.Type>
+    >;
+  };
   /**
    * List access tokens
    */
-  readonly TokensList: <Config extends OperationConfig>(
-    options:
-      | {
-          readonly params?: typeof TokensListParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof TokensList200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"TokensList400", typeof TokensList400.Type>
-    | RegistryClientError<"TokensList401", typeof TokensList401.Type>
-    | RegistryClientError<"TokensList403", typeof TokensList403.Type>
-    | RegistryClientError<"TokensList500", typeof TokensList500.Type>
-    | RegistryClientError<"TokensList503", typeof TokensList503.Type>
-  >;
+  readonly TokensList: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof TokensListParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof TokensList200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensList400", typeof TokensList400.Type>
+      | RegistryClientError<"TokensList401", typeof TokensList401.Type>
+      | RegistryClientError<"TokensList403", typeof TokensList403.Type>
+      | RegistryClientError<"TokensList500", typeof TokensList500.Type>
+      | RegistryClientError<"TokensList503", typeof TokensList503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof TokensListParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof TokensList200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensList400", typeof TokensList400.Type>
+      | RegistryClientError<"TokensList401", typeof TokensList401.Type>
+      | RegistryClientError<"TokensList403", typeof TokensList403.Type>
+      | RegistryClientError<"TokensList500", typeof TokensList500.Type>
+      | RegistryClientError<"TokensList503", typeof TokensList503.Type>
+    >;
+  };
   /**
    * Token creation is browser-only: a person creates a token in AgentXM settings after a recent sign-in. Every Registry credential is refused with 403 `browser_session_required`, and `details.settingsUrl` names the settings page where the person can create one.
    */
-  readonly TokensCreate: <Config extends OperationConfig>(options: {
-    readonly payload: typeof TokensCreateRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof TokensCreate201.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"TokensCreate400", typeof TokensCreate400.Type>
-    | RegistryClientError<"TokensCreate401", typeof TokensCreate401.Type>
-    | RegistryClientError<"TokensCreate403", typeof TokensCreate403.Type>
-    | RegistryClientError<"TokensCreate404", typeof TokensCreate404.Type>
-    | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
-    | RegistryClientError<"TokensCreate500", typeof TokensCreate500.Type>
-    | RegistryClientError<"TokensCreate503", typeof TokensCreate503.Type>
-  >;
+  readonly TokensCreate: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof TokensCreateRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof TokensCreate201.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensCreate400", typeof TokensCreate400.Type>
+      | RegistryClientError<"TokensCreate401", typeof TokensCreate401.Type>
+      | RegistryClientError<"TokensCreate403", typeof TokensCreate403.Type>
+      | RegistryClientError<"TokensCreate404", typeof TokensCreate404.Type>
+      | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
+      | RegistryClientError<"TokensCreate500", typeof TokensCreate500.Type>
+      | RegistryClientError<"TokensCreate503", typeof TokensCreate503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof TokensCreateRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof TokensCreate201.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensCreate400", typeof TokensCreate400.Type>
+      | RegistryClientError<"TokensCreate401", typeof TokensCreate401.Type>
+      | RegistryClientError<"TokensCreate403", typeof TokensCreate403.Type>
+      | RegistryClientError<"TokensCreate404", typeof TokensCreate404.Type>
+      | RegistryClientError<"TokensCreate422", typeof TokensCreate422.Type>
+      | RegistryClientError<"TokensCreate500", typeof TokensCreate500.Type>
+      | RegistryClientError<"TokensCreate503", typeof TokensCreate503.Type>
+    >;
+  };
   /**
    * Revokes the access token identified by tokenId.
    */
-  readonly TokensDelete: <Config extends OperationConfig>(
-    tokenId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"TokensDelete400", typeof TokensDelete400.Type>
-    | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
-    | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
-    | RegistryClientError<"TokensDelete500", typeof TokensDelete500.Type>
-    | RegistryClientError<"TokensDelete503", typeof TokensDelete503.Type>
-  >;
+  readonly TokensDelete: {
+    <Config extends OperationConfig | undefined = undefined>(
+      tokenId: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensDelete400", typeof TokensDelete400.Type>
+      | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
+      | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
+      | RegistryClientError<"TokensDelete500", typeof TokensDelete500.Type>
+      | RegistryClientError<"TokensDelete503", typeof TokensDelete503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      tokenId: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"TokensDelete400", typeof TokensDelete400.Type>
+      | RegistryClientError<"TokensDelete401", typeof TokensDelete401.Type>
+      | RegistryClientError<"TokensDelete403", typeof TokensDelete403.Type>
+      | RegistryClientError<"TokensDelete500", typeof TokensDelete500.Type>
+      | RegistryClientError<"TokensDelete503", typeof TokensDelete503.Type>
+    >;
+  };
   /**
    * Returns the minimal public owner summary for the provided handle.
    */
-  readonly OwnersGetOwner: <Config extends OperationConfig>(
-    handle: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof OwnersGetOwner200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
-    | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
-    | RegistryClientError<"OwnersGetOwner503", typeof OwnersGetOwner503.Type>
-  >;
+  readonly OwnersGetOwner: {
+    <Config extends OperationConfig | undefined = undefined>(
+      handle: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof OwnersGetOwner200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
+      | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
+      | RegistryClientError<"OwnersGetOwner503", typeof OwnersGetOwner503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      handle: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof OwnersGetOwner200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"OwnersGetOwner400", typeof OwnersGetOwner400.Type>
+      | RegistryClientError<"OwnersGetOwner404", typeof OwnersGetOwner404.Type>
+      | RegistryClientError<"OwnersGetOwner503", typeof OwnersGetOwner503.Type>
+    >;
+  };
   /**
    * List owner extensions
    */
-  readonly ExtensionsListByOwner: <Config extends OperationConfig>(
-    owner: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsListByOwner200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
-    | RegistryClientError<"ExtensionsListByOwner401", typeof ExtensionsListByOwner401.Type>
-    | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
-    | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
-  >;
+  readonly ExtensionsListByOwner: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsListByOwner200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
+      | RegistryClientError<"ExtensionsListByOwner401", typeof ExtensionsListByOwner401.Type>
+      | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
+      | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsListByOwner200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsListByOwner400", typeof ExtensionsListByOwner400.Type>
+      | RegistryClientError<"ExtensionsListByOwner401", typeof ExtensionsListByOwner401.Type>
+      | RegistryClientError<"ExtensionsListByOwner500", typeof ExtensionsListByOwner500.Type>
+      | RegistryClientError<"ExtensionsListByOwner503", typeof ExtensionsListByOwner503.Type>
+    >;
+  };
   /**
    * List owner extensions by type
    */
-  readonly ExtensionsListByType: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    options:
-      | {
-          readonly params?: typeof ExtensionsListByTypeParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsListByType200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
-    | RegistryClientError<"ExtensionsListByType401", typeof ExtensionsListByType401.Type>
-    | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
-    | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
-  >;
+  readonly ExtensionsListByType: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      options: {
+        readonly params?: typeof ExtensionsListByTypeParams.Encoded | undefined;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsListByType200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
+      | RegistryClientError<"ExtensionsListByType401", typeof ExtensionsListByType401.Type>
+      | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
+      | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      options:
+        | {
+            readonly params?: typeof ExtensionsListByTypeParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsListByType200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsListByType400", typeof ExtensionsListByType400.Type>
+      | RegistryClientError<"ExtensionsListByType401", typeof ExtensionsListByType401.Type>
+      | RegistryClientError<"ExtensionsListByType500", typeof ExtensionsListByType500.Type>
+      | RegistryClientError<"ExtensionsListByType503", typeof ExtensionsListByType503.Type>
+    >;
+  };
   /**
    * Get extension metadata
    */
-  readonly ExtensionsGet: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGet200.Type | void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
-    | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
-    | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
-    | RegistryClientError<"ExtensionsGet409", typeof ExtensionsGet409.Type>
-    | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
-    | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
-  >;
+  readonly ExtensionsGet: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGet200.Type | void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
+      | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
+      | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
+      | RegistryClientError<"ExtensionsGet409", typeof ExtensionsGet409.Type>
+      | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
+      | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGet200.Type | void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGet400", typeof ExtensionsGet400.Type>
+      | RegistryClientError<"ExtensionsGet401", typeof ExtensionsGet401.Type>
+      | RegistryClientError<"ExtensionsGet404", typeof ExtensionsGet404.Type>
+      | RegistryClientError<"ExtensionsGet409", typeof ExtensionsGet409.Type>
+      | RegistryClientError<"ExtensionsGet500", typeof ExtensionsGet500.Type>
+      | RegistryClientError<"ExtensionsGet503", typeof ExtensionsGet503.Type>
+    >;
+  };
   /**
    * Permanently delete a whole Extension
    */
-  readonly ExtensionsDeleteExtension: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly payload: typeof ExtensionsDeleteExtensionRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsDeleteExtension202.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsDeleteExtension400", typeof ExtensionsDeleteExtension400.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension401", typeof ExtensionsDeleteExtension401.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension403", typeof ExtensionsDeleteExtension403.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension404", typeof ExtensionsDeleteExtension404.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension409", typeof ExtensionsDeleteExtension409.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension500", typeof ExtensionsDeleteExtension500.Type>
-    | RegistryClientError<"ExtensionsDeleteExtension503", typeof ExtensionsDeleteExtension503.Type>
-  >;
+  readonly ExtensionsDeleteExtension: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly payload: typeof ExtensionsDeleteExtensionRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteExtension202.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDeleteExtension400",
+          typeof ExtensionsDeleteExtension400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension401",
+          typeof ExtensionsDeleteExtension401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension403",
+          typeof ExtensionsDeleteExtension403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension404",
+          typeof ExtensionsDeleteExtension404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension409",
+          typeof ExtensionsDeleteExtension409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension500",
+          typeof ExtensionsDeleteExtension500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension503",
+          typeof ExtensionsDeleteExtension503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly payload: typeof ExtensionsDeleteExtensionRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteExtension202.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDeleteExtension400",
+          typeof ExtensionsDeleteExtension400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension401",
+          typeof ExtensionsDeleteExtension401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension403",
+          typeof ExtensionsDeleteExtension403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension404",
+          typeof ExtensionsDeleteExtension404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension409",
+          typeof ExtensionsDeleteExtension409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension500",
+          typeof ExtensionsDeleteExtension500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteExtension503",
+          typeof ExtensionsDeleteExtension503.Type
+        >
+    >;
+  };
   /**
    * Check whether an extension exists
    */
-  readonly ExtensionsHead: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"400", undefined>
-    | RegistryClientError<"401", undefined>
-    | RegistryClientError<"404", undefined>
-    | RegistryClientError<"409", undefined>
-    | RegistryClientError<"500", undefined>
-    | RegistryClientError<"503", undefined>
-  >;
+  readonly ExtensionsHead: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"400", undefined>
+      | RegistryClientError<"401", undefined>
+      | RegistryClientError<"404", undefined>
+      | RegistryClientError<"409", undefined>
+      | RegistryClientError<"500", undefined>
+      | RegistryClientError<"503", undefined>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"400", undefined>
+      | RegistryClientError<"401", undefined>
+      | RegistryClientError<"404", undefined>
+      | RegistryClientError<"409", undefined>
+      | RegistryClientError<"500", undefined>
+      | RegistryClientError<"503", undefined>
+    >;
+  };
   /**
    * Update extension visibility
    */
-  readonly ExtensionsUpdateVisibility: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly params: typeof ExtensionsUpdateVisibilityParams.Encoded;
-      readonly payload: typeof ExtensionsUpdateVisibilityRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsUpdateVisibility200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility400",
-        typeof ExtensionsUpdateVisibility400.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility401",
-        typeof ExtensionsUpdateVisibility401.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility403",
-        typeof ExtensionsUpdateVisibility403.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility404",
-        typeof ExtensionsUpdateVisibility404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility409",
-        typeof ExtensionsUpdateVisibility409.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility410",
-        typeof ExtensionsUpdateVisibility410.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility412",
-        typeof ExtensionsUpdateVisibility412.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility500",
-        typeof ExtensionsUpdateVisibility500.Type
-      >
-    | RegistryClientError<
-        "ExtensionsUpdateVisibility503",
-        typeof ExtensionsUpdateVisibility503.Type
-      >
-  >;
+  readonly ExtensionsUpdateVisibility: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsUpdateVisibilityParams.Encoded;
+        readonly payload: typeof ExtensionsUpdateVisibilityRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsUpdateVisibility200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility400",
+          typeof ExtensionsUpdateVisibility400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility401",
+          typeof ExtensionsUpdateVisibility401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility403",
+          typeof ExtensionsUpdateVisibility403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility404",
+          typeof ExtensionsUpdateVisibility404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility409",
+          typeof ExtensionsUpdateVisibility409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility410",
+          typeof ExtensionsUpdateVisibility410.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility412",
+          typeof ExtensionsUpdateVisibility412.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility500",
+          typeof ExtensionsUpdateVisibility500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility503",
+          typeof ExtensionsUpdateVisibility503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsUpdateVisibilityParams.Encoded;
+        readonly payload: typeof ExtensionsUpdateVisibilityRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsUpdateVisibility200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility400",
+          typeof ExtensionsUpdateVisibility400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility401",
+          typeof ExtensionsUpdateVisibility401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility403",
+          typeof ExtensionsUpdateVisibility403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility404",
+          typeof ExtensionsUpdateVisibility404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility409",
+          typeof ExtensionsUpdateVisibility409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility410",
+          typeof ExtensionsUpdateVisibility410.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility412",
+          typeof ExtensionsUpdateVisibility412.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility500",
+          typeof ExtensionsUpdateVisibility500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsUpdateVisibility503",
+          typeof ExtensionsUpdateVisibility503.Type
+        >
+    >;
+  };
   /**
    * Get an exact extension version
    */
-  readonly ExtensionsGetVersion: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetVersion200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
-    | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
-    | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
-    | RegistryClientError<"ExtensionsGetVersion409", typeof ExtensionsGetVersion409.Type>
-    | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
-    | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
-    | RegistryClientError<"ExtensionsGetVersion503", typeof ExtensionsGetVersion503.Type>
-  >;
+  readonly ExtensionsGetVersion: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetVersion200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
+      | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
+      | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
+      | RegistryClientError<"ExtensionsGetVersion409", typeof ExtensionsGetVersion409.Type>
+      | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
+      | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
+      | RegistryClientError<"ExtensionsGetVersion503", typeof ExtensionsGetVersion503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetVersion200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetVersion400", typeof ExtensionsGetVersion400.Type>
+      | RegistryClientError<"ExtensionsGetVersion401", typeof ExtensionsGetVersion401.Type>
+      | RegistryClientError<"ExtensionsGetVersion404", typeof ExtensionsGetVersion404.Type>
+      | RegistryClientError<"ExtensionsGetVersion409", typeof ExtensionsGetVersion409.Type>
+      | RegistryClientError<"ExtensionsGetVersion410", typeof ExtensionsGetVersion410.Type>
+      | RegistryClientError<"ExtensionsGetVersion500", typeof ExtensionsGetVersion500.Type>
+      | RegistryClientError<"ExtensionsGetVersion503", typeof ExtensionsGetVersion503.Type>
+    >;
+  };
   /**
    * Publish extension version
    */
-  readonly ExtensionsPublishVersion: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: {
-      readonly params: typeof ExtensionsPublishVersionParams.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<
-      typeof ExtensionsPublishVersion200.Type | typeof ExtensionsPublishVersion201.Type,
-      Config
-    >,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsPublishVersion400", typeof ExtensionsPublishVersion400.Type>
-    | RegistryClientError<"ExtensionsPublishVersion401", typeof ExtensionsPublishVersion401.Type>
-    | RegistryClientError<"ExtensionsPublishVersion403", typeof ExtensionsPublishVersion403.Type>
-    | RegistryClientError<"ExtensionsPublishVersion404", typeof ExtensionsPublishVersion404.Type>
-    | RegistryClientError<"ExtensionsPublishVersion409", typeof ExtensionsPublishVersion409.Type>
-    | RegistryClientError<"ExtensionsPublishVersion412", typeof ExtensionsPublishVersion412.Type>
-    | RegistryClientError<"ExtensionsPublishVersion413", typeof ExtensionsPublishVersion413.Type>
-    | RegistryClientError<"ExtensionsPublishVersion415", typeof ExtensionsPublishVersion415.Type>
-    | RegistryClientError<"ExtensionsPublishVersion422", typeof ExtensionsPublishVersion422.Type>
-    | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
-    | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
-  >;
+  readonly ExtensionsPublishVersion: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: {
+        readonly params: typeof ExtensionsPublishVersionParams.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<
+        typeof ExtensionsPublishVersion200.Type | typeof ExtensionsPublishVersion201.Type,
+        Config
+      >,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPublishVersion400", typeof ExtensionsPublishVersion400.Type>
+      | RegistryClientError<"ExtensionsPublishVersion401", typeof ExtensionsPublishVersion401.Type>
+      | RegistryClientError<"ExtensionsPublishVersion403", typeof ExtensionsPublishVersion403.Type>
+      | RegistryClientError<"ExtensionsPublishVersion404", typeof ExtensionsPublishVersion404.Type>
+      | RegistryClientError<"ExtensionsPublishVersion409", typeof ExtensionsPublishVersion409.Type>
+      | RegistryClientError<"ExtensionsPublishVersion412", typeof ExtensionsPublishVersion412.Type>
+      | RegistryClientError<"ExtensionsPublishVersion413", typeof ExtensionsPublishVersion413.Type>
+      | RegistryClientError<"ExtensionsPublishVersion415", typeof ExtensionsPublishVersion415.Type>
+      | RegistryClientError<"ExtensionsPublishVersion422", typeof ExtensionsPublishVersion422.Type>
+      | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
+      | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: {
+        readonly params: typeof ExtensionsPublishVersionParams.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<
+        typeof ExtensionsPublishVersion200.Type | typeof ExtensionsPublishVersion201.Type,
+        Config | undefined
+      >,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPublishVersion400", typeof ExtensionsPublishVersion400.Type>
+      | RegistryClientError<"ExtensionsPublishVersion401", typeof ExtensionsPublishVersion401.Type>
+      | RegistryClientError<"ExtensionsPublishVersion403", typeof ExtensionsPublishVersion403.Type>
+      | RegistryClientError<"ExtensionsPublishVersion404", typeof ExtensionsPublishVersion404.Type>
+      | RegistryClientError<"ExtensionsPublishVersion409", typeof ExtensionsPublishVersion409.Type>
+      | RegistryClientError<"ExtensionsPublishVersion412", typeof ExtensionsPublishVersion412.Type>
+      | RegistryClientError<"ExtensionsPublishVersion413", typeof ExtensionsPublishVersion413.Type>
+      | RegistryClientError<"ExtensionsPublishVersion415", typeof ExtensionsPublishVersion415.Type>
+      | RegistryClientError<"ExtensionsPublishVersion422", typeof ExtensionsPublishVersion422.Type>
+      | RegistryClientError<"ExtensionsPublishVersion500", typeof ExtensionsPublishVersion500.Type>
+      | RegistryClientError<"ExtensionsPublishVersion503", typeof ExtensionsPublishVersion503.Type>
+    >;
+  };
   /**
    * Get Extension deletion operation status
    */
-  readonly ExtensionsGetDeletionOperation: <Config extends OperationConfig>(
-    operationId: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetDeletionOperation200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation400",
-        typeof ExtensionsGetDeletionOperation400.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation401",
-        typeof ExtensionsGetDeletionOperation401.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation403",
-        typeof ExtensionsGetDeletionOperation403.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation404",
-        typeof ExtensionsGetDeletionOperation404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation500",
-        typeof ExtensionsGetDeletionOperation500.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionOperation503",
-        typeof ExtensionsGetDeletionOperation503.Type
-      >
-  >;
+  readonly ExtensionsGetDeletionOperation: {
+    <Config extends OperationConfig | undefined = undefined>(
+      operationId: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeletionOperation200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation400",
+          typeof ExtensionsGetDeletionOperation400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation401",
+          typeof ExtensionsGetDeletionOperation401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation403",
+          typeof ExtensionsGetDeletionOperation403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation404",
+          typeof ExtensionsGetDeletionOperation404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation500",
+          typeof ExtensionsGetDeletionOperation500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation503",
+          typeof ExtensionsGetDeletionOperation503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      operationId: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeletionOperation200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation400",
+          typeof ExtensionsGetDeletionOperation400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation401",
+          typeof ExtensionsGetDeletionOperation401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation403",
+          typeof ExtensionsGetDeletionOperation403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation404",
+          typeof ExtensionsGetDeletionOperation404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation500",
+          typeof ExtensionsGetDeletionOperation500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionOperation503",
+          typeof ExtensionsGetDeletionOperation503.Type
+        >
+    >;
+  };
   /**
    * Download extension archive
    */
-  readonly ExtensionsDownloadArchive: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<Uint8Array, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsDownloadArchive400", typeof ExtensionsDownloadArchive400.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive401", typeof ExtensionsDownloadArchive401.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive404", typeof ExtensionsDownloadArchive404.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive409", typeof ExtensionsDownloadArchive409.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive500", typeof ExtensionsDownloadArchive500.Type>
-    | RegistryClientError<"ExtensionsDownloadArchive503", typeof ExtensionsDownloadArchive503.Type>
-  >;
+  readonly ExtensionsDownloadArchive: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<Uint8Array, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDownloadArchive400",
+          typeof ExtensionsDownloadArchive400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive401",
+          typeof ExtensionsDownloadArchive401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive404",
+          typeof ExtensionsDownloadArchive404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive409",
+          typeof ExtensionsDownloadArchive409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive500",
+          typeof ExtensionsDownloadArchive500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive503",
+          typeof ExtensionsDownloadArchive503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<Uint8Array, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDownloadArchive400",
+          typeof ExtensionsDownloadArchive400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive401",
+          typeof ExtensionsDownloadArchive401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive404",
+          typeof ExtensionsDownloadArchive404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive409",
+          typeof ExtensionsDownloadArchive409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive500",
+          typeof ExtensionsDownloadArchive500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDownloadArchive503",
+          typeof ExtensionsDownloadArchive503.Type
+        >
+    >;
+  };
   /**
    * Download extension archive
    */
@@ -5813,547 +6377,1075 @@ export interface RegistryClient {
   /**
    * Inspect extension archive metadata
    */
-  readonly ExtensionsHeadArchive: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"400", undefined>
-    | RegistryClientError<"401", undefined>
-    | RegistryClientError<"404", undefined>
-    | RegistryClientError<"409", undefined>
-    | RegistryClientError<"500", undefined>
-    | RegistryClientError<"503", undefined>
-  >;
+  readonly ExtensionsHeadArchive: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"400", undefined>
+      | RegistryClientError<"401", undefined>
+      | RegistryClientError<"404", undefined>
+      | RegistryClientError<"409", undefined>
+      | RegistryClientError<"500", undefined>
+      | RegistryClientError<"503", undefined>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"400", undefined>
+      | RegistryClientError<"401", undefined>
+      | RegistryClientError<"404", undefined>
+      | RegistryClientError<"409", undefined>
+      | RegistryClientError<"500", undefined>
+      | RegistryClientError<"503", undefined>
+    >;
+  };
   /**
    * Evaluate extension visibility
    */
-  readonly ExtensionsGetVisibility: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options:
-      | {
-          readonly params?: typeof ExtensionsGetVisibilityParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetVisibility200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGetVisibility400", typeof ExtensionsGetVisibility400.Type>
-    | RegistryClientError<"ExtensionsGetVisibility401", typeof ExtensionsGetVisibility401.Type>
-    | RegistryClientError<"ExtensionsGetVisibility403", typeof ExtensionsGetVisibility403.Type>
-    | RegistryClientError<"ExtensionsGetVisibility404", typeof ExtensionsGetVisibility404.Type>
-    | RegistryClientError<"ExtensionsGetVisibility500", typeof ExtensionsGetVisibility500.Type>
-    | RegistryClientError<"ExtensionsGetVisibility503", typeof ExtensionsGetVisibility503.Type>
-  >;
+  readonly ExtensionsGetVisibility: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params?: typeof ExtensionsGetVisibilityParams.Encoded | undefined;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetVisibility200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetVisibility400", typeof ExtensionsGetVisibility400.Type>
+      | RegistryClientError<"ExtensionsGetVisibility401", typeof ExtensionsGetVisibility401.Type>
+      | RegistryClientError<"ExtensionsGetVisibility403", typeof ExtensionsGetVisibility403.Type>
+      | RegistryClientError<"ExtensionsGetVisibility404", typeof ExtensionsGetVisibility404.Type>
+      | RegistryClientError<"ExtensionsGetVisibility500", typeof ExtensionsGetVisibility500.Type>
+      | RegistryClientError<"ExtensionsGetVisibility503", typeof ExtensionsGetVisibility503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options:
+        | {
+            readonly params?: typeof ExtensionsGetVisibilityParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetVisibility200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetVisibility400", typeof ExtensionsGetVisibility400.Type>
+      | RegistryClientError<"ExtensionsGetVisibility401", typeof ExtensionsGetVisibility401.Type>
+      | RegistryClientError<"ExtensionsGetVisibility403", typeof ExtensionsGetVisibility403.Type>
+      | RegistryClientError<"ExtensionsGetVisibility404", typeof ExtensionsGetVisibility404.Type>
+      | RegistryClientError<"ExtensionsGetVisibility500", typeof ExtensionsGetVisibility500.Type>
+      | RegistryClientError<"ExtensionsGetVisibility503", typeof ExtensionsGetVisibility503.Type>
+    >;
+  };
   /**
    * Get extension archival
    */
-  readonly ExtensionsGetArchival: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetArchival200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGetArchival400", typeof ExtensionsGetArchival400.Type>
-    | RegistryClientError<"ExtensionsGetArchival401", typeof ExtensionsGetArchival401.Type>
-    | RegistryClientError<"ExtensionsGetArchival403", typeof ExtensionsGetArchival403.Type>
-    | RegistryClientError<"ExtensionsGetArchival404", typeof ExtensionsGetArchival404.Type>
-    | RegistryClientError<"ExtensionsGetArchival500", typeof ExtensionsGetArchival500.Type>
-    | RegistryClientError<"ExtensionsGetArchival503", typeof ExtensionsGetArchival503.Type>
-  >;
+  readonly ExtensionsGetArchival: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetArchival200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetArchival400", typeof ExtensionsGetArchival400.Type>
+      | RegistryClientError<"ExtensionsGetArchival401", typeof ExtensionsGetArchival401.Type>
+      | RegistryClientError<"ExtensionsGetArchival403", typeof ExtensionsGetArchival403.Type>
+      | RegistryClientError<"ExtensionsGetArchival404", typeof ExtensionsGetArchival404.Type>
+      | RegistryClientError<"ExtensionsGetArchival500", typeof ExtensionsGetArchival500.Type>
+      | RegistryClientError<"ExtensionsGetArchival503", typeof ExtensionsGetArchival503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetArchival200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetArchival400", typeof ExtensionsGetArchival400.Type>
+      | RegistryClientError<"ExtensionsGetArchival401", typeof ExtensionsGetArchival401.Type>
+      | RegistryClientError<"ExtensionsGetArchival403", typeof ExtensionsGetArchival403.Type>
+      | RegistryClientError<"ExtensionsGetArchival404", typeof ExtensionsGetArchival404.Type>
+      | RegistryClientError<"ExtensionsGetArchival500", typeof ExtensionsGetArchival500.Type>
+      | RegistryClientError<"ExtensionsGetArchival503", typeof ExtensionsGetArchival503.Type>
+    >;
+  };
   /**
    * Archive or edit an archived extension
    */
-  readonly ExtensionsPutArchival: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly params: typeof ExtensionsPutArchivalParams.Encoded;
-      readonly payload: typeof ExtensionsPutArchivalRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsPutArchival200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsPutArchival400", typeof ExtensionsPutArchival400.Type>
-    | RegistryClientError<"ExtensionsPutArchival401", typeof ExtensionsPutArchival401.Type>
-    | RegistryClientError<"ExtensionsPutArchival403", typeof ExtensionsPutArchival403.Type>
-    | RegistryClientError<"ExtensionsPutArchival404", typeof ExtensionsPutArchival404.Type>
-    | RegistryClientError<"ExtensionsPutArchival409", typeof ExtensionsPutArchival409.Type>
-    | RegistryClientError<"ExtensionsPutArchival412", typeof ExtensionsPutArchival412.Type>
-    | RegistryClientError<"ExtensionsPutArchival500", typeof ExtensionsPutArchival500.Type>
-    | RegistryClientError<"ExtensionsPutArchival503", typeof ExtensionsPutArchival503.Type>
-  >;
+  readonly ExtensionsPutArchival: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsPutArchivalParams.Encoded;
+        readonly payload: typeof ExtensionsPutArchivalRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsPutArchival200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPutArchival400", typeof ExtensionsPutArchival400.Type>
+      | RegistryClientError<"ExtensionsPutArchival401", typeof ExtensionsPutArchival401.Type>
+      | RegistryClientError<"ExtensionsPutArchival403", typeof ExtensionsPutArchival403.Type>
+      | RegistryClientError<"ExtensionsPutArchival404", typeof ExtensionsPutArchival404.Type>
+      | RegistryClientError<"ExtensionsPutArchival409", typeof ExtensionsPutArchival409.Type>
+      | RegistryClientError<"ExtensionsPutArchival412", typeof ExtensionsPutArchival412.Type>
+      | RegistryClientError<"ExtensionsPutArchival500", typeof ExtensionsPutArchival500.Type>
+      | RegistryClientError<"ExtensionsPutArchival503", typeof ExtensionsPutArchival503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsPutArchivalParams.Encoded;
+        readonly payload: typeof ExtensionsPutArchivalRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsPutArchival200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPutArchival400", typeof ExtensionsPutArchival400.Type>
+      | RegistryClientError<"ExtensionsPutArchival401", typeof ExtensionsPutArchival401.Type>
+      | RegistryClientError<"ExtensionsPutArchival403", typeof ExtensionsPutArchival403.Type>
+      | RegistryClientError<"ExtensionsPutArchival404", typeof ExtensionsPutArchival404.Type>
+      | RegistryClientError<"ExtensionsPutArchival409", typeof ExtensionsPutArchival409.Type>
+      | RegistryClientError<"ExtensionsPutArchival412", typeof ExtensionsPutArchival412.Type>
+      | RegistryClientError<"ExtensionsPutArchival500", typeof ExtensionsPutArchival500.Type>
+      | RegistryClientError<"ExtensionsPutArchival503", typeof ExtensionsPutArchival503.Type>
+    >;
+  };
   /**
    * Unarchive an extension
    */
-  readonly ExtensionsDeleteArchival: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly params: typeof ExtensionsDeleteArchivalParams.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsDeleteArchival200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsDeleteArchival400", typeof ExtensionsDeleteArchival400.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival401", typeof ExtensionsDeleteArchival401.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival403", typeof ExtensionsDeleteArchival403.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival404", typeof ExtensionsDeleteArchival404.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival409", typeof ExtensionsDeleteArchival409.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival412", typeof ExtensionsDeleteArchival412.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival500", typeof ExtensionsDeleteArchival500.Type>
-    | RegistryClientError<"ExtensionsDeleteArchival503", typeof ExtensionsDeleteArchival503.Type>
-  >;
+  readonly ExtensionsDeleteArchival: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsDeleteArchivalParams.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteArchival200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsDeleteArchival400", typeof ExtensionsDeleteArchival400.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival401", typeof ExtensionsDeleteArchival401.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival403", typeof ExtensionsDeleteArchival403.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival404", typeof ExtensionsDeleteArchival404.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival409", typeof ExtensionsDeleteArchival409.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival412", typeof ExtensionsDeleteArchival412.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival500", typeof ExtensionsDeleteArchival500.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival503", typeof ExtensionsDeleteArchival503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsDeleteArchivalParams.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteArchival200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsDeleteArchival400", typeof ExtensionsDeleteArchival400.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival401", typeof ExtensionsDeleteArchival401.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival403", typeof ExtensionsDeleteArchival403.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival404", typeof ExtensionsDeleteArchival404.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival409", typeof ExtensionsDeleteArchival409.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival412", typeof ExtensionsDeleteArchival412.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival500", typeof ExtensionsDeleteArchival500.Type>
+      | RegistryClientError<"ExtensionsDeleteArchival503", typeof ExtensionsDeleteArchival503.Type>
+    >;
+  };
   /**
    * Get extension deprecation
    */
-  readonly ExtensionsGetDeprecation: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetDeprecation200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsGetDeprecation400", typeof ExtensionsGetDeprecation400.Type>
-    | RegistryClientError<"ExtensionsGetDeprecation401", typeof ExtensionsGetDeprecation401.Type>
-    | RegistryClientError<"ExtensionsGetDeprecation403", typeof ExtensionsGetDeprecation403.Type>
-    | RegistryClientError<"ExtensionsGetDeprecation404", typeof ExtensionsGetDeprecation404.Type>
-    | RegistryClientError<"ExtensionsGetDeprecation500", typeof ExtensionsGetDeprecation500.Type>
-    | RegistryClientError<"ExtensionsGetDeprecation503", typeof ExtensionsGetDeprecation503.Type>
-  >;
+  readonly ExtensionsGetDeprecation: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeprecation200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetDeprecation400", typeof ExtensionsGetDeprecation400.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation401", typeof ExtensionsGetDeprecation401.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation403", typeof ExtensionsGetDeprecation403.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation404", typeof ExtensionsGetDeprecation404.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation500", typeof ExtensionsGetDeprecation500.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation503", typeof ExtensionsGetDeprecation503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeprecation200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsGetDeprecation400", typeof ExtensionsGetDeprecation400.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation401", typeof ExtensionsGetDeprecation401.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation403", typeof ExtensionsGetDeprecation403.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation404", typeof ExtensionsGetDeprecation404.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation500", typeof ExtensionsGetDeprecation500.Type>
+      | RegistryClientError<"ExtensionsGetDeprecation503", typeof ExtensionsGetDeprecation503.Type>
+    >;
+  };
   /**
    * Create or edit extension deprecation
    */
-  readonly ExtensionsPutDeprecation: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly params: typeof ExtensionsPutDeprecationParams.Encoded;
-      readonly payload: typeof ExtensionsPutDeprecationRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsPutDeprecation200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsPutDeprecation400", typeof ExtensionsPutDeprecation400.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation401", typeof ExtensionsPutDeprecation401.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation403", typeof ExtensionsPutDeprecation403.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation404", typeof ExtensionsPutDeprecation404.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation409", typeof ExtensionsPutDeprecation409.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation412", typeof ExtensionsPutDeprecation412.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation500", typeof ExtensionsPutDeprecation500.Type>
-    | RegistryClientError<"ExtensionsPutDeprecation503", typeof ExtensionsPutDeprecation503.Type>
-  >;
+  readonly ExtensionsPutDeprecation: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsPutDeprecationParams.Encoded;
+        readonly payload: typeof ExtensionsPutDeprecationRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsPutDeprecation200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPutDeprecation400", typeof ExtensionsPutDeprecation400.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation401", typeof ExtensionsPutDeprecation401.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation403", typeof ExtensionsPutDeprecation403.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation404", typeof ExtensionsPutDeprecation404.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation409", typeof ExtensionsPutDeprecation409.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation412", typeof ExtensionsPutDeprecation412.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation500", typeof ExtensionsPutDeprecation500.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation503", typeof ExtensionsPutDeprecation503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsPutDeprecationParams.Encoded;
+        readonly payload: typeof ExtensionsPutDeprecationRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsPutDeprecation200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsPutDeprecation400", typeof ExtensionsPutDeprecation400.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation401", typeof ExtensionsPutDeprecation401.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation403", typeof ExtensionsPutDeprecation403.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation404", typeof ExtensionsPutDeprecation404.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation409", typeof ExtensionsPutDeprecation409.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation412", typeof ExtensionsPutDeprecation412.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation500", typeof ExtensionsPutDeprecation500.Type>
+      | RegistryClientError<"ExtensionsPutDeprecation503", typeof ExtensionsPutDeprecation503.Type>
+    >;
+  };
   /**
    * Restore a deprecated extension
    */
-  readonly ExtensionsDeleteDeprecation: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly params: typeof ExtensionsDeleteDeprecationParams.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsDeleteDeprecation200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation400",
-        typeof ExtensionsDeleteDeprecation400.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation401",
-        typeof ExtensionsDeleteDeprecation401.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation403",
-        typeof ExtensionsDeleteDeprecation403.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation404",
-        typeof ExtensionsDeleteDeprecation404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation409",
-        typeof ExtensionsDeleteDeprecation409.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation412",
-        typeof ExtensionsDeleteDeprecation412.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation500",
-        typeof ExtensionsDeleteDeprecation500.Type
-      >
-    | RegistryClientError<
-        "ExtensionsDeleteDeprecation503",
-        typeof ExtensionsDeleteDeprecation503.Type
-      >
-  >;
+  readonly ExtensionsDeleteDeprecation: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsDeleteDeprecationParams.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteDeprecation200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation400",
+          typeof ExtensionsDeleteDeprecation400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation401",
+          typeof ExtensionsDeleteDeprecation401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation403",
+          typeof ExtensionsDeleteDeprecation403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation404",
+          typeof ExtensionsDeleteDeprecation404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation409",
+          typeof ExtensionsDeleteDeprecation409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation412",
+          typeof ExtensionsDeleteDeprecation412.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation500",
+          typeof ExtensionsDeleteDeprecation500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation503",
+          typeof ExtensionsDeleteDeprecation503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly params: typeof ExtensionsDeleteDeprecationParams.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsDeleteDeprecation200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation400",
+          typeof ExtensionsDeleteDeprecation400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation401",
+          typeof ExtensionsDeleteDeprecation401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation403",
+          typeof ExtensionsDeleteDeprecation403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation404",
+          typeof ExtensionsDeleteDeprecation404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation409",
+          typeof ExtensionsDeleteDeprecation409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation412",
+          typeof ExtensionsDeleteDeprecation412.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation500",
+          typeof ExtensionsDeleteDeprecation500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsDeleteDeprecation503",
+          typeof ExtensionsDeleteDeprecation503.Type
+        >
+    >;
+  };
   /**
    * Yank an extension version
    */
-  readonly ExtensionsYankVersion: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: {
-      readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsYankVersion200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsYankVersion400", typeof ExtensionsYankVersion400.Type>
-    | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
-    | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
-    | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
-    | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
-    | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
-    | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
-  >;
+  readonly ExtensionsYankVersion: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: {
+        readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsYankVersion200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsYankVersion400", typeof ExtensionsYankVersion400.Type>
+      | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
+      | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
+      | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
+      | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
+      | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
+      | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: {
+        readonly payload: typeof ExtensionsYankVersionRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsYankVersion200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsYankVersion400", typeof ExtensionsYankVersion400.Type>
+      | RegistryClientError<"ExtensionsYankVersion401", typeof ExtensionsYankVersion401.Type>
+      | RegistryClientError<"ExtensionsYankVersion403", typeof ExtensionsYankVersion403.Type>
+      | RegistryClientError<"ExtensionsYankVersion404", typeof ExtensionsYankVersion404.Type>
+      | RegistryClientError<"ExtensionsYankVersion409", typeof ExtensionsYankVersion409.Type>
+      | RegistryClientError<"ExtensionsYankVersion500", typeof ExtensionsYankVersion500.Type>
+      | RegistryClientError<"ExtensionsYankVersion503", typeof ExtensionsYankVersion503.Type>
+    >;
+  };
   /**
    * Un-yank an extension version
    */
-  readonly ExtensionsUnyankVersion: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    version: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ExtensionsUnyankVersion400", typeof ExtensionsUnyankVersion400.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
-    | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
-  >;
+  readonly ExtensionsUnyankVersion: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsUnyankVersion400", typeof ExtensionsUnyankVersion400.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      version: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsUnyankVersion200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ExtensionsUnyankVersion400", typeof ExtensionsUnyankVersion400.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion401", typeof ExtensionsUnyankVersion401.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion403", typeof ExtensionsUnyankVersion403.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion404", typeof ExtensionsUnyankVersion404.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion409", typeof ExtensionsUnyankVersion409.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion500", typeof ExtensionsUnyankVersion500.Type>
+      | RegistryClientError<"ExtensionsUnyankVersion503", typeof ExtensionsUnyankVersion503.Type>
+    >;
+  };
   /**
    * Yank all currently available extension versions
    */
-  readonly ExtensionsYankAvailableVersions: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: {
-      readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
-      readonly config?: Config | undefined;
-    },
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsYankAvailableVersions200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions400",
-        typeof ExtensionsYankAvailableVersions400.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions401",
-        typeof ExtensionsYankAvailableVersions401.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions403",
-        typeof ExtensionsYankAvailableVersions403.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions404",
-        typeof ExtensionsYankAvailableVersions404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions409",
-        typeof ExtensionsYankAvailableVersions409.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions500",
-        typeof ExtensionsYankAvailableVersions500.Type
-      >
-    | RegistryClientError<
-        "ExtensionsYankAvailableVersions503",
-        typeof ExtensionsYankAvailableVersions503.Type
-      >
-  >;
+  readonly ExtensionsYankAvailableVersions: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsYankAvailableVersions200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions400",
+          typeof ExtensionsYankAvailableVersions400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions401",
+          typeof ExtensionsYankAvailableVersions401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions403",
+          typeof ExtensionsYankAvailableVersions403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions404",
+          typeof ExtensionsYankAvailableVersions404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions409",
+          typeof ExtensionsYankAvailableVersions409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions500",
+          typeof ExtensionsYankAvailableVersions500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions503",
+          typeof ExtensionsYankAvailableVersions503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: {
+        readonly payload: typeof ExtensionsYankAvailableVersionsRequestJson.Encoded;
+        readonly config?: Config | undefined;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsYankAvailableVersions200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions400",
+          typeof ExtensionsYankAvailableVersions400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions401",
+          typeof ExtensionsYankAvailableVersions401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions403",
+          typeof ExtensionsYankAvailableVersions403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions404",
+          typeof ExtensionsYankAvailableVersions404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions409",
+          typeof ExtensionsYankAvailableVersions409.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions500",
+          typeof ExtensionsYankAvailableVersions500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsYankAvailableVersions503",
+          typeof ExtensionsYankAvailableVersions503.Type
+        >
+    >;
+  };
   /**
    * Preview permanent Extension deletion impact
    */
-  readonly ExtensionsGetDeletionPreview: <Config extends OperationConfig>(
-    owner: string,
-    type: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof ExtensionsGetDeletionPreview200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview400",
-        typeof ExtensionsGetDeletionPreview400.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview401",
-        typeof ExtensionsGetDeletionPreview401.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview403",
-        typeof ExtensionsGetDeletionPreview403.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview404",
-        typeof ExtensionsGetDeletionPreview404.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview500",
-        typeof ExtensionsGetDeletionPreview500.Type
-      >
-    | RegistryClientError<
-        "ExtensionsGetDeletionPreview503",
-        typeof ExtensionsGetDeletionPreview503.Type
-      >
-  >;
+  readonly ExtensionsGetDeletionPreview: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeletionPreview200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview400",
+          typeof ExtensionsGetDeletionPreview400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview401",
+          typeof ExtensionsGetDeletionPreview401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview403",
+          typeof ExtensionsGetDeletionPreview403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview404",
+          typeof ExtensionsGetDeletionPreview404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview500",
+          typeof ExtensionsGetDeletionPreview500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview503",
+          typeof ExtensionsGetDeletionPreview503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      type: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof ExtensionsGetDeletionPreview200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview400",
+          typeof ExtensionsGetDeletionPreview400.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview401",
+          typeof ExtensionsGetDeletionPreview401.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview403",
+          typeof ExtensionsGetDeletionPreview403.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview404",
+          typeof ExtensionsGetDeletionPreview404.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview500",
+          typeof ExtensionsGetDeletionPreview500.Type
+        >
+      | RegistryClientError<
+          "ExtensionsGetDeletionPreview503",
+          typeof ExtensionsGetDeletionPreview503.Type
+        >
+    >;
+  };
   /**
    * Repeat-safe authorized query. Responses are private and must not be stored by shared caches; errors use the resolution metadata protocol envelope.
    */
-  readonly ResolutionsPostMetadata: <Config extends OperationConfig>(options: {
-    readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof ResolutionsPostMetadata200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"ResolutionsPostMetadata400", typeof ResolutionsPostMetadata400.Type>
-    | RegistryClientError<"ResolutionsPostMetadata401", typeof ResolutionsPostMetadata401.Type>
-    | RegistryClientError<"ResolutionsPostMetadata413", typeof ResolutionsPostMetadata413.Type>
-    | RegistryClientError<"ResolutionsPostMetadata500", typeof ResolutionsPostMetadata500.Type>
-    | RegistryClientError<"ResolutionsPostMetadata503", typeof ResolutionsPostMetadata503.Type>
-  >;
+  readonly ResolutionsPostMetadata: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof ResolutionsPostMetadata200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ResolutionsPostMetadata400", typeof ResolutionsPostMetadata400.Type>
+      | RegistryClientError<"ResolutionsPostMetadata401", typeof ResolutionsPostMetadata401.Type>
+      | RegistryClientError<"ResolutionsPostMetadata413", typeof ResolutionsPostMetadata413.Type>
+      | RegistryClientError<"ResolutionsPostMetadata500", typeof ResolutionsPostMetadata500.Type>
+      | RegistryClientError<"ResolutionsPostMetadata503", typeof ResolutionsPostMetadata503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof ResolutionsPostMetadataRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof ResolutionsPostMetadata200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"ResolutionsPostMetadata400", typeof ResolutionsPostMetadata400.Type>
+      | RegistryClientError<"ResolutionsPostMetadata401", typeof ResolutionsPostMetadata401.Type>
+      | RegistryClientError<"ResolutionsPostMetadata413", typeof ResolutionsPostMetadata413.Type>
+      | RegistryClientError<"ResolutionsPostMetadata500", typeof ResolutionsPostMetadata500.Type>
+      | RegistryClientError<"ResolutionsPostMetadata503", typeof ResolutionsPostMetadata503.Type>
+    >;
+  };
   /**
    * Preview a complete publication set
    */
-  readonly PublishPreviewsPreviewExtensionPublishes: <Config extends OperationConfig>(options: {
-    readonly payload: typeof PublishPreviewsPreviewExtensionPublishesRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof PublishPreviewsPreviewExtensionPublishes200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes400",
-        typeof PublishPreviewsPreviewExtensionPublishes400.Type
-      >
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes401",
-        typeof PublishPreviewsPreviewExtensionPublishes401.Type
-      >
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes413",
-        typeof PublishPreviewsPreviewExtensionPublishes413.Type
-      >
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes500",
-        typeof PublishPreviewsPreviewExtensionPublishes500.Type
-      >
-    | RegistryClientError<
-        "PublishPreviewsPreviewExtensionPublishes503",
-        typeof PublishPreviewsPreviewExtensionPublishes503.Type
-      >
-  >;
+  readonly PublishPreviewsPreviewExtensionPublishes: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof PublishPreviewsPreviewExtensionPublishesRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof PublishPreviewsPreviewExtensionPublishes200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes400",
+          typeof PublishPreviewsPreviewExtensionPublishes400.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes401",
+          typeof PublishPreviewsPreviewExtensionPublishes401.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes413",
+          typeof PublishPreviewsPreviewExtensionPublishes413.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes500",
+          typeof PublishPreviewsPreviewExtensionPublishes500.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes503",
+          typeof PublishPreviewsPreviewExtensionPublishes503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof PublishPreviewsPreviewExtensionPublishesRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<
+        typeof PublishPreviewsPreviewExtensionPublishes200.Type,
+        Config | undefined
+      >,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes400",
+          typeof PublishPreviewsPreviewExtensionPublishes400.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes401",
+          typeof PublishPreviewsPreviewExtensionPublishes401.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes413",
+          typeof PublishPreviewsPreviewExtensionPublishes413.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes500",
+          typeof PublishPreviewsPreviewExtensionPublishes500.Type
+        >
+      | RegistryClientError<
+          "PublishPreviewsPreviewExtensionPublishes503",
+          typeof PublishPreviewsPreviewExtensionPublishes503.Type
+        >
+    >;
+  };
   /**
    * List owner Libraries
    */
-  readonly LibrariesListLibraries: <Config extends OperationConfig>(
-    owner: string,
-    options:
-      | {
-          readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
-    | RegistryClientError<"LibrariesListLibraries401", typeof LibrariesListLibraries401.Type>
-    | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
-    | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
-    | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
-  >;
+  readonly LibrariesListLibraries: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      options: {
+        readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
+      | RegistryClientError<"LibrariesListLibraries401", typeof LibrariesListLibraries401.Type>
+      | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
+      | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
+      | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      options:
+        | {
+            readonly params?: typeof LibrariesListLibrariesParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesListLibraries200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"LibrariesListLibraries400", typeof LibrariesListLibraries400.Type>
+      | RegistryClientError<"LibrariesListLibraries401", typeof LibrariesListLibraries401.Type>
+      | RegistryClientError<"LibrariesListLibraries404", typeof LibrariesListLibraries404.Type>
+      | RegistryClientError<"LibrariesListLibraries500", typeof LibrariesListLibraries500.Type>
+      | RegistryClientError<"LibrariesListLibraries503", typeof LibrariesListLibraries503.Type>
+    >;
+  };
   /**
    * Get a Library
    */
-  readonly LibrariesGetLibrary: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
-    | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
-    | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
-    | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
-    | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
-    | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
-  >;
+  readonly LibrariesGetLibrary: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      name: string,
+      options: { readonly config: Config },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
+      | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
+      | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
+      | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
+      | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
+      | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      name: string,
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesGetLibrary200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"LibrariesGetLibrary400", typeof LibrariesGetLibrary400.Type>
+      | RegistryClientError<"LibrariesGetLibrary401", typeof LibrariesGetLibrary401.Type>
+      | RegistryClientError<"LibrariesGetLibrary404", typeof LibrariesGetLibrary404.Type>
+      | RegistryClientError<"LibrariesGetLibrary422", typeof LibrariesGetLibrary422.Type>
+      | RegistryClientError<"LibrariesGetLibrary500", typeof LibrariesGetLibrary500.Type>
+      | RegistryClientError<"LibrariesGetLibrary503", typeof LibrariesGetLibrary503.Type>
+    >;
+  };
   /**
    * List viewer-visible Library members
    */
-  readonly LibrariesListLibraryMembers: <Config extends OperationConfig>(
-    owner: string,
-    name: string,
-    options:
-      | {
-          readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof LibrariesListLibraryMembers200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<
-        "LibrariesListLibraryMembers400",
-        typeof LibrariesListLibraryMembers400.Type
-      >
-    | RegistryClientError<
-        "LibrariesListLibraryMembers401",
-        typeof LibrariesListLibraryMembers401.Type
-      >
-    | RegistryClientError<
-        "LibrariesListLibraryMembers404",
-        typeof LibrariesListLibraryMembers404.Type
-      >
-    | RegistryClientError<
-        "LibrariesListLibraryMembers422",
-        typeof LibrariesListLibraryMembers422.Type
-      >
-    | RegistryClientError<
-        "LibrariesListLibraryMembers500",
-        typeof LibrariesListLibraryMembers500.Type
-      >
-    | RegistryClientError<
-        "LibrariesListLibraryMembers503",
-        typeof LibrariesListLibraryMembers503.Type
-      >
-  >;
+  readonly LibrariesListLibraryMembers: {
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      name: string,
+      options: {
+        readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
+        readonly config: Config;
+      },
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesListLibraryMembers200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "LibrariesListLibraryMembers400",
+          typeof LibrariesListLibraryMembers400.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers401",
+          typeof LibrariesListLibraryMembers401.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers404",
+          typeof LibrariesListLibraryMembers404.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers422",
+          typeof LibrariesListLibraryMembers422.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers500",
+          typeof LibrariesListLibraryMembers500.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers503",
+          typeof LibrariesListLibraryMembers503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      owner: string,
+      name: string,
+      options:
+        | {
+            readonly params?: typeof LibrariesListLibraryMembersParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof LibrariesListLibraryMembers200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "LibrariesListLibraryMembers400",
+          typeof LibrariesListLibraryMembers400.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers401",
+          typeof LibrariesListLibraryMembers401.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers404",
+          typeof LibrariesListLibraryMembers404.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers422",
+          typeof LibrariesListLibraryMembers422.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers500",
+          typeof LibrariesListLibraryMembers500.Type
+        >
+      | RegistryClientError<
+          "LibrariesListLibraryMembers503",
+          typeof LibrariesListLibraryMembers503.Type
+        >
+    >;
+  };
   /**
    * Persists submitted package metadata and resolves package and extension attestations.
    */
-  readonly DiscoveryPostDiscovery: <Config extends OperationConfig>(options: {
-    readonly payload: typeof DiscoveryPostDiscoveryRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof DiscoveryPostDiscovery200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
-    | RegistryClientError<"DiscoveryPostDiscovery401", typeof DiscoveryPostDiscovery401.Type>
-    | RegistryClientError<"DiscoveryPostDiscovery500", typeof DiscoveryPostDiscovery500.Type>
-  >;
+  readonly DiscoveryPostDiscovery: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof DiscoveryPostDiscoveryRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof DiscoveryPostDiscovery200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
+      | RegistryClientError<"DiscoveryPostDiscovery401", typeof DiscoveryPostDiscovery401.Type>
+      | RegistryClientError<"DiscoveryPostDiscovery500", typeof DiscoveryPostDiscovery500.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof DiscoveryPostDiscoveryRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof DiscoveryPostDiscovery200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"DiscoveryPostDiscovery400", typeof DiscoveryPostDiscovery400.Type>
+      | RegistryClientError<"DiscoveryPostDiscovery401", typeof DiscoveryPostDiscovery401.Type>
+      | RegistryClientError<"DiscoveryPostDiscovery500", typeof DiscoveryPostDiscovery500.Type>
+    >;
+  };
   /**
    * Returns pass/fail status. Public, no auth required.
    */
-  readonly HealthGetShallowHealth: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
-  >;
+  readonly HealthGetShallowHealth: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+    >;
+  };
   /**
    * Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.
    */
-  readonly HealthGetDeepHealth: <Config extends OperationConfig>(
-    options:
-      | {
-          readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
-  >;
+  readonly HealthGetDeepHealth: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+    >;
+  };
   /**
    * Returns viewer-visible, available, non-yanked extensions using predictable textual relevance by default. Supports structured type, owner, package, license, lifecycle, visibility, and sort filters.
    */
-  readonly SearchSearchExtensions: <Config extends OperationConfig>(options: {
-    readonly params: typeof SearchSearchExtensionsParams.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof SearchSearchExtensions200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
-    | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
-    | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
-    | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
-  >;
+  readonly SearchSearchExtensions: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params: typeof SearchSearchExtensionsParams.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof SearchSearchExtensions200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
+      | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
+      | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
+      | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params: typeof SearchSearchExtensionsParams.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof SearchSearchExtensions200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"SearchSearchExtensions400", typeof SearchSearchExtensions400.Type>
+      | RegistryClientError<"SearchSearchExtensions401", typeof SearchSearchExtensions401.Type>
+      | RegistryClientError<"SearchSearchExtensions500", typeof SearchSearchExtensions500.Type>
+      | RegistryClientError<"SearchSearchExtensions503", typeof SearchSearchExtensions503.Type>
+    >;
+  };
   /**
    * GitHub secret scanning partner endpoint. The body is GitHub's JSON array of `{ token, type, url, source }` matches, signed over its exact bytes by a key GitHub publishes; an unsigned or badly signed alert is refused with 401 and nothing is revoked. Each live AgentXM token in a signed alert is revoked and its holder is told. The answer labels each match by the SHA-256 of its token, never the token.
    */
-  readonly SecretScanningReportAlert: <Config extends OperationConfig>(options: {
-    readonly params?: typeof SecretScanningReportAlertParams.Encoded | undefined;
-    readonly payload: typeof SecretScanningReportAlertRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof SecretScanningReportAlert200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"SecretScanningReportAlert400", typeof SecretScanningReportAlert400.Type>
-    | RegistryClientError<"SecretScanningReportAlert401", typeof SecretScanningReportAlert401.Type>
-    | RegistryClientError<"SecretScanningReportAlert503", typeof SecretScanningReportAlert503.Type>
-  >;
+  readonly SecretScanningReportAlert: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof SecretScanningReportAlertParams.Encoded | undefined;
+      readonly payload: typeof SecretScanningReportAlertRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof SecretScanningReportAlert200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "SecretScanningReportAlert400",
+          typeof SecretScanningReportAlert400.Type
+        >
+      | RegistryClientError<
+          "SecretScanningReportAlert401",
+          typeof SecretScanningReportAlert401.Type
+        >
+      | RegistryClientError<
+          "SecretScanningReportAlert503",
+          typeof SecretScanningReportAlert503.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof SecretScanningReportAlertParams.Encoded | undefined;
+      readonly payload: typeof SecretScanningReportAlertRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof SecretScanningReportAlert200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<
+          "SecretScanningReportAlert400",
+          typeof SecretScanningReportAlert400.Type
+        >
+      | RegistryClientError<
+          "SecretScanningReportAlert401",
+          typeof SecretScanningReportAlert401.Type
+        >
+      | RegistryClientError<
+          "SecretScanningReportAlert503",
+          typeof SecretScanningReportAlert503.Type
+        >
+    >;
+  };
   /**
    * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.
    */
-  readonly DebugDebugStream: <Config extends OperationConfig>(
-    options:
-      | {
-          readonly params?: typeof DebugDebugStreamParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | RegistryClientError<"DebugDebugStream400", typeof DebugDebugStream400.Type>
-  >;
+  readonly DebugDebugStream: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof DebugDebugStreamParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"DebugDebugStream400", typeof DebugDebugStream400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof DebugDebugStreamParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | RegistryClientError<"DebugDebugStream400", typeof DebugDebugStream400.Type>
+    >;
+  };
   /**
    * Experimental diagnostic endpoint. Emits a finite server-sent event stream of sequenced JSON events, optionally terminating with a typed mid-stream failure. Intended for client streaming conformance checks; not a stable product surface.
    */

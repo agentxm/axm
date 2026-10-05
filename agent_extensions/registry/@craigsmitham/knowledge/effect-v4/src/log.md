@@ -1,5 +1,54 @@
 # Directory Update Log
 
+## 2026-10-01
+
+* **Retarget**: Reviewed the twenty-four checklists against the changes from
+  Effect `4.0.0-rc.117` through `4.0.0-rc.118` to the stable `4.0.0` release
+  and refreshed all official Effect source pins. Historical applied-example
+  pins remain unchanged.
+* **Correction**: rc.118 moved `effect/unstable/*` modules to `effect/*` and
+  renamed `effect/httpapi` to `effect/http-api`. Repointed the HttpApi,
+  HttpClientError, SqlClient, SqlError, and HttpServerResponse test links.
+  The index now defines version sensitivity by the `@stability unstable` tag,
+  not the import path. Most HTTP, HTTP API, and SQL modules keep that tag.
+* **Correction**: 4.0.0 consolidated the pre-release changesets. The
+  own-property parsing reference in [Schema boundaries](schema-boundaries.md)
+  now points to the rc.113 entry in the package changelog.
+* **HTTP API**: The parse-options check now covers the per-slot annotations
+  added in rc.118. A slot annotation such as `HeadersParseOptions` outranks
+  `ParseOptions` at any level and can keep strict body parsing from rejecting
+  transport headers. The edge-wiring check notes that `HttpRouter.serve` builds
+  its app privately (rc.118), so services shared with sibling layers must be
+  provided outside it.
+* **Branded types**: Since 4.0.0, `Schema.brand` is type-only. Schema
+  representations and generated code omit the brand. The
+  representation-change check now covers rebuilding a schema from either.
+* **Resource safety**: Added a check to close only scopes the code created.
+  Since rc.118, `Scope.close` and `Scope.closeUnsafe` require a
+  `Scope.Closeable`.
+* **Iteration**: Added a check for repetition bounded by both a count or
+  schedule and a stop condition. Since rc.118, `Effect.repeat` with `times` or
+  `schedule` keeps the source result type, because the bound may end
+  repetition before a refinement holds.
+* **Keyed resource sharing**: The acquisition-failure check now asks whether
+  failure surfaces at preload or first use. Since rc.118, `LayerMap` skips
+  preloading keys with a zero idle time-to-live, which is the default.
+* **Testing**: Linked `TestSchema`, now `@stability unstable`. 4.0.0 renamed
+  `verifyLosslessTransformation` to `verifyRoundTrip`.
+* **Not adopted**: No checklist item names the new successes-first tuple order
+  of `partition` and `separate` (4.0.0), but callers migrating from earlier
+  pre-releases must swap the tuple. This matters most where both sides share
+  one type. Fixes to `Effect.race` loser interruption, `Queue` batch takes, `Cache` and
+  `MutableHashMap` retention, PostgreSQL and SQLite failed-`COMMIT` handling,
+  scope finalizer interruptibility, and `ManagedRuntime` disposal ordering
+  strengthen behavior the checklists already require. `Arbitrary.configureGlobal`,
+  the Schema check renames, and the AI, MCP, cluster, workflow, RPC, Atom, and
+  CLI changes fall outside the topics. 4.0.0 requires TypeScript 5.9 or newer,
+  and `@effect/vitest` requires Vitest 5.
+* **Evidence ceiling**: This refresh reviews source, changelogs, and migration
+  documents; it does not claim execution of the upstream suites, re-review of
+  applied example repositories, or field validation of the checklists.
+
 ## 2026-09-22
 
 * **Retarget**: Reviewed the twenty-four checklists against the changes from

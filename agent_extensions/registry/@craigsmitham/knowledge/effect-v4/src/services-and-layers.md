@@ -6,15 +6,15 @@ tags: [effect, effect-v4, context, service, layer, dependency-injection]
 status: stable
 sources:
   - id: effect-services
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/03_services/01_service.ts
-    title: Effect 4.0.0-rc.117 service basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/03_services/01_service.ts
+    title: Effect 4.0.0 service basics
   - id: effect-layers
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/03_services/20_layer-composition.ts
-    title: Effect 4.0.0-rc.117 layer composition
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/03_services/20_layer-composition.ts
+    title: Effect 4.0.0 layer composition
   - id: applied-opencode
     resource: https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/server.ts
     title: opencode application layer composition at dc4449d
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Services and layers
@@ -38,6 +38,6 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Service basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/03_services/01_service.ts)
-- [Layer composition](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/03_services/20_layer-composition.ts)
+- [Service basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/03_services/01_service.ts)
+- [Layer composition](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/03_services/20_layer-composition.ts)
 - [Applied layer graph in opencode](https://github.com/anomalyco/opencode/blob/dc4449df0d52199704ea4989a5a993ebbc605612/packages/stats/server/src/server.ts)

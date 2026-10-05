@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { logout, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { coerceAuthFailure } from "../../feature-errors.js";

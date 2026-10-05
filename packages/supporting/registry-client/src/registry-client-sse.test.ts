@@ -3,7 +3,7 @@
  *
  * The wire fixtures mirror the registry's diagnostic stream endpoint byte for
  * byte: JSON `data:` frames per event, and a terminal mid-stream failure on
- * the reserved `effect/httpapi/stream/failure` event carrying the serialized
+ * the reserved `effect/http-api/stream/failure` event carrying the serialized
  * Cause of the server's typed error.
  */
 
@@ -11,10 +11,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 
-const STREAM_FAILURE_EVENT = "effect/httpapi/stream/failure";
+const STREAM_FAILURE_EVENT = "effect/http-api/stream/failure";
 
 const sseBody = (frames: ReadonlyArray<string>): string => `${frames.join("\n\n")}\n\n`;
 
@@ -47,6 +47,20 @@ const StreamFailureCauseJson = Schema.fromJsonString(
 );
 
 describe("RegistryClient.DebugDebugStreamSse", () => {
+  it("advertises the stable reserved failure event in its event schema", () => {
+    expect(
+      Schema.toJsonSchemaDocument(GeneratedRegistryClient.DebugDebugStream200Sse).schema,
+    ).toMatchObject({
+      anyOf: expect.arrayContaining([
+        expect.objectContaining({
+          properties: expect.objectContaining({
+            event: expect.objectContaining({ enum: [STREAM_FAILURE_EVENT] }),
+          }),
+        }),
+      ]),
+    });
+  });
+
   it.effect("decodes SSE data frames into ordered debug events", () =>
     Effect.gen(function* () {
       const client = makeSseClient(

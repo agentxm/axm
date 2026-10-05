@@ -14,7 +14,7 @@ sources:
   - id: applied-alchemy
     resource: https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/cloudflare-worker-async/src/worker.ts
     title: Alchemy Cloudflare Worker at ba579a9
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Cloudflare Workers
@@ -40,6 +40,6 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 - [Execution context](https://developers.cloudflare.com/workers/runtime-apis/context/)
 - [Bindings](https://developers.cloudflare.com/workers/runtime-apis/bindings/)
-- [Effect HttpApi web handler](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/51_http-server/10_basics.ts)
-- [Durable Object SQLite transactions](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/sql/sqlite-do/src/SqliteClient.ts)
+- [Effect HttpApi web handler](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/51_http-server/10_basics.ts)
+- [Durable Object SQLite transactions](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/sql/sqlite-do/src/SqliteClient.ts)
 - [Applied Cloudflare Worker in Alchemy](https://github.com/alchemy-run/alchemy/blob/ba579a98ea24b41cbf77a89ec8602fe071d5e43a/examples/cloudflare-worker-async/src/worker.ts)

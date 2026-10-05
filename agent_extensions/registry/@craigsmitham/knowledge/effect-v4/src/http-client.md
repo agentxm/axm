@@ -6,15 +6,15 @@ tags: [effect, effect-v4, http-client, schema, retry, timeout, testing]
 status: stable
 sources:
   - id: effect-http-client
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/50_http-client/10_basics.ts
-    title: Effect 4.0.0-rc.117 HttpClient basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/50_http-client/10_basics.ts
+    title: Effect 4.0.0 HttpClient basics
   - id: effect-http-errors
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/http/HttpClientError.ts
-    title: Effect 4.0.0-rc.117 HttpClientError source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/http/HttpClientError.ts
+    title: Effect 4.0.0 HttpClientError source
   - id: applied-recorder
     resource: https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/http/recorder.ts
     title: effect-http-recorder client substitution at 89e1b85
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # HTTP client
@@ -38,6 +38,6 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [HttpClient basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/50_http-client/10_basics.ts)
-- [HttpClientError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/unstable/http/HttpClientError.ts)
+- [HttpClient basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/50_http-client/10_basics.ts)
+- [HttpClientError source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/http/HttpClientError.ts)
 - [Applied client substitution in effect-http-recorder](https://github.com/anomalyco/effect-http-recorder/blob/89e1b85f7caa12ad076b8f9b65c804f89c60ecd0/src/http/recorder.ts)

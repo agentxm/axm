@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24.19.0"
+    "node": ">=24.21.0"
   },
   "scripts": {
     "axm": "bun --conditions=axm-source apps/cli/src/main.ts",
@@ -72,7 +72,7 @@
     ],
     "{!(.axm|agent_extensions)/**/,}*.{json,md,mdx,yml,yaml,css,scss,html}": "prettier --write"
   },
-  "packageManager": "pnpm@12.5.1",
+  "packageManager": "pnpm@12.9.1",
   "devDependencies": {
     "@agentxm/cli-maintenance": "workspace:^",
     "@agentxm/client-e2e-utils": "workspace:*",
@@ -100,7 +100,7 @@
     "@types/semver": "catalog:",
     "@typescript-eslint/parser": "catalog:",
     "@typescript/native": "catalog:",
-    "@vitest/coverage-v8": "5.0.1",
+    "@vitest/coverage-v8": "5.0.3",
     "allure": "catalog:",
     "allure-js-commons": "catalog:",
     "allure-vitest": "catalog:",

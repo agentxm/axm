@@ -76,7 +76,7 @@ export const LintInputSchema = Schema.Union([
   Schema.Struct({ view: Schema.Literal("workspace") }),
   Schema.Struct({
     view: Schema.Literal("git-index"),
-    fingerprint: Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/)),
+    fingerprint: Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u)),
   }),
 ]).annotate({
   identifier: "LintInput",

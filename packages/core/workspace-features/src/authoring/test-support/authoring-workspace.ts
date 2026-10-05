@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClient from "effect/http/HttpClient";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /**
  * A real project workspace on a temporary directory, wired to the same
@@ -26,7 +26,7 @@ import * as nodePath from "node:path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";

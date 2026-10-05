@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
-import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, CliOutput, Command, GlobalFlag } from "effect/cli";
 
 import {
   AuthLoginInteractionTest,

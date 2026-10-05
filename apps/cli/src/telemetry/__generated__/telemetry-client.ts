@@ -11,10 +11,10 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type { SchemaError } from "effect/Schema";
 import * as Schema from "effect/Schema";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
-import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import type * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 // non-recursive definitions
 export type TelemetryMetaResponse = {
   readonly ok: true;
@@ -230,9 +230,11 @@ export type TelemetryReportingClient = {
 export const TelemetryReportingClient = Schema.Struct({
   name: Schema.String.annotate({ description: "Stable client identifier, for example `cli`." })
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+      Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
+    )
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -240,9 +242,11 @@ export const TelemetryReportingClient = Schema.Struct({
     description: "Released client version; development builds carry their build suffix here.",
   })
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
     .check(
-      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$")).annotate({
+      Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
+    )
+    .check(
+      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
         expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
       }),
     ),
@@ -253,9 +257,11 @@ export const TelemetryReportingClient = Schema.Struct({
     description: "Version of the executing runtime, or `unknown`.",
   })
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
     .check(
-      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$")).annotate({
+      Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
+    )
+    .check(
+      Schema.isPattern(new RegExp("^[0-9A-Za-z.+-]+$", "u")).annotate({
         expected: "a string matching the RegExp ^[0-9A-Za-z.+-]+$",
       }),
     ),
@@ -263,9 +269,11 @@ export const TelemetryReportingClient = Schema.Struct({
     description: "Operating system platform identifier, for example `darwin`.",
   })
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+      Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
+    )
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -273,9 +281,11 @@ export const TelemetryReportingClient = Schema.Struct({
     description: "CPU architecture identifier, for example `arm64`.",
   })
     .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-    .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
     .check(
-      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$")).annotate({
+      Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
+    )
+    .check(
+      Schema.isPattern(new RegExp("^[a-z][a-z0-9-]*$", "u")).annotate({
         expected: "a string matching the RegExp ^[a-z][a-z0-9-]*$",
       }),
     ),
@@ -294,7 +304,7 @@ export const TelemetryErrorReceipt = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -376,7 +386,7 @@ export const TelemetryContext = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -411,7 +421,7 @@ export const TelemetryErrorReport = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -422,7 +432,7 @@ export const TelemetryErrorReport = Schema.Struct({
     format: "uuid",
   }).check(
     Schema.isPattern(
-      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+      new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
     ).annotate({
       expected:
         "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -436,7 +446,7 @@ export const TelemetryErrorReport = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -449,7 +459,7 @@ export const TelemetryErrorReport = Schema.Struct({
       format: "uuid",
     }).check(
       Schema.isPattern(
-        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"),
+        new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
       ).annotate({
         expected:
           "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
@@ -463,9 +473,11 @@ export const TelemetryErrorReport = Schema.Struct({
         "Canonical command identity when known, for example `extensions install`. Never arguments.",
     })
       .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-      .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
       .check(
-        Schema.isPattern(new RegExp("^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$")).annotate({
+        Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
+      )
+      .check(
+        Schema.isPattern(new RegExp("^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$",
         }),
       ),
@@ -480,9 +492,11 @@ export const TelemetryErrorReport = Schema.Struct({
       description: "Stable diagnostic identifier from the client's enumerated failure set.",
     })
       .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-      .check(Schema.isMaxLength(64).annotate({ expected: "a value with a length of at most 64" }))
       .check(
-        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$")).annotate({
+        Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
+      )
+      .check(
+        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
         }),
       ),
@@ -490,9 +504,11 @@ export const TelemetryErrorReport = Schema.Struct({
       description: "AXM error category, for example `validation` or `network`.",
     })
       .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
-      .check(Schema.isMaxLength(32).annotate({ expected: "a value with a length of at most 32" }))
       .check(
-        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$")).annotate({
+        Schema.isMaxCodePoints(32).annotate({ expected: "a string with at most 32 code points" }),
+      )
+      .check(
+        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
           expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
         }),
       ),
@@ -719,11 +735,13 @@ export interface OperationConfig {
  * of an operation based upon the value of the `includeResponse` configuration
  * option.
  */
-export type WithOptionalResponse<A, Config extends OperationConfig> = Config extends {
+export type WithOptionalResponse<A, Config extends OperationConfig | undefined> = Config extends {
   readonly includeResponse: true;
 }
   ? [A, HttpClientResponse.HttpClientResponse]
-  : A;
+  : Config extends { readonly includeResponse?: false | undefined } | undefined
+    ? A
+    : A | [A, HttpClientResponse.HttpClientResponse];
 
 export const make = (
   httpClient: HttpClient.HttpClient,
@@ -780,7 +798,7 @@ export const make = (
       );
   return {
     httpClient,
-    MetaGet: (options) =>
+    MetaGet: (options: Parameters<TelemetryClient["MetaGet"]>[0]) =>
       HttpClientRequest.get("/v1").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -790,7 +808,7 @@ export const make = (
           }),
         ),
       ),
-    HealthGetShallowHealth: (options) =>
+    HealthGetShallowHealth: (options: Parameters<TelemetryClient["HealthGetShallowHealth"]>[0]) =>
       HttpClientRequest.get("/v1/health").pipe(
         withResponse(options?.config)(
           HttpClientResponse.matchStatus({
@@ -800,7 +818,7 @@ export const make = (
           }),
         ),
       ),
-    HealthGetDeepHealth: (options) =>
+    HealthGetDeepHealth: (options: Parameters<TelemetryClient["HealthGetDeepHealth"]>[0]) =>
       HttpClientRequest.get("/v1/health/dependencies").pipe(
         HttpClientRequest.setHeaders({
           "x-health-key": options?.params?.["x-health-key"] ?? undefined,
@@ -813,7 +831,9 @@ export const make = (
           }),
         ),
       ),
-    HealthGetObservabilityVerification: (options) =>
+    HealthGetObservabilityVerification: (
+      options: Parameters<TelemetryClient["HealthGetObservabilityVerification"]>[0],
+    ) =>
       HttpClientRequest.get("/v1/debug/observability").pipe(
         HttpClientRequest.setUrlParams({
           level: options?.params?.["level"] as any,
@@ -834,7 +854,7 @@ export const make = (
           }),
         ),
       ),
-    EventsIngest: (options) =>
+    EventsIngest: (options: Parameters<TelemetryClient["EventsIngest"]>[0]) =>
       HttpClientRequest.post("/v1/events").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -846,7 +866,7 @@ export const make = (
           }),
         ),
       ),
-    ErrorsIngest: (options) =>
+    ErrorsIngest: (options: Parameters<TelemetryClient["ErrorsIngest"]>[0]) =>
       HttpClientRequest.post("/v1/errors").pipe(
         HttpClientRequest.bodyJsonUnsafe(options.payload),
         withResponse(options.config)(
@@ -865,73 +885,130 @@ export interface TelemetryClient {
   /**
    * Returns service metadata and the documentation entrypoints.
    */
-  readonly MetaGet: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof MetaGet200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
-  >;
+  readonly MetaGet: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof MetaGet200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof MetaGet200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"MetaGet400", typeof MetaGet400.Type>
+    >;
+  };
   /**
    * Returns pass/fail status. Public, no auth required.
    */
-  readonly HealthGetShallowHealth: <Config extends OperationConfig>(
-    options: { readonly config?: Config | undefined } | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
-  >;
+  readonly HealthGetShallowHealth: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options: { readonly config?: Config | undefined } | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetShallowHealth200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"HealthGetShallowHealth400", typeof HealthGetShallowHealth400.Type>
+    >;
+  };
   /**
    * Returns IETF health+json response with per-dependency check results. Requires X-Health-Key header.
    */
-  readonly HealthGetDeepHealth: <Config extends OperationConfig>(
-    options:
-      | {
-          readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
-  >;
+  readonly HealthGetDeepHealth: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof HealthGetDeepHealthParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetDeepHealth200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"HealthGetDeepHealth400", typeof HealthGetDeepHealth400.Type>
+    >;
+  };
   /**
    * Exercises observability pipelines and can simulate server error scenarios. Requires X-Health-Key header.
    */
-  readonly HealthGetObservabilityVerification: <Config extends OperationConfig>(
-    options:
-      | {
-          readonly params?: typeof HealthGetObservabilityVerificationParams.Encoded | undefined;
-          readonly config?: Config | undefined;
-        }
-      | undefined,
-  ) => Effect.Effect<
-    WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<
-        "HealthGetObservabilityVerification400",
-        typeof HealthGetObservabilityVerification400.Type
-      >
-  >;
+  readonly HealthGetObservabilityVerification: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly params?: typeof HealthGetObservabilityVerificationParams.Encoded | undefined;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<
+          "HealthGetObservabilityVerification400",
+          typeof HealthGetObservabilityVerification400.Type
+        >
+    >;
+    <Config extends OperationConfig | undefined = undefined>(
+      options:
+        | {
+            readonly params?: typeof HealthGetObservabilityVerificationParams.Encoded | undefined;
+            readonly config?: Config | undefined;
+          }
+        | undefined,
+    ): Effect.Effect<
+      WithOptionalResponse<typeof HealthGetObservabilityVerification200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<
+          "HealthGetObservabilityVerification400",
+          typeof HealthGetObservabilityVerification400.Type
+        >
+    >;
+  };
   /**
    * Accepts a JSON batch of telemetry events. Content-Type must be application/json. Payloads exceeding 64 KB are rejected with 413.
    */
-  readonly EventsIngest: <Config extends OperationConfig>(options: {
-    readonly payload: typeof EventsIngestRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<void, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
-    | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
-  >;
+  readonly EventsIngest: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof EventsIngestRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<void, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
+      | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof EventsIngestRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<void, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"EventsIngest400", typeof EventsIngest400.Type>
+      | TelemetryClientError<"EventsIngest413", typeof EventsIngest413.Type>
+    >;
+  };
   /**
    * Receives one bounded, allowlisted failure report from an opted-in client invocation.
    *
@@ -951,15 +1028,26 @@ export interface TelemetryClient {
    * before the report is processed. Reports carry no messages, stack traces,
    * arguments, paths, or other free-form content.
    */
-  readonly ErrorsIngest: <Config extends OperationConfig>(options: {
-    readonly payload: typeof ErrorsIngestRequestJson.Encoded;
-    readonly config?: Config | undefined;
-  }) => Effect.Effect<
-    WithOptionalResponse<typeof ErrorsIngest200.Type, Config>,
-    | HttpClientError.HttpClientError
-    | SchemaError
-    | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
-  >;
+  readonly ErrorsIngest: {
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof ErrorsIngestRequestJson.Encoded;
+      readonly config: Config;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof ErrorsIngest200.Type, Config>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
+    >;
+    <Config extends OperationConfig | undefined = undefined>(options: {
+      readonly payload: typeof ErrorsIngestRequestJson.Encoded;
+      readonly config?: Config | undefined;
+    }): Effect.Effect<
+      WithOptionalResponse<typeof ErrorsIngest200.Type, Config | undefined>,
+      | HttpClientError.HttpClientError
+      | SchemaError
+      | TelemetryClientError<"ErrorsIngest400", typeof ErrorsIngest400.Type>
+    >;
+  };
 }
 
 export interface TelemetryClientError<Tag extends string, E> {

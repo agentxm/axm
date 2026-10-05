@@ -184,7 +184,7 @@ const axmPolicyPlugin = {
         },
       },
       create(context) {
-        const CLI = "effect/unstable/cli";
+        const CLI = "effect/cli";
         const namespaces = new Set();
         const isPromptModule = (source) => source?.value === `${CLI}/Prompt`;
         const isCliModule = (source) => source?.value === CLI;
@@ -936,7 +936,7 @@ export default [
         {
           paths: [
             {
-              name: "effect/unstable/http/FetchHttpClient",
+              name: "effect/http/FetchHttpClient",
               message:
                 "Provide the Fetch HTTP client once in apps/cli/src/runtime.ts so transport policy is applied uniformly.",
             },
@@ -987,7 +987,7 @@ export default [
         {
           paths: [
             {
-              name: "effect/unstable/http/FetchHttpClient",
+              name: "effect/http/FetchHttpClient",
               message:
                 "Provide the Fetch HTTP client once in apps/cli/src/runtime.ts so transport policy is applied uniformly.",
             },

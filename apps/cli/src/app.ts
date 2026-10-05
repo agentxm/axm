@@ -9,7 +9,7 @@ import * as Console from "effect/Console";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliError, CliOutput, Command } from "effect/unstable/cli";
+import { CliError, CliOutput, Command } from "effect/cli";
 import { format as formatConsoleArgs } from "node:util";
 
 import { AppError, makeAppError } from "./app-error/index.js";

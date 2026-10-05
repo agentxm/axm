@@ -145,7 +145,7 @@ export const applyUpgrade: (
   | InstallerInstructions
 > = Effect.fn("SelfUpdate.applyUpgrade")(function* (candidate: UpgradeCandidate) {
   const { method, platform, resolution } = candidate;
-  if (resolution.source === "github-latest") {
+  if (resolution.source === "distribution-latest") {
     yield* rememberLatestRelease(resolution.targetVersion);
   }
   const unchanged = yield* unchangedResult(candidate);

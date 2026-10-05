@@ -25,44 +25,39 @@ const makeNetworkErrorClient = (): HttpClient.HttpClient =>
   );
 
 describe("resolveLatestVersion", () => {
-  it.effect("resolves GitHub's latest stable release in one bounded request", () =>
+  it.effect("resolves the latest stable production release in one bounded request", () =>
     Effect.gen(function* () {
       const visited: Array<string> = [];
       const result = yield* makeCliReleaseCatalog(
         makeMockHttpClient((url) => {
           visited.push(url);
-          return new Response(null, {
-            status: 302,
-            headers: { location: "/agentxm/axm/releases/tag/cli-v2.0.0" },
-          });
+          return new Response("2.0.0\n");
         }),
       ).stable("axm-linux-x64");
 
-      expect(visited).toEqual(["https://github.com/agentxm/axm/releases/latest"]);
+      expect(visited).toEqual(["https://releases.axm.sh/latest.txt"]);
       expect(result).toMatchObject({
         targetVersion: "2.0.0",
-        source: "github-latest",
+        source: "distribution-latest",
         release: {
           tagName: "cli-v2.0.0",
-          binaryAssetUrl:
-            "https://github.com/agentxm/axm/releases/download/cli-v2.0.0/axm-linux-x64",
-          checksumAssetUrl:
-            "https://github.com/agentxm/axm/releases/download/cli-v2.0.0/SHA256SUMS",
+          binaryAssetUrl: "https://releases.axm.sh/cli-v2.0.0/axm-linux-x64",
+          checksumAssetUrl: "https://releases.axm.sh/cli-v2.0.0/SHA256SUMS",
         },
       });
     }),
   );
 
-  it.effect("rejects malformed or untrusted latest-release redirects", () =>
+  it.effect("rejects malformed or non-stable version pointers", () =>
     Effect.gen(function* () {
       for (const location of [
         "https://example.test/agentxm/axm/releases/tag/cli-v2.0.0",
-        "https://github.com/agentxm/axm/releases/tag/cli-v2.0.0-beta.1",
+        "2.0.0-beta.1",
       ]) {
         const error = yield* Effect.flip(
-          makeCliReleaseCatalog(
-            makeMockHttpClient(() => new Response(null, { status: 302, headers: { location } })),
-          ).stable("axm-linux-x64"),
+          makeCliReleaseCatalog(makeMockHttpClient(() => new Response(location))).stable(
+            "axm-linux-x64",
+          ),
         );
         expect(error.category).toBe("validation");
       }

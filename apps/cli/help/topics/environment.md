@@ -198,7 +198,6 @@ characters. These display controls do not change JSON documents.
 | `AXM_GEMINI_CLI_SKILLS_DIR`  | internal          | Directory path; agent default when unset                    | Test/development override for Gemini CLI's skill directory. An empty override is invalid.                                                                                          |
 | `AXM_INSTALL_BASE_URL`       | internal          | URL; release-derived URL when unset                         | Test/development override for the public installers' artifact base URL.                                                                                                            |
 | `AXM_INSTALL_ENTRYPOINT`     | internal          | `cmd` or unset                                              | PowerShell wrapper hint used only to render shell-appropriate PATH guidance.                                                                                                       |
-| `AXM_INSTALL_GITHUB_REPO`    | internal          | GitHub `owner/repo`; `agentxm/axm`                          | Test/development override for install-script artifact retrieval. It does not change upgrade release authority.                                                                     |
 | `AXM_TELEMETRY_BASE_URL`     | internal          | URL; AXM telemetry service                                  | Test/development override for the telemetry endpoint.                                                                                                                              |
 
 ## Where to go next

@@ -6,9 +6,9 @@ import type * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import {
-  GITHUB_LATEST_RELEASE_URL,
-  resolveGithubLatestVersion,
-  versionFromLatestReleaseLocation,
+  LATEST_RELEASE_URL,
+  resolveLatestReleaseVersion,
+  parseLatestReleaseVersion,
 } from "./index.js";
 
 const makeClient = (respond: (request: HttpClientRequest.HttpClientRequest) => Response) =>
@@ -16,38 +16,35 @@ const makeClient = (respond: (request: HttpClientRequest.HttpClientRequest) => R
     Effect.sync(() => HttpClientResponse.fromWeb(request, respond(request))),
   );
 
-describe("GitHub latest release", () => {
-  it.effect("resolves one normalized release tag from one web redirect", () =>
+describe("Production latest release", () => {
+  it.effect("resolves one stable version from one bounded request", () =>
     Effect.gen(function* () {
       const requests: string[] = [];
-      const version = yield* resolveGithubLatestVersion(
+      const version = yield* resolveLatestReleaseVersion(
         makeClient((request) => {
           requests.push(request.url);
-          return new Response(null, {
-            status: 302,
-            headers: { Location: "/agentxm/axm/releases/tag/cli-v2.0.0" },
-          });
+          return new Response("2.0.0\n");
         }),
       );
       expect(version).toBe("2.0.0");
-      expect(requests).toEqual([GITHUB_LATEST_RELEASE_URL]);
+      expect(requests).toEqual([LATEST_RELEASE_URL]);
     }),
   );
 
-  it("rejects foreign, malformed, and non-stable redirect locations", () => {
+  it("rejects malformed and non-stable version pointers", () => {
     for (const location of [
-      "https://example.com/agentxm/axm/releases/tag/cli-v2.0.0",
-      "https://github.com/agentxm/other/releases/tag/cli-v2.0.0",
-      "https://github.com/agentxm/axm/releases/tag/cli-v2.0.0-beta.1",
-      "https://github.com/agentxm/axm/releases/tag/v2.0.0",
-      "not a URL",
+      "https://example.com/2.0.0",
+      "../../2.0.0",
+      "2.0.0-beta.1",
+      "v2.0.0",
+      "2.0.0\n3.0.0",
     ]) {
-      expect(versionFromLatestReleaseLocation(location)).toBeNull();
+      expect(parseLatestReleaseVersion(location)).toBeNull();
     }
   });
 
   it.effect(
-    "distinguishes rate limits, unavailable responses, invalid redirects, and offline use",
+    "distinguishes rate limits, unavailable responses, invalid versions, and offline use",
     () =>
       Effect.gen(function* () {
         const cases = [
@@ -56,15 +53,15 @@ describe("GitHub latest release", () => {
             reason: "rate-limit",
           },
           { response: new Response(null, { status: 503 }), reason: "unavailable" },
-          { response: new Response(null, { status: 200 }), reason: "unexpected-status" },
+          { response: new Response(null, { status: 302 }), reason: "unexpected-status" },
           {
-            response: new Response(null, { status: 302, headers: { Location: "/invalid" } }),
-            reason: "invalid-location",
+            response: new Response("invalid"),
+            reason: "invalid-version",
           },
         ] as const;
         for (const testCase of cases) {
           const error = yield* Effect.flip(
-            resolveGithubLatestVersion(makeClient(() => testCase.response)),
+            resolveLatestReleaseVersion(makeClient(() => testCase.response)),
           );
           expect(error.reason).toBe(testCase.reason);
         }
@@ -79,7 +76,7 @@ describe("GitHub latest release", () => {
             }),
           ),
         );
-        expect((yield* Effect.flip(resolveGithubLatestVersion(offline))).reason).toBe("transport");
+        expect((yield* Effect.flip(resolveLatestReleaseVersion(offline))).reason).toBe("transport");
       }),
   );
 });

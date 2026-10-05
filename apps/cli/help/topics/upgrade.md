@@ -1,6 +1,6 @@
 # Upgrade AXM
 
-`axm upgrade` selects GitHub's latest stable AXM release, then compares it with
+`axm upgrade` selects the latest complete AXM release from `releases.axm.sh`, then compares it with
 the running AXM version before deciding whether its owning installer may mutate
 the installation. `axm upgrade <version>` selects an exact stable version
 without latest-release discovery.

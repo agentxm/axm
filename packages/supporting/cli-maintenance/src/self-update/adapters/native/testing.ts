@@ -169,7 +169,7 @@ export const makeSubprocessTest = (options?: SubprocessTestOptions) => {
 export const upgradeBinary = new TextEncoder().encode("AXM selected executable fixture\n");
 
 /**
- * A release origin that serves GitHub's latest-release redirect, the selected
+ * A release origin that serves the production latest-version pointer, the selected
  * binary, and a checksum manifest that actually matches those bytes, so the
  * script installer's integrity gate is exercised rather than bypassed.
  */
@@ -198,18 +198,10 @@ export const makeReleaseOrigin = (options?: {
       if (request.url.endsWith("/SHA256SUMS")) {
         return HttpClientResponse.fromWeb(request, new Response(checksums, { status: 200 }));
       }
-      if (request.url.includes("/releases/download/")) {
+      if (request.url.startsWith("https://releases.axm.sh/cli-v")) {
         return HttpClientResponse.fromWeb(request, new Response(binary, { status: 200 }));
       }
-      return HttpClientResponse.fromWeb(
-        request,
-        new Response(null, {
-          status: 302,
-          headers: {
-            location: `https://github.com/agentxm/axm/releases/tag/cli-v${latestVersion}`,
-          },
-        }),
-      );
+      return HttpClientResponse.fromWeb(request, new Response(`${latestVersion}\n`));
     }),
   );
   return { requests, checksums, binary, layer: Layer.succeed(HttpClient.HttpClient, client) };

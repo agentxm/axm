@@ -12,7 +12,7 @@ export interface ResolvedRelease {
 /** Release-authority facts, independent of the installed version. */
 export interface SelectedRelease {
   readonly targetVersion: string;
-  readonly source: "github-latest" | "exact-version";
+  readonly source: "distribution-latest" | "exact-version";
   readonly release: ResolvedRelease;
   readonly validatedAt: string;
 }

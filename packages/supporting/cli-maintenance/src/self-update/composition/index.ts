@@ -5,7 +5,7 @@ import { CliReleaseCatalog, LatestReleaseCheck } from "../application/index.js";
 import { makeCliReleaseCatalog } from "../adapters/releases/index.js";
 import { makeLatestReleaseCheck } from "../adapters/latest-release-check/index.js";
 
-/** Bind release selection to GitHub's latest and immutable releases. */
+/** Bind release selection to the production distribution origin. */
 export const CliReleaseCatalogLive = Layer.effect(
   CliReleaseCatalog,
   Effect.map(HttpClient.HttpClient, makeCliReleaseCatalog),

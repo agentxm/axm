@@ -59,8 +59,7 @@ canonical publish workflow, exact reviewable candidate generation, and isolated
 candidate state in the [specification catalog](../../specifications/catalog.md).
 
 - Releases are published from GitHub Actions. Do not publish packages or create
-  GitHub Releases manually; the rollback procedure below only changes which
-  existing release GitHub marks latest.
+  GitHub Releases manually; release rollback requires a separately authorized distribution decision.
 - Release candidates are prepared only by explicitly dispatching
   `prepare-release.yml` with an exact current `main` commit. Do not cut or push
   a release commit from a local checkout.
@@ -97,6 +96,40 @@ to every release asset. The content assets do not change the installers'
 `SHA256SUMS` contract.
 
 ---
+
+## Production distribution prerequisites
+
+The canonical publisher writes exact CI assets to a dedicated Cloudflare R2
+bucket using its S3 API. Configure repository variables `RELEASE_R2_ACCOUNT_ID`
+and `RELEASE_R2_BUCKET`, and bucket-scoped secrets `RELEASE_R2_ACCESS_KEY_ID`
+and `RELEASE_R2_SECRET_ACCESS_KEY`. The credential needs object read/write only
+for that bucket. It must not be available to pull-request jobs. Provision the
+bucket and the public `releases.axm.sh` domain before a stable publication;
+missing configuration or failed storage reads stop preflight.
+
+The public contract is `cli-vVERSION/<asset>` plus an immutable `release.json`
+containing the commit and complete SHA-256 inventory. The publisher verifies
+objects before writing `latest.txt`, a newline-terminated stable version, with
+`Cache-Control: no-store`. Immutable objects use long-lived cache headers;
+configure the domain to avoid caching error responses and to bypass caching
+for `latest.txt`. Identical retry content is reused; different bytes fail.
+Conditional writes protect both immutable objects and the latest pointer.
+No background synchronization or application API participates.
+
+The distribution boundary is recorded separately in the release summary.
+A storage failure leaves the previous latest pointer usable; after a completed
+R2 publication, a later npm or Homebrew failure can leave those ecosystems
+behind. Recover using the same canonical tag. Native installers and CLI updates
+read production distribution directly; package-manager installations still
+require their provider's exact version availability. GitHub Release assets
+remain an additional distribution destination.
+
+Before activating consumers, verify a complete release on the public domain,
+including `latest.txt`, its versioned manifest, binaries, checksums, and content
+files. Check default and exact-version installation, and cold requests with
+GitHub access blocked. Retain the workflow run and verification evidence.
+This procedure's first R2 production exercise remains pending; source tests
+alone do not establish provider readiness.
 
 ## Release Flow
 
@@ -251,16 +284,14 @@ to every release asset. The content assets do not change the installers'
    successful CI run identify the earlier producer; provenance alone does not
    claim to attest that build step.
 
-   If a published release must be rolled back, first verify the previous GitHub
-   Release and its installation evidence, then mark that release as latest:
-
-   ```bash
-   gh release edit <previous-tag> --repo agentxm/axm --latest
-   ```
-
-   This restores GitHub's stable release selection for installers and native
-   managers. It does not delete immutable release assets or npm packages, and
-   it is not an atomic rollback of npm or Homebrew state.
+   If a published version is defective, prefer a corrective release through
+   this workflow. Exact prior versions remain downloadable. Moving GitHub's
+   latest marker does not change production selection. An intentional rollback
+   of R2 `latest.txt` requires separate authorization, verification of the prior
+   version's complete `release.json` inventory, and an ETag-conditional write;
+   routine recovery refuses downgrades. There is no automated cross-provider
+   rollback, and an operator procedure for intentional pointer rollback has not
+   yet been exercised.
 
    Canonical releases share one concurrency group without canceling active
    runs. npm latest and the tap are checked before publication and at their
@@ -269,10 +300,10 @@ to every release asset. The content assets do not change the installers'
    owners backward. Concurrent tap changes reject the push and require a fresh
    run.
 
-   npm, Homebrew, and the draft GitHub Release assets can exist before stable;
-   the GitHub Release becomes public only after distribution completes. Default
-   public-script and native-manager installation therefore has its own
-   discovery behavior; it is not stable-only. An interrupted release can remain
+   R2 latest, npm, Homebrew, and the draft GitHub Release assets can become
+   available at different points in publication; the GitHub Release becomes
+   public only after distribution completes. Public scripts and native upgrades
+   discover the complete R2 release; package managers use their own metadata. An interrupted release can remain
    partly published until a rerun or superseding release. There is no atomic
    cross-service transaction, automatic rollback, or propagation deadline. The
    always-run summary distinguishes completed distribution and verification,

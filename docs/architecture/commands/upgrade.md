@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: GitHub release selection, installer coordination, mutation, verification, and recovery for AXM self-upgrade.
+description: Production release selection, installer coordination, mutation, verification, and recovery for AXM self-upgrade.
 depends-on:
   - overview.md
   - output.md
@@ -9,25 +9,25 @@ depends-on:
 
 # Upgrade
 
-`axm upgrade` updates the AXM executable. GitHub's latest published release is
+`axm upgrade` updates the AXM executable. The production distribution latest pointer is
 the authority for the default target; npm tags and package-manager formulae do
 not select it. Distribution systems remain independent delivery mechanisms
 whose readiness is checked before mutation.
 
 ## Selection
 
-`axm upgrade` makes one bounded web request to
-`https://github.com/agentxm/axm/releases/latest`, observes the redirect without
-following it, validates that its `Location` names a normalized stable
-`cli-v<version>` tag in the same repository, and derives immutable artifact URLs
-from that tag. It does not use the GitHub REST API. A malformed, missing,
+`axm upgrade` makes one bounded request to
+`https://releases.axm.sh/latest.txt`, validates its body as a normalized stable
+version, and derives immutable artifact URLs under `cli-v<version>/` on that
+same origin. GitHub availability is not required during discovery or download.
+A malformed, missing,
 rate-limited, or unavailable response produces an explicit result and no
 installation change. Startup update notification uses the same discovery path
 and caches only the validated version and observation time; cache state never
 authorizes an explicit upgrade.
 
 `axm upgrade <version>` selects one normalized stable semantic version without
-network discovery. It derives the immutable `cli-v<version>` GitHub Release
+network discovery. It derives the immutable `cli-v<version>` production distribution
 coordinate and refuses leading `v`, prerelease, and non-normalized input. Exact
 selection does not perform latest-release discovery.
 
@@ -65,9 +65,10 @@ observation. Each delegated command retains its own timeout. There is no
 publication poll or retry deadline. Human and machine results use the same
 recorded assessment.
 
-Release automation attaches immutable artifacts before publishing the GitHub
-release as latest. Native package channels and public installer scripts retain
-their own discovery behavior. Upgrade still checks current package-manager
+Release automation verifies immutable artifacts and their manifest in R2 before
+updating `latest.txt`. Public installer scripts resolve that pointer once and
+fetch both binary and checksum from the selected version. Native package
+channels retain their own publication availability. Upgrade still checks current package-manager
 availability before mutation.
 
 ## Mutation and verification

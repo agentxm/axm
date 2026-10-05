@@ -19,7 +19,7 @@ const StableVersionSchema = Schema.String.pipe(
 const CacheJsonSchema = Schema.fromJsonString(
   Schema.Struct({
     schema: Schema.Literal(CACHE_SCHEMA),
-    source: Schema.Literal("github-latest"),
+    source: Schema.Literal("distribution-latest"),
     version: StableVersionSchema,
     validatedAt: DateTimeUtcSchema,
   }),
@@ -48,7 +48,7 @@ export const makeUpdateCheckCache = (
     Effect.gen(function* () {
       const content = yield* encodeCache({
         schema: CACHE_SCHEMA,
-        source: "github-latest",
+        source: "distribution-latest",
         ...cache,
       });
       yield* fs.makeDirectory(path.dirname(cachePath), { recursive: true });

@@ -11,7 +11,7 @@ response.
 - [Install](install.md) — direct extension intent and initial realization
 - [Update](update.md) — resolution advancement, constraint changes, and
   reinstall
-- [Upgrade](upgrade.md) — GitHub release selection, installer coordination,
+- [Upgrade](upgrade.md) — Production release selection, installer coordination,
   mutation, verification, and recovery for AXM self-upgrade
 - [Uninstall](uninstall.md) — direct-intent removal and reachability-based
   retention

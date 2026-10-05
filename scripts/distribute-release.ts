@@ -1,3 +1,12 @@
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import {
+  inspectLatestRelease,
+  publishReleaseDistribution,
+  ReleaseStorageError,
+} from "./release-distribution.js";
+import { makeReleaseStorage } from "./release-distribution-s3.js";
 import { appendFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
@@ -103,6 +112,14 @@ const output = (key: string, value: string) => {
 try {
   const preflight = async () => {
     await Promise.all([
+      Effect.runPromise(
+        Effect.scoped(
+          Effect.gen(function* () {
+            const storage = yield* makeReleaseStorage(ConfigProvider.fromEnvRecord(process.env));
+            yield* inspectLatestRelease(storage, version);
+          }),
+        ),
+      ),
       mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) => latestGuard(pkg.name)),
       readFormula().then((formula) =>
         guardPublicationVersion(version, formulaVersion(formula), "Homebrew"),
@@ -192,6 +209,33 @@ try {
               }),
           },
           {
+            name: "distribution",
+            publish: () =>
+              Effect.scoped(
+                Effect.gen(function* () {
+                  const storage = yield* makeReleaseStorage(
+                    ConfigProvider.fromEnvRecord(process.env),
+                  );
+                  const fs = yield* FileSystem.FileSystem;
+                  const path = yield* Path.Path;
+                  yield* publishReleaseDistribution(storage, {
+                    version,
+                    commit: releaseCommit,
+                    loadAsset: (name) =>
+                      fs.readFile(path.join(assets, name)).pipe(
+                        Effect.mapError(
+                          () =>
+                            new ReleaseStorageError({
+                              operation: "read local asset",
+                              detail: `Cannot read ${name}`,
+                            }),
+                        ),
+                      ),
+                  });
+                }),
+              ).pipe(Effect.provide(NodeServices.layer), Effect.mapError(releaseBoundaryError)),
+          },
+          {
             name: "npm",
             publish: () =>
               Effect.gen(function* () {
@@ -260,7 +304,7 @@ try {
               Effect.tryPromise({
                 try: async () => {
                   const formula = await readFormula();
-                  const candidate = prepareFormula(formula, version, RELEASE_REPO, checksums);
+                  const candidate = prepareFormula(formula, version, checksums);
                   if (!candidate.changed) return;
                   const token = process.env["HOMEBREW_TAP_TOKEN"];
                   if (token === undefined || token === "")
@@ -294,12 +338,7 @@ try {
                       await observePublication({
                         name: `Homebrew formula ${version}`,
                         read: async (signal) =>
-                          prepareFormula(
-                            await readFormula(signal),
-                            version,
-                            RELEASE_REPO,
-                            checksums,
-                          ),
+                          prepareFormula(await readFormula(signal), version, checksums),
                         matches: (observed) => !observed.changed,
                         retryError: isTransientPublicationError,
                       });
@@ -314,7 +353,7 @@ try {
                   await observePublication({
                     name: `Homebrew formula ${version}`,
                     read: async (signal) =>
-                      prepareFormula(await readFormula(signal), version, RELEASE_REPO, checksums),
+                      prepareFormula(await readFormula(signal), version, checksums),
                     matches: (candidate) => !candidate.changed,
                     retryError: isTransientPublicationError,
                   });

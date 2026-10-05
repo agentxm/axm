@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-path-uses-only-public-hosts-and-credentials",
   title: "Release automation uses only public distribution boundaries",
   statement:
-    "AXM release preparation, production and publication shall distribute only through the declared public GitHub, npm and Homebrew hosts with their publication credentials. Optional independently configured task caches may supply deterministic prerequisites using read-only credentials confined to cache setup; disabling remote caching shall preserve the release task graph.",
+    "AXM release preparation, production and publication shall distribute only through the declared public GitHub, npm, Homebrew and Cloudflare R2 distribution hosts with their publication credentials. Optional independently configured task caches may supply deterministic prerequisites using read-only credentials confined to cache setup; disabling remote caching shall preserve the release task graph.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -45,12 +45,23 @@ const workflowPaths = [
   ".github/workflows/prepare-release.yml",
   ".github/workflows/publish.yml",
 ] as const;
-const allowedHosts = new Set(["api.github.com", "github.com", "registry.npmjs.org"]);
-const allowedSecrets = new Set(["HOMEBREW_TAP_TOKEN", "NPM_INITIAL_PUBLISH_TOKEN"]);
+const allowedHosts = new Set([
+  "api.github.com",
+  "github.com",
+  "registry.npmjs.org",
+  "releases.axm.sh",
+  "${config.accountId}.r2.cloudflarestorage.com",
+]);
+const allowedSecrets = new Set([
+  "HOMEBREW_TAP_TOKEN",
+  "NPM_INITIAL_PUBLISH_TOKEN",
+  "RELEASE_R2_ACCESS_KEY_ID",
+  "RELEASE_R2_SECRET_ACCESS_KEY",
+]);
 const scriptReference = /\b(scripts\/[A-Za-z0-9_./-]+\.(?:[cm]?[jt]s|sh))\b/gu;
 const targetReference = /\baxm:([a-z0-9:-]+)\b/gu;
 const relativeImport = /\b(?:from\s+|import\s*)["'](\.[^"']+)["']/gu;
-const hostReference = /\bhttps?:\/\/([A-Za-z0-9.-]+)/gu;
+const hostReference = /\bhttps?:\/\/([A-Za-z0-9.${}_-]+)/gu;
 const secretReference = /\bsecrets\.([A-Z][A-Z0-9_]*)\b/gu;
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>

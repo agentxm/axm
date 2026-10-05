@@ -41,7 +41,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("validated update-cache
         }),
         JSON.stringify({
           schema: "axm.update-check-cache/v3",
-          source: "github-latest",
+          source: "distribution-latest",
           version: "1.2.3-beta.1",
           validatedAt: now,
         }),
@@ -60,7 +60,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("validated update-cache
       expect(yield* store.read()).toEqual(Option.some(snapshot));
       expect(JSON.parse(nodeFs.readFileSync(cachePath, "utf8"))).toMatchObject({
         schema: "axm.update-check-cache/v3",
-        source: "github-latest",
+        source: "distribution-latest",
         version: "1.2.3",
       });
       expect(nodeFs.readdirSync(nodePath.dirname(cachePath))).toEqual(["update-check.json"]);

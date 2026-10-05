@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { extensionTypePluralSegments } from "@agentxm/extension-model/unstable/extensions";

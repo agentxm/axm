@@ -136,7 +136,12 @@ for (const [name, code, rule] of [
   ],
   [
     "the composed root config rejects provider imports in published policy",
-    'import * as HttpClient from "effect/unstable/http/HttpClient"; export { HttpClient };',
+    'import * as HttpClient from "effect/http/HttpClient"; export { HttpClient };',
+    "boundaries/dependencies",
+  ],
+  [
+    "the composed root config rejects provider namespace imports in published policy",
+    'import { HttpClient } from "effect/http"; export { HttpClient };',
     "boundaries/dependencies",
   ],
   [
@@ -239,10 +244,7 @@ test("backstage compatibility policy cannot depend on the frontstage upgrade dec
 
 for (const [name, code] of [
   ["host process access", 'import * as process from "node:process"; export { process };'],
-  [
-    "HTTP access",
-    'import * as HttpClient from "effect/unstable/http/HttpClient"; export { HttpClient };',
-  ],
+  ["HTTP access", 'import * as HttpClient from "effect/http/HttpClient"; export { HttpClient };'],
   [
     "the concrete release adapter",
     'export { makeCliReleaseCatalog } from "../adapters/releases/index.js";',

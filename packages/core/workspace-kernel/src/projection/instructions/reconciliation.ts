@@ -366,8 +366,10 @@ export const observeInstructionSurfacePlans = <E, R>(
     if (Option.isSome(refusal)) return yield* refusal.value;
     const willReconcile = proposedLocations.length > 0;
     for (const route of requiredRoutes) {
-      const target = snapshot.nativeLocations.find((unit) =>
-        unit.aliases.includes(route.targetFile),
+      const target = snapshot.nativeLocations.find(
+        (unit) =>
+          unit.address.kind === (route.mechanism === "native" ? "file" : "entry") &&
+          unit.aliases.includes(route.targetFile),
       );
       if (
         target === undefined ||

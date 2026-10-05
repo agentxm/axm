@@ -13,7 +13,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import type { CliError } from "effect/unstable/cli";
+import type { CliError } from "effect/cli";
 
 import { appErrorDoc, makeAppError } from "./app-error/index.js";
 import { decodeFormatterDocument, type OutputFormat } from "./cli-runtime/index.js";

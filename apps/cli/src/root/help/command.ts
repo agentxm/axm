@@ -2,7 +2,7 @@ import type { OutputWriteFailed } from "../../screen/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import { Argument, CliError, Command } from "effect/unstable/cli";
+import { Argument, CliError, Command } from "effect/cli";
 
 import { type AppError, makeAppError } from "../../app-error/index.js";
 import { quietFlag } from "../../cli-flags/index.js";

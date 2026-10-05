@@ -1,7 +1,7 @@
 export { waitForHumanOption } from "./wait-for-human.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { Flag, GlobalFlag } from "effect/cli";
 
 // ---------------------------------------------------------------------------
 // Global flag definitions (parsed by Effect CLI at the root command level)

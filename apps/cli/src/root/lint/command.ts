@@ -1,7 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";

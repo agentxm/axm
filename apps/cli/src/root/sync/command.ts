@@ -1,4 +1,4 @@
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";

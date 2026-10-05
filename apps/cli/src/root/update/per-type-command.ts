@@ -1,7 +1,7 @@
 /** Generate typed update routes over the configured workspace sweep. */
 
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import type { WorkspaceUpdatableType } from "@agentxm/workspace-features/lifecycle";
 

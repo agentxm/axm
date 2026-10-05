@@ -1,4 +1,4 @@
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";

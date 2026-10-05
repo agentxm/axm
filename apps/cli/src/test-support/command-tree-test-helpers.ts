@@ -12,8 +12,8 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as ServiceMap from "effect/Context";
-import { CliOutput, Command } from "effect/unstable/cli";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import { CliOutput, Command } from "effect/cli";
+import type { HelpDoc } from "effect/cli/HelpDoc";
 
 import { TestRenderer } from "./presenter-test.js";
 import { rootCommand } from "../app.js";

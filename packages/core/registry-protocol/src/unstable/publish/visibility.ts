@@ -9,7 +9,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/common";
 
 export const VisibilityFingerprintSchema = Schema.String.check(
-  Schema.isPattern(/^[a-f0-9]{64}$/),
+  Schema.isPattern(/^[a-f0-9]{64}$/u),
 ).annotate({ identifier: "VisibilityFingerprint" });
 
 export type VisibilityFingerprint = typeof VisibilityFingerprintSchema.Type;

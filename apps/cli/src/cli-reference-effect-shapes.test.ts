@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 
 import { flattenCliReference, makeCliReferenceDocument } from "./cli-reference.js";
 import { rootCommand } from "./app.js";

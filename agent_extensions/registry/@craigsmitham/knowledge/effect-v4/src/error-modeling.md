@@ -6,12 +6,12 @@ tags: [effect, effect-v4, errors, cause, defects, interruption, retry]
 status: stable
 sources:
   - id: effect-errors
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/04_errors/01_error-handling.ts
-    title: Effect 4.0.0-rc.117 error handling basics
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/04_errors/01_error-handling.ts
+    title: Effect 4.0.0 error handling basics
   - id: effect-cause
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cause.ts
-    title: Effect 4.0.0-rc.117 Cause source
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Cause.ts
+    title: Effect 4.0.0 Cause source
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Error modeling
@@ -36,5 +36,5 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Error handling basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/04_errors/01_error-handling.ts)
-- [Cause source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Cause.ts)
+- [Error handling basics](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/04_errors/01_error-handling.ts)
+- [Cause source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Cause.ts)

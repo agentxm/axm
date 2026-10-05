@@ -1,7 +1,7 @@
 /** Pack updates re-resolve configured constraints through the install sweep.
  * That operation differs from the generated per-type update command. */
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 
 import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";

@@ -6,15 +6,15 @@ tags: [effect, effect-v4, stream, sink, backpressure, resource]
 status: stable
 sources:
   - id: effect-streams
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/03_stream/20_consuming-streams.ts
-    title: Effect 4.0.0-rc.117 stream consumption
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/03_stream/20_consuming-streams.ts
+    title: Effect 4.0.0 stream consumption
   - id: effect-stream-source
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Stream.ts
-    title: Effect 4.0.0-rc.117 Stream source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Stream.ts
+    title: Effect 4.0.0 Stream source
   - id: applied-livestore
     resource: https://github.com/livestorejs/livestore/blob/c467b8439be89649e53c3ba76cca063537e030c2/packages/%40livestore/webmesh/src/worker/mod.ts
     title: LiveStore callback stream at c467b84
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Streams
@@ -38,6 +38,6 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Stream consumption](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/03_stream/20_consuming-streams.ts)
-- [Stream source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Stream.ts)
+- [Stream consumption](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/03_stream/20_consuming-streams.ts)
+- [Stream source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Stream.ts)
 - [Applied callback stream in LiveStore](https://github.com/livestorejs/livestore/blob/c467b8439be89649e53c3ba76cca063537e030c2/packages/%40livestore/webmesh/src/worker/mod.ts)

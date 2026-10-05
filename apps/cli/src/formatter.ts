@@ -11,8 +11,8 @@
 
 import * as Schema from "effect/Schema";
 import * as ServiceMap from "effect/Context";
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
-import { CliOutput } from "effect/unstable/cli";
+import type { HelpDoc } from "effect/cli/HelpDoc";
+import { CliOutput } from "effect/cli";
 
 import { JsonHelpDocSchema, JsonVersionDocSchema, toJsonHelpDoc } from "./cli-runtime/index.js";
 

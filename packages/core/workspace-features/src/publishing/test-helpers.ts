@@ -32,9 +32,9 @@ import {
   WorkspaceTransactionScopesLive,
 } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
-import * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 import type { GitDirectoryComparisonService } from "@agentxm/workspace-kernel/sources";
 import { GitDirectoryComparisonTest } from "@agentxm/workspace-kernel/sources/testing";

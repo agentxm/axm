@@ -1,4 +1,4 @@
-import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClient from "effect/http/HttpClient";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /**
  * A real workspace with a real Registry behind it, so an inspection
@@ -31,7 +31,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { WorkspaceFileWriteLocksLive } from "@agentxm/workspace-kernel/settlement/live";
 import * as Option from "effect/Option";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import {

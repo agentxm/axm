@@ -1,5 +1,5 @@
 import { withLiveOperation } from "../../operation-lifecycle.js";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import {
   ConfigureAgents,

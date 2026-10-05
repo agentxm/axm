@@ -4,7 +4,7 @@ import { parsePurlIdentity } from "./internal.js";
 export const PACKAGE_IDENTITY_PURL_DESCRIPTION =
   "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.";
 
-const PACKAGE_URL_PATTERN = /^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\/.+$/;
+const PACKAGE_URL_PATTERN = /^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\/.+$/u;
 
 const validatePackageIdentityPurl = (value: string): string | undefined => {
   const parsed = parsePurlIdentity(value);

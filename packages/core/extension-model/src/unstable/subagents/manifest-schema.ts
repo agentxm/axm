@@ -34,12 +34,12 @@ export const SubagentSourcePathSchema = Schema.String.check(
 
 /** Native names are file stems and need not equal the package identity. */
 export const SubagentNativeNameSchema = Schema.String.check(
-  Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9_-]*$/),
+  Schema.isPattern(/^[A-Za-z0-9][A-Za-z0-9_-]*$/u),
 ).annotate({ description: "Native agent name, independent of the AXM package name." });
 
 const safeConfigurationKey = Schema.String.check(
   Schema.isPattern(
-    /^(?!(?:name|description|instructions|developer_instructions|prompt|systemPrompt|system_prompt|roleDefinition|agentOverrides|fallback|__proto__|prototype|constructor)$).+$/,
+    /^(?!(?:name|description|instructions|developer_instructions|prompt|systemPrompt|system_prompt|roleDefinition|agentOverrides|fallback|__proto__|prototype|constructor)$).+$/u,
   ),
 );
 

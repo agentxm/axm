@@ -6,12 +6,12 @@ tags: [effect, effect-v4, scope, acquire-release, finalizer, resource]
 status: stable
 sources:
   - id: effect-acquire-release
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
-    title: Effect 4.0.0-rc.117 acquire-release guide
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/05_resources/10_acquire-release.ts
+    title: Effect 4.0.0 acquire-release guide
   - id: effect-scope
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Scope.ts
-    title: Effect 4.0.0-rc.117 Scope source
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Scope.ts
+    title: Effect 4.0.0 Scope source
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Resource safety
@@ -23,6 +23,9 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
   failure can skip ownership.
 - [ ] Keep the resource within the scope that owns it; do not return a live
   handle whose finalizer has already run or whose owner is ambiguous.
+- [ ] Close only scopes the code created with `Scope.make` or `Scope.fork`;
+  leave a scope received from a caller, layer, or runtime to its
+  owner.[^effect-scope]
 - [ ] Cleanup remains safe after partial initialization and after any repeated
   invocation the foreign API permits.
 - [ ] Use layers to own long-lived service resources and narrower scopes for
@@ -36,5 +39,7 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Acquire-release guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
-- [Scope source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Scope.ts)
+- [Acquire-release guide](https://github.com/Effect-TS/effect/blob/effect%404.0.0/ai-docs/src/01_effect/05_resources/10_acquire-release.ts)
+- [Scope source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Scope.ts)
+
+[^effect-scope]: Effect Scope source.

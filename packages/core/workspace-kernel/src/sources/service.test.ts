@@ -1,4 +1,4 @@
-import * as HttpClient from "effect/unstable/http/HttpClient";
+import * as HttpClient from "effect/http/HttpClient";
 import { ArtifactHttpClient } from "./index.js";
 /**
  * Tests for SourceHostProviders service and registry meta-provider.
@@ -19,7 +19,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import type * as Scope from "effect/Scope";
 import { describe, expect, it } from "@effect/vitest";
 import { RegistryTransportTest } from "@agentxm/registry-client/testing";

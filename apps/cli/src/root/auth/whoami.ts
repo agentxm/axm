@@ -2,7 +2,7 @@ import * as DateTime from "effect/DateTime";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import {
   currentIdentity,

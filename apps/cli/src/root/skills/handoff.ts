@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 import { HandoffSkills, type HandoffRequest } from "@agentxm/workspace-features/lifecycle";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
 import {

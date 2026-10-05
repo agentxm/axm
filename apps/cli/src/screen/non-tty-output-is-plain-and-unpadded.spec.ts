@@ -2,7 +2,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import { CliError, CliOutput } from "effect/unstable/cli";
+import { CliError, CliOutput } from "effect/cli";
 import { afterEach } from "vitest";
 
 import { displayWidth, Screen, stripTerminalFormatting } from "./index.js";

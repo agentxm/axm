@@ -44,8 +44,8 @@ const ContainerIdentitySchema = Schema.Struct({
 export type ContainerIdentity = typeof ContainerIdentitySchema.Type;
 
 const NonNegativeInteger = Schema.Number.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0));
-const Sha256 = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/));
-const Syntax = Schema.String.check(Schema.isPattern(/^[\s{}[\],:]*$/));
+const Sha256 = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u));
+const Syntax = Schema.String.check(Schema.isPattern(/^[\s{}[\],:]*$/u));
 
 /** Offsets and lengths address the post-insertion text; no config values are stored. */
 export const StructuralInverseSchema = Schema.Struct({

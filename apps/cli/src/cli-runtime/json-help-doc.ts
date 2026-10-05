@@ -1,6 +1,6 @@
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import type { FlagDoc, HelpDoc } from "effect/unstable/cli/HelpDoc";
+import type { FlagDoc, HelpDoc } from "effect/cli/HelpDoc";
 
 export interface JsonFlagDoc {
   readonly name: string;

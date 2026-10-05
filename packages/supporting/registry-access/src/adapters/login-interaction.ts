@@ -9,15 +9,15 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as Encoding from "effect/Encoding";
+import * as Base64 from "effect/encoding/Base64";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
 import * as Stdio from "effect/Stdio";
 import * as Stream from "effect/Stream";
-import * as ChildProcess from "effect/unstable/process/ChildProcess";
-import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/unstable/process/ChildProcessSpawner";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+import * as ChildProcess from "effect/process/ChildProcess";
+import type { ChildProcessSpawner as ChildProcessSpawnerService } from "effect/process/ChildProcessSpawner";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import {
   DeviceLoginInteraction,
@@ -137,7 +137,7 @@ const ESC = "\u001b";
  * is best-effort.
  */
 export const osc52Sequence = (text: string, multiplexer?: TerminalMultiplexer): string => {
-  const osc52 = `${ESC}]52;c;${Encoding.encodeBase64(text)}\u0007`;
+  const osc52 = `${ESC}]52;c;${Base64.encode(text)}\u0007`;
   switch (multiplexer) {
     case "tmux":
       return `${ESC}Ptmux;${osc52.replaceAll(ESC, `${ESC}${ESC}`)}${ESC}\\`;

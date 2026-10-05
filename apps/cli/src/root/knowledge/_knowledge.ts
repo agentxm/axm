@@ -1,4 +1,4 @@
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { knowledgePublishCommand as publishCommand } from "../publish/per-type-command.js";

@@ -12,7 +12,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as ServiceMap from "effect/Context";
-import type * as CliCommand from "effect/unstable/cli/Command";
+import type * as CliCommand from "effect/cli/Command";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type { FailureSuggestedAction } from "@agentxm/workspace-kernel/operations";
 import { WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";

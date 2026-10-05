@@ -155,7 +155,7 @@ export const KNOWN_QUALITY_CHARACTERISTICS = [
 export type KnownQualityCharacteristic = (typeof KNOWN_QUALITY_CHARACTERISTICS)[number];
 
 /** Segments of a requirement identity or product-goal identity. */
-export const IDENTITY_SEGMENT_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const IDENTITY_SEGMENT_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/u;
 
 /** A declared blind spot of one specification and the condition that retires it. */
 export interface SpecificationLimitation {

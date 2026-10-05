@@ -66,6 +66,12 @@ orchestration. Generated Registry client diagnostics belong to the OpenAPI
 generator contract. A prior warning count is not an exception list: inspect
 the current source and typecheck result before retaining a boundary.
 
+The compiler allow-list explicitly accepts the existing `effect/cli`,
+`effect/http`, `effect/process`, and `effect/encoding/Sse` dependencies, which
+stable Effect still marks unstable. Keep Effect pinned to an exact version and
+verify these boundaries when upgrading. Other unstable or experimental APIs
+continue to produce diagnostics.
+
 ### JSON Schema annotations
 
 Generated JSON Schema emits `identifier`, `title`, `description`, `default`,

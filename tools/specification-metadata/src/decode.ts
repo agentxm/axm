@@ -24,7 +24,7 @@ import {
   type SpecificationMetadata,
 } from "./contract.js";
 
-const REQUIREMENT_IDENTITY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)+$/;
+const REQUIREMENT_IDENTITY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*(\/[a-z0-9]+(-[a-z0-9]+)*)+$/u;
 
 const RequirementIdentitySchema = Schema.String.pipe(
   Schema.check(

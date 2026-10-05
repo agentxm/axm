@@ -31,7 +31,7 @@ export const MCP_SERVER_REGISTRY_SERVER_SCHEMA_URL =
 
 const HttpUrlSchema = Schema.NonEmptyString.pipe(
   Schema.check(
-    Schema.isPattern(/^https?:\/\/[^\s]+$/, {
+    Schema.isPattern(/^https?:\/\/[^\s]+$/u, {
       message: "Expected an HTTP(S) URL.",
     }),
   ),
@@ -39,7 +39,7 @@ const HttpUrlSchema = Schema.NonEmptyString.pipe(
 
 const Sha256Schema = Schema.String.pipe(
   Schema.check(
-    Schema.isPattern(/^[a-f0-9]{64}$/, {
+    Schema.isPattern(/^[a-f0-9]{64}$/u, {
       message: "Expected a lowercase SHA-256 hex digest.",
     }),
   ),
@@ -151,7 +151,7 @@ export const McpRegistryIconSchema = Schema.Struct({
     Schema.Array(
       Schema.String.pipe(
         Schema.check(
-          Schema.isPattern(/^(\d+x\d+|any)$/, {
+          Schema.isPattern(/^(\d+x\d+|any)$/u, {
             message: "Expected an icon size like 48x48 or any.",
           }),
         ),
@@ -302,7 +302,7 @@ export const McpRegistryServerDetailSchema = Schema.Struct({
   name: Schema.NonEmptyString.pipe(
     Schema.annotateKey({ messageMissingKey: "MCP registry server name is required" }),
     Schema.check(
-      Schema.isPattern(/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/, {
+      Schema.isPattern(/^[a-zA-Z0-9.-]+\/[a-zA-Z0-9._-]+$/u, {
         message: "Expected reverse-DNS MCP server name with one slash.",
       }),
     ),

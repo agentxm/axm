@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { selfUpdateLayer, withRuntime } from "../../runtime.js";
 import {
   previewCapabilityFlag,

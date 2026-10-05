@@ -65,7 +65,7 @@
     "includedScripts": []
   },
   "engines": {
-    "node": ">=24.19.0"
+    "node": ">=24.21.0"
   },
   "dependencies": {
     "@agentxm/cli-maintenance": "workspace:^",

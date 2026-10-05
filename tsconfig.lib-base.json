@@ -5,6 +5,12 @@
       {
         "name": "@effect/language-service",
         "includeSuggestionsInTsc": false,
+        "allowedUnstableApis": [
+          "effect/cli",
+          "effect/http",
+          "effect/process",
+          "effect/encoding/Sse"
+        ],
         "diagnosticSeverity": {
           "preferSchemaOverJson": "off",
           "unnecessaryFailYieldableError": "warning",

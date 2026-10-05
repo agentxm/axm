@@ -21,7 +21,7 @@ import { PackageTypeSchema } from "./package-type.js";
  *
  * @see https://github.com/package-url/purl-spec
  */
-const PURL_QUALIFIER_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/;
+const PURL_QUALIFIER_KEY_PATTERN = /^[a-z][a-z0-9._-]*$/u;
 
 const PurlQualifierKeySchema = Schema.String.pipe(
   Schema.check(
@@ -79,7 +79,7 @@ const decodePackageTypeSync = Schema.decodeUnknownSync(PackageTypeSchema);
  * The full purl structure is validated by `PackageURL.fromString` during
  * decoding; this pattern exists to expose a useful shape hint in JSON Schema.
  */
-const PACKAGE_URL_PATTERN = /^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\/.+$/;
+const PACKAGE_URL_PATTERN = /^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\/.+$/u;
 
 /**
  * Schema that decodes purl strings into structured PackageUrlParts and

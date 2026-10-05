@@ -9,7 +9,7 @@
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 
 import { AppError, type AppErrorCode } from "../app-error/index.js";
 import { isWorkspaceFailure } from "../app-error/failure-catalog.js";

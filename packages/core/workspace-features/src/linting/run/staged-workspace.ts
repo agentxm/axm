@@ -13,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
 import * as Stream from "effect/Stream";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess } from "effect/process";
 import { createHash } from "node:crypto";
 import { LintStagingFailed } from "./errors.js";
 import { findGitRoot } from "@agentxm/workspace-kernel/sources";

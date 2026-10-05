@@ -6543,7 +6543,7 @@
                   "errorSchema": {
                     "$ref": "#/components/schemas/DebugStreamInterruptedEncoded"
                   },
-                  "failureEvent": "effect/httpapi/stream/failure"
+                  "failureEvent": "effect/http-api/stream/failure"
                 }
               }
             }

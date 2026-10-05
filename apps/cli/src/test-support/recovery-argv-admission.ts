@@ -1,7 +1,7 @@
 /** Full recovery argv admission uses registered parsing and substitutes only execution. */
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, Command, GlobalFlag } from "effect/cli";
 import { TEST_VERSION } from "./command-tree-test-helpers.js";
 import { makeCliTestContext } from "./test-helpers.js";
 import { rootCommand } from "../app.js";

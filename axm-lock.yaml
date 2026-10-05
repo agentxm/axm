@@ -306,10 +306,10 @@ knowledge:
       owner: "@craigsmitham"
       name: effect-v4
     resolved:
-      version: 1.0.5
-      integrity: sha512-YH0/ZWj1HjDAE/IM6sV7GsXpTmSf383uV8aBZKZdS1qofJJFiVP60+6gp3yR+/wu/l+AXVqFbFQ7f6qiNoeF6A==
+      version: 1.0.6
+      integrity: sha512-9PbXbZUaGqIS8RuEdItvyiz/rTQqWTrWbW36PBx0YTwp6yn1RZKML6m83Q4Ajc19AlNmWxCumowSFNJ6CXrm6g==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:5b5c4c95fe77173fcc38635c76eb2ca82c6b2c87b47b285c5ca81b75a0e731c4
+    treeIntegrity: sha256-tree-v2:80211090257c974fa4a9751d9a4396059756ccfe3a5337f1cd8ecc3decac1023
   agent-engineering:
     source:
       type: registry

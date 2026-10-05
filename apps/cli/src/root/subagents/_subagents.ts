@@ -1,4 +1,4 @@
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { showCommand } from "./show.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 

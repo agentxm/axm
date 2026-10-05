@@ -1,7 +1,7 @@
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { agentFlag } from "../../cli-flags/agent-flag.js";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import {
   ABSENT,

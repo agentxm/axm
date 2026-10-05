@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../app-error/index.js";

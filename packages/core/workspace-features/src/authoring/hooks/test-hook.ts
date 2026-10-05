@@ -8,7 +8,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
 import * as Stream from "effect/Stream";
-import { ChildProcess } from "effect/unstable/process";
+import { ChildProcess } from "effect/process";
 import { writeFileAtomic, envOption } from "@agentxm/host-primitives";
 import { readExtensionManifest } from "@agentxm/extension-content";
 import {

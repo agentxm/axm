@@ -32,7 +32,7 @@ import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensi
 export const PUBLICATION_SET_CONTRACT = "publication-set-v2" as const;
 export const MAX_PUBLICATION_SET_CANDIDATES = 100;
 
-export const Sha256HexSchema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/)).annotate({
+export const Sha256HexSchema = Schema.String.check(Schema.isPattern(/^[a-f0-9]{64}$/u)).annotate({
   identifier: "Sha256Hex",
 });
 

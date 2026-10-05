@@ -2,7 +2,7 @@ import * as crypto from "node:crypto";
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 

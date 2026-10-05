@@ -6,12 +6,12 @@ tags: [effect, effect-v4, brand, schema, nominal-types, refined-types]
 status: stable
 sources:
   - id: effect-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Brand.ts
-    title: Effect 4.0.0-rc.117 Brand source
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Brand.ts
+    title: Effect 4.0.0 Brand source
   - id: effect-schema-brand
-    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts
-    title: Effect 4.0.0-rc.117 Schema brand support
-generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
+    resource: https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Schema.ts#L5095-L5160
+    title: Effect 4.0.0 Schema brand support
+generated: { by: claude/opus-5.5, at: 2026-10-01T19:24:06Z }
 ---
 
 # Branded types
@@ -26,8 +26,9 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
   unvalidated string or number already carries the brand.
 - [ ] Keep service and domain signatures branded long enough to prevent the
   substitution the brand was introduced to stop.
-- [ ] Make representation changes explicit so mapping, serialization, or
-  arithmetic does not silently discard or invent a brand.
+- [ ] Make representation changes explicit so mapping, serialization,
+  arithmetic, or rebuilding a schema from its representation or generated code
+  does not silently discard or invent a brand.[^effect-schema-brand]
 - [ ] Avoid brands that merely restate an existing distinct domain class or add
   ceremony without ruling out a concrete invalid state.
 - [ ] Test rejection of invalid refined values and successful schema
@@ -35,5 +36,7 @@ generated: { by: claude/opus-5.5, at: 2026-09-22T21:20:55Z }
 
 ## Resources
 
-- [Brand source](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Brand.ts)
-- [Schema brand support](https://github.com/Effect-TS/effect/blob/effect%404.0.0-rc.117/packages/effect/src/Schema.ts)
+- [Brand source](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Brand.ts)
+- [Schema brand support](https://github.com/Effect-TS/effect/blob/effect%404.0.0/packages/effect/src/Schema.ts#L5095-L5160)
+
+[^effect-schema-brand]: Effect Schema brand support.

@@ -1,7 +1,7 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are normalized by this registry adapter
 import * as Effect from "effect/Effect";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientRequest from "effect/unstable/http/HttpClientRequest";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
 
 import { RegistryRequestFailed, type RegistryClientFailure } from "./errors.js";
 import { RegistryUrl } from "./registry-url.js";

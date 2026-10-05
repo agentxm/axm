@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import type { Command } from "effect/unstable/cli";
+import type { Command } from "effect/cli";
 
 import {
   CliReferenceDocumentSchema,

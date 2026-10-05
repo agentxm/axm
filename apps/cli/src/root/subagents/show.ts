@@ -1,6 +1,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { RenderSubagent, SubagentRenderResultSchema } from "@agentxm/workspace-features/inspection";
 

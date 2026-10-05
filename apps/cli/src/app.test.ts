@@ -7,7 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as ServiceMap from "effect/Context";
 
-import type { HelpDoc } from "effect/unstable/cli/HelpDoc";
+import type { HelpDoc } from "effect/cli/HelpDoc";
 
 import { ExitCode } from "./app-error/index.js";
 import {

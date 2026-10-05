@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import { ExecutionDirectory } from "../../execution-directory.js";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import { AppError } from "../../app-error/index.js";
 import { acceptWarningsFlag } from "../../cli-flags/index.js";

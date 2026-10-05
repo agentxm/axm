@@ -1,4 +1,4 @@
-import { Flag } from "effect/unstable/cli";
+import { Flag } from "effect/cli";
 
 /**
  * The repeated name-filter flag every `<type> update` accepts. `--name` is the

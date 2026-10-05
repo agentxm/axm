@@ -61,8 +61,8 @@ export {
 } from "../extension-types/schema.js";
 export { type PerAgentType } from "../extensions/common.js";
 
-const AGENT_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const AGENT_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/u;
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/u;
 
 /** @experimental This API is unstable and may change without notice. */
 export const AgentIdFromYamlSchema = Schema.NonEmptyString.pipe(

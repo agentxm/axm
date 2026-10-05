@@ -1,4 +1,4 @@
-import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { Flag, GlobalFlag } from "effect/cli";
 
 /** Machine output: schema-backed JSON results, and an absolute prohibition on prompts. */
 export const jsonFlag = GlobalFlag.Setting("axm-json")({

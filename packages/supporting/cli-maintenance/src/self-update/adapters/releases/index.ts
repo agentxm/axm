@@ -7,7 +7,7 @@
 
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as HttpClient from "effect/http/HttpClient";
 
 import {
   GITHUB_REPOSITORY,

@@ -29,7 +29,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as FetchHttpClient from "effect/unstable/http/FetchHttpClient";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";

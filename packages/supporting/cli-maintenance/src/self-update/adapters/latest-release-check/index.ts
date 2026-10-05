@@ -1,5 +1,5 @@
 import * as Effect from "effect/Effect";
-import type * as HttpClient from "effect/unstable/http/HttpClient";
+import type * as HttpClient from "effect/http/HttpClient";
 
 import { UpdateCheckUnavailable, type LatestReleaseCheck } from "../../application/index.js";
 import { resolveGithubLatestVersion } from "../github-latest/index.js";

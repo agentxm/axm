@@ -80,7 +80,7 @@ it later.** Frame the choice that way, then ask the user to pick one:
    packages. Pick this if most CLIs are managed with brew.
 3. **npm** — `npm install -g axm.sh`, alongside other global npm packages.
    Pick this if AXM is part of a Node.js-heavy environment. Requires Node.js
-   ≥24.19.0. If `node --version` reports an older release, upgrade Node first
+   ≥24.21.0. If `node --version` reports an older release, upgrade Node first
    or pick option 1 or 2 instead.
 
 Wait for the user's choice before running an installer.

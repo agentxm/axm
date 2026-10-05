@@ -4,8 +4,8 @@ import { describe, expect, it } from "@effect/vitest";
 
 import { CliReleaseCatalog, selectUpgradeRelease } from "../../application/index.js";
 import { makeCliReleaseCatalog } from "./index.js";
-import * as HttpClient from "effect/unstable/http/HttpClient";
-import * as HttpClientError from "effect/unstable/http/HttpClientError";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
 
 const catalog = makeCliReleaseCatalog(
   HttpClient.make((request) =>

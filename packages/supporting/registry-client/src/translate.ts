@@ -1,4 +1,4 @@
-import type * as HttpClientResponse from "effect/unstable/http/HttpClientResponse";
+import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";

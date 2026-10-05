@@ -2,7 +2,7 @@
 import { expect } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { CliConfig, Command, GlobalFlag } from "effect/unstable/cli";
+import { CliConfig, Command, GlobalFlag } from "effect/cli";
 import { rootCommand } from "../app.js";
 import { TEST_VERSION } from "./command-tree-test-helpers.js";
 import { makeCliTestContext } from "./test-helpers.js";

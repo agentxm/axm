@@ -1,3 +1,13 @@
+## 0.40.0 (2026-10-05)
+
+### ⚠️ Breaking Changes
+
+- Upgrade to Effect 4.0.1 and refresh Node, pnpm, Bun, compiler diagnostics, and test tooling. Preserve generated schema validation and fix Knowledge updates with shared native instruction readers. ([ac2440476](https://github.com/agentxm/axm/commit/ac2440476))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.39.0 (2026-10-04)
 
 ### 🩹 Fixes

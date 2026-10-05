@@ -9,7 +9,7 @@ tags: [handle, ownership, publisher, identity, supply-chain, security, hold]
 status: stable
 generated:
   by: openai/codex
-  at: 2026-08-13T18:34:00Z
+  at: 2026-10-05T00:00:00Z
 ---
 
 # Handles and ownership
@@ -45,9 +45,10 @@ Publisher names are recyclable, but published coordinates are not:
   24-hour hold. An extension can be deleted only before anything depends on it;
   see
   [Whole-extension lifecycle](visibility-and-discovery.md#whole-extension-lifecycle).
-- Deleting a Library removes its membership and holds the Library name for the
-  same owning account for 24 hours. Recreating it after the hold creates a new
-  Library identity; it does not restore the deleted one.
+- Libraries use immutable IDs and mutable, non-unique titles. Deleting a Library
+  removes its membership and access grants and permanently consumes its ID. A
+  new Library may immediately use the same title with a fresh ID; it inherits no
+  membership or grants. There is no Library title reuse hold.
 - Every published exact version coordinate `(handle, type, name, version)` is
   **permanently retired** — no one, including the original publisher, can ever
   republish it.

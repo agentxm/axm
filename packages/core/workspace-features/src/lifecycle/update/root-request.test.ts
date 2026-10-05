@@ -88,20 +88,6 @@ describe("resolveRootUpdateIntent", () => {
     }),
   );
 
-  it.effect("rejects Library update refs", () =>
-    Effect.gen(function* () {
-      const appError = yield* resolveRootUpdateIntent("@acme/libraries/frontend").pipe(Effect.flip);
-
-      expect(appError.category).toBe("usage");
-      expect(appError.detail).toBe(
-        "Libraries are curated registry collections and cannot be updated",
-      );
-      expect(appError.suggestions?.[0]?.description).toContain(
-        "Update installed extensions individually",
-      );
-    }),
-  );
-
   it.effect("rejects unknown plural types", () =>
     Effect.gen(function* () {
       const appError = yield* resolveRootUpdateIntent("@acme/widgets/policy").pipe(Effect.flip);

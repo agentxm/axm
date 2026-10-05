@@ -75,16 +75,4 @@ describe("resolveRootInstallIntent", () => {
       );
     }),
   );
-
-  it.effect("rejects Library install refs", () =>
-    Effect.gen(function* () {
-      const failure = yield* resolveRootInstallIntent("@acme/libraries/frontend").pipe(Effect.flip);
-
-      expect(failure.category).toBe("usage");
-      expect(failure.detail).toBe(
-        "Libraries are curated registry collections and cannot be installed",
-      );
-      expect(failure.suggestions?.[0]?.description).toContain("install the individual extensions");
-    }),
-  );
 });

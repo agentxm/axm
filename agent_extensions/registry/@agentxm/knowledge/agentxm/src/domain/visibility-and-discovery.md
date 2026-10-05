@@ -21,7 +21,7 @@ tags:
 status: stable
 generated:
   by: openai/codex
-  at: 2026-09-25T13:00:00Z
+  at: 2026-10-05T00:00:00Z
 ---
 
 # Visibility and discovery
@@ -84,8 +84,13 @@ or extension membership are frozen. A curator can restore the Library to resume
 those changes, or permanently delete it while it remains archived. Repeating an
 archive or restore request is safe and converges on the requested state.
 
-Deletion removes the Library and its membership. Its name then follows the reuse
-hold described in [Handles and ownership](handles-and-ownership.md).
+Deletion removes the Library, membership, and grants and permanently consumes
+its ID. Titles can be reused immediately with a new ID, as described in
+[Handles and ownership](handles-and-ownership.md). A Library’s visibility does
+not grant access to its private members: each extension is filtered
+independently. Readable title suffixes are canonicalized only after visibility
+and ownership have been checked; inaccessible Libraries disclose neither titles
+nor redirects.
 
 ## Defaults and mutability
 

@@ -97,19 +97,6 @@ export const resolveRootUpdateIntent: (
     });
   }
 
-  if (pluralType === "libraries") {
-    return yield* new ExtensionLifecycleFailed({
-      category: "usage",
-      detail: "Libraries are curated registry collections and cannot be updated",
-      suggestions: [
-        {
-          description:
-            "Update installed extensions individually; Library membership is viewed in AgentXM.",
-        },
-      ],
-    });
-  }
-
   const parsed = yield* decodeRegistrySourceRef(source).pipe(
     Effect.mapError((error) => {
       if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {

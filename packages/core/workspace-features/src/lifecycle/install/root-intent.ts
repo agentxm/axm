@@ -103,19 +103,6 @@ export const resolveRootInstallIntent: (
     });
   }
 
-  if (pluralType === "libraries") {
-    return yield* installRefused({
-      category: "usage",
-      detail: "Libraries are curated registry collections and cannot be installed",
-      suggestions: [
-        {
-          description:
-            "Open the Library in AgentXM, then install the individual extensions you want.",
-        },
-      ],
-    });
-  }
-
   const parsed = yield* decodeRegistrySourceRef(source).pipe(
     Effect.mapError((error) => {
       if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {

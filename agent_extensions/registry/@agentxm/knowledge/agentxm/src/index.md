@@ -17,8 +17,8 @@ model.
 
 - [The AgentXM product model](domain/extension-model.md) — The shared AgentXM
   product model: accounts, agents, extensions, versions, types, ownership, the
-  registry, AXM, workspaces, native locations, readers, consumers, packs, and
-  libraries.
+  registry, the marketplace and its listings, AXM, workspaces, native locations,
+  readers, consumers, packs, and libraries.
 - [Extension sources and resolution](domain/sources.md) — The vocabulary that
   separates where extension content comes from, how AXM locates it, what exact
   content a workspace accepted, and how it is named locally.

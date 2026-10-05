@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "effect": "catalog:",
-    "memfs": "^4.78.1",
+    "memfs": "^4.79.0",
     "vitest": "catalog:"
   },
   "devDependencies": {

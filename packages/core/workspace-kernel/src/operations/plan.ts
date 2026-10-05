@@ -138,6 +138,12 @@ export const PackMembershipDeltaSchema = Schema.Struct({
 export type PackMembershipDelta = typeof PackMembershipDeltaSchema.Type;
 
 export interface JobStepArtifact {
+  /** Settled children of a committed reconciliation closure, keyed by planned unit. */
+  readonly members?: ReadonlyArray<{
+    readonly id: string;
+    readonly changed: boolean;
+    readonly artifact: JobStepArtifact;
+  }>;
   readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly path: string;
   readonly scope: "project" | "user";

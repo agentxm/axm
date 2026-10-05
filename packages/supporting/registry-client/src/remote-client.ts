@@ -272,6 +272,7 @@ const toRegistryManifest = (
     type: index.type,
     name: index.name,
     publisherBindingId: index.publisherBindingId,
+    ...(index.visibility === undefined ? {} : { visibility: index.visibility }),
     description: Option.fromUndefinedOr(index.description),
     repository: Option.fromUndefinedOr(index.repository),
     bugs: Option.fromUndefinedOr(index.bugs),

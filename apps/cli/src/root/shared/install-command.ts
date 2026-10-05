@@ -41,6 +41,7 @@ import {
   narrowInstallSelection,
   retrySuggestion,
 } from "./confirmation-recovery.js";
+import { recordSkillInstalls } from "../../cli-runtime/index.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface InstallCommandArgs {
@@ -109,9 +110,12 @@ const body = (args: InstallCommandArgs) =>
       args.recoveryLocators,
       args.recoveryArguments ?? [],
     );
-    const resolution = yield* InstallExtensions.previewOrApply(candidate, execution).pipe(
-      Effect.mapError(failureToAppError),
-    );
+    const { resolution, installedSkills } = yield* InstallExtensions.previewOrApply(
+      candidate,
+      execution,
+    ).pipe(Effect.mapError(failureToAppError));
+
+    yield* recordSkillInstalls(installedSkills);
 
     // A locator install can settle several types at once; only a single-type
     // outcome names its subject.

@@ -353,6 +353,27 @@ describe("RegistrySourceHostProvider.resolveNamed", () => {
     ],
   };
 
+  it.effect.each(["public", "private", undefined] as const)(
+    "preserves only current Registry visibility %s",
+    (visibility) => {
+      const provider = createRemoteRegistrySourceHostProvider(
+        createMockClient({
+          getExtensionIndex: () =>
+            Effect.succeed(
+              Option.some({ ...visibleIndex, ...(visibility === undefined ? {} : { visibility }) }),
+            ),
+        }),
+      );
+      return runEffect(
+        Effect.gen(function* () {
+          const result = yield* provider.resolveNamed(testSource, options);
+          expect(result.kind).toBe("selected");
+          if (result.kind === "selected") expect(result.ref.visibility).toBe(visibility);
+        }),
+      );
+    },
+  );
+
   it.effect("returns not_found from one index read when the target is not visible", () => {
     let reads = 0;
     const provider = createRemoteRegistrySourceHostProvider(

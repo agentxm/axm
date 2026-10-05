@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
   title: "Telemetry excludes extension content and secrets",
   statement:
-    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.3.0 and contain only identity, correlation, timing, client, command-observation, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
+    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.4.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",
@@ -129,6 +129,7 @@ describe("Telemetry data boundary", () => {
         runtimeVersion: process.versions["bun"] ?? process.versions.node,
         platform: process.platform,
         architecture: process.arch,
+        callerAgent: "unknown",
         ci: report.client.ci,
       });
       expect(typeof report.client.ci).toBe("boolean");

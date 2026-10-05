@@ -65,6 +65,15 @@ describe("withAxmFetchPolicy", () => {
     await fetchWithPolicy("https://releases.axm.sh/latest.txt", { cache: "no-store" });
     await fetchWithPolicy("https://registry.agentxm.ai/v1/extensions", { cache: "reload" });
 
+    await fetchWithPolicy("https://api.github.com/repos/agentxm/axm", {
+      redirect: "follow",
+      credentials: "include",
+    });
+
+    expect(fetchImplementation).toHaveBeenNthCalledWith(3, expect.anything(), {
+      redirect: "error",
+      credentials: "omit",
+    });
     expect(fetchImplementation).toHaveBeenNthCalledWith(1, expect.anything(), {
       cache: "no-store",
       redirect: "manual",

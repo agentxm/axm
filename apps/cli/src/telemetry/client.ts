@@ -1,4 +1,7 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
+import type { InstalledSkill } from "@agentxm/workspace-features/lifecycle";
+import { type CallerAgent } from "./caller-agent.js";
+import { makeSkillInstallEligibility } from "./skill-install.js";
 import { randomUUID } from "node:crypto";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -36,6 +39,10 @@ export interface TelemetryClientService {
   /** This process invocation's identity, shared by its usage events and its error report. */
   readonly invocationId: string;
   readonly trackEvent: (event: string, properties?: TelemetryProperties) => Effect.Effect<void>;
+  readonly trackSkillInstalls: (
+    skills: ReadonlyArray<InstalledSkill>,
+    activityId?: string,
+  ) => Effect.Effect<void>;
   /** Report the invocation's terminal failure; an invocation reports at most one. */
   readonly reportError: (failure: TelemetryFailureReport) => Effect.Effect<void>;
 }
@@ -63,6 +70,8 @@ export interface TelemetryClientOptions {
   readonly installationId?: string;
   /** Deterministic test seam; production assigns a fresh event ID per event and report. */
   readonly eventIdFactory?: () => string;
+  /** Foreign detector seam; called only after effective consent. */
+  readonly detectCaller?: Effect.Effect<CallerAgent>;
 }
 
 export class TelemetryClient extends ServiceMap.Service<TelemetryClient, TelemetryClientService>()(
@@ -84,6 +93,7 @@ const disabledTelemetry = (): TelemetryClientService => ({
   invocationId: randomUUID(),
   trackEvent: () => Effect.void,
   reportError: () => Effect.void,
+  trackSkillInstalls: () => Effect.void,
 });
 
 export const TelemetryClientTest = Layer.sync(TelemetryClient, disabledTelemetry);
@@ -117,6 +127,8 @@ const startReporter = (
     const nextEventId = options.eventIdFactory ?? randomUUID;
     const facts = reportingClientFacts(options.client, ci);
     const context = usageEventContext(facts, invocationId);
+    const caller = yield* Deferred.make<CallerAgent>();
+    const eligible = options.mode === "all" ? yield* makeSkillInstallEligibility : undefined;
     const diagnostic = options.diagnostic ?? writeDiagnosticLine;
     const previewFormat = options.previewFormat ?? "text";
 
@@ -142,6 +154,13 @@ const startReporter = (
         if (!(yield* Ref.get(intakeOpen))) return;
         yield* FiberSet.run(pending, work.pipe(Effect.catchCause(() => Effect.void)));
       });
+
+    yield* own(
+      (options.detectCaller ?? Effect.succeed("unknown" as const)).pipe(
+        Effect.catchCause(() => Effect.succeed("unknown" as const)),
+        Effect.flatMap((agent) => Deferred.succeed(caller, agent)),
+      ),
+    );
 
     // Identity storage is never repaired and never replaced by a shared
     // stand-in: when it cannot be read or created the invocation has none.
@@ -196,7 +215,7 @@ const startReporter = (
                   timestamp,
                   sentAt: DateTime.formatIso(yield* DateTime.now),
                   properties: properties ?? {},
-                  context,
+                  context: { ...context, callerAgent: yield* Deferred.await(caller) },
                 });
                 const encoded = yield* Schema.encodeEffect(
                   GeneratedTelemetryClient.TelemetryEventsRequest,
@@ -221,7 +240,7 @@ const startReporter = (
               invocationId,
               occurredAt,
               installationId: yield* Deferred.await(identity),
-              client: facts,
+              client: { ...facts, callerAgent: yield* Deferred.await(caller) },
               failure,
             });
             const encoded = yield* Schema.encodeEffect(
@@ -235,7 +254,91 @@ const startReporter = (
         Effect.withSpan("TelemetryClient.reportError"),
       );
 
-    return { invocationId, trackEvent, reportError } satisfies TelemetryClientService;
+    const trackSkillInstalls: TelemetryClientService["trackSkillInstalls"] = (
+      skills,
+      activityId,
+    ) =>
+      eligible === undefined || skills.length === 0
+        ? Effect.void
+        : Effect.gen(function* () {
+            // Capture occurrence identity once, before any detector, identity or visibility wait.
+            const timestamp = DateTime.formatIso(yield* DateTime.now);
+            const observations = skills.map((skill) => ({ skill, eventId: nextEventId() }));
+            yield* own(
+              Effect.gen(function* () {
+                const installationId = yield* Deferred.await(identity);
+                if (Option.isNone(installationId)) return;
+                const callerAgent = yield* Deferred.await(caller);
+                const unique = new Map<
+                  string,
+                  {
+                    eventId: string;
+                    properties: GeneratedTelemetryClient.SkillInstallEvent["properties"];
+                  }
+                >();
+                for (const observation of observations) {
+                  const properties = yield* eligible(observation.skill, options.preview === true);
+                  if (Option.isNone(properties)) continue;
+                  const key = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(
+                    properties.value.skill,
+                  );
+                  const previous = unique.get(key);
+                  unique.set(
+                    key,
+                    previous === undefined
+                      ? { eventId: observation.eventId, properties: properties.value }
+                      : {
+                          ...previous,
+                          properties: {
+                            ...previous.properties,
+                            targetAgents: [
+                              ...new Set([
+                                ...previous.properties.targetAgents,
+                                ...properties.value.targetAgents,
+                              ]),
+                            ],
+                          },
+                        },
+                  );
+                }
+                for (const observation of unique.values()) {
+                  const request: GeneratedTelemetryClient.TelemetryEventsRequest = {
+                    events: [
+                      {
+                        eventId: observation.eventId,
+                        event: "skill_install_completed",
+                        distinctId: installationId.value,
+                        timestamp,
+                        anonymous: true,
+                        properties: {
+                          ...observation.properties,
+                          ...(activityId === undefined ? {} : { activityId }),
+                        },
+                      },
+                    ],
+                    context: { ...context, callerAgent },
+                  };
+                  yield* Effect.gen(function* () {
+                    const encoded = yield* Schema.encodeEffect(
+                      GeneratedTelemetryClient.TelemetryEventsRequest,
+                    )(request);
+                    yield* deliver(
+                      "/v1/events",
+                      encoded,
+                      transport.EventsIngest({ payload: encoded }),
+                    );
+                  }).pipe(Effect.catchCause(() => Effect.void));
+                }
+              }),
+            );
+          }).pipe(Effect.catchCause(() => Effect.void));
+
+    return {
+      invocationId,
+      trackEvent,
+      trackSkillInstalls,
+      reportError,
+    } satisfies TelemetryClientService;
   });
 
 /**

@@ -360,6 +360,9 @@ importers:
       '@effect/platform-node-shared':
         specifier: 'catalog:'
         version: 4.0.1(effect@4.0.1)
+      detect-agent:
+        specifier: 1.2.0
+        version: 1.2.0
       effect:
         specifier: 'catalog:'
         version: 4.0.1
@@ -4264,6 +4267,10 @@ packages:
 
   des.js@1.1.0:
     resolution: {integrity: sha512-r17GxjhUCjSRy8aiJpr8/UadFIzMzJGexI3Nmz4ADi9LYSFx4gTBp80+NaX/YsXWWLhpZ7v/v/ubEc/bCNfKwg==}
+
+  detect-agent@1.2.0:
+    resolution: {integrity: sha512-fW/515FHIogLopGDTSMc4XXkJV6mkVC10gVPoenb7cgY7PZAF/jakLDdDUBQ9QpJEA9AYgEg3/B9WqLTUtz3Ag==}
+    engines: {node: '>=20'}
 
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
@@ -9574,6 +9581,8 @@ snapshots:
     dependencies:
       inherits: 2.0.4
       minimalistic-assert: 1.0.1
+
+  detect-agent@1.2.0: {}
 
   detect-libc@2.1.2: {}
 

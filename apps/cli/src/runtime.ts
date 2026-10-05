@@ -88,6 +88,7 @@ import {
 } from "@agentxm/registry-access/adapters";
 import { ambientCredentialSource } from "@agentxm/registry-access/credentials";
 import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
+import { detectCallerAgent } from "./telemetry/caller-agent.js";
 import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
   SettingsReader,
@@ -148,11 +149,15 @@ const fetchInputUrl = (input: string | URL | Request): string =>
 /** Keep redirect policy at the runtime transport boundary that owns fetch. */
 export const withAxmFetchPolicy =
   (fetchImplementation: typeof globalThis.fetch): typeof globalThis.fetch =>
-  (input, init) =>
-    fetchImplementation(
-      input,
-      fetchInputUrl(input) === LATEST_RELEASE_URL ? { ...init, redirect: "manual" } : init,
-    );
+  (input, init) => {
+    const url = fetchInputUrl(input);
+    const policy = /^https:\/\/api\.github\.com\/repos\/[A-Za-z0-9-]+\/[A-Za-z0-9_.-]+$/.test(url)
+      ? ({ ...init, redirect: "error", credentials: "omit" } satisfies RequestInit)
+      : url === LATEST_RELEASE_URL
+        ? ({ ...init, redirect: "manual" } satisfies RequestInit)
+        : init;
+    return fetchImplementation(input, policy);
+  };
 
 const AxmFetchLayer = Layer.succeed(FetchHttpClient.Fetch, withAxmFetchPolicy(globalThis.fetch));
 
@@ -333,12 +338,14 @@ const isPreviewRequest = (value: string | undefined): boolean => value === "1" |
  */
 export const resolveProcessTelemetryOptions = (
   environment: Readonly<Record<string, string | undefined>> = process.env,
-): Pick<TelemetryClientOptions, "mode" | "preview" | "client"> => ({
+): Pick<TelemetryClientOptions, "mode" | "preview" | "client" | "detectCaller"> => ({
   mode: resolveTelemetryMode({
     doNotTrack: environment["DO_NOT_TRACK"],
+    disableTelemetry: environment["DISABLE_TELEMETRY"],
     telemetry: environment["AXM_TELEMETRY"],
   }),
   preview: isPreviewRequest(environment["AXM_TELEMETRY_PREVIEW"]),
+  detectCaller: detectCallerAgent(environment),
   client: { name: "cli", version: loadVersion() },
 });
 

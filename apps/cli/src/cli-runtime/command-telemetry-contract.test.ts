@@ -21,6 +21,7 @@ const makeCaptureLayer = (): readonly [Layer.Layer<TelemetryClient>, Capture] =>
   const capture: Capture = { events: [] };
   const layer = Layer.succeed(TelemetryClient, {
     invocationId: "00000000-0000-4000-8000-000000000009",
+    trackSkillInstalls: () => Effect.void,
     trackEvent: (event, properties) =>
       Effect.sync(() => {
         capture.events.push({ event, ...(properties !== undefined && { properties }) });

@@ -1294,6 +1294,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example, decision-table
 - Source: [`apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts`](../apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts)
 
+##### Install observations follow committed fresh skill acquisitions
+
+- Requirement: `cli/install/installed-skills-follow-settlement`
+- Owner: `workspace-features`
+- Statement: An explicit skill install shall expose one neutral observation per freshly acquired skill only after committed settlement with usable native output; preview, unchanged reapplication, repair, rollback, cancellation, and bootstrap shall expose none, and deliberate fresh reinstall shall be marked separately.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/apply-realizes-the-previewed-closure`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/installed-skills-follow-settlement.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/installed-skills-follow-settlement.spec.ts)
+
 ##### Installing an extension places its source content in the workspace
 
 - Requirement: `cli/install/materializes-canonical-content`
@@ -2259,11 +2272,11 @@ Observation of product use stays within the documented data boundary and under t
 - Derived from: `system/security/telemetry-consent-and-precedence`, `system/reliability/telemetry-failure-never-alters-outcomes`
 - Source: [`apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts`](../apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts)
 
-##### Telemetry collection requires the operator's environment consent
+##### Telemetry defaults on with environment opt-outs
 
 - Requirement: `system/security/telemetry-consent-and-precedence`
 - Owner: `cli`
-- Statement: Telemetry collection shall remain off unless the operator explicitly enables usage or error telemetry through the environment, give the do-not-track convention precedence over every other control, and read no telemetry control from committed workspace configuration.
+- Statement: Telemetry shall default to usage and errors when AXM_TELEMETRY is absent, honor any nonempty DO_NOT_TRACK or DISABLE_TELEMETRY before AXM_TELEMETRY, accept only explicit all/errors/off controls, treat empty or unrecognized AXM_TELEMETRY as off, apply the same rules in CI, and read no telemetry control from committed workspace configuration.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`
@@ -5788,11 +5801,24 @@ Observation of product use stays within the documented data boundary and under t
 
 #### Quality
 
+##### Skill install telemetry identifies only currently public sources
+
+- Requirement: `system/security/skill-install-telemetry-public-identity`
+- Owner: `cli`
+- Statement: Skill installation telemetry shall report stable public source coordinates separately from immutable revision, with finite caller and verified target agents; Registry evidence must be current and production-owned, GitHub evidence must be an unauthenticated fixed-origin public response memoized only within the invocation, and absent consent or evidence shall omit the observation without changing installation outcomes or starting preview visibility probes.
+- Class: quality (privacy)
+- Role: interface
+- Product goals: `privacy-and-consent`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table, example
+- Derived from: `system/security/telemetry-consent-and-precedence`
+- Source: [`apps/cli/src/telemetry/skill-install-telemetry.spec.ts`](../apps/cli/src/telemetry/skill-install-telemetry.spec.ts)
+
 ##### Telemetry excludes extension content and secrets
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
 - Owner: `cli`
-- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.3.0 and contain only identity, correlation, timing, client, command-observation, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.4.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
@@ -5800,11 +5826,11 @@ Observation of product use stays within the documented data boundary and under t
 - Methods: contract, example
 - Source: [`apps/cli/src/telemetry/telemetry-payloads-respect-data-boundary.spec.ts`](../apps/cli/src/telemetry/telemetry-payloads-respect-data-boundary.spec.ts)
 
-##### Enabled telemetry uses anonymous random installation identity
+##### Enabled telemetry uses random installation identity
 
 - Requirement: `system/security/telemetry-uses-anonymous-installation-identity`
 - Owner: `cli`
-- Statement: When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an opted-in error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.
+- Statement: When telemetry is enabled, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an eligible error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`

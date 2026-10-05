@@ -113,6 +113,7 @@ const reporterLayer = (
   return Layer.provide(
     TelemetryClientLive({
       mode: "all",
+      detectCaller: Effect.succeed("unknown"),
       client: { name: "cli", version: "1.2.3" },
       eventIdFactory: () => EVENT_ID,
       ...(suppressedInTest === true ? {} : { deliverInTest: true }),
@@ -226,6 +227,7 @@ describe("TelemetryClientLive", () => {
           },
           device: { arch: process.arch },
           ci: false,
+          callerAgent: "unknown",
           invocationId,
         });
       }),
@@ -258,6 +260,7 @@ describe("TelemetryClientLive", () => {
             runtimeVersion: process.versions["bun"] ?? process.versions.node,
             platform: process.platform,
             architecture: process.arch,
+            callerAgent: "unknown",
             ci: false,
           },
           command: "setup",

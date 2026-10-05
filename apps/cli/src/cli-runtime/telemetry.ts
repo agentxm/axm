@@ -1,3 +1,4 @@
+import type { InstalledSkill } from "@agentxm/workspace-features/lifecycle";
 import { randomUUID } from "node:crypto";
 import type * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -422,3 +423,15 @@ export const observeLifecycleForTelemetry = (
       Effect.forkScoped,
     );
   });
+
+/** Observe settled installs before output rendering can fail. */
+export const recordSkillInstalls = (skills: ReadonlyArray<InstalledSkill>): Effect.Effect<void> =>
+  Effect.gen(function* () {
+    const telemetry = yield* Effect.serviceOption(TelemetryClient);
+    if (Option.isNone(telemetry)) return;
+    const activity = yield* currentProductActivity;
+    yield* telemetry.value.trackSkillInstalls(
+      skills,
+      Option.isSome(activity) ? activity.value.activityId : undefined,
+    );
+  }).pipe(Effect.catchCause(() => Effect.void));

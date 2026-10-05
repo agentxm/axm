@@ -102,7 +102,7 @@ describe("Install apply realizes the previewed closure", () => {
             "Intervening edit.\n",
           );
           const intervening = workspace.snapshot();
-          const result = yield* InstallExtensions.previewOrApply(
+          const { resolution: result } = yield* InstallExtensions.previewOrApply(
             candidate,
             preapprovedPlanExecution,
           );

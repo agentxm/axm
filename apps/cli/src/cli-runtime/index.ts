@@ -80,6 +80,7 @@ export {
   withCliErrorHandling,
 } from "./runtime-envelope.js";
 export {
+  recordSkillInstalls,
   trackCliCommand,
   trackCliCommandCompleted,
   recordCommandSettlement,

@@ -79,6 +79,7 @@
     "@agentxm/workspace-kernel": "workspace:^",
     "@effect/platform-node": "catalog:",
     "@effect/platform-node-shared": "catalog:",
+    "detect-agent": "1.2.0",
     "effect": "catalog:"
   },
   "devDependencies": {

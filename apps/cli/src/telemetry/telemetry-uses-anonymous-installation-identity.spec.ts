@@ -19,9 +19,9 @@ import { TelemetryClient, type TelemetryClientService, TelemetryErrorReport } fr
 
 export const specification = defineSpecification({
   requirement: "system/security/telemetry-uses-anonymous-installation-identity",
-  title: "Enabled telemetry uses anonymous random installation identity",
+  title: "Enabled telemetry uses random installation identity",
   statement:
-    "When an operator enables telemetry, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an opted-in error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.",
+    "When telemetry is enabled, AXM shall use a persisted random installation identity rather than a machine-derived identity, mark usage events anonymous, assign each usage event and error report a fresh retry-stable event identity, create no telemetry identity while collection is disabled, and, when identity storage is unavailable, send an eligible error report without an installation identity, skip usage events that require one, and never substitute a shared fallback identity.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",

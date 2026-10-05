@@ -55,14 +55,18 @@ export const installRequest = (args: {
 export const previewInstall = (request: InstallExtensionsRequest) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.prepare(request);
-    return yield* InstallExtensions.previewOrApply(candidate, previewPlanExecution);
+    return yield* InstallExtensions.previewOrApply(candidate, previewPlanExecution).pipe(
+      Effect.map((result) => result.resolution),
+    );
   });
 
 /** Settle a request and apply it. */
 export const applyInstall = (request: InstallExtensionsRequest) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.prepare(request);
-    return yield* InstallExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+    return yield* InstallExtensions.previewOrApply(candidate, preapprovedPlanExecution).pipe(
+      Effect.map((result) => result.resolution),
+    );
   });
 
 /** A workspace that can resolve real sources, with a Registry to publish into. */
@@ -82,6 +86,7 @@ export const makeInstallWorld = (
     readonly scope?: "project" | "user";
     /** Reuse a Registry another workspace already published into. */
     readonly registry?: FileRegistry;
+    readonly installedExecutables?: ReadonlyArray<string>;
   } = {},
 ): InstallWorld => {
   const owned = options.registry === undefined;
@@ -89,6 +94,9 @@ export const makeInstallWorld = (
   const workspace = makeLifecycleFixture({
     ...(options.scope === undefined ? {} : { scope: options.scope }),
     sources: "live",
+    ...(options.installedExecutables === undefined
+      ? {}
+      : { installedExecutables: options.installedExecutables }),
     settings: {
       owner: "@acme",
       agents: ["claude-code"],

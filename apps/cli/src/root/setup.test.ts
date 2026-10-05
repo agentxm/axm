@@ -44,10 +44,8 @@ const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(file
 const readLockfile = (filePath: string) =>
   Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
 const telemetrySuggestion = {
-  description: "Telemetry is off; environment help explains the opt-in controls",
-};
-const enabledTelemetrySuggestion = {
-  description: "Disable telemetry with AXM_TELEMETRY=0; environment help lists all controls",
+  description:
+    "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0",
 };
 const projectSetupSuggestions = [
   { description: "Inspect configured agents", cmd: "axm agents list" },
@@ -104,7 +102,12 @@ const makeSetupTestContext = (opts?: {
   const baseLayer = Layer.mergeAll(
     ConfigProvider.layer(
       ConfigProvider.fromEnvRecord(
-        { ...process.env, ...opts?.environment },
+        {
+          ...process.env,
+          // Keep user configuration inside the fixture, including on hosted runners.
+          XDG_CONFIG_HOME: path.join(process.env["HOME"] ?? os.homedir(), ".config"),
+          ...opts?.environment,
+        },
         { preserveEmptyStrings: true },
       ),
     ),
@@ -366,7 +369,7 @@ describe("setup.handler", () => {
                 ],
               }),
             ]),
-            telemetryEnabled: false,
+            telemetryEnabled: true,
           });
           expect(rendererState.suggestions).toEqual([
             ...projectSetupSuggestions,
@@ -1512,7 +1515,24 @@ describe("setup.handler", () => {
   });
 
   describe("telemetry notice", () => {
-    it.effect("displays opt-in telemetry guidance after setup", () => {
+    it.effect.each(["DO_NOT_TRACK", "DISABLE_TELEMETRY"])(
+      "discloses disabled collection with nonempty %s",
+      (flag) => {
+        const { handleSetup, provide, rendererState } = makeSetupTestContext({
+          environment: { [flag]: "false" },
+        });
+        return provide(
+          Effect.gen(function* () {
+            yield* handleSetup({ scope: "project" });
+            expect(rendererState.suggestions).toContainEqual({
+              description: "Telemetry is off; environment help lists all controls",
+            });
+          }),
+        );
+      },
+    );
+
+    it.effect("discloses default collection after setup", () => {
       const { handleSetup, provide, rendererState } = makeSetupTestContext();
 
       return provide(
@@ -1531,7 +1551,7 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project" });
-          expect(rendererState.suggestions).toContainEqual(enabledTelemetrySuggestion);
+          expect(rendererState.suggestions).toContainEqual(telemetrySuggestion);
         }),
       );
     });

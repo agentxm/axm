@@ -1,7 +1,6 @@
 # Transactional AXM installer for Windows
 $ErrorActionPreference = 'Stop'
 
-$githubRepo = if ($env:AXM_INSTALL_GITHUB_REPO) { $env:AXM_INSTALL_GITHUB_REPO } else { 'agentxm/axm' }
 $userHome = if ($env:AXM_USER_HOME) { $env:AXM_USER_HOME } else { $env:USERPROFILE }
 $dataDir = Join-Path $userHome '.axm'
 $installDir = if ($env:AXM_INSTALL_DIR) { $env:AXM_INSTALL_DIR } else { Join-Path $dataDir 'bin' }
@@ -119,11 +118,14 @@ try {
     if ($env:AXM_INSTALL_BASE_URL) {
         $baseUrl = $env:AXM_INSTALL_BASE_URL.TrimEnd('/')
     }
-    elseif ($targetVersion) {
-        $baseUrl = "https://github.com/$githubRepo/releases/download/cli-v$targetVersion"
-    }
     else {
-        $baseUrl = "https://github.com/$githubRepo/releases/latest/download"
+        if (-not $targetVersion) {
+            $targetVersion = (Invoke-WebRequest -UseBasicParsing -TimeoutSec 30 -Uri 'https://releases.axm.sh/latest.txt').Content.Trim()
+            if ($targetVersion -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$') {
+                throw 'Invalid latest AXM release version.'
+            }
+        }
+        $baseUrl = "https://releases.axm.sh/cli-v$targetVersion"
     }
 
     New-Item -ItemType Directory -Path $installDir -Force | Out-Null

@@ -101,7 +101,7 @@ export const UpgradeAssessmentResultSchema = Schema.Struct({
     executablePath: Schema.NullOr(Schema.String),
   }),
   canonical: Schema.Struct({
-    source: Schema.Literals(["github-latest", "exact-version"] as const),
+    source: Schema.Literals(["distribution-latest", "exact-version"] as const),
     version: Schema.String,
     validatedAt: Schema.String,
   }),

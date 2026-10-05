@@ -11,7 +11,6 @@ case "$INSTALL_DIR" in
   *) INSTALL_DIR="$(pwd)/${INSTALL_DIR#./}" ;;
 esac
 BINARY_NAME="axm"
-GITHUB_REPO="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"
 TARGET="${INSTALL_DIR}/${BINARY_NAME}"
 LOCK_DIR="${TARGET}.upgrade.lock"
 TEMP_BINARY=""
@@ -79,18 +78,23 @@ resolve_base_url() {
     valid_semver "$AXM_INSTALL_VERSION" ||
       fail "AXM_INSTALL_VERSION must be an unprefixed semantic version"
     TARGET_VERSION="$AXM_INSTALL_VERSION"
-    RELEASE_PATH="cli-v${TARGET_VERSION}"
   else
     TARGET_VERSION=""
-    RELEASE_PATH="latest"
   fi
 
   if [ -n "${AXM_INSTALL_BASE_URL:-}" ]; then
     BASE_URL="${AXM_INSTALL_BASE_URL%/}"
-  elif [ "$RELEASE_PATH" = "latest" ]; then
-    BASE_URL="https://github.com/${GITHUB_REPO}/releases/latest/download"
   else
-    BASE_URL="https://github.com/${GITHUB_REPO}/releases/download/${RELEASE_PATH}"
+    if [ -z "$TARGET_VERSION" ]; then
+      if [ "$DOWNLOADER" = "curl" ]; then
+        TARGET_VERSION="$(curl -fsSL --connect-timeout 10 --max-time 30 https://releases.axm.sh/latest.txt)" || fail "Failed to discover the latest AXM release"
+      else
+        TARGET_VERSION="$(wget -qO- --timeout=30 https://releases.axm.sh/latest.txt)" || fail "Failed to discover the latest AXM release"
+      fi
+      case "$TARGET_VERSION" in *[!0-9.]* | "") fail "Invalid latest AXM release version" ;; esac
+      printf '%s\n' "$TARGET_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$' || fail "Invalid latest AXM release version"
+    fi
+    BASE_URL="https://releases.axm.sh/cli-v${TARGET_VERSION}"
   fi
 }
 
@@ -242,8 +246,8 @@ verify_path() {
 
 main() {
   detect_platform
-  resolve_base_url
   detect_tools
+  resolve_base_url
   acquire_lock
   install_transactionally
   verify_path

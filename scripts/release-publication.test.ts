@@ -647,7 +647,7 @@ describe("bounded publication observation", () => {
 });
 
 describe("distribution ordering and recovery", () => {
-  it.effect.each(["artifacts", "npm", "tap"] as const)(
+  it.effect.each(["artifacts", "distribution", "npm", "tap"] as const)(
     "records %s failure and permits a rerun to reuse prior outputs",
     (failed) =>
       Effect.gen(function* () {
@@ -655,7 +655,7 @@ describe("distribution ordering and recovery", () => {
         const writes: string[] = [];
         const records: PublicationStates[] = [];
         let failure = true;
-        const boundaries = (["artifacts", "npm", "tap"] as const).map((name) => ({
+        const boundaries = (["artifacts", "distribution", "npm", "tap"] as const).map((name) => ({
           name,
           publish: () =>
             Effect.tryPromise({
@@ -680,9 +680,10 @@ describe("distribution ordering and recovery", () => {
           records.push(state),
         );
         expect(outcome).toBe("distributed");
-        expect(writes).toEqual(["artifacts", "npm", "tap"]);
+        expect(writes).toEqual(["artifacts", "distribution", "npm", "tap"]);
         expect(records.at(-1)).toEqual({
           artifacts: "succeeded",
+          distribution: "succeeded",
           npm: "succeeded",
           tap: "succeeded",
         });
@@ -713,37 +714,26 @@ describe("distribution ordering and recovery", () => {
 const assets = ["axm-darwin-arm64", "axm-darwin-x64", "axm-linux-arm64", "axm-linux-x64"];
 const hashes = new Map(assets.map((name) => [name, "a".repeat(64)]));
 const formula = (version: string) =>
-  `class Axm < Formula\n  version "${version}"\n${assets.map((name) => `  url "https://github.com/agentxm/axm/releases/download/cli-v${version}/${name}"\n  sha256 "${"a".repeat(64)}"`).join("\n")}\nend\n`;
+  `class Axm < Formula\n  version "${version}"\n${assets.map((name) => `  url "https://releases.axm.sh/cli-v${version}/${name}"\n  sha256 "${"a".repeat(64)}"`).join("\n")}\nend\n`;
 
 describe("Homebrew formula identity", () => {
   it("reuses an identical coordinate and all four descriptors", () => {
-    expect(prepareFormula(formula("1.2.3"), "1.2.3", "agentxm/axm", hashes).changed).toBe(false);
+    expect(prepareFormula(formula("1.2.3"), "1.2.3", hashes).changed).toBe(false);
   });
   it("updates all four immutable URLs with their checksums", () => {
-    expect(prepareFormula(formula("1.2.2"), "1.2.3", "agentxm/axm", hashes).content).toBe(
-      formula("1.2.3"),
-    );
+    expect(prepareFormula(formula("1.2.2"), "1.2.3", hashes).content).toBe(formula("1.2.3"));
   });
   it.each(assets)("rejects equal-version wrong bytes for %s", (name) => {
     const changed = new Map(hashes).set(name, "b".repeat(64));
-    expect(() => prepareFormula(formula("1.2.3"), "1.2.3", "agentxm/axm", changed)).toThrow(
-      "integrity conflict",
-    );
+    expect(() => prepareFormula(formula("1.2.3"), "1.2.3", changed)).toThrow("integrity conflict");
   });
   it("rejects equal-version wrong artifact coordinates", () => {
     expect(() =>
-      prepareFormula(
-        formula("1.2.3").replace("github.com/agentxm/", "github.com/other/"),
-        "1.2.3",
-        "agentxm/axm",
-        hashes,
-      ),
+      prepareFormula(formula("1.2.3").replace("releases.axm.sh", "other.example"), "1.2.3", hashes),
     ).toThrow("integrity conflict");
   });
   it("retains a newer formula", () => {
-    expect(() => prepareFormula(formula("1.3.0"), "1.2.3", "agentxm/axm", hashes)).toThrow(
-      SupersededRelease,
-    );
+    expect(() => prepareFormula(formula("1.3.0"), "1.2.3", hashes)).toThrow(SupersededRelease);
   });
 });
 

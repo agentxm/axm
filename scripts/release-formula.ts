@@ -16,7 +16,6 @@ export const formulaVersion = (formula: string): string => {
 export const prepareFormula = (
   formula: string,
   version: string,
-  repository: string,
   checksums: ReadonlyMap<string, string>,
 ): { readonly content: string; readonly changed: boolean } => {
   const current = formulaVersion(formula);
@@ -37,7 +36,7 @@ export const prepareFormula = (
     ) {
       throw new Error(`Formula must have exactly one URL/checksum pair for ${artifact}.`);
     }
-    const url = `https://github.com/${repository}/releases/download/cli-v${version}/${artifact}`;
+    const url = `https://releases.axm.sh/cli-v${version}/${artifact}`;
     // Resolve Homebrew's version interpolation when assessing the current formula.
     const previousUrl = (lines[index] ?? "").replace(/#\{version\}/gu, current).trim();
     const previousHash = (lines[index + 1] ?? "").trim();

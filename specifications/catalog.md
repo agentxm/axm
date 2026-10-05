@@ -3503,7 +3503,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/upgrade/exact-version-bypasses-discovery`
 - Owner: `cli-maintenance`
-- Statement: An upgrade naming a normalized stable semantic version shall derive its immutable GitHub Release coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.
+- Statement: An upgrade naming a normalized stable semantic version shall derive its immutable production distribution coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`
@@ -3524,19 +3524,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/upgrade/installer-availability-gates-mutation`
 - Source: [`apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts`](../apps/cli/src/root/upgrade/homebrew-checks-availability-once.spec.ts)
 
-##### Latest upgrade uses GitHub's latest release
+##### Latest upgrade uses the production release distribution
 
-- Requirement: `cli/upgrade/latest-uses-github-release`
+- Requirement: `cli/upgrade/latest-uses-production-distribution`
 - Owner: `cli-maintenance`
-- Statement: An upgrade without an exact version shall resolve the stable release from the Location header of one bounded request to the repository's GitHub latest-release URL, validate its release tag, derive immutable asset URLs from that tag, and shall not use the GitHub REST API or package-manager publication state for release selection.
+- Statement: An upgrade without an exact version shall resolve and validate the stable version from one bounded request to the production release origin, derive immutable binary and checksum URLs from that version, and require no GitHub availability or package-manager publication state for release selection.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Supersedes: `cli/upgrade/latest-uses-promoted-stable-channel`
-- Assumptions: The release workflow publishes a stable CLI release as GitHub's latest release after all immutable artifacts are attached.
-- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-github-release.spec.ts)
+- Supersedes: `cli/upgrade/latest-uses-github-release`
+- Assumptions: The release workflow updates latest.txt only after verifying the complete immutable release.
+- Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-production-distribution.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/releases/latest-uses-production-distribution.spec.ts)
 
 ##### Script upgrades distinguish storage failures from an occupied installation
 
@@ -5735,6 +5735,20 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 #### Functional
 
+##### Public installers pin the latest complete release
+
+- Requirement: `system/installability/native-installers-pin-latest-release`
+- Owner: `cli-e2e`
+- Statement: When AXM_INSTALL_VERSION is unset, public installers shall resolve the production distribution's latest stable version once and install its immutable checksum-verified executable without querying GitHub.
+- Class: functional
+- Role: interface
+- Product goals: `platform-reach`, `trustworthy-distribution`
+- Boundary: process; selection: per-change
+- Boundary rationale: Runs the actual shell installer with a controlled downloader and independently reads the committed executable.
+- Methods: example
+- Limitation: These controlled URL-selection cases run on macOS/Linux; PowerShell and cmd retain their existing Windows installed-product coverage without controlled latest-pointer selection. Retires when: Run the same pointer-and-version control through the Windows installers.
+- Source: [`apps/cli-e2e/src/installers/native-installers-pin-latest-release.spec.ts`](../apps/cli-e2e/src/installers/native-installers-pin-latest-release.spec.ts)
+
 ##### Public installers install the requested release version
 
 - Requirement: `system/installability/native-installers-use-requested-version`
@@ -5747,7 +5761,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Boundary rationale: The actual public shell installer runs with a controlled downloader; exact and mutable release URLs return different checksum-valid executable bytes, and independent filesystem readback establishes which release was committed.
 - Methods: example
 - Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/help/topics/upgrade.md`, `apps/cli/site-content/install.sh`, `apps/cli/site-content/install.ps1`
-- Assumptions: When AXM_INSTALL_VERSION is unset, public installers select GitHub's latest AXM release.
+- Assumptions: When AXM_INSTALL_VERSION is unset, public installers select the latest complete release from the production distribution.
 - Open questions: What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.; Are prerelease and build-metadata versions supported by the public installers? The stated unprefixed-semver domain is broader than the accepted exact-upgrade stable-version domain; do not import upgrade's restriction without a decision.
 - Limitation: The direct cases run the shell installer on macOS/Linux. Existing PowerShell/cmd installed-product evidence verifies installation but does not discriminate immutable-version routing from latest routing; that missing URL-and-version control remains explicit. Retires when: Add the same selected-versus-newer transport control to the actual PowerShell installer and its cmd entrypoint on the supported Windows matrix.
 - Source: [`apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts`](../apps/cli-e2e/src/installers/native-installers-use-requested-version.spec.ts)
@@ -6686,6 +6700,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `docs/architecture/workspace/execution.md`
 - Source: [`packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts`](../packages/supporting/registry-client/src/archive-acquisition-is-bounded.spec.ts)
 
+##### Latest selects a complete immutable release
+
+- Requirement: `system/distribution/latest-selects-complete-release`
+- Owner: `axm`
+- Statement: Production release publication shall expose a stable version as latest only after all required immutable artifacts and their source identity have been verified, preserve the prior selection on incomplete or conflicting publication, and prevent a retry or concurrent publisher from overwriting a newer selection.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Assumptions: The object store enforces conditional writes and returns strongly consistent object reads; exact CI artifacts pass the canonical release asset validator before distribution.
+- Source: [`scripts/release-distribution.spec.ts`](../scripts/release-distribution.spec.ts)
+
 #### Quality
 
 ##### Acquired package copies preserve contained links and supporting content
@@ -6735,7 +6762,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `system/process/release-path-uses-only-public-hosts-and-credentials`
 - Owner: `axm`
-- Statement: AXM release preparation, production and publication shall distribute only through the declared public GitHub, npm and Homebrew hosts with their publication credentials. Optional independently configured task caches may supply deterministic prerequisites using read-only credentials confined to cache setup; disabling remote caching shall preserve the release task graph.
+- Statement: AXM release preparation, production and publication shall distribute only through the declared public GitHub, npm, Homebrew and Cloudflare R2 distribution hosts with their publication credentials. Optional independently configured task caches may supply deterministic prerequisites using read-only credentials confined to cache setup; disabling remote caching shall preserve the release task graph.
 - Class: process
 - Role: supporting
 - Product goals: `trustworthy-distribution`, `dependable-change-process`

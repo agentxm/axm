@@ -9,14 +9,12 @@ const version = process.argv[2];
 if (version === undefined) throw new Error("Expected release version.");
 const tap = resolve(process.env["HOMEBREW_TAP_DIR"] ?? "../homebrew-tap");
 const assets = resolve(process.env["RELEASE_ASSET_DIR"] ?? "release-assets");
-const repository = process.env["GITHUB_REPO"] ?? "agentxm/axm";
 validateBinaryReleaseAssets(assets);
 const formulaPath = join(tap, "Formula/axm.rb");
 const original = readFileSync(formulaPath, "utf8");
 const candidate = prepareFormula(
   original,
   version,
-  repository,
   parseChecksumManifest(readFileSync(join(assets, "SHA256SUMS"), "utf8")),
 );
 if (!candidate.changed) {

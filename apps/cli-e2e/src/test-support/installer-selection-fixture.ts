@@ -38,7 +38,7 @@ export const makeInstallerSelectionFixture = () => {
   // commits the installation. The latest route serves different valid bytes.
   fs.writeFileSync(
     path.join(tools, "curl"),
-    `#!/bin/sh\nset -eu\noutput=''\nurl=''\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n    --output) output="$2"; shift 2 ;;\n    -*) shift ;;\n    *) url="$1"; shift ;;\n  esac\ndone\nprintf '%s\\n' "$url" >> "$AXM_FIXTURE_REQUESTS"\ncase "$url" in\n  https://github.com/agentxm/axm/releases/download/cli-v1.2.3/*) release=selected ;;\n  https://github.com/agentxm/axm/releases/latest/download/*) release=latest ;;\n  *) exit 22 ;;\nesac\ncp "$AXM_FIXTURE_ROOT/$release/\${url##*/}" "$output"\n`,
+    `#!/bin/sh\nset -eu\noutput=''\nurl=''\nwhile [ "$#" -gt 0 ]; do\n  case "$1" in\n    --output) output="$2"; shift 2 ;;\n    -*) shift ;;\n    *) url="$1"; shift ;;\n  esac\ndone\nprintf '%s\\n' "$url" >> "$AXM_FIXTURE_REQUESTS"\ncase "$url" in\n  https://releases.axm.sh/latest.txt) printf '9.0.0\\n'; exit 0 ;;\n  https://releases.axm.sh/cli-v1.2.3/*) release=selected ;;\n  https://releases.axm.sh/cli-v9.0.0/*) release=latest ;;\n  *) exit 22 ;;\nesac\ncp "$AXM_FIXTURE_ROOT/$release/\${url##*/}" "$output"\n`,
     { mode: 0o755 },
   );
   return {
@@ -66,7 +66,6 @@ export const makeInstallerSelectionFixture = () => {
             AXM_INSTALL_DIR: "",
             AXM_INSTALL_VERSION: version,
             AXM_INSTALL_BASE_URL: "",
-            AXM_INSTALL_GITHUB_REPO: "agentxm/axm",
             AXM_NO_UPDATE_CHECK: "1",
             AXM_TELEMETRY: "0",
             DO_NOT_TRACK: "1",

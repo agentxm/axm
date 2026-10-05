@@ -7979,7 +7979,7 @@
             "aliases": [],
             "type": "string",
             "required": false,
-            "description": "Exact stable version; omit to use GitHub's latest release"
+            "description": "Exact stable version; omit to use the latest production release"
           }
         ],
         "options": [

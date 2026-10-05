@@ -167,11 +167,11 @@ describe("findAxmEnvironmentContractViolations", () => {
   it("treats installer environment controls as production literals", () => {
     const repoRoot = createRepoFixture({
       "apps/cli/project.json": project("cli", "type:app", "role:application"),
-      "apps/cli/site-content/install.sh": 'repo="${AXM_INSTALL_GITHUB_REPO:-agentxm/axm}"\n',
+      "apps/cli/site-content/install.sh": 'repo="${AXM_INSTALL_BASE_URL:-agentxm/axm}"\n',
       "apps/cli/help/topics/environment.md": [
         "| Variable | Classification | Details |",
         "| --- | --- | --- |",
-        "| `AXM_INSTALL_GITHUB_REPO` | internal | Installer override. |",
+        "| `AXM_INSTALL_BASE_URL` | internal | Installer override. |",
         "",
       ].join("\n"),
     });

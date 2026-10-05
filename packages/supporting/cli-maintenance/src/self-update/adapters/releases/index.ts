@@ -1,5 +1,5 @@
 /**
- * GitHub-latest and exact-version resolution for CLI self-upgrade.
+ * AXM distribution-latest and exact-version resolution for CLI self-upgrade.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -10,10 +10,10 @@ import * as Effect from "effect/Effect";
 import type * as HttpClient from "effect/http/HttpClient";
 
 import {
-  GITHUB_REPOSITORY,
-  type GithubLatestReleaseError,
-  resolveGithubLatestVersion,
-} from "../github-latest/index.js";
+  RELEASE_ORIGIN,
+  type LatestReleaseError,
+  resolveLatestReleaseVersion,
+} from "../distribution-latest/index.js";
 import {
   UpgradeFailed,
   type CliReleaseCatalogService,
@@ -23,19 +23,19 @@ import {
 const CLI_TAG_PREFIX = "cli-v";
 const CHECKSUM_ASSET_NAME = "SHA256SUMS";
 
-const latestReleaseError = (error: GithubLatestReleaseError): UpgradeFailed => {
+const latestReleaseError = (error: LatestReleaseError): UpgradeFailed => {
   switch (error.reason) {
     case "transport":
       return new UpgradeFailed({
         category: "network",
-        detail: "GitHub release discovery is unreachable",
+        detail: "AXM distribution release discovery is unreachable",
         suggestions: [{ description: "Check your network connection and try again." }],
         ...(error.cause === undefined ? {} : { cause: error.cause }),
       });
     case "timeout":
       return new UpgradeFailed({
         category: "network",
-        detail: "GitHub release discovery timed out",
+        detail: "AXM distribution release discovery timed out",
         suggestions: [{ description: "Check your network connection and try again." }],
       });
     case "rate-limit":
@@ -43,32 +43,32 @@ const latestReleaseError = (error: GithubLatestReleaseError): UpgradeFailed => {
         category: "rate_limit",
         detail:
           error.retryAfter === undefined
-            ? "GitHub release discovery was rate limited"
-            : `GitHub release discovery was rate limited; retry after ${error.retryAfter}`,
+            ? "AXM distribution release discovery was rate limited"
+            : `AXM distribution release discovery was rate limited; retry after ${error.retryAfter}`,
         suggestions: [{ description: "Wait before trying again." }],
       });
     case "not-found":
       return new UpgradeFailed({
         category: "not_found",
-        detail: "GitHub does not have a latest AXM release",
+        detail: "AXM distribution does not have a latest AXM release",
         suggestions: [{ description: "Try again after a stable CLI release is published." }],
       });
     case "unavailable":
       return new UpgradeFailed({
         category: "unavailable",
-        detail: `GitHub release discovery is temporarily unavailable (status ${String(error.status)})`,
+        detail: `AXM distribution release discovery is temporarily unavailable (status ${String(error.status)})`,
         suggestions: [{ description: "Try again shortly." }],
       });
-    case "invalid-location":
+    case "invalid-version":
       return new UpgradeFailed({
         category: "validation",
-        detail: "GitHub release discovery returned an invalid latest-release redirect",
+        detail: "AXM distribution release discovery returned an invalid latest-release version",
         suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
       });
     case "unexpected-status":
       return new UpgradeFailed({
         category: "internal",
-        detail: `GitHub release discovery returned unexpected status ${String(error.status)}`,
+        detail: `AXM distribution release discovery returned unexpected status ${String(error.status)}`,
         suggestions: [{ description: "Try again. If the problem persists, report the issue." }],
       });
   }
@@ -81,8 +81,7 @@ const selectedRelease = (
 ) =>
   Effect.gen(function* () {
     const tagName = `${CLI_TAG_PREFIX}${targetVersion}`;
-    const assetUrl = (name: string) =>
-      `https://github.com/${GITHUB_REPOSITORY}/releases/download/${tagName}/${name}`;
+    const assetUrl = (name: string) => `${RELEASE_ORIGIN}/${tagName}/${name}`;
     return {
       targetVersion,
       source,
@@ -95,14 +94,14 @@ const selectedRelease = (
     } satisfies SelectedRelease;
   });
 
-/** Resolve GitHub's latest stable release with one bounded web request. */
+/** Resolve AXM distribution's latest stable release with one bounded web request. */
 const resolveLatestVersion = (httpClient: HttpClient.HttpClient, requiredAsset: string) =>
-  resolveGithubLatestVersion(httpClient).pipe(
+  resolveLatestReleaseVersion(httpClient).pipe(
     Effect.mapError(latestReleaseError),
-    Effect.flatMap((version) => selectedRelease(version, requiredAsset, "github-latest")),
+    Effect.flatMap((version) => selectedRelease(version, requiredAsset, "distribution-latest")),
   );
 
-/** Resolve immutable GitHub coordinates without network discovery. */
+/** Resolve immutable AXM distribution coordinates without network discovery. */
 const resolveExactVersion = (targetVersion: string, requiredAsset: string) =>
   selectedRelease(targetVersion, requiredAsset, "exact-version");
 

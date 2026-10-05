@@ -134,7 +134,7 @@ export const axmGlobalFlags = [
 ] as const;
 
 // -- Runtime layers --
-const GITHUB_LATEST_RELEASE_URL = "https://github.com/agentxm/axm/releases/latest";
+const LATEST_RELEASE_URL = "https://releases.axm.sh/latest.txt";
 const registryUrlLayer = (registryUrl: string) => Layer.succeed(RegistryUrl, registryUrl);
 
 export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
@@ -151,7 +151,7 @@ export const withAxmFetchPolicy =
   (input, init) =>
     fetchImplementation(
       input,
-      fetchInputUrl(input) === GITHUB_LATEST_RELEASE_URL ? { ...init, redirect: "manual" } : init,
+      fetchInputUrl(input) === LATEST_RELEASE_URL ? { ...init, redirect: "manual" } : init,
     );
 
 const AxmFetchLayer = Layer.succeed(FetchHttpClient.Fetch, withAxmFetchPolicy(globalThis.fetch));

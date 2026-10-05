@@ -197,6 +197,10 @@ jobs:
         id: distribution_preflight
         env:
           NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
+          RELEASE_R2_ACCOUNT_ID: ${{ vars.RELEASE_R2_ACCOUNT_ID }}
+          RELEASE_R2_BUCKET: ${{ vars.RELEASE_R2_BUCKET }}
+          RELEASE_R2_ACCESS_KEY_ID: ${{ secrets.RELEASE_R2_ACCESS_KEY_ID }}
+          RELEASE_R2_SECRET_ACCESS_KEY: ${{ secrets.RELEASE_R2_SECRET_ACCESS_KEY }}
         run: >-
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"
@@ -220,6 +224,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           NPM_INITIAL_PUBLISH_TOKEN: ${{ github.event_name == 'workflow_dispatch' && inputs.initialize_npm_packages && secrets.NPM_INITIAL_PUBLISH_TOKEN || '' }}
+          RELEASE_R2_ACCOUNT_ID: ${{ vars.RELEASE_R2_ACCOUNT_ID }}
+          RELEASE_R2_BUCKET: ${{ vars.RELEASE_R2_BUCKET }}
+          RELEASE_R2_ACCESS_KEY_ID: ${{ secrets.RELEASE_R2_ACCESS_KEY_ID }}
+          RELEASE_R2_SECRET_ACCESS_KEY: ${{ secrets.RELEASE_R2_SECRET_ACCESS_KEY }}
         run: >-
           pnpm exec nx run axm:distribute-release --outputStyle=static --
           "${{ steps.release_meta.outputs.version }}"

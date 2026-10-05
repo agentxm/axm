@@ -19,7 +19,7 @@ import { UpgradeWorkingDirectory } from "./working-directory.js";
 export interface UpgradeRequest {
   /** Reinstall an equal version; never permits a downgrade. */
   readonly reinstall: boolean;
-  /** An exact stable version. Omit to use GitHub's latest release. */
+  /** An exact stable version. Omit to use the latest production release. */
   readonly requestedVersion?: string | undefined;
   readonly localVersion: string | null;
 }

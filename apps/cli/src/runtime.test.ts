@@ -55,14 +55,14 @@ describe("withAxmUserAgent", () => {
 });
 
 describe("withAxmFetchPolicy", () => {
-  it("observes GitHub's latest-release redirect without changing other requests", async () => {
+  it("prevents release discovery from following redirects to another origin", async () => {
     const fetchImplementation = Object.assign(
       vi.fn(() => Promise.resolve(new Response(null, { status: 204 }))),
       { preconnect: vi.fn() },
     );
     const fetchWithPolicy = withAxmFetchPolicy(fetchImplementation);
 
-    await fetchWithPolicy("https://github.com/agentxm/axm/releases/latest", { cache: "no-store" });
+    await fetchWithPolicy("https://releases.axm.sh/latest.txt", { cache: "no-store" });
     await fetchWithPolicy("https://registry.agentxm.ai/v1/extensions", { cache: "reload" });
 
     expect(fetchImplementation).toHaveBeenNthCalledWith(1, expect.anything(), {

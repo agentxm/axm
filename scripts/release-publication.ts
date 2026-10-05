@@ -457,7 +457,7 @@ export const publishImmutableInDependencyOrder = (
   });
 
 export interface PublicationBoundary {
-  readonly name: "artifacts" | "npm" | "tap";
+  readonly name: "artifacts" | "distribution" | "npm" | "tap";
   readonly publish: () => Effect.Effect<void, unknown>;
 }
 export type PublicationStates = Record<
@@ -472,7 +472,12 @@ export const distributeRelease = (
   record: (states: PublicationStates) => void,
 ): Effect.Effect<"distributed" | "superseded", unknown> => {
   return Effect.gen(function* () {
-    const states: PublicationStates = { artifacts: "pending", npm: "pending", tap: "pending" };
+    const states: PublicationStates = {
+      artifacts: "pending",
+      distribution: "pending",
+      npm: "pending",
+      tap: "pending",
+    };
     let active: PublicationBoundary["name"] | undefined;
     return yield* Effect.gen(function* () {
       yield* preflight;

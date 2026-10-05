@@ -424,5 +424,11 @@
     "disposition": "superseded-by",
     "successor": "cli/mcps/credentials-remain-host-owned",
     "basis": "MCP credentials now remain with native hosts through explicit environment references or native OAuth. AXM no longer stores, namespaces, reads, or erases MCP secrets."
+  },
+  {
+    "requirement": "cli/upgrade/latest-uses-github-release",
+    "disposition": "superseded-by",
+    "successor": "cli/upgrade/latest-uses-production-distribution",
+    "basis": "Production release discovery and immutable downloads use the independently hosted distribution origin, eliminating GitHub availability from native installation and update requests."
   }
 ]

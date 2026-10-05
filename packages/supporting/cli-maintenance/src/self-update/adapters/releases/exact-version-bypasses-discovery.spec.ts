@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "cli/upgrade/exact-version-bypasses-discovery",
   title: "Exact upgrade bypasses release discovery",
   statement:
-    "An upgrade naming a normalized stable semantic version shall derive its immutable GitHub Release coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.",
+    "An upgrade naming a normalized stable semantic version shall derive its immutable production distribution coordinate without discovery, and shall reject leading-v, prerelease, or non-normalized versions before mutation.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "machine-automation"],
@@ -48,8 +48,8 @@ describe("Exact upgrade selection", () => {
       expect(result.source).toBe("exact-version");
       expect(result.release).toEqual({
         tagName: "cli-v1.2.3",
-        binaryAssetUrl: "https://github.com/agentxm/axm/releases/download/cli-v1.2.3/axm-linux-x64",
-        checksumAssetUrl: "https://github.com/agentxm/axm/releases/download/cli-v1.2.3/SHA256SUMS",
+        binaryAssetUrl: "https://releases.axm.sh/cli-v1.2.3/axm-linux-x64",
+        checksumAssetUrl: "https://releases.axm.sh/cli-v1.2.3/SHA256SUMS",
       });
     }),
   );

@@ -144,7 +144,7 @@ describe("Startup update suppression", () => {
           isAgentSession: false,
         },
       }).pipe(Effect.provide(servicesFor(home, false, http)));
-      expect(requests).toEqual(["https://github.com/agentxm/axm/releases/latest"]);
+      expect(requests).toEqual(["https://releases.axm.sh/latest.txt"]);
     }).pipe(Effect.ensuring(Effect.sync(() => fs.rmSync(home, { recursive: true, force: true }))));
   });
 });

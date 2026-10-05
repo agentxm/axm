@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [
-    "When AXM_INSTALL_VERSION is unset, public installers select GitHub's latest AXM release.",
+    "When AXM_INSTALL_VERSION is unset, public installers select the latest complete release from the production distribution.",
   ],
   openQuestions: [
     "What observable refusal and recovery must an invalid AXM_INSTALL_VERSION produce? The public source declares the supported value domain but does not state pre-request rejection, exact diagnostics, or preservation timing.",
@@ -52,7 +52,7 @@ describe.skipIf(process.platform === "win32")("Exact installer release", () => {
           const before = snapshotTree(fixture.platformHome);
           const result = await fixture.install(fixture.selectedVersion, signal);
           expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-          const base = `https://github.com/agentxm/axm/releases/download/cli-v${fixture.selectedVersion}`;
+          const base = `https://releases.axm.sh/cli-v${fixture.selectedVersion}`;
           expect([...fixture.readRequests()].sort()).toEqual(
             [`${base}/SHA256SUMS`, `${base}/axm-${process.platform}-${process.arch}`].sort(),
           );

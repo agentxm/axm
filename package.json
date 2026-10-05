@@ -81,9 +81,11 @@
     "@agentxm/registry-client": "workspace:*",
     "@agentxm/specification-metadata": "workspace:*",
     "@agentxm/workspace-kernel": "workspace:*",
+    "@aws-sdk/client-s3": "^3.1146.0",
     "@boundaries/elements": "catalog:",
     "@effect/eslint-plugin": "catalog:",
     "@effect/language-service": "catalog:",
+    "@effect/platform-node": "catalog:",
     "@effect/tsgo": "catalog:",
     "@effect/vitest": "catalog:",
     "@eslint/js": "catalog:",
@@ -121,8 +123,7 @@
     "typescript-eslint": "catalog:",
     "vite": "catalog:",
     "vitest": "catalog:",
-    "yaml": "catalog:",
-    "@effect/platform-node": "catalog:"
+    "yaml": "catalog:"
   },
   "dependencies": {}
 }

@@ -80,14 +80,17 @@ const readFormula = async (
     signal === undefined
       ? AbortSignal.timeout(30_000)
       : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
+  const tapToken = process.env["HOMEBREW_TAP_TOKEN"];
+  const headers = new Headers({
+    Accept: "application/vnd.github.raw+json",
+    "Cache-Control": "no-cache",
+    "X-GitHub-Api-Version": "2026-03-10",
+  });
+  if (tapToken !== undefined && tapToken !== "") headers.set("Authorization", `Bearer ${tapToken}`);
   const response = await fetchImplementation(
     "https://api.github.com/repos/agentxm/homebrew-tap/contents/Formula/axm.rb?ref=main",
     {
-      headers: {
-        Accept: "application/vnd.github.raw+json",
-        "Cache-Control": "no-cache",
-        "X-GitHub-Api-Version": "2026-03-10",
-      },
+      headers,
       cache: "no-store",
       signal: requestSignal,
     },

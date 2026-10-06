@@ -1,3 +1,13 @@
+## 0.41.0 (2026-10-06)
+
+### ⚠️ Breaking Changes
+
+- Serve release content, native installers, and CLI updates from the production distribution origin. Publish verified immutable release artifacts directly to R2 before updating the latest version pointer. ([9b17a975c](https://github.com/agentxm/axm/commit/9b17a975c))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.40.0 (2026-10-05)
 
 ### ⚠️ Breaking Changes

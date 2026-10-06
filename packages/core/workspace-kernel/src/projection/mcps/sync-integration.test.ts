@@ -1,3 +1,4 @@
+import { CanonicalNativePathLive } from "../../locations/live.js";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import * as nodePath from "node:path";
@@ -93,7 +94,11 @@ const entryForTransports = (transports: ReadonlyArray<string>): McpServerEntry =
   transports.includes("stdio") ? inlineEntry : inlineRemoteEntry;
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-  effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
+  effect.pipe(
+    Effect.provide(
+      Layer.mergeAll(NodeServices.layer, NativeWriteAuthorityPermissive, CanonicalNativePathLive),
+    ),
+  );
 
 const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   Effect.acquireUseRelease(

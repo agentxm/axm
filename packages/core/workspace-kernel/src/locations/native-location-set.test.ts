@@ -1,3 +1,4 @@
+import { resolveNativeReferent } from "./native-address.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -15,7 +16,9 @@ describe("finite native location observations", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped();
+        const root = yield* fs
+          .makeTempDirectoryScoped()
+          .pipe(Effect.flatMap(resolveNativeReferent));
         const source = path.join(root, "source");
         const first = path.join(root, "first");
         const second = path.join(root, "second");
@@ -70,7 +73,7 @@ describe("finite native location observations", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
       const first = path.join(root, "first");
       const second = path.join(root, "second");
       const alias = path.join(root, "alias");
@@ -111,7 +114,7 @@ describe("finite native location observations", () => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const temporary = yield* fs.makeTempDirectoryScoped();
-        const root = yield* fs.realPath(temporary);
+        const root = yield* resolveNativeReferent(temporary);
         const source = path.join(root, "source");
         const sourceFile = path.join(source, "config.json");
         const first = path.join(root, "first");
@@ -170,7 +173,7 @@ describe("finite native location observations", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
       const live = path.join(root, "live");
       const staged = path.join(root, "staged");
       yield* fs.makeDirectory(live);

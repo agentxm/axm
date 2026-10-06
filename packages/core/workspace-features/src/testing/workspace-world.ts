@@ -1,3 +1,4 @@
+import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 /** Shared filesystem and service world for state-changing workspace fixtures. */
 
@@ -217,7 +218,9 @@ export const withLiveSources = <P>(
       RegistryResolutionPolicyLive,
     ),
   );
-  return Layer.provideMerge(sourceProviders, projection);
+  return Layer.provideMerge(sourceProviders, projection).pipe(
+    Layer.provideMerge(CanonicalNativePathLive),
+  );
 };
 
 /**

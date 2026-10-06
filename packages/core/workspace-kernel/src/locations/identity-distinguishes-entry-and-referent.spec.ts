@@ -11,6 +11,7 @@ import {
   assertNoPhysicalOverlap,
   nativeAuthorityRoots,
   resolveNativeEntry,
+  resolveNativeReferent,
 } from "./index.js";
 
 export const specification = defineSpecification({
@@ -36,7 +37,9 @@ describe("native physical addresses", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const sandbox = yield* fs.makeTempDirectoryScoped();
+      const sandbox = yield* fs
+        .makeTempDirectoryScoped()
+        .pipe(Effect.flatMap(resolveNativeReferent));
       const home = path.join(sandbox, "home");
       const xdg = path.join(sandbox, "xdg");
       const vendor = path.join(sandbox, "vendor");
@@ -76,7 +79,9 @@ describe("native physical addresses", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const sandbox = yield* fs.makeTempDirectoryScoped();
+        const sandbox = yield* fs
+          .makeTempDirectoryScoped()
+          .pipe(Effect.flatMap(resolveNativeReferent));
         const home = path.join(sandbox, "home");
         const owner = path.join(home, ".axm", "workspace");
         const project = path.join(sandbox, "project");
@@ -117,7 +122,7 @@ describe("native physical addresses", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
       const physical = path.join(root, "deep", "native");
       yield* fs.makeDirectory(physical, { recursive: true });
       yield* fs.symlink(physical, path.join(root, "alias"));
@@ -141,7 +146,7 @@ describe("native physical addresses", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
+      const root = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
       yield* fs.symlink("missing", path.join(root, "dangling"));
       const leaf = yield* resolveNativeEntry(path.join(root, "dangling"));
       expect(leaf.kind).toBe("symlink");
@@ -164,7 +169,9 @@ describe("native physical addresses", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const sandbox = yield* fs.makeTempDirectoryScoped();
+      const sandbox = yield* fs
+        .makeTempDirectoryScoped()
+        .pipe(Effect.flatMap(resolveNativeReferent));
       const root = path.join(sandbox, "workspace");
       const child = path.join(root, "child");
       yield* fs.makeDirectory(child, { recursive: true });
@@ -204,7 +211,7 @@ describe("native physical addresses", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const home = yield* fs.makeTempDirectoryScoped();
+      const home = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
       const project = path.join(home, "project");
       const userWorkspace = path.join(home, ".axm", "workspace");
       yield* fs.makeDirectory(project);

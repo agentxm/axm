@@ -12,6 +12,7 @@ import {
   copiedDirectoryIsCurrent,
   readCopiedDirectory,
   retireCopiedDirectory,
+  resolveNativeReferent,
 } from "./index.js";
 
 export const specification = defineSpecification({
@@ -32,7 +33,9 @@ export const specification = defineSpecification({
 const fixture = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
-  const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-copy-proof-" });
+  const root = yield* fs
+    .makeTempDirectoryScoped({ prefix: "axm-copy-proof-" })
+    .pipe(Effect.flatMap(resolveNativeReferent));
   const copy = path.join(root, "copy");
   yield* fs.makeDirectory(path.join(copy, "scripts"), { recursive: true });
   yield* fs.writeFileString(path.join(copy, "SKILL.md"), "# Owned skill\n");
@@ -93,7 +96,9 @@ describe("Bounded copied projection ownership", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-copy-links-" });
+        const root = yield* fs
+          .makeTempDirectoryScoped({ prefix: "axm-copy-links-" })
+          .pipe(Effect.flatMap(resolveNativeReferent));
         const copy = path.join(root, "copy");
         yield* fs.makeDirectory(copy);
         yield* fs.writeFileString(path.join(copy, ".axm-copy.json"), "authored bytes");

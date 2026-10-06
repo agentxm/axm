@@ -1,3 +1,4 @@
+import { resolveNativeReferent } from "./native-address.js";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -10,9 +11,13 @@ describe("captured filesystem view", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const live = yield* fs.makeTempDirectoryScoped();
-      const staged = yield* fs.makeTempDirectoryScoped();
-      const external = yield* fs.makeTempDirectoryScoped();
+      const live = yield* fs.makeTempDirectoryScoped().pipe(Effect.flatMap(resolveNativeReferent));
+      const staged = yield* fs
+        .makeTempDirectoryScoped()
+        .pipe(Effect.flatMap(resolveNativeReferent));
+      const external = yield* fs
+        .makeTempDirectoryScoped()
+        .pipe(Effect.flatMap(resolveNativeReferent));
       yield* fs.writeFileString(path.join(live, "config"), "live-only");
       yield* fs.writeFileString(path.join(staged, "config"), "staged-only");
       yield* fs.writeFileString(path.join(external, "config"), "external-only");

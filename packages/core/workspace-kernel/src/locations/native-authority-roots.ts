@@ -5,7 +5,7 @@ import * as Path from "effect/Path";
 
 import type { NativeDirectoryInputs } from "./declared-native-locations.js";
 import {
-  assertNativeMutationWithin,
+  assertResolvedNativeMutationWithin,
   NativeLocationError,
   resolveNativeEntry,
   resolveNativeReferent,
@@ -98,7 +98,9 @@ export const captureNativeAuthorityRoots = (
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const address = yield* resolveNativeEntry(nativeRoot);
-      const physicalRoot = yield* resolveNativeReferent(nativeRoot);
+      const physicalRoot = address.referentPath;
+      if (physicalRoot === undefined)
+        return yield* new NativeLocationError({ target: nativeRoot, reason: "dangling-ancestor" });
       // Creation can introduce this exact root, never undeclared missing ancestors.
       const anchorPath = address.kind === "absent" ? path.dirname(physicalRoot) : physicalRoot;
       const anchor = yield* directoryIdentity(anchorPath);
@@ -119,13 +121,12 @@ export const captureNativeAuthorityRoots = (
     ),
   );
 
-const verifyRoot = (witness: NativeAuthorityRootWitness) =>
+const verifyRoot = (witness: NativeAuthorityRootWitness, address: NativeEntryAddress) =>
   Effect.gen(function* () {
     if (Option.isNone(witness.observed)) return false;
     const expected = witness.observed.value;
-    const address = yield* resolveNativeEntry(witness.nativeRoot);
     if (
-      (yield* resolveNativeReferent(witness.nativeRoot)) !== expected.physicalRoot ||
+      address.referentPath !== expected.physicalRoot ||
       address.entryPath !== expected.entryPath ||
       address.linkTarget !== expected.linkTarget
     )
@@ -157,11 +158,23 @@ export const assertNativeMutationWithinRoots = (
     const boundary = mutation === "content" ? address.referentPath : address.entryPath;
     if (boundary === undefined)
       return yield* new NativeLocationError({ target, reason: "dangling-ancestor" });
-    const candidates: Array<{ readonly nativeRoot: string; readonly physicalRoot: string }> = [];
+    const candidates: Array<{
+      readonly nativeRoot: string;
+      readonly physicalRoot: string;
+      readonly address: NativeEntryAddress;
+    }> = [];
     for (const nativeRoot of roots) {
-      const physicalRoot = yield* resolveNativeReferent(nativeRoot).pipe(Effect.option);
-      if (Option.isSome(physicalRoot) && contains(path, physicalRoot.value, boundary))
-        candidates.push({ nativeRoot, physicalRoot: physicalRoot.value });
+      const rootAddress = yield* resolveNativeEntry(nativeRoot).pipe(Effect.option);
+      if (
+        Option.isSome(rootAddress) &&
+        rootAddress.value.referentPath !== undefined &&
+        contains(path, rootAddress.value.referentPath, boundary)
+      )
+        candidates.push({
+          nativeRoot,
+          physicalRoot: rootAddress.value.referentPath,
+          address: rootAddress.value,
+        });
     }
     const selected = candidates.sort(
       (left, right) => right.physicalRoot.length - left.physicalRoot.length,
@@ -169,14 +182,17 @@ export const assertNativeMutationWithinRoots = (
     if (selected === undefined) return yield* new NativeLocationError({ target, reason: "escape" });
     if (witnesses !== undefined) {
       const witness = witnesses.find((entry) => entry.nativeRoot === selected.nativeRoot);
-      if (witness === undefined || !(yield* verifyRoot(witness)))
+      if (witness === undefined || !(yield* verifyRoot(witness, selected.address)))
         return yield* new NativeLocationError({
           target,
           reason: "unreadable",
           cause: "native-root-changed",
         });
     }
-    const physicalOwner = yield* resolveNativeReferent(ownerRoot);
+    const knownOwner = candidates.find(
+      (candidate) => path.resolve(candidate.nativeRoot) === path.resolve(ownerRoot),
+    );
+    const physicalOwner = knownOwner?.physicalRoot ?? (yield* resolveNativeReferent(ownerRoot));
     // Routing into a declared XDG/vendor root must not hide an enclosing
     // independent workspace. Walk only the bounded ancestor chain up to the
     // selected owner's common ancestor; never discover arbitrary descendants.
@@ -194,7 +210,13 @@ export const assertNativeMutationWithinRoots = (
     }
     return {
       nativeRoot: selected.nativeRoot,
-      address: yield* assertNativeMutationWithin(selected.nativeRoot, target, mutation, ownerRoot),
+      address: yield* assertResolvedNativeMutationWithin({
+        physicalRoot: selected.physicalRoot,
+        physicalOwnerRoot: physicalOwner,
+        target,
+        mutation,
+        address,
+      }),
     };
   }).pipe(
     Effect.mapError((cause) =>

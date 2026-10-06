@@ -1,3 +1,4 @@
+import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
 import {
@@ -193,6 +194,7 @@ export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalTh
 
 export const PlatformLayer = Layer.mergeAll(
   NodeServices.layer,
+  CanonicalNativePathLive,
   AxmHttpClientLayer,
   makeArtifactHttpClientLayer(globalThis.fetch),
 );
@@ -263,6 +265,7 @@ export const makeAuthLayer = (registryUrl: string) =>
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
+  CanonicalNativePathLive,
   registryUrlLayer(AGENTXM_REGISTRY_URL),
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,

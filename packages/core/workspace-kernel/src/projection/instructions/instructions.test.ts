@@ -1,3 +1,4 @@
+import { CanonicalNativePathLive } from "../../locations/live.js";
 import type { InstructionStatusItem } from "./instruction-status.js";
 import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
@@ -87,7 +88,12 @@ describe("agent instructions", () => {
 
   const run = <A, E>(
     effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>,
-  ) => effect.pipe(Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)));
+  ) =>
+    effect.pipe(
+      Effect.provide(
+        Layer.mergeAll(NativeWriteAuthorityPermissive, NodeServices.layer, CanonicalNativePathLive),
+      ),
+    );
 
   const observe = (args: {
     readonly configuredAgents: ReadonlyArray<string>;

@@ -813,6 +813,14 @@ jobs:
       - name: Compile platform binary
         run: pnpm exec nx run cli:${{ matrix.compile_target }} --outputStyle=static
 
+      - name: Verify native paths on Linux casefold directories
+        if: runner.os == 'Linux'
+        run: pnpm run verify:linux-casefold
+
+      - name: Verify canonical native paths on macOS
+        if: runner.os == 'macOS'
+        run: pnpm exec nx run workspace-kernel:test --args="src/locations --maxWorkers=1" --outputStyle=static
+
       - name: Mark binary executable
         if: runner.os != 'Windows'
         run: chmod +x apps/cli/dist/bin/${{ matrix.binary_name }}

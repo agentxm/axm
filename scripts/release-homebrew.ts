@@ -10,7 +10,7 @@ export const loadHomebrewPublicationToken = (provider: ConfigProvider.ConfigProv
 export const readHomebrewFormula = async (
   token: Redacted.Redacted<string>,
   signal?: AbortSignal,
-  fetchImplementation: typeof fetch = fetch,
+  fetchImplementation: (url: string, init: RequestInit) => Promise<Response> = fetch,
 ): Promise<string> => {
   const requestSignal =
     signal === undefined

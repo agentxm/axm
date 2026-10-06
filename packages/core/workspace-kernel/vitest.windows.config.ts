@@ -13,6 +13,8 @@ export default defineConfig({
     }),
     include: [
       "src/**/*.windows.test.ts",
+      "src/locations/**/*.test.ts",
+      "src/locations/**/*.spec.ts",
       "src/settlement/authorities-refuse-overlapping-physical-boundaries.spec.ts",
     ],
     setupFiles: [purposeSetupFile],

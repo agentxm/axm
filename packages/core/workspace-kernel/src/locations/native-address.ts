@@ -41,12 +41,35 @@ export const NativeResolutionRoot = Context.Reference<string | undefined>(
   { defaultValue: () => undefined },
 );
 
-/** realPath can retain caller spelling; actual directory entries establish volume identity. */
+/** A live canonical spelling port; absent on hosts without an authoritative OS answer. */
+export const CanonicalNativePath = Context.Reference<
+  ((target: string) => Effect.Effect<string | undefined, NativeLocationError>) | undefined
+>("@agentxm/workspace-kernel/locations/CanonicalNativePath", { defaultValue: () => undefined });
+
+/** Only the current admission may reuse the root it just resolved. */
+const NativeSpellingRoot = Context.Reference<string | undefined>(
+  "@agentxm/workspace-kernel/locations/NativeSpellingRoot",
+  { defaultValue: () => undefined },
+);
+
+/** realPath can retain caller spelling; only ambiguous lookups need actual directory entries. */
 const existingNativeSpelling = (target: string) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const root = (yield* NativeResolutionRoot) ?? path.parse(target).root;
+    const capturedRoot = yield* NativeResolutionRoot;
+    const canonical = yield* CanonicalNativePath;
+    // Captured views must never call the host, even when the port is installed.
+    if (capturedRoot === undefined && canonical !== undefined) {
+      const spelling = yield* canonical(target);
+      if (spelling !== undefined) return spelling;
+    }
+    const admissionRoot = yield* NativeSpellingRoot;
+    const root =
+      capturedRoot ??
+      (admissionRoot !== undefined && contains(path, admissionRoot, target)
+        ? admissionRoot
+        : path.parse(target).root);
     let current = /^[a-z]:\\$/i.test(root) ? root.toUpperCase() : root;
     for (const name of path.relative(root, target).split(path.sep).filter(Boolean)) {
       const entries = yield* fs.readDirectory(current);
@@ -297,14 +320,34 @@ export const assertNativeMutationWithin = (
   ownerRoot: string = root,
 ): Effect.Effect<NativeEntryAddress, NativeLocationError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const physicalRoot = yield* resolveNativeReferent(root);
     const physicalOwnerRoot =
       path.resolve(root) === path.resolve(ownerRoot)
         ? physicalRoot
         : yield* resolveNativeReferent(ownerRoot);
-    const address = yield* resolveNativeEntry(target);
+    const address = yield* resolveNativeEntryWithin(target, physicalRoot);
+    return yield* assertResolvedNativeMutationWithin({
+      physicalRoot,
+      physicalOwnerRoot,
+      target,
+      mutation,
+      address,
+    });
+  });
+
+/** Internal to one admission: callers supply only its fresh resolutions, never retained witnesses. */
+export const assertResolvedNativeMutationWithin = (args: {
+  readonly physicalRoot: string;
+  readonly physicalOwnerRoot: string;
+  readonly target: string;
+  readonly mutation: "entry" | "content";
+  readonly address: NativeEntryAddress;
+}) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const { physicalRoot, physicalOwnerRoot, target, mutation, address } = args;
     const boundary = mutation === "content" ? address.referentPath : address.entryPath;
     if (boundary === undefined)
       return yield* new NativeLocationError({ target, reason: "dangling-ancestor" });
@@ -332,3 +375,7 @@ export const assertNativeMutationWithin = (
     }
     return address;
   });
+
+/** Reuse only the physical spelling prefix freshly observed by this admission. */
+export const resolveNativeEntryWithin = (target: string, physicalRoot: string) =>
+  resolveNativeEntry(target).pipe(Effect.provideService(NativeSpellingRoot, physicalRoot));

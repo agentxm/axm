@@ -7,7 +7,8 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
-  assertNativeMutationWithin,
+  assertResolvedNativeMutationWithin,
+  resolveNativeEntryWithin,
   NativeLocationError,
   resolveNativeEntry,
   resolveNativeReferent,
@@ -132,7 +133,22 @@ export const captureContainerIdentity = (
       });
     const owner = { path: ownerPath, identity: yield* identityOf(ownerPath, ownerInfo) };
     const target = path.resolve(args.target);
-    const address = yield* assertNativeMutationWithin(nativeRoot, target, "content", ownerRoot);
+    const rootPath =
+      nativeRoot === identityOwnerRoot ? ownerPath : yield* resolveNativeReferent(nativeRoot);
+    const physicalOwnerRoot =
+      ownerRoot === identityOwnerRoot
+        ? ownerPath
+        : ownerRoot === nativeRoot
+          ? rootPath
+          : yield* resolveNativeReferent(ownerRoot);
+    const address = yield* resolveNativeEntryWithin(target, rootPath);
+    yield* assertResolvedNativeMutationWithin({
+      physicalRoot: rootPath,
+      physicalOwnerRoot,
+      target,
+      mutation: "content",
+      address,
+    });
     const physicalPath = address.referentPath;
     if (physicalPath === undefined || address.kind === "absent")
       return yield* new NativeLocationError({
@@ -140,7 +156,6 @@ export const captureContainerIdentity = (
         reason: "unreadable",
         cause: "container-absent",
       });
-    const rootPath = yield* resolveNativeReferent(nativeRoot);
     const rootInfo = yield* fs.stat(rootPath);
     if (rootInfo.type !== "Directory")
       return yield* new NativeLocationError({
@@ -176,7 +191,8 @@ export const captureContainerIdentity = (
     for (const alias of [
       ...new Set([target, ...(args.aliases ?? []).map((value) => path.resolve(value))]),
     ].sort()) {
-      const resolved = yield* resolveNativeEntry(alias);
+      const resolved =
+        alias === target ? address : yield* resolveNativeEntryWithin(alias, rootPath);
       if (resolved.referentPath !== physicalPath)
         return yield* new NativeLocationError({
           target: alias,

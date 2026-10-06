@@ -13,6 +13,7 @@ export {
 export {
   NativeLocationError,
   NativeResolutionRoot,
+  CanonicalNativePath,
   assertNativeMutationWithin,
   assertNoPhysicalOverlap,
   pathsOverlap,

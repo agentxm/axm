@@ -9,6 +9,8 @@ import * as Ref from "effect/Ref";
 
 import {
   assertNativeMutationWithin,
+  CanonicalNativePath,
+  NativeLocationError,
   pathsOverlap,
   resolveNativeEntry,
   resolveNativeReferent,
@@ -23,7 +25,7 @@ describe("physical spelling", () => {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const temporary = yield* fs.makeTempDirectoryScoped();
-      const root = yield* fs.realPath(temporary);
+      const root = yield* resolveNativeReferent(temporary);
       const first = path.join(root, "first");
       const second = path.join(root, "second");
       yield* fs.makeDirectory(first);
@@ -32,6 +34,7 @@ describe("physical spelling", () => {
         yield* fs.writeFileString(path.join(directory, "config.json"), "{}");
       const ancestor = path.parse(root).root;
       const ancestorReads = yield* Ref.make(0);
+      const canonicalReads = yield* Ref.make(0);
       const observedFs = {
         ...fs,
         readDirectory: (target, options) =>
@@ -43,19 +46,53 @@ describe("physical spelling", () => {
       } satisfies FileSystem.FileSystem;
       const observe = resolveNativeEntry(path.join(first, "config.json")).pipe(
         Effect.provideService(FileSystem.FileSystem, observedFs),
+        Effect.provideService(CanonicalNativePath, (target) =>
+          Ref.update(canonicalReads, (count) => count + 1).pipe(
+            Effect.andThen(Effect.succeed(target)),
+          ),
+        ),
       );
       const before = yield* observe;
       expect(before.kind).toBe("file");
       expect(before.entryPath).toBe(path.join(first, "config.json"));
       expect(before.referentPath).toBe(before.entryPath);
-      expect(yield* Ref.get(ancestorReads)).toBe(1);
+      expect(yield* Ref.get(ancestorReads)).toBe(0);
+      expect(yield* Ref.get(canonicalReads)).toBe(1);
       yield* fs.rename(first, path.join(root, "original"));
       yield* fs.symlink(second, first);
       const after = yield* observe;
       expect(after.entryPath).toBe(path.join(second, "config.json"));
       expect(after.referentPath).toBe(after.entryPath);
-      expect(yield* Ref.get(ancestorReads)).toBeGreaterThan(1);
+      expect(yield* Ref.get(ancestorReads)).toBe(0);
+      expect(yield* Ref.get(canonicalReads)).toBeGreaterThan(1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "uses the selected filesystem when a canonical port is unavailable, but refuses a failed port",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs
+          .makeTempDirectoryScoped()
+          .pipe(Effect.flatMap(resolveNativeReferent));
+        const path = yield* Path.Path;
+        const target = path.join(root, "config.json");
+        yield* fs.writeFileString(target, "{}");
+        const fallback = yield* resolveNativeEntry(target).pipe(
+          Effect.provideService(CanonicalNativePath, () => Effect.succeed(undefined)),
+        );
+        const listing = yield* resolveNativeEntry(target);
+        expect(fallback).toEqual(listing);
+        const failed = yield* resolveNativeEntry(target).pipe(
+          Effect.provideService(CanonicalNativePath, (entry) =>
+            Effect.fail(new NativeLocationError({ target: entry, reason: "unreadable" })),
+          ),
+          Effect.result,
+        );
+        expect(failed._tag).toBe("Failure");
+        if (failed._tag === "Failure") expect(failed.failure.reason).toBe("unreadable");
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   for (const syntax of ["posix", "win32"] as const) {
@@ -99,6 +136,18 @@ describe("physical spelling", () => {
               Effect.provide(pathLayer),
             );
             expect(observed).toBe(path.join(sensitive ? lowerAgents : upperAgents, "skills"));
+            const canonicalPort = (target: string) =>
+              Effect.succeed(
+                !sensitive && target.startsWith(lowerAgents)
+                  ? upperAgents + target.slice(lowerAgents.length)
+                  : target,
+              );
+            const fromPort = yield* resolveNativeReferent(path.join(lowerAgents, "skills")).pipe(
+              Effect.provideService(CanonicalNativePath, canonicalPort),
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provide(pathLayer),
+            );
+            expect(fromPort).toBe(observed);
             // Path syntax alone must never merge distinct or not-yet-created spellings.
             expect(pathsOverlap(path, upperAgents, lowerAgents)).toBe(false);
             const boundary = yield* assertNativeMutationWithin(
@@ -215,7 +264,7 @@ it.effect("resolves an identical root once per admission and observes its next a
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const temporary = yield* fs.makeTempDirectoryScoped();
-    const sandbox = yield* fs.realPath(temporary);
+    const sandbox = yield* resolveNativeReferent(temporary);
     const first = path.join(sandbox, "first");
     const second = path.join(sandbox, "second");
     const alias = path.join(sandbox, "root");

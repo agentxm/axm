@@ -146,6 +146,11 @@
       "axm-source": "./src/reconciliation/testing.ts",
       "default": "./dist/src/reconciliation/testing.js"
     },
+    "./locations/live": {
+      "types": "./dist/src/locations/live.d.ts",
+      "axm-source": "./src/locations/live.ts",
+      "default": "./dist/src/locations/live.js"
+    },
     "./locations": {
       "types": "./dist/src/locations/index.d.ts",
       "axm-source": "./src/locations/index.ts",

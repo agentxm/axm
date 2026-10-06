@@ -6478,6 +6478,18 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 - Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`scripts/supported-platform-matrix.spec.ts`](../scripts/supported-platform-matrix.spec.ts)
 
+##### Native path inspection avoids unrelated ancestor entries
+
+- Requirement: `workspace/locations/resolution-cost-follows-path-depth`
+- Owner: `workspace-kernel`
+- Statement: When the selected filesystem provides authoritative canonical spelling, AXM shall resolve native paths without enumerating unrelated ancestor entries, bound repeated root resolutions to one per container identity capture, and obtain fresh observations on the next capture or admission.
+- Class: quality (performance)
+- Role: supporting
+- Product goals: `platform-reach`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-kernel/src/locations/resolution-cost-follows-path-depth.spec.ts`](../packages/core/workspace-kernel/src/locations/resolution-cost-follows-path-depth.spec.ts)
+
 ### Goal: safe-repetition
 
 Every operation is safe to repeat and safe to interrupt: reruns are no-ops, failures roll back their closure, and surviving authority converges.

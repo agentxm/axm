@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import * as Effect from "effect/Effect";
 import * as ConfigProvider from "effect/ConfigProvider";
+import * as Redacted from "effect/Redacted";
 import { validateReleaseCohort } from "./release-packages.js";
 import { requireFullSha, requireStableVersion } from "./release-identity.js";
 import { RELEASE_PACKAGES, RELEASE_REPO } from "./release-shared.js";
@@ -35,7 +36,6 @@ import {
   isTransientPublicationError,
   mapWithConcurrency,
   observePublication,
-  publicationHttpError,
   publishImmutableCohort,
   publishImmutableInDependencyOrder,
   readNpmPublication,
@@ -45,6 +45,7 @@ import {
   SupersededRelease,
 } from "./release-publication.js";
 import { formulaVersion, prepareFormula } from "./release-formula.js";
+import { loadHomebrewPublicationToken, readHomebrewFormula } from "./release-homebrew.js";
 import { decodeGitHubReleaseAssetView } from "./release-github-release-api.js";
 import { makeReleaseAssetReader } from "./release-asset-readback.js";
 
@@ -65,6 +66,9 @@ guardPublicationVersion(version, null, "candidate");
 const npmAuthentication = await Effect.runPromise(
   loadNpmPublicationAuth(ConfigProvider.fromEnvRecord(process.env)),
 );
+const homebrewToken = await Effect.runPromise(
+  loadHomebrewPublicationToken(ConfigProvider.fromEnvRecord(process.env)),
+);
 const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.ProcessEnv => {
   return npmPublicationProcessEnvironment(name, packageExists, npmAuthentication, process.env);
 };
@@ -72,30 +76,7 @@ const publicationEnvironment = (name: string, packageExists: boolean): NodeJS.Pr
 validateReleaseAssets(assets);
 await validateReleaseCohort(npmCohort, version, releaseCommit);
 
-const readFormula = async (
-  signal?: AbortSignal,
-  fetchImplementation: typeof fetch = fetch,
-): Promise<string> => {
-  const requestSignal =
-    signal === undefined
-      ? AbortSignal.timeout(30_000)
-      : AbortSignal.any([signal, AbortSignal.timeout(30_000)]);
-  const response = await fetchImplementation(
-    "https://api.github.com/repos/agentxm/homebrew-tap/contents/Formula/axm.rb?ref=main",
-    {
-      headers: {
-        Accept: "application/vnd.github.raw+json",
-        "Cache-Control": "no-cache",
-        "X-GitHub-Api-Version": "2026-03-10",
-      },
-      cache: "no-store",
-      signal: requestSignal,
-    },
-  );
-  if (response.status !== 200)
-    throw publicationHttpError("Homebrew formula query failed", response);
-  return response.text();
-};
+const readFormula = (signal?: AbortSignal) => readHomebrewFormula(homebrewToken, signal);
 const latestGuard = async (name: string, signal?: AbortSignal) => {
   const metadata = await readNpmPublication(name, version, fetch, signal);
   publicationEnvironment(name, metadata.packageExists);
@@ -306,11 +287,6 @@ try {
                   const formula = await readFormula();
                   const candidate = prepareFormula(formula, version, checksums);
                   if (!candidate.changed) return;
-                  const token = process.env["HOMEBREW_TAP_TOKEN"];
-                  if (token === undefined || token === "")
-                    throw new Error(
-                      "HOMEBREW_TAP_TOKEN is required to publish the missing formula.",
-                    );
                   const tap = join(temporary, "tap");
                   run(
                     "git",
@@ -324,7 +300,7 @@ try {
                     RELEASE_ASSET_DIR: assets,
                     GIT_CONFIG_COUNT: "1",
                     GIT_CONFIG_KEY_0: "http.https://github.com/.extraheader",
-                    GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+                    GIT_CONFIG_VALUE_0: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${Redacted.value(homebrewToken)}`).toString("base64")}`,
                   };
                   try {
                     runIn(

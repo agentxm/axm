@@ -16,7 +16,9 @@
   ],
   // Nx infers each project's compiler target; the dual compiler aliases are
   // enforced separately by scripts/typescript-aliases.test.ts.
-  "ignoreDependencies": ["@typescript/native"],
+  // The Git bootstrap enters lint-staged through its installed Node binary
+  // before pnpm can parse unstaged manifests.
+  "ignoreDependencies": ["@typescript/native", "lint-staged"],
   "vitest": {
     "config": [
       "vitest*.config.{js,mjs,ts,cjs,mts,cts}",
@@ -34,6 +36,7 @@
       // These are loaded indirectly by Allure, shell launchers, benchmark child
       // processes, and specification discovery.
       "entry": [
+        "scripts/check-staged.config.mjs",
         "allurerc.ts",
         "benchmarks/lifecycle-preload.cjs",
         "scripts/axm-local.ts",

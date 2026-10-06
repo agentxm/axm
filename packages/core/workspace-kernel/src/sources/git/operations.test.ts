@@ -525,6 +525,21 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
     );
   });
 
+  it.effect("rejects inherited configuration overrides despite forwarding the environment", () =>
+    Effect.gen(function* () {
+      const repoPath = path.join(tempDir, "repo");
+      yield* Effect.promise(() => createLocalRepo(repoPath));
+      vi.stubEnv("GIT_CONFIG_COUNT", "1");
+      vi.stubEnv("GIT_CONFIG_KEY_0", "include.path");
+      vi.stubEnv("GIT_CONFIG_VALUE_0", path.join(tempDir, "untrusted-config"));
+
+      const error = yield* getTreeSha(repoPath).pipe(Effect.flip);
+
+      expect(error).toBeInstanceOf(GitOperationFailed);
+      expect(error.detail).toContain("allowUnsafeConfigEnvCount");
+    }),
+  );
+
   describe("inherited editor and pager settings", () => {
     const cases: ReadonlyArray<{
       readonly name: string;

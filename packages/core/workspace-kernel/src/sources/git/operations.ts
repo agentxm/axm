@@ -53,28 +53,30 @@ const INTERACTIVE_COMMAND_VARIABLES: ReadonlySet<string> = new Set([
 ]);
 
 const createGit = (baseDir: string, abort?: AbortSignal): SimpleGit => {
+  // Git never opens an editor or pager here, and simple-git rejects inherited
+  // editor and pager commands. Remove them under the same trimmed,
+  // case-insensitive key match simple-git applies; keep every other key.
+  const environment = {
+    ...Object.fromEntries(
+      Object.entries(inheritedGitEnvironment()).filter(
+        ([key]) => !INTERACTIVE_COMMAND_VARIABLES.has(key.trim().toLowerCase()),
+      ),
+    ),
+    GIT_TERMINAL_PROMPT: "0",
+    GIT_LFS_SKIP_SMUDGE: "1",
+  };
   const options: Partial<SimpleGitOptions> = {
     baseDir,
     binary: "git",
     maxConcurrentProcesses: 1,
+    // Preserve this process's explicit transport context under the v4 environment
+    // guard. Unsafe-operation checks still validate the forwarded settings.
+    allowEnvironment: Object.keys(environment),
     unsafe: { allowUnsafeSshCommand: true },
     ...(abort === undefined ? {} : { abort }),
   };
 
-  // Git never opens an editor or pager here, and simple-git rejects inherited
-  // editor and pager commands. Remove them under the same trimmed,
-  // case-insensitive key match simple-git applies; keep every other key.
-  const environment = Object.fromEntries(
-    Object.entries(inheritedGitEnvironment()).filter(
-      ([key]) => !INTERACTIVE_COMMAND_VARIABLES.has(key.trim().toLowerCase()),
-    ),
-  );
-
-  return simpleGit(options).env({
-    ...environment,
-    GIT_TERMINAL_PROMPT: "0",
-    GIT_LFS_SKIP_SMUDGE: "1",
-  });
+  return simpleGit(options).env(environment);
 };
 
 const foreignReason = (error: unknown): string | undefined => {

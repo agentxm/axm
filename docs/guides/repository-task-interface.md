@@ -422,6 +422,58 @@ profiling. [Reproduce AXM Linux CI](../../devops/runbooks/reproduce-linux-ci.md)
 owns diagnosis and restoration proof. Workflow configuration owns producer
 selection and platform warming; it does not redefine cache eligibility.
 
+## Commit-index checks
+
+`pre-commit` runs the fresh Git host adapter `scripts/check-staged.sh`. It uses
+lint-staged's native backup and `--hide-all` restoration to make tracked
+working files match the index and temporarily remove nonignored untracked
+files. The existing staged auto-fixes and repository gates run in that view;
+the compiler selection reads the index after auto-fixes have been staged.
+Auto-fixes remain staged even when a later check fails, preserving the existing
+fixer behavior; unstaged work returns on success or failure. `--no-revert` avoids
+resetting the index to HEAD during failure recovery, which can collide with
+an untracked replacement of a staged deletion. A restoration conflict blocks the
+commit and retains lint-staged's recovery evidence; resolve it before retrying.
+Ignored dependency installations and generated artifacts retain their normal
+Nx input/output contracts.
+
+The hook bootstraps isolation through the workspace-installed lint-staged Node
+entry point: pnpm would parse unstaged manifests before it could isolate the
+index. No Nx target or pnpm launcher can own that pre-isolation step. Every
+check inside isolation uses pnpm and enforces `verifyDepsBeforeRun=error`. If the installed dependencies
+do not match the staged manifests and lockfile, install that dependency state
+before committing; the hook does not reconcile the developer's installation.
+
+Git's explicit `diff --cached --no-renames` file list is passed to
+`nx affected -t typecheck --stdin --nxBail`. Nx owns project selection,
+transitive consumer traversal, task prerequisites, and configuration/dependency
+impact. Additions and deletions are included; a rename contributes both paths.
+Neither ambient `NX_BASE`/`NX_HEAD` nor a branch range selects commit checks.
+Git paths are read with NUL delimiters and converted to Nx's newline protocol;
+a newline in a filename fails explicitly. Lint-staged's outer `--all` only
+ensures the host workflow runs for deletion-only and symlink-only changes; it
+does not select all compiler projects. An empty index skips the workflow.
+
+The compiler pass materializes `git write-tree` with `git read-tree --reset -u`
+in a disposable detached worktree, clearing inherited Git selectors so a
+pathspec commit's temporary index does not select another worktree's files.
+`pnpm install --frozen-lockfile --offline` reconstructs dependency links against
+the staged manifests and lockfile using the local store. Prepare scripts still
+run (including compiler patches), with `HUSKY=0` to avoid changing hook
+configuration. Missing store content or an inconsistent lockfile fails the
+commit; install the staged dependency state before retrying. No dependency links
+point to the developer's mutable working-tree sources.
+
+Existing typecheck targets, cache inputs, dependency tasks, and output ownership
+are unchanged. The host adapter is fresh; compiler tasks reuse valid Nx results.
+The snapshot disables the daemon and starts with fresh workspace file metadata,
+so rapid index rewrites cannot inherit ordinary working-tree file hashes. The
+repository's normal task-cache identity and configured location are preserved.
+The worktree is removed on success or failure. Compiler prerequisites that
+change tracked inputs block the commit: run generation or `nx sync`, stage the
+result, and retry. Full affected verification remains a separate pre-merge
+workflow rather than a per-commit gate.
+
 ## Entrypoints and host adapters
 
 Root scripts are limited to same-intent aliases, bounded composites, bootstrap
@@ -433,7 +485,7 @@ launchers, and host adapters. These boundaries are intentional:
 | `classify:ci`, `resolve:release-source`                               | Run before workspace dependencies exist; their host jobs lower `verifyDepsBeforeRun` to `warn` only for these source-only tasks |
 | `test:spec`, `verify:artifact`, `verify:release`, `verify:deployment` | Resolve an exact subject, then invoke the target that owns the evidence                                                         |
 | `*:report` through `scripts/with-allure-report.sh`                    | Generate evidence even when the preceding gate fails; an Nx dependent would be skipped                                          |
-| `lint-staged`                                                         | Operate on the Git index, which Nx affected selection does not represent                                                        |
+| `pre-commit` through lint-staged                                      | Isolate the Git index, preserve working changes, and supply explicit staged files to Nx                                         |
 | release workflow platform steps                                       | Hold credentials, GitHub release state, and platform matrices outside Nx                                                        |
 
 Automation invokes targets directly unless it needs one of these host

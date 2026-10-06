@@ -1,6 +1,9 @@
+#!/usr/bin/env sh
+set -e
 export NX_TUI=false
 export NX_DEFAULT_OUTPUT_STYLE=static
 export NX_TASKS_RUNNER_DYNAMIC_OUTPUT=false
-pnpm exec lint-staged --no-stash
-pnpm axm:local lint --view git-index --strict
-pnpm exec nx run axm:scan-secrets:staged
+
+# Bootstrap index isolation before pnpm reads possibly unstaged manifests.
+# The host adapter has no Nx target: it owns Git backup and restoration.
+bash scripts/check-staged.sh

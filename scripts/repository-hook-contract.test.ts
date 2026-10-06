@@ -1,13 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const readHook = (name: string): string => readFileSync(`.husky/${name}`, "utf8");
-
 describe("repository Git hooks", () => {
   it("lints the staged workspace with the source-tree CLI", () => {
-    const content = readHook("pre-commit");
+    const content = readFileSync("scripts/check-staged.sh", "utf8");
 
-    expect(content).toContain("pnpm axm:local lint --view git-index --strict");
+    expect(content).toContain(
+      "pnpm --config.verify-deps-before-run=error axm:local lint --view git-index --strict",
+    );
     expect(content).not.toMatch(/^axm lint/m);
   });
 

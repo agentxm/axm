@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/archives-satisfy-distribution-contract",
   title: "Publication refuses incomplete or unsafe archives",
   statement:
-    "Before uploading an extension, publish shall reject an archive that omits a required package file or includes a node_modules entry or .env file, identify the invalid path, and give removal guidance for unsafe entries.",
+    "Before uploading an extension, publish shall reject an archive that omits a required package file includes a node_modules entry or .env file, or retains a link to excluded content, identify the invalid path, and give removal guidance for unsafe entries.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
@@ -38,6 +38,36 @@ describe("Publication archive admission", () => {
   afterEach(() => {
     for (const world of worlds.splice(0)) world.cleanup();
   });
+
+  it.effect("refuses the superseded publication field before upload", () =>
+    Effect.gen(function* () {
+      const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
+      worlds.push(world);
+      const packageRoot = world.write("skill", { name: "review" });
+      const file = nodePath.join(packageRoot, "skill.json");
+      const manifest: unknown = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (typeof manifest !== "object" || manifest === null) throw new Error("Expected manifest");
+      fs.writeFileSync(file, JSON.stringify({ ...manifest, publish: { ignore: [] } }));
+      const outcome = yield* world.provide(runPublish(requestFor(world, { preview: false })));
+      expect(publishFailureOf(outcome).category).toBe("validation");
+      expect(world.target.storedFiles()).toEqual([]);
+    }),
+  );
+
+  it.effect("refuses a retained link whose target was excluded", () =>
+    Effect.gen(function* () {
+      const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
+      worlds.push(world);
+      const packageRoot = world.write("skill", { name: "review", publishExclude: ["draft.txt"] });
+      fs.writeFileSync(nodePath.join(packageRoot, "draft.txt"), "unpublished");
+      fs.symlinkSync("draft.txt", nodePath.join(packageRoot, "draft-link"));
+      const outcome = yield* world.provide(runPublish(requestFor(world, { preview: false })));
+      expect(publishFailureOf(outcome).detail).toContain(
+        'Retained link "draft-link" points to excluded content "draft.txt"',
+      );
+      expect(world.target.storedFiles()).toEqual([]);
+    }),
+  );
 
   for (const scenario of [
     {
@@ -62,7 +92,7 @@ describe("Publication archive admission", () => {
         worlds.push(world);
         const packageRoot = world.write("skill", {
           name: "review",
-          publishIgnore: scenario.ignore,
+          publishExclude: scenario.ignore,
         });
         if (scenario.extra !== undefined) {
           const file = nodePath.join(packageRoot, scenario.extra);

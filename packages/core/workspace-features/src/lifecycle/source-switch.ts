@@ -4,9 +4,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 
 import { manifestFilenameForType } from "@agentxm/extension-content";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  PublishOptionsSchema,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions/common";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   acceptedCanonicalObservation,
@@ -14,7 +18,7 @@ import {
   computeMaterializedTreeIntegrity,
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
+import { SourceHostProviders, observeGitIgnoreInputs } from "@agentxm/workspace-kernel/sources";
 import {
   type JobStepArtifact,
   type PackMemberSourceSwitchEndpoint,
@@ -30,7 +34,10 @@ import {
 } from "@agentxm/workspace-kernel/operations";
 import type { PrepareInstallRequirements } from "./install/vocabulary.js";
 import { sourceResolutionRefused } from "@agentxm/workspace-kernel/reconciliation";
-import { isArchivePathIncluded } from "@agentxm/workspace-kernel/acquisition";
+import {
+  computeDistributionTreeIntegrity,
+  resolveFileSelection,
+} from "@agentxm/workspace-kernel/acquisition";
 
 export const SOURCE_SWITCH_CONDITION_ID = "source-authority-change";
 const SOURCE_SWITCH_STATE_CONDITION_ID = "source-switch-current-state";
@@ -197,56 +204,110 @@ const classifyPackMembers = (
     });
   });
 
-const parsePublishIgnore = (raw: string): ReadonlyArray<string> => {
-  const parsed: unknown = JSON.parse(raw);
-  if (typeof parsed !== "object" || parsed === null || !("publish" in parsed)) return [];
-  const publish = parsed.publish;
-  if (typeof publish !== "object" || publish === null || !("ignore" in publish)) return [];
-  return Array.isArray(publish.ignore) && publish.ignore.every((value) => typeof value === "string")
-    ? publish.ignore
-    : [];
-};
+const ComparableManifestSchema = Schema.Struct({ publish: Schema.optional(Schema.Unknown) });
 
 const comparableTreeIntegrity = (
   directory: string,
   ref: ExtensionRef,
   compareWithRegistry: boolean,
-): Effect.Effect<string, ExtensionLifecycleFailed, FileSystem.FileSystem | Path.Path> =>
+  originalFiles?: { readonly directory: string; readonly publicationBoundaryRoot?: string },
+): Effect.Effect<string, ExtensionLifecycleFailed, PrepareInstallRequirements> =>
   Effect.gen(function* () {
+    if (!compareWithRegistry) {
+      return yield* computeMaterializedTreeIntegrity(directory).pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "validation",
+            detail: `The target tree for ${sourceIdentity(ref)} could not be compared`,
+            cause,
+          }),
+        ),
+      );
+    }
+    if (ref.refType === "registry") {
+      return yield* computeDistributionTreeIntegrity(directory).pipe(
+        Effect.mapError((cause) =>
+          installRefused({ category: "validation", detail: cause.detail, cause }),
+        ),
+      );
+    }
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const ignore =
-      compareWithRegistry && ref.refType !== "registry"
-        ? yield* fs.readFileString(path.join(directory, manifestFilenameForType(ref.type))).pipe(
-            Effect.mapError((cause) =>
-              installRefused({
-                category: "validation",
-                detail: `The target manifest for ${sourceIdentity(ref)} could not be read for switch preview`,
-                cause,
-              }),
-            ),
-            Effect.flatMap((raw) =>
-              Effect.try({
-                try: () => parsePublishIgnore(raw),
-                catch: (cause) =>
-                  installRefused({
-                    category: "validation",
-                    detail: `The target manifest for ${sourceIdentity(ref)} could not be read for switch preview`,
-                    cause,
-                  }),
-              }),
-            ),
-          )
-        : [];
-    return yield* computeMaterializedTreeIntegrity(directory, {
-      includeFile: (relativePath) => isArchivePathIncluded(relativePath, ignore),
-    }).pipe(
+    const raw = yield* fs
+      .readFileString(path.join(directory, manifestFilenameForType(ref.type)))
+      .pipe(
+        Effect.mapError((cause) =>
+          installRefused({
+            category: "validation",
+            detail: "Cannot read distribution manifest for source switch.",
+            cause,
+          }),
+        ),
+      );
+    const manifest = yield* Schema.decodeUnknownEffect(
+      Schema.fromJsonString(ComparableManifestSchema),
+    )(raw).pipe(
       Effect.mapError((cause) =>
         installRefused({
           category: "validation",
-          detail: `The target tree for ${sourceIdentity(ref)} could not be compared`,
+          detail: "Invalid distribution manifest for source switch.",
           cause,
         }),
+      ),
+    );
+    const options =
+      manifest.publish === undefined
+        ? undefined
+        : yield* Schema.decodeUnknownEffect(PublishOptionsSchema, { onExcessProperty: "error" })(
+            manifest.publish,
+          ).pipe(
+            Effect.mapError((cause) =>
+              installRefused({
+                category: "validation",
+                detail: "Invalid publication policy for source switch.",
+                cause,
+              }),
+            ),
+          );
+    const context =
+      options?.include === undefined
+        ? yield* Effect.gen(function* () {
+            const providers = yield* SourceHostProviders;
+            const files =
+              originalFiles ??
+              (yield* providers.fetch(ref).pipe(Effect.mapError(sourceResolutionRefused)));
+            if (files.publicationBoundaryRoot === undefined) {
+              return yield* installRefused({
+                category: "validation",
+                detail:
+                  "Distribution context unavailable: the original source's ancestor ignore policy was not retained; content equivalence cannot be established.",
+              });
+            }
+            return yield* observeGitIgnoreInputs({
+              packageRoot: files.directory,
+              boundaryRoot: files.publicationBoundaryRoot,
+            }).pipe(
+              Effect.mapError((cause) =>
+                installRefused({ category: "validation", detail: cause.detail, cause }),
+              ),
+            );
+          })
+        : undefined;
+    const selection = resolveFileSelection({
+      packageDirectory: context?.packageDirectory ?? "",
+      gitignore: context?.rules ?? [],
+      ...(options?.include === undefined ? {} : { include: options.include }),
+      ...(options?.exclude === undefined ? {} : { exclude: options.exclude }),
+      manifest: manifestFilenameForType(ref.type),
+    });
+    if (!selection.evaluate({ path: manifestFilenameForType(ref.type), kind: "file" }).included)
+      return yield* installRefused({
+        category: "validation",
+        detail: "The distribution excludes its required manifest.",
+      });
+    return yield* computeDistributionTreeIntegrity(directory, selection).pipe(
+      Effect.mapError((cause) =>
+        installRefused({ category: "validation", detail: cause.detail, cause }),
       ),
     );
   });
@@ -260,7 +321,7 @@ const proposedTreeIntegrity = (
     const files = yield* providers
       .fetch(ref)
       .pipe(Effect.mapError((cause) => sourceResolutionRefused(cause)));
-    return yield* comparableTreeIntegrity(files.directory, ref, compareWithRegistry);
+    return yield* comparableTreeIntegrity(files.directory, ref, compareWithRegistry, files);
   });
 
 const endpoint = (
@@ -403,10 +464,9 @@ export const withSourceSwitches = <R, O>(
 
         const compareWithRegistry =
           sourceFamily(previous.value) === "registry" || sourceFamily(proposal.ref) === "registry";
-        const beforeTree =
-          compareWithRegistry && previous.value.refType !== "registry"
-            ? yield* comparableTreeIntegrity(acceptedPath, previous.value, true)
-            : current.value.accepted.treeIntegrity;
+        const beforeTree = compareWithRegistry
+          ? yield* comparableTreeIntegrity(acceptedPath, previous.value, true)
+          : current.value.accepted.treeIntegrity;
         const afterTree = yield* proposedTreeIntegrity(proposal.ref, compareWithRegistry);
         const beforeGuarantees: ReadonlyArray<string> =
           sourceFamily(previous.value) === "registry" ? REGISTRY_GUARANTEES : [];

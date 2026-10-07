@@ -51,6 +51,20 @@ import { publishVerdictOf as verdictOf } from "./verdict.js";
 const DETAIL_HINT = VERBOSE_DETAILS_HINT;
 const FOLD_HINT = VERBOSE_LIST_HINT;
 
+type RuleOrigin = NonNullable<PublishResultItem["archive"]>["patterns"][number]["origin"];
+const ruleOriginText = (origin: RuleOrigin): string => {
+  switch (origin.kind) {
+    case "gitignore":
+      return `${origin.file}:${String(origin.line)}`;
+    case "manifest":
+      return `publish.${origin.field}[${String(origin.index)}]`;
+    case "builtin":
+      return origin.rule === "required-manifest"
+        ? "required manifest"
+        : "Git administration policy";
+  }
+};
+
 const markOf = (standing: Standing): Mark => {
   switch (standing) {
     case "to-publish":
@@ -209,10 +223,39 @@ const evidenceOf = (
               `${bytes(archive.zipBytes)} ZIP`,
             ])}`,
           ),
-          ...archive.included.map((file) => dim(`include ${file.path} (${bytes(file.size)})`)),
+          ...archive.included.map((file) =>
+            dim(
+              joined([
+                `include ${file.path} (${bytes(file.size)})`,
+                file.sourcePath === undefined || file.sourcePath === file.path
+                  ? undefined
+                  : `source ${file.sourcePath}`,
+                file.ruleOrigin === undefined
+                  ? undefined
+                  : `from ${ruleOriginText(file.ruleOrigin)}`,
+              ]),
+            ),
+          ),
+          dim(`integrity ${archive.integrity}`),
+          ...archive.patterns.map((rule) =>
+            dim(
+              `rule ${rule.pattern}: ${count(rule.matchCount, "entry")}, from ${ruleOriginText(rule.origin)}`,
+            ),
+          ),
           ...archive.excluded.map((file) =>
             dim(
-              `exclude ${file.path} (${bytes(file.size)}), ${file.matchedPatterns.join(PROSE_SEPARATOR)}`,
+              joined([
+                `exclude ${file.path} (${bytes(file.size)})`,
+                file.matchedPatterns.length === 0
+                  ? "not selected"
+                  : file.matchedPatterns.join(PROSE_SEPARATOR),
+                file.sourcePath === undefined || file.sourcePath === file.path
+                  ? undefined
+                  : `source ${file.sourcePath}`,
+                file.ruleOrigin === undefined
+                  ? undefined
+                  : `from ${ruleOriginText(file.ruleOrigin)}`,
+              ]),
             ),
           ),
         ]),

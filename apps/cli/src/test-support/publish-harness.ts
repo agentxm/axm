@@ -34,7 +34,7 @@ export interface AuthoredSkillFixture {
   readonly description?: string;
   /** Omit `src/SKILL.md` so the fixed publication gate rejects the skill. */
   readonly withSkillMd?: boolean;
-  readonly publishIgnore?: ReadonlyArray<string>;
+  readonly publishExclude?: ReadonlyArray<string>;
 }
 
 /**
@@ -52,9 +52,9 @@ export const writeAuthoredSkill = (workspaceRoot: string, fixture: AuthoredSkill
       type: "skill",
       name: fixture.name,
       version: fixture.version ?? "1.0.0",
-      ...(fixture.publishIgnore === undefined
+      ...(fixture.publishExclude === undefined
         ? {}
-        : { publish: { ignore: fixture.publishIgnore } }),
+        : { publish: { exclude: fixture.publishExclude } }),
     }),
   );
   if (fixture.withSkillMd !== false) {

@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/existing-directory-needs-no-workspace-setup",
   title: "Creators can publish an existing directory without creating an AXM workspace",
   statement:
-    "The publish command shall accept an explicit existing-directory source and separate publisher identity/version without setup or an upstream AXM manifest. Preview and publication shall leave the creator directory and scope configuration unchanged. The resulting skill shall be installable through the ordinary Registry lifecycle with its original metadata, supporting files, and executable modes.",
+    "The publish command shall accept an explicit existing-directory source and separate publisher identity/version without setup or an upstream AXM manifest. Preview and publication shall leave the creator directory and scope configuration unchanged. The resulting skill shall be installable through the ordinary Registry lifecycle with its selected original metadata, supporting files, and executable modes. Repeated source-relative include and exclude flags shall override inherited Git ignores without changing the creator source.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "trustworthy-distribution"],
@@ -32,6 +32,8 @@ describe("Publishing an existing directory", () => {
         "---\r\nname: Upstream Display\r\nallowed-tools: [Read, Bash]\r\n---\r\n# Review\r\n";
       fs.writeFileSync(path.join(creator.invoking, "SKILL.md"), body);
       fs.writeFileSync(path.join(creator.invoking, "metadata.json"), '{"unchanged":true}\n');
+      fs.writeFileSync(path.join(creator.invoking, ".gitignore"), "run.sh\n");
+      fs.writeFileSync(path.join(creator.invoking, "notes.txt"), "workspace only\n");
       fs.writeFileSync(path.join(creator.invoking, "run.sh"), "#!/bin/sh\necho review\n");
       fs.chmodSync(path.join(creator.invoking, "run.sh"), 0o755);
       const registry = path.join(creator.root, "registry");
@@ -44,6 +46,12 @@ describe("Publishing an existing directory", () => {
         ".",
         "--package-version",
         "1.0.0",
+        "--include-file",
+        "**",
+        "--exclude-file",
+        "/notes.txt",
+        "--exclude-file",
+        "/.gitignore",
         "--registry-url",
         location,
         "--json",
@@ -62,8 +70,10 @@ describe("Publishing an existing directory", () => {
           expect(fs.existsSync(path.join(root, name))).toBe(false);
       }
       expect(fs.readdirSync(creator.invoking).sort()).toEqual([
+        ".gitignore",
         "SKILL.md",
         "metadata.json",
+        "notes.txt",
         "run.sh",
       ]);
       expect(fs.readFileSync(path.join(creator.invoking, "SKILL.md"), "utf8")).toBe(body);
@@ -87,6 +97,8 @@ describe("Publishing an existing directory", () => {
         '{"unchanged":true}\n',
       );
       expect(fs.statSync(path.join(native, "run.sh")).mode & 0o111).toBe(0o111);
+      expect(fs.existsSync(path.join(native, "notes.txt"))).toBe(false);
+      expect(fs.existsSync(path.join(native, ".gitignore"))).toBe(false);
     } finally {
       consumer.cleanup();
       creator.cleanup();

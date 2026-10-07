@@ -980,8 +980,8 @@ export type PackMemberConstraintMap = Schema.Schema.Type<typeof PackMemberConstr
  *
  * Declared in the manifest rather than in workspace settings so the policy
  * travels with the package: whoever publishes a checkout produces the same
- * archive. Absent means every file under the package directory is published,
- * which is the default and the only behavior before this field existed.
+ * archive. Omitted inclusion inherits repository ignore policy; explicit
+ * inclusion declares a self-contained distribution boundary.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -994,6 +994,10 @@ export const ExtensionVisibilitySchema = Schema.Literals(["public", "private"] a
 /** @experimental This API is unstable and may change without notice. */
 export type ExtensionVisibility = Schema.Schema.Type<typeof ExtensionVisibilitySchema>;
 
+const PublicationPatternSchema = Schema.NonEmptyString.check(
+  Schema.isPattern(/^[^\r\n]+$/, { message: "Expected one Git-style pattern per array entry" }),
+);
+
 export const PublishOptionsSchema = Schema.Struct({
   visibility: Schema.optional(
     ExtensionVisibilitySchema.annotate({
@@ -1001,14 +1005,19 @@ export const PublishOptionsSchema = Schema.Struct({
         "Intended whole-Extension Registry visibility. Establishes new Extensions and must match established Extensions.",
     }),
   ),
-  ignore: Schema.optional(
-    Schema.Array(Schema.NonEmptyString)
-      .pipe(Schema.check(Schema.isUnique()))
-      .annotate({
-        description:
-          "Registry-only archive exclusions matched against package-relative POSIX paths. Matching files are omitted only from published archives; local, Git, workspace, import, fork, and agent projection behavior is unchanged. `*` is the only wildcard, is case-sensitive, and spans `/`. An explicit empty array records a reviewed publish-all decision.",
-        examples: [[], ["evals/*"]],
-      }),
+  include: Schema.optional(
+    Schema.Array(PublicationPatternSchema).annotate({
+      description:
+        'Ordered, case-sensitive Git-style package-path allowlist. Omission uses repository .gitignore patterns; an explicit array bypasses Git ignores. [] selects only the required manifest, ["**"] selects all permitted content. Positive rules include and ! rules remove paths. This affects only Registry distribution.',
+      examples: [["/src/", "/dist/", "/README.md"], ["**"]],
+    }),
+  ),
+  exclude: Schema.optional(
+    Schema.Array(PublicationPatternSchema).annotate({
+      description:
+        "Ordered, case-sensitive Git-style exclusions applied after default or explicit inclusion. ! restores a path unless a parent remains excluded. [] adds no exclusions. Excluding the required manifest is an error. Installation, import, fork, and projection are unchanged.",
+      examples: [[], ["*.test.ts", "*.map"]],
+    }),
   ),
 }).annotate({
   identifier: "PublishOptions",

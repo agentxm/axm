@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.7.0",
+  "suite_version": "0.8.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -647,7 +647,7 @@
       "id": 61,
       "stage": "execution",
       "prompt": "Preview publishing a skill that has an evals directory. Decide what will ship without assuming evaluation material is always private.",
-      "expected_output": "Inspect the effective Registry archive and declared publish.ignore policy while keeping repository, installation, and agent-projection boundaries distinct.",
+      "expected_output": "Inspect the effective Registry archive and default .gitignore selection and explicit publish.include/publish.exclude policy while keeping repository, installation, and agent-projection boundaries distinct.",
       "assertions": [
         "The response uses publish preview to inspect included and excluded archive paths and pattern matches.",
         "It does not automatically exclude evals or claim that evals has reserved AXM semantics.",

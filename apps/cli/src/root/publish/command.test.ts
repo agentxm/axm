@@ -1004,6 +1004,9 @@ describe("root publish", () => {
         expect(commands).toHaveLength(8);
         for (const command of commands) {
           expect(yield* probeFlag(command, "--on-existing")).toBe("unrecognized");
+          const fileSelection = command.length === 1 ? "accepted" : "unrecognized";
+          expect(yield* probeFlag(command, "--include-file")).toBe(fileSelection);
+          expect(yield* probeFlag(command, "--exclude-file")).toBe(fileSelection);
         }
       }),
     );
@@ -1284,6 +1287,8 @@ describe("publish recovery", () => {
     const recovery = makeExactPublishRecovery(
       {
         from: "/workspace/upstream",
+        fileInclude: ["**", "!*.test.ts"],
+        fileExclude: ["/drafts/"],
         packageVersion: "1.2.3",
         registry: Option.some("private"),
         registryUrl: Option.none(),
@@ -1294,7 +1299,7 @@ describe("publish recovery", () => {
       ["@acme/skills/review"],
     );
     expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
-      "axm publish --registry private --from /workspace/upstream --package-version 1.2.3 --backfill --accept-warnings @acme/skills/review",
+      "axm publish --registry private --from /workspace/upstream --package-version 1.2.3 --include-file '**' --include-file '!*.test.ts' --exclude-file /drafts/ --backfill --accept-warnings @acme/skills/review",
     );
   });
 

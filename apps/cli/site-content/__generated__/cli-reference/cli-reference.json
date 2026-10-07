@@ -6571,6 +6571,22 @@
             "description": "Exact publisher-envelope version for --from"
           },
           {
+            "name": "include-file",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "For --from: include a source-relative Git-style path pattern; repeat for ordered rules, use ** to publish all permitted content",
+            "variadic": { "min": 0 }
+          },
+          {
+            "name": "exclude-file",
+            "aliases": [],
+            "type": "string",
+            "required": false,
+            "description": "For --from: exclude a source-relative Git-style path pattern after inclusion; repeat for ordered rules",
+            "variadic": { "min": 0 }
+          },
+          {
             "name": "owner",
             "aliases": [],
             "type": "string",

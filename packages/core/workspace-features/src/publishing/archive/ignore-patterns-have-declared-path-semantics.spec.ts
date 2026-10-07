@@ -1,26 +1,23 @@
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as nodePath from "node:path";
-
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
-
 import { defineSpecification } from "@agentxm/specification-metadata";
-
-import { planZipArchive } from "../archive.js";
-import { publishArchiveOptions } from "../publish-ignore.js";
+import { planZipArchive } from "../index.js";
 import { archiveContents } from "../test-helpers.js";
-import { writeAuthoredExtension } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/publish/ignore-patterns-have-declared-path-semantics",
-  title: "Publication exclusions use explicit case-sensitive package paths",
+  title: "Publication selects files with Git patterns and explicit ordered overrides",
   statement:
-    "Publish shall match ignore patterns against case-sensitive archive-relative POSIX paths with only the asterisk acting as a wildcard across directory separators and with question marks, brackets, and negation characters treated literally.",
+    "Publish shall apply case-sensitive repository-root, ancestor, and nested .gitignore patterns to all package paths by default, use an explicit ordered include allowlist instead when supplied, apply ordered Git-style exclude rules afterward, automatically retain the type manifest unless explicitly excluded, and always omit Git administration data.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
+  boundary: "platform",
+  boundaryRationale:
+    "Real inherited .gitignore files establish source-root coordinates and directory kinds.",
   methods: ["decision-table", "example"],
   derivedFrom: ["apps/cli/help/topics/publish.md"],
   supersedes: [],
@@ -28,46 +25,108 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-describe("Publication ignore matching", () => {
-  it.effect(
-    "matches the actual nested and literal paths without shell-glob or negation behavior",
-    () =>
+describe("Publication file selection", () => {
+  for (const row of [
+    {
+      name: "default Git selection",
+      include: undefined,
+      exclude: [],
+      retained: [".hidden", "src/SKILL.md", "src/keep.log"],
+      omitted: ["dist/build.js", "config.json", "src/other.log"],
+    },
+    {
+      name: "explicit generated content",
+      include: ["/src/", "/dist/"],
+      exclude: ["*.log"],
+      retained: ["src/SKILL.md", "dist/build.js"],
+      omitted: [".hidden", "config.json", "src/keep.log", "src/other.log"],
+    },
+    {
+      name: "publish all",
+      include: ["**"],
+      exclude: [],
+      retained: [
+        ".hidden",
+        "src/SKILL.md",
+        "dist/build.js",
+        "config.json",
+        "src/keep.log",
+        "src/other.log",
+      ],
+      omitted: [],
+    },
+    {
+      name: "empty allowlist",
+      include: [],
+      exclude: [],
+      retained: [],
+      omitted: [
+        ".hidden",
+        "src/SKILL.md",
+        "dist/build.js",
+        "config.json",
+        "src/keep.log",
+        "src/other.log",
+      ],
+    },
+    {
+      name: "ordered exceptions",
+      include: ["**", "!*.log"],
+      exclude: ["**/*.json", "!config.json", "!skill.json"],
+      retained: [".hidden", "src/SKILL.md", "dist/build.js", "config.json"],
+      omitted: ["src/keep.log", "src/other.log"],
+    },
+  ]) {
+    it.effect(row.name, () =>
       Effect.gen(function* () {
-        const workspaceRoot = fs.realpathSync(
-          fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-publish-ignore-")),
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const packageRoot = path.join(root, "skills", "review");
+        yield* fs.makeDirectory(path.join(root, ".git"));
+        yield* fs.makeDirectory(path.join(packageRoot, "src"), { recursive: true });
+        yield* fs.makeDirectory(path.join(packageRoot, "dist"));
+        yield* fs.writeFileString(path.join(root, ".gitignore"), "*.log\n");
+        yield* fs.writeFileString(path.join(root, "skills", ".gitignore"), "dist/\n**/*.json\n");
+        yield* fs.writeFileString(path.join(packageRoot, "src", ".gitignore"), "!keep.log\n");
+        for (const file of [
+          ".hidden",
+          "skill.json",
+          "src/SKILL.md",
+          "dist/build.js",
+          "config.json",
+          "src/keep.log",
+          "src/other.log",
+        ])
+          yield* fs.writeFileString(path.join(packageRoot, file), "package content");
+        yield* fs.writeFileString(
+          path.join(packageRoot, "src", ".git"),
+          "gitdir: ../administration",
         );
-        try {
-          const ignore = ["evals/*", "literal?.txt", "[ab].txt", "!keep.txt", "case/*"];
-          const packageRoot = writeAuthoredExtension(workspaceRoot, "skill", {
-            name: "review",
-            publishIgnore: ignore,
-          });
-          const excluded = ["evals/deep/case.json", "literal?.txt", "[ab].txt", "!keep.txt"];
-          const retained = ["CASE/Keep.md", "literalx.txt", "a.txt", "keep.txt"];
-          for (const file of [...excluded, ...retained]) {
-            const absolute = nodePath.join(packageRoot, file);
-            fs.mkdirSync(nodePath.dirname(absolute), { recursive: true });
-            fs.writeFileSync(absolute, `Content for ${file}\n`);
-          }
-
-          const options = yield* publishArchiveOptions("skill", ignore);
-          const planned = yield* planZipArchive(packageRoot, options);
-
-          const contents = yield* archiveContents(planned.archive);
-          expect(Object.keys(contents).sort()).toEqual(
-            [...retained, "skill.json", "src/SKILL.md"].sort(),
-          );
-          expect(planned.plan.excluded.map(({ path }) => path).sort()).toEqual(excluded.sort());
-          expect(planned.plan.patterns).toEqual([
-            { pattern: "evals/*", matchCount: 1 },
-            { pattern: "literal?.txt", matchCount: 1 },
-            { pattern: "[ab].txt", matchCount: 1 },
-            { pattern: "!keep.txt", matchCount: 1 },
-            { pattern: "case/*", matchCount: 0 },
-          ]);
-        } finally {
-          fs.rmSync(workspaceRoot, { recursive: true, force: true });
-        }
+        const planned = yield* planZipArchive(packageRoot, {
+          ...(row.include === undefined ? {} : { include: row.include }),
+          exclude: row.exclude,
+          manifest: "skill.json",
+        });
+        const contents = yield* archiveContents(planned.archive);
+        expect(contents["skill.json"]).toBeDefined();
+        expect(contents["src/.git"]).toBeUndefined();
+        for (const file of row.retained) expect(contents[file], file).toBeDefined();
+        for (const file of row.omitted) expect(contents[file], file).toBeUndefined();
       }).pipe(Effect.provide(NodeServices.layer)),
+    );
+  }
+
+  it.effect("refuses explicit manifest removal but accepts a final restoring exception", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      yield* fs.writeFileString(path.join(root, "skill.json"), "{}");
+      const refused = yield* planZipArchive(root, { exclude: ["**/*.json"] }).pipe(Effect.result);
+      expect(refused._tag).toBe("Failure");
+      const restored = yield* planZipArchive(root, { exclude: ["**/*.json", "!skill.json"] });
+      expect(restored.plan.included.map(({ path }) => path)).toEqual(["skill.json"]);
+    }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

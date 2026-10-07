@@ -130,6 +130,27 @@ const PublishCauseSchema = Schema.Struct({
   description: "Redacted typed cause for an operation that actually failed.",
 });
 
+const SelectionRuleOriginSchema = Schema.Union([
+  Schema.Struct({ kind: Schema.Literal("gitignore"), file: Schema.String, line: Schema.Number }),
+  Schema.Struct({
+    kind: Schema.Literal("manifest"),
+    field: Schema.Literals(["include", "exclude"]),
+    index: Schema.Number,
+  }),
+  Schema.Struct({
+    kind: Schema.Literal("builtin"),
+    rule: Schema.Literals(["git-administration", "required-manifest"]),
+  }),
+]);
+
+const ArchiveEntrySchema = Schema.Struct({
+  path: Schema.String,
+  sourcePath: Schema.optional(Schema.String),
+  size: Schema.Number,
+  matchedPatterns: Schema.Array(Schema.String),
+  ruleOrigin: Schema.optional(SelectionRuleOriginSchema),
+});
+
 const PublishResultItemSchema = Schema.Struct({
   id: Schema.String,
   owner: HandleSchema,
@@ -166,21 +187,15 @@ const PublishResultItemSchema = Schema.Struct({
   ),
   archive: Schema.optional(
     Schema.Struct({
-      included: Schema.Array(
+      included: Schema.Array(ArchiveEntrySchema),
+      excluded: Schema.Array(ArchiveEntrySchema),
+      patterns: Schema.Array(
         Schema.Struct({
-          path: Schema.String,
-          size: Schema.Number,
-          matchedPatterns: Schema.Array(Schema.String),
+          pattern: Schema.String,
+          matchCount: Schema.Number,
+          origin: SelectionRuleOriginSchema,
         }),
       ),
-      excluded: Schema.Array(
-        Schema.Struct({
-          path: Schema.String,
-          size: Schema.Number,
-          matchedPatterns: Schema.Array(Schema.String),
-        }),
-      ),
-      patterns: Schema.Array(Schema.Struct({ pattern: Schema.String, matchCount: Schema.Number })),
       warnings: Schema.Array(Schema.String),
       includedCount: Schema.Number,
       excludedCount: Schema.Number,

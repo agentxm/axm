@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/existing-directory-uses-a-separate-envelope",
   title: "Explicit publication preserves an existing skill directory under a publisher envelope",
   statement:
-    "When a creator explicitly supplies an existing skill directory, a fully qualified skill identity, and an exact package version, AXM shall publish the unchanged payload under a separate identity/version envelope without requiring an upstream AXM manifest, rewriting metadata, or claiming workspace authorship. Preview shall upload nothing; ordinary configured publication shall retain its authorship policy. The existing authorization, immutable-version, source-state, freshness, and settlement rules shall govern the publication, with source comparisons referring to original payload paths rather than generated envelope paths.",
+    "When a creator explicitly supplies an existing skill directory, a fully qualified skill identity, and an exact package version, AXM shall publish the selected unchanged payload under a separate identity/version envelope without requiring an upstream AXM manifest, rewriting metadata, or claiming workspace authorship. Preview shall upload nothing; ordinary configured publication shall retain its authorship policy. The existing authorization, immutable-version, source-state, freshness, and settlement rules shall govern the publication, with source comparisons referring to original payload paths rather than generated envelope paths.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "trustworthy-distribution", "workspace-intent-fidelity"],
@@ -180,6 +180,80 @@ describe("Existing-directory publication", () => {
     );
   }
 
+  it.effect("keeps the generated manifest while excluding an upstream manifest", () =>
+    Effect.gen(function* () {
+      const { world, directory } = existing("# Skill\n");
+      fs.writeFileSync(path.join(directory, "skill.json"), '{"upstream":true}');
+      const result = yield* world.provide(
+        runPublish(
+          requestFor(world, {
+            selectors: ["@acme/skills/review"],
+            from: directory,
+            packageVersion: "1.0.0",
+            preview: false,
+            fileInclude: ["**"],
+            fileExclude: ["/skill.json"],
+          }),
+        ),
+      );
+      expect(publishDocument(result).counts.published).toBe(1);
+      const contents = yield* archiveContents(world.archive("review"));
+      expect(contents["skill.json"]).toBeDefined();
+      expect(contents["src/skill.json"]).toBeUndefined();
+      expect(fs.readFileSync(path.join(directory, "skill.json"), "utf8")).toBe('{"upstream":true}');
+    }),
+  );
+
+  for (const explicit of [false, true]) {
+    it.effect(
+      `selects original paths before creating the envelope (${explicit ? "explicit" : "inherited"})`,
+      () =>
+        Effect.gen(function* () {
+          const { world, directory } = existing("# Skill\n");
+          fs.mkdirSync(path.join(directory, ".git"));
+          fs.writeFileSync(path.join(directory, ".gitignore"), "/metadata.json\n");
+          const result = yield* world.provide(
+            runPublish(
+              requestFor(world, {
+                selectors: ["@acme/skills/review"],
+                from: directory,
+                packageVersion: "1.0.0",
+                preview: false,
+                ...(explicit
+                  ? { fileInclude: ["**"], fileExclude: ["/metadata.json", "/.gitignore"] }
+                  : {}),
+              }),
+            ),
+          );
+          expect(publishDocument(result).counts.published).toBe(1);
+          const contents = yield* archiveContents(world.archive("review"));
+          expect(contents["src/metadata.json"]).toBeUndefined();
+          expect(contents["src/SKILL.md"]).toEqual(Buffer.from("# Skill\n"));
+          const excluded = publishDocument(result).execution.outcomes[0]?.archive?.excluded;
+          expect(excluded).toContainEqual(
+            expect.objectContaining({
+              path: "src/metadata.json",
+              sourcePath: "metadata.json",
+              ruleOrigin: explicit
+                ? { kind: "manifest", field: "exclude", index: 0 }
+                : { kind: "gitignore", file: ".gitignore", line: 1 },
+            }),
+          );
+          const envelope: unknown = JSON.parse(new TextDecoder().decode(contents["skill.json"]));
+          if (explicit)
+            expect(envelope).toMatchObject({
+              publish: {
+                include: ["/src/**/**"],
+                exclude: ["/src/metadata.json", "/src/.gitignore"],
+              },
+            });
+          expect(fs.readFileSync(path.join(directory, "metadata.json"), "utf8")).toBe(
+            '{"upstream":true}\r\n',
+          );
+        }),
+    );
+  }
+
   it.effect("excludes and reports Git administration without changing it", () =>
     Effect.gen(function* () {
       const { world, directory } = existing("# Skill\n");
@@ -199,9 +273,11 @@ describe("Existing-directory publication", () => {
       const contents = yield* archiveContents(world.archive("review"));
       expect(contents["src/.git/config"]).toBeUndefined();
       expect(publishDocument(result).execution.outcomes[0]?.archive?.excluded).toContainEqual({
-        path: "src/.git/config",
-        size: Buffer.byteLength("fixture configuration\n"),
-        matchedPatterns: ["src/.git/**"],
+        path: "src/.git/",
+        sourcePath: ".git",
+        size: 0,
+        matchedPatterns: [".git"],
+        ruleOrigin: { kind: "builtin", rule: "git-administration" },
       });
       expect(fs.readFileSync(path.join(directory, ".git", "config"), "utf8")).toBe(
         "fixture configuration\n",

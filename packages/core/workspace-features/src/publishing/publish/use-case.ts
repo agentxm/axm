@@ -23,8 +23,8 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import { sha512Integrity } from "@agentxm/host-primitives";
-import { buildZipArchive } from "../archive.js";
-import { publishArchiveOptions } from "../publish-ignore.js";
+import { planZipArchive } from "../archive.js";
+import { publishArchiveOptions } from "../publish-selection.js";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -312,7 +312,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
           ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
-          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+          selection: candidate.fileSelection,
         }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         return { ...candidate, sourceAssessment } satisfies PublishCandidate;
       }),
@@ -693,19 +693,24 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         // Existing-directory preparation captures bytes before the execution
         // candidate is assembled. Compare the same envelope again so an edit
         // between those phases cannot upload stale, previously prepared bytes.
-        if (candidate.existingDirectoryVersion !== undefined) {
-          const archive = yield* buildZipArchive(candidate.extensionDir, {
-            ...(yield* publishArchiveOptions(candidate.type, candidate.publishIgnore)),
-            skillEnvelope: new TextEncoder().encode(
-              `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
-            ),
+        const observed = yield* planZipArchive(candidate.extensionDir, {
+          ...(yield* publishArchiveOptions(candidate.type, candidate.publishOptions)),
+          ...(candidate.existingDirectoryVersion === undefined
+            ? {}
+            : {
+                skillEnvelope: new TextEncoder().encode(
+                  `${JSON.stringify(candidate.manifestJson, null, 2)}\n`,
+                ),
+              }),
+        });
+        if (
+          sha512Integrity(observed.archive) !== candidate.integrity ||
+          observed.policyFingerprint !== candidate.policyFingerprint
+        ) {
+          return yield* new PublishFailed({
+            category: "conflict",
+            detail: `Publish source content or selection policy changed after preparation for ${candidate.fqn}; no upload was attempted.`,
           });
-          if (sha512Integrity(archive) !== candidate.integrity) {
-            return yield* new PublishFailed({
-              category: "conflict",
-              detail: `Publish source content changed after preparation for ${candidate.fqn}; no upload was attempted.`,
-            });
-          }
         }
         const planned = candidate.sourceAssessment;
         if (planned === undefined) {
@@ -717,7 +722,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           directory: candidate.extensionDir,
           archivePlan: candidate.archivePlan,
           ...(candidate.existingDirectoryVersion === undefined ? {} : { payloadPrefix: "src/" }),
-          ...(candidate.publishIgnore === undefined ? {} : { ignore: candidate.publishIgnore }),
+          selection: candidate.fileSelection,
         }).pipe(Effect.mapError(sourceAssessmentFailed(candidate.fqn)));
         if (current.fingerprint !== planned.fingerprint) {
           return yield* Effect.fail(

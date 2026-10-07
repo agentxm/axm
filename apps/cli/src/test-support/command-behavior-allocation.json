@@ -1623,7 +1623,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -3434,7 +3434,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -4752,7 +4752,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -5594,7 +5594,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -5919,6 +5919,30 @@
           }
         },
         {
+          "name": "include-file",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "exclude-file",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
           "name": "owner",
           "rawHelp": {
             "aliases": [],
@@ -6025,12 +6049,18 @@
       ],
       "parameterBindings": [
         {
-          "parameters": ["flag:from", "flag:package-version", "argument:extension"],
+          "parameters": [
+            "flag:from",
+            "flag:package-version",
+            "flag:include-file",
+            "flag:exclude-file",
+            "argument:extension"
+          ],
           "requirements": [
             "cli/publish/existing-directory-uses-a-separate-envelope",
             "cli/publish/existing-directory-needs-no-workspace-setup"
           ],
-          "when": "--from and --package-version select an existing directory with exactly one explicit skill FQN."
+          "when": "--from and --package-version select an existing directory with exactly one explicit skill FQN. Ordered --include-file and --exclude-file rules select source paths before the envelope is added."
         },
         {
           "parameters": ["argument:extension"],
@@ -6056,7 +6086,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "--from is absent. No positional selectors are supplied.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -6601,7 +6631,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -7762,7 +7792,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
@@ -8585,7 +8615,7 @@
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
           "when": "A type-specific publication command selects extensions.",
           "details": [
-            "Extension selection differs from manifest publish.ignore archive-path filtering."
+            "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {

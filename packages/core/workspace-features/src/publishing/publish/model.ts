@@ -59,7 +59,7 @@ import {
 
 import { PublishFailed } from "../errors.js";
 import { planZipArchive, type ArchivePlan } from "../archive.js";
-import { publishArchiveOptions } from "../publish-ignore.js";
+import { publishArchiveOptions } from "../publish-selection.js";
 import { runPublishLintGate } from "../lint-gate.js";
 import { nonMonotonicVersionConflict } from "../preflight.js";
 import { isPublishableType, type PublishableType } from "../publishable-types.js";
@@ -117,6 +117,7 @@ export interface SelectedEntry extends CatalogEntry {
   readonly authored: boolean;
   /** Explicit existing-format publication does not confer workspace authorship. */
   readonly existingDirectoryVersion?: Version;
+  readonly sourcePublicationOptions?: Schema.Schema.Type<typeof PublishOptionsSchema>;
   readonly includedDependency?: true;
   readonly includedBy?: ReadonlyArray<string>;
   readonly extensionDir?: string;
@@ -152,7 +153,9 @@ export interface UploadCandidate extends CandidateVersion {
   readonly action: "publish";
   readonly manifestJson: unknown;
   readonly packages?: ReadonlyArray<Schema.Schema.Type<typeof CompanionPackageSchema>>;
-  readonly publishIgnore?: ReadonlyArray<string>;
+  readonly publishOptions?: Schema.Schema.Type<typeof PublishOptionsSchema>;
+  readonly fileSelection: import("@agentxm/workspace-kernel/acquisition").ResolvedFileSelection;
+  readonly policyFingerprint: string;
   readonly archive: Uint8Array;
   readonly archivePlan: ArchivePlan;
   readonly integrity: string;
@@ -186,6 +189,8 @@ export interface TargetRegistry {
 export interface PublishRequest {
   readonly from?: string;
   readonly packageVersion?: string;
+  readonly fileInclude?: ReadonlyArray<string>;
+  readonly fileExclude?: ReadonlyArray<string>;
   readonly selectors: ReadonlyArray<string>;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<PublishableType>;
@@ -405,6 +410,8 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
+  if (args.from === undefined && (args.fileInclude !== undefined || args.fileExclude !== undefined))
+    return yield* validation("--include-file and --exclude-file require --from.");
   if (args.from !== undefined || args.packageVersion !== undefined) {
     const selector = args.selectors[0];
     if (
@@ -450,6 +457,10 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       distribute: true,
       extensionDir: args.from,
       existingDirectoryVersion: version,
+      sourcePublicationOptions: {
+        ...(args.fileInclude === undefined ? {} : { include: args.fileInclude }),
+        ...(args.fileExclude === undefined ? {} : { exclude: args.fileExclude }),
+      },
       declaredVersion: version,
     };
     return {
@@ -742,7 +753,7 @@ const developmentRootWarning = (
   return developmentRoots.length === 0
     ? []
     : [
-        `Review the Registry distribution boundary: ${developmentRoots.join(", ")} ${developmentRoots.length === 1 ? "is" : "are"} included and publish.ignore has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.`,
+        `Review the Registry distribution boundary: ${developmentRoots.join(", ")} ${developmentRoots.length === 1 ? "is" : "are"} included and publish.exclude has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.`,
       ];
 };
 
@@ -753,6 +764,18 @@ const developmentRootWarning = (
  * version that will upload is validated, archived, and checked against the
  * Registry's version order.
  */
+const envelopePattern = (value: string): string => {
+  if (value.startsWith("#")) return value;
+  const negative = value.startsWith("!");
+  const pattern = negative ? value.slice(1) : value;
+  const rooted = pattern.startsWith("/")
+    ? `/src${pattern}`
+    : pattern.replace(/\/$/, "").includes("/")
+      ? `/src/${pattern}`
+      : `/src/**/${pattern}`;
+  return `${negative ? "!" : ""}${rooted}`;
+};
+
 export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
   selected: SelectedEntry,
   registry: TargetRegistry,
@@ -813,28 +836,28 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
                 }),
           ),
         )
-      : yield* Effect.gen(function* () {
-          const administrativePath = path.join(extensionDir, ".git");
-          const exists = yield* fs.exists(administrativePath);
-          const ignore = exists
-            ? [
-                (yield* fs.stat(administrativePath)).type === "Directory"
-                  ? "src/.git/**"
-                  : "src/.git",
-              ]
-            : [];
-          return {
-            owner: selected.owner,
-            type: selected.type,
-            name: selected.name,
-            version: selected.existingDirectoryVersion,
-            ...(ignore.length === 0 ? {} : { publish: { ignore } }),
-          };
-        }).pipe(
-          Effect.mapError((cause) =>
-            validation("Could not inspect existing skill publication source.", { cause }),
-          ),
-        );
+      : {
+          owner: selected.owner,
+          type: selected.type,
+          name: selected.name,
+          version: selected.existingDirectoryVersion,
+          ...(selected.sourcePublicationOptions === undefined
+            ? {}
+            : {
+                publish: {
+                  ...(selected.sourcePublicationOptions.include === undefined
+                    ? {}
+                    : {
+                        include: selected.sourcePublicationOptions.include.map(envelopePattern),
+                      }),
+                  ...(selected.sourcePublicationOptions.exclude === undefined
+                    ? {}
+                    : {
+                        exclude: selected.sourcePublicationOptions.exclude.map(envelopePattern),
+                      }),
+                },
+              }),
+        };
   const manifest = yield* Schema.decodeUnknownEffect(CandidateManifestSchema)(manifestJson).pipe(
     Effect.mapError((cause) => validation(`Invalid manifest: ${manifestPath}`, { cause })),
   );
@@ -944,8 +967,12 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       platform: { fs, path },
     });
   }
+  const publicationOptions =
+    selected.existingDirectoryVersion === undefined
+      ? manifest.publish
+      : selected.sourcePublicationOptions;
   const plannedArchive = yield* planZipArchive(extensionDir, {
-    ...(yield* publishArchiveOptions(selected.type, manifest.publish?.ignore)),
+    ...(yield* publishArchiveOptions(selected.type, publicationOptions)),
     ...(selected.existingDirectoryVersion === undefined
       ? {}
       : {
@@ -957,7 +984,10 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     ...plannedArchive.plan,
     warnings: [
       ...plannedArchive.plan.warnings,
-      ...developmentRootWarning(plannedArchive.plan, manifest.publish?.ignore !== undefined),
+      ...developmentRootWarning(
+        plannedArchive.plan,
+        manifest.publish?.include !== undefined || manifest.publish?.exclude !== undefined,
+      ),
     ],
   };
   // Guardrails run on the built bytes and only ever reject: the uploaded
@@ -1006,7 +1036,9 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
     action: "publish",
     manifestJson,
     ...(manifest.packages === undefined ? {} : { packages: manifest.packages }),
-    ...(manifest.publish?.ignore === undefined ? {} : { publishIgnore: manifest.publish.ignore }),
+    ...(publicationOptions === undefined ? {} : { publishOptions: publicationOptions }),
+    fileSelection: plannedArchive.selection,
+    policyFingerprint: plannedArchive.policyFingerprint,
     archive,
     archivePlan,
     integrity,

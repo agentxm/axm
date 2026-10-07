@@ -10,6 +10,7 @@ Previewing publish
      archive 42 included, 0 excluded,
      760 KB source, 380 KB ZIP
      include SKILL.md (2 KB)
+     integrity sha256-canvas
      dependency order 0
  +   @acme…/reviewer   0.9.0     publish
      3 entries, 4 KB
@@ -19,6 +20,7 @@ Previewing publish
      archive 3 included, 0 excluded, 8
      KB source, 4 KB ZIP
      include SKILL.md (2 KB)
+     integrity sha256-canvas
      dependency order 0
  =   @acme/…/triage    2.0.1     skip
      already published
@@ -33,6 +35,7 @@ Previewing publish
      archive 1 included, 0 excluded, 1.8
      KB source, 900 B ZIP
      include SKILL.md (2 KB)
+     integrity sha256-canvas
      dependency order 1, after
      @acme/skills/code-review,
      @acme/subagents/reviewer

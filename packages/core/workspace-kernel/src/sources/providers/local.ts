@@ -16,6 +16,8 @@ import { SourceNetworkFailure, type SourceError } from "../errors.js";
 import type { SourceHostProvider } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { LocalSource } from "@agentxm/extension-model/unstable/sources/types";
 import { discoverConventionRefs } from "./convention-discovery.js";
+import { findGitRoot } from "../git/detect.js";
+import * as Option from "effect/Option";
 
 /**
  * Source host provider for local filesystem paths.
@@ -56,8 +58,10 @@ export const createLocalSourceHostProvider = (): SourceHostProvider<
     return Effect.gen(function* () {
       const path = yield* Path.Path;
       const directory = fromFileLocation(ref.location);
+      const gitRoot = yield* findGitRoot(directory);
       return {
         directory,
+        publicationBoundaryRoot: Option.getOrElse(gitRoot, () => directory),
         ...(ref.distribution === undefined
           ? {}
           : {

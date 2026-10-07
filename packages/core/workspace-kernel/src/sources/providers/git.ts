@@ -93,6 +93,7 @@ export const createGitSourceHostProvider = (): SourceHostProvider<
       return {
         directory: sourcePath === "." ? tempDir : path.join(tempDir, sourcePath),
         scratchRoot: tempDir,
+        publicationBoundaryRoot: tempDir,
         ...(ref.distribution === undefined
           ? {}
           : {

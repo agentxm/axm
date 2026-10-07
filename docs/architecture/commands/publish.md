@@ -33,6 +33,25 @@ An extension may be valid authored workspace content but ineligible for
 distribution. For example, an empty authored pack is valid locally while the
 publish gate rejects it.
 
+## Distribution selection
+
+The shared extension model owns the include/exclude manifest contract.
+Workspace-kernel acquisition owns pure Git-pattern selection and distribution
+identity; sources owns bounded filesystem discovery and rule provenance.
+Publishing resolves one immutable selection snapshot for archive encoding,
+preview, Git source assessment, and final revalidation. Entry kinds remain part
+of source review, including paths present only in HEAD. Selection never changes
+acquisition, full materialization integrity, import, fork, or projections.
+
+A source switch compares the source's resolved distribution with the actual
+Registry installation. Distribution identity canonicalizes implied parents and
+retained empty directories, file bytes, executable bits, and link targets.
+Git and local adapters preserve their original publication discovery boundary;
+a cached canonical package does not substitute the consumer workspace's ignore
+rules. Explicit inclusion is self-contained. When default selection lacks
+original context, comparison refuses with a distribution-context-unavailable
+diagnostic rather than claiming equivalence.
+
 ## Publication eligibility
 
 The fixed gate separates these obligations:

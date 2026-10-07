@@ -181,6 +181,8 @@ const readHeadRevision = async (git: SimpleGit): Promise<string | undefined> => 
 export interface GitDirectoryDifference {
   readonly path: string;
   readonly change: "added" | "modified" | "deleted";
+  readonly headKind?: "file" | "directory" | "symlink";
+  readonly workingKind?: "file" | "directory" | "symlink";
   readonly headObject?: string;
   readonly workingObject?: string;
 }
@@ -465,6 +467,19 @@ export const compareDirectoryToHead = (
           path: currentPath,
           change: previous === undefined ? "added" : current === undefined ? "deleted" : "modified",
           ...(previous?.objectId === undefined ? {} : { headObject: previous.objectId }),
+          ...(previous === undefined
+            ? {}
+            : { headKind: previous.mode === "120000" ? ("symlink" as const) : ("file" as const) }),
+          ...(current === undefined
+            ? {}
+            : {
+                workingKind:
+                  current.mode === "120000"
+                    ? ("symlink" as const)
+                    : current.mode === "040000"
+                      ? ("directory" as const)
+                      : ("file" as const),
+              }),
           ...(current?.objectId === undefined ? {} : { workingObject: current.objectId }),
         },
       ];

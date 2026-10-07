@@ -176,14 +176,15 @@
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
+    "ignore": "7.0.9",
     "jsonc-parser": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",
     "simple-git": "catalog:",
     "smol-toml": "catalog:",
-    "yaml": "catalog:",
     "tar-stream": "catalog:",
-    "toml-eslint-parser": "1.0.3"
+    "toml-eslint-parser": "1.0.3",
+    "yaml": "catalog:"
   },
   "devDependencies": {
     "@agentxm/specification-metadata": "workspace:^",
@@ -194,9 +195,9 @@
     "@types/proper-lockfile": "^4.1.4",
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
+    "fflate": "catalog:",
     "typescript": "catalog:",
-    "vitest": "catalog:",
-    "fflate": "catalog:"
+    "vitest": "catalog:"
   },
   "private": true
 }

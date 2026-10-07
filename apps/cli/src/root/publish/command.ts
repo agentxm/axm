@@ -54,6 +54,8 @@ import { backfillFlag } from "../shared/publish-flags.js";
 export interface RootPublishHandlerArgs {
   readonly from?: string;
   readonly packageVersion?: string;
+  readonly fileInclude?: ReadonlyArray<string>;
+  readonly fileExclude?: ReadonlyArray<string>;
   readonly selectors: ReadonlyArray<string>;
   readonly owners: ReadonlyArray<string>;
   readonly types: ReadonlyArray<(typeof selectableTypes)[number]>;
@@ -86,6 +88,8 @@ export const makeExactPublishRecovery = (
     | "recoveryCommand"
     | "from"
     | "packageVersion"
+    | "fileInclude"
+    | "fileExclude"
   >,
   candidateFqns: ReadonlyArray<string>,
 ) =>
@@ -108,6 +112,12 @@ export const makeExactPublishRecovery = (
       ...(args.packageVersion === undefined
         ? []
         : [recoveryOption("--package-version", publicRecoveryValue(args.packageVersion))]),
+      ...(args.fileInclude ?? []).map((pattern) =>
+        recoveryOption("--include-file", publicRecoveryValue(pattern)),
+      ),
+      ...(args.fileExclude ?? []).map((pattern) =>
+        recoveryOption("--exclude-file", publicRecoveryValue(pattern)),
+      ),
       recoverySwitch("--backfill", args.backfill),
       recoverySwitch("--accept-warnings", args.acceptWarnings),
       ...Option.match(args.visibility, {
@@ -121,6 +131,8 @@ export const makeExactPublishRecovery = (
 const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): PublishRequest => ({
   ...(args.from === undefined ? {} : { from: args.from }),
   ...(args.packageVersion === undefined ? {} : { packageVersion: args.packageVersion }),
+  ...(args.fileInclude === undefined ? {} : { fileInclude: args.fileInclude }),
+  ...(args.fileExclude === undefined ? {} : { fileExclude: args.fileExclude }),
   selectors: args.selectors,
   owners: args.owners,
   types: args.types,
@@ -302,6 +314,18 @@ const publishConfig = {
     Flag.withDescription("Exact publisher-envelope version for --from"),
     Flag.optional,
   ),
+  fileInclude: Flag.String("include-file").pipe(
+    Flag.withDescription(
+      "For --from: include a source-relative Git-style path pattern; repeat for ordered rules, use ** to publish all permitted content",
+    ),
+    Flag.atLeast(0),
+  ),
+  fileExclude: Flag.String("exclude-file").pipe(
+    Flag.withDescription(
+      "For --from: exclude a source-relative Git-style path pattern after inclusion; repeat for ordered rules",
+    ),
+    Flag.atLeast(0),
+  ),
   selectors: Argument.String("extension").pipe(
     Argument.withDescription("FQNs or type-qualified extension selectors"),
     Argument.atLeast(0),
@@ -347,6 +371,8 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
       ...(Option.isNone(parsed.packageVersion)
         ? {}
         : { packageVersion: parsed.packageVersion.value }),
+      ...(parsed.fileInclude.length === 0 ? {} : { fileInclude: [...parsed.fileInclude] }),
+      ...(parsed.fileExclude.length === 0 ? {} : { fileExclude: [...parsed.fileExclude] }),
       selectors: [...parsed.selectors],
       owners: [...parsed.owner],
       types: [...parsed.type],

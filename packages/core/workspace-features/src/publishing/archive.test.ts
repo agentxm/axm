@@ -153,8 +153,8 @@ describe("buildZipArchive", () => {
       Effect.gen(function* () {
         const noOptions = yield* buildZipArchive(sourceDir);
         const emptyOptions = yield* buildZipArchive(sourceDir, {});
-        const undefinedIgnore = yield* buildZipArchive(sourceDir, { ignore: undefined });
-        const emptyIgnore = yield* buildZipArchive(sourceDir, { ignore: [] });
+        const undefinedIgnore = yield* buildZipArchive(sourceDir, { exclude: undefined });
+        const emptyIgnore = yield* buildZipArchive(sourceDir, { exclude: [] });
 
         for (const archive of [emptyOptions, undefinedIgnore, emptyIgnore]) {
           expect(Buffer.from(archive).equals(Buffer.from(noOptions))).toBe(true);
@@ -169,7 +169,7 @@ describe("buildZipArchive", () => {
   it.effect("omits entries matching an ignore pattern", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir, { ignore: ["nested/*"] });
+        const archive = yield* buildZipArchive(sourceDir, { exclude: ["nested/*"] });
 
         expect(Object.keys(unzipSync(archive))).toEqual(["hello.txt"]);
       }),
@@ -180,23 +180,33 @@ describe("buildZipArchive", () => {
     withNodeContext(
       Effect.gen(function* () {
         const planned = yield* planZipArchive(sourceDir, {
-          ignore: ["nested/*", "missing-*"],
+          exclude: ["nested/*", "missing-*"],
         });
 
         expect(planned.plan).toEqual({
-          included: [{ path: "hello.txt", size: 11, matchedPatterns: [] }],
+          included: [{ path: "hello.txt", sourcePath: "hello.txt", size: 11, matchedPatterns: [] }],
           excluded: [
             {
               path: "nested/inner.txt",
+              sourcePath: "nested/inner.txt",
+              ruleOrigin: { kind: "manifest", field: "exclude", index: 0 },
               size: 5,
               matchedPatterns: ["nested/*"],
             },
           ],
           patterns: [
-            { pattern: "nested/*", matchCount: 1 },
-            { pattern: "missing-*", matchCount: 0 },
+            {
+              pattern: "nested/*",
+              matchCount: 1,
+              origin: { kind: "manifest", field: "exclude", index: 0 },
+            },
+            {
+              pattern: "missing-*",
+              matchCount: 0,
+              origin: { kind: "manifest", field: "exclude", index: 1 },
+            },
           ],
-          warnings: ['publish.ignore pattern "missing-*" matched no files.'],
+          warnings: ['publish.exclude pattern "missing-*" matched no files.'],
           includedCount: 1,
           excludedCount: 1,
           uncompressedBytes: 11,
@@ -212,7 +222,7 @@ describe("buildZipArchive", () => {
         fs.writeFileSync(path.join(sourceDir, "notes.md"), "notes");
         fs.writeFileSync(path.join(sourceDir, "nested", "notes.md"), "nested notes");
 
-        const archive = yield* buildZipArchive(sourceDir, { ignore: ["*.md"] });
+        const archive = yield* buildZipArchive(sourceDir, { exclude: ["*.md"] });
 
         // `*` spans separators, so a bare extension pattern reaches nested paths.
         expect(Object.keys(unzipSync(archive)).sort()).toEqual(["hello.txt", "nested/inner.txt"]);
@@ -223,7 +233,7 @@ describe("buildZipArchive", () => {
   it.effect("leaves the archive alone when no path matches the patterns", () =>
     withNodeContext(
       Effect.gen(function* () {
-        const archive = yield* buildZipArchive(sourceDir, { ignore: ["never-matches-*"] });
+        const archive = yield* buildZipArchive(sourceDir, { exclude: ["never-matches-*"] });
 
         expect(crypto.createHash("sha256").update(archive).digest("hex")).toBe(
           PINNED_CLEAN_ARCHIVE_DIGEST,

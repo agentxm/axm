@@ -30,6 +30,8 @@ const control = (
 
 // These are runnable input controls, not a second cardinality declaration.
 export const repeatedFlagControls = [
+  { ...control("publish", "include-file", ["/src/", "/dist/"]), configKey: "fileInclude" },
+  { ...control("publish", "exclude-file", ["*.map", "evals/"]), configKey: "fileExclude" },
   ...[
     "install",
     "hooks install",

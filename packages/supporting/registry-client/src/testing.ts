@@ -173,7 +173,7 @@ export interface RegistrySkillVersion {
   readonly version: string;
   readonly body: string;
   /** Publish-time exclusions retained in the distributed manifest. */
-  readonly publishIgnore?: ReadonlyArray<string>;
+  readonly publishExclude?: ReadonlyArray<string>;
   /** Publication instant; defaults to one older than any minimum release age. */
   readonly published?: string;
   /** A yanked release remains visible but is not selected by a range. */
@@ -368,7 +368,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
       directory,
       "skill",
       name,
-      versions.map(({ version, body, published, publishIgnore, yankedAt }) => ({
+      versions.map(({ version, body, published, publishExclude, yankedAt }) => ({
         version,
         published: published ?? FIXTURE_PUBLISHED_AT,
         ...(yankedAt === undefined ? {} : { yankedAt }),
@@ -381,7 +381,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
                 name,
                 version,
                 description: `The ${name} skill.`,
-                ...(publishIgnore === undefined ? {} : { publish: { ignore: publishIgnore } }),
+                ...(publishExclude === undefined ? {} : { publish: { exclude: publishExclude } }),
               },
               null,
               2,

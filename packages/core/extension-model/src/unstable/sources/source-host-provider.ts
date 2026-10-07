@@ -159,6 +159,8 @@ export interface NamedRegistryCandidate {
 export interface ExtensionFiles {
   /** Absolute path to directory containing extension files. */
   readonly directory: string;
+  /** Original publication-policy boundary; absent means that context was not retained. */
+  readonly publicationBoundaryRoot?: string;
   /** Complete package context for a selected component. */
   readonly packageDirectory?: string;
   readonly componentPath?: string;

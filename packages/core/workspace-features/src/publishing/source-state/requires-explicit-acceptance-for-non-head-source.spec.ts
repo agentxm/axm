@@ -73,7 +73,7 @@ describe("Publishing archive content not represented by Git HEAD", () => {
 
   const setup = (
     compare?: GitDirectoryComparisonService["compare"],
-    publishIgnore?: ReadonlyArray<string>,
+    publishExclude?: ReadonlyArray<string>,
   ) => {
     const world = makePublishWorld({
       settings: { skills: { review: "workspace" } },
@@ -82,7 +82,7 @@ describe("Publishing archive content not represented by Git HEAD", () => {
     worlds.push(world);
     world.write("skill", {
       name: "review",
-      ...(publishIgnore === undefined ? {} : { publishIgnore }),
+      ...(publishExclude === undefined ? {} : { publishExclude }),
     });
     return world;
   };
@@ -117,6 +117,24 @@ describe("Publishing archive content not represented by Git HEAD", () => {
         });
         expect(world.target.storedFiles()).toEqual([]);
       }),
+  );
+
+  it.effect("classifies deleted paths by their HEAD entry kinds", () =>
+    Effect.gen(function* () {
+      const world = setup(
+        gitComparison([
+          { path: "drafts/note.md", change: "deleted", headKind: "file" },
+          { path: "drafts", change: "deleted", headKind: "symlink" },
+        ]),
+        ["drafts/"],
+      );
+      const outcome = yield* world.provide(runPublish(requestFor(world)));
+      expect(publishDocument(outcome).execution.outcomes[0]?.sourceState).toMatchObject({
+        differences: [{ path: "drafts", change: "deleted" }],
+        differenceCount: 1,
+      });
+      expect(world.target.storedFiles()).toEqual([]);
+    }),
   );
 
   it.effect("blocks apply without explicit warning acceptance", () =>

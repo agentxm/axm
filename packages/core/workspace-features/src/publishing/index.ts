@@ -19,12 +19,7 @@ export {
 export { PUBLISHABLE_TYPES, isPublishableType, type PublishableType } from "./publishable-types.js";
 
 export { runPublishLintGate, type PublishLintArgs } from "./lint-gate.js";
-export {
-  PublishIgnoreError,
-  protectedPublishPaths,
-  publishArchiveOptions,
-  resolvePublishIgnore,
-} from "./publish-ignore.js";
+export { publishArchiveOptions, resolvePublishSelection } from "./publish-selection.js";
 
 export {
   buildZipArchive,

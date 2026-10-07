@@ -107,6 +107,11 @@ export { withPackRegistryIndexMemo } from "./providers/registry/index-memo.js";
 // Git acquisition
 export { findGitRoot, isGitManaged } from "./git/detect.js";
 export {
+  observeGitIgnoreInputs,
+  IgnoreDiscoveryFailed,
+  type IgnoreSnapshot,
+} from "./git/ignore-inputs.js";
+export {
   compareDirectoryToHead,
   getCommitSha,
   getExactTag,

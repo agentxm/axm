@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/publish/archive-inventory-matches-published-bytes",
   title: "The publication archive matches its complete reported inventory",
   statement:
-    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
+    "Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.",
   class: "functional",
   role: "interface",
   goals: ["trustworthy-distribution", "machine-automation"],
@@ -39,7 +39,7 @@ export const specification = defineSpecification({
  * list its declaration produces rather than accepting any array.
  */
 const developmentRootWarning =
-  "Review the Registry distribution boundary: evals/ is included and publish.ignore has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.";
+  "Review the Registry distribution boundary: evals/ is included and publish.exclude has no explicit decision. Shipping these files may be intentional; AXM never excludes them automatically.";
 
 describe("Published archive inventory", () => {
   const worlds: Array<PublishWorld> = [];
@@ -47,12 +47,12 @@ describe("Published archive inventory", () => {
     for (const world of worlds.splice(0)) world.cleanup();
   });
 
-  const authoredWorld = (publishIgnore?: ReadonlyArray<string>) => {
+  const authoredWorld = (publishExclude?: ReadonlyArray<string>) => {
     const world = makePublishWorld({ settings: { skills: { review: "workspace" } } });
     worlds.push(world);
     const packageRoot = world.write("skill", {
       name: "review",
-      ...(publishIgnore === undefined ? {} : { publishIgnore }),
+      ...(publishExclude === undefined ? {} : { publishExclude }),
     });
     return { world, packageRoot };
   };
@@ -86,12 +86,22 @@ describe("Published archive inventory", () => {
           expect(planned.included).toEqual(
             included.map((file) => ({
               path: file,
+              sourcePath: file,
+              ...(file === "skill.json"
+                ? { ruleOrigin: { kind: "builtin", rule: "required-manifest" } }
+                : {}),
               size: fs.statSync(nodePath.join(packageRoot, file)).size,
               matchedPatterns: [],
             })),
           );
           expect(planned.excluded).toEqual(
-            excluded.map((file) => ({ path: file, size: 3, matchedPatterns: ["evals/*"] })),
+            excluded.map((file) => ({
+              path: file,
+              sourcePath: file,
+              size: 3,
+              matchedPatterns: ["evals/*"],
+              ruleOrigin: { kind: "manifest", field: "exclude", index: 0 },
+            })),
           );
           expect(planned.includedCount).toBe(included.length);
           expect(planned.excludedCount).toBe(excluded.length);
@@ -106,8 +116,16 @@ describe("Published archive inventory", () => {
             excluded.length === 0
               ? []
               : [
-                  { pattern: "evals/*", matchCount: 1 },
-                  { pattern: "missing-*", matchCount: 0 },
+                  {
+                    pattern: "evals/*",
+                    matchCount: 1,
+                    origin: { kind: "manifest", field: "exclude", index: 0 },
+                  },
+                  {
+                    pattern: "missing-*",
+                    matchCount: 0,
+                    origin: { kind: "manifest", field: "exclude", index: 1 },
+                  },
                 ],
           );
           expect(planned.warnings).toEqual(
@@ -115,7 +133,7 @@ describe("Published archive inventory", () => {
               ? [developmentRootWarning]
               : ignore.length === 0
                 ? []
-                : ['publish.ignore pattern "missing-*" matched no files.'],
+                : ['publish.exclude pattern "missing-*" matched no files.'],
           );
           for (const [file, bytes] of Object.entries(contents))
             expect(bytes).toEqual(fs.readFileSync(nodePath.join(packageRoot, file)));

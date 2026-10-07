@@ -18,7 +18,13 @@ import { validateArchive } from "@agentxm/extension-content";
 import { validateContainedLink } from "@agentxm/workspace-kernel/locations";
 import { zipSync, type Zippable } from "fflate";
 import { PublishFailed } from "./errors.js";
-import { expandGlob } from "@agentxm/extension-model/unstable/extensions/name-patterns";
+import type {
+  ResolvedFileSelection,
+  SelectionRuleOrigin,
+  SelectionDecision,
+} from "@agentxm/workspace-kernel/acquisition";
+import { excludedDistributionLinkTarget } from "@agentxm/workspace-kernel/acquisition";
+import { resolvePublishSelection, type PublishFileSelectionOptions } from "./publish-selection.js";
 
 // ZIP timestamps have no timezone. fflate serializes Date's local calendar
 // fields, so construct those fields locally to keep the encoded bytes stable
@@ -28,13 +34,7 @@ const DETERMINISTIC_MTIME = new Date(2020, 0, 1, 0, 0, 0, 0);
 const READ_CONCURRENCY = 16;
 
 /** @experimental This API is unstable and may change without notice. */
-export interface BuildZipArchiveOptions {
-  /**
-   * Glob patterns matched against archive-relative POSIX paths. Absent or
-   * empty leaves the archive exactly as it would have been built without this
-   * option.
-   */
-  readonly ignore?: ReadonlyArray<string> | undefined;
+export interface BuildZipArchiveOptions extends PublishFileSelectionOptions {
   /** Wrap an existing skill root under src/ with a separately supplied manifest. */
   readonly skillEnvelope?: Uint8Array;
 }
@@ -42,14 +42,17 @@ export interface BuildZipArchiveOptions {
 /** One file, link, or empty directory in the deterministic Registry archive plan. */
 export interface ArchivePlanEntry {
   readonly path: string;
+  readonly sourcePath?: string;
   readonly size: number;
   readonly matchedPatterns: ReadonlyArray<string>;
+  readonly ruleOrigin?: SelectionRuleOrigin;
 }
 
-/** Match accounting for one declared ignore pattern. */
+/** Match accounting for one effective selection rule. */
 export interface ArchivePlanPattern {
   readonly pattern: string;
   readonly matchCount: number;
+  readonly origin: SelectionRuleOrigin;
 }
 
 /** The effective Registry-only distribution boundary before ZIP construction. */
@@ -67,6 +70,8 @@ export interface ArchivePlan {
 export interface PlannedZipArchive {
   readonly archive: Uint8Array;
   readonly plan: ArchivePlan;
+  readonly selection: ResolvedFileSelection;
+  readonly policyFingerprint: string;
 }
 
 /**
@@ -78,6 +83,11 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const resolved = yield* resolvePublishSelection(
+      dir,
+      options ?? {},
+      options?.skillEnvelope === undefined ? (options?.manifest ?? "skill.json") : undefined,
+    );
 
     const files = yield* Effect.gen(function* () {
       const candidates: Array<{
@@ -85,6 +95,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
         readonly abs: string;
         readonly size: number;
         readonly mode: number;
+        readonly sourcePath?: string;
+        readonly decision: SelectionDecision;
         readonly payload?: Uint8Array;
       }> = [];
       if (options?.skillEnvelope !== undefined) {
@@ -93,6 +105,16 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           abs: "",
           size: options.skillEnvelope.byteLength,
           mode: 0o100644,
+          decision: {
+            included: true,
+            reason: "rule",
+            matchedRules: [],
+            decidingRule: {
+              pattern: "skill.json",
+              baseDirectory: "",
+              origin: { kind: "builtin", rule: "required-manifest" },
+            },
+          },
           payload: options.skillEnvelope,
         });
       }
@@ -106,11 +128,42 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           const abs = path.join(dir, relative);
           const relativePath = relative.split(path.sep).join("/");
           const rel = options?.skillEnvelope === undefined ? relativePath : `src/${relativePath}`;
+          if (name === ".git") {
+            const link = yield* fs.readLink(abs).pipe(Effect.option);
+            const info = Option.isSome(link) ? undefined : yield* fs.stat(abs);
+            const kind = Option.isSome(link)
+              ? "symlink"
+              : info?.type === "Directory"
+                ? "directory"
+                : "file";
+            candidates.push({
+              rel: kind === "directory" ? `${rel}/` : rel,
+              abs,
+              sourcePath: relativePath,
+              size: Option.isSome(link)
+                ? new TextEncoder().encode(link.value).length
+                : info?.type === "File"
+                  ? Number(info.size)
+                  : 0,
+              mode: 0,
+              payload: new Uint8Array(),
+              decision: resolved.selection.evaluate({ path: relativePath, kind }),
+            });
+            continue;
+          }
           const target = yield* fs.readLink(abs).pipe(Effect.option);
           if (Option.isSome(target)) {
             yield* validateContainedLink(dir, abs, target.value);
             const payload = new TextEncoder().encode(target.value);
-            candidates.push({ rel, abs, size: payload.length, mode: 0o120777, payload });
+            candidates.push({
+              rel,
+              abs,
+              sourcePath: relativePath,
+              size: payload.length,
+              mode: 0o120777,
+              payload,
+              decision: resolved.selection.evaluate({ path: relativePath, kind: "symlink" }),
+            });
             continue;
           }
           const info = yield* fs.stat(abs);
@@ -122,6 +175,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
                 abs,
                 size: 0,
                 mode: 0o40000 | (info.mode & 0o777),
+                sourcePath: relativePath,
+                decision: resolved.selection.evaluate({ path: relativePath, kind: "directory" }),
                 payload: new Uint8Array(),
               });
             } else pending.push(relative);
@@ -131,6 +186,8 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
               abs,
               size: Number(info.size),
               mode: 0o100000 | (info.mode & 0o777),
+              sourcePath: relativePath,
+              decision: resolved.selection.evaluate({ path: relativePath, kind: "file" }),
             });
           } else {
             return yield* new PublishFailed({
@@ -154,22 +211,36 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
       ),
     );
 
-    const patterns = options?.ignore ?? [];
-    const paths = files.map((file) => file.rel);
-    const matchesByPattern = patterns.map((pattern) => ({
-      pattern,
-      matches: new Set(expandGlob(pattern, paths)),
-    }));
     const planned = files.map((file): ArchivePlanEntry => ({
       path: file.rel,
+      ...(file.sourcePath === undefined ? {} : { sourcePath: file.sourcePath }),
       size: file.size,
-      matchedPatterns: matchesByPattern
-        .filter(({ matches }) => matches.has(file.rel))
-        .map(({ pattern }) => pattern),
+      matchedPatterns: file.decision.matchedRules.map(({ pattern }) => pattern),
+      ...(file.decision.decidingRule === undefined
+        ? {}
+        : { ruleOrigin: file.decision.decidingRule.origin }),
     }));
-    const included = planned.filter((file) => file.matchedPatterns.length === 0);
-    const excluded = planned.filter((file) => file.matchedPatterns.length > 0);
+    const included = planned.filter((_, index) => files[index]?.decision.included === true);
+    const excluded = planned.filter((_, index) => files[index]?.decision.included === false);
     const includedPaths = new Set(included.map((file) => file.path));
+    const broken = excludedDistributionLinkTarget(
+      files.map((file) => ({
+        path: file.rel,
+        included: file.decision.included,
+        ...((file.mode & 0o170000) === 0o120000 && file.payload !== undefined
+          ? { linkTarget: new TextDecoder().decode(file.payload) }
+          : {}),
+      })),
+    );
+    if (broken !== undefined) {
+      return yield* new PublishFailed({
+        category: "validation",
+        detail:
+          broken.kind === "excluded-target"
+            ? `Retained link "${broken.path}" points to excluded content "${broken.target}".`
+            : "Distribution link resolution exceeds the shared archive validation budget.",
+      });
+    }
 
     const contents = yield* Effect.forEach(
       files.filter((file) => includedPaths.has(file.rel)),
@@ -218,19 +289,24 @@ export const planZipArchive = (dir: string, options?: BuildZipArchiveOptions) =>
           }),
       ),
     );
-    const patternPlans = matchesByPattern.map(({ pattern, matches }) => ({
-      pattern,
-      matchCount: matches.size,
+    const patternPlans = resolved.selection.rules.map((rule) => ({
+      pattern: rule.pattern,
+      origin: rule.origin,
+      matchCount: files.filter(({ decision }) => decision.matchedRules.includes(rule)).length,
     }));
     return {
       archive,
+      ...resolved,
       plan: {
         included,
         excluded,
         patterns: patternPlans,
         warnings: patternPlans
-          .filter(({ matchCount }) => matchCount === 0)
-          .map(({ pattern }) => `publish.ignore pattern "${pattern}" matched no files.`),
+          .filter(({ matchCount, origin }) => matchCount === 0 && origin.kind === "manifest")
+          .map(
+            ({ pattern, origin }) =>
+              `publish.${origin.kind === "manifest" ? origin.field : "exclude"} pattern "${pattern}" matched no files.`,
+          ),
         includedCount: included.length,
         excludedCount: excluded.length,
         uncompressedBytes: included.reduce((total, file) => total + file.size, 0),

@@ -89,7 +89,8 @@ export interface AuthoredExtensionFixture {
   readonly version?: string;
   readonly description?: string;
   /** Publish-ignore patterns recorded in the manifest. */
-  readonly publishIgnore?: ReadonlyArray<string>;
+  readonly publishInclude?: ReadonlyArray<string>;
+  readonly publishExclude?: ReadonlyArray<string>;
   /**
    * Omit the type's content document, so the fixed publication gate has a
    * genuine reason to refuse the package.
@@ -133,7 +134,14 @@ const manifestBody = (
     name: fixture.name,
     version,
     description,
-    ...(fixture.publishIgnore === undefined ? {} : { publish: { ignore: fixture.publishIgnore } }),
+    ...(fixture.publishExclude === undefined && fixture.publishInclude === undefined
+      ? {}
+      : {
+          publish: {
+            ...(fixture.publishInclude === undefined ? {} : { include: fixture.publishInclude }),
+            ...(fixture.publishExclude === undefined ? {} : { exclude: fixture.publishExclude }),
+          },
+        }),
   };
   switch (type) {
     case "mcp-server":

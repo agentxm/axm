@@ -30,7 +30,7 @@ describe("@agentxm/registry-client/testing", () => {
       {
         version: "1.0.0",
         body: "Review.",
-        publishIgnore: ["scratch/**"],
+        publishExclude: ["scratch/**"],
         yankedAt: "2026-09-01T00:00:00Z",
       },
     ]);
@@ -47,7 +47,7 @@ describe("@agentxm/registry-client/testing", () => {
       const manifest = archive["skill.json"];
       expect(index).toContain('"yankedAt": "2026-09-01T00:00:00Z"');
       expect(manifest).toBeDefined();
-      expect(strFromU8(manifest ?? new Uint8Array())).toContain('"ignore": [');
+      expect(strFromU8(manifest ?? new Uint8Array())).toContain('"exclude": [');
       expect(strFromU8(manifest ?? new Uint8Array())).toContain('"scratch/**"');
     }).pipe(Effect.ensuring(Effect.sync(registry.cleanup)));
   });

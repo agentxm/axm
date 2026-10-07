@@ -1406,7 +1406,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/publish/existing-directory-needs-no-workspace-setup`
 - Owner: `cli-e2e`
-- Statement: The publish command shall accept an explicit existing-directory source and separate publisher identity/version without setup or an upstream AXM manifest. Preview and publication shall leave the creator directory and scope configuration unchanged. The resulting skill shall be installable through the ordinary Registry lifecycle with its original metadata, supporting files, and executable modes.
+- Statement: The publish command shall accept an explicit existing-directory source and separate publisher identity/version without setup or an upstream AXM manifest. Preview and publication shall leave the creator directory and scope configuration unchanged. The resulting skill shall be installable through the ordinary Registry lifecycle with its selected original metadata, supporting files, and executable modes. Repeated source-relative include and exclude flags shall override inherited Git ignores without changing the creator source.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `trustworthy-distribution`
@@ -1419,7 +1419,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/publish/existing-directory-uses-a-separate-envelope`
 - Owner: `workspace-features`
-- Statement: When a creator explicitly supplies an existing skill directory, a fully qualified skill identity, and an exact package version, AXM shall publish the unchanged payload under a separate identity/version envelope without requiring an upstream AXM manifest, rewriting metadata, or claiming workspace authorship. Preview shall upload nothing; ordinary configured publication shall retain its authorship policy. The existing authorization, immutable-version, source-state, freshness, and settlement rules shall govern the publication, with source comparisons referring to original payload paths rather than generated envelope paths.
+- Statement: When a creator explicitly supplies an existing skill directory, a fully qualified skill identity, and an exact package version, AXM shall publish the selected unchanged payload under a separate identity/version envelope without requiring an upstream AXM manifest, rewriting metadata, or claiming workspace authorship. Preview shall upload nothing; ordinary configured publication shall retain its authorship policy. The existing authorization, immutable-version, source-state, freshness, and settlement rules shall govern the publication, with source comparisons referring to original payload paths rather than generated envelope paths.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -3297,7 +3297,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/install/source-switches-are-previewed-and-atomic`
 - Owner: `workspace-features`
-- Statement: When install resolves an already accepted extension identity from another source authority, it shall preview content equivalence using the published archive boundary, dependency and projection effects, and Registry guarantees gained or lost; require interactive approval; replace the accepted source atomically in either direction while preserving desired-state fields; and refuse replacement when acquired content has local modifications.
+- Statement: When install resolves an already accepted extension identity from another source authority, it shall preview content equivalence using the published archive boundary, dependency and projection effects, and Registry guarantees gained or lost; require interactive approval; replace the accepted source atomically in either direction while preserving desired-state fields; refuse comparison when original inherited file-selection context is unavailable, and refuse replacement when acquired content has local modifications.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `safe-repetition`
@@ -3326,7 +3326,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/archives-satisfy-distribution-contract`
 - Owner: `workspace-features`
-- Statement: Before uploading an extension, publish shall reject an archive that omits a required package file or includes a node_modules entry or .env file, identify the invalid path, and give removal guidance for unsafe entries.
+- Statement: Before uploading an extension, publish shall reject an archive that omits a required package file includes a node_modules entry or .env file, or retains a link to excluded content, identify the invalid path, and give removal guidance for unsafe entries.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
@@ -3350,15 +3350,16 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Limitation: Every example publishes into a file Registry, whose index is edited directly to stand for a yanked version or an archive built with an older encoding; a remote Registry's own version records are not exercised here. Retires when: A remote Registry fixture can report yanked versions and recorded integrity, and the rows run against it as well.
 - Source: [`packages/core/workspace-features/src/publishing/preflight/existing-versions-skip-before-preparation.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/existing-versions-skip-before-preparation.spec.ts)
 
-##### Publication exclusions use explicit case-sensitive package paths
+##### Publication selects files with Git patterns and explicit ordered overrides
 
 - Requirement: `cli/publish/ignore-patterns-have-declared-path-semantics`
 - Owner: `workspace-features`
-- Statement: Publish shall match ignore patterns against case-sensitive archive-relative POSIX paths with only the asterisk acting as a wildcard across directory separators and with question marks, brackets, and negation characters treated literally.
+- Statement: Publish shall apply case-sensitive repository-root, ancestor, and nested .gitignore patterns to all package paths by default, use an explicit ordered include allowlist instead when supplied, apply ordered Git-style exclude rules afterward, automatically retain the type manifest unless explicitly excluded, and always omit Git administration data.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real inherited .gitignore files establish source-root coordinates and directory kinds.
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/publish.md`
 - Source: [`packages/core/workspace-features/src/publishing/archive/ignore-patterns-have-declared-path-semantics.spec.ts`](../packages/core/workspace-features/src/publishing/archive/ignore-patterns-have-declared-path-semantics.spec.ts)
@@ -3403,6 +3404,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; the source-state scenario substitutes the comparison outcome rather than running Git.
 - Source: [`packages/core/workspace-features/src/publishing/preflight/preflight-blocks-the-whole-selection.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/preflight-blocks-the-whole-selection.spec.ts)
+
+##### Prepared publication refuses changed bytes or file-selection policy
+
+- Requirement: `cli/publish/prepared-distribution-is-revalidated`
+- Owner: `workspace-features`
+- Statement: Before the first upload, publish shall rediscover its effective file-selection inputs and rebuild the selected distribution, refuse changed source bytes or policy with no upload, and publish the exact prepared archive when both remain unchanged.
+- Class: functional
+- Role: experience
+- Product goals: `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real filesystem edits distinguish policy rediscovery from rereading only previously observed files.
+- Methods: decision-table, example
+- Source: [`packages/core/workspace-features/src/publishing/source-state/prepared-distribution-is-revalidated.spec.ts`](../packages/core/workspace-features/src/publishing/source-state/prepared-distribution-is-revalidated.spec.ts)
 
 ##### Publishing preserves established extension visibility
 
@@ -5919,7 +5933,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/publish/archive-inventory-matches-published-bytes`
 - Owner: `workspace-features`
-- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) unless explicitly ignored and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
+- Statement: Publish shall include every regular package-root file, executable mode, empty directory, and contained relative link (including cycles) as selected by the resolved Git-ignore or explicit include/exclude policy and report the effective included and excluded paths, byte sizes, matching patterns, pattern counts and warnings, total source and ZIP bytes, and SRI SHA-512 integrity that describe the archive it publishes.
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`
@@ -5940,6 +5954,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/publishing/publish/use-case.ts`
 - Source: [`packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
+
+##### Publication policy distinguishes inherited, empty, and explicit selection
+
+- Requirement: `extension-contracts/publication-policy-has-explicit-selection-fields`
+- Owner: `extension-model`
+- Statement: Extension manifests shall accept ordered include and exclude arrays of single-line Git-style patterns, preserve their order and omitted or empty presence, and reject unrecognized publication fields including the superseded ignore field.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: decision-table
+- Source: [`packages/core/extension-model/src/unstable/extensions/publication-policy-has-explicit-selection-fields.spec.ts`](../packages/core/extension-model/src/unstable/extensions/publication-policy-has-explicit-selection-fields.spec.ts)
 
 ##### Distributed Hook packages preserve all runtime resources
 

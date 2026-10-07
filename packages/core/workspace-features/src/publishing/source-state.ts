@@ -9,7 +9,7 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import type { PlanRiskCondition } from "@agentxm/workspace-kernel/operations";
 import type { ArchivePlan } from "./archive.js";
-import { isArchivePathIncluded } from "@agentxm/workspace-kernel/acquisition";
+import type { ResolvedFileSelection } from "@agentxm/workspace-kernel/acquisition";
 
 const PUBLIC_DIFFERENCE_LIMIT = 50;
 
@@ -47,7 +47,7 @@ const publicDifferences = (
 export const assessPublishSourceState = (args: {
   readonly directory: string;
   readonly archivePlan: ArchivePlan;
-  readonly ignore?: ReadonlyArray<string>;
+  readonly selection: ResolvedFileSelection;
   /** A generated envelope prefixes payload paths but is not upstream source. */
   readonly payloadPrefix?: string;
 }): Effect.Effect<PublishSourceAssessment, GitOperationFailed, GitDirectoryComparison> =>
@@ -67,8 +67,19 @@ export const assessPublishSourceState = (args: {
       return { fingerprint: sourceFingerprint({ status: "outside-git" }) };
     }
 
-    const materialDifferences = comparison.value.differences.filter(({ path }) =>
-      isArchivePathIncluded(`${args.payloadPrefix ?? ""}${path}`, args.ignore),
+    const materialDifferences = comparison.value.differences.filter(
+      ({ path, headKind, workingKind }) =>
+        [headKind, workingKind].some(
+          (kind) =>
+            kind !== undefined &&
+            args.selection.evaluate({ path: path.replace(/\/$/, ""), kind }).included,
+        ) ||
+        (headKind === undefined &&
+          workingKind === undefined &&
+          args.selection.evaluate({
+            path: path.replace(/\/$/, ""),
+            kind: path.endsWith("/") ? "directory" : "file",
+          }).included),
     );
     const status =
       comparison.value.headRevision === undefined

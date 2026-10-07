@@ -49,7 +49,20 @@ export {
 } from "./materializable-from-disk.js";
 
 // Which archive paths a package includes
-export { isArchivePathIncluded } from "./archive-paths.js";
+export { computeDistributionTreeIntegrity, DistributionTreeInvalid } from "./distribution-tree.js";
+export {
+  excludedDistributionLinkTarget,
+  type DistributionLinkEntry,
+} from "./distribution-links.js";
+export {
+  resolveFileSelection,
+  type FileSelectionInput,
+  type ResolvedFileSelection,
+  type SelectionDecision,
+  type SelectionPath,
+  type SelectionRule,
+  type SelectionRuleOrigin,
+} from "./file-selection.js";
 
 // The inherited Git transport context
 export {

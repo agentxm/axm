@@ -1,3 +1,17 @@
+## 0.43.0 (2026-10-07)
+
+### 🩹 Fixes
+
+- Configure detected agents on first install and accurately preview, apply, and report setup targets. ([eb64ac72a](https://github.com/agentxm/axm/commit/eb64ac72a))
+
+### ⚠️ Breaking Changes
+
+- Replace publish.ignore with inherited Git ignore selection and explicit include/exclude policies. Reuse the resolved distribution for archive previews, source review, freshness validation, and Registry source-switch comparison; add original-path file selection for existing-directory publication. ([e51f61459](https://github.com/agentxm/axm/commit/e51f61459))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.42.1 (2026-10-07)
 
 ### 🚀 Features

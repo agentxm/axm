@@ -187,15 +187,23 @@ Proposed-change prerequisites check formatting in the affected range through
 the existing Nx command; full-workspace CI retains the full formatting scan.
 After changing formatter configuration or its toolchain, run the full
 `format:check` locally to verify its effect on unchanged files too.
-Hosted source verification partitions the selected projects through native Nx
-exclusions: workspace features and every remaining project. The partitions
-retain their owning targets and prerequisite graph, including shared builds and
-typechecks. Each runner keeps one Nx task and two Vitest workers; both matrix
-entries must succeed within the existing job budget. This separates the largest
-suite from the other source work without reducing the selected checks or
-increasing contention inside a runner. Local workflows remain complete by
-default; an explicit `--exclude` selects the final Nx phase for partition
-reproduction.
+Hosted source verification uses native Nx project selection and Vitest file
+shards. The matrix in [CI](../../.github/workflows/ci.yml) owns the partition
+inventory. Feature static checks run on the first feature shard; each shard
+runs its owning test target with `--shard`, retaining prerequisite builds.
+Other partitions run the complete source workflow. Global prerequisites remain
+covered by those complete workflows. A dedicated CLI partition prevents the
+CLI suite from serializing the remaining source work.
+
+Each runner keeps one Nx task and two Vitest workers. Sharding changes scheduling,
+not the selected tests or required outcomes: every partition must succeed for
+Required CI. CLI flags participate in Nx task identity, so a shard cannot reuse
+an unsharded test verdict. Results remain in separately named artifacts to
+preserve each shard's JUnit, Allure, and specification receipts without filename
+collisions. Required CI also retains them together in the `verification-evidence`
+artifact, preserving those directories. Local workflows remain complete by default; an explicit `--exclude`
+selects the final Nx phase for partition reproduction, and the owning test target
+accepts Vitest's native `--shard` argument.
 
 Each proposed-change partition starts with empty test results. Native Nx
 selection identifies whether source tests or remaining E2E tests are expected.
@@ -203,12 +211,9 @@ A partition with no selected tests skips report generation; a selected partition
 uses the fresh `axm:allure-report` target after execution, including a source
 failure. Missing results still fail reporting for selected tests. Artifact
 verification and other projects' E2E targets run once in the remaining-projects
-partition. Main,
-scheduled, and recovery verification apply the same project partitioning to
-the full workspace. Reports and artifacts identify their partition separately.
-Each partition must succeed for Required CI; splitting execution does not make
-E2E optional. Locally,
-`verify:pr` remains the complete local reproduction command.
+partition. Main, scheduled, and recovery verification apply the same source
+partitioning to the full workspace. Locally, `verify:pr` remains the complete
+local reproduction command.
 
 `axm:audit:dependencies` is a fresh registry-backed gate in `verify:pr:source`
 and `ci:workspace`. It fails for high or critical advisories in production

@@ -39,6 +39,8 @@ import {
   publishImmutableCohort,
   publishImmutableInDependencyOrder,
   readNpmPublication,
+  verifyNpmDownload,
+  npmPropagationTimeoutMs,
   releaseCohortTarballPath,
   releaseBoundaryError,
   reconcileNpmStableTag,
@@ -226,8 +228,12 @@ try {
                   return {
                     name: `${pkg.name}@${version}`,
                     integrity,
-                    read: async (signal: AbortSignal) =>
-                      (await latestGuard(pkg.name, signal)).integrity,
+                    read: async (signal: AbortSignal) => {
+                      const published = (await latestGuard(pkg.name, signal)).integrity;
+                      if (published === null)
+                        console.log(`npm metadata not yet visible: ${pkg.name}@${version}`);
+                      return published;
+                    },
                     publish: async () => {
                       const metadata = await latestGuard(pkg.name);
                       const publicationEnv = publicationEnvironment(
@@ -251,12 +257,21 @@ try {
                     },
                   };
                 });
-                // npm acknowledged two 0.33.0 uploads before registry reads exposed them
-                // more than two minutes later. Keep each dependency readback bounded.
                 yield* publishImmutableInDependencyOrder(publications, {
-                  timeoutMs: 360_000,
+                  timeoutMs: npmPropagationTimeoutMs,
                   preflightTimeoutMs: 360_000,
                 });
+                // Verify both new and reused coordinates before installation jobs fan out.
+                // Readiness failures never re-enter the immutable publication operation.
+                yield* Effect.forEach(RELEASE_PACKAGES, (pkg) =>
+                  verifyNpmDownload({
+                    name: pkg.name,
+                    version,
+                    integrity: contentIntegrity(
+                      readFileSync(releaseCohortTarballPath(npmCohort, pkg.tarballPrefix, version)),
+                    ),
+                  }),
+                );
                 yield* Effect.tryPromise({
                   try: () =>
                     mapWithConcurrency(RELEASE_PACKAGES, 6, async (pkg) =>

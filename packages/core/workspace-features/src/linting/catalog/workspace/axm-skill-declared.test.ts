@@ -61,7 +61,7 @@ describe("workspace/axm-skill-declared", () => {
           ...context,
           officialAxmSkill: Effect.succeed({
             _tag: "assessed",
-            path: "/workspace/agent_extensions/registry/@agentxm/skills/axm",
+            path: "/workspace/agent_extensions/registry.agentxm.ai/@agentxm/skills/axm",
             authority: "registry",
             compatibility: compatible,
           } as const),

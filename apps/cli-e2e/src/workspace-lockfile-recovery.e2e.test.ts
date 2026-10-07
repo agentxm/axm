@@ -137,7 +137,7 @@ describe("rejected lockfile recovery", () => {
         problem: {
           code: "workspace-lockfile-version-unsupported",
           observedVersion: 9,
-          supportedVersion: 10,
+          supportedVersion: 11,
           direction: "older",
         },
       });
@@ -158,8 +158,16 @@ describe("rejected lockfile recovery", () => {
 
       const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
       expect(lockfile).toMatchObject({
-        lockfileVersion: 10,
-        skills: { [MEMBER.name]: { resolved: { version: MEMBER_PIN } } },
+        lockfileVersion: 11,
+        skills: { [MEMBER.name]: { package: expect.any(String) } },
+      });
+      if (!isRecord(lockfile) || !isRecord(lockfile["packages"]) || !isRecord(lockfile["skills"]))
+        throw new Error("Expected normalized lockfile");
+      const member = lockfile["skills"][MEMBER.name];
+      if (!isRecord(member) || typeof member["package"] !== "string")
+        throw new Error("Expected member binding");
+      expect(lockfile["packages"][member["package"]]).toMatchObject({
+        resolved: { version: MEMBER_PIN },
       });
       // The disabled connection is still accepted: its row is keyed by the
       // Registry-qualified identity, so it is found by its identity fields.
@@ -170,7 +178,7 @@ describe("rejected lockfile recovery", () => {
       ).toContainEqual(
         expect.objectContaining({
           identity: { owner: OWNER, name: DISABLED_MCP.name },
-          resolved: expect.objectContaining({ version: "1.0.0" }),
+          package: expect.any(String),
         }),
       );
       expect(fs.readFileSync(backupPath, "utf8")).toContain("lockfileVersion: 9");

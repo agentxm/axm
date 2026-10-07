@@ -12,7 +12,6 @@ import type {
   GitBasedSource,
   RegistrySource,
 } from "@agentxm/extension-model/unstable/sources/types";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import type { Version } from "@agentxm/extension-model/unstable/version-constraints";
 
 export const optionalField = <K extends string, V>(
@@ -96,14 +95,13 @@ export const portableGitSourceLockFields = (
 
 export const pathSourceLockFields = (
   path: string,
-  contentIdentity: SourceHash,
   packageName: ExtensionName,
   treeIntegrity: TreeIntegrity,
   packageOwner: Handle,
 ) => ({
   source: { type: "path" as const, path },
   identity: { owner: packageOwner, name: packageName },
-  resolved: { tree: contentIdentity },
+  resolved: { tree: treeIntegrity },
   treeIntegrity,
 });
 

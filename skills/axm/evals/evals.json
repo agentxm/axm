@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.6.0",
+  "suite_version": "0.7.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -847,7 +847,7 @@
     {
       "id": 80,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/installed-but-not-configured` for `@craigsmitham/skills/author-docs` at `agent_extensions/registry/@craigsmitham/skills/author-docs`; `axm sync --preview --fail-on-change --json` plans one removal unit for it; the CLI is current; nothing is outdated or deprecated; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/installed-but-not-configured` for `@craigsmitham/skills/author-docs` at `agent_extensions/registry.agentxm.ai/@craigsmitham/skills/author-docs`; `axm sync --preview --fail-on-change --json` plans one removal unit for it; the CLI is current; nothing is outdated or deprecated; `git status` shows that root tracked with no changes. Run `/axm doctor` without modifying files.",
       "expected_output": "A leftover installed package finding fixed only by `axm sync`, with full cleanup first naming the sync; nothing is applied.",
       "assertions": [
         "The finding cites `workspace/installed-but-not-configured`, fixes it with `axm sync`, and verifies with `axm sync --preview --fail-on-change --json` returning `no-op`.",
@@ -909,7 +909,7 @@
     {
       "id": 86,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `skills/notes`: D1a adopt in place recommended, D1c remove) and D2 (`workspace/install-root-entries-recognized` for `agent_extensions/registry/notes.txt`, tracked and clean: D2a remove recommended, D2b keep). The user replied: clean up whatever you can. Plan the repair without modifying files.",
+      "prompt": "Treat this as supplied evidence: a doctor report offered D1 (undeclared authored package `skills/notes`: D1a adopt in place recommended, D1c remove) and D2 (`workspace/install-root-entries-recognized` for `agent_extensions/registry.agentxm.ai/notes.txt`, tracked and clean: D2a remove recommended, D2b keep). The user replied: clean up whatever you can. Plan the repair without modifying files.",
       "expected_output": "A custom plan rendered as a review gate that deletes no authored or unowned content without an explicit option selection.",
       "assertions": [
         "The free-text request is treated as a plan to approve, and nothing is applied.",
@@ -919,7 +919,7 @@
     {
       "id": 87,
       "stage": "execution",
-      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/install-root-entries-recognized` for file `agent_extensions/registry/notes.txt`; sync preview is `no-op`; the CLI is current; `git status` shows it untracked. Run `/axm doctor` without modifying files.",
+      "prompt": "Treat this as supplied evidence: lint is compatible except `workspace/install-root-entries-recognized` for file `agent_extensions/registry.agentxm.ai/notes.txt`; sync preview is `no-op`; the CLI is current; `git status` shows it untracked. Run `/axm doctor` without modifying files.",
       "expected_output": "A finding that offers removal but recommends keeping the unrecognized entry, noting sync never removes it; nothing is applied.",
       "assertions": [
         "Removal via `git rm -r` is offered but keep is recommended because the entry is untracked.",
@@ -1073,6 +1073,28 @@
         "The response allows the compatible native projection and explicitly reports Cline as unsupported.",
         "It does not create a role Skill or reinterpret the native configuration as universal permissions.",
         "It states that zero compatible configured targets would refuse enabled installation or activation, and does not claim that a mutation occurred."
+      ]
+    },
+    {
+      "id": 102,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: AXM inspection reports two selected Skills and an MCP sharing one retained Git package at agent_extensions/github.com/acme/tools. Other sibling files are unselected. The user wants to remove one Skill while preserving the other selections. Explain the bounded preview and verification without writing files.",
+      "expected_output": "A selection-scoped uninstall plan preserving the shared package and remaining bindings, with current help and accepted-state verification.",
+      "assertions": [
+        "The plan uses AXM inspection and uninstall preview instead of deleting or reconstructing the retained path.",
+        "It preserves the other Skill, MCP, and complete package while another accepted selection or Pack route needs it.",
+        "It does not count unselected siblings as installed extensions or claim a mutation occurred."
+      ]
+    },
+    {
+      "id": 103,
+      "stage": "execution",
+      "prompt": "Treat this as supplied evidence: axm-lock.yaml is missing, and agent_extensions/github.com/acme/tools contains files whose ownership is unproven. Explain recovery without writing files or treating the directory as accepted state.",
+      "expected_output": "A conservative recovery plan that preserves unknown content and requires fresh source acceptance before claiming installed ownership.",
+      "assertions": [
+        "It does not infer accepted packages or selections from directory shape.",
+        "It preserves unproven content and consults current workspace-state help and preview before proposing recovery.",
+        "It does not delete, overwrite, or claim successful restoration of the unknown root."
       ]
     }
   ]

@@ -85,9 +85,11 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       const canonicalSkillDir = path.join(
         temp.path,
         "agent_extensions",
-        "github",
+        "github.com",
         "qualitymd",
         "quality.md",
+        "skills",
+        "quality",
       );
       expect(fs.existsSync(path.join(canonicalSkillDir, "SKILL.md"))).toBe(true);
 
@@ -105,10 +107,15 @@ describeLiveSmoke("quality.md live GitHub install smoke", () => {
       const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")), "lockfile");
       const lockSkills = expectRecord(lock["skills"], "lockfile.skills");
       const lockEntry = expectRecord(lockSkills["quality"], "lockfile.skills.quality");
-      expect(lockEntry["type"]).toBe("github");
-      expect(lockEntry["owner"]).toBe("qualitymd");
-      expect(lockEntry["repo"]).toBe("quality.md");
-      expect(lockEntry["gitTreeHash"]).toMatch(/^[0-9a-f]{40}$/);
+      const packages = expectRecord(lock["packages"], "lockfile.packages");
+      const packageKey = lockEntry["package"];
+      if (typeof packageKey !== "string") throw new Error("Expected package binding");
+      const retained = expectRecord(packages[packageKey], "retained package");
+      const source = expectRecord(retained["source"], "package source");
+      const resolved = expectRecord(retained["resolved"], "package resolution");
+      expect(source["type"]).toBe("git");
+      expect(source["url"]).toMatch(/^https:\/\/github\.com\/qualitymd\/quality\.md(?:\.git)?$/);
+      expect(resolved["tree"]).toMatch(/^[0-9a-f]{40}$/);
 
       const secondInstall = await runCli(["skills", "install", QUALITY_MD_SOURCE, "--json"], {
         cwd: temp.path,

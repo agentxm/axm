@@ -6,7 +6,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("authoritative lockfile recovery boundary", () => {
-  it("creates a new v10 lockfile containing only the requested external resolution", async () => {
+  it("creates a new v11 lockfile containing only the requested external resolution", async () => {
     const temp = createTempDir();
     try {
       await runCli(
@@ -23,9 +23,11 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(10);
+      expect(lock.lockfileVersion).toBe(11);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
-      expect(lock.skills["another-skill"]).toMatchObject({ source: { type: "path" } });
+      expect(lock.packages[lock.skills["another-skill"].package]).toMatchObject({
+        source: { type: "path" },
+      });
     } finally {
       temp.cleanup();
     }
@@ -52,7 +54,7 @@ describe("authoritative lockfile recovery boundary", () => {
         `Workspace lockfile at ${fs.realpathSync(lockfilePath)} is not valid YAML`,
       );
       expect(fs.readFileSync(lockfilePath, "utf8")).toBe(invalidLockfile);
-      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "path"))).toBe(false);
+      expect(fs.existsSync(path.join(temp.path, "agent_extensions", "_local"))).toBe(false);
     } finally {
       temp.cleanup();
     }

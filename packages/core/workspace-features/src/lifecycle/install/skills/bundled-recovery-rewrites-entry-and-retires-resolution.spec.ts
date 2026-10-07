@@ -9,7 +9,10 @@ import YAML from "yaml";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { acceptedCanonicalObservation } from "@agentxm/workspace-kernel/workspace-state";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  storedLockfileFixture,
+  makeRegistrySkillLockEntry,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
 import { readSettings } from "../test-helpers.js";
@@ -39,7 +42,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const CANONICAL_SKILL = "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md";
+const CANONICAL_SKILL = "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md";
 /** An older copy of the official skill outside the selected canonical location. */
 const STALE_COPY = "agent_extensions/agentxm/@agentxm/skills/axm/skill.json";
 const STALE_MANIFEST = JSON.stringify({
@@ -96,17 +99,19 @@ describe("Bundled official-skill recovery", () => {
       world.registry.writeSkill("review-helper", [{ version: "1.0.0", body: "Review guidance." }]);
       world.workspace.writeFile(
         "axm-lock.yaml",
-        JSON.stringify({
-          lockfileVersion: 10,
-          skills: {
-            axm: makeRegistrySkillLockEntry({
-              owner: decodeHandleSync("@agentxm"),
-              name: "axm",
-              sourceName: "agentxm",
-              publisherBindingId: "hbnd_agentxm",
-            }),
-          },
-        }),
+        JSON.stringify(
+          storedLockfileFixture({
+            lockfileVersion: 11,
+            skills: {
+              axm: makeRegistrySkillLockEntry({
+                owner: decodeHandleSync("@agentxm"),
+                name: "axm",
+                sourceName: "agentxm",
+                publisherBindingId: "hbnd_agentxm",
+              }),
+            },
+          }),
+        ),
       );
 
       yield* world.workspace

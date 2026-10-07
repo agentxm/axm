@@ -34,7 +34,6 @@ import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
   WorkspaceReadTest,
   MockWorkspaceTransactionScope,
-  TEST_CONTENT_IDENTITY,
   TEST_TREE_INTEGRITY,
   describeTestFailure,
   exactVersion,
@@ -170,7 +169,7 @@ const makeTestLayer = (overrides?: {
           subagents: configuredSubagents,
         },
         lockfile: {
-          lockfileVersion: 10,
+          lockfileVersion: 11,
           skills: {},
           subagents: overrides?.lockedSubagents ?? {},
         },
@@ -217,7 +216,7 @@ describe("SubagentManager", () => {
               planner: {
                 source: { type: "path", path: decodeRelativePathSync("test") },
                 identity: { owner: handle("@acme"), name: extensionName("planner") },
-                resolved: { tree: TEST_CONTENT_IDENTITY },
+                resolved: { tree: TEST_TREE_INTEGRITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -349,11 +348,11 @@ describe("SubagentManager", () => {
         const banner = addSubagentCalls[0]?.input.ownershipBanner;
         expect(banner?.markdown).toContain("ext=@acme/subagents/planner");
         expect(banner?.markdown).toContain(
-          "src=agent_extensions/path/@acme/subagents/planner/subagent.json",
+          "src=agent_extensions/_local/project/sources/planner/subagent.json",
         );
         expect(banner?.toml).toContain("ext=@acme/subagents/planner");
         expect(banner?.toml).toContain(
-          "src=agent_extensions/path/@acme/subagents/planner/subagent.json",
+          "src=agent_extensions/_local/project/sources/planner/subagent.json",
         );
       }).pipe(
         Effect.provide(
@@ -399,7 +398,7 @@ describe("SubagentManager", () => {
               planner: {
                 source: { type: "path", path: decodeRelativePathSync("sources/planner") },
                 identity: { owner: handle("@acme"), name: extensionName("planner") },
-                resolved: { tree: TEST_CONTENT_IDENTITY },
+                resolved: { tree: TEST_TREE_INTEGRITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -511,7 +510,7 @@ describe("SubagentManager", () => {
                 planner: {
                   source: { type: "path", path: decodeRelativePathSync("sources/planner") },
                   identity: { owner: handle("@acme"), name: extensionName("planner") },
-                  resolved: { tree: TEST_CONTENT_IDENTITY },
+                  resolved: { tree: TEST_TREE_INTEGRITY },
                   treeIntegrity: TEST_TREE_INTEGRITY,
                 },
               },
@@ -551,7 +550,7 @@ describe("SubagentManager", () => {
               planner: {
                 source: { type: "path", path: decodeRelativePathSync("tmp/source/planner") },
                 identity: { owner: handle("@acme"), name: extensionName("planner") },
-                resolved: { tree: TEST_CONTENT_IDENTITY },
+                resolved: { tree: TEST_TREE_INTEGRITY },
                 treeIntegrity: TEST_TREE_INTEGRITY,
               },
             },
@@ -569,7 +568,7 @@ describe("SubagentManager", () => {
         tmpDir,
         "project",
         "agent_extensions",
-        "registry",
+        "registry.agentxm.ai",
         "@test",
         "subagents",
         "planner",

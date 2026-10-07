@@ -191,7 +191,7 @@ const scenarioManifestText = (name: string, range: string): string =>
 const scenarioPackManifests: PackManifestsPort = {
   locate: ({ owner, name }) => {
     const pack = SHARED_MEMBER_PACKS.find((candidate) => candidate.name === name);
-    const relativePath = `agent_extensions/registry/${owner}/packs/${name}/pack.json`;
+    const relativePath = `agent_extensions/registry.agentxm.ai/${owner}/packs/${name}/pack.json`;
     return {
       path: `/workspace/${relativePath}`,
       relativePath,

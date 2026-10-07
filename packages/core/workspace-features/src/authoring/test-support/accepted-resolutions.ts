@@ -68,7 +68,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
     const owner = decodeHandleSync(resolution.owner);
     const canonicalPath = path.join(
       layout.acquiredRoot,
-      "registry",
+      new URL(SPEC_REGISTRY_ENDPOINT).hostname,
       owner,
       extensionTypeToPlural[resolution.type],
       resolution.name,

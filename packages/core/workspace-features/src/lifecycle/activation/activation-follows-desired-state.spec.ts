@@ -1,3 +1,5 @@
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -64,7 +66,7 @@ describe("Activation follows desired state", () => {
           );
           yield* applyActivation({ type: "skill", name: "review", enabled: false });
           world.workspace.writeFile(
-            "agent_extensions/registry/@acme/skills/review/src/SKILL.md",
+            `${fileRegistryPackagePath(world.registry, "skills", "review")}/src/SKILL.md`,
             "Locally edited acquired content.\n",
           );
           const before = world.workspace.snapshot();
@@ -112,7 +114,7 @@ describe("Activation follows desired state", () => {
             }),
           );
           yield* applyActivation({ type: "skill", name: "review", enabled: false });
-          const pack = "agent_extensions/registry/@acme/packs/toolkit";
+          const pack = fileRegistryPackagePath(world.registry, "packs", "toolkit");
           fs.rmSync(nodePath.join(world.workspace.root, pack), { recursive: true });
           const before = world.workspace.snapshot();
           const accepted = world.workspace.readFile("axm-lock.yaml");
@@ -164,7 +166,7 @@ describe("Activation follows desired state", () => {
             );
             yield* applyActivation({ type: row.type, name, enabled: false });
             const accepted = workspace.readFile("axm-lock.yaml");
-            const canonical = `agent_extensions/path/@acme/${row.plural}/${name}/${row.canonicalFile(name)}`;
+            const canonical = `agent_extensions/_local/project/vendor/${name}/${row.canonicalFile(name)}`;
             const content = workspace.readFile(canonical);
             workspace.writeFile(
               `vendor/${name}/${row.canonicalFile(name)}`,
@@ -274,7 +276,7 @@ describe("Activation follows desired state", () => {
                 }),
               );
               const packContent = workspace.readFile(
-                "agent_extensions/registry/@acme/packs/reviews/pack.json",
+                `${fileRegistryPackagePath(registry, "packs", "reviews")}/pack.json`,
               );
               const disabled = yield* applyActivation({
                 type: "pack",
@@ -288,11 +290,15 @@ describe("Activation follows desired state", () => {
               expect(
                 graph.nodes.find((node) => node.type === type && node.name === name),
               ).toBeUndefined();
-              expect(workspace.exists(`agent_extensions/registry/@acme/${plural}/${name}`)).toBe(
-                false,
-              );
               expect(
-                workspace.readFile("agent_extensions/registry/@acme/packs/reviews/pack.json"),
+                workspace.exists(
+                  fileRegistryPackagePath(registry, extensionTypeToPlural[type], name),
+                ),
+              ).toBe(false);
+              expect(
+                workspace.readFile(
+                  `${fileRegistryPackagePath(registry, "packs", "reviews")}/pack.json`,
+                ),
               ).toBe(packContent);
               const enabled = yield* applyActivation({
                 type: "pack",
@@ -300,9 +306,11 @@ describe("Activation follows desired state", () => {
                 enabled: true,
               });
               expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
-              expect(workspace.exists(`agent_extensions/registry/@acme/${plural}/${name}`)).toBe(
-                true,
-              );
+              expect(
+                workspace.exists(
+                  fileRegistryPackagePath(registry, extensionTypeToPlural[type], name),
+                ),
+              ).toBe(true);
             }),
           )
           .pipe(Effect.provide(NodeServices.layer));

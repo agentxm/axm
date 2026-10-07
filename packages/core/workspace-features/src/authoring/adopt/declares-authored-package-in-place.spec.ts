@@ -1,3 +1,4 @@
+import { seedAcceptedRegistryResolution } from "../test-support/accepted-resolutions.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
@@ -171,7 +172,7 @@ describe("Adopting an authored package in place", () => {
           parent: "skills",
         });
         writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
-          parent: "agent_extensions/git/@acme/skills",
+          parent: "agent_extensions/registry.example.com/@acme/skills",
         });
       },
       failure: { _tag: "CreateDestinationExists" },
@@ -184,6 +185,13 @@ describe("Adopting an authored package in place", () => {
         Effect.gen(function* () {
           const created = workspace();
           row.arrange(created);
+          if (row.refusal === "an installed copy also exists under another source directory")
+            yield* seedAcceptedRegistryResolution({
+              type: "skill",
+              owner: "@acme",
+              name: "review",
+              version: "1.2.3",
+            }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
           const before = created.snapshot();
 
           const failure = yield* adopt(

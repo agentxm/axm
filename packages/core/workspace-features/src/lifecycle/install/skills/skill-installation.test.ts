@@ -25,6 +25,7 @@ import {
   applyInstall,
   installRequest,
   makeInstallWorld,
+  fileRegistryPackagePath,
   type InstallWorld,
 } from "../../../testing/install-world.js";
 import { writeLocalSkillPackage } from "../../../testing/local-packages.js";
@@ -34,7 +35,7 @@ import { UpdateExtensions } from "../../update/update-extensions.js";
 import { planSkillInstallationStep } from "@agentxm/extension-kinds/skills";
 
 const NAME = "code-review";
-const canonical = `agent_extensions/path/@acme/skills/${NAME}/src`;
+const canonical = `agent_extensions/_local/project/vendor/${NAME}/src`;
 
 /** `axm skills update --name code-review`: the configured sweep narrowed to one skill. */
 const prepareUpdate = () =>
@@ -185,7 +186,7 @@ describe("skill installation application", () => {
     "rejects incompatible reused official skill bytes before altering the workspace",
     () => {
       const { workspace, registry } = world();
-      const packagePath = "agent_extensions/registry/@agentxm/skills/axm";
+      const packagePath = fileRegistryPackagePath(registry, "skills", "axm", "@agentxm");
       workspace.writeFile(
         `${packagePath}/skill.json`,
         JSON.stringify({ owner: "@agentxm", type: "skill", name: "axm", version: "1.0.0" }),
@@ -352,7 +353,9 @@ describe("skill installation application", () => {
             expect(lock).toContain("version: 1.2.3");
             expect(lock).toContain("publisherBindingId:");
             expect(
-              workspace.readFile(`agent_extensions/registry/@acme/skills/${NAME}/src/SKILL.md`),
+              workspace.readFile(
+                `${fileRegistryPackagePath(registry, "skills", NAME)}/src/SKILL.md`,
+              ),
             ).toBe(workspace.readFile(`.claude/skills/${NAME}/SKILL.md`));
           }),
         )

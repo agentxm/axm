@@ -357,7 +357,8 @@ const canonicalLocation = (
   name: string,
 ): string =>
   type === "pack"
-    ? computePackPathsForLayout(path.join, layout, "workspace", owner, name).canonicalPath
+    ? computePackPathsForLayout(path.join, layout, { refType: "workspace", owner }, name)
+        .canonicalPath
     : computeExtensionPathsForLayout(
         path.join,
         layout,

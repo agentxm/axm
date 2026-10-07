@@ -9,10 +9,8 @@ import { afterEach, beforeEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import type { LocalHookRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { RegistrySubagentRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   AcquiredContent,
   retireCanonicalDirectory,
@@ -82,7 +80,7 @@ describe("canonical acquisition dispatch", () => {
         const accepted = Option.some<LockEntry>({
           source: { type: "path", path: "source" },
           identity: { owner: handle("@acme"), name: extensionName("audit") },
-          resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("sha256-source") },
+          resolved: { tree: initial.treeIntegrity },
           treeIntegrity: initial.treeIntegrity,
         });
         fs.writeFileSync(path.join(source, "hook.sh"), "new");

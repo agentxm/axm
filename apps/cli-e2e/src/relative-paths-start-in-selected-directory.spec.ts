@@ -1,3 +1,4 @@
+import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -58,7 +59,7 @@ describe("Relative paths start in the selected directory", () => {
         fs.readFileSync(
           path.join(
             fixture.selected,
-            "agent_extensions/path/@acme/skills/directory-review/src/SKILL.md",
+            "agent_extensions/_local/project/vendor/directory-review/src/SKILL.md",
           ),
           "utf8",
         ),
@@ -114,7 +115,14 @@ describe("Relative paths start in the selected directory", () => {
       const acquired = fs.readFileSync(
         path.join(
           fixture.selected,
-          "agent_extensions/registry/@acme/skills/environment-directory/src/SKILL.md",
+          registryFixturePath(
+            pathToFileURL(path.join(fixture.selected, "registry")).href,
+            "@acme",
+            "skills",
+            "environment-directory",
+            "src",
+            "SKILL.md",
+          ),
         ),
         "utf8",
       );

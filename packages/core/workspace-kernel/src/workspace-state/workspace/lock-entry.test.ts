@@ -7,7 +7,6 @@ import * as Schema from "effect/Schema";
 import { SkillLockEntrySchema, PackLockEntrySchema } from "../desired/lockfile/index.js";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { TreeIntegritySchema } from "./materialized-tree.js";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { exactVersion, extensionName, handle } from "../testing.js";
 import type { SourceHostConfig } from "../desired/settings/index.js";
 import {
@@ -61,12 +60,12 @@ it("derives Registry, Git, and local sources from accepted rows", () => {
     subPath: Option.some(".agents/skills/react-router"),
   });
   const local = Schema.decodeUnknownSync(SkillLockEntrySchema)({
-    source: { type: "path", path: "../review" },
+    source: { type: "path", path: "/sources/review" },
     identity: { owner: "@acme", name: "review" },
-    resolved: { tree: "sha256-content" },
+    resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
     treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
   });
-  expect(lockEntrySource(local)).toEqual({ type: "local", path: "../review" });
+  expect(lockEntrySource(local)).toEqual({ type: "local", path: "/sources/review" });
 });
 
 describe("lock entry source authority", () => {
@@ -117,7 +116,7 @@ describe("lock entry source authority", () => {
       });
       expect(ref).toMatchObject({ distribution });
       if (ref.refType !== "git-hosted") throw new Error("Expected Git plugin reference");
-      expect(ref.location).toMatch(/\/review\/skills\/review$/u);
+      expect(ref.location).toMatch(/\/plugins\/reviews\/skills\/review$/u);
       expect(ref.sourcePath).toBe("plugins/reviews/skills/review");
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -161,7 +160,7 @@ describe("lock entry source authority", () => {
         },
         {
           source: { type: "path", path: "catalog/packs/toolkit" },
-          resolved: { tree: "tree" },
+          resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
           sourceRoot: "catalog",
         },
       ];
@@ -214,7 +213,6 @@ describe("lock entry source authority", () => {
   );
 });
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
@@ -241,12 +239,12 @@ describe("lock entry printers", () => {
     });
     expect(
       lockEntryToSourceParams({
-        source: { type: "path", path: "../review" },
+        source: { type: "path", path: "/sources/review" },
         identity: { owner: handle("@acme"), name: extensionName("review") },
-        resolved: { tree: contentIdentity },
+        resolved: { tree: treeIntegrity },
         treeIntegrity,
       }),
-    ).toEqual({ type: "local", path: "../review" });
+    ).toEqual({ type: "local", path: "/sources/review" });
   });
 
   it("prints a Registry accepted resolution as an exact locator", () => {

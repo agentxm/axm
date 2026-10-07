@@ -62,6 +62,8 @@ import {
 import { runWorkspaceTransaction, type WorkspaceTransactionScope } from "../settlement/index.js";
 import {
   SettingsReader,
+  AcceptedResolutionWriter,
+  retainedPackageKeyForRef,
   DesiredStateReader,
   ConfiguredAgentOutcomesProvider,
   WorkspaceRecords,
@@ -946,7 +948,6 @@ export const makeSyncPlan = <R>({
   cleanupStep,
   instructionStep,
   retirementStep,
-  leftoverSteps = [],
   releaseAge,
   serialMaterialization = false,
   name = SYNC_PLAN_NAME,
@@ -961,8 +962,6 @@ export const makeSyncPlan = <R>({
   readonly cleanupStep: Option.Option<PlannedJobStep<R>>;
   readonly instructionStep: Option.Option<PlannedJobStep<R>>;
   readonly retirementStep?: PlannedJobStep<R>;
-  /** One removal per installed package desired state no longer reaches. */
-  readonly leftoverSteps?: ReadonlyArray<PlannedJobStep<R>>;
   readonly releaseAge: ReleaseAgeOperationEvidence;
   readonly serialMaterialization?: boolean;
   readonly name?: string;
@@ -971,6 +970,7 @@ export const makeSyncPlan = <R>({
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
+    const acceptedWriter = yield* AcceptedResolutionWriter;
     const configuredAgentIds = yield* settings.configuredAgents;
     const ruleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") === true);
     const nonRuleSteps = materializeSteps.filter((step) => step.key?.startsWith("rule:") !== true);
@@ -995,7 +995,6 @@ export const makeSyncPlan = <R>({
       jobs.push({ concurrency: 1, steps: [instructionStep.value] });
     }
     if (retirementStep !== undefined) jobs.push({ concurrency: 1, steps: [retirementStep] });
-    if (leftoverSteps.length > 0) jobs.push({ concurrency: 1, steps: [...leftoverSteps] });
     // Storage files alone do not couple unrelated domain transitions. Dependency
     // routes and shared native units do: failure in either restores the component.
     const ordered = jobs.flatMap((job) => job.steps);
@@ -1013,7 +1012,21 @@ export const makeSyncPlan = <R>({
       return [];
     };
     for (const step of ordered) {
-      const keys = new Set(aggregateKeys(step));
+      const refs =
+        step.readiness === "error"
+          ? []
+          : [
+              ...(step.acquisitionRefs ?? []),
+              ...(step.sourceBinding === undefined
+                ? []
+                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+            ];
+      const keys = new Set([
+        ...aggregateKeys(step),
+        ...refs.flatMap((ref) =>
+          ref.refType === "workspace" ? [] : [`retained:${retainedPackageKeyForRef(ref)}`],
+        ),
+      ]);
       const key = step.key ?? "";
       for (const node of graph.nodes) {
         if (
@@ -1139,6 +1152,7 @@ export const makeSyncPlan = <R>({
           failure._tag === "StepFailure" ? failure : adapter.toStepFailure(failure),
         label: steps.map((step) => step.label).join("; "),
         message: "Reconciled dependent workspace state",
+        acceptedResolutions: acceptedWriter.withBatch,
         artifact: {
           path: artifacts[0]?.path ?? settingsDisplayPath(scope),
           scope,

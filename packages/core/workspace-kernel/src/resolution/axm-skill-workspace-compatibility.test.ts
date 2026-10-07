@@ -132,7 +132,8 @@ describe("selectOfficialAxmSkill", () => {
         {
           type: "pack",
           pack: { authority: "registry", fqn: "@acme/packs/reviews" },
-          manifestPath: "/workspace/agent_extensions/registry/@acme/packs/reviews/pack.json",
+          manifestPath:
+            "/workspace/agent_extensions/registry.agentxm.ai/@acme/packs/reviews/pack.json",
           source: REGISTRY_SOURCE,
           constraint: "^1.2.0",
           enabled: true,
@@ -177,7 +178,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("assessOfficialAxmSkill
   });
   afterEach(() => nodeFs.rmSync(root, { recursive: true, force: true }));
 
-  const canonical = () => nodePath.join(root, "agent_extensions/registry/@agentxm/skills/axm");
+  const canonical = () =>
+    nodePath.join(root, "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm");
   const extraneous = () => nodePath.join(root, "agent_extensions/agentxm/@agentxm/skills/axm");
 
   it.effect("reports undeclared when the desired state selects no official skill", () =>

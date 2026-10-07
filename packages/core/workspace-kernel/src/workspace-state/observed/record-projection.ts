@@ -99,6 +99,12 @@ const unexplainedLifecycle = (
   if (Option.isNone(layout)) return Option.some("unmanaged");
   const packageLocation = actual.packageRoot ?? actual.contentRoot;
   if (packageLocation === undefined || packageLocation === null) return Option.some("unmanaged");
+  // Retained package resources and inactive siblings are package contents,
+  // not independently installed extensions.
+  const containing = installRoot.packages.find((candidate) =>
+    isWithin(candidate.path, packageLocation),
+  );
+  if (containing !== undefined) return containing.reached ? Option.none() : Option.some("leftover");
   switch (actual.origin._tag) {
     case "canonical-axm-skill":
     case "canonical-axm-mcp-server":
@@ -107,12 +113,6 @@ const unexplainedLifecycle = (
     case "canonical-axm-hook":
     case "canonical-axm-knowledge":
     case "canonical-axm-pack": {
-      const entry = installRoot.packages.find((candidate) => candidate.path === packageLocation);
-      if (entry !== undefined) {
-        if (!entry.reached) return Option.some("leftover");
-        if (entry.sourceDirectory === undefined) return Option.some("undeclared");
-        return Option.none();
-      }
       if (
         layout.value.scope === "project" &&
         isWithin(layout.value.authoredRoot(key.type), packageLocation)

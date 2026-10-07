@@ -1,14 +1,11 @@
+import { decodedLockfile } from "../workspace-state/testing.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import {
-  LockfileSchema,
-  SettingsSchema,
-  resolveProjectWorkspaceLayout,
-} from "../workspace-state/index.js";
+import { SettingsSchema, resolveProjectWorkspaceLayout } from "../workspace-state/index.js";
 import { deriveAgentOutputAuthority, deriveSkillOutputSources } from "./output-authority.js";
 
 describe("selected skill output authority", () => {
@@ -19,8 +16,8 @@ describe("selected skill output authority", () => {
         owner: "@acme",
         skills: { review: "workspace", other: "workspace" },
       });
-      const acceptedResolutions = Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 10,
+      const acceptedResolutions = yield* decodedLockfile({
+        lockfileVersion: 11,
         skills: {
           review: {
             source: { type: "registry", url: "https://registry.example/" },

@@ -182,19 +182,6 @@ export const configuredPackIdentity = (
   return undefined;
 };
 
-/** The source family a configured Pack's document is materialized under. */
-export const configuredPackSourceFamily = (
-  source: string,
-  accepted: PackLockEntry | undefined,
-): "git" | "path" | "registry" | "workspace" =>
-  isWorkspaceSourceLocator(source)
-    ? "workspace"
-    : accepted?.source.type === "path"
-      ? "path"
-      : accepted === undefined || accepted.source.type === "registry"
-        ? "registry"
-        : "git";
-
 /**
  * The source a Pack's members inherit: the workspace for an authored Pack,
  * the accepted source view for a held one, else the Pack's configured Registry.

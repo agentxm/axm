@@ -79,7 +79,7 @@ const stateWithDesiredSkill = () => {
     agents: ["claude-code"],
     skills: { "my-skill": { source: "@examples/skills/my-skill@1.0.0" } },
   };
-  state.lockfile = { lockfileVersion: 10, skills: { "my-skill": resolution } };
+  state.lockfile = { lockfileVersion: 11, skills: { "my-skill": resolution } };
   return state;
 };
 
@@ -130,7 +130,7 @@ describe("workspace/skills-integrity-valid", () => {
               type: "skill",
               name: "my-skill",
               status: "incomplete",
-              path: "/tmp/ws/agent_extensions/registry/@examples/skills/my-skill",
+              path: "/tmp/ws/agent_extensions/registry.agentxm.ai/@examples/skills/my-skill",
             },
           },
         ],
@@ -152,7 +152,7 @@ describe("workspace/skills-integrity-valid", () => {
               type: "skill",
               name: "my-skill",
               status: "missing",
-              path: "/tmp/ws/agent_extensions/registry/@examples/skills/my-skill",
+              path: "/tmp/ws/agent_extensions/registry.agentxm.ai/@examples/skills/my-skill",
             },
           },
         ],

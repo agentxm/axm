@@ -8,7 +8,10 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  storedLockfileFixture,
+  makeRegistrySkillLockEntry,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import {
   applySync,
@@ -33,21 +36,24 @@ export const specification = defineSpecification({
 });
 
 const CONTAINER = ".claude/skills";
-const acceptedSource = (name: string) => `agent_extensions/registry/@acme/skills/${name}/src`;
+const acceptedSource = (name: string) =>
+  `agent_extensions/registry.agentxm.ai/@acme/skills/${name}/src`;
 
 const recordAcceptedSource = (workspace: SyncFixture, name: string): void =>
   workspace.writeFile(
     "axm-lock.yaml",
-    JSON.stringify({
-      lockfileVersion: 10,
-      skills: {
-        [name]: makeRegistrySkillLockEntry({
-          owner: decodeHandleSync("@acme"),
-          name,
-          sourceName: "agentxm",
-        }),
-      },
-    }),
+    JSON.stringify(
+      storedLockfileFixture({
+        lockfileVersion: 11,
+        skills: {
+          [name]: makeRegistrySkillLockEntry({
+            owner: decodeHandleSync("@acme"),
+            name,
+            sourceName: "agentxm",
+          }),
+        },
+      }),
+    ),
   );
 
 const isLink = (workspace: SyncFixture, relative: string): boolean => {

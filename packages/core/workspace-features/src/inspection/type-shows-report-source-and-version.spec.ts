@@ -100,7 +100,7 @@ describe("Installed extension detail", () => {
         },
       },
       files: {
-        "agent_extensions/registry/@acme/mcps/context/mcp.json": JSON.stringify({
+        "agent_extensions/registry.agentxm.ai/@acme/mcps/context/mcp.json": JSON.stringify({
           owner: "@acme",
           type: "mcp-server",
           name: "context",

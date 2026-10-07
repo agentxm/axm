@@ -4,7 +4,10 @@ import { afterEach } from "vitest";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  storedLockfileFixture,
+  makeRegistrySkillLockEntry,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
@@ -13,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/reports-installed-but-not-configured",
   title: "Lint reports installed packages that are not configured",
   statement:
-    "When an installed package in the install root is reached by no desired route, lint shall report one warning per such package under workspace/installed-but-not-configured stating its identity, type, scope, canonical path, source directory, and whether a lock row exists, as facts without commands.",
+    "When a package proven by accepted metadata in the install root is reached by no desired route, lint shall report one warning per such package under workspace/installed-but-not-configured stating its identity, type, scope, canonical path, source directory, and whether a lock row exists, as facts without commands.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -27,7 +30,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const ROOT = "agent_extensions/registry/@acme/skills";
+const ROOT = "agent_extensions/registry.agentxm.ai/@acme/skills";
 
 const manifest = (name: string) =>
   JSON.stringify({ owner: "@acme", type: "skill", name, version: "1.0.0", description: "Fixture" });
@@ -58,10 +61,12 @@ describe("Installed but not configured", () => {
           ...installed("kept"),
           ...installed("stale"),
           ...installed("orphan"),
-          "axm-lock.yaml": JSON.stringify({
-            lockfileVersion: 10,
-            skills: { kept: lockRow("kept"), stale: lockRow("stale") },
-          }),
+          "axm-lock.yaml": JSON.stringify(
+            storedLockfileFixture({
+              lockfileVersion: 11,
+              skills: { kept: lockRow("kept"), stale: lockRow("stale") },
+            }),
+          ),
         },
       });
       cleanups.push(workspace.cleanup);
@@ -82,13 +87,7 @@ describe("Installed but not configured", () => {
           {
             ruleId: "workspace/installed-but-not-configured",
             severity: "warning",
-            message: `Installed skill '@acme/skills/orphan' is not configured in project scope: canonical path ${ROOT}/orphan, source directory registry, no lock row.`,
-            file: `${ROOT}/orphan`,
-          },
-          {
-            ruleId: "workspace/installed-but-not-configured",
-            severity: "warning",
-            message: `Installed skill '@acme/skills/stale' is not configured in project scope: canonical path ${ROOT}/stale, source directory registry, lock row present.`,
+            message: `Installed skill '@acme/skills/stale' is not configured in project scope: canonical path ${ROOT}/stale, source directory registry.agentxm.ai, lock row present.`,
             file: `${ROOT}/stale`,
           },
         ]);
@@ -111,7 +110,9 @@ describe("Installed but not configured", () => {
       },
       files: {
         ...installed("kept"),
-        "axm-lock.yaml": JSON.stringify({ lockfileVersion: 10, skills: { kept: lockRow("kept") } }),
+        "axm-lock.yaml": JSON.stringify(
+          storedLockfileFixture({ lockfileVersion: 11, skills: { kept: lockRow("kept") } }),
+        ),
       },
     });
     cleanups.push(workspace.cleanup);

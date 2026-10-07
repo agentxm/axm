@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "extension-discovery/all-manifest-kinds-from-git-and-path",
   title: "Git and path discovery recognize every extension manifest",
   statement:
-    "Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.",
+    "Git and path source discovery shall find every extension type defined by the manifest policy, including distinct native manifests co-located at one complete package root, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
@@ -131,41 +131,52 @@ describe("Git and path manifest discovery", () => {
     }
   });
 
-  it.effect("finds all seven manifest kinds from both source families", () =>
-    Effect.gen(function* () {
-      const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-all-manifests-"));
-      roots.push(root);
-      writeEveryManifest(root);
-      git(root, ["init", "--quiet", "--initial-branch=main"]);
-      git(root, ["config", "user.email", "test@example.com"]);
-      git(root, ["config", "user.name", "Test"]);
-      git(root, ["add", "."]);
-      git(root, ["commit", "--quiet", "-m", "fixture"]);
+  it.effect.each(["separate", "shared"] as const)(
+    "finds all seven manifest kinds at %s roots from both source families",
+    (layout) =>
+      Effect.gen(function* () {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-all-manifests-"));
+        roots.push(root);
+        writeEveryManifest(root);
+        if (layout === "shared") {
+          for (const directory of fs.readdirSync(root)) {
+            for (const file of fs.readdirSync(path.join(root, directory)))
+              fs.renameSync(path.join(root, directory, file), path.join(root, file));
+            fs.rmdirSync(path.join(root, directory));
+          }
+        }
+        git(root, ["init", "--quiet", "--initial-branch=main"]);
+        git(root, ["config", "user.email", "test@example.com"]);
+        git(root, ["config", "user.name", "Test"]);
+        git(root, ["add", "."]);
+        git(root, ["commit", "--quiet", "-m", "fixture"]);
 
-      const sources: ReadonlyArray<Source> = [
-        { type: "local", path: root },
-        { type: "git", url: pathToFileURL(root), ref: Option.none(), subPath: Option.none() },
-      ];
-      const discovered = yield* Effect.forEach(
-        sources,
-        (source) =>
-          findExtensionPackagesFromSource(source, {
-            names: [],
-            owner: Option.none(),
-            type: "*",
-          }).pipe(
-            Effect.provideService(SourceHostProviders, providers),
-            Effect.provide(NodeServices.layer),
-            Effect.scoped,
-          ),
-        { concurrency: 1 },
-      );
+        const sources: ReadonlyArray<Source> = [
+          { type: "local", path: root },
+          { type: "git", url: pathToFileURL(root), ref: Option.none(), subPath: Option.none() },
+        ];
+        const discovered = yield* Effect.forEach(
+          sources,
+          (source) =>
+            findExtensionPackagesFromSource(source, {
+              names: [],
+              owner: Option.none(),
+              type: "*",
+            }).pipe(
+              Effect.provideService(SourceHostProviders, providers),
+              Effect.provide(NodeServices.layer),
+              Effect.scoped,
+            ),
+          { concurrency: 1 },
+        );
 
-      const expected = ["hook", "knowledge", "mcp-server", "pack", "rule", "skill", "subagent"];
-      for (const packages of discovered) {
-        expect(packages.map((candidate) => candidate.identity.type).sort()).toStrictEqual(expected);
-      }
-    }),
+        const expected = ["hook", "knowledge", "mcp-server", "pack", "rule", "skill", "subagent"];
+        for (const packages of discovered) {
+          expect(packages.map((candidate) => candidate.identity.type).sort()).toStrictEqual(
+            expected,
+          );
+        }
+      }),
   );
 
   it.effect("omits opted-out workspace extensions from path and Git discovery", () =>

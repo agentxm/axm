@@ -1029,11 +1029,6 @@ export const HookManagerLive = Layer.effect(
               ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
-      if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* new HookDefinitionInvalid({
-          detail: `Local hook source path must stay within the workspace root: ${ref.source.path}`,
-        });
-      }
 
       const sourceHash = yield* computePackageContentHash(packageRoot);
       return {

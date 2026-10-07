@@ -43,6 +43,7 @@ import {
   desiredIdentityOfRef,
   desiredPackageKey,
   desiredReachability,
+  acceptedCanonicalObservation,
 } from "../../workspace-state/index.js";
 import { declareMaterialization, recordMaterialization } from "./declaration.js";
 import { observeSatisfiedInstall } from "./satisfied-install.js";
@@ -334,8 +335,15 @@ const observeFootprint = <A, E, R>(
 // -----------------------------------------------------------------------------
 
 /** Mutable source inputs are part of the candidate, even before first acceptance. */
-const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> =>
-  ref.refType === "local" || ref.refType === "workspace" ? [fromFileLocation(ref.location)] : [];
+const sourceMaterialPaths = (ref: ExtensionRef): ReadonlyArray<string> => {
+  if (ref.refType !== "local" && ref.refType !== "workspace") return [];
+  const location = fromFileLocation(ref.location).replaceAll("\\", "/");
+  const component = ref.refType === "local" ? ref.distribution?.componentPath : undefined;
+  const suffix = component === undefined || component === "." ? "" : `/${component}`;
+  return [
+    suffix !== "" && location.endsWith(suffix) ? location.slice(0, -suffix.length) : location,
+  ];
+};
 
 export interface InstallOperationArgs<
   TRef extends ExtensionRef,
@@ -1028,6 +1036,7 @@ export interface UninstallSettlement {
     | "removed"
     | "absent"
     | "retained-by-pack"
+    | "retained-by-component"
     | "preserved-authored"
     | "preserved-unowned"
     | "preserved-unreadable";
@@ -1046,6 +1055,8 @@ const uninstallSettlementMessage = (
       return `Unconfigured ${label}; no canonical package was present`;
     case "removed":
       return `Removed ${label}`;
+    case "retained-by-component":
+      return `Removed ${label}; retained its package for another selected component`;
     case "retained-by-pack":
       return `Unconfigured ${label}; retained its package because an installed pack still requires it`;
     case "preserved-authored":
@@ -1110,6 +1121,19 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
         ? Option.none<string>()
         : yield* manager.getConfiguredSource({ target: args.target });
     const configured = yield* isConfigured(manager, args.target);
+    const sharedCanonical = Option.exists(
+      yield* acceptedCanonicalObservation(args.target).pipe(
+        Effect.mapError(
+          (cause) =>
+            new StepFailure({
+              category: "conflict",
+              detail: `Accepted package ownership could not be read for ${args.target.name}`,
+              cause,
+            }),
+        ),
+      ),
+      (canonical) => canonical.sharedPackage === true,
+    );
     const transition = Effect.gen(function* () {
       if (
         priorAuthority !== undefined &&
@@ -1248,7 +1272,9 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
             onSome: (source) =>
               isWorkspaceSourceLocator(source)
                 ? ("preserved-authored" as const)
-                : ("removed" as const),
+                : sharedCanonical
+                  ? ("retained-by-component" as const)
+                  : ("removed" as const),
           }),
         } satisfies UninstallSettlement,
         expectedInstalled: Option.match(configuredSource, {
@@ -1307,7 +1333,9 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
       ...(artifact === undefined ? {} : { artifact }),
       ...(warnings.length === 0 ? {} : { warnings }),
     } satisfies JobStepResult;
-  }).pipe(Effect.mapError(args.toStepFailure));
+  }).pipe(
+    Effect.mapError((cause) => (cause instanceof StepFailure ? cause : args.toStepFailure(cause))),
+  );
 
 /**
  * Build a PlannedJobStep for an uninstall operation.

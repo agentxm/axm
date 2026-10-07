@@ -1,3 +1,4 @@
+import { gitPackagePath } from "../../testing/install-world.js";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
@@ -176,10 +177,14 @@ describe("root locator install selection", () => {
               Effect.sync(() => {
                 expect(deriveOperationOutcome(resolution)).toBe("applied");
                 expect(
-                  world.workspace.readFile("agent_extensions/git/@acme/skills/review/src/SKILL.md"),
+                  world.workspace.readFile(
+                    `${gitPackagePath(git.url, "vendor/review")}/src/SKILL.md`,
+                  ),
                 ).toContain("The review skill.");
                 expect(
-                  world.workspace.readFile("agent_extensions/git/@acme/rules/style/src/RULE.md"),
+                  world.workspace.readFile(
+                    `${gitPackagePath(git.url, "vendor/style")}/src/RULE.md`,
+                  ),
                 ).toContain("Guidance for style");
               }),
             ),

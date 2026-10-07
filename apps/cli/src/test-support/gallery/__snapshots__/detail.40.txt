@@ -7,7 +7,7 @@
                     effect-v4)
      Owner          @craigsmitham
      Installed at   agent_extensions/
-                    registry/
+                    registry.agentxm.ai/
                     @craigsmitham/
                     skills/effect-v4
      Description    Checklists to

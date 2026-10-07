@@ -15,10 +15,10 @@
  *
  * Cross-platform behavior:
  *
- * - POSIX `/ws/agent_extensions/registry/@o/skills/x/src` →
+ * - POSIX `/ws/agent_extensions/registry.agentxm.ai/@o/skills/x/src` →
  *   `pathSegments = ["", "ws", "agent_extensions", "registry", "@o", "skills", "x", "src"]`.
  *   Dropping the trailing `src` segment yields the package root
- *   `/ws/agent_extensions/registry/@o/skills/x`.
+ *   `/ws/agent_extensions/registry.agentxm.ai/@o/skills/x`.
  * - Windows `C:\\ws\\agent_extensions\\agentxm\\@o\\skills\\x\\src` →
  *   `pathSegments = ["C:", "ws", "agent_extensions", "registry", "@o", "skills", "x", "src"]`.
  *   `pathSegments[0]` is `"C:"` (length 2); the separator is

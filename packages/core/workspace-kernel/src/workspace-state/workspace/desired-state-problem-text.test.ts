@@ -15,18 +15,18 @@ describe("desiredStateProblemText", () => {
             source: "pack",
             dependingPack: "@acme/packs/one",
             range: "^1.0.0",
-            location: "agent_extensions/registry/@acme/packs/one/pack.json",
+            location: "agent_extensions/registry.agentxm.ai/@acme/packs/one/pack.json",
           },
           {
             source: "pack",
             dependingPack: "@acme/packs/two",
             range: "^2.0.0",
-            location: "agent_extensions/registry/@acme/packs/two/pack.json",
+            location: "agent_extensions/registry.agentxm.ai/@acme/packs/two/pack.json",
           },
         ],
       }),
     ).toBe(
-      "skill review: incompatible constraints @acme/packs/one range=^1.0.0 location=agent_extensions/registry/@acme/packs/one/pack.json, @acme/packs/two range=^2.0.0 location=agent_extensions/registry/@acme/packs/two/pack.json; decision=blocked; reason=no-satisfying-version",
+      "skill review: incompatible constraints @acme/packs/one range=^1.0.0 location=agent_extensions/registry.agentxm.ai/@acme/packs/one/pack.json, @acme/packs/two range=^2.0.0 location=agent_extensions/registry.agentxm.ai/@acme/packs/two/pack.json; decision=blocked; reason=no-satisfying-version",
     );
   });
 
@@ -34,7 +34,7 @@ describe("desiredStateProblemText", () => {
     const text = desiredStateProblemText({
       type: "pack-manifest-unavailable",
       pack: "@acme/packs/missing",
-      path: "/secret/workspace/agent_extensions/registry/@acme/packs/missing/pack.json",
+      path: "/secret/workspace/agent_extensions/registry.agentxm.ai/@acme/packs/missing/pack.json",
       reason: "absent",
     });
     expect(text).toBe("@acme/packs/missing: authored Pack manifest is absent");
@@ -46,7 +46,7 @@ describe("desiredStateProblemText", () => {
       desiredStateProblemText({
         type: "pack-manifest-unavailable",
         pack: "@acme/packs/locked",
-        path: "/secret/workspace/agent_extensions/registry/@acme/packs/locked/pack.json",
+        path: "/secret/workspace/agent_extensions/registry.agentxm.ai/@acme/packs/locked/pack.json",
         reason: "unreadable",
         cause: "PermissionDenied",
       }),
@@ -58,7 +58,7 @@ describe("desiredStateProblemText", () => {
       desiredStateProblemText({
         type: "pack-manifest-invalid",
         pack: "@acme/packs/broken",
-        path: "/secret/workspace/agent_extensions/registry/@acme/packs/broken/pack.json",
+        path: "/secret/workspace/agent_extensions/registry.agentxm.ai/@acme/packs/broken/pack.json",
         reason: "schema-invalid",
         issues: [{ path: "dependencies.@acme/skills/review", message: "Expected string" }],
       }),

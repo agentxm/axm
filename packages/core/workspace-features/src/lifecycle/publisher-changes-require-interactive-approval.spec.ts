@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -341,15 +342,17 @@ const UNRELATED: RegistrySubagentVersion = {
   version: "1.0.0",
   body: "Keep this independent research guidance.",
 };
-const SUBAGENT_CANONICAL = `agent_extensions/registry/@acme/subagents/${SUBAGENT}`;
+const subagentCanonical = (registry: FileRegistry) =>
+  fileRegistryPackagePath(registry, "subagents", SUBAGENT);
 const SUBAGENT_NATIVE = `.claude/agents/${SUBAGENT}.md`;
 
 const expectSubagentContent = (
+  registry: FileRegistry,
   workspace: LifecycleFixture,
   name: string,
   publication: RegistrySubagentVersion,
 ): void => {
-  const canonical = `agent_extensions/registry/@acme/subagents/${name}`;
+  const canonical = fileRegistryPackagePath(registry, "subagents", name);
   const manifest: unknown = JSON.parse(workspace.readFile(`${canonical}/subagent.json`));
   expect(manifest).toMatchObject({
     owner: "@acme",
@@ -370,14 +373,15 @@ const expectSubagentContent = (
  * replacing only this Subagent's accepted row with its prior value.
  */
 const outsideSubagentUpdate = (
+  registry: FileRegistry,
   snapshot: Readonly<Record<string, string>>,
 ): ReadonlyArray<readonly [string, string]> =>
   Object.entries(snapshot).filter(
     ([relative]) =>
       relative !== "axm-lock.yaml" &&
       relative !== ".axm/projection-containers.json" &&
-      relative !== SUBAGENT_CANONICAL &&
-      !relative.startsWith(`${SUBAGENT_CANONICAL}/`) &&
+      relative !== subagentCanonical(registry) &&
+      !relative.startsWith(`${subagentCanonical(registry)}/`) &&
       relative !== SUBAGENT_NATIVE,
   );
 
@@ -424,8 +428,8 @@ describe("Publisher changes through typed Subagent update", () => {
       // First acceptance needs no publisher-change approval and produces real
       // canonical and native files before the Registry changes its publisher.
       expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
-      expectSubagentContent(workspace, SUBAGENT, FIRST);
-      expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
+      expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
+      expectSubagentContent(registry, workspace, UNRELATED_SUBAGENT, UNRELATED);
       const lockBefore = yield* decodeLockfile(YAML.parse(workspace.readFile("axm-lock.yaml")));
       expect(lockBefore.subagents?.[SUBAGENT]).toMatchObject({
         source: { type: "registry" },
@@ -445,14 +449,16 @@ describe("Publisher changes through typed Subagent update", () => {
       republishUnderBinding(registry, "subagents", SUBAGENT, REPUBLISHED_BINDING);
       const before = workspace.snapshot();
       pending.run = () => {
-        expectSubagentContent(workspace, SUBAGENT, FIRST);
-        const currentLock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+        expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
+        const currentLock = Schema.decodeUnknownSync(LockfileSchema)(
+          YAML.parse(workspace.readFile("axm-lock.yaml")),
+        );
         expect(currentLock).toMatchObject({
           subagents: { [SUBAGENT]: { resolved: { publisherBindingId: ACCEPTED_BINDING } } },
         });
         expect(workspace.snapshot()).toEqual(before);
       };
-      return { workspace, before, lockBefore };
+      return { registry, workspace, before, lockBefore };
     });
 
   const updateSubagent = (workspace: LifecycleFixture) =>
@@ -464,7 +470,7 @@ describe("Publisher changes through typed Subagent update", () => {
     "unattended Subagent update preserves the accepted binding and all protected state",
     () =>
       Effect.gen(function* () {
-        const { workspace, before, lockBefore } = yield* acquiredThenRepublished(false);
+        const { registry, workspace, before, lockBefore } = yield* acquiredThenRepublished(false);
 
         const resolution = yield* updateSubagent(workspace);
 
@@ -482,7 +488,7 @@ describe("Publisher changes through typed Subagent update", () => {
           escape: { description: expect.stringContaining("Approve interactively") },
         });
         expect(JSON.stringify(resolution.blocking)).not.toContain("--yes");
-        expectSubagentContent(workspace, SUBAGENT, FIRST);
+        expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
         expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(SECOND.body);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -491,7 +497,7 @@ describe("Publisher changes through typed Subagent update", () => {
     "approved Subagent update records the new binding and content without changing unrelated state",
     () =>
       Effect.gen(function* () {
-        const { workspace, before, lockBefore } = yield* acquiredThenRepublished(true);
+        const { registry, workspace, before, lockBefore } = yield* acquiredThenRepublished(true);
         const receiptsBefore = yield* readContainerReceipts(nodePath.join(workspace.root, ".axm"));
 
         const resolution = yield* updateSubagent(workspace);
@@ -504,13 +510,15 @@ describe("Publisher changes through typed Subagent update", () => {
           identity: { owner: "@acme", name: SUBAGENT },
           resolved: { version: SECOND.version, publisherBindingId: REPUBLISHED_BINDING },
         });
-        expectSubagentContent(workspace, SUBAGENT, SECOND);
+        expectSubagentContent(registry, workspace, SUBAGENT, SECOND);
         expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(FIRST.body);
         expect({
           ...lockAfter,
           subagents: { ...lockAfter.subagents, [SUBAGENT]: lockBefore.subagents?.[SUBAGENT] },
         }).toEqual(lockBefore);
-        expect(outsideSubagentUpdate(workspace.snapshot())).toEqual(outsideSubagentUpdate(before));
+        expect(outsideSubagentUpdate(registry, workspace.snapshot())).toEqual(
+          outsideSubagentUpdate(registry, before),
+        );
         const unrelatedTarget = nodePath.join(
           workspace.root,
           ".claude/agents",
@@ -522,7 +530,7 @@ describe("Publisher changes through typed Subagent update", () => {
         ).toEqual(
           receiptsBefore.entries.filter((entry) => entry.identity.physicalPath === unrelatedTarget),
         );
-        expectSubagentContent(workspace, UNRELATED_SUBAGENT, UNRELATED);
+        expectSubagentContent(registry, workspace, UNRELATED_SUBAGENT, UNRELATED);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 });

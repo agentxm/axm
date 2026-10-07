@@ -1,3 +1,4 @@
+import { storedLockfileFixture } from "../__fixtures__/decoders.js";
 /**
  * Source-independence tests for `makeScopedStateApi`.
  *
@@ -44,23 +45,18 @@ const VALID_SETTINGS_JSON = JSON.stringify({
   skills: { "review-tool": { source: "github:owner/repo", enabled: true } },
 });
 
-const VALID_LOCKFILE_YAML = [
-  "lockfileVersion: 10",
-  "skills:",
-  "  review-tool:",
-  "    source:",
-  "      type: git",
-  "      url: https://github.com/owner/repo.git",
-  "      revision: main",
-  "    identity:",
-  "      owner: '@owner'",
-  "      name: review-tool",
-  "    resolved:",
-  "      commit: commit-1",
-  "      tree: tree-1",
-  `    treeIntegrity: sha256-tree-v2:${"0".repeat(64)}`,
-  "",
-].join("\n");
+const VALID_LOCKFILE_YAML = JSON.stringify(
+  storedLockfileFixture({
+    skills: {
+      "review-tool": {
+        source: { type: "git", url: "https://github.com/owner/repo.git", revision: "main" },
+        identity: { owner: "@owner", name: "review-tool" },
+        resolved: { commit: "commit-1", tree: "tree-1" },
+        treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+      },
+    },
+  }),
+);
 
 const CORRUPT_SETTINGS_JSON = "{ this is not json";
 // YAML mid-document break the parser deterministically rejects.
@@ -144,7 +140,7 @@ describe("source independence (Decision 2)", () => {
       const lockfile = yield* api.lockfile;
       expect(Option.isSome(lockfile)).toBe(true);
       const lf = Option.getOrThrow(lockfile);
-      expect(lf.lockfileVersion).toBe(10);
+      expect(lf.lockfileVersion).toBe(11);
       expect(Object.keys(lf.skills)).toContain("review-tool");
 
       // Settings cell SHALL fail with `SettingsParseError` (corrupt JSON).

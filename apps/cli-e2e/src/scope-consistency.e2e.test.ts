@@ -1,3 +1,5 @@
+import { pathToFileURL } from "node:url";
+import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -34,7 +36,6 @@ const PACK = "scope-pack";
 const SUBAGENT = "scope-subagent";
 const SKILL = "scope-review";
 const KNOWLEDGE = "scope-policy";
-const CANONICAL_REFERENCE = `agent_extensions/registry/${OWNER}/knowledge/${KNOWLEDGE}/src/policies/review.md`;
 
 const configureRegistry = (settingsPath: string, registryPath: string) => {
   const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -53,6 +54,15 @@ describe("installed-state scope consistency", () => {
     const consumer = createTempDir("axm-scope-consumer-");
     const userHome = createTempDir("axm-scope-user-");
     const registry = createTempDir("axm-scope-registry-");
+    const CANONICAL_REFERENCE = registryFixturePath(
+      pathToFileURL(registry.path).href,
+      OWNER,
+      "knowledge",
+      KNOWLEDGE,
+      "src/policies/review.md",
+    )
+      .split(path.sep)
+      .join("/");
     const env = { AXM_USER_HOME: userHome.path, HOME: userHome.path };
 
     try {
@@ -193,9 +203,7 @@ describe("installed-state scope consistency", () => {
         fs.readFileSync(
           path.join(
             consumer.path,
-            "agent_extensions",
-            "registry",
-            OWNER,
+            registryFixturePath(pathToFileURL(registry.path).href, OWNER),
             "skills",
             SKILL,
             "src",
@@ -238,9 +246,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "workspace",
-            "agent_extensions",
-            "registry",
-            OWNER,
+            registryFixturePath(pathToFileURL(registry.path).href, OWNER),
             "subagents",
             SUBAGENT,
             "src",
@@ -264,9 +270,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "workspace",
-            "agent_extensions",
-            "registry",
-            OWNER,
+            registryFixturePath(pathToFileURL(registry.path).href, OWNER),
             "skills",
             SKILL,
             "src",
@@ -281,9 +285,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "workspace",
-            "agent_extensions",
-            "registry",
-            OWNER,
+            registryFixturePath(pathToFileURL(registry.path).href, OWNER),
             "knowledge",
             KNOWLEDGE,
             "src",
@@ -325,9 +327,7 @@ describe("installed-state scope consistency", () => {
             userHome.path,
             ".axm",
             "workspace",
-            "agent_extensions",
-            "registry",
-            OWNER,
+            registryFixturePath(pathToFileURL(registry.path).href, OWNER),
             "knowledge",
             KNOWLEDGE,
             "src",

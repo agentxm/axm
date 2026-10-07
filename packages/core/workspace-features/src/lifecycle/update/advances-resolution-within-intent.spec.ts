@@ -1,3 +1,6 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as DateTime from "effect/DateTime";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
@@ -45,7 +48,7 @@ import {
 import { UpdateExtensions } from "./update-extensions.js";
 
 const lockSkill = (raw: string, name: string): unknown => {
-  const parsed: unknown = YAML.parse(raw);
+  const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(raw));
   if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) return undefined;
   if (typeof parsed.skills !== "object" || parsed.skills === null) return undefined;
   return Object.entries(parsed.skills).find(([key]) => key === name)?.[1];
@@ -69,7 +72,8 @@ export const specification = defineSpecification({
 const REVIEW = "code-review";
 const FQN = `@acme/skills/${REVIEW}`;
 const UNRELATED = "release-notes";
-const CANONICAL_SKILL_DOCUMENT = `agent_extensions/registry/@acme/skills/${REVIEW}/src/SKILL.md`;
+const canonicalSkillDocument = (registry: FileRegistry) =>
+  `${fileRegistryPackagePath(registry, "skills", REVIEW)}/src/SKILL.md`;
 
 const firstVersion: RegistrySkillVersion = { version: "1.0.0", body: "First guidance." };
 
@@ -86,9 +90,12 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
             subject: { kind: "source", source: "@acme/packs/toolkit@^1.0.0" },
           }),
         );
-        fs.rmSync(nodePath.join(workspace.root, "agent_extensions/registry/@acme/packs/toolkit"), {
-          recursive: true,
-        });
+        fs.rmSync(
+          nodePath.join(workspace.root, fileRegistryPackagePath(registry, "packs", "toolkit")),
+          {
+            recursive: true,
+          },
+        );
         registry.writeSkill(REVIEW, [
           firstVersion,
           { version: "1.1.0", body: "Compatible guidance." },
@@ -106,8 +113,12 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
           expect(lockSkill(workspace.readFile("axm-lock.yaml"), REVIEW)).toMatchObject({
             resolved: { version: "1.1.0" },
           });
-          expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("Compatible guidance.");
-          expect(workspace.exists("agent_extensions/registry/@acme/packs/toolkit")).toBe(false);
+          expect(workspace.readFile(canonicalSkillDocument(registry))).toContain(
+            "Compatible guidance.",
+          );
+          expect(workspace.exists(fileRegistryPackagePath(registry, "packs", "toolkit"))).toBe(
+            false,
+          );
         }).pipe(
           Effect.provideService(SourceHostProviders, {
             ...sources,
@@ -265,7 +276,9 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
     });
 
   const lockedVersion = (workspace: LifecycleFixture): unknown => {
-    const parsed: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+    const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(
+      YAML.parse(workspace.readFile("axm-lock.yaml")),
+    );
     if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
     const locked = parsed.subagents;
     if (typeof locked !== "object" || locked === null) return undefined;
@@ -565,14 +578,18 @@ describe.each(["targeted", "type-group"] as const)(
         .provide(
           Effect.gen(function* () {
             yield* acceptedThenPublished(registry, workspace, { later: [] });
-            expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("First guidance.");
-            workspace.writeFile(CANONICAL_SKILL_DOCUMENT, "# code-review\n\nTampered.\n");
+            expect(workspace.readFile(canonicalSkillDocument(registry))).toContain(
+              "First guidance.",
+            );
+            workspace.writeFile(canonicalSkillDocument(registry), "# code-review\n\nTampered.\n");
 
             const resolution = expectResolved(yield* update());
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
             expect(countUnitStates(resolution.units)).toMatchObject({ committed: 1, failed: 0 });
-            expect(workspace.readFile(CANONICAL_SKILL_DOCUMENT)).toContain("First guidance.");
+            expect(workspace.readFile(canonicalSkillDocument(registry))).toContain(
+              "First guidance.",
+            );
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "First guidance.",
             );
@@ -603,7 +620,9 @@ describe.each(["targeted", "type-group"] as const)(
               unrelatedAccepted,
             );
             expect(
-              workspace.readFile(`agent_extensions/path/@acme/skills/${UNRELATED}/src/SKILL.md`),
+              workspace.readFile(
+                `agent_extensions/_local/project/vendor/${UNRELATED}/src/SKILL.md`,
+              ),
             ).toContain(UNRELATED);
           }),
         )

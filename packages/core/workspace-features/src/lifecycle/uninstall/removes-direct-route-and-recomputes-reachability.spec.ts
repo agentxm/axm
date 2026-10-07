@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -230,7 +231,9 @@ describe("Uninstall a directly desired extension", () => {
             expect(workspace.readFile(".claude/skills/foreign.txt")).toBe(
               "Preserve unrelated native bytes\n",
             );
-            expect(workspace.exists("agent_extensions/path/@acme/skills/alias-review")).toBe(false);
+            expect(workspace.exists("agent_extensions/_local/project/vendor/alias-review")).toBe(
+              false,
+            );
             expect(JSON.stringify(readSettings(workspace))).not.toContain("alias-review");
             expect(workspace.readFile("axm-lock.yaml")).not.toContain("alias-review");
             const after = workspace.snapshot();
@@ -276,7 +279,7 @@ describe("Uninstall a directly desired extension", () => {
                           expect(exists).toBe(false);
                         }
                         expect(
-                          workspace.exists("agent_extensions/path/@acme/skills/alias-review"),
+                          workspace.exists("agent_extensions/_local/project/vendor/alias-review"),
                         ).toBe(false);
                         yield* Ref.update(retired, (count) => count + 1);
                         return yield* new SkillMaterializationFailed({
@@ -335,12 +338,14 @@ describe("Uninstall a directly desired extension", () => {
         Effect.gen(function* () {
           yield* installLocalSkill(created, "code-review");
           expect(
-            workspace.exists("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
+            workspace.exists("agent_extensions/_local/project/vendor/code-review/src/SKILL.md"),
           ).toBe(true);
 
           yield* applyUninstall(uninstallRequest({ selector: "@acme/skills/code-review" }));
 
-          expect(workspace.exists("agent_extensions/path/@acme/skills/code-review")).toBe(false);
+          expect(workspace.exists("agent_extensions/_local/project/vendor/code-review")).toBe(
+            false,
+          );
           expect(workspace.exists(".claude/skills/code-review")).toBe(false);
           expect(workspace.exists(".agents/skills/code-review")).toBe(false);
         }),
@@ -366,7 +371,7 @@ describe("Uninstall a directly desired extension", () => {
           expect(workspace.readFile("axm-lock.yaml")).toContain("release-notes");
           expect(workspace.readFile(".claude/skills/release-notes/SKILL.md")).toBe(projectedBefore);
           expect(
-            workspace.exists("agent_extensions/path/@acme/skills/release-notes/src/SKILL.md"),
+            workspace.exists("agent_extensions/_local/project/vendor/release-notes/src/SKILL.md"),
           ).toBe(true);
         }),
       )
@@ -384,7 +389,7 @@ describe("Uninstall a directly desired extension", () => {
       registry.writePack("review-pack", [
         { version: "1.0.0", dependencies: { "@acme/skills/review-helper": "^1.0.0" } },
       ]);
-      const canonical = "agent_extensions/registry/@acme/skills/review-helper";
+      const canonical = fileRegistryPackagePath(registry, "skills", "review-helper");
       const projection = ".claude/skills/review-helper";
       return workspace
         .provide(
@@ -538,7 +543,9 @@ describe("Uninstall a directly desired extension", () => {
             expect(deriveOperationOutcome(result)).not.toBe("applied");
             expect(workspace.readFile("axm.json")).toBe(settingsBefore);
             expect(
-              workspace.exists("agent_extensions/registry/@acme/packs/planning/pack.json"),
+              workspace.exists(
+                `${fileRegistryPackagePath(registry, "packs", "planning")}/pack.json`,
+              ),
             ).toBe(true);
             expect(workspace.readFile(nativePath)).toBe(changed);
           }),
@@ -560,7 +567,7 @@ describe("Uninstall a directly desired extension", () => {
           );
           expect(
             workspace.exists(
-              `agent_extensions/path/@acme/${row.plural}/${name}/${row.canonicalFile(name)}`,
+              `agent_extensions/_local/project/vendor/${name}/${row.canonicalFile(name)}`,
             ),
           ).toBe(true);
 
@@ -570,7 +577,7 @@ describe("Uninstall a directly desired extension", () => {
             [row.settingsKey]: { [name]: expect.anything() },
           });
           expect(workspace.readFile("axm-lock.yaml")).not.toContain(name);
-          expect(workspace.exists(`agent_extensions/path/@acme/${row.plural}/${name}`)).toBe(false);
+          expect(workspace.exists(`agent_extensions/_local/project/vendor/${name}`)).toBe(false);
           row.expectUnrealized(workspace, name);
         }),
       )

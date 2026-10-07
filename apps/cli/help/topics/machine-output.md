@@ -139,12 +139,12 @@ requiring message parsing:
   "ok": false,
   "code": "validation",
   "title": "Unsupported workspace lockfile version",
-  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 11, but this AXM supports version 10. This workspace requires a newer AXM.",
+  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 12, but this AXM supports version 11. This workspace requires a newer AXM.",
   "problem": {
     "code": "workspace-lockfile-version-unsupported",
     "path": "/workspace/axm-lock.yaml",
-    "observedVersion": 11,
-    "supportedVersion": 10,
+    "observedVersion": 12,
+    "supportedVersion": 11,
     "direction": "newer"
   },
   "suggestions": [

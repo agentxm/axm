@@ -28,7 +28,7 @@ it.effect("reads fresh scoped documents without inspecting unrelated directories
     );
     yield* fs.writeFileString(
       projectLock,
-      JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, skills: {} }),
+      JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, packages: {}, skills: {} }),
     );
     const cells = {
       scope: "project",

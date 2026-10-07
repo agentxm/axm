@@ -12,15 +12,15 @@ depends-on:
 
 The [workspace dependency catalog](../../pnpm-workspace.yaml) owns the Effect
 version AXM uses. This guide owns only AXM-specific policy. Select the relevant
-guide in the [Effect v4 Knowledge bundle](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md)
+guide in the [Effect v4 Knowledge bundle](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/index.md)
 and consult the matching dependency source for API details.
 
 Route AXM environment and secret handling to
-[config](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/config.md),
+[config](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/config.md),
 runtime logging and telemetry to
-[observability](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/observability.md),
+[observability](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/observability.md),
 and outbound registry transport policy to
-[HTTP client](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/http-client.md).
+[HTTP client](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/http-client.md).
 
 > [Effect](../../AGENTS.md#effect) — required repository policy
 
@@ -105,9 +105,9 @@ reason to preserve and measure a candidate policy, not to substitute an
 arbitrary numeric cap.
 
 Start with the Knowledge guides for
-[iteration](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/iteration.md),
-[structured concurrency](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
-and [async coordination](../../agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
+[iteration](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/iteration.md),
+[structured concurrency](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/structured-concurrency.md),
+and [async coordination](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/async-coordination.md).
 
 ### Reviewed unbounded concurrency
 

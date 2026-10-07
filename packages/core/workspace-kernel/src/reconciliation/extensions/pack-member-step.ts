@@ -62,6 +62,8 @@ export type PackMemberRef =
   | KnowledgeExtensionRef;
 
 export interface PackMemberStepArgs {
+  /** Reconcile this derived member without a containing Pack projection pass. */
+  readonly standalone?: boolean;
   readonly ref: PackMemberRef;
   readonly authorizeDistributionSelection?: boolean;
   readonly nativeInsertionEligible?: boolean;
@@ -118,7 +120,9 @@ export const buildPackMemberStep: (
     ...(args.nativeInsertionEligible === undefined
       ? {}
       : { nativeInsertionEligible: args.nativeInsertionEligible }),
-    enclosingClosure: { projections: [ref.type], postconditions: [ref.type] },
+    ...(args.standalone === true
+      ? {}
+      : { enclosingClosure: { projections: [ref.type], postconditions: [ref.type] } }),
     ...(args.force === undefined ? {} : { force: args.force }),
   } as const;
   // Shared aggregate observations belong after every contributor is materialized.

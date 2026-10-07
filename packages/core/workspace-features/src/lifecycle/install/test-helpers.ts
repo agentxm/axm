@@ -23,9 +23,9 @@ export const readSettings = (workspace: LifecycleFixture): Readonly<Record<strin
 };
 
 /**
- * One conformance row per extension type an install can acquire from a local
- * directory. MCP servers and packs are Registry-only, so their evidence is
- * written with a published Registry rather than a row here.
+ * Shared fixture rows for five native extension kinds. MCP connections and Packs
+ * have additional lifecycle-specific fixture requirements covered by their own
+ * source-package specifications.
  */
 export interface LocalLifecycleRow {
   readonly label: string;
@@ -63,10 +63,10 @@ export const localLifecycleRows: ReadonlyArray<LocalLifecycleRow> = [
     canonicalFile: () => "src/SKILL.md",
     expectRealized: (workspace, name) => {
       expect(workspace.readFile(`.claude/skills/${name}/SKILL.md`)).toBe(
-        workspace.readFile(`agent_extensions/path/@acme/skills/${name}/src/SKILL.md`),
+        workspace.readFile(`agent_extensions/_local/project/vendor/${name}/src/SKILL.md`),
       );
       expect(workspace.readFile(`.agents/skills/${name}/SKILL.md`)).toBe(
-        workspace.readFile(`agent_extensions/path/@acme/skills/${name}/src/SKILL.md`),
+        workspace.readFile(`agent_extensions/_local/project/vendor/${name}/src/SKILL.md`),
       );
     },
     expectUnrealized: (workspace, name) => {

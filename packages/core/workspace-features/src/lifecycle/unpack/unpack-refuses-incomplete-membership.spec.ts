@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -48,9 +49,12 @@ describe("Unpack refusal", () => {
           yield* seedAuthoredPackWorkspace(world);
           const root = world.workspace.root;
           if (fault === "missing-member") {
-            fs.rmSync(nodePath.join(root, "agent_extensions/registry/@acme/skills/review"), {
-              recursive: true,
-            });
+            fs.rmSync(
+              nodePath.join(root, fileRegistryPackagePath(world.registry, "skills", "review")),
+              {
+                recursive: true,
+              },
+            );
           }
           if (fault === "missing-resolution") {
             fs.rmSync(nodePath.join(root, "axm-lock.yaml"));

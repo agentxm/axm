@@ -21,15 +21,13 @@ import {
   type McpServerExtensionTarget,
   mcpRegistryResolutionKey,
   computeExtensionPathsForLayout,
+  acquiredPackageRelativePath,
   validateExactResolvedVersion,
   acceptedCanonicalObservation,
   acceptedLockedResolutionRef,
   removableAcceptedCanonicalPath,
-  computeMaterializedTreeIntegrity,
-  type MaterializedTreeInvalid,
   type TreeIntegrity,
   acceptedRowKey,
-  computePackageContentHash,
   desiredMcpSourceKey,
   mcpResolutionKey,
   registrySourceLockFields,
@@ -67,9 +65,7 @@ import type {
   RegistryMcpServerRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   isPathSafe,
@@ -77,12 +73,8 @@ import {
 } from "@agentxm/extension-model/unstable/path-types";
 import { buildExternalMcpServerLockEntry } from "./lock-entry-builder.js";
 import {
-  prepareCanonicalParents,
   retireCanonicalDirectory,
-  type PackageMaterializationFailed,
   configuredMcpServersToDiskRefs,
-  copyExtensionDirectory,
-  replaceCanonicalDirectoryWithInspection,
   sourceRefContentKey,
 } from "@agentxm/workspace-kernel/acquisition";
 
@@ -116,7 +108,6 @@ export const McpServerManagerLive = Layer.effect(
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const sources = yield* SourceHostProviders;
     const baseDir = location.baseDir;
 
     const acquired = (
@@ -188,7 +179,19 @@ export const McpServerManagerLive = Layer.effect(
               "mcps",
               ref.name,
             ).canonicalPath;
-            const fetched = yield* sources.fetch(ref).pipe(
+            const materialized = yield* acquireCanonicalForRef({
+              ref,
+              type: "mcp-server",
+              baseDir,
+              canonicalPath,
+              accepted: Option.none(),
+              force: force === true,
+              nativeInsertionEligible: nativeInsertionEligible === true,
+              copyFailure: {
+                code: "internal",
+                detail: (target) => `Failed to retain MCP package at ${target}`,
+              },
+            }).pipe(
               Effect.mapError(
                 (cause) =>
                   new McpWorkspacePackageInvalid({
@@ -199,41 +202,7 @@ export const McpServerManagerLive = Layer.effect(
                   }),
               ),
             );
-            const materialized = yield* replaceCanonicalDirectoryWithInspection<
-              TreeIntegrity,
-              McpWorkspacePackageInvalid | MaterializedTreeInvalid | PackageMaterializationFailed,
-              FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-            >({
-              baseDir,
-              canonicalPath,
-              ...(nativeInsertionEligible === true
-                ? { prepareParents: prepareCanonicalParents({ canonicalPath, eligible: true }) }
-                : {}),
-              populate: (stagingPath) =>
-                copyExtensionDirectory(fetched.directory, stagingPath).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new McpWorkspacePackageInvalid({
-                        serverName: ref.server.name,
-                        location: fetched.directory,
-                        fault: "unreadable",
-                        cause,
-                      }),
-                  ),
-                ),
-              inspect: computeMaterializedTreeIntegrity,
-            }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new McpWorkspacePackageInvalid({
-                    serverName: ref.server.name,
-                    location: fetched.directory,
-                    fault: "unreadable",
-                    cause,
-                  }),
-              ),
-            );
-            return acquired(Option.some(materialized.inspection));
+            return acquired(Option.some(materialized.treeIntegrity));
           }),
         );
       }
@@ -242,6 +211,22 @@ export const McpServerManagerLive = Layer.effect(
       yield* validateExactResolvedVersion(
         `mcpServers.${registryRef.server.name}.resolvedVersion`,
         registryRef.version,
+      );
+      yield* Effect.fromResult(
+        acquiredPackageRelativePath(registryRef, "mcps", registryRef.name),
+      ).pipe(
+        Effect.mapError(
+          () =>
+            new McpCanonicalPathUnsafe({
+              serverName: registryRef.name,
+              canonicalPath: path.join(
+                currentLayout().acquiredRoot,
+                registryRef.owner,
+                "mcps",
+                registryRef.name,
+              ),
+            }),
+        ),
       );
       const canonicalPath = computeExtensionPathsForLayout(
         path.join,
@@ -466,17 +451,9 @@ export const McpServerManagerLive = Layer.effect(
             entry,
           });
         }
-        const canonicalPath = computeExtensionPathsForLayout(
-          path.join,
-          currentLayout(),
-          ref,
-          "mcps",
-          ref.name,
-        ).canonicalPath;
         const entry = buildExternalMcpServerLockEntry({
           ref,
           treeIntegrity: treeIntegrity.value,
-          contentIdentity: yield* computePackageContentHash(canonicalPath),
           localPath:
             ref.refType === "local"
               ? makeWorkspaceRelativeSourcePath(path, baseDir, fromFileLocation(ref.location))

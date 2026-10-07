@@ -225,7 +225,8 @@ export const preparePackMembership = Effect.fn("ChangePackMembership.prepare")(f
   const packOwner = configuredOwner.value;
 
   const manifestPath = path.join(
-    computePackPathsForLayout(path.join, layout, "workspace", packOwner, pack).canonicalPath,
+    computePackPathsForLayout(path.join, layout, { refType: "workspace", owner: packOwner }, pack)
+      .canonicalPath,
     PACK_MANIFEST_FILENAME,
   );
   const manifestContent = yield* fs

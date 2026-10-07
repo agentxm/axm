@@ -1,3 +1,4 @@
+import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -60,11 +61,8 @@ const extensionDirForSurface = (
   name: string,
   scope: "project" | "user" = "project",
 ) =>
-  path.join(
-    workspacePath,
-    ...(scope === "user" ? [".axm", "workspace"] : []),
-    "agent_extensions",
-    "registry",
+  configuredRegistryFixturePath(
+    scope === "user" ? path.join(workspacePath, ".axm", "workspace") : workspacePath,
     OWNER,
     surface,
     name,

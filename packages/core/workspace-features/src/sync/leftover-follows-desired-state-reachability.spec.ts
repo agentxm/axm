@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   title:
     "Inventory reports as leftover exactly the installed packages desired state no longer reaches",
   statement:
-    "When an installed package in the install root is reached by no desired route, the workspace inventory shall classify it as leftover; it shall classify as leftover no package a desired route reaches and none while desired state is incomplete; and the packages it names as leftover shall be the packages the install-root observation names, so list, lint and sync agree.",
+    "When a package proven by accepted metadata in the install root is reached by no desired route, the workspace inventory shall classify it as leftover; it shall classify as leftover no package a desired route reaches and none while desired state is incomplete or accepted ownership is absent; and the packages it names as leftover shall be the packages the install-root observation names, so list, lint and sync agree.",
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -38,14 +38,14 @@ export const specification = defineSpecification({
 });
 
 const installedSkill = (name: string) => ({
-  [`agent_extensions/registry/@acme/skills/${name}/skill.json`]: JSON.stringify({
+  [`agent_extensions/registry.agentxm.ai/@acme/skills/${name}/skill.json`]: JSON.stringify({
     owner: "@acme",
     type: "skill",
     name,
     version: "1.0.0",
     description: "Fixture",
   }),
-  [`agent_extensions/registry/@acme/skills/${name}/src/SKILL.md`]: `---\nname: ${name}\ndescription: Fixture\n---\n# ${name}\n`,
+  [`agent_extensions/registry.agentxm.ai/@acme/skills/${name}/src/SKILL.md`]: `---\nname: ${name}\ndescription: Fixture\n---\n# ${name}\n`,
 });
 
 const acceptedSkill = (name: string) =>
@@ -53,10 +53,10 @@ const acceptedSkill = (name: string) =>
 
 const cases = [
   {
-    case: "lockless package",
+    case: "lockless package is unproven",
     settings: { owner: "@acme", skills: { review: "agentxm:@acme/skills/review" } },
     files: installedSkill("stale"),
-    expected: ["stale"],
+    expected: [],
     incomplete: false,
   },
   {

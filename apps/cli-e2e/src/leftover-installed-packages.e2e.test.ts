@@ -2,7 +2,6 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 
 import { makeDirectoryFixture, unattendedProjectSetup } from "./test-support/directory-harness.js";
 
@@ -89,47 +88,39 @@ describe("Leftover installed packages", () => {
         `${JSON.stringify({ ...Object(settings), owner: "@acme" }, null, 2)}\n`,
       );
 
-      const installRoot = path.join(workspace, "agent_extensions", "registry");
-      for (const name of LEFTOVERS)
-        skillPackage(
-          path.join(installRoot, "@craigsmitham", "skills", name),
-          "@craigsmitham",
-          name,
-        );
-      skillPackage(path.join(workspace, "skills", "drafted"), "@acme", "drafted");
-      writeFile(path.join(installRoot, "notes.txt"), "hand-written\n");
-      const skillsDir = path.join(workspace, ".claude", "skills");
-      fs.mkdirSync(skillsDir, { recursive: true });
-      const brokenLink = path.join(skillsDir, "vanished");
-      fs.symlinkSync(
-        "../../agent_extensions/registry/@craigsmitham/skills/vanished/src",
-        brokenLink,
+      const installRoot = path.join(workspace, "agent_extensions", "_local", "project", "vendor");
+      for (const name of [...LEFTOVERS, "vanished"]) {
+        const source = path.join(workspace, "vendor", "skills", name);
+        skillPackage(source, "@craigsmitham", name);
+        const installed = await run(["install", source, "--skill", name]);
+        expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
+      }
+      // Accepted installs establish real snapshot and cleanup authority. Removing
+      // intent leaves those packages unreachable without falsifying their hashes.
+      const acceptedSettings: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
+      if (
+        typeof acceptedSettings !== "object" ||
+        acceptedSettings === null ||
+        !("skills" in acceptedSettings)
+      )
+        throw new Error("Install must create the Skills settings section");
+      const retainedSkills = Object.fromEntries(
+        Object.entries(Object(acceptedSettings.skills)).filter(
+          ([name]) => ![...LEFTOVERS, "vanished"].some((leftover) => leftover === name),
+        ),
       );
-      const lockPath = path.join(workspace, "axm-lock.yaml");
-      const lock: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
-      if (typeof lock !== "object" || lock === null || !("skills" in lock))
-        throw new Error("Setup must create the Skills lock section");
       writeFile(
-        lockPath,
-        YAML.stringify({
-          ...lock,
-          skills: {
-            ...Object(lock.skills),
-            vanished: {
-              source: { type: "registry", url: "https://registry.agentxm.ai/" },
-              identity: { owner: "@craigsmitham", name: "vanished" },
-              resolved: {
-                version: "0.1.0",
-                integrity: "sha512-AAAA==",
-                publisherBindingId: "hbnd_test",
-              },
-              treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
-            },
-          },
-        }),
+        settingsPath,
+        `${JSON.stringify({ ...acceptedSettings, skills: retainedSkills }, null, 2)}\n`,
       );
+      skillPackage(path.join(workspace, "skills", "drafted"), "@acme", "drafted");
+      const notesPath = path.join(workspace, "agent_extensions", "notes.txt");
+      writeFile(notesPath, "hand-written\n");
+      const skillsDir = path.join(workspace, ".claude", "skills");
+      const brokenLink = path.join(skillsDir, "vanished");
+      fs.rmSync(path.join(installRoot, "skills", "vanished"), { recursive: true });
       const unprovenLink = path.join(skillsDir, "unproven");
-      const unprovenTarget = "../../agent_extensions/registry/@craigsmitham/skills/unproven/src";
+      const unprovenTarget = "../../agent_extensions/_local/project/vendor/skills/unproven/src";
       fs.symlinkSync(unprovenTarget, unprovenLink);
       const legacyLink = path.join(skillsDir, "legacy");
       fs.symlinkSync("../../.axm/extensions/@axm/skills/legacy", legacyLink);
@@ -168,11 +159,11 @@ describe("Leftover installed packages", () => {
       const synchronized = await run(["sync"]);
       expect(synchronized.exitCode, synchronized.stdout + synchronized.stderr).toBe(0);
       for (const name of LEFTOVERS)
-        expect(exists(path.join(installRoot, "@craigsmitham", "skills", name))).toBe(false);
+        expect(exists(path.join(installRoot, "skills", name))).toBe(false);
       expect(exists(brokenLink)).toBe(false);
       expect(fs.readlinkSync(unprovenLink)).toBe(unprovenTarget);
       expect(exists(legacyLink)).toBe(true);
-      expect(fs.readFileSync(path.join(installRoot, "notes.txt"), "utf8")).toBe("hand-written\n");
+      expect(fs.readFileSync(notesPath, "utf8")).toBe("hand-written\n");
       expect(snapshot(path.join(workspace, "skills"))).toEqual(authoredBefore);
 
       const converged = await run(["sync", "--preview", "--fail-on-change"]);

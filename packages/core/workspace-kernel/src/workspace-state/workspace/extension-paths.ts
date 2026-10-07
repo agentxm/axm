@@ -10,7 +10,7 @@ import {
   toExtensionType,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions/common";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeHandleSync, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type {
   GitBasedSource,
   HttpSource,
@@ -21,6 +21,15 @@ import {
   decodeAbsolutePathSync,
   type AbsolutePath,
 } from "@agentxm/extension-model/unstable/path-types";
+import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import {
+  encodeSourcePath,
+  localSourceCoordinates,
+  fileSourceCoordinates,
+  sourceUrlCoordinates,
+  SourceAddressInvalid,
+} from "./source-address.js";
 import type { WorkspaceLayout } from "./layout.js";
 
 export type ExtensionPathSource =
@@ -65,24 +74,81 @@ export interface ExtensionDirPaths {
   readonly extensionSrcPath: AbsolutePath;
 }
 
-const acquiredSourceFamily = (
+const boundarySegments = (boundary: string): ReadonlyArray<string> =>
+  boundary === "." || boundary === "" ? [] : boundary.split("/");
+
+/** Derive placement from source coordinates and the complete payload boundary. */
+export const acquiredPackageRelativePath = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
-): "git" | "path" | "registry" | "http" => {
+  type: ExtensionTypePlural,
+  name: string,
+): Result.Result<string, SourceAddressInvalid> => {
+  if (source.refType === "local") {
+    const selected = source.sourcePath ?? source.source.path;
+    const component = source.distribution?.componentPath;
+    const suffix = component === undefined || component === "." ? "" : `/${component}`;
+    const packageRoot =
+      selected === component
+        ? "."
+        : suffix !== "" && selected.endsWith(suffix)
+          ? selected.slice(0, -suffix.length)
+          : selected;
+    return Result.flatMap(localSourceCoordinates(packageRoot), (coordinates) =>
+      Result.map(encodeSourcePath(coordinates), (path) => `_local/${path}`),
+    );
+  }
+  const url = source.refType === "registry" ? source.source.location : source.source.url;
+  if (
+    (source.refType === "registry" || source.refType === "git-hosted") &&
+    url.protocol === "file:"
+  ) {
+    const boundary =
+      source.refType === "registry"
+        ? [source.owner, type, name]
+        : boundarySegments(
+            source.distribution?.packageRoot ??
+              source.sourcePath ??
+              Option.getOrElse(source.source.subPath, () => "."),
+          );
+    return Result.flatMap(fileSourceCoordinates(url), (coordinates) =>
+      Result.map(encodeSourcePath([...coordinates, ...boundary]), (path) => `_local/${path}`),
+    );
+  }
+  const address = sourceUrlCoordinates(url);
+  if (Result.isFailure(address)) return Result.fail(address.failure);
+  const segments = [...address.success];
   switch (source.refType) {
-    case "http":
-      return "http";
     case "registry":
-      return "registry";
-    case "local":
-      return "path";
-    case "git-hosted":
-      return "git";
+      return encodeSourcePath([...segments, source.owner, type, name]);
+    case "git-hosted": {
+      if (segments.length < 2)
+        return Result.fail(
+          new SourceAddressInvalid({ detail: "Git source address requires a repository path" }),
+        );
+      const last = segments.length - 1;
+      const repository = segments[last];
+      if (repository?.endsWith(".git")) segments[last] = repository.slice(0, -4);
+      const boundary =
+        source.distribution?.packageRoot ??
+        source.sourcePath ??
+        Option.getOrElse(source.source.subPath, () => ".");
+      return encodeSourcePath([...segments, ...boundarySegments(boundary)]);
+    }
+    case "http": {
+      if (source.source.kind === "skill-md" && segments[segments.length - 1] === "SKILL.md")
+        segments.pop();
+      const entry =
+        source.source.kind === "index" && source.source.entry !== undefined
+          ? boundarySegments(source.source.entry)
+          : [];
+      const boundary =
+        source.source.kind === "skill-md"
+          ? []
+          : boundarySegments(source.distribution?.packageRoot ?? source.sourcePath);
+      return encodeSourcePath([...segments, ...entry, ...boundary]);
+    }
   }
 };
-
-const acquiredOwnerSegment = (
-  source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
-): string => source.owner ?? "@portable";
 
 /** Render a portable display path for an acquired extension package. */
 export const acquiredExtensionDisplayPath = (
@@ -95,13 +161,7 @@ export const acquiredExtensionDisplayPath = (
   while (rootEnd > 0 && (root[rootEnd - 1] === "/" || root[rootEnd - 1] === "\\")) {
     rootEnd -= 1;
   }
-  return [
-    root.slice(0, rootEnd),
-    acquiredSourceFamily(source),
-    acquiredOwnerSegment(source),
-    type,
-    name,
-  ].join("/");
+  return `${root.slice(0, rootEnd)}/${Result.getOrThrow(acquiredPackageRelativePath(source, type, name))}`;
 };
 
 const extensionPathsAt = (
@@ -126,7 +186,7 @@ const extensionPathsAt = (
 };
 
 /** The owner every bundled official skill is published under. */
-export const BUNDLED_SKILL_OWNER = "@agentxm";
+export const BUNDLED_SKILL_OWNER = decodeHandleSync("@agentxm");
 
 /**
  * Where a bundled official skill's canonical package sits: the Registry tree
@@ -137,7 +197,26 @@ export const bundledSkillCanonicalRoot = (
   join: (...paths: string[]) => string,
   layout: WorkspaceLayout,
   name: string,
-): string => join(layout.acquiredRoot, "registry", BUNDLED_SKILL_OWNER, "skills", name);
+): string =>
+  join(
+    layout.acquiredRoot,
+    Result.getOrThrow(
+      acquiredPackageRelativePath(
+        {
+          refType: "registry",
+          owner: BUNDLED_SKILL_OWNER,
+          source: {
+            type: "registry",
+            name: "agentxm",
+            location: new URL("https://registry.agentxm.ai"),
+            owner: Option.none(),
+          },
+        },
+        "skills",
+        name,
+      ),
+    ),
+  );
 
 export const computeExtensionPathsForLayout = (
   join: (...paths: string[]) => string,
@@ -156,10 +235,7 @@ export const computeExtensionPathsForLayout = (
 
   const canonicalPath = join(
     layout.acquiredRoot,
-    acquiredSourceFamily(source),
-    acquiredOwnerSegment(source),
-    type,
-    sanitizedName,
+    Result.getOrThrow(acquiredPackageRelativePath(source, type, sanitizedName)),
   );
   return extensionPathsAt(join, canonicalPath, source, type);
 };

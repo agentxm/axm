@@ -244,7 +244,7 @@ describe("toPlanResolutionResult", () => {
       units: [
         unit("review", "ready", {
           artifact: {
-            path: "agent_extensions/registry/@acme/skills/review",
+            path: "agent_extensions/registry.agentxm.ai/@acme/skills/review",
             scope: "project",
             change: "updated",
             sourceSwitch,

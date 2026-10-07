@@ -106,12 +106,13 @@ export {
   type ActivationRealized,
 } from "./activation.js";
 
-export { collectLeftoverRetirement, collectUnreachableRetirement } from "./retirement.js";
+export { collectUnreachableRetirement } from "./retirement.js";
 
 export { prepareUninstallArtifact } from "./uninstall-artifact.js";
 
 export {
   buildReconciliationClosure,
+  groupRetainedPackageSteps,
   type ReconciliationChild,
   type ReconciliationClosureArgs,
 } from "./closure.js";

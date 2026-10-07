@@ -277,7 +277,9 @@ export const planSkillUninstall: (
                     targets: [
                       { path: lockfileDisplayPath(location.scope), change: "updated" as const },
                       { path: settingsDisplayPath(location.scope), change: "updated" as const },
-                      sourceTarget,
+                      settlement.canonical === "retained-by-component"
+                        ? { ...sourceTarget, change: "unchanged" as const }
+                        : sourceTarget,
                       ...observation.targets.map((target) => ({
                         ...target,
                         change: observation.nativeLocations?.some(

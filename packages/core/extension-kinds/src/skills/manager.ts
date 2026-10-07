@@ -475,16 +475,11 @@ export const SkillManagerLive = Layer.effect(
                 ref.sourcePath ?? fromFileLocation(ref.location),
               )
             : Option.none();
-        if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-          return yield* new SkillDefinitionInvalid({
-            detail: `Local skill source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
         return yield* acceptedResolutionFor({
           ref,
           acquired: Option.map(
             Option.flatMap(materialization, (facts) =>
-              Option.all({ sourceHash: facts.sourceHash, treeIntegrity: facts.treeIntegrity }),
+              Option.map(facts.treeIntegrity, (treeIntegrity) => ({ treeIntegrity })),
             ),
             (identity) => ({ ...identity, workspaceRelativeLocalSourcePath }),
           ),

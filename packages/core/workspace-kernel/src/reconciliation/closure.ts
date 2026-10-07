@@ -4,6 +4,8 @@ import type * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import {
   withDocumentRoundTripBatch,
+  retainedPackageKeyForRef,
+  type AcceptedResolutionWriterService,
   type DocumentRoundTripBatch,
 } from "../workspace-state/index.js";
 import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
@@ -106,6 +108,7 @@ export interface ReconciliationClosureArgs<E, R> {
   readonly artifact: JobStepArtifact;
   readonly children: ReadonlyArray<ReconciliationChild<R>>;
   readonly documentRoundTrip?: DocumentRoundTripBatch;
+  readonly acceptedResolutions?: AcceptedResolutionWriterService["withBatch"];
   readonly nativeReaderContext?: NativeRegionReaderContext;
   /** A stale-candidate check that runs under the transition, before any write. */
   readonly preTransition?: Effect.Effect<void, E, R>;
@@ -134,8 +137,12 @@ export const buildReconciliationClosure = <E, R>(
       ...(args.artifact.nativeLocations ?? []),
       ...args.children.flatMap(({ step }) => step.artifact?.nativeLocations ?? []),
     ]);
+    const agentOutcomes = args.children.flatMap(
+      ({ step }) => step.agentOutcomes ?? step.artifact?.agentOutcomes ?? [],
+    );
     const plannedArtifact = {
       ...args.artifact,
+      ...(agentOutcomes.length === 0 ? {} : { agentOutcomes }),
       ...(plannedNativeLocations.length === 0 ? {} : { nativeLocations: plannedNativeLocations }),
     };
     const materialPaths = args.children.flatMap(({ step }) => step.materialPaths ?? []);
@@ -165,56 +172,69 @@ export const buildReconciliationClosure = <E, R>(
       ): child is ReconciliationChild<R> & { readonly step: ReadyJobStep<R> | WarnJobStep<R> } =>
         child.step.readiness !== "error",
     );
-    const acquisitionRefs = runnableChildren.flatMap(({ step }) => [
-      ...(step.acquisitionRefs ?? []),
-      ...(step.sourceBinding === undefined
-        ? []
-        : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
-    ]);
+    const acquisitionRefs = runnableChildren.flatMap(
+      ({ step }) =>
+        step.acquisitionRefs ??
+        (step.sourceBinding === undefined
+          ? []
+          : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+    );
     const run = runWorkspaceTransaction({
       transition: withDocumentRoundTripBatch(
-        Effect.gen(function* () {
-          if (args.preTransition !== undefined) {
-            yield* args.preTransition.pipe(Effect.mapError(args.toStepFailure));
-          }
-          const retained =
-            args.captureNativeRetention === undefined
-              ? []
-              : yield* args
-                  .captureNativeRetention(plannedNativeLocations)
-                  .pipe(Effect.mapError(args.toStepFailure));
-          const results = yield* Effect.forEach(
-            runnableChildren,
-            ({ step, coverage }) =>
-              step.run.pipe(
-                Effect.flatMap((result) => failedStep(step.label, result)),
-                Effect.map((result) => ({ result, coverage, id: step.key ?? step.label })),
+        (args.acceptedResolutions ?? ((effect) => effect))(
+          Effect.gen(function* () {
+            if (args.preTransition !== undefined) {
+              yield* args.preTransition.pipe(Effect.mapError(args.toStepFailure));
+            }
+            const retained =
+              args.captureNativeRetention === undefined
+                ? []
+                : yield* args
+                    .captureNativeRetention(plannedNativeLocations)
+                    .pipe(Effect.mapError(args.toStepFailure));
+            const results = yield* Effect.forEach(
+              runnableChildren,
+              ({ step, coverage }) =>
+                step.run.pipe(
+                  Effect.flatMap((result) => failedStep(step.label, result)),
+                  Effect.map((result) => ({ result, coverage, id: step.key ?? step.label })),
+                ),
+              { concurrency: 1 },
+            );
+            const coverage = yield* aggregateClosureCoverage(results, args.artifact.scope);
+            const observedNativeLocations = combineNativeLocationOutcomes(
+              results.flatMap(({ result }) =>
+                result.result === "success" ? (result.artifact?.nativeLocations ?? []) : [],
               ),
-            { concurrency: 1 },
-          );
-          const coverage = yield* aggregateClosureCoverage(results, args.artifact.scope);
-          const observedNativeLocations = combineNativeLocationOutcomes(
-            results.flatMap(({ result }) =>
-              result.result === "success" ? (result.artifact?.nativeLocations ?? []) : [],
-            ),
-          );
-          const nativeLocations =
-            args.nativeReaderContext === undefined
-              ? observedNativeLocations
-              : yield* refreshNativeRegionReaders(
-                  observedNativeLocations,
-                  args.nativeReaderContext,
-                ).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new StepFailure({
-                        category: "conflict",
-                        detail: `Final native reader observation failed at ${cause.target}: ${cause.reason}`,
-                      }),
-                  ),
-                );
-          return { results, coverage, nativeLocations, retained };
-        }),
+            );
+            const nativeLocations =
+              args.nativeReaderContext === undefined
+                ? observedNativeLocations
+                : yield* refreshNativeRegionReaders(
+                    observedNativeLocations,
+                    args.nativeReaderContext,
+                  ).pipe(
+                    Effect.mapError(
+                      (cause) =>
+                        new StepFailure({
+                          category: "conflict",
+                          detail: `Final native reader observation failed at ${cause.target}: ${cause.reason}`,
+                        }),
+                    ),
+                  );
+            return { results, coverage, nativeLocations, retained };
+          }),
+        ).pipe(
+          Effect.mapError((cause) =>
+            cause instanceof StepFailure
+              ? cause
+              : new StepFailure({
+                  category: "conflict",
+                  detail: `Could not commit retained package resolutions: ${cause._tag}`,
+                  cause,
+                }),
+          ),
+        ),
         args.documentRoundTrip,
       ),
       validate: (result) =>
@@ -291,4 +311,61 @@ export const buildReconciliationClosure = <E, R>(
         } satisfies PlannedJobStep<
           R | WorkspaceTransactionScope | FileSystem.FileSystem | Path.Path
         >);
+  });
+
+/** Retained bytes and all selected consumers in one job settle together. */
+export const groupRetainedPackageSteps = <R>(args: {
+  readonly steps: ReadonlyArray<PlannedJobStep<R>>;
+  readonly artifact: JobStepArtifact;
+  readonly message: string;
+  readonly acceptedResolutions: AcceptedResolutionWriterService["withBatch"];
+  readonly toStepFailure: ReconciliationClosureArgs<never, R>["toStepFailure"];
+  readonly additionalKeys?: (step: PlannedJobStep<R>) => ReadonlyArray<string>;
+}) =>
+  Effect.gen(function* () {
+    const groups: Array<{
+      keys: Set<string>;
+      children: Array<{ index: number; step: PlannedJobStep<R> }>;
+    }> = [];
+    for (const [index, step] of args.steps.entries()) {
+      const refs =
+        step.readiness === "error"
+          ? []
+          : [
+              ...(step.acquisitionRefs ?? []),
+              ...(step.sourceBinding === undefined
+                ? []
+                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+            ];
+      const keys = new Set([
+        ...refs.flatMap((ref) =>
+          ref.refType === "workspace" ? [] : [retainedPackageKeyForRef(ref)],
+        ),
+        ...(args.additionalKeys?.(step) ?? []),
+      ]);
+      const overlapping = groups.filter((group) => [...keys].some((key) => group.keys.has(key)));
+      const group = { keys, children: [{ index, step }] };
+      for (const prior of overlapping) {
+        for (const key of prior.keys) group.keys.add(key);
+        group.children.push(...prior.children);
+        groups.splice(groups.indexOf(prior), 1);
+      }
+      group.children.sort((left, right) => left.index - right.index);
+      groups.push(group);
+    }
+    groups.sort((left, right) => (left.children[0]?.index ?? 0) - (right.children[0]?.index ?? 0));
+    return yield* Effect.forEach(groups, (group) => {
+      const first = group.children[0]?.step;
+      if (first === undefined) return Effect.succeed([]);
+      if (group.children.length === 1) return Effect.succeed([first]);
+      return buildReconciliationClosure({
+        label: group.children.map(({ step }) => step.label).join(", "),
+        message: args.message,
+        artifact: { ...args.artifact, path: first.artifact?.path ?? args.artifact.path },
+        children: group.children.map(({ step }) => ({ step, coverage: "eligible" as const })),
+        acceptedResolutions: args.acceptedResolutions,
+        validate: Effect.void,
+        toStepFailure: args.toStepFailure,
+      }).pipe(Effect.map((step) => [step]));
+    }).pipe(Effect.map((steps) => steps.flat()));
   });

@@ -21,7 +21,7 @@ const countingManifests = () => {
   const reads: Array<string> = [];
   const manifests: PackManifestsPort = {
     locate: ({ owner, name }) => {
-      const relativePath = `agent_extensions/registry/${owner}/packs/${name}/pack.json`;
+      const relativePath = `agent_extensions/registry.agentxm.ai/${owner}/packs/${name}/pack.json`;
       return {
         path: `/workspace/${relativePath}`,
         relativePath,
@@ -130,7 +130,7 @@ describe("desired-state collection", () => {
           baseDir: "/workspace",
           settings: settings({ packs: { alpha: "@acme/packs/alpha" } }),
           registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
-          acceptedResolutions: { lockfileVersion: 10, skills: {}, packs: { alpha: accepted } },
+          acceptedResolutions: { lockfileVersion: 11, skills: {}, packs: { alpha: accepted } },
           readSet: [{ path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" }],
         });
         const graph = evaluateDesiredState(inputs);

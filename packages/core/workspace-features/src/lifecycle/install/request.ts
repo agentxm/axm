@@ -1,6 +1,11 @@
 /** Parse, discover, and settle source-backed install requests once. */
 
 import * as Effect from "effect/Effect";
+import {
+  findRetainedSourceComponents,
+  retainedSelectionSatisfied,
+  mergeRetainedSourceRefs,
+} from "./accepted-source-reinstall.js";
 import * as Option from "effect/Option";
 import type * as Config from "effect/Config";
 import {
@@ -202,6 +207,7 @@ export const parseLocatorInstallRequest = (
 export const discoverInstallRefs = <T extends SourceInstallType>(
   type: T,
   request: ParsedInstallRequest,
+  refreshLocal = false,
 ): Effect.Effect<
   ReadonlyArray<SourceInstallRef<T>>,
   ExtensionLifecycleFailed | Config.ConfigError,
@@ -209,7 +215,14 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
 > =>
   Effect.gen(function* () {
     const sources = yield* SourceHostProviders;
-    const discovered = yield* sources
+    const retained: ReadonlyArray<ExtensionRef> = (yield* findRetainedSourceComponents(
+      request.source,
+      type,
+      refreshLocal,
+    )).filter((ref) => ref.type === type);
+    if (retainedSelectionSatisfied(retained, request.names))
+      return retained.filter((ref): ref is SourceInstallRef<T> => ref.type === type);
+    const fresh = yield* sources
       .find(request.source, {
         names: REGISTRY_ONLY_NAMES[type] && request.source.type !== "registry" ? [] : request.names,
         type,
@@ -223,6 +236,7 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
           return sourceResolutionRefused(cause, hint === undefined ? [] : [{ description: hint }]);
         }),
       );
+    const discovered = mergeRetainedSourceRefs(retained, fresh);
     const refs = discovered.filter((ref): ref is SourceInstallRef<T> => ref.type === type);
     if (refs.length === 0) {
       const login =

@@ -4,9 +4,9 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored subagent packages live in `./subagents/<subagent-name>`;
-acquired packages use the source-family and identity-based canonical scheme.
+acquired packages use the source-addressed retained-package scheme.
 For example, a Registry subagent lives under
-`./agent_extensions/registry/<@owner>/subagents/<subagent-name>`.
+`./agent_extensions/registry.agentxm.ai/<@owner>/subagents/<subagent-name>`.
 
 A package declares portable instructions, explicit runtime implementations, or
 both. Workspace `agents` selects the destinations; a manifest cannot declare

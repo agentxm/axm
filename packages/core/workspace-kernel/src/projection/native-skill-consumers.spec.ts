@@ -74,7 +74,10 @@ describe("Native Skill consumers and ownership", () => {
   it.effect("preserves a direct link to another same-named package without accepted proof", () =>
     Effect.gen(function* () {
       const { fs, path, root, args } = yield* fixture;
-      const foreignSource = path.join(root, "agent_extensions/registry/@foreign/skills/review/src");
+      const foreignSource = path.join(
+        root,
+        "agent_extensions/registry.agentxm.ai/@foreign/skills/review/src",
+      );
       const target = path.join(root, ".claude/skills/review");
       yield* fs.makeDirectory(foreignSource, { recursive: true });
       yield* fs.makeDirectory(path.dirname(target), { recursive: true });

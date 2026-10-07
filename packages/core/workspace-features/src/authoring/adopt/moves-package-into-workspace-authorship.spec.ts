@@ -1,3 +1,9 @@
+import {
+  AcceptedResolutionWriter,
+  computeMaterializedTreeIntegrity,
+  pathSourceLockFields,
+} from "@agentxm/workspace-kernel/workspace-state";
+import { handle, extensionName } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
@@ -26,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/adopt/moves-package-into-workspace-authorship",
   title: "Adopt moves an existing package into workspace authorship",
   statement:
-    "When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution.",
+    "When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution. AXM shall refuse to move a retained package shared by other accepted components or desired consumers, preserving their content and bindings.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -40,7 +46,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const ACQUIRED_PARENT = "agent_extensions/registry/@acme/skills";
+const ACQUIRED_PARENT = "agent_extensions/registry.example.com/@acme/skills";
 
 describe("Adopting existing packages", () => {
   const cleanups: Array<() => void> = [];
@@ -75,7 +81,7 @@ describe("Adopting existing packages", () => {
         () =>
           Effect.gen(function* () {
             const created = workspace();
-            const acquiredParent = `agent_extensions/registry/@acme/${row.plural}`;
+            const acquiredParent = `agent_extensions/registry.example.com/@acme/${row.plural}`;
             if (activation.declared !== undefined) {
               created.writeSettings({
                 owner: "@acme",
@@ -88,6 +94,12 @@ describe("Adopting existing packages", () => {
             const source = writeAuthoringPackage(created.root, row, "review", {
               parent: acquiredParent,
             });
+            yield* seedAcceptedRegistryResolution({
+              type: row.type,
+              owner: "@acme",
+              name: "review",
+              version: "1.2.3",
+            }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
             expect(source).toContain("agent_extensions");
             const before = created.snapshot(`${acquiredParent}/review`);
 
@@ -116,7 +128,7 @@ describe("Adopting existing packages", () => {
         () =>
           Effect.gen(function* () {
             const created = workspace();
-            const parent = `agent_extensions/registry/@acme/${row.plural}`;
+            const parent = `agent_extensions/registry.example.com/@acme/${row.plural}`;
             writeAuthoringPackage(created.root, row, "review", { parent });
             writeAuthoringPackage(created.root, authoringTypeFor("skill"), "test-helper", {
               parent: ACQUIRED_PARENT,
@@ -172,12 +184,49 @@ describe("Adopting existing packages", () => {
           }),
       );
 
+  it.effect("refuses to move a package shared by another accepted native kind", () =>
+    Effect.gen(function* () {
+      const created = workspace();
+      const parent = "agent_extensions/_local/project/vendor";
+      const root = writeAuthoringPackage(created.root, authoringTypeFor("skill"), "shared", {
+        parent,
+      });
+      writeAuthoringPackage(created.root, authoringTypeFor("subagent"), "shared", { parent });
+      yield* Effect.gen(function* () {
+        const integrity = yield* computeMaterializedTreeIntegrity(root);
+        const entry = pathSourceLockFields(
+          "vendor/shared",
+          extensionName("shared"),
+          integrity,
+          handle("@acme"),
+        );
+        const writer = yield* AcceptedResolutionWriter;
+        yield* writer.setAccepted("skill", "shared", entry);
+        yield* writer.setAccepted("subagent", "shared", entry);
+      }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
+      const before = created.snapshot();
+      const failure = yield* adopt(created, "@acme/skills/shared").pipe(Effect.flip);
+      expect(failure).toMatchObject({
+        _tag: "AuthoringFailed",
+        category: "conflict",
+        detail: expect.stringContaining("shared"),
+      });
+      expect(created.snapshot()).toEqual(before);
+    }),
+  );
+
   it.effect("refuses to overwrite an existing authored destination", () =>
     Effect.gen(function* () {
       const created = workspace();
       writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
         parent: ACQUIRED_PARENT,
       });
+      yield* seedAcceptedRegistryResolution({
+        type: "skill",
+        owner: "@acme",
+        name: "review",
+        version: "1.2.3",
+      }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
       created.write("skills/review/notes.txt", "Authored work");
       const before = created.snapshot();
 

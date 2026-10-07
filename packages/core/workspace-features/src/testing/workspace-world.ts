@@ -22,6 +22,7 @@ import { layer as WorkspaceLayerLive } from "@agentxm/workspace-kernel/workspace
 import {
   snapshotTree,
   withTestRegistryDefault,
+  storedLockfileFixture,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import {
   HookManagerLive,
@@ -109,7 +110,7 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
     writeSettings(options.settings);
     fs.writeFileSync(
       nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify({ lockfileVersion: 10, skills: {}, ...options.lockfile }),
+      JSON.stringify(storedLockfileFixture(options.lockfile ?? {})),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {

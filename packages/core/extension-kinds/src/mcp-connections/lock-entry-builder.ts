@@ -1,6 +1,5 @@
 import * as Option from "effect/Option";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   type McpServerLockEntry,
   type TreeIntegrity,
@@ -14,7 +13,6 @@ import {
 export const buildExternalMcpServerLockEntry = (args: {
   readonly ref: Exclude<McpServerExtensionRef, { readonly refType: "registry" | "workspace" }>;
   readonly treeIntegrity: TreeIntegrity;
-  readonly contentIdentity: SourceHash;
   readonly localPath: Option.Option<string>;
 }): McpServerLockEntry => {
   const { ref } = args;
@@ -25,14 +23,16 @@ export const buildExternalMcpServerLockEntry = (args: {
     ref.refType === "local"
       ? ref.owner === undefined
         ? {
-            source: { type: "path", path: Option.getOrElse(args.localPath, () => ref.source.path) },
+            source: {
+              type: "path",
+              path: ref.sourcePath ?? Option.getOrElse(args.localPath, () => ref.source.path),
+            },
             identity: { name: ref.name },
-            resolved: { tree: args.contentIdentity },
+            resolved: { tree: args.treeIntegrity },
             treeIntegrity: args.treeIntegrity,
           }
         : pathSourceLockFields(
-            Option.getOrElse(args.localPath, () => ref.source.path),
-            args.contentIdentity,
+            ref.sourcePath ?? Option.getOrElse(args.localPath, () => ref.source.path),
             ref.name,
             args.treeIntegrity,
             ref.owner,

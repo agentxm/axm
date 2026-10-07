@@ -103,7 +103,6 @@ export interface PackManifestsPort {
   readonly locate: (input: {
     readonly owner: Handle;
     readonly name: string;
-    readonly sourceFamily: "git" | "path" | "registry" | "workspace";
     readonly relativeTo: string;
     readonly workspace:
       | { readonly layout: WorkspaceLayout }

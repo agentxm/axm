@@ -88,7 +88,7 @@ const localLock = (baseDir: string, name: string) => ({
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity: treeIntegrityOfSync(
-    nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "knowledge", name),
+    nodePath.join(baseDir, "agent_extensions", "registry.agentxm.ai", OWNER, "knowledge", name),
   ),
 });
 
@@ -106,7 +106,14 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
   });
 
   const writeBundle = (name: string, instructionEntry?: boolean) => {
-    const root = nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "knowledge", name);
+    const root = nodePath.join(
+      baseDir,
+      "agent_extensions",
+      "registry.agentxm.ai",
+      OWNER,
+      "knowledge",
+      name,
+    );
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "knowledge.json"),
@@ -150,7 +157,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
                 : {}),
               ...(args.instructionFiles === false ? {} : { instructionFiles: {} }),
             },
-            lockfile: { lockfileVersion: 10, skills: {}, knowledge: args.locked },
+            lockfile: { lockfileVersion: 11, skills: {}, knowledge: args.locked },
             graph: args.graph,
           }),
           Layer.mock(SettingsWriter, {}),

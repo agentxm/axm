@@ -1,3 +1,7 @@
+import * as Result from "effect/Result";
+import { acquiredPackageRelativePath } from "@agentxm/workspace-kernel/workspace-state";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { ExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 /**
  * Driving the install use case from the features' tests and specifications.
  *
@@ -114,3 +118,41 @@ export const makeInstallWorld = (
     },
   };
 };
+
+/** Expected retained address for the fixture's actual Registry endpoint. */
+export const fileRegistryPackagePath = (
+  registry: FileRegistry,
+  type: ExtensionTypePlural,
+  name: string,
+  owner = "@acme",
+) =>
+  `agent_extensions/${Result.getOrThrow(
+    acquiredPackageRelativePath(
+      {
+        refType: "registry",
+        owner: decodeHandleSync(owner),
+        source: {
+          type: "registry",
+          name: registry.source.name,
+          location: new URL(registry.url),
+          owner: Option.none(),
+        },
+      },
+      type,
+      name,
+    ),
+  )}`;
+
+/** Expected retained address for a selected package in the fixture Git server. */
+export const gitPackagePath = (url: string, packageRoot = ".") =>
+  `agent_extensions/${Result.getOrThrow(
+    acquiredPackageRelativePath(
+      {
+        refType: "git-hosted",
+        sourcePath: packageRoot,
+        source: { type: "git", url: new URL(url), ref: Option.none(), subPath: Option.none() },
+      },
+      "skills",
+      "fixture",
+    ),
+  )}`;

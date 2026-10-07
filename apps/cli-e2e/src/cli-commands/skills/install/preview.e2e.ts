@@ -38,7 +38,7 @@ describe("axm skills install --preview integration", () => {
         expect(previewResult.exitCode).toBe(0);
 
         // Verify no skills were installed during preview (non-interactive skips apply)
-        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "path");
+        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "_local");
         expect(fs.existsSync(localExtensionsRoot)).toBe(false);
 
         // Real install

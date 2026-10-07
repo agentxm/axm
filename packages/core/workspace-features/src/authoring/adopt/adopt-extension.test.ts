@@ -1,3 +1,4 @@
+import { seedAcceptedRegistryResolution } from "../test-support/accepted-resolutions.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
@@ -28,8 +29,14 @@ describe("AdoptExtension over every extension type", () => {
       Effect.gen(function* () {
         const created = makeAuthoringWorkspace({ owner: "@acme", agents: [] });
         cleanups.push(created.cleanup);
-        const parent = `agent_extensions/registry/@acme/${row.plural}`;
+        const parent = `agent_extensions/registry.example.com/@acme/${row.plural}`;
         writeAuthoringPackage(created.root, row, "review", { parent });
+        yield* seedAcceptedRegistryResolution({
+          type: row.type,
+          owner: "@acme",
+          name: "review",
+          version: "1.2.3",
+        }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
         const before = created.snapshot(`${parent}/review`);
 
         const resolution = yield* Effect.gen(function* () {

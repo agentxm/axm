@@ -235,14 +235,14 @@ describe("generated schemas", () => {
 
   it("publishes only the canonical lockfile version", () => {
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    const lockfile = getDefinition(lockSchema, "Lockfile");
+    const lockfile = getDefinition(lockSchema, "LockfileEncoded");
     const lockfileVersion = getProperty(lockfile, "lockfileVersion");
 
-    expect(lockSchema["$ref"]).toBe("#/definitions/Lockfile");
+    expect(lockSchema["$ref"]).toBe("#/definitions/LockfileEncoded");
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([10]);
-    expect(lockfileVersion["default"]).toBe(10);
-    expect(lockfile["required"]).toEqual(["lockfileVersion", "skills"]);
+    expect(lockfileVersion["enum"]).toEqual([11]);
+    expect(lockfileVersion["default"]).toBe(11);
+    expect(lockfile["required"]).toEqual(["lockfileVersion", "packages", "skills"]);
   });
 
   it("publishes exactly the canonical settings keys at the top level", () => {
@@ -403,15 +403,19 @@ describe("generated schemas", () => {
     expect(propertyNames["$ref"]).toBe("#/definitions/NonPackExtensionFqn");
 
     const lockSchema = readGeneratedSchema("axm-lock.schema.json");
-    const packLockEntry = getDefinition(lockSchema, "PackLockEntry");
-    const variants = packLockEntry["anyOf"];
+    const packMap = getProperty(getDefinition(lockSchema, "LockfileEncoded"), "packs");
+    const variants = packMap["anyOf"];
     if (!Array.isArray(variants) || !variants.every(isRecord)) {
-      throw new Error("Expected PackLockEntry to contain source-family variants.");
+      throw new Error("Expected an optional Pack binding map.");
     }
-    for (const variant of variants) {
-      expect(getRecord(variant, "properties")).toHaveProperty("manifestContentIdentity");
-      expect(getRecord(variant, "properties")).toHaveProperty("dependencies");
-      expect(getRecord(variant, "properties")).not.toHaveProperty("resolvedSkills");
-    }
+    const map = variants.find((variant) => variant["type"] === "object");
+    if (map === undefined) throw new Error("Expected Pack binding map.");
+    const binding = getRecord(map, "additionalProperties");
+    expect(getRecord(binding, "properties")).toHaveProperty("manifestContentIdentity");
+    expect(getRecord(binding, "properties")).toHaveProperty("dependencies");
+    expect(getRecord(binding, "properties")).not.toHaveProperty("resolvedSkills");
+    expect(getPropertyNamesSchema(getProperty(binding, "dependencies"), lockSchema)["$ref"]).toBe(
+      "#/definitions/NonPackExtensionFqn",
+    );
   });
 });

@@ -164,11 +164,9 @@ interface ScannableManifestIdentity {
 const readNativeIdentity = (
   deps: CanonicalExtensionsScannerDeps,
   dir: string,
-  entries: ReadonlyArray<string>,
+  filename: string,
 ): Effect.Effect<Option.Option<ScannableManifestIdentity>> =>
   Effect.gen(function* () {
-    const filename = entries.find((entry) => MANIFEST_FILENAMES.has(entry));
-    if (filename === undefined) return Option.none();
     const filenameType = extensionTypeForManifestFilename(filename);
     if (filenameType === undefined) return Option.none();
     const raw = yield* readTextFile(
@@ -177,10 +175,14 @@ const readNativeIdentity = (
       deps.diagnostics,
       deps.path.join(dir, filename),
     );
+    const fallbackName = yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+      deps.path.basename(dir),
+    ).pipe(Effect.option);
     if (Option.isNone(raw)) {
+      if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({
         type: filenameType,
-        name: decodeExtensionNameSync(deps.path.basename(dir)),
+        name: fallbackName.value,
         owner: null,
       });
     }
@@ -188,9 +190,10 @@ const readNativeIdentity = (
       Schema.fromJsonString(ScannableManifestIdentitySchema),
     )(raw.value).pipe(Effect.option);
     if (Option.isNone(identity) || MANIFEST_FILENAME_BY_TYPE[identity.value.type] !== filename) {
+      if (Option.isNone(fallbackName)) return Option.none();
       return Option.some({
         type: filenameType,
-        name: decodeExtensionNameSync(deps.path.basename(dir)),
+        name: fallbackName.value,
         owner: null,
       });
     }
@@ -208,32 +211,33 @@ const inspectAcquiredDirectory = (
     const childPaths = yield* childEntries(SCANNER_NAME, deps.fs, deps.diagnostics, deps.path, dir);
     const entries = childPaths.map((childPath) => deps.path.basename(childPath));
 
-    const nativeIdentity = yield* readNativeIdentity(deps, dir, entries);
-    if (Option.isSome(nativeIdentity)) {
-      const identity = nativeIdentity.value;
-      const contentDir =
-        identity.type === "pack" || identity.type === "mcp-server" || identity.type === "subagent"
-          ? dir
-          : deps.path.join(dir, "src");
-      const contentDirExists = yield* directoryExists(
-        SCANNER_NAME,
-        deps.fs,
-        deps.diagnostics,
-        contentDir,
+    const nativeIdentities = (yield* Effect.forEach(
+      entries.filter((entry) => MANIFEST_FILENAMES.has(entry)),
+      (filename) => readNativeIdentity(deps, dir, filename),
+    )).flatMap(Option.toArray);
+    if (nativeIdentities.length > 0) {
+      const occurrences = yield* Effect.forEach(nativeIdentities, (identity) =>
+        Effect.gen(function* () {
+          const contentDir =
+            identity.type === "pack" ||
+            identity.type === "mcp-server" ||
+            identity.type === "subagent"
+              ? dir
+              : deps.path.join(dir, "src");
+          if (!(yield* directoryExists(SCANNER_NAME, deps.fs, deps.diagnostics, contentDir)))
+            return [];
+          return [
+            yield* buildOccurrence(deps, {
+              extensionType: identity.type,
+              origin: "canonical-axm",
+              nameDir: contentDir,
+              name: identity.name,
+              owner: identity.owner,
+            }),
+          ];
+        }),
       );
-      if (!contentDirExists) return { occurrences: [], children: [] };
-      return {
-        children: [],
-        occurrences: [
-          yield* buildOccurrence(deps, {
-            extensionType: identity.type,
-            origin: "canonical-axm",
-            nameDir: contentDir,
-            name: identity.name,
-            owner: identity.owner,
-          }),
-        ],
-      };
+      return { children: [], occurrences: occurrences.flat() };
     }
 
     if (entries.includes("SKILL.md")) {
@@ -245,6 +249,15 @@ const inspectAcquiredDirectory = (
       );
       const parsed = Option.map(raw, (content) => extractSkillMetadata(content));
       if (Option.isSome(parsed)) {
+        const directoryName = yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(
+          deps.path.basename(dir),
+        ).pipe(Effect.option);
+        const name = Option.isSome(directoryName)
+          ? directoryName
+          : yield* Schema.decodeUnknownEffect(ExtensionNameSchema)(parsed.value.name).pipe(
+              Effect.option,
+            );
+        if (Option.isNone(name)) return { children: [], occurrences: [] };
         return {
           children: [],
           occurrences: [
@@ -252,7 +265,7 @@ const inspectAcquiredDirectory = (
               extensionType: "skill",
               origin: "external-axm",
               nameDir: dir,
-              name: deps.path.basename(dir),
+              name: name.value,
               owner: null,
             }),
           ],

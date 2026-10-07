@@ -25,6 +25,19 @@ import type { GitOperationFailed, SourceError } from "../errors.js";
 
 type ExternalSource = GitBasedSource | LocalSource;
 
+/** Internal MCP package identity follows original source coordinates, never a staging path. */
+export const pluginMcpPackageName = (
+  source:
+    | { readonly type: "local"; readonly path: string }
+    | { readonly type: "git"; readonly url: URL; readonly packageRoot: string },
+) =>
+  decodeExtensionNameSync(
+    `plugin-${createHash("sha256")
+      .update(source.type === "local" ? source.path : `${source.url.href}#${source.packageRoot}`)
+      .digest("hex")
+      .slice(0, 16)}`,
+  );
+
 type LocalSourceRefDetails = {
   readonly refType: "local";
   readonly source: LocalSource;
@@ -133,12 +146,10 @@ const refForCandidate = (
     if (candidate.kind === "plugin-mcp") {
       const packagePath =
         path.relative(basePath, candidate.directory).split(path.sep).join("/") || ".";
-      const packageIdentity =
+      const packageName = pluginMcpPackageName(
         details.refType === "local"
-          ? path.resolve(candidate.directory)
-          : `${details.source.url.href}#${packagePath}`;
-      const packageName = decodeExtensionNameSync(
-        `plugin-${createHash("sha256").update(packageIdentity).digest("hex").slice(0, 16)}`,
+          ? { type: "local", path: path.resolve(candidate.directory) }
+          : { type: "git", url: details.source.url, packageRoot: packagePath },
       );
       const member = {
         type: "mcp-server" as const,

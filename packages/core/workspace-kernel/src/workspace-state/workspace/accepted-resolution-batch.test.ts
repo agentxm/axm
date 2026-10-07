@@ -6,7 +6,6 @@ import * as Semaphore from "effect/Semaphore";
 
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   HookLockEntrySchema,
   KnowledgeLockEntrySchema,
@@ -19,15 +18,14 @@ import { TreeIntegritySchema } from "./materialized-tree.js";
 import { makeAcceptedResolutionWriter } from "./accepted-resolution-writer.js";
 import type { WorkspaceDocumentsService } from "./documents.js";
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 const acceptedSkill = (name: string): SkillLockEntry => ({
-  source: { type: "path", path: `../sources/${name}` },
+  source: { type: "path", path: `/sources/${name}` },
   identity: { owner: decodeHandleSync("@acme"), name: decodeExtensionNameSync(name) },
-  resolved: { tree: contentIdentity },
+  resolved: { tree: treeIntegrity },
   treeIntegrity,
 });
 
@@ -38,7 +36,7 @@ describe("accepted-state closure batching", () => {
   it.effect(requirement, () =>
     Effect.gen(function* () {
       const initial: Lockfile = {
-        lockfileVersion: 10,
+        lockfileVersion: 11,
         skills: {
           first: acceptedSkill("first"),
           second: acceptedSkill("second"),

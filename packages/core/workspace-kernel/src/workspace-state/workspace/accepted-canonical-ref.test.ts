@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import { LOCKFILE_VERSION, type SkillLockEntry } from "../desired/lockfile/schema.js";
 import type { GitHostedSkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import { exactVersion, extensionName, handle } from "../testing.js";
+import { exactVersion, extensionName, handle, storedLockfileFixture } from "../testing.js";
 import { prepareAcceptedCanonicalTransition } from "./accepted-canonical-ref.js";
 import { TEST_TREE_INTEGRITY } from "./test-stubs.js";
 import { WorkspaceStateLive } from "../live.js";
@@ -27,7 +27,7 @@ describe("accepted canonical source transitions", () => {
       const previousPath = nodePath.join(
         root,
         "agent_extensions",
-        "registry",
+        "registry.agentxm.ai",
         "@acme",
         "skills",
         "review",
@@ -57,7 +57,12 @@ describe("accepted canonical source transitions", () => {
       nodeFs.writeFileSync(nodePath.join(root, "axm.json"), "{}\n");
       nodeFs.writeFileSync(
         nodePath.join(root, "axm-lock.yaml"),
-        JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, skills: { review: accepted } }),
+        JSON.stringify(
+          storedLockfileFixture({
+            lockfileVersion: LOCKFILE_VERSION,
+            skills: { review: accepted },
+          }),
+        ),
       );
       const sourcePath = "skills/review";
       const sourceRoot = nodePath.join(root, "checkout", sourcePath);

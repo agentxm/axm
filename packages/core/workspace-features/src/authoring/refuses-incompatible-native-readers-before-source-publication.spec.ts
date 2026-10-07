@@ -1,3 +1,4 @@
+import { seedAcceptedRegistryResolution } from "./test-support/accepted-resolutions.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { afterEach, describe, expect, it } from "@effect/vitest";
@@ -52,9 +53,16 @@ describe("authored native projection preflight", () => {
               : writeAuthoringPackage(created.root, row, "review", {
                   parent:
                     operation === "adopt"
-                      ? `agent_extensions/registry/@acme/${row.plural}`
+                      ? `agent_extensions/registry.example.com/@acme/${row.plural}`
                       : "source",
                 });
+          if (operation === "adopt")
+            yield* seedAcceptedRegistryResolution({
+              type,
+              owner: "@acme",
+              name: "review",
+              version: "1.2.3",
+            }).pipe(Effect.provide(authoringWorkspaceLayer(created)));
           if (type === "hook") {
             created.write(".codex/config.toml", "");
             fs.mkdirSync(path.join(created.root, ".claude"), { recursive: true });

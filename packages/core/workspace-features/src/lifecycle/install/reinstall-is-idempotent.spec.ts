@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as nodePath from "node:path";
 import * as fs from "node:fs";
 import * as Effect from "effect/Effect";
@@ -186,14 +187,16 @@ describe("Repeat installs are safe", () => {
               { version: "1.0.0", dependencies: dependency },
               { version: "1.1.0", dependencies: {} },
             ]);
-            const pack = "agent_extensions/registry/@acme/packs/repeat";
+            const pack = fileRegistryPackagePath(world.registry, "packs", "repeat");
             if (state === "changed-pack") {
               world.workspace.writeFile(`${pack}/pack.json`, "{}\n");
             } else {
               fs.rmSync(
                 nodePath.join(
                   world.workspace.root,
-                  state === "missing-pack" ? pack : "agent_extensions/registry/@acme/skills/member",
+                  state === "missing-pack"
+                    ? pack
+                    : fileRegistryPackagePath(world.registry, "skills", "member"),
                 ),
                 { recursive: true },
               );
@@ -338,7 +341,7 @@ describe("Repeat installs are safe", () => {
       writeLocalSkillPackage(workspace.root, { name: "code-review" }),
     );
     const request = installRequest({ type: "skill", subject: { kind: "source", source } });
-    const canonicalBody = "agent_extensions/path/@acme/skills/code-review/src/SKILL.md";
+    const canonicalBody = "agent_extensions/_local/project/vendor/code-review/src/SKILL.md";
     return workspace
       .provide(
         Effect.gen(function* () {
@@ -376,7 +379,7 @@ describe("Repeat installs are safe", () => {
             const sourceContent = workspace.readFile("vendor/code-review/src/SKILL.md");
             expect(sourceContent).toContain("# code-review");
             expect(
-              workspace.readFile("agent_extensions/path/@acme/skills/code-review/src/SKILL.md"),
+              workspace.readFile("agent_extensions/_local/project/vendor/code-review/src/SKILL.md"),
             ).toBe(sourceContent);
             expect(workspace.readFile(".claude/skills/code-review/SKILL.md")).toBe(sourceContent);
             expect(workspace.readFile(".agents/skills/code-review/SKILL.md")).toBe(sourceContent);

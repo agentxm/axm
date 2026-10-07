@@ -24,16 +24,10 @@ export { liveOnlyWorkspaceRules, repositoryWorkspaceRules, workspaceRules } from
 // Workspace read-model builder helpers.
 export {
   buildLintWorkspace,
-  buildNativeInstalledSkillInfo,
   buildAcquiredInstalledSkillInfo,
-  buildInstalledPackInfo,
   acquiredSkillDisplayRoot,
-  registryNativeSkillDisplayRoot,
-  registryPackDisplayRoot,
   type BuildLintWorkspaceArgs,
-  type BuildInstalledPackInfoArgs,
   type BuildAcquiredInstalledSkillInfoArgs,
-  type BuildInstalledSkillInfoNativeArgs,
   type LintWorkspaceBuild,
   type LintWorkspaceView,
 } from "./workspace-read-model/lint-workspace.js";

@@ -4,8 +4,8 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored pack packages live in `./packs/<pack-name>`; acquired packs
-use the source-family and identity-based canonical scheme. For example, a
-Registry pack lives in `./agent_extensions/registry/<@owner>/packs/<pack-name>`.
+use the source-addressed retained-package scheme. For example, a
+Registry pack lives in `./agent_extensions/registry.agentxm.ai/<@owner>/packs/<pack-name>`.
 
 ## pack.json
 
@@ -139,7 +139,7 @@ Packs install their members together but do not create a shared path namespace.
 An extension never references another extension's files by path, in any form:
 `..` traversal, absolute machine paths, scope-root-relative paths, agent
 projections such as `.agents/skills` or `.claude/skills`, and canonical
-`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/src/<path>`
+`<retained-package-root>/src/<path>`
 locations are all excluded. AXM does not parse, infer, resolve, or rewrite such
 references, and no such path is guaranteed to exist where the reading agent
 works.

@@ -1,3 +1,8 @@
+import {
+  storedLockfileFixture,
+  makeRegistrySkillLockEntry,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
@@ -25,7 +30,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const PACKAGE = "agent_extensions/registry/@acme/skills/review";
+const PACKAGE = "agent_extensions/registry.agentxm.ai/@acme/skills/review";
 
 describe("Unrecognized install root entries", () => {
   const cleanups: Array<() => void> = [];
@@ -40,6 +45,16 @@ describe("Unrecognized install root entries", () => {
         lint: { rules: isolatedLintRules("workspace/install-root-entries-recognized", undefined) },
       },
       files: {
+        "axm-lock.yaml": JSON.stringify(
+          storedLockfileFixture({
+            skills: {
+              review: makeRegistrySkillLockEntry({
+                owner: decodeHandleSync("@acme"),
+                name: "review",
+              }),
+            },
+          }),
+        ),
         [`${PACKAGE}/skill.json`]: JSON.stringify({
           owner: "@acme",
           type: "skill",
@@ -49,7 +64,7 @@ describe("Unrecognized install root entries", () => {
         [`${PACKAGE}.axm-staging/src/SKILL.md`]: "# Staging\n",
         [`${PACKAGE}.axm-backup/src/SKILL.md`]: "# Backup\n",
         "agent_extensions/notes.txt": "notes\n",
-        "agent_extensions/registry/stray/readme.md": "stray\n",
+        "agent_extensions/registry.agentxm.ai/stray/readme.md": "stray\n",
         "foreign/readme.md": "foreign\n",
       },
     });
@@ -72,7 +87,7 @@ describe("Unrecognized install root entries", () => {
         [
           ["agent_extensions/linked", "symlink"],
           ["agent_extensions/notes.txt", "file"],
-          ["agent_extensions/registry/stray", "directory"],
+          ["agent_extensions/registry.agentxm.ai/stray", "directory"],
         ].map(([file, kind]) => ({
           ruleId: "workspace/install-root-entries-recognized",
           severity: "warning",

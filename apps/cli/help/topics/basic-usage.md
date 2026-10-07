@@ -63,11 +63,11 @@ changes existing agent membership.
 
 Extensions are typically referenced by their full name:
 `<@owner>/<skills|subagents|...>/<name>`. Acquired project packages are committed
-under `agent_extensions/<source-family>/<@owner>/<plural-type>/<name>`, where
-the source family is `registry`, `git`, or `path`. Portable packages without a
-publisher identity use the reserved `@portable` owner segment. The identity
-suffix is independent of the Registry name, Git repository, or local source
-path used to reach the package. `axm.json` and authored pack manifests declare
+under `agent_extensions/` using their actual source host and package path, or
+`_local` coordinates for local sources. Registry aliases and local extension
+names do not replace the source address. Multiple selected components or native
+kinds at one package root share one complete retained snapshot.
+`axm.json` and authored pack manifests declare
 intent; `axm-lock.yaml` records accepted immutable resolutions and the
 exact materialized-tree integrity of desired external extensions. See
 `axm help workspace-state` for the supported lockfile format and recovery.

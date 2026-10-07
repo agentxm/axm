@@ -1,3 +1,4 @@
+import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -187,7 +188,7 @@ describe("Shared configured Pack member", () => {
           const lockPath = path.join(consumer.path, "axm-lock.yaml");
           const acceptedLock = fs.readFileSync(lockPath, "utf8");
           const acceptedSettings = fs.readFileSync(settingsPath, "utf8");
-          const acquiredRoot = path.join(consumer.path, "agent_extensions", "registry", OWNER);
+          const acquiredRoot = path.join(consumer.path, registryFixturePath(registry.url, OWNER));
           const sharedRoot = path.join(acquiredRoot, "skills", "shared");
           const acceptedManifest = fs.readFileSync(path.join(sharedRoot, "skill.json"), "utf8");
           registry.copyVersion(

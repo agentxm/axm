@@ -118,7 +118,7 @@ describe("authored skill exclusion", () => {
           name: "audit",
           ref: "@acme/hooks/audit",
           scope: "user" as const,
-          root: "agent_extensions/registry/@acme/hooks/audit",
+          root: "agent_extensions/registry.agentxm.ai/@acme/hooks/audit",
         };
         yield* write(
           ".claude/settings.json",

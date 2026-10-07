@@ -1,3 +1,4 @@
+import { gitPackagePath } from "../../testing/install-world.js";
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
 import * as fs from "node:fs";
 import * as net from "node:net";
@@ -301,7 +302,7 @@ describe("install source switches", () => {
             throw new Error(`Initial Git install did not commit: ${JSON.stringify(initial)}`);
           }
           workspace.writeFile(
-            `agent_extensions/git/@acme/skills/${NAME}/src/SKILL.md`,
+            `${gitPackagePath(git.url, "skill")}/src/SKILL.md`,
             "locally modified\n",
           );
           const before = workspace.snapshot();

@@ -4,11 +4,11 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored skill packages live in `./skills/<skill-name>`; acquired skills
-use the source-family and identity-based canonical scheme. A Registry skill
+use source-addressed retained packages. A Registry skill
 such as `@acme/skills/review` lives at
-`./agent_extensions/registry/@acme/skills/review`; a portable GitHub skill at
+`./agent_extensions/registry.agentxm.ai/@acme/skills/review`; a portable GitHub skill at
 `github:remix-run/react-router//.agents/skills/react-router@main` lives at
-`./agent_extensions/git/@portable/skills/react-router`.
+`./agent_extensions/github.com/remix-run/react-router/.agents/skills/react-router`.
 
 ## Install existing distributions
 
@@ -144,9 +144,8 @@ AXM records accepted immutable resolution for externally sourced skills:
   explicit update resolves the source again.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v10 separates each row into its
-self-describing `source`, package `identity`, immutable `resolved` identity,
-and strict `treeIntegrity` for the complete materialized package tree. If any
+observed materialization. Lockfile v11 records each retained package snapshot once and binds selected
+components to it. Its strict `treeIntegrity` covers the complete package tree. If any
 path or byte changes locally, AXM preserves the
 drift and blocks affected lint, inspection, reconciliation, projection, and
 lifecycle work until reinstall, update, or fork resolves it. Workspace-authored

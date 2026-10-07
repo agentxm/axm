@@ -76,7 +76,9 @@ export const settleMcpSourceIdentityFor = (
       localName,
       requestedIdentity: yield* requestedMcpSourceIdentity(ref, sourceForIdentity),
       requestedLocalPath:
-        ref.refType === "local" ? path.resolve(fromFileLocation(ref.location)) : null,
+        ref.refType === "local"
+          ? path.resolve(location.baseDir, ref.sourcePath ?? fromFileLocation(ref.location))
+          : null,
       existing:
         existingNode === undefined
           ? undefined

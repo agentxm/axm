@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -24,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/removes-leftover-installed-packages",
   title: "Sync removes installed packages that desired state no longer includes",
   statement:
-    "When an installed package in the install root is reached by no desired route, sync shall plan one removal unit for it naming its identity, canonical path, and that it is not desired, and shall remove that package directory, any accepted record for it, and the agent projections AXM owns for it without following symbolic links out of the install root, leaving desired packages and unrecognized install-root entries untouched, and shall report convergence only when no such package remains.",
+    "When a package proven by accepted metadata in the install root is reached by no desired route, sync shall preview its canonical path for removal as unreachable acquired content, and shall remove that package directory, any accepted record for it, and the agent projections AXM owns for it without following symbolic links out of the install root, leaving desired packages and unproven install-root content untouched even after total accepted metadata loss, and shall report convergence only when no such package remains.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -36,7 +37,7 @@ export const specification = defineSpecification({
 });
 
 const BASE = { owner: "@acme", agents: ["claude-code"] };
-const STALE = "agent_extensions/registry/@acme/skills/stale";
+const STALE = "agent_extensions/registry.agentxm.ai/@acme/skills/stale";
 
 /** A well-formed installed skill package directory, as acquisition writes one. */
 const writeInstalledSkill = (base: string, relativeDir: string, name: string): void => {
@@ -67,40 +68,20 @@ describe("Sync removes leftover installed packages", () => {
     return workspace;
   };
 
-  it.effect(
-    "leftover: removes the lockless package and its owned projection in one unit, then converges",
-    () => {
-      const workspace = fixture();
-      writeInstalledSkill(workspace.root, STALE, "stale");
-      fs.mkdirSync(nodePath.join(workspace.root, ".claude/skills"), { recursive: true });
-      fs.symlinkSync(
-        nodePath.join(workspace.root, STALE),
-        nodePath.join(workspace.root, ".claude/skills/stale"),
-      );
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            const resolution = expectResolved(yield* applySync());
-            expect(deriveOperationOutcome(resolution)).toBe("applied");
-            const unit = resolution.units.find(({ id }) => id === `leftover:${STALE}`);
-            expect(unit?.label).toContain("skill @acme/skills/stale");
-            expect(unit?.label).toContain("not desired");
-            expect(unit?.artifact?.targets).toEqual([
-              expect.objectContaining({ path: STALE, change: "removed" }),
-            ]);
-            expect(unitIds(resolution).filter((id) => id.startsWith("leftover:"))).toEqual([
-              `leftover:${STALE}`,
-            ]);
-            expect(workspace.exists(STALE)).toBe(false);
-            expect(fs.existsSync(nodePath.join(workspace.root, ".claude/skills/stale"))).toBe(
-              false,
-            );
-            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
+  it.effect("preserves a package-shaped tree after accepted metadata is lost", () => {
+    const workspace = fixture();
+    writeInstalledSkill(workspace.root, STALE, "stale");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const before = workspace.readFile(`${STALE}/src/SKILL.md`);
+          yield* applySync();
+          expect(workspace.readFile(`${STALE}/src/SKILL.md`)).toBe(before);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect.each([false, true])(
     "retires stale content after first accepting shared Packs (accepted stale row: %s)",
@@ -137,13 +118,19 @@ describe("Sync removes leftover installed packages", () => {
 
             const resolution = expectResolved(yield* applySync());
             expect(deriveOperationOutcome(resolution)).toBe("applied");
-            expect(workspace.exists(STALE)).toBe(false);
+            expect(
+              workspace.exists(
+                accepted ? fileRegistryPackagePath(registry, "skills", "stale") : STALE,
+              ),
+            ).toBe(!accepted);
             expect(Option.isNone(yield* (yield* LockfileReader).entry("skill", "stale"))).toBe(
               true,
             );
-            expect(workspace.exists("agent_extensions/registry/@acme/skills/member")).toBe(true);
+            expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "member"))).toBe(
+              true,
+            );
             for (const name of ["first", "second"]) {
-              expect(workspace.exists(`agent_extensions/registry/@acme/packs/${name}`)).toBe(true);
+              expect(workspace.exists(fileRegistryPackagePath(registry, "packs", name))).toBe(true);
             }
             expect((yield* applySync())._tag).toBe("AlreadyReconciled");
           }),
@@ -152,30 +139,60 @@ describe("Sync removes leftover installed packages", () => {
     },
   );
 
-  it.effect("plans one removal unit per leftover", () => {
-    const workspace = fixture();
-    writeInstalledSkill(workspace.root, STALE, "stale");
-    writeInstalledSkill(workspace.root, "agent_extensions/registry/@acme/subagents/old", "old");
+  it.effect("plans one removal per accepted package and preserves unknown siblings", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    for (const name of ["stale", "old"])
+      registry.writeSkill(name, [{ version: "1.0.0", body: name }]);
+    const settings = { ...BASE, sources: [registry.source] };
+    const workspace = fixture({
+      ...settings,
+      skills: {
+        stale: "test:@acme/skills/stale@^1.0.0",
+        old: "test:@acme/skills/old@^1.0.0",
+      },
+    });
     return workspace
       .provide(
         Effect.gen(function* () {
-          const resolution = expectResolved(yield* applySync());
+          yield* applySync();
+          workspace.writeFile("agent_extensions/registry.agentxm.ai/notes.txt", "Keep");
+          workspace.writeSettings(settings);
+          const before = workspace.snapshot();
+          const preview = expectResolved(yield* previewSync());
           expect(
-            unitIds(resolution)
-              .filter((id) => id.startsWith("leftover:"))
+            preview.units
+              .flatMap((unit) => unit.artifact?.targets ?? [])
+              .filter(
+                (target) =>
+                  target.change === "removed" && target.path.startsWith("agent_extensions/"),
+              )
+              .map((target) => target.path)
               .sort(),
           ).toEqual([
-            "leftover:agent_extensions/registry/@acme/skills/stale",
-            "leftover:agent_extensions/registry/@acme/subagents/old",
+            fileRegistryPackagePath(registry, "skills", "old"),
+            fileRegistryPackagePath(registry, "skills", "stale"),
           ]);
-          expect(workspace.exists("agent_extensions/registry/@acme/subagents/old")).toBe(false);
-          expect(workspace.exists(STALE)).toBe(false);
+          expect(workspace.snapshot()).toEqual(before);
+          const applied = expectResolved(yield* applySync());
+          expect(deriveOperationOutcome(applied)).toBe("applied");
+          expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "stale"))).toBe(
+            false,
+          );
+          for (const name of ["old", "stale"]) {
+            expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
+            expect(workspace.exists(`.agents/skills/${name}`)).toBe(false);
+          }
+          expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "old"))).toBe(false);
+          expect(workspace.readFile("agent_extensions/registry.agentxm.ai/notes.txt")).toBe("Keep");
+          expect(Option.isNone(yield* (yield* LockfileReader).entry("skill", "stale"))).toBe(true);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("modified bytes: local drift in a lockless leftover does not block removal", () => {
+  it.effect("preserves locally modified bytes without accepted ownership", () => {
     const workspace = fixture();
     writeInstalledSkill(workspace.root, STALE, "stale");
     workspace.writeFile(`${STALE}/src/SKILL.md`, "# Edited locally\n");
@@ -183,9 +200,9 @@ describe("Sync removes leftover installed packages", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const resolution = expectResolved(yield* applySync());
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.exists(STALE)).toBe(false);
+          yield* applySync();
+          expect(workspace.readFile(`${STALE}/src/SKILL.md`)).toBe("# Edited locally\n");
+          expect(workspace.readFile(`${STALE}/notes.txt`)).toBe("Local notes.\n");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -214,7 +231,7 @@ describe("Sync removes leftover installed packages", () => {
             }),
       };
       const workspace = fixture(settings);
-      const member = "agent_extensions/registry/@acme/skills/member";
+      const member = fileRegistryPackagePath(registry, "skills", "member");
       return workspace
         .provide(
           Effect.gen(function* () {
@@ -229,34 +246,30 @@ describe("Sync removes leftover installed packages", () => {
     });
   }
 
-  it.effect(
-    "same identity in an undesired source directory: removes the copy and keeps the desired package",
-    () => {
-      const registry = makeFileRegistry();
-      cleanups.push(registry.cleanup);
-      registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
-      const workspace = fixture({
-        ...BASE,
-        sources: [registry.source],
-        skills: { review: "test:@acme/skills/review@^1.0.0" },
-      });
-      const desired = "agent_extensions/registry/@acme/skills/review";
-      const copy = "agent_extensions/elsewhere/@acme/skills/review";
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* applySync();
-            writeInstalledSkill(workspace.root, copy, "review");
-            const resolution = expectResolved(yield* applySync());
-            expect(unitIds(resolution)).toContain(`leftover:${copy}`);
-            expect(workspace.exists(copy)).toBe(false);
-            expect(workspace.exists(desired)).toBe(true);
-            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
+  it.effect("same identity in an unproven source directory: preserves both trees", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+    const workspace = fixture({
+      ...BASE,
+      sources: [registry.source],
+      skills: { review: "test:@acme/skills/review@^1.0.0" },
+    });
+    const desired = fileRegistryPackagePath(registry, "skills", "review");
+    const copy = "agent_extensions/elsewhere/@acme/skills/review";
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          writeInstalledSkill(workspace.root, copy, "review");
+          yield* applySync();
+          expect(workspace.exists(copy)).toBe(true);
+          expect(workspace.exists(desired)).toBe(true);
+          expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect(
     "lock-row-only: an accepted record without content is retired with no package removal unit",
@@ -273,7 +286,7 @@ describe("Sync removes leftover installed packages", () => {
         .provide(
           Effect.gen(function* () {
             yield* applySync();
-            workspace.remove("agent_extensions/registry/@acme/skills/review");
+            workspace.remove(fileRegistryPackagePath(registry, "skills", "review"));
             workspace.writeSettings(settings);
             const resolution = expectResolved(yield* applySync());
             expect(unitIds(resolution).some((id) => id.startsWith("leftover:"))).toBe(false);
@@ -291,13 +304,13 @@ describe("Sync removes leftover installed packages", () => {
     cleanups.push(() => fs.rmSync(outside, { recursive: true, force: true }));
     writeInstalledSkill(outside, "linked", "linked");
     writeInstalledSkill(workspace.root, STALE, "stale");
-    workspace.writeFile("agent_extensions/registry/notes.txt", "Hand-written.\n");
-    workspace.writeFile("agent_extensions/registry/loose/SKILL.md", "# Loose\n");
+    workspace.writeFile("agent_extensions/registry.agentxm.ai/notes.txt", "Hand-written.\n");
+    workspace.writeFile("agent_extensions/registry.agentxm.ai/loose/SKILL.md", "# Loose\n");
     fs.symlinkSync(
       nodePath.join(outside, "linked"),
-      nodePath.join(workspace.root, "agent_extensions/registry/@acme/skills/linked"),
+      nodePath.join(workspace.root, "agent_extensions/registry.agentxm.ai/@acme/skills/linked"),
     );
-    // A link inside a leftover is removed with it, never followed.
+    // An unproven tree and its contained link are preserved, never followed.
     fs.symlinkSync(
       nodePath.join(outside, "linked"),
       nodePath.join(workspace.root, STALE, "escape"),
@@ -307,13 +320,20 @@ describe("Sync removes leftover installed packages", () => {
       .provide(
         Effect.gen(function* () {
           yield* applySync();
-          expect(workspace.exists(STALE)).toBe(false);
-          expect(workspace.readFile("agent_extensions/registry/notes.txt")).toBe("Hand-written.\n");
-          expect(workspace.readFile("agent_extensions/registry/loose/SKILL.md")).toBe("# Loose\n");
+          expect(workspace.exists(STALE)).toBe(true);
+          expect(workspace.readFile("agent_extensions/registry.agentxm.ai/notes.txt")).toBe(
+            "Hand-written.\n",
+          );
+          expect(workspace.readFile("agent_extensions/registry.agentxm.ai/loose/SKILL.md")).toBe(
+            "# Loose\n",
+          );
           expect(
             fs
               .lstatSync(
-                nodePath.join(workspace.root, "agent_extensions/registry/@acme/skills/linked"),
+                nodePath.join(
+                  workspace.root,
+                  "agent_extensions/registry.agentxm.ai/@acme/skills/linked",
+                ),
               )
               .isSymbolicLink(),
           ).toBe(true);
@@ -326,23 +346,7 @@ describe("Sync removes leftover installed packages", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("preview lists the removal units and changes nothing", () => {
-    const workspace = fixture();
-    writeInstalledSkill(workspace.root, STALE, "stale");
-    const before = workspace.snapshot();
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          const resolution = expectResolved(yield* previewSync());
-          expect(deriveOperationOutcome(resolution)).toBe("previewed");
-          expect(unitIds(resolution)).toContain(`leftover:${STALE}`);
-          expect(workspace.snapshot()).toEqual(before);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
-
-  it.effect("user scope: removes a leftover from the user install root", () => {
+  it.effect("user scope: preserves unproven packages in the user install root", () => {
     const workspace = makeSyncFixture({ scope: "user", settings: { agents: [] } });
     cleanups.push(workspace.cleanup);
     const stale = nodePath.join(workspace.workspaceRoot, STALE);
@@ -350,9 +354,8 @@ describe("Sync removes leftover installed packages", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const resolution = expectResolved(yield* applySync());
-          expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(fs.existsSync(stale)).toBe(false);
+          yield* applySync();
+          expect(fs.existsSync(stale)).toBe(true);
           expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       )

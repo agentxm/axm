@@ -44,27 +44,28 @@ describe("actual cells never fail", () => {
       // Compose the test layer with `wrapFileSystem` to fail `readDirectory`
       // while enumerating one owner's skill packages, leaving the other owner
       // readable. Directory metadata remains available; enumeration fails.
-      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/registry/@unreadable/skills`;
+      const UNREADABLE_TYPE_DIR = `${SCENARIO_WORKSPACE_ROOT}/agent_extensions/registry.agentxm.ai/@unreadable/skills`;
 
       const spec: FixtureSpec = {
         workspaceRoot: SCENARIO_WORKSPACE_ROOT,
         userHome: SCENARIO_USER_HOME,
         project: {
           axmExtensions: {
-            "registry/@readable/skills/readable-skill/skill.json": JSON.stringify({
+            "registry.agentxm.ai/@readable/skills/readable-skill/skill.json": JSON.stringify({
               owner: "@readable",
               type: "skill",
               name: "readable-skill",
               version: "1.0.0",
             }),
-            "registry/@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
-            "registry/@unreadable/skills/unreadable-skill/skill.json": JSON.stringify({
+            "registry.agentxm.ai/@readable/skills/readable-skill/src/SKILL.md": "# readable\n",
+            "registry.agentxm.ai/@unreadable/skills/unreadable-skill/skill.json": JSON.stringify({
               owner: "@unreadable",
               type: "skill",
               name: "unreadable-skill",
               version: "1.0.0",
             }),
-            "registry/@unreadable/skills/unreadable-skill/src/SKILL.md": "# unreadable\n",
+            "registry.agentxm.ai/@unreadable/skills/unreadable-skill/src/SKILL.md":
+              "# unreadable\n",
           },
         },
       };

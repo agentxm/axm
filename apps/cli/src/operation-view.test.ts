@@ -144,7 +144,7 @@ describe("pack membership output", () => {
 
 describe("source switch output", () => {
   const artifact: JobStepArtifact = {
-    path: "agent_extensions/registry/@acme/skills/review",
+    path: "agent_extensions/registry.agentxm.ai/@acme/skills/review",
     scope: "project",
     change: "updated",
     sourceSwitch: {

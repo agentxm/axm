@@ -165,6 +165,10 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
     const { stagingPath, backupPath } = canonicalMaterializationPaths(args.canonicalPath);
 
     yield* recoverCanonicalDirectory(args);
+    if (args.transient !== true) {
+      yield* protectWorkspacePath(stagingPath);
+      yield* protectWorkspacePath(backupPath);
+    }
     const recordParents =
       args.transient === true || args.prepareParents === undefined
         ? yield* createWorkspaceDirectories({
@@ -237,6 +241,9 @@ export const replaceCanonicalDirectoryWithInspection = <A, E, R>(
         yield* fs.remove(backupPath, { recursive: true, force: true });
       }),
     ).pipe(
+      Effect.tapError(() =>
+        fs.remove(stagingPath, { recursive: true, force: true }).pipe(Effect.ignore),
+      ),
       Effect.mapError(
         (cause) =>
           new PackageMaterializationFailed({ path: args.canonicalPath, step: "replace", cause }),

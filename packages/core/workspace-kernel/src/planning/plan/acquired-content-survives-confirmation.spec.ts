@@ -131,7 +131,7 @@ describe("Acquired content through confirmation", () => {
       expect(applied).toBe(false);
       expect(yield* fs.readFileString(workspace.settingsPath)).toBe('{\n  "skills": {}\n}\n');
       expect(yield* fs.readFileString(workspace.lockPath)).toBe(
-        "lockfileVersion: 10\nskills: {}\n",
+        "lockfileVersion: 11\npackages: {}\nskills: {}\n",
       );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );

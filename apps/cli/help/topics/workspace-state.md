@@ -70,21 +70,24 @@ instruction files and agent directories there. A project folder that is the
 user home has no separate user scope, so these checks skip it.
 
 User scope uses `~/.axm/workspace/axm.json`,
-`~/.axm/workspace/axm-lock.yaml`, and the same source-family acquired
+`~/.axm/workspace/axm-lock.yaml`, and the same source-address acquired
 package scheme under `~/.axm/workspace/agent_extensions/`; the authority
 relationships are otherwise the same. Its runtime state is the inner
 `~/.axm/workspace/.axm/` directory. User scope has no authored type roots.
 
 ## Accepted external resolution
 
-Lockfile v10 contains only external resolutions. Every row has four authorities:
-a self-describing `source` locator, package `identity`, immutable `resolved`
-identity, and `treeIntegrity` for the complete materialized package tree.
-Registry rows pin the Registry URL, version, archive integrity, and publisher
-binding. Git rows pin the repository URL, optional selected path and revision,
-commit, and tree. Path rows pin a workspace-relative path and tree identity.
-Workspace-authored, bundled, inline, projected, and command-history state does
-not belong in the lockfile.
+Lockfile v11 contains only external resolutions. Its `packages` map records one
+source locator, immutable snapshot, and complete-tree integrity per retained
+package. Per-kind bindings select identities and component paths within those
+packages. Multiple selections can share one package record and directory,
+including different native kinds and multiple MCP aliases.
+
+Registry snapshots pin version, archive integrity, and publisher binding. Git
+snapshots pin commit and tree. Local snapshots pin a tree at project-relative or
+absolute source coordinates. HTTP snapshots preserve the logical source and
+accepted artifact manifest for exact replay. Workspace-authored, bundled,
+inline, projected, and command-history state do not belong in the lockfile.
 
 Acquired Pack rows also record their complete dependency declarations. Those
 accepted declarations preserve membership and constraints when installed Pack
@@ -120,18 +123,39 @@ without changing the installation. Installing the same repository with a new
 tag, such as `owner/repo@v1.3.0`, is an explicit selector change and appears in
 preview before AXM updates the existing desired entry.
 
-Git submodules, Git LFS object hydration, and symlink materialization are not
-supported. LFS smudging is disabled, submodules are not initialized, and a
-symlink in selected package content fails materialization. Store ordinary files
-for every package byte AXM must install.
+Git submodules and Git LFS object hydration are unsupported. LFS smudging is
+disabled and submodules are not initialized. Contained source symlinks retain
+their meaning; links escaping the package boundary are rejected.
 
-Acquired canonical packages use
-`agent_extensions/<source-family>/<@owner>/<plural-type>/<name>/` in project
-scope and the same suffix beneath `~/.axm/workspace/agent_extensions/` in user
-scope. The source family is `registry`, `git`, or `path`; portable packages
-without a publisher identity use `@portable`. Registry names, Git hosts and
-repositories, and local selected paths remain accepted source authority in the
-lockfile, but do not determine the canonical directory suffix.
+### Retained package addresses
+
+Acquired canonical packages live under `agent_extensions/` in project scope
+and `~/.axm/workspace/agent_extensions/` in user scope:
+
+- Registry: `registry.agentxm.ai/@acme/skills/review/`; a custom endpoint keeps
+  its actual host and full endpoint path before the published identity.
+- Git: `github.com/acme/toolbox/plugins/review/` for a package rooted at
+  `plugins/review` in that repository.
+- HTTP: the logical host and URL path, plus the selected artifact boundary.
+  Only a direct Skill URL's terminal `SKILL.md` is removed; extensionless paths
+  remain intact. Index selections retain their entry identity.
+- Local: `_local/project/<source-path>/` or
+  `_local/absolute/<volume>/<source-path>/`. File-backed Registries likewise
+  retain their local endpoint coordinates.
+
+Reserved or unsafe characters use reversible `~hh` byte escapes. Host ports,
+Unicode, Windows-reserved names, and case are accounted for; credentials and
+query secrets never enter directory names. Exact, case-folded, ancestor, or
+physical-path collisions block before writes. Unknown content at a destination
+is preserved, even if accepted lock state was lost.
+
+One selected plugin retains its full package payload once. Selecting another
+component reuses the accepted snapshot and does not activate unselected files.
+The same sharing applies to co-located native kinds. Update advances all
+bindings to a shared package atomically, including disabled selections and
+members reached through Packs. If a retained component disappears, the update
+blocks without replacing the package. Uninstall keeps shared content and its
+accepted metadata until the last consumer is removed.
 
 Registry `integrity` is the SRI SHA-512 digest of the published archive. AXM
 verifies downloaded archive bytes before extraction, then records
@@ -166,7 +190,7 @@ repeated install; restoring missing bytes may require network access.
 
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v10. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v11. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and `--force` does not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.
@@ -177,7 +201,9 @@ error suggests:
 
 1. Back up the incompatible lockfile outside the workspace, review axm.json,
    then remove the incompatible file. Review authored manifests and the backup
-   too, to confirm the desired intent and prior external resolutions.
+   too, to confirm the desired intent and prior external resolutions. Preserve
+   acquired content lacking current ownership proof outside prospective install
+   destinations; AXM will not infer ownership from those files or overwrite them.
 2. Preview a new lockfile in the supported format: `axm sync --preview`. Review
    every proposed resolution. Use `--scope user` for a user workspace.
 3. Apply the previewed workspace changes: `axm sync`.

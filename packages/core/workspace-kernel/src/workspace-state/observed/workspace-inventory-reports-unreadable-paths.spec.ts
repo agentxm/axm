@@ -24,13 +24,19 @@ export const specification = defineSpecification({
 const nativeManifest = (owner: string, name: string) =>
   JSON.stringify({ owner, type: "skill", name });
 const cases = [
-  { method: "stat", path: "/ws/agent_extensions/registry/@blocked/skills/blocked-skill" },
-  { method: "readDirectory", path: "/ws/agent_extensions/registry/@blocked/skills" },
+  {
+    method: "stat",
+    path: "/ws/agent_extensions/registry.agentxm.ai/@blocked/skills/blocked-skill",
+  },
+  { method: "readDirectory", path: "/ws/agent_extensions/registry.agentxm.ai/@blocked/skills" },
   {
     method: "readFileString",
-    path: "/ws/agent_extensions/registry/@blocked/skills/blocked-skill/skill.json",
+    path: "/ws/agent_extensions/registry.agentxm.ai/@blocked/skills/blocked-skill/skill.json",
   },
-  { method: "stat", path: "/ws/agent_extensions/registry/@blocked/skills/blocked-skill/src" },
+  {
+    method: "stat",
+    path: "/ws/agent_extensions/registry.agentxm.ai/@blocked/skills/blocked-skill/src",
+  },
   { method: "readFileString", path: "/ws/agent_extensions/external/portable/SKILL.md" },
   { method: "readFile", path: "/ws/.claude/agents/blocked-agent.md" },
 ] as const;
@@ -85,16 +91,16 @@ describe("partial workspace inventory", () => {
               userHome: "/home/user",
               project: {
                 axmExtensions: {
-                  "registry/@healthy/skills/healthy-skill/skill.json": nativeManifest(
+                  "registry.agentxm.ai/@healthy/skills/healthy-skill/skill.json": nativeManifest(
                     "@healthy",
                     "healthy-skill",
                   ),
-                  "registry/@healthy/skills/healthy-skill/src/SKILL.md": "# Healthy\n",
-                  "registry/@blocked/skills/blocked-skill/skill.json": nativeManifest(
+                  "registry.agentxm.ai/@healthy/skills/healthy-skill/src/SKILL.md": "# Healthy\n",
+                  "registry.agentxm.ai/@blocked/skills/blocked-skill/skill.json": nativeManifest(
                     "@blocked",
                     "blocked-skill",
                   ),
-                  "registry/@blocked/skills/blocked-skill/src/SKILL.md": "# Blocked\n",
+                  "registry.agentxm.ai/@blocked/skills/blocked-skill/src/SKILL.md": "# Blocked\n",
                   "external/portable/SKILL.md":
                     "---\nname: portable\ndescription: Portable skill.\n---\n",
                 },

@@ -719,33 +719,8 @@ const installedSkillToInfo = (
     };
   }
 
-  if (skill.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(skill.installationOrigin.declared.entry.source ?? "");
-    if (parsed !== undefined && parsed.type === "skills") {
-      return nativeSkillInfo(args, "agentxm", parsed.owner, skill.key.name);
-    }
-  }
-
   return undefined;
 };
-
-const nativeSkillInfo = (
-  args: BuildLintWorkspaceViewArgs,
-  sourceName: string,
-  owner: string,
-  name: string,
-): BuiltSkillInfo => ({
-  info: buildNativeInstalledSkillInfo({
-    platform: args.platform,
-    workspaceRoot: args.workspaceRoot,
-    scope: args.scope,
-    sourceName,
-    owner,
-    name,
-    skillJson: undefined,
-  }),
-  packageDisplayRoot: `${acquiredRootDisplayPath(args.scope)}/${sourceName}/${owner}/skills/${name}`,
-});
 
 const installedPackToInfo = (
   args: BuildLintWorkspaceViewArgs,
@@ -761,31 +736,21 @@ const installedPackToInfo = (
   }
 
   const resolved = pack.resolved;
-  if (Option.isSome(resolved) && resolved.value.lockEntry.source.type === "registry") {
-    return buildInstalledPackInfo({
-      platform: args.platform,
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope,
-      sourceName: "registry",
-      owner: resolved.value.lockEntry.identity.owner,
-      name: pack.key.name,
+  if (Option.isSome(resolved)) {
+    const displayRoot = acquiredPackageDisplayRoot(
+      args.scope,
+      resolved.value.lockEntry,
+      "packs",
+      pack.key.name,
+    );
+    return {
       packJson: undefined,
-    });
-  }
-
-  if (pack.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(pack.installationOrigin.declared.entry.source);
-    if (parsed !== undefined && parsed.type === "packs") {
-      return buildInstalledPackInfo({
-        platform: args.platform,
-        workspaceRoot: args.workspaceRoot,
-        scope: args.scope,
-        sourceName: "agentxm",
-        owner: parsed.owner,
-        name: pack.key.name,
-        packJson: undefined,
-      });
-    }
+      displayRoot,
+      files: makePlatformPackFileAccessor(
+        args.platform,
+        args.platform.path.resolve(args.workspaceRoot, displayRoot),
+      ),
+    };
   }
 
   return undefined;
@@ -960,16 +925,6 @@ const subagentPackageRoot = (
     );
   }
 
-  if (subagent.installationOrigin._tag === "direct") {
-    const parsed = parseRegistrySourceRef(subagent.installationOrigin.declared.entry.source ?? "");
-    if (parsed !== undefined && parsed.type === "subagents") {
-      return args.platform.path.resolve(
-        args.workspaceRoot,
-        `${acquiredRootDisplayPath(args.scope)}/agentxm/${parsed.owner}/subagents/${subagent.key.name}`,
-      );
-    }
-  }
-
   return undefined;
 };
 
@@ -988,18 +943,6 @@ const mcpServerPackageRoot = (
       args.workspaceRoot,
       acquiredPackageDisplayRoot(args.scope, resolved.value.lockEntry, "mcps", mcpServer.key.name),
     );
-  }
-
-  if (mcpServer.installationOrigin._tag === "direct") {
-    const source = mcpServer.installationOrigin.declared.entry.source;
-    if (source === undefined) return undefined;
-    const parsed = parseRegistrySourceRef(source);
-    if (parsed !== undefined && parsed.type === "mcps") {
-      return args.platform.path.resolve(
-        args.workspaceRoot,
-        `${acquiredRootDisplayPath(args.scope)}/agentxm/${parsed.owner}/mcps/${mcpServer.key.name}`,
-      );
-    }
   }
 
   return undefined;
@@ -1038,18 +981,6 @@ const acquiredPackageDisplayRoot = (
 // -----------------------------------------------------------------------------
 
 /**
- * Compute the `displayRoot` for a registry-installed native skill.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const registryNativeSkillDisplayRoot = (
-  scope: "project" | "user",
-  _sourceName: string,
-  owner: string,
-  name: string,
-): string => `${acquiredRootDisplayPath(scope)}/registry/${owner}/skills/${name}/src`;
-
-/**
  * Compute the content `displayRoot` for an identity-qualified acquired skill.
  *
  * @experimental This API is unstable and may change without notice.
@@ -1061,66 +992,6 @@ export const acquiredSkillDisplayRoot = (
 ): string => {
   const packageRoot = acquiredPackageDisplayRoot(scope, entry, "skills", name);
   return entry.identity.owner === undefined ? packageRoot : `${packageRoot}/src`;
-};
-
-/**
- * Compute the `displayRoot` for a registry-installed pack.
- *
- * **No `src/` segment** — matches the on-disk layout at
- * `packages/core/workspace-kernel/src/workspace-state/workspace/pack-paths.ts#computePackPathsForLayout`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const registryPackDisplayRoot = (
-  scope: "project" | "user",
-  _sourceName: string,
-  owner: string,
-  name: string,
-): string => `${acquiredRootDisplayPath(scope)}/registry/${owner}/packs/${name}`;
-
-// -----------------------------------------------------------------------------
-// Build-a-skill-info helpers (thin wrappers over the skill / pack accessors).
-// -----------------------------------------------------------------------------
-
-/**
- * Options for building an `InstalledSkillInfo` for a registry-installed
- * native skill. `owner` and `name` pin the on-disk layout.
- */
-export interface BuildInstalledSkillInfoNativeArgs {
-  readonly platform: {
-    readonly fs: FileSystem.FileSystem;
-    readonly path: Path.Path;
-  };
-  readonly workspaceRoot: string;
-  readonly scope: "project" | "user";
-  readonly sourceName: string;
-  readonly owner: string;
-  readonly name: string;
-  readonly skillJson: unknown;
-}
-
-/**
- * Build an `InstalledSkillInfo` rooted at `agent_extensions/<owner>/skills/<name>/src/`.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const buildNativeInstalledSkillInfo = (
-  args: BuildInstalledSkillInfoNativeArgs,
-): InstalledSkillInfo => {
-  const packageRoot = args.platform.path.resolve(
-    args.workspaceRoot,
-    `${acquiredRootDisplayPath(args.scope)}/registry/${args.owner}/skills/${args.name}`,
-  );
-  const contentRoot = args.platform.path.resolve(packageRoot, "src");
-  return {
-    validationPurpose: "management",
-    isNative: true,
-    skillJson: args.skillJson,
-    expectedName: args.name,
-    displayRoot: registryNativeSkillDisplayRoot(args.scope, args.sourceName, args.owner, args.name),
-    files: makePlatformSkillFileAccessor(args.platform, contentRoot),
-    packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
-  };
 };
 
 /**
@@ -1161,40 +1032,5 @@ export const buildAcquiredInstalledSkillInfo = (
     displayRoot: acquiredSkillDisplayRoot(args.scope, args.lockEntry, args.name),
     files: makePlatformSkillFileAccessor(args.platform, contentRoot),
     packageFiles: makePlatformSkillFileAccessor(args.platform, packageRoot),
-  };
-};
-
-/**
- * Options for building an `InstalledPackInfo` for a registry-installed pack.
- */
-export interface BuildInstalledPackInfoArgs {
-  readonly platform: {
-    readonly fs: FileSystem.FileSystem;
-    readonly path: Path.Path;
-  };
-  readonly workspaceRoot: string;
-  readonly scope: "project" | "user";
-  readonly sourceName: string;
-  readonly owner: string;
-  readonly name: string;
-  readonly packJson: unknown;
-}
-
-/**
- * Build an `InstalledPackInfo` rooted at `agent_extensions/<owner>/packs/<name>/`.
- *
- * **No `src/` segment** — matches the on-disk pack layout.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const buildInstalledPackInfo = (args: BuildInstalledPackInfoArgs): InstalledPackInfo => {
-  const absoluteRoot = args.platform.path.resolve(
-    args.workspaceRoot,
-    `${acquiredRootDisplayPath(args.scope)}/${args.sourceName}/${args.owner}/packs/${args.name}`,
-  );
-  return {
-    packJson: args.packJson,
-    displayRoot: registryPackDisplayRoot(args.scope, args.sourceName, args.owner, args.name),
-    files: makePlatformPackFileAccessor(args.platform, absoluteRoot),
   };
 };

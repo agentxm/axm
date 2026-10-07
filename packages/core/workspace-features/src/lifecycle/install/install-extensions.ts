@@ -10,9 +10,8 @@ import { nativeUnitKey } from "@agentxm/workspace-kernel/locations";
  *
  * `prepare` settles all of that and writes nothing. The locator form is the
  * reason it must: a locator can carry several extension types at once, and
- * each is an independent closure inside one prepared candidate — so the
- * preview shows the whole set, one type failing leaves the others committed,
- * and the operation reports every outcome.
+ * each retained package is one closure inside the prepared candidate. The
+ * preview shows all selected components and the operation reports each package outcome.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -67,6 +66,7 @@ import {
   acceptedLockedResolutionRef,
   usableAcceptedCanonical,
   WorkspaceLocation,
+  AcceptedResolutionWriter,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { planKnowledgeInstall } from "@agentxm/extension-kinds/knowledge";
@@ -108,11 +108,19 @@ import { resolveRootInstallIntent } from "./root-intent.js";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "./vocabulary.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
+  groupRetainedPackageSteps,
+  StepFailureConversion,
   toStepKey,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { findSourceReinstallRefs, pinSourceReinstallRef } from "./accepted-source-reinstall.js";
+import {
+  findSourceReinstallRefs,
+  pinSourceReinstallRef,
+  findRetainedSourceComponents,
+  retainedSelectionSatisfied,
+  mergeRetainedSourceRefs,
+} from "./accepted-source-reinstall.js";
 import { SourceHostProviders, formatRegistryProbe } from "@agentxm/workspace-kernel/sources";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
@@ -336,7 +344,9 @@ const settleSourceInstall = <T extends SourceInstallType>(
           : [];
     const acceptedRefs = accepted.filter(isRequestedType);
     const discovered =
-      acceptedRefs.length > 0 ? acceptedRefs : yield* discoverInstallRefs(type, parsed);
+      acceptedRefs.length > 0
+        ? acceptedRefs
+        : yield* discoverInstallRefs(type, parsed, request.reinstall);
     const selected = yield* selectFrom(discovered, {
       type,
       selectors: names,
@@ -482,10 +492,18 @@ const planForType = (
               ? yield* findSourceReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
               : [];
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
+        const retained = yield* findRetainedSourceComponents(
+          sourceRequest.source,
+          type,
+          request.reinstall,
+        );
         const discovered =
           acceptedMcpServers.length > 0
             ? acceptedMcpServers
-            : yield* discoverMcpServerRefs(sourceRequest);
+            : (retainedSelectionSatisfied(retained, selectedNames)
+                ? retained
+                : mergeRetainedSourceRefs(retained, yield* discoverMcpServerRefs(sourceRequest))
+              ).filter((ref) => ref.type === "mcp-server");
         if (discovered.length === 0) {
           yield* finalizeMcpServerInstallIntent(parsed, sourceRequest, discovered);
         }
@@ -566,8 +584,18 @@ const planForType = (
         const acceptedPacks = accepted.filter((ref) => ref.type === "pack");
         const implicitSelectors = Option.toArray(sourceRequest.packName);
         const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
+        const retained = yield* findRetainedSourceComponents(
+          sourceRequest.source,
+          type,
+          request.reinstall,
+        );
         const discovered =
-          acceptedPacks.length > 0 ? acceptedPacks : yield* discoverPackRefs(sourceRequest);
+          acceptedPacks.length > 0
+            ? acceptedPacks
+            : (retainedSelectionSatisfied(retained, effectiveSelectors)
+                ? retained
+                : mergeRetainedSourceRefs(retained, yield* discoverPackRefs(sourceRequest))
+              ).filter((ref) => ref.type === "pack");
         if (discovered.length === 0) {
           return yield* installRefused({
             category: "not_found",
@@ -690,8 +718,7 @@ const planLocatorInstall = (
       });
     }
 
-    // Every matched type is one independent closure inside a single
-    // candidate: the preview shows all of them, and each settles on its own.
+    // Combine type plans before grouping their shared retained package closures.
     const steps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> = matched.flatMap(
       ({ plan }) => plan.jobs.flatMap((job) => job.steps),
     );
@@ -953,11 +980,26 @@ export const prepareInstallExtensions: (
         })),
       }
     : sourceAware;
+  const acceptedWriter = yield* AcceptedResolutionWriter;
+  const conversion = yield* StepFailureConversion;
+  const location = yield* WorkspaceLocation;
+  const grouped = {
+    ...gated,
+    jobs: yield* Effect.forEach(gated.jobs, (job) =>
+      groupRetainedPackageSteps({
+        steps: job.steps,
+        artifact: { path: location.baseDir, scope: location.scope, change: "created" },
+        message: "Installed retained package components",
+        acceptedResolutions: acceptedWriter.withBatch,
+        toStepFailure: conversion.toStepFailure,
+      }).pipe(Effect.map((steps) => ({ ...job, steps }))),
+    ),
+  };
   const skillCandidates =
     request.subject.kind === "bundled"
       ? []
       : (yield* Effect.forEach(
-          gated.jobs.flatMap((job) => job.steps),
+          grouped.jobs.flatMap((job) => job.steps),
           (step) =>
             Effect.gen(function* () {
               const skills = (step.acquisitionRefs ?? []).filter(
@@ -987,7 +1029,7 @@ export const prepareInstallExtensions: (
               );
             }),
         )).flat();
-  const execution = yield* prepareExecutionCandidate(gated, {
+  const execution = yield* prepareExecutionCandidate(grouped, {
     configuredAgentOperations: planned.configuredAgentOperations,
   });
   return {
@@ -1068,7 +1110,7 @@ export const previewOrApplyInstallExtensions = (
             ["created", "updated", "unchanged", "retained"].includes(location.state),
         );
         if (usable.length === 0) continue;
-        const key = sourceRefContentKey(entry.ref);
+        const key = JSON.stringify([sourceRefContentKey(entry.ref), entry.ref.skill.name]);
         // A planned agent counts only when its exact native target is now usable.
         // Catalog potential readers do not prove an installation target.
         const targetAgents = (artifact.targets ?? []).flatMap((target) => {

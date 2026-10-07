@@ -16,13 +16,14 @@ import {
   type InstallWorld,
 } from "../../../testing/install-world.js";
 import { serveBareRepository } from "../../../testing/git-repositories.js";
+import { applyUninstall, uninstallRequest } from "../../uninstall/test-helpers.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
 export const specification = defineSpecification({
   requirement: "cli/install/shared-pack-members-need-one-source-authority",
   title: "Shared Pack members come from one source authority",
   statement:
-    "When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ.",
+    "When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -165,6 +166,51 @@ describe("Pack member source authority", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+  );
+
+  it.effect(
+    "retains one member through direct and multiple Pack routes until the final removal",
+    () =>
+      Effect.gen(function* () {
+        const { workspace } = world();
+        const source = nodePath.join(workspace.root, "fixtures/shared-routes");
+        writeSourceView(source, conventionalLayout, { alpha: ["shared"], beta: ["shared"] });
+        yield* workspace.provide(
+          Effect.gen(function* () {
+            const direct = yield* applyInstall(
+              installRequest({
+                type: "skill",
+                subject: { kind: "source", source },
+                names: ["shared"],
+              }),
+            );
+            expect(deriveOperationOutcome(direct)).toBe("applied");
+            const native = nodePath.join(workspace.root, ".claude/skills/shared");
+            const canonical = nodePath.dirname(fs.realpathSync(native));
+            const inode = fs.statSync(canonical).ino;
+            for (const name of ["alpha", "beta"]) {
+              const installed = yield* applyInstall(packRequest(source, name));
+              expect(deriveOperationOutcome(installed), JSON.stringify(installed)).toBe("applied");
+              expect(fs.statSync(canonical).ino).toBe(inode);
+            }
+            for (const target of [
+              { type: "skill", selector: "shared" },
+              { type: "pack", selector: "alpha" },
+            ] as const) {
+              const removed = yield* applyUninstall(uninstallRequest(target));
+              expect(deriveOperationOutcome(removed), JSON.stringify(removed)).toBe("applied");
+              expect(fs.statSync(canonical).ino).toBe(inode);
+              expect(fs.existsSync(native)).toBe(true);
+            }
+            const final = yield* applyUninstall(
+              uninstallRequest({ type: "pack", selector: "beta" }),
+            );
+            expect(deriveOperationOutcome(final), JSON.stringify(final)).toBe("applied");
+            expect(fs.existsSync(canonical)).toBe(false);
+            expect(fs.existsSync(native)).toBe(false);
+          }),
+        );
+      }).pipe(Effect.provide(NodeServices.layer)),
   );
 
   it.effect(

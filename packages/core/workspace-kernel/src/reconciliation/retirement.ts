@@ -3,7 +3,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import { isWithinOrEqual } from "@agentxm/extension-model/unstable/path-types";
 import {
   extensionTypes,
   toExtensionTypePlural,
@@ -20,11 +19,9 @@ import {
   desiredReachesAcceptedRow,
   validatePathSafety,
   lockEntrySemanticallyEqual,
-  observeInstallRoot,
   unresolvedPackRoutes,
   type DesiredStateGraph,
   type ExtensionTarget,
-  type InstalledPackageEntry,
 } from "../workspace-state/index.js";
 import { protectWorkspacePath, runWorkspaceTransaction } from "../settlement/index.js";
 import type { PlannedJobStep } from "../operations/index.js";
@@ -130,11 +127,12 @@ export const collectUnreachableRetirement = (
     );
     if (retired.length === 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    const retiredPackages = [...new Map(retired.map((row) => [row.canonical, row])).values()];
     const artifact = {
       path: lockfileDisplayPath(location.scope),
       scope: location.scope,
       change: "updated" as const,
-      references: retired
+      references: retiredPackages
         .filter((row) => !row.removeCanonical)
         .map((row) => ({
           path: path.relative(location.baseDir, row.canonical),
@@ -143,7 +141,7 @@ export const collectUnreachableRetirement = (
             ? "shared acquired content remains desired"
             : "canonical content is already absent",
         })),
-      targets: retired
+      targets: retiredPackages
         .filter((row) => row.removeCanonical)
         .map((row) => ({
           path: path.relative(location.baseDir, row.canonical),
@@ -180,6 +178,10 @@ export const collectUnreachableRetirement = (
                 category: "conflict",
                 detail: `Accepted ${row.type} ${row.key} changed before retirement`,
               });
+            remaining.push(row);
+          }
+          const packages = [...new Map(remaining.map((row) => [row.canonical, row])).values()];
+          for (const row of packages) {
             if (row.removeCanonical) {
               const integrity = yield* computeMaterializedTreeIntegrity(row.canonical);
               if (integrity !== row.entry.treeIntegrity)
@@ -199,7 +201,6 @@ export const collectUnreachableRetirement = (
                 ),
               );
             }
-            remaining.push(row);
           }
           if (remaining.length > 0)
             yield* (yield* AcceptedResolutionWriter).removeAcceptedEntries(remaining);
@@ -241,137 +242,4 @@ export const collectUnreachableRetirement = (
         }),
       ),
     });
-  });
-
-/** `@owner/plural/name` for a well-formed installed package path. */
-const leftoverIdentity = (entry: InstalledPackageEntry) =>
-  [entry.owner, toExtensionTypePlural(entry.type), entry.name]
-    .filter((segment) => segment !== undefined)
-    .join("/");
-
-/**
- * One removal closure per installed package that desired state no longer
- * reaches and no accepted resolution records. Location in the install root is
- * the install proof, so local byte drift does not block removal. Locked
- * leftovers stay with {@link collectUnreachableRetirement}; unrecognized
- * install-root entries are never planned.
- */
-export const collectLeftoverRetirement = (
-  adapter: StepFailureConversionService,
-  scope?: { readonly subjects: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">> },
-  observedGraph?: DesiredStateGraph,
-) =>
-  Effect.gen(function* () {
-    const location = yield* WorkspaceLocation;
-    const desiredState = yield* DesiredStateReader;
-    const layout = yield* Ref.get(location.layout);
-    const locks = yield* LockfileReader;
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const graph = observedGraph ?? (yield* desiredState.graph());
-    if (unresolvedPackRoutes(graph).length > 0) return [];
-    const inventory = yield* observeInstallRoot({ layout, graph, locks });
-    const acceptedPaths = (yield* Effect.forEach(extensionTypes, (type) =>
-      locks
-        .entries(type)
-        .pipe(
-          Effect.map((entries) =>
-            Object.values(entries).map(
-              (entry) =>
-                computeExtensionPathsForLayout(
-                  path.join,
-                  layout,
-                  extensionPathSourceFromLockEntry(entry),
-                  toExtensionTypePlural(type),
-                  entry.identity.name,
-                ).canonicalPath,
-            ),
-          ),
-        ),
-    )).flat();
-    const leftovers = inventory.leftovers.filter(
-      (entry) =>
-        entry.lockKey === undefined &&
-        // Never remove a directory that holds another accepted package.
-        !acceptedPaths.some((accepted) => isWithinOrEqual(path, entry.path, accepted)) &&
-        (scope === undefined ||
-          scope.subjects.some(
-            (subject) => subject.type === entry.type && subject.name === entry.name,
-          )),
-    );
-    return yield* Effect.forEach(leftovers, (leftover) =>
-      Effect.gen(function* () {
-        yield* validatePathSafety(path, inventory.root, leftover.path);
-        const relative = path.relative(location.baseDir, leftover.path);
-        const identity = leftoverIdentity(leftover);
-        const artifact = {
-          path: relative,
-          scope: location.scope,
-          change: "removed" as const,
-          targets: [{ path: relative, change: "removed" as const, entryName: leftover.name }],
-        };
-        const failed = (detail: string, cause?: unknown) =>
-          new WorkspaceSyncFailed({
-            category: cause === undefined ? "conflict" : "internal",
-            detail,
-            ...(cause === undefined ? {} : { cause }),
-          });
-        const step: PlannedJobStep<SyncStepRequirements | LockfileReader> = {
-          key: `leftover:${relative}`,
-          label: `${leftover.type} ${identity} at ${relative} (installed, not desired)`,
-          readiness: "ready",
-          artifact,
-          run: runWorkspaceTransaction({
-            transition: Effect.gen(function* () {
-              const current = yield* (yield* DesiredStateReader).graph();
-              const currentLocks = yield* LockfileReader;
-              const observed = yield* observeInstallRoot({
-                layout,
-                graph: current,
-                locks: currentLocks,
-              });
-              const entry = observed.packages.find(({ path: at }) => at === leftover.path);
-              if (entry === undefined) return;
-              if (
-                unresolvedPackRoutes(current).length > 0 ||
-                entry.reached ||
-                entry.lockKey !== undefined
-              )
-                return yield* failed(
-                  `Desired reachability of ${leftover.type} ${identity} changed before removal`,
-                );
-              yield* protectWorkspacePath(leftover.path);
-              yield* fs
-                .remove(leftover.path, { recursive: true })
-                .pipe(
-                  Effect.mapError((cause) =>
-                    failed(`Could not remove installed package ${leftover.path}`, cause),
-                  ),
-                );
-            }),
-            validate: () =>
-              fs.exists(leftover.path).pipe(
-                Effect.mapError((cause) =>
-                  failed(`Cannot verify removal of ${leftover.path}`, cause),
-                ),
-                Effect.flatMap((remains) =>
-                  remains
-                    ? Effect.fail(
-                        failed(`Installed package remains after removal: ${leftover.path}`),
-                      )
-                    : Effect.void,
-                ),
-              ),
-          }).pipe(
-            Effect.mapError(adapter.toStepFailure),
-            Effect.as({
-              result: "success" as const,
-              message: `Removed ${leftover.type} ${identity}: installed but not desired`,
-              artifact,
-            }),
-          ),
-        };
-        return step;
-      }),
-    );
   });

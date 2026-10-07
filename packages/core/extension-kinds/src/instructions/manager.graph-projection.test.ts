@@ -75,7 +75,7 @@ const registryLock = (baseDir: string, name: string, version = "1.0.0") => ({
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity: treeIntegrityOfSync(
-    nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "rules", name),
+    nodePath.join(baseDir, "agent_extensions", "registry.agentxm.ai", OWNER, "rules", name),
   ),
 });
 
@@ -118,7 +118,7 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
     {
       type: "pack",
       pack: { authority: "registry", fqn: `${OWNER}/packs/${pack}` },
-      manifestPath: `/workspace/agent_extensions/registry/${OWNER}/packs/${pack}/pack.json`,
+      manifestPath: `/workspace/agent_extensions/registry.agentxm.ai/${OWNER}/packs/${pack}/pack.json`,
       source: `${OWNER}/rules/${name}`,
       constraint: "^1.0.0",
       enabled: true,
@@ -152,7 +152,14 @@ describe("RuleManager graph-derived region projection", () => {
       readonly body?: string;
     },
   ) => {
-    const root = nodePath.join(baseDir, "agent_extensions", "registry", OWNER, "rules", name);
+    const root = nodePath.join(
+      baseDir,
+      "agent_extensions",
+      "registry.agentxm.ai",
+      OWNER,
+      "rules",
+      name,
+    );
     nodeFs.mkdirSync(nodePath.join(root, "src"), { recursive: true });
     nodeFs.writeFileSync(
       nodePath.join(root, "rule.json"),
@@ -208,7 +215,7 @@ describe("RuleManager graph-derived region projection", () => {
           baseDir,
           runtimeDir: axmDir,
           settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
-          lockfile: { lockfileVersion: 10, skills: {}, rules: args.locked },
+          lockfile: { lockfileVersion: 11, skills: {}, rules: args.locked },
           graph: args.graph,
         }),
       ),
@@ -401,7 +408,7 @@ describe("RuleManager graph-derived region projection", () => {
           {
             type: "pack-manifest-unavailable",
             pack: `${OWNER}/packs/pack-a`,
-            path: "agent_extensions/registry/@acme/packs/pack-a/pack.json",
+            path: "agent_extensions/registry.agentxm.ai/@acme/packs/pack-a/pack.json",
             reason: "absent",
           },
         ],

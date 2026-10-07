@@ -1,3 +1,4 @@
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as nodePath from "node:path";
@@ -106,7 +107,7 @@ const makeWorkspace = (
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
     nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 10, skills: {}, ...lockfile }),
+    JSON.stringify(storedLockfileFixture(lockfile)),
   );
   return {
     root,

@@ -3,7 +3,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import { ACQUIRED_EXTENSIONS_DIR } from "../../constants.js";
 import { configuredAuthoredDirectory } from "../../layout.js";
 import { computePackPathsForLayout } from "../../pack-paths.js";
 import {
@@ -18,16 +17,18 @@ export const FilesystemPackManifests = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     return PackManifests.of({
-      locate: ({ owner, name, sourceFamily, relativeTo, workspace }) => {
+      locate: ({ owner, name, relativeTo, workspace }) => {
         const directory =
           "layout" in workspace
-            ? computePackPathsForLayout(path.join, workspace.layout, sourceFamily, owner, name)
-                .canonicalPath
+            ? computePackPathsForLayout(
+                path.join,
+                workspace.layout,
+                { refType: "workspace", owner },
+                name,
+              ).canonicalPath
             : path.join(
                 workspace.baseDir,
-                sourceFamily === "workspace"
-                  ? configuredAuthoredDirectory(workspace.settings, "pack")
-                  : path.join(ACQUIRED_EXTENSIONS_DIR, sourceFamily, owner, "packs"),
+                configuredAuthoredDirectory(workspace.settings, "pack"),
                 name,
               );
         const manifestPath = path.join(directory, PACK_MANIFEST_FILENAME);

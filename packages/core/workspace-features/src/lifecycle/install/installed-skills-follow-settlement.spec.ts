@@ -74,14 +74,17 @@ describe("Settled skill acquisitions", () => {
             );
             expect(reinstalled.installedSkills).toEqual([]);
             yield* fs.writeFileString(
-              `${source}/src/SKILL.md`,
-              "---\nname: review\ndescription: Updated review skill.\n---\nUpdated content.\n",
+              `${workspace.root}/.claude/skills/review/SKILL.md`,
+              "---\nname: review\ndescription: Damaged retained skill.\n---\nUnaccepted content.\n",
             );
             const changed = yield* InstallExtensions.prepare({ ...request, reinstall: true });
             const freshlyReinstalled = yield* InstallExtensions.previewOrApply(
               changed,
               preapprovedPlanExecution,
             );
+            expect(
+              yield* fs.readFileString(`${workspace.root}/.claude/skills/review/SKILL.md`),
+            ).toBe(yield* fs.readFileString(`${source}/src/SKILL.md`));
             expect(freshlyReinstalled.installedSkills).toHaveLength(1);
             expect(freshlyReinstalled.installedSkills[0]?.installKind).toBe("reinstall");
           }),

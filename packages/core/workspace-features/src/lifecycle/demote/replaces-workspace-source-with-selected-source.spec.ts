@@ -1,3 +1,5 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -165,7 +167,7 @@ describe("Demoting workspace authorship", () => {
                 );
                 const neighborCanonical = nodePath.join(
                   workspace.root,
-                  `agent_extensions/path/@acme/skills/${NEIGHBOR}`,
+                  `agent_extensions/_local/project/vendor/${NEIGHBOR}`,
                 );
                 const neighborContentBefore = snapshotTree(neighborCanonical);
                 const neighborLockBefore = yield* lockfile.entry("skill", NEIGHBOR);
@@ -202,8 +204,8 @@ describe("Demoting workspace authorship", () => {
                 // is gone rather than merged with the replacement.
                 const canonical =
                   registry !== undefined
-                    ? `agent_extensions/registry/@acme/${row.plural}/${REVIEW}/${row.manifest}`
-                    : `agent_extensions/path/@acme/${row.plural}/${REVIEW}/${row.manifest}`;
+                    ? `${fileRegistryPackagePath(registry, extensionTypeToPlural[row.type], REVIEW)}/${row.manifest}`
+                    : `agent_extensions/_local/project/vendor/${REVIEW}/${row.manifest}`;
                 expect(
                   snapshotTree(nodePath.dirname(nodePath.join(workspace.root, canonical))),
                 ).toEqual(expectedContent);

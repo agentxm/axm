@@ -21,7 +21,16 @@ const initializeGit = (root: string): void => {
 };
 
 const skillMdPath = (root: string): string =>
-  path.join(root, "agent_extensions", "registry", "@agentxm", "skills", "axm", "src", "SKILL.md");
+  path.join(
+    root,
+    "agent_extensions",
+    "registry.agentxm.ai",
+    "@agentxm",
+    "skills",
+    "axm",
+    "src",
+    "SKILL.md",
+  );
 
 const removeCompatibilityRange = (content: string): string =>
   content
@@ -204,7 +213,10 @@ describe("AXM skill compatibility lifecycle", () => {
         ]),
       );
 
-      git(temp.path, ["add", "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md"]);
+      git(temp.path, [
+        "add",
+        "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md",
+      ]);
       fs.writeFileSync(skillPath, compatible);
       const live = await runCli(["lint", "--strict", "--json"], {
         cwd: temp.path,

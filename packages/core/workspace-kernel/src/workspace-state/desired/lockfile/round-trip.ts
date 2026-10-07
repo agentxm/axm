@@ -4,7 +4,16 @@ import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../docu
 import { LOCKFILE_VERSION } from "./schema.js";
 import { LockfileWriteError } from "./errors.js";
 
-const maps = ["skills", "mcpServers", "subagents", "rules", "hooks", "knowledge", "packs"];
+const maps = [
+  "packages",
+  "skills",
+  "mcpServers",
+  "subagents",
+  "rules",
+  "hooks",
+  "knowledge",
+  "packs",
+];
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 const parse = (raw: string): Record<string, unknown> | undefined => {
@@ -41,6 +50,8 @@ export const prepareLockfileRoundTrip = (args: {
   const withdrawals: string[] = [];
   if (before !== undefined && after !== undefined)
     for (const map of maps) {
+      // Package records are derived from bindings; eligibility belongs to the selected units.
+      if (map === "packages") continue;
       const prior = entries(before, map);
       const next = entries(after, map);
       for (const name of Object.keys(next))

@@ -1,3 +1,4 @@
+import { writeLocalSkillPackage } from "../testing/local-packages.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -76,13 +77,11 @@ describe("Sync preserves undeclared authored packages", () => {
 
   it.effect("a sync that changes other state leaves authored content untouched", () => {
     const workspace = makeSyncFixture({
-      settings: BASE,
-      files: {
-        ...AUTHORED,
-        "agent_extensions/registry/@acme/skills/stale/skill.json": manifest("stale"),
-      },
+      settings: { ...BASE, skills: { independent: "./vendor/independent" } },
+      files: AUTHORED,
     });
     cleanups.push(workspace.cleanup);
+    writeLocalSkillPackage(workspace.root, { name: "independent" });
     const before = authoredSnapshot(workspace.root);
     return workspace
       .provide(

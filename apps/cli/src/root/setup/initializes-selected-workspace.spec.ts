@@ -60,7 +60,10 @@ describe("Workspace initialization", () => {
         );
         expect(
           fs.existsSync(
-            path.join(workspaceRoot, "agent_extensions/registry/@agentxm/skills/axm/src/SKILL.md"),
+            path.join(
+              workspaceRoot,
+              "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/src/SKILL.md",
+            ),
           ),
         ).toBe(true);
         expect(snapshotTree(otherRoot)).toEqual(beforeOther);

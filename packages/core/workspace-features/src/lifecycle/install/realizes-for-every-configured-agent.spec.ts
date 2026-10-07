@@ -1,3 +1,4 @@
+import { gitPackagePath } from "../../testing/install-world.js";
 import { execFileSync } from "node:child_process";
 import * as os from "node:os";
 import { serveBareRepository } from "../../testing/git-repositories.js";
@@ -404,7 +405,7 @@ for (const scope of ["project", "user"] as const)
             expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
             const canonical = path.join(
               world.workspace.workspaceRoot,
-              "agent_extensions/git/@acme/subagents/reviewer",
+              gitPackagePath(repository.url),
             );
             expect(fs.readFileSync(path.join(canonical, "native/review.toml"), "utf8")).toBe(
               native,

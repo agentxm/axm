@@ -559,11 +559,6 @@ export const RuleManagerLive = Layer.effect(
               ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
-      if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* new RuleDefinitionInvalid({
-          detail: `Local rule source path must stay within the workspace root: ${ref.source.path}`,
-        });
-      }
 
       const sourceHash = yield* computePackageContentHash(packageRoot);
       return {

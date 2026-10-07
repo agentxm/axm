@@ -45,7 +45,7 @@ describe("axm setup", () => {
             path.join(
               temp.path,
               "agent_extensions",
-              "registry",
+              "registry.agentxm.ai",
               "@agentxm",
               "skills",
               "axm",
@@ -91,7 +91,7 @@ describe("axm setup", () => {
         const bundledSkillPath = path.join(
           temp.path,
           "agent_extensions",
-          "registry",
+          "registry.agentxm.ai",
           "@agentxm",
           "skills",
           "axm",

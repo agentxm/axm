@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../../testing/install-world.js";
 import * as fs from "node:fs";
 import {
   desiredPackageKey,
@@ -139,7 +140,7 @@ describe("per-extension rules over present but unusable canonical content", () =
     cleanups.push(workspace.cleanup);
     const manifestPath = nodePath.join(
       workspace.root,
-      "agent_extensions/registry/@acme/skills/review/skill.json",
+      `${fileRegistryPackagePath(registry, "skills", "review")}/skill.json`,
     );
     return { workspace, manifestPath };
   };

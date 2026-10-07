@@ -75,7 +75,6 @@ import type {
 } from "@agentxm/workspace-kernel/settlement";
 
 import {
-  collectLeftoverRetirement,
   collectUnreachableRetirement,
   StepFailureConversion,
   WorkspaceSyncFailed,
@@ -414,26 +413,6 @@ export const prepareSyncWorkspace = (
                   ),
                 ),
               );
-          // Installed packages nothing reaches and no accepted resolution records:
-          // one removal closure each, in the same retirement position.
-          const leftoverSteps: ReadonlyArray<SyncPlanStep> = !collected.cleanupSafe
-            ? []
-            : yield* collectLeftoverRetirement(
-                conversion,
-                subjects === undefined ? undefined : { subjects },
-                planningGraph,
-              ).pipe(
-                Effect.catch((failure) =>
-                  Effect.succeed([
-                    {
-                      readiness: "error" as const,
-                      key: "maintenance:leftover-retirement",
-                      label: "Remove installed packages that are not desired",
-                      errorMessage: conversion.toStepFailure(failure).detail,
-                    },
-                  ]),
-                ),
-              );
           return {
             graph,
             planningGraph,
@@ -446,7 +425,6 @@ export const prepareSyncWorkspace = (
             cleanupStep,
             instructionStep,
             retirementStep,
-            leftoverSteps,
           };
         }).pipe(Effect.provideService(DesiredStateReader, planningReader));
       }),
@@ -464,7 +442,6 @@ export const prepareSyncWorkspace = (
       cleanupStep,
       instructionStep,
       retirementStep,
-      leftoverSteps,
     } = preflight;
     const materializeSteps: ReadonlyArray<SyncPlanStep> = collected.steps;
     const stepCount =
@@ -473,8 +450,7 @@ export const prepareSyncWorkspace = (
       Option.toArray(hooksStep).length +
       Option.toArray(cleanupStep).length +
       Option.toArray(instructionStep).length +
-      Option.toArray(retirementStep).length +
-      leftoverSteps.length;
+      Option.toArray(retirementStep).length;
     const lockfileNeedsRecovery = (yield* lockfile.state) !== "ok";
     if (
       !(yield* observationsStillCurrent({
@@ -508,7 +484,6 @@ export const prepareSyncWorkspace = (
       cleanupStep,
       instructionStep,
       ...(Option.isSome(retirementStep) ? { retirementStep: retirementStep.value } : {}),
-      leftoverSteps,
       releaseAge: collected.releaseAge,
       serialMaterialization: collected.serialMaterialization,
       name: planName,

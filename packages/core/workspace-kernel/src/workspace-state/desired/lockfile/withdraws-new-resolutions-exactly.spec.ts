@@ -37,14 +37,17 @@ export const specification = defineSpecification({
 
 const platform = WorkspaceFileWriteLocksLive.pipe(Layer.provideMerge(NodeServices.layer));
 const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
-  source: { type: "path", path: "../review" },
+  source: { type: "path", path: "/sources/review" },
   identity: { owner: "@acme", name: "review" },
-  resolved: { tree: "sha256-content" },
+  resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
 });
 
 describe("accepted resolution round trips", () => {
-  for (const before of [undefined, "# prior\r\nlockfileVersion: 10\r\nskills: {}"]) {
+  for (const before of [
+    undefined,
+    "# prior\r\nlockfileVersion: 11\r\npackages: {}\r\nskills: {}",
+  ]) {
     it.effect(
       `restores a precisely withdrawn multi-entry graph from ${before === undefined ? "absence" : "authored bytes"}`,
       () =>
@@ -56,7 +59,7 @@ describe("accepted resolution round trips", () => {
           const target = path.join(root, "axm-lock.yaml");
           yield* fs.makeDirectory(runtimeDir);
           if (before !== undefined) yield* fs.writeFileString(target, before);
-          const original = { lockfileVersion: 10, skills: {} } satisfies Lockfile;
+          const original = { lockfileVersion: 11, skills: {} } satisfies Lockfile;
           const first = { ...original, skills: { review: entry } };
           const second = { ...original, skills: { review: entry, docs: entry } };
           const context = {
@@ -100,7 +103,7 @@ describe("accepted resolution round trips", () => {
         eligible: false,
         locks: yield* WorkspaceFileWriteLocks,
       };
-      const original = { lockfileVersion: 10, skills: {} } satisfies Lockfile;
+      const original = { lockfileVersion: 11, skills: {} } satisfies Lockfile;
       yield* withDocumentRoundTripBatch(
         writeLockfileAtPath(target, { ...original, skills: { review: entry } }, context),
         { identity: "@acme/packs/workflow", mode: "introduce" },
@@ -112,7 +115,7 @@ describe("accepted resolution round trips", () => {
           skills: {
             review: Schema.decodeUnknownSync(SkillLockEntrySchema)({
               ...entry,
-              resolved: { tree: "updated" },
+              resolved: { tree: `sha256-tree-v2:${"1".repeat(64)}` },
             }),
           },
         },
@@ -141,7 +144,7 @@ describe("accepted resolution round trips", () => {
         eligible: true,
         locks: yield* WorkspaceFileWriteLocks,
       };
-      const original = { lockfileVersion: 10, skills: {} } satisfies Lockfile;
+      const original = { lockfileVersion: 11, skills: {} } satisfies Lockfile;
       yield* writeLockfileAtPath(target, { ...original, skills: { review: entry } }, context);
       yield* writeLockfileAtPath(target, original, { ...context, eligible: false });
       expect(yield* fs.exists(target)).toBe(false);
@@ -157,10 +160,10 @@ describe("accepted resolution round trips", () => {
   );
 
   for (const before of [
-    "lockfileVersion: 10\nskills: {}\n",
-    "# authored\r\nlockfileVersion: 10\r\nskills: {}",
-    "skills: {}\nlockfileVersion: 10\n\n",
-    "lockfileVersion: 10\nskills: {}\nsubagents: {}\n",
+    "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+    "# authored\r\nlockfileVersion: 11\r\npackages: {}\r\nskills: {}",
+    "skills: {}\npackages: {}\nlockfileVersion: 11\n\n",
+    "lockfileVersion: 11\npackages: {}\nskills: {}\nsubagents: {}\n",
   ]) {
     it.effect(`restores ${JSON.stringify(before)}`, () =>
       Effect.gen(function* () {
@@ -199,14 +202,14 @@ describe("accepted resolution round trips", () => {
       const runtimeDir = path.join(root, ".axm");
       const target = path.join(root, "axm-lock.yaml");
       yield* fs.makeDirectory(runtimeDir);
-      yield* fs.writeFileString(target, "lockfileVersion: 10\nskills: {}\n");
+      yield* fs.writeFileString(target, "lockfileVersion: 11\npackages: {}\nskills: {}\n");
       const context = {
         nativeRoot: root,
         runtimeDir,
         eligible: false,
         locks: yield* WorkspaceFileWriteLocks,
       };
-      const original = { lockfileVersion: 10, skills: {} } satisfies Lockfile;
+      const original = { lockfileVersion: 11, skills: {} } satisfies Lockfile;
       yield* writeLockfileAtPath(target, { ...original, skills: { review: entry } }, context);
       expect(yield* fs.exists(path.join(runtimeDir, "projection-containers.json"))).toBe(false);
       yield* writeLockfileAtPath(target, original, context);

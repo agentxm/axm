@@ -12,6 +12,7 @@ import {
   type RegistryClientFailure,
 } from "./errors.js";
 import { recoverRegistryResponseBodyText, retainedRegistryResponseBody } from "./response-body.js";
+import { validatedResponseRequestId } from "./request-identity.js";
 import { registryClientErrorToProblem, registryErrorToProblem } from "./translate.js";
 
 export { captureRegistryErrorResponseBodies } from "./response-body.js";
@@ -32,6 +33,7 @@ const incompatibleResponse = (
 ): RegistryRequestFailed => {
   if (!isHttpClientError(error)) {
     return new RegistryRequestFailed({
+      reason: "response-decode",
       category: "internal",
       detail: context.incompatibleDetail,
       ...(context.suggestions === undefined ? {} : { suggestions: context.suggestions }),
@@ -40,7 +42,9 @@ const incompatibleResponse = (
   }
 
   const response = error.response;
+  const requestId = response === undefined ? undefined : validatedResponseRequestId(response);
   return new RegistryRequestFailed({
+    reason: "response-decode",
     category: "internal",
     detail: context.incompatibleDetail,
     metadata: {
@@ -54,6 +58,7 @@ const incompatibleResponse = (
         : {
             response: {
               status: response.status,
+              ...(requestId === undefined ? {} : { requestId }),
               body: retainedRegistryResponseBody(response, ""),
             },
           }),
@@ -69,6 +74,7 @@ const requestConstructionError = (
 ): RegistryRequestFailed => {
   if (!isHttpClientError(error)) {
     return new RegistryRequestFailed({
+      reason: "request-construction",
       category: "internal",
       detail: context.requestConstructionDetail,
       cause: error,
@@ -76,6 +82,7 @@ const requestConstructionError = (
   }
 
   return new RegistryRequestFailed({
+    reason: "request-construction",
     category: "internal",
     detail: context.requestConstructionDetail,
     metadata: {
@@ -134,6 +141,7 @@ export const mapRegistryFailure = (
 
   if (isSchemaError(error)) {
     return new RegistryRequestFailed({
+      reason: "response-decode",
       category: "internal",
       detail: context.incompatibleDetail,
       ...(context.suggestions === undefined ? {} : { suggestions: context.suggestions }),
@@ -142,6 +150,7 @@ export const mapRegistryFailure = (
   }
 
   return new RegistryRequestFailed({
+    reason: "unclassified",
     category: "internal",
     detail: context.fallbackDetail,
     ...(context.suggestions === undefined ? {} : { suggestions: context.suggestions }),

@@ -1,3 +1,8 @@
+import type { ProcessFailure } from "./cli-runtime/process-outcome.js";
+import {
+  TerminalDiagnostics,
+  TerminalDiagnosticsLive,
+} from "./cli-runtime/terminal-diagnostics.js";
 /**
  * Root CLI application.
  */
@@ -75,6 +80,7 @@ import { adoptCommand } from "./root/adopt/command.js";
 import { demoteCommand } from "./root/demote/command.js";
 import { forkCommand } from "./root/fork/command.js";
 import { cacheCommand } from "./root/cache/command.js";
+import { diagnosticsCommand } from "./root/diagnostics/command.js";
 import { visibilityCommand } from "./root/visibility/command.js";
 import {
   archiveCommand,
@@ -179,7 +185,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
     },
     {
       group: "CLI",
-      commands: [cacheCommand, upgradeCommand],
+      commands: [cacheCommand, diagnosticsCommand, upgradeCommand],
     },
   ]),
   Command.withGlobalFlags(axmGlobalFlags),
@@ -337,6 +343,21 @@ export const run = async (args: ReadonlyArray<string> = process.argv.slice(2)): 
             PlatformLayer,
           ),
         ),
+        Effect.catchCause((cause) => {
+          if (Cause.hasInterruptsOnly(cause)) return Effect.failCause(cause);
+          return Effect.gen(function* () {
+            const diagnostics = yield* TerminalDiagnostics;
+            const record = yield* diagnostics.current;
+            return {
+              _tag: "ProcessFailure",
+              error: Cause.squash(cause),
+              ...(Option.isSome(record)
+                ? { diagnosticId: record.value.eventId, diagnostic: record.value.failure }
+                : {}),
+            } satisfies ProcessFailure;
+          });
+        }),
+        Effect.provide(Layer.provide(TerminalDiagnosticsLive, PlatformLayer)),
         // An explicitly empty override remains distinct from an absent key.
         Effect.provideService(
           ConfigProvider.ConfigProvider,

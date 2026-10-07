@@ -185,7 +185,7 @@ const packManifestUnavailableFailure = (error: PackManifestUnavailable): StepFai
 };
 
 /** Translate one authoring or Pack membership failure. */
-export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): StepFailure => {
+const renderAuthoringFailureDetails = (error: AuthoringFamilyFailure): StepFailure => {
   switch (error._tag) {
     case "AuthoringFailed":
       return makeStepFailure({
@@ -357,6 +357,17 @@ export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): St
           });
   }
 };
+
+/** Retain the admitted authoring producer's identity and original causal chain. */
+export const authoringFailureToStepFailure = (error: AuthoringFamilyFailure): StepFailure =>
+  makeStepFailure({
+    ...renderAuthoringFailureDetails(error),
+    cause: error,
+    diagnostic: {
+      kind: error._tag.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase(),
+      operation: "workspace.operation",
+    },
+  });
 
 /** Every failure an authoring closure can settle a plan step with. */
 export type AuthoringStepFailure =

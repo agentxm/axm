@@ -27,7 +27,8 @@
             "effect",
             "fflate",
             "typescript",
-            "vitest"
+            "vitest",
+            "prettier"
           ]
         }
       ],

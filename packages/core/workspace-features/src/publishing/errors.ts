@@ -10,6 +10,7 @@ import * as Schema from "effect/Schema";
 
 import {
   FailureSuggestedActionSchema,
+  FailureDiagnosticSchema,
   OperationErrorCategorySchema,
 } from "@agentxm/workspace-kernel/operations";
 
@@ -21,6 +22,7 @@ import {
  */
 export class PublishFailed extends Schema.TaggedError<PublishFailed>()("PublishFailed", {
   category: OperationErrorCategorySchema,
+  diagnostic: Schema.optional(FailureDiagnosticSchema),
   detail: Schema.String,
   recover: Schema.optional(Schema.String),
   cmd: Schema.optional(Schema.String),

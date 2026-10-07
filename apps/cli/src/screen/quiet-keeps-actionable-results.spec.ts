@@ -44,6 +44,7 @@ const failed: PublishResultItem = {
   reason: "upload_failed",
   message: "The Registry refused this upload.",
   cause: {
+    diagnostic: { kind: "registry.transport", operation: "publish.upload" },
     code: "unavailable",
     class: "external",
     message: "The Registry refused this upload.",

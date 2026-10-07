@@ -146,6 +146,8 @@ export const appErrorDoc = (
     value: redactRegistryText(input.value, { secrets }),
   }));
   const children: Array<DocNode> = [];
+  if (error.diagnosticId !== undefined)
+    fields.push({ label: "Diagnostic ID", value: [{ text: error.diagnosticId, copyable: true }] });
 
   if (registryUrl !== undefined) {
     fields.push({ label: "Registry", value: formatRegistryLocation(registryUrl, secrets) });

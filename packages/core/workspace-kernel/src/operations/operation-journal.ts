@@ -14,6 +14,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -25,6 +26,12 @@ import type { OperationPrecondition } from "./plan.js";
 import type { OperationAtomicity, OperationPhase, ResolvedUnit } from "./operation-resolution.js";
 
 export interface OperationJournalState {
+  /** Bounded timing facts only; no unit names or descriptions leave the journal. */
+  readonly startedAtMillis?: number;
+  readonly transitions?: ReadonlyArray<{
+    readonly phase: OperationPhase;
+    readonly elapsedMs: number;
+  }>;
   readonly name: string;
   readonly description: Option.Option<string>;
   readonly mode: "preview" | "apply";
@@ -64,7 +71,18 @@ export class OperationJournal extends ServiceMap.Service<
 export const recordOperationJournal = (
   state: OperationJournalState,
 ): Effect.Effect<void, never, OperationJournal> =>
-  Effect.flatMap(OperationJournal, (service) => Ref.set(service.ref, Option.some(state)));
+  Effect.gen(function* () {
+    const service = yield* OperationJournal;
+    const startedAtMillis = yield* Clock.currentTimeMillis;
+    yield* Ref.set(
+      service.ref,
+      Option.some({
+        ...state,
+        startedAtMillis,
+        transitions: [{ phase: state.phase, elapsedMs: 0 }],
+      }),
+    );
+  });
 
 /** Merge updates onto the recorded state. No-op when nothing was recorded yet. */
 export const updateOperationJournal = (
@@ -76,7 +94,17 @@ export const updateOperationJournal = (
 export const recordJournalPhase = (
   phase: OperationPhase,
 ): Effect.Effect<void, never, OperationJournal> =>
-  updateOperationJournal((state) => ({ ...state, phase }));
+  Effect.gen(function* () {
+    const now = yield* Clock.currentTimeMillis;
+    yield* updateOperationJournal((state) => ({
+      ...state,
+      phase,
+      transitions: [
+        ...(state.transitions ?? []),
+        { phase, elapsedMs: Math.max(0, now - (state.startedAtMillis ?? now)) },
+      ].slice(-15),
+    }));
+  });
 
 /** Record that a unit's run began. */
 export const appendStartedUnit = (unitId: string): Effect.Effect<void, never, OperationJournal> =>

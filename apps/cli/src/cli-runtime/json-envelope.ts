@@ -3,6 +3,8 @@ import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/hu
 import * as Schema from "effect/Schema";
 
 import {
+  FailureDiagnosticSchema,
+  type FailureDiagnostic,
   FailureMetadataSchema,
   FailureProblemSchema,
   type FailureMetadata,
@@ -29,6 +31,8 @@ import {
 
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
+  diagnosticId: Schema.optional(Schema.String),
+  diagnostic: Schema.optional(FailureDiagnosticSchema),
   code: AppErrorCodeSchema,
   title: Schema.String,
   detail: Schema.String,
@@ -73,6 +77,8 @@ export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 
 export const JsonOperationFailureEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
+  diagnosticId: Schema.optional(Schema.String),
+  diagnostic: Schema.optional(FailureDiagnosticSchema),
   result: Schema.Unknown,
   summary: Schema.optional(Schema.String),
   suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
@@ -108,14 +114,42 @@ const normalizeResult = (payload: unknown): unknown => {
   return payload === undefined ? {} : payload;
 };
 
+/** Settlement records are wider than the diagnostic output contract. */
+const diagnosticFields = (diagnostic: FailureDiagnostic): FailureDiagnostic => ({
+  kind: diagnostic.kind,
+  operation: diagnostic.operation,
+  ...(diagnostic.request === undefined
+    ? {}
+    : {
+        request: {
+          service: diagnostic.request.service,
+          ...(diagnostic.request.requestId === undefined
+            ? {}
+            : { requestId: diagnostic.request.requestId }),
+          ...(diagnostic.request.status === undefined ? {} : { status: diagnostic.request.status }),
+          ...(diagnostic.request.attemptCount === undefined
+            ? {}
+            : { attemptCount: diagnostic.request.attemptCount }),
+        },
+      }),
+});
+
 export const makeJsonSuccessEnvelope = (args?: {
   readonly payload?: unknown;
   readonly ok?: boolean;
+  readonly diagnosticId?: string;
+  readonly diagnostic?: FailureDiagnostic;
   readonly summary?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
   ok: args?.ok === false ? false : true,
   result: normalizeResult(args?.payload),
+  ...(args?.ok === false && args.diagnosticId !== undefined
+    ? { diagnosticId: args.diagnosticId }
+    : {}),
+  ...(args?.ok === false && args.diagnostic !== undefined
+    ? { diagnostic: diagnosticFields(args.diagnostic) }
+    : {}),
   ...(args?.summary !== undefined ? { summary: redactRegistryText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
@@ -124,6 +158,8 @@ export const makeJsonSuccessEnvelope = (args?: {
 
 export const makeJsonErrorEnvelope = (args: {
   readonly code: AppErrorCode;
+  readonly diagnosticId?: string;
+  readonly diagnostic?: FailureDiagnostic;
   readonly title: string;
   readonly detail: string;
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
@@ -139,6 +175,8 @@ export const makeJsonErrorEnvelope = (args: {
   return {
     ok: false,
     code: args.code,
+    ...(args.diagnosticId === undefined ? {} : { diagnosticId: args.diagnosticId }),
+    ...(args.diagnostic === undefined ? {} : { diagnostic: diagnosticFields(args.diagnostic) }),
     title: redactRegistryText(args.title, { secrets }),
     detail: redactRegistryText(args.detail, { secrets }),
     ...(args.problem !== undefined ? { problem: args.problem } : {}),
@@ -178,6 +216,8 @@ export const makeJsonErrorEnvelopeFromAppError = (
     const secrets = collectSensitiveStrings(error.metadata);
     return makeJsonErrorEnvelope({
       code: error.code,
+      ...(error.diagnosticId === undefined ? {} : { diagnosticId: error.diagnosticId }),
+      ...(error.diagnostic === undefined ? {} : { diagnostic: error.diagnostic }),
       title: error.title,
       detail: error.detail,
       cause: serializeErrorCauseChain(error.cause, {

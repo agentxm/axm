@@ -1,3 +1,6 @@
+import { RegistryRequestAttempt } from "./request-attempt.js";
+import { validatedResponseRequestId } from "./request-identity.js";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -38,6 +41,24 @@ export const captureRegistryErrorResponseBodies = (
   client: HttpClient.HttpClient,
 ): HttpClient.HttpClient =>
   client.pipe(
+    HttpClient.mapRequestEffect((request) =>
+      Effect.map(Effect.serviceOption(RegistryRequestAttempt), (attempt) =>
+        Option.isNone(attempt)
+          ? request
+          : HttpClientRequest.setHeader(request, "x-request-id", attempt.value.requestId),
+      ),
+    ),
+    HttpClient.tap((response) =>
+      Effect.gen(function* () {
+        const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
+        if (Option.isNone(attempt)) return;
+        const requestId = validatedResponseRequestId(response);
+        yield* attempt.value.observeResponse({
+          status: response.status,
+          ...(requestId === undefined ? {} : { requestId }),
+        });
+      }),
+    ),
     HttpClient.transformResponse(
       Effect.flatMap((response) =>
         response.status < 200 || response.status >= 300

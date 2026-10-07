@@ -67,6 +67,9 @@ export const compile = Effect.gen(function* () {
   const packageDir = path.resolve(import.meta.dirname, "..");
   const distDir = path.join(packageDir, "dist");
   const entrypoint = path.join(distDir, "src", "main.js");
+  // Bun embeds maps for its input files. Compile TypeScript directly so the
+  // executable's map names owned sources rather than the intermediate JS.
+  const sourceEntrypoint = path.join(packageDir, "src", "main.ts");
   const request = yield* selectCompileTargets(
     process.argv.slice(2),
     process.platform,
@@ -119,10 +122,14 @@ export const compile = Effect.gen(function* () {
         [
           "build",
           "--compile",
+          "--sourcemap",
+          "--conditions=axm-source",
           `--target=${target}`,
           "--define",
           `__AXM_VERSION__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(version)}`,
-          entrypoint,
+          "--define",
+          `__AXM_BUILD_ROOT__=${Schema.encodeSync(Schema.fromJsonString(Schema.String))(path.resolve(packageDir, "../.."))}`,
+          sourceEntrypoint,
           "--outfile",
           outfile,
         ],

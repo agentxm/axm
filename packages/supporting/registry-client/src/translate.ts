@@ -1,3 +1,4 @@
+import { validatedResponseRequestId } from "./request-identity.js";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Schema from "effect/Schema";
 
@@ -316,7 +317,10 @@ export const registryErrorToProblem = (
     ...problemSuggestions(status, problem, response, ctx?.nowMillis),
     ...(ctx?.suggestions ?? []),
   ];
-  const requestId = getStringField(problem, "requestId") ?? getStringField(problem, "request_id");
+  const requestId =
+    validatedResponseRequestId(response) ??
+    getStringField(problem, "requestId") ??
+    getStringField(problem, "request_id");
 
   return new RegistryProblem({
     category,

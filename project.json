@@ -40,6 +40,7 @@
     "unused-code": {
       "executor": "nx:run-commands",
       "cache": false,
+      "dependsOn": ["cli:build:diagnostic-sources"],
       "options": {
         "command": "knip --no-progress",
         "cwd": "."

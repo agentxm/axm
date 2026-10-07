@@ -9,7 +9,7 @@ import * as Deferred from "effect/Deferred";
 import { writeSync } from "node:fs";
 
 import { processOutcome } from "./process-outcome.js";
-import { OperationExit } from "./operation-exit.js";
+import { OperationExit, type OperationSettlement } from "./operation-exit.js";
 import { recordInterruptionSignal } from "./interruption.js";
 import { interruptionFallback } from "../screen/index.js";
 
@@ -90,7 +90,7 @@ export const makeSignalShutdown = <A, E>(args: {
 export const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>) =>
   Effect.gen(function* () {
     const services = yield* Effect.context<R>();
-    const reportedExit = yield* Ref.make(Option.none<number>());
+    const reportedExit = yield* Ref.make(Option.none<OperationSettlement>());
     const signalFinalized = yield* Deferred.make<void>();
     const fiber = yield* Effect.forkChild(
       program.pipe(Effect.provideService(OperationExit, { ref: reportedExit })),
@@ -100,7 +100,9 @@ export const withGracefulShutdown = <A, E, R>(program: Effect.Effect<A, E, R>) =
     const onSignal = makeSignalShutdown({
       fiber,
       runFork,
-      reportedExitCode: Ref.get(reportedExit),
+      reportedExitCode: Ref.get(reportedExit).pipe(
+        Effect.map(Option.map((settlement) => settlement.exitCode)),
+      ),
       finalized: Deferred.succeed(signalFinalized, undefined).pipe(Effect.asVoid),
     });
     let requestedExitCode: number | undefined;

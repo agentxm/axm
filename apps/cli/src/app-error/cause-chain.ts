@@ -135,17 +135,26 @@ export const serializeErrorCauseChain = (
   if (cause === undefined || cause === null) return [];
 
   const chain: Array<SerializedErrorCause> = [];
-  let current: unknown = cause;
-  let depth = 0;
-  while (current !== undefined && current !== null && depth < MAX_CAUSE_DEPTH) {
+  const pending: Array<unknown> = [cause];
+  const seen = new WeakSet<object>();
+  while (pending.length > 0 && chain.length < MAX_CAUSE_DEPTH) {
+    const current = pending.pop();
+    if (current === undefined || current === null) continue;
+    if (typeof current === "object") {
+      if (seen.has(current)) continue;
+      seen.add(current);
+    }
+    if (Array.isArray(current)) {
+      pending.push(...current.slice(0, MAX_CAUSE_DEPTH - chain.length).reverse());
+      continue;
+    }
     chain.push(
       serializeCause(current, {
         debug: options.debug === true,
         secrets: options.secrets ?? [],
       }),
     );
-    current = nestedCause(current);
-    depth += 1;
+    pending.push(nestedCause(current));
   }
   return chain;
 };

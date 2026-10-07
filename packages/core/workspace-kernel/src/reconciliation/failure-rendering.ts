@@ -1,3 +1,4 @@
+import { registryFailureDiagnostic } from "./failure-diagnostic.js";
 /**
  * The kernel failure rendering: every typed failure the workspace kernel
  * constructs or carries renders into the one `StepFailure` a plan step settles
@@ -350,7 +351,7 @@ const writeBackupRetainedFailure = (
   error: WriteBackupRetained,
   rendering: KernelFailureRendering,
 ): StepFailure => {
-  const inner = renderKernelFailure(error.failure, rendering);
+  const inner = renderKernelFailure(error.cause, rendering);
   return makeStepFailure({
     category: inner.category,
     title: inner.title,
@@ -368,7 +369,7 @@ const writeBackupRetainedFailure = (
  * Render one kernel failure within a composer's rendering. A `StepFailure` is
  * already rendered and passes through unchanged.
  */
-export const renderKernelFailure = (
+const renderKernelFailureDetails = (
   failure: KernelFailure,
   rendering: KernelFailureRendering,
 ): StepFailure => {
@@ -542,3 +543,36 @@ export const kernelFailureDetail = (failure: unknown): string | undefined =>
  */
 export const kernelFailureToStepFailure = (failure: KernelFailure): StepFailure =>
   renderKernelFailure(failure, { detailOf: kernelFailureDetail });
+
+/** Keep the known producer identity on every serialized and direct rendering. */
+export const renderKernelFailure = (
+  failure: KernelFailure,
+  rendering: KernelFailureRendering,
+): StepFailure => {
+  const rendered = renderKernelFailureDetails(failure, rendering);
+  if (rendered.diagnostic !== undefined)
+    return failure instanceof StepFailure
+      ? rendered
+      : new StepFailure({ ...rendered, cause: failure });
+  const registry =
+    failure instanceof RegistryProblem ||
+    failure instanceof RegistryRequestFailed ||
+    failure instanceof RegistryOperationFailed
+      ? registryFailureDiagnostic(failure)
+      : undefined;
+  const producer = kernelFailureClasses().find((constructor) => failure instanceof constructor);
+  const kind =
+    producer === undefined
+      ? "extension.kind-failure"
+      : "_tag" in failure && typeof failure._tag === "string"
+        ? failure._tag.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase()
+        : "diagnostic.unclassified";
+  return new StepFailure({
+    ...rendered,
+    cause: failure instanceof StepFailure ? failure.cause : failure,
+    diagnostic: registry ?? {
+      kind: failure instanceof StepFailure ? "diagnostic.unclassified" : kind,
+      operation: "workspace.operation",
+    },
+  });
+};

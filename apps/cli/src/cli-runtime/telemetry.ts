@@ -1,6 +1,9 @@
+import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
+import type { TelemetryFailureReport } from "../telemetry/payloads.js";
+import { prepareTerminalFailure } from "./terminal-diagnostics.js";
 import type { InstalledSkill } from "@agentxm/workspace-features/lifecycle";
 import { randomUUID } from "node:crypto";
-import type * as Cause from "effect/Cause";
+import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -182,7 +185,12 @@ export const readGlobalFlagProperties = Effect.gen(function* () {
 // ---------------------------------------------------------------------------
 
 /** The failure a command settled with, as telemetry reports it. */
-export interface CommandSettlementFailure {
+export interface CommandSettlementFailure extends FailureDiagnostic {
+  readonly counts?: NonNullable<TelemetryFailureReport["counts"]>;
+  readonly related?: NonNullable<TelemetryFailureReport["related"]>;
+  readonly relatedOmitted?: number;
+  readonly history?: NonNullable<TelemetryFailureReport["history"]>;
+  readonly frames?: NonNullable<TelemetryFailureReport["frames"]>;
   readonly code: AppErrorCode;
   /** Where in the invocation the command settled with the failure. */
   readonly phase: Exclude<TelemetryFailurePhase, "bootstrap">;
@@ -215,23 +223,25 @@ export const recordCommandSettlement = (
   settlement: CommandSettlement,
 ): Effect.Effect<void, never, TelemetryClient> =>
   Effect.gen(function* () {
-    const telemetry = yield* TelemetryClient;
     const failure = settlement.failure;
     if (failure !== undefined) {
       const productActivity = yield* currentProductActivity;
-      yield* telemetry
-        .reportError({
-          phase: failure.phase,
-          kind: failure.kind,
-          category: failure.code,
-          errorClass: errorClassForAppErrorCode(failure.code),
-          handled: failure.handled,
-          ...(settlement.command === undefined ? {} : { command: settlement.command }),
-          ...(Option.isSome(productActivity)
-            ? { activityId: productActivity.value.activityId }
-            : {}),
-        })
-        .pipe(Effect.catchCause(() => Effect.void));
+      yield* reportWithDiagnosticIdentity({
+        phase: failure.phase,
+        kind: failure.kind,
+        operation: failure.operation,
+        ...(failure.request === undefined ? {} : { request: failure.request }),
+        ...(failure.counts === undefined ? {} : { counts: failure.counts }),
+        ...(failure.related === undefined ? {} : { related: failure.related }),
+        ...(failure.relatedOmitted === undefined ? {} : { relatedOmitted: failure.relatedOmitted }),
+        ...(failure.history === undefined ? {} : { history: failure.history }),
+        ...(failure.frames === undefined ? {} : { frames: failure.frames }),
+        category: failure.code,
+        errorClass: errorClassForAppErrorCode(failure.code),
+        handled: failure.handled,
+        ...(settlement.command === undefined ? {} : { command: settlement.command }),
+        ...(Option.isSome(productActivity) ? { activityId: productActivity.value.activityId } : {}),
+      }).pipe(Effect.catchCause(() => Effect.void));
     }
     yield* trackCliCommandCompleted({
       command: settlement.command ?? "unknown",
@@ -252,15 +262,19 @@ const reportTerminalFailure = <E>(
   Effect.gen(function* () {
     const failure = processTerminalFailure(cause, settledIn.phase);
     if (Option.isNone(failure)) return;
-    const telemetry = yield* TelemetryClient;
-    yield* telemetry.reportError({
-      phase: failure.value.phase,
-      kind: failure.value.kind,
-      category: failure.value.code,
-      errorClass: errorClassForAppErrorCode(failure.value.code),
-      handled: failure.value.handled,
-      ...(settledIn.phase === "command" ? { command: settledIn.command } : {}),
-    });
+    yield* reportWithDiagnosticIdentity(
+      {
+        phase: failure.value.phase,
+        kind: failure.value.kind,
+        operation: failure.value.operation,
+        ...(failure.value.request === undefined ? {} : { request: failure.value.request }),
+        category: failure.value.code,
+        errorClass: errorClassForAppErrorCode(failure.value.code),
+        handled: failure.value.handled,
+        ...(settledIn.phase === "command" ? { command: settledIn.command } : {}),
+      },
+      Cause.squash(cause),
+    );
   }).pipe(Effect.catchCause(() => Effect.void));
 
 /**
@@ -435,3 +449,21 @@ export const recordSkillInstalls = (skills: ReadonlyArray<InstalledSkill>): Effe
       Option.isSome(activity) ? activity.value.activityId : undefined,
     );
   }).pipe(Effect.catchCause(() => Effect.void));
+
+const reportWithDiagnosticIdentity = (
+  failure: TelemetryFailureReport,
+  cause?: unknown,
+): Effect.Effect<void, never, TelemetryClient> =>
+  Effect.gen(function* () {
+    const record = yield* prepareTerminalFailure(failure, cause);
+    const telemetry = yield* TelemetryClient;
+    yield* telemetry.reportError(
+      Option.isSome(record)
+        ? {
+            ...record.value.failure,
+            eventId: record.value.eventId,
+            occurredAt: record.value.occurredAt,
+          }
+        : failure,
+    );
+  });

@@ -139,7 +139,7 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
       // The flow assigns auth semantics to a token-exchange transport
       // failure: its own sentence and recoveries over the transport's
       // evidence and cause.
-      const transport = resolutionFailureToStepFailure(error.failure);
+      const transport = resolutionFailureToStepFailure(error.cause);
       return makeStepFailure({
         category: "auth",
         detail: error.detail,

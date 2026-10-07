@@ -7,13 +7,14 @@
   "tags": ["type:app", "role:application", "scope:cli", "release:cli"],
   "targets": {
     "build": {
-      "dependsOn": ["...", "generate"],
+      "dependsOn": ["...", "generate", "build:diagnostic-sources"],
       "executor": "@nx/js:tsc",
       "inputs": [
         "...",
         "{projectRoot}/help/topics/*.md",
         "{workspaceRoot}/skills/axm/skill.json",
-        "{workspaceRoot}/skills/axm/src/**/*"
+        "{workspaceRoot}/skills/axm/src/**/*",
+        { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }
       ],
       "outputs": ["{projectRoot}/dist/src"],
       "options": {
@@ -27,6 +28,7 @@
     },
     "watch": {
       "cache": false,
+      "dependsOn": ["build:diagnostic-sources"],
       "executor": "@nx/js:tsc",
       "outputs": ["{projectRoot}/dist/src"],
       "options": {
@@ -40,7 +42,16 @@
       }
     },
     "lint": {
-      "dependsOn": ["generate"]
+      "dependsOn": ["generate", "build:diagnostic-sources"],
+      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
+    },
+    "test": {
+      "dependsOn": ["...", "build:diagnostic-sources"],
+      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
+    },
+    "typecheck": {
+      "dependsOn": ["...", "build:diagnostic-sources"],
+      "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
     },
     "generate": {
       "executor": "nx:noop",
@@ -76,7 +87,8 @@
             "semver",
             "typescript",
             "vitest",
-            "yaml"
+            "yaml",
+            "prettier"
           ]
         }
       ],
@@ -151,8 +163,12 @@
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
-        { "dependentTasksOutputFiles": "**/*.schema.json" },
-        { "dependentTasksOutputFiles": "**/help/topics/*.md" },
+        {
+          "dependentTasksOutputFiles": "**/*.schema.json"
+        },
+        {
+          "dependentTasksOutputFiles": "**/help/topics/*.md"
+        },
         "{workspaceRoot}/.prettierrc.json",
         "toolchain",
         {
@@ -497,6 +513,29 @@
       "outputs": ["{projectRoot}/dist/bin/axm-windows-x64.exe"],
       "options": {
         "command": "bun scripts/compile.ts --target=bun-windows-x64",
+        "cwd": "apps/cli"
+      }
+    },
+    "build:diagnostic-sources": {
+      "cache": true,
+      "inputs": [
+        "production",
+        "^production",
+        "!{projectRoot}/src/__generated__/diagnostic-sources.ts",
+        "{projectRoot}/scripts/generate-diagnostic-sources.ts",
+        "{workspaceRoot}/packages/**/src/**/*",
+        "{workspaceRoot}/packages/**/package.json",
+        "{projectRoot}/package.json",
+        "{workspaceRoot}/.prettierrc.json",
+        "toolchain",
+        {
+          "externalDependencies": ["effect", "@effect/platform-node", "prettier"]
+        }
+      ],
+      "outputs": ["{projectRoot}/src/__generated__/diagnostic-sources.ts"],
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/generate-diagnostic-sources.ts",
         "cwd": "apps/cli"
       }
     }

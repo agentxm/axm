@@ -678,6 +678,73 @@
       "relatedRequirements": ["cli/cache/verify/removes-only-corrupt-archives"],
       "parameterBindings": []
     },
+    "diagnostics": {
+      "flags": [],
+      "arguments": [],
+      "relatedRequirements": ["cli/command-help-is-complete"],
+      "parameterBindings": []
+    },
+    "diagnostics show": {
+      "flags": [],
+      "arguments": [
+        {
+          "name": "id",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "system/reliability/failure-diagnostics-can-be-reviewed-and-exported"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:id"],
+          "requirements": ["system/reliability/failure-diagnostics-can-be-reviewed-and-exported"]
+        }
+      ]
+    },
+    "diagnostics export": {
+      "flags": [
+        {
+          "name": "review-sha256",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        },
+        {
+          "name": "output",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": true
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "id",
+          "rawHelp": {
+            "type": "string",
+            "required": true,
+            "variadic": false
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "system/reliability/failure-diagnostics-can-be-reviewed-and-exported"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["argument:id", "flag:review-sha256", "flag:output"],
+          "requirements": ["system/reliability/failure-diagnostics-can-be-reviewed-and-exported"]
+        }
+      ]
+    },
     "demote": {
       "flags": [
         {

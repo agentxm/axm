@@ -22,6 +22,10 @@ export const isPublishFamilyFailure = (failure: unknown): failure is PublishFami
 export const publishFailureToStepFailure = (error: PublishFamilyFailure): StepFailure =>
   makeStepFailure({
     category: error.category,
+    diagnostic: error.diagnostic ?? {
+      kind: "publish.policy-refusal",
+      operation: "publish.prepare",
+    },
     detail: error.detail,
     recover: error.recover,
     cmd: error.cmd,

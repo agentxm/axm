@@ -89,7 +89,7 @@ export class SubagentIoFailed extends Data.TaggedError("SubagentIoFailed")<{
  */
 export class WriteBackupRetained extends Data.TaggedError("WriteBackupRetained")<{
   readonly backupPath: string;
-  readonly failure: NativeFormatFailure;
+  readonly cause: NativeFormatFailure;
 }> {}
 
 /** Every typed failure the native-format readers, writers, and editors construct. */

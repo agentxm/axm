@@ -1,3 +1,4 @@
+import { RegistryFailureObservation } from "./failure-observation.js";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -25,16 +26,7 @@ import {
   type RegistryRequestMetadata,
 } from "./errors.js";
 import { registryRetryAfterSeconds } from "./retry-after.js";
-
-/**
- * The attempt in flight, provided to the attempted effect so work inside a
- * retried request can report which attempt produced its measurements. Absent
- * outside a policy-governed request.
- */
-export class RegistryRequestAttempt extends ServiceMap.Service<
-  RegistryRequestAttempt,
-  { readonly n: number; readonly of: number }
->()("@agentxm/registry-client/request-policy/RegistryRequestAttempt") {}
+import { RegistryRequestAttempt } from "./request-attempt.js";
 
 export interface RegistryRequestPolicy {
   readonly requestTimeout: Duration.Input;
@@ -259,6 +251,7 @@ const withRequestPolicyMetadata = (
     readonly maxAttempts: number;
     readonly retryable: boolean;
     readonly deadlineExpired: boolean;
+    readonly response?: { readonly status: number; readonly requestId?: string };
   },
 ): RegistryClientFailure => {
   const replaySafe = isReplaySafe(args.replaySafety);
@@ -271,7 +264,10 @@ const withRequestPolicyMetadata = (
   });
   const metadata: RegistryErrorMetadata = {
     ...error.metadata,
-    request: error.metadata?.request ?? args.request,
+    request: { ...args.request, ...error.metadata?.request },
+    ...((error.metadata?.response ?? args.response) === undefined
+      ? {}
+      : { response: error.metadata?.response ?? args.response }),
     requestPolicy: {
       retryable: args.retryable,
       attemptCount: args.attemptCount,
@@ -293,6 +289,7 @@ const withRequestPolicyMetadata = (
       });
     case "RegistryRequestFailed":
       return new RegistryRequestFailed({
+        ...(error.reason === undefined ? {} : { reason: error.reason }),
         category: error.category,
         detail: error.detail,
         metadata,
@@ -330,6 +327,10 @@ export const executeRegistryRequest = <A, E, R>(
   const attemptLimit = replaySafe ? maxAttempts : 1;
   return Effect.gen(function* () {
     const attempts = yield* Ref.make(0);
+    const lastRequestId = yield* Ref.make(Option.none<string>());
+    const lastResponse = yield* Ref.make(
+      Option.none<{ readonly status: number; readonly requestId?: string }>(),
+    );
     const waiting = yield* Ref.make(false);
     const budget = yield* Effect.serviceOption(OperationRequestBudget);
     const attempt = Option.match(budget, {
@@ -355,11 +356,18 @@ export const executeRegistryRequest = <A, E, R>(
     );
     const countedAttempt = Ref.updateAndGet(attempts, (count) => count + 1).pipe(
       Effect.flatMap((n) =>
-        endRetryWait.pipe(
-          Effect.andThen(
-            Effect.provideService(attempt, RegistryRequestAttempt, { n, of: attemptLimit }),
-          ),
-        ),
+        Effect.gen(function* () {
+          const requestId = globalThis.crypto.randomUUID();
+          yield* Ref.set(lastRequestId, Option.some(requestId));
+          yield* Ref.set(lastResponse, Option.none());
+          yield* endRetryWait;
+          return yield* Effect.provideService(attempt, RegistryRequestAttempt, {
+            n,
+            of: attemptLimit,
+            requestId,
+            observeResponse: (response) => Ref.set(lastResponse, Option.some(response)),
+          });
+        }),
       ),
     );
     const onRetryWaiting =
@@ -393,27 +401,41 @@ export const executeRegistryRequest = <A, E, R>(
           ),
           Effect.flatMap((attemptCount) =>
             Clock.currentTimeMillis.pipe(
-              Effect.flatMap((nowMillis) => {
-                const deadlineExpired = Cause.isTimeoutError(error);
-                const mapped = deadlineExpired
-                  ? new RegistryRequestFailed({
-                      category: "timeout",
-                      detail: "Registry request did not complete within the configured deadline.",
-                      metadata: { request: args.request },
-                      cause: error,
-                    })
-                  : args.mapError(error, nowMillis);
-                return Effect.fail(
-                  withRequestPolicyMetadata(mapped, {
-                    request: args.request,
+              Effect.flatMap((nowMillis) =>
+                Effect.gen(function* () {
+                  const requestId = Option.getOrUndefined(yield* Ref.get(lastRequestId));
+                  const response = Option.getOrUndefined(yield* Ref.get(lastResponse));
+                  const request = {
+                    ...args.request,
+                    ...(requestId === undefined ? {} : { requestId }),
+                  };
+                  const deadlineExpired = Cause.isTimeoutError(error);
+                  const mapped = deadlineExpired
+                    ? new RegistryRequestFailed({
+                        reason: "deadline",
+                        category: "timeout",
+                        detail: "Registry request did not complete within the configured deadline.",
+                        metadata: { request },
+                        cause: error,
+                      })
+                    : args.mapError(error, nowMillis);
+                  const finalFailure = withRequestPolicyMetadata(mapped, {
+                    request,
                     replaySafety: args.replaySafety,
                     attemptCount,
                     maxAttempts,
                     retryable: deadlineExpired || isRetryableRegistryError(error),
                     deadlineExpired,
-                  }),
-                );
-              }),
+                    ...(response === undefined ? {} : { response }),
+                  });
+                  const observer = yield* Effect.serviceOption(RegistryFailureObservation);
+                  if (Option.isSome(observer))
+                    yield* observer.value
+                      .failed(finalFailure)
+                      .pipe(Effect.catchCause(() => Effect.void));
+                  return yield* Effect.fail(finalFailure);
+                }),
+              ),
             ),
           ),
         ),

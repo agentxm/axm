@@ -2,7 +2,7 @@
 import * as Effect from "effect/Effect";
 
 import { handleError } from "./handle-error.js";
-import { isProcessOutcome } from "./process-outcome.js";
+import { isProcessOutcome, isProcessFailure } from "./process-outcome.js";
 import { withGracefulShutdown } from "./graceful-shutdown.js";
 import { resolveFormatFromArgv } from "./resolve-format.js";
 
@@ -24,6 +24,15 @@ export const runCliMain = async (
   } catch (error) {
     // eslint-disable-next-line no-restricted-syntax -- runCliMain is the sanctioned CLI process-entry adapter.
     await Effect.runPromise(handleError(error, format));
+  }
+  if (isProcessFailure(outcome)) {
+    // eslint-disable-next-line no-restricted-syntax -- The process adapter renders after invocation finalizers drain.
+    await Effect.runPromise(
+      handleError(outcome.error, format, {
+        ...(outcome.diagnosticId === undefined ? {} : { diagnosticId: outcome.diagnosticId }),
+        ...(outcome.diagnostic === undefined ? {} : { diagnostic: outcome.diagnostic }),
+      }),
+    );
   }
   if (isProcessOutcome(outcome) && outcome.exitCode !== 0) {
     process.exit(outcome.exitCode);

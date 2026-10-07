@@ -1,5 +1,10 @@
 # Machine output
 
+Failure documents carry `diagnosticId` and a bounded `diagnostic` identity when
+available. The ID identifies the same local record as human output and any
+consent-controlled remote report. See `axm help diagnostics` to review or export
+the local evidence.
+
 Pass `--json` to receive one complete machine-readable document on stdout.
 Warnings, errors, suggestions, and lifecycle progress use one JSON object per
 line (NDJSON) on stderr. Human text never shares the machine stdout channel.

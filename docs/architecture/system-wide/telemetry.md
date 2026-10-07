@@ -38,8 +38,8 @@ Telemetry does not:
 - provide an authoritative audit or operational record;
 - collect extension content, authored instructions or Knowledge, credentials,
   secrets, or resolved secret values;
-- collect error messages, stack traces or stack frames, command arguments,
-  local file paths, or environment values; or
+- collect error messages, raw stack traces, command arguments, absolute or
+  user-selected file paths, source excerpts, or environment values; or
 - control or describe Registry request logging, retention, or service
   analytics.
 
@@ -80,11 +80,48 @@ A failure report carries only:
 - client facts: the AXM client name and version, runtime and runtime version,
   platform, architecture, finite caller agent identity, and whether it runs in CI; and
 - correlation identities: the invocation and event identities, plus the
-  installation and product activity identities when they exist.
+  installation and product activity identities when they exist;
+- code-owned operation identity, measured request correlation and retry evidence,
+  and bounded batch counts that distinguish confirmed, failed, blocked,
+  unattempted and unknown work;
+- bounded operation history without unit labels, paths or extension names; and
+- AXM-owned source locations only when the client can verify them against its
+  build, without function text, source excerpts, variables or absolute paths.
 
-A failure AXM cannot map to an enumerated kind is reported as unknown rather
-than described. Because no stack frames are collected, a report identifies what
-kind of failure ended an invocation, not where in the code it arose.
+A failure AXM cannot map to an enumerated kind has an explicitly unclassified
+diagnostic identity. Missing evidence remains absent. Neither an exit code nor
+a failed upload establishes an underlying mechanism or proves that the Registry
+did not commit. Request IDs correlate requests; they are not authorization,
+idempotency keys or proof of a distributed trace.
+
+Expected failures group by canonical command, operation and failure kind.
+Located defects retain native provider stack grouping. Per-invocation IDs,
+request IDs and releases do not split issue fingerprints.
+
+Source attribution belongs to the reporting artifact. Node library output embeds
+source maps without source contents. Bun compiles the owned TypeScript entries
+using the workspace's source export condition and embeds its source maps, so
+binary stacks name original sources rather than intermediate JavaScript.
+The collector admits locations only inside the installed package roots or the
+compiled artifact's build roots and the generated catalog of owned production
+source files. It emits public module names and relative source locations; unknown
+locations and diagnostic collection failures are omitted. Artifact verification
+exercises an actual CLI failure under Node and the compiled binary, rather than
+inferring attribution from development stacks.
+
+## Local diagnostics
+
+The process creates one terminal diagnostic identity before rendering, independently
+of remote consent. Human output, JSON, local evidence and any remote report use
+that identity. Remote transport and local storage can fail independently without
+changing the command outcome; an exposed ID does not promise either persistence
+or provider ingestion.
+
+Original redacted messages and stacks belong to bounded restricted local records.
+They do not become telemetry fields. A separate support invocation lets the
+operator review a retained record and export exactly the reviewed content to a
+new local file, with no upload. The [diagnostics help topic](../../../apps/cli/help/topics/diagnostics.md)
+owns the user-facing retention and review procedure.
 
 ## Skill installation observations
 

@@ -39,6 +39,7 @@ OPERATION_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
 export const stepFailureToAppError = (failure: StepFailure): AppError =>
   makeAppError({
     code: failure.category,
+    ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
     ...(failure.title === undefined ? {} : { title: failure.title }),
     detail: failure.detail,
     ...(failure.problem === undefined ? {} : { problem: failure.problem }),
@@ -49,7 +50,7 @@ export const stepFailureToAppError = (failure: StepFailure): AppError =>
     ...(failure.action === undefined ? {} : { action: failure.action }),
     ...(failure.inputs === undefined ? {} : { inputs: failure.inputs }),
     ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
-    ...(failure.cause === undefined ? {} : { cause: failure.cause }),
+    cause: failure.cause ?? failure,
   });
 
 /**

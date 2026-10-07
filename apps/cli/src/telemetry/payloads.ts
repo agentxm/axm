@@ -6,6 +6,7 @@
  */
 import * as Option from "effect/Option";
 
+import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
 import type { AppErrorCode } from "../app-error/index.js";
 import { logEvent } from "../screen/machine-events.js";
 import type * as GeneratedTelemetryClient from "./__generated__/telemetry-client.js";
@@ -17,7 +18,16 @@ type TelemetryErrorClass = GeneratedTelemetryClient.TelemetryErrorReport["failur
 export type TelemetryPreviewFormat = "text" | "json";
 
 /** One terminal failure, already reduced to its allowlisted diagnostic identity. */
-export interface TelemetryFailureReport {
+type WireFailure = GeneratedTelemetryClient.TelemetryErrorReport["failure"];
+
+export interface TelemetryFailureReport extends FailureDiagnostic {
+  readonly eventId?: string;
+  readonly occurredAt?: string;
+  readonly counts?: NonNullable<WireFailure["counts"]>;
+  readonly related?: ReadonlyArray<FailureDiagnostic & { readonly count: number }>;
+  readonly relatedOmitted?: number;
+  readonly history?: NonNullable<WireFailure["history"]>;
+  readonly frames?: NonNullable<WireFailure["frames"]>;
   readonly phase: TelemetryFailurePhase;
   /** Stable identifier from the caller's enumerated failure set. */
   readonly kind: string;
@@ -105,6 +115,22 @@ export const buildErrorReport = (input: {
     phase: failure.phase,
     failure: {
       kind: failure.kind,
+      operation: failure.operation,
+      ...(failure.request === undefined ? {} : { request: wireRequest(failure.request) }),
+      ...(failure.counts === undefined ? {} : { counts: failure.counts }),
+      ...(failure.related === undefined
+        ? {}
+        : {
+            related: failure.related.map((entry) => ({
+              kind: entry.kind,
+              operation: entry.operation,
+              count: entry.count,
+              ...(entry.request === undefined ? {} : { request: wireRequest(entry.request) }),
+            })),
+          }),
+      ...(failure.relatedOmitted === undefined ? {} : { relatedOmitted: failure.relatedOmitted }),
+      ...(failure.history === undefined ? {} : { history: failure.history }),
+      ...(failure.frames === undefined ? {} : { frames: failure.frames }),
       category: failure.category,
       class: failure.errorClass,
       handled: failure.handled,
@@ -147,3 +173,12 @@ export const previewLine = (
   const message = `telemetry preview ${route} ${JSON.stringify(encoded)}`;
   return format === "json" ? JSON.stringify(logEvent("info", message)) : message;
 };
+
+const wireRequest = (
+  request: NonNullable<FailureDiagnostic["request"]>,
+): GeneratedTelemetryClient.TelemetryFailureRequest => ({
+  service: request.service,
+  ...(request.requestId === undefined ? {} : { requestId: request.requestId }),
+  ...(request.status === undefined ? {} : { status: request.status }),
+  ...(request.attemptCount === undefined ? {} : { attemptCount: request.attemptCount }),
+});

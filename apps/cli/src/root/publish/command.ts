@@ -11,7 +11,6 @@ import { acceptWarningsFlag } from "../../cli-flags/index.js";
 import {
   processOutcome,
   recordCommandCompletion,
-  setOperationExitCode,
   withArgvTracking,
 } from "../../cli-runtime/index.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -230,10 +229,12 @@ const reportPublishOutcome = Effect.fn("Publish.report")(function* (
       exitCode,
       elapsedMs: (yield* Clock.currentTimeMillis) - startedAtMs,
       suggestions,
+      ...(outcome.disposition._tag === "Failed"
+        ? { originalFailure: outcome.disposition.failure }
+        : {}),
     },
   );
   if (outcome.disposition._tag === "Interrupted") {
-    yield* setOperationExitCode(exitCode);
     yield* recordCommandCompletion(exitCode);
     return yield* Effect.interrupt;
   }

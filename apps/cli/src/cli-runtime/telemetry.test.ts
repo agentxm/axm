@@ -81,7 +81,13 @@ describe("cli telemetry helpers", () => {
         command: "setup",
         result: "error",
         durationMs: 42,
-        failure: { code: "not_found", phase: "command", kind: "not_found", handled: true },
+        failure: {
+          code: "not_found",
+          phase: "command",
+          kind: "not_found",
+          operation: "runtime.command",
+          handled: true,
+        },
         semanticProperties: { "cli.outcome": "failed" },
       }).pipe(Effect.provide(layer));
 
@@ -89,6 +95,7 @@ describe("cli telemetry helpers", () => {
         {
           phase: "command",
           kind: "not_found",
+          operation: "runtime.command",
           category: "not_found",
           errorClass: "user",
           handled: true,
@@ -119,13 +126,20 @@ describe("cli telemetry helpers", () => {
         command: "skills list",
         result: "defect",
         durationMs: 7,
-        failure: { code: "internal", phase: "output", kind: "defect.type-error", handled: false },
+        failure: {
+          code: "internal",
+          phase: "output",
+          kind: "defect.type-error",
+          operation: "runtime.command",
+          handled: false,
+        },
       }).pipe(Effect.provide(layer));
 
       expect(capture.errors).toEqual([
         {
           phase: "output",
           kind: "defect.type-error",
+          operation: "runtime.command",
           category: "internal",
           errorClass: "internal",
           handled: false,
@@ -147,7 +161,13 @@ describe("cli telemetry helpers", () => {
         yield* recordCommandSettlement({
           result: "error",
           durationMs: 3,
-          failure: { code: "network", phase: "command", kind: "network", handled: true },
+          failure: {
+            code: "network",
+            phase: "command",
+            kind: "network",
+            operation: "runtime.command",
+            handled: true,
+          },
         });
       }).pipe(Effect.provide(Layer.mergeAll(captureLayer, ProductActivityLive)));
 
@@ -157,6 +177,7 @@ describe("cli telemetry helpers", () => {
         {
           phase: "command",
           kind: "network",
+          operation: "runtime.command",
           category: "network",
           errorClass: "external",
           handled: true,
@@ -199,7 +220,13 @@ describe("cli telemetry helpers", () => {
         command: "setup",
         result: "error",
         durationMs: 1,
-        failure: { code: "network", phase: "command", kind: "network", handled: true },
+        failure: {
+          code: "network",
+          phase: "command",
+          kind: "network",
+          operation: "runtime.command",
+          handled: true,
+        },
       }).pipe(Effect.provide(layer));
     }),
   );
@@ -222,6 +249,7 @@ describe("process failure reporting", () => {
         {
           phase: "bootstrap",
           kind: "usage",
+          operation: "runtime.command",
           category: "usage",
           errorClass: "user",
           handled: true,
@@ -240,6 +268,7 @@ describe("process failure reporting", () => {
         {
           phase: "output",
           kind: "output-write-failed",
+          operation: "runtime.output",
           category: "internal",
           errorClass: "internal",
           handled: true,
@@ -255,6 +284,7 @@ describe("process failure reporting", () => {
         {
           phase: "bootstrap",
           kind: "defect.type-error",
+          operation: "runtime.command",
           category: "internal",
           errorClass: "internal",
           handled: false,
@@ -301,7 +331,13 @@ describe("process-owned telemetry", () => {
       expect(capture.requests.map(({ body }) => body)).toEqual([
         expect.objectContaining({
           phase: "bootstrap",
-          failure: { kind: "usage", category: "usage", class: "user", handled: true },
+          failure: {
+            kind: "usage",
+            operation: "runtime.command",
+            category: "usage",
+            class: "user",
+            handled: true,
+          },
         }),
       ]);
     }),

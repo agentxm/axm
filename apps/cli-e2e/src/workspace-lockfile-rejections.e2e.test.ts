@@ -1,3 +1,4 @@
+import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-home-snapshot.js";
 /** Process-boundary evidence for workspace lockfile rejection contracts. */
 
 import * as fs from "node:fs";
@@ -110,7 +111,7 @@ describe("workspace lockfile rejection diagnostics", () => {
       await setupScope("user", workspace.path, env);
       const lockPath = path.join(userHome.path, ".axm", "workspace", "axm-lock.yaml");
       fs.writeFileSync(lockPath, "lockfileVersion: 12\nskills: {}\n");
-      const before = snapshotTree(userHome.path);
+      const before = snapshotHomeWithoutFailureRecords(userHome.path);
 
       for (const args of [
         ["list", "--scope", "user", "--json"],
@@ -133,7 +134,7 @@ describe("workspace lockfile rejection diagnostics", () => {
         expect(JSON.stringify(document)).not.toMatch(/--scope user|setup|restore|remove/i);
         expectMachineStream(result.stderr);
       }
-      expect(snapshotTree(userHome.path)).toEqual(before);
+      expect(snapshotHomeWithoutFailureRecords(userHome.path)).toEqual(before);
     } finally {
       workspace.cleanup();
       userHome.cleanup();
@@ -148,7 +149,7 @@ describe("workspace lockfile rejection diagnostics", () => {
       await setupScope("user", workspace.path, env);
       const lockPath = path.join(userHome.path, ".axm", "workspace", "axm-lock.yaml");
       fs.writeFileSync(lockPath, "lockfileVersion: 9\nskills: {}\n");
-      const before = snapshotTree(userHome.path);
+      const before = snapshotHomeWithoutFailureRecords(userHome.path);
 
       const result = await runCli(["list", "--scope", "user", "--json"], {
         cwd: workspace.path,
@@ -163,7 +164,7 @@ describe("workspace lockfile rejection diagnostics", () => {
           suggestion.cmd === undefined ? [] : [suggestion.cmd],
         ),
       ).toEqual(["axm sync --preview --scope user", "axm sync --scope user"]);
-      expect(snapshotTree(userHome.path)).toEqual(before);
+      expect(snapshotHomeWithoutFailureRecords(userHome.path)).toEqual(before);
       expectMachineStream(result.stderr);
     } finally {
       workspace.cleanup();

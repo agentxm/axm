@@ -11,7 +11,7 @@ import { SourceNotResolvable } from "@agentxm/workspace-kernel/sources";
 
 /** Parse the NDJSON stderr lines a classification would write, in order. */
 const stderrEvents = (lines: ReadonlyArray<string> | undefined): ReadonlyArray<unknown> =>
-  (lines ?? []).map((line) => JSON.parse(line) as unknown);
+  (lines ?? []).map((line): unknown => JSON.parse(line));
 
 // ---------------------------------------------------------------------------
 // classifyError — pure classification tests
@@ -303,7 +303,7 @@ describe("handleError — integration", () => {
 });
 
 describe("classifyError — extension-sources typed failures", () => {
-  it("produces the same JSON envelope as the former AppError construction", () => {
+  it("preserves the producer diagnostic and cause in its JSON envelope", () => {
     const typed = classifyError(
       new SourceNotResolvable({
         category: "not_found",
@@ -312,17 +312,19 @@ describe("classifyError — extension-sources typed failures", () => {
       }),
       "json",
     );
-    const former = classifyError(
-      makeAppError({
-        code: "not_found",
-        detail: "No skills matched the given pattern",
-        suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
-      }),
-      "json",
-    );
-
-    expect(typed.exitCode).toBe(former.exitCode);
-    expect(typed.stdout).toBe(former.stdout);
-    expect(typed.stderr).toEqual(former.stderr);
+    expect(typed.exitCode).toBe(ExitCode.NotFound);
+    const document: unknown = JSON.parse(typed.stdout ?? "null");
+    expect(document).toMatchObject({
+      ok: false,
+      code: "not_found",
+      detail: "No skills matched the given pattern",
+      diagnostic: { kind: "source-not-resolvable", operation: "workspace.operation" },
+      suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
+      cause: [{ _tag: "SourceNotResolvable", message: "No skills matched the given pattern" }],
+    });
+    expect(stderrEvents(typed.stderr)).toEqual([
+      { type: "suggestion", description: "Inspect installed skills.", cmd: "axm skills list" },
+      { type: "error", code: "not_found", message: "No skills matched the given pattern" },
+    ]);
   });
 });

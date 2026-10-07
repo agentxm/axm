@@ -75,6 +75,7 @@ describe("publishCause", () => {
     // The sentence is the kernel's, the same one a command boundary prints.
     expect(publishCause(failure)).toEqual({
       code: "unavailable",
+      diagnostic: { kind: "config-error", operation: "workspace.operation" },
       class: "external",
       message: "AXM configuration could not be loaded.",
       retryable: false,

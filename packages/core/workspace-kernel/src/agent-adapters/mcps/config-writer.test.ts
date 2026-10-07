@@ -824,7 +824,7 @@ describe("agent MCP config writer", () => {
 
         expect(Result.isFailure(result)).toBe(true);
         if (Result.isFailure(result) && result.failure._tag === "WriteBackupRetained") {
-          const inner = result.failure.failure;
+          const inner = result.failure.cause;
           expect(inner._tag === "McpConfigIoFailed" && inner.detail).toContain(
             `Failed to write MCP config: ${configPath}`,
           );

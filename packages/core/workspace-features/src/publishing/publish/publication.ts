@@ -1,3 +1,4 @@
+import { inFailureOperation } from "@agentxm/workspace-kernel/operations";
 /**
  * The publication set: the exact set of versions one invocation asks a
  * Registry to admit, the authoritative preview that admits or blocks it, and
@@ -274,7 +275,7 @@ export const previewPublishCandidates = Effect.fn("Publish.previewCandidates")(f
   );
 
   return { candidates: prepared, publicationSet, preview };
-});
+}, inFailureOperation("publish.preflight"));
 
 /** A settled upload, or the evidence that its outcome could not be proven. */
 export type PublishedCandidate =
@@ -384,4 +385,4 @@ export const publishCandidate: (
       warnings: response?.warnings ?? [],
       settlement: settlement.settlement,
     } satisfies PublishedCandidate;
-  });
+  }).pipe(inFailureOperation("publish.upload"));

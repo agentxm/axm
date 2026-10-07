@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Telemetry Ingest API",
-    "version": "0.4.0",
+    "version": "0.5.0",
     "description": "Telemetry ingest API for product-analytics events and error reports."
   },
   "paths": {
@@ -17,7 +17,9 @@
             "description": "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TelemetryMetaResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryMetaResponse"
+                }
               }
             }
           },
@@ -25,7 +27,9 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           }
@@ -48,7 +52,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["pass", "warn", "fail"] }
+                    "status": {
+                      "type": "string",
+                      "enum": ["pass", "warn", "fail"]
+                    }
                   },
                   "required": ["status"],
                   "additionalProperties": false
@@ -60,7 +67,9 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           }
@@ -77,7 +86,16 @@
           {
             "name": "x-health-key",
             "in": "header",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "required": false
           }
         ],
@@ -90,13 +108,70 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                    "serviceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "releaseId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "commit": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "environment": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                    "region": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                    "status": {
+                      "type": "string",
+                      "enum": ["pass", "warn", "fail"]
+                    },
+                    "serviceId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "version": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "releaseId": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "commit": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "environment": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "region": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
                     "checks": {
                       "anyOf": [
                         {
@@ -106,17 +181,39 @@
                             "items": {
                               "type": "object",
                               "properties": {
-                                "componentName": { "type": "string" },
+                                "componentName": {
+                                  "type": "string"
+                                },
                                 "componentType": {
                                   "type": "string",
                                   "enum": ["datastore", "system", "component"]
                                 },
-                                "measurementName": { "type": "string" },
-                                "status": { "type": "string", "enum": ["pass", "warn", "fail"] },
-                                "observedValue": { "type": "number" },
-                                "observedUnit": { "type": "string" },
-                                "time": { "$ref": "#/components/schemas/IsoDateTimeString" },
-                                "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                                "measurementName": {
+                                  "type": "string"
+                                },
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["pass", "warn", "fail"]
+                                },
+                                "observedValue": {
+                                  "type": "number"
+                                },
+                                "observedUnit": {
+                                  "type": "string"
+                                },
+                                "time": {
+                                  "$ref": "#/components/schemas/IsoDateTimeString"
+                                },
+                                "output": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
                               },
                               "required": [
                                 "componentName",
@@ -131,10 +228,21 @@
                             }
                           }
                         },
-                        { "type": "null" }
+                        {
+                          "type": "null"
+                        }
                       ]
                     },
-                    "output": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    "output": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
                   },
                   "required": ["status"],
                   "additionalProperties": false
@@ -146,7 +254,9 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           }
@@ -163,13 +273,31 @@
           {
             "name": "x-health-key",
             "in": "header",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "required": false
           },
           {
             "name": "level",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "required": false
           },
           {
@@ -177,8 +305,13 @@
             "in": "query",
             "schema": {
               "anyOf": [
-                { "type": "string", "enum": ["effect-handled-500", "surface-unhandled-500"] },
-                { "type": "null" }
+                {
+                  "type": "string",
+                  "enum": ["effect-handled-500", "surface-unhandled-500"]
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "required": false
@@ -186,7 +319,16 @@
           {
             "name": "scenarioId",
             "in": "query",
-            "schema": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
             "required": false
           }
         ],
@@ -199,10 +341,20 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                    "timestamp": { "$ref": "#/components/schemas/IsoDateTimeString" },
-                    "serviceId": { "type": "string" },
-                    "level": { "type": "string", "enum": ["basic", "standard", "full"] },
+                    "status": {
+                      "type": "string",
+                      "enum": ["ok", "warn", "error"]
+                    },
+                    "timestamp": {
+                      "$ref": "#/components/schemas/IsoDateTimeString"
+                    },
+                    "serviceId": {
+                      "type": "string"
+                    },
+                    "level": {
+                      "type": "string",
+                      "enum": ["basic", "standard", "full"]
+                    },
                     "checks": {
                       "type": "object",
                       "properties": {
@@ -211,13 +363,20 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "correlationId": { "type": "string" }
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["ok", "warn", "error"]
+                                },
+                                "correlationId": {
+                                  "type": "string"
+                                }
                               },
                               "required": ["status", "correlationId"],
                               "additionalProperties": false
                             },
-                            { "type": "null" }
+                            {
+                              "type": "null"
+                            }
                           ]
                         },
                         "tracing": {
@@ -225,14 +384,37 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "traceId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["ok", "warn", "error"]
+                                },
+                                "traceId": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                },
+                                "message": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
                               },
                               "required": ["status"],
                               "additionalProperties": false
                             },
-                            { "type": "null" }
+                            {
+                              "type": "null"
+                            }
                           ]
                         },
                         "metrics": {
@@ -240,13 +422,20 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
-                                "counter": { "type": "string" }
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["ok", "warn", "error"]
+                                },
+                                "counter": {
+                                  "type": "string"
+                                }
                               },
                               "required": ["status", "counter"],
                               "additionalProperties": false
                             },
-                            { "type": "null" }
+                            {
+                              "type": "null"
+                            }
                           ]
                         },
                         "errors": {
@@ -254,9 +443,19 @@
                             {
                               "type": "object",
                               "properties": {
-                                "status": { "type": "string", "enum": ["ok", "warn", "error"] },
+                                "status": {
+                                  "type": "string",
+                                  "enum": ["ok", "warn", "error"]
+                                },
                                 "sentryEventId": {
-                                  "anyOf": [{ "type": "string" }, { "type": "null" }]
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
                                 },
                                 "reason": {
                                   "anyOf": [
@@ -268,15 +467,28 @@
                                         }
                                       ]
                                     },
-                                    { "type": "null" }
+                                    {
+                                      "type": "null"
+                                    }
                                   ]
                                 },
-                                "message": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                                "message": {
+                                  "anyOf": [
+                                    {
+                                      "type": "string"
+                                    },
+                                    {
+                                      "type": "null"
+                                    }
+                                  ]
+                                }
                               },
                               "required": ["status"],
                               "additionalProperties": false
                             },
-                            { "type": "null" }
+                            {
+                              "type": "null"
+                            }
                           ]
                         }
                       },
@@ -293,7 +505,9 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           }
@@ -313,7 +527,9 @@
             "description": "Validated and scheduled for bounded best-effort forwarding; not durable storage or provider ingestion.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TelemetryEventsReceipt" }
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryEventsReceipt"
+                }
               }
             }
           },
@@ -321,7 +537,9 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           },
@@ -329,7 +547,9 @@
             "description": "TelemetryPayloadTooLargeError",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryPayloadTooLargeErrorEncoded"
+                }
               }
             }
           }
@@ -339,7 +559,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TelemetryEventsRequest" }
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryEventsRequest"
+              }
             }
           },
           "required": true
@@ -357,7 +579,9 @@
             "description": "Synchronous receipt for a validated report. It is not durable acceptance, provider ingestion, or issue creation.",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/TelemetryErrorReceipt" }
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryErrorReceipt"
+                }
               }
             }
           },
@@ -365,17 +589,21 @@
             "description": "DecodeErrorResponse",
             "content": {
               "application/problem+json": {
-                "schema": { "$ref": "#/components/schemas/DecodeErrorResponseEncoded" }
+                "schema": {
+                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                }
               }
             }
           }
         },
-        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nUndeclared fields are ignored: the platform's request decoding drops them\nbefore the report is processed. Reports carry no messages, stack traces,\narguments, paths, or other free-form content.",
+        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nUndeclared fields are ignored: the platform's request decoding drops them\nbefore the report is processed. Reports identify a failure kind and operation\nand may carry bounded request evidence, batch outcomes, operation history,\nand AXM-owned source locations verified by the reporting build. They carry\nno messages, raw stacks, arguments, absolute paths, source excerpts,\nvariables, or extension code.",
         "summary": "Receive a client error report",
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/TelemetryErrorReport" }
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryErrorReport"
+              }
             }
           },
           "required": true
@@ -385,558 +613,374 @@
   },
   "components": {
     "schemas": {
-      "TelemetryMetaResponse": {
-        "type": "object",
-        "properties": {
-          "ok": { "type": "boolean", "enum": [true] },
-          "service": { "type": "string", "enum": ["telemetry"] },
-          "message": { "type": "string" },
-          "docs": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-          "openapi": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
-        },
-        "required": ["ok", "service", "message", "docs", "openapi"],
-        "additionalProperties": false,
-        "title": "Telemetry Meta Response",
-        "description": "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment."
-      },
       "DecodeErrorResponseEncoded": {
         "type": "object",
         "properties": {
-          "kind": { "type": "string", "enum": ["DecodeErrorResponse"] },
-          "type": { "type": "string" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "instance": { "type": "string" },
-          "code": { "type": "string" }
+          "kind": {
+            "type": "string",
+            "enum": ["DecodeErrorResponse"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
         },
         "required": ["kind", "type", "title", "status", "detail", "code"],
         "additionalProperties": false
       },
-      "IsoDateTimeString": {
-        "type": "string",
-        "title": "ISO Date-Time String",
-        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
-        "format": "date-time"
-      },
-      "AgentId": {
-        "type": "string",
-        "enum": [
-          "adal",
-          "fx",
-          "muse-code",
-          "mimo-code",
-          "coder-agents",
-          "aider-desk",
-          "amp",
-          "antigravity",
-          "antigravity-cli",
-          "augment",
-          "claude-code",
-          "cline",
-          "codearts-agent",
-          "codebuddy",
-          "codemaker",
-          "codestudio",
-          "codex",
-          "command-code",
-          "continue",
-          "cortex",
-          "crush",
-          "cursor",
-          "deepagents",
-          "devin",
-          "dexto",
-          "droid",
-          "firebender",
-          "forgecode",
-          "gemini-cli",
-          "github-copilot-cli",
-          "goose",
-          "grok-cli",
-          "hermes",
-          "ibm-bob",
-          "iflow-cli",
-          "junie",
-          "lingma",
-          "kilo",
-          "kimi-cli",
-          "kiro-cli",
-          "kode",
-          "mcpjam",
-          "minimax-code",
-          "mistral-vibe",
-          "mux",
-          "neovate",
-          "openclaw",
-          "opencode",
-          "openhands",
-          "ona",
-          "pi",
-          "vscode",
-          "pochi",
-          "qoder",
-          "qoder-cn",
-          "qwen-code",
-          "replit",
-          "roo",
-          "rovodev",
-          "tabnine-cli",
-          "trae-cn",
-          "trae",
-          "warp",
-          "windsurf",
-          "zencoder",
-          "zed",
-          "zenflow",
-          "chatgpt",
-          "claude-ai",
-          "cowork",
-          "gemini-app"
-        ],
-        "title": "Agent ID",
-        "description": "Verified coding agent identifier in the capability catalog.",
-        "examples": ["claude-code", "codex", "cursor"]
-      },
-      "ExtensionName": {
-        "type": "string",
-        "minLength": 1,
-        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
-        "title": "Extension Name",
-        "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-        "examples": ["my-skill", "code-review", "prettier"]
-      },
-      "SkillInstallEvent": {
+      "TelemetryErrorReceipt": {
         "type": "object",
         "properties": {
           "eventId": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid"
+            "format": "uuid",
+            "description": "Identity of the received report."
           },
-          "event": { "type": "string", "enum": ["skill_install_completed"] },
-          "distinctId": {
+          "receipt": {
             "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid"
-          },
-          "timestamp": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "anonymous": { "type": "boolean", "enum": [true] },
-          "userProperties": { "not": {} },
-          "groups": { "not": {} },
-          "sessionId": { "not": {} },
-          "properties": {
-            "anyOf": [
-              {
-                "type": "object",
-                "properties": {
-                  "scope": { "type": "string", "enum": ["project", "user"] },
-                  "installKind": { "type": "string", "enum": ["install", "reinstall"] },
-                  "targetAgents": {
-                    "type": "array",
-                    "items": { "$ref": "#/components/schemas/AgentId" },
-                    "maxItems": 71
-                  },
-                  "activityId": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-                    "format": "uuid"
-                  },
-                  "skill": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "enum": ["git"] },
-                      "repositoryUrl": {
-                        "type": "string",
-                        "maxLength": 2048,
-                        "pattern": "^https:\\/\\/github\\.com\\/[A-Za-z0-9][A-Za-z0-9-]*\\/[A-Za-z0-9_.-]+$"
-                      },
-                      "skillPath": { "type": "string", "minLength": 1, "maxLength": 1024 }
-                    },
-                    "required": ["kind", "repositoryUrl", "skillPath"],
-                    "additionalProperties": false
-                  },
-                  "revision": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "enum": ["git"] },
-                      "commitSha": { "type": "string", "pattern": "^[0-9a-f]{40}$" }
-                    },
-                    "required": ["kind", "commitSha"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["scope", "installKind", "targetAgents", "skill", "revision"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "scope": { "type": "string", "enum": ["project", "user"] },
-                  "installKind": { "type": "string", "enum": ["install", "reinstall"] },
-                  "targetAgents": {
-                    "type": "array",
-                    "items": { "$ref": "#/components/schemas/AgentId" },
-                    "maxItems": 71
-                  },
-                  "activityId": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-                    "format": "uuid"
-                  },
-                  "skill": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "enum": ["registry"] },
-                      "registryUrl": { "type": "string", "enum": ["https://registry.agentxm.ai"] },
-                      "publisherBindingId": {
-                        "type": "string",
-                        "pattern": "^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
-                      },
-                      "extensionType": { "type": "string", "enum": ["skill"] },
-                      "packageName": { "$ref": "#/components/schemas/ExtensionName" }
-                    },
-                    "required": [
-                      "kind",
-                      "registryUrl",
-                      "publisherBindingId",
-                      "extensionType",
-                      "packageName"
-                    ],
-                    "additionalProperties": false
-                  },
-                  "revision": {
-                    "type": "object",
-                    "properties": {
-                      "kind": { "type": "string", "enum": ["registry"] },
-                      "version": {
-                        "type": "string",
-                        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
-                        "title": "Version",
-                        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-                        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"],
-                        "maxLength": 256
-                      },
-                      "integrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]{86}==$" }
-                    },
-                    "required": ["kind", "version"],
-                    "additionalProperties": false
-                  }
-                },
-                "required": ["scope", "installKind", "targetAgents", "skill", "revision"],
-                "additionalProperties": false
-              }
-            ]
+            "enum": ["received"]
           }
         },
-        "required": ["eventId", "event", "distinctId", "timestamp", "anonymous", "properties"],
+        "required": ["eventId", "receipt"],
         "additionalProperties": false,
-        "description": "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption. Unknown fields are discarded."
+        "title": "Telemetry Error Receipt",
+        "description": "Synchronous receipt for a validated report. It is not durable acceptance, provider ingestion, or issue creation."
       },
-      "TelemetryEvent": {
+      "TelemetryErrorReport": {
         "type": "object",
         "properties": {
           "eventId": {
             "type": "string",
-            "minLength": 1,
-            "description": "Producer-assigned event identity retained across delivery retries for downstream deduplication."
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "format": "uuid",
+            "description": "Report identity, fresh per report and unchanged when the same report is resubmitted."
           },
-          "event": {
-            "type": "string",
-            "minLength": 1,
-            "pattern": "^(?!skill_install_completed$).+$"
-          },
-          "distinctId": { "type": "string", "minLength": 1 },
-          "timestamp": { "type": "string", "allOf": [{ "minLength": 1, "format": "date-time" }] },
-          "properties": {
-            "type": "object",
-            "additionalProperties": {
-              "anyOf": [
-                {
-                  "anyOf": [
-                    { "type": "string" },
-                    { "type": "number" },
-                    { "type": "boolean" },
-                    { "type": "null" }
-                  ]
-                },
-                {
-                  "type": "array",
-                  "items": {
-                    "anyOf": [
-                      { "type": "string" },
-                      { "type": "number" },
-                      { "type": "boolean" },
-                      { "type": "null" }
-                    ]
-                  }
-                }
-              ],
-              "title": "User Property Value",
-              "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
-            }
-          },
-          "userProperties": {
-            "type": "object",
-            "properties": {
-              "set": {
-                "type": "object",
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "anyOf": [
-                        { "type": "string" },
-                        { "type": "number" },
-                        { "type": "boolean" },
-                        { "type": "null" }
-                      ]
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "anyOf": [
-                          { "type": "string" },
-                          { "type": "number" },
-                          { "type": "boolean" },
-                          { "type": "null" }
-                        ]
-                      }
-                    }
-                  ],
-                  "title": "User Property Value",
-                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
-                }
-              },
-              "setOnce": {
-                "type": "object",
-                "additionalProperties": {
-                  "anyOf": [
-                    {
-                      "anyOf": [
-                        { "type": "string" },
-                        { "type": "number" },
-                        { "type": "boolean" },
-                        { "type": "null" }
-                      ]
-                    },
-                    {
-                      "type": "array",
-                      "items": {
-                        "anyOf": [
-                          { "type": "string" },
-                          { "type": "number" },
-                          { "type": "boolean" },
-                          { "type": "null" }
-                        ]
-                      }
-                    }
-                  ],
-                  "title": "User Property Value",
-                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
-                }
-              }
-            },
-            "additionalProperties": false
-          },
-          "groups": { "type": "object", "additionalProperties": { "type": "string" } },
-          "sessionId": { "type": "string" },
-          "anonymous": { "type": "boolean" }
-        },
-        "required": ["eventId", "event", "distinctId", "timestamp"],
-        "additionalProperties": false,
-        "title": "Telemetry Event",
-        "description": "One analytics event captured by the AgentXM client or integration."
-      },
-      "TelemetryClientContext": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string", "minLength": 1 },
-          "version": { "type": "string", "minLength": 1 }
-        },
-        "required": ["name", "version"],
-        "additionalProperties": false,
-        "title": "Telemetry Client Context",
-        "description": "Identifies the client emitting telemetry, including its name and version."
-      },
-      "TelemetryContext": {
-        "type": "object",
-        "properties": {
-          "client": { "$ref": "#/components/schemas/TelemetryClientContext" },
-          "os": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string", "minLength": 1 },
-              "version": { "type": "string" }
-            },
-            "required": ["name"],
-            "additionalProperties": false,
-            "title": "Operating System Context",
-            "description": "Operating system metadata captured alongside telemetry."
-          },
-          "runtime": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string", "minLength": 1 },
-              "version": { "type": "string", "minLength": 1 }
-            },
-            "required": ["name", "version"],
-            "additionalProperties": false,
-            "title": "Runtime Context",
-            "description": "Language or process runtime metadata captured alongside telemetry."
-          },
-          "device": {
-            "type": "object",
-            "properties": { "arch": { "type": "string", "minLength": 1 } },
-            "required": ["arch"],
-            "additionalProperties": false,
-            "title": "Device Context",
-            "description": "Device characteristics attached to telemetry submissions."
-          },
-          "ide": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string", "minLength": 1 },
-              "version": { "type": "string", "minLength": 1 }
-            },
-            "required": ["name", "version"],
-            "additionalProperties": false,
-            "title": "IDE Context",
-            "description": "Editor or IDE metadata attached when telemetry originates from a development tool."
-          },
-          "environment": { "type": "string" },
-          "callerAgent": {
-            "type": "string",
-            "enum": [
-              "adal",
-              "fx",
-              "muse-code",
-              "mimo-code",
-              "coder-agents",
-              "aider-desk",
-              "amp",
-              "antigravity",
-              "antigravity-cli",
-              "augment",
-              "claude-code",
-              "cline",
-              "codearts-agent",
-              "codebuddy",
-              "codemaker",
-              "codestudio",
-              "codex",
-              "command-code",
-              "continue",
-              "cortex",
-              "crush",
-              "cursor",
-              "deepagents",
-              "devin",
-              "dexto",
-              "droid",
-              "firebender",
-              "forgecode",
-              "gemini-cli",
-              "github-copilot-cli",
-              "goose",
-              "grok-cli",
-              "hermes",
-              "ibm-bob",
-              "iflow-cli",
-              "junie",
-              "lingma",
-              "kilo",
-              "kimi-cli",
-              "kiro-cli",
-              "kode",
-              "mcpjam",
-              "minimax-code",
-              "mistral-vibe",
-              "mux",
-              "neovate",
-              "openclaw",
-              "opencode",
-              "openhands",
-              "ona",
-              "pi",
-              "vscode",
-              "pochi",
-              "qoder",
-              "qoder-cn",
-              "qwen-code",
-              "replit",
-              "roo",
-              "rovodev",
-              "tabnine-cli",
-              "trae-cn",
-              "trae",
-              "warp",
-              "windsurf",
-              "zencoder",
-              "zed",
-              "zenflow",
-              "chatgpt",
-              "claude-ai",
-              "cowork",
-              "gemini-app",
-              "unknown"
-            ]
-          },
-          "ci": { "type": "boolean" },
           "invocationId": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
             "format": "uuid",
-            "description": "Identity of the client process invocation that produced the batch; the same identity appears on that invocation's client error reports."
+            "description": "Identity of the client process invocation that failed."
+          },
+          "occurredAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "installationId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "format": "uuid",
+            "description": "Random persisted installation identity; absent when the client could not load or create it."
+          },
+          "activityId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "format": "uuid",
+            "description": "Product activity correlation identity when the invocation started one."
+          },
+          "client": {
+            "$ref": "#/components/schemas/TelemetryReportingClient"
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$",
+            "description": "Canonical command identity when known, for example `extensions install`. Never arguments."
+          },
+          "phase": {
+            "type": "string",
+            "enum": ["bootstrap", "configuration", "command", "output"],
+            "title": "Failure Phase",
+            "description": "The invocation phase that settled with the failure: startup, workspace configuration, command execution, or output writing."
+          },
+          "failure": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
+                "description": "Stable diagnostic identifier from the client's enumerated failure set."
+              },
+              "category": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 32,
+                "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
+                "description": "AXM error category, for example `validation` or `network`."
+              },
+              "class": {
+                "type": "string",
+                "enum": ["internal", "user", "external"],
+                "title": "Error Class",
+                "description": "Classifies whether a failure is an AXM defect, a user-correctable failure, or an external dependency failure."
+              },
+              "operation": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64,
+                "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
+                "description": "Code-defined operation that failed, never arguments or paths."
+              },
+              "request": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/TelemetryFailureRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "counts": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "confirmed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "failed": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "blocked": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unattempted": {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      "unknown": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    },
+                    "required": ["confirmed", "failed", "blocked", "unattempted", "unknown"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "related": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "kind": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+                        },
+                        "operation": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+                        },
+                        "count": {
+                          "type": "integer",
+                          "minimum": 1
+                        },
+                        "request": {
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/TelemetryFailureRequest"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      },
+                      "required": ["kind", "operation", "count"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 8
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "relatedOmitted": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "history": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 64,
+                          "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$"
+                        },
+                        "outcome": {
+                          "type": "string",
+                          "enum": ["started", "succeeded", "failed", "unknown"]
+                        },
+                        "elapsedMs": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": ["operation", "outcome", "elapsedMs"],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 16
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "frames": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TelemetryFailureFrame"
+                    },
+                    "maxItems": 16
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "handled": {
+                "type": "boolean",
+                "description": "False when the failure is an unexpected defect rather than an expected error."
+              }
+            },
+            "required": ["kind", "category", "class", "operation", "handled"],
+            "additionalProperties": false,
+            "title": "Reported Failure",
+            "description": "Allowlisted diagnostic identity of one terminal failure."
           }
         },
-        "required": ["client"],
+        "required": ["eventId", "invocationId", "occurredAt", "client", "phase", "failure"],
         "additionalProperties": false,
-        "title": "Telemetry Context",
-        "description": "Shared environment metadata attached to analytics event batches."
+        "title": "Telemetry Error Report",
+        "description": "One bounded, allowlisted report of a consent-controlled client invocation's terminal failure. It carries diagnostic identity, request correlation, bounded operation evidence, and build-verified AXM-owned source locations; never messages, raw stacks, arguments, absolute paths, source excerpts, or other free-form content."
       },
-      "TelemetryEventsRequest": {
+      "TelemetryFailureFrame": {
         "type": "object",
         "properties": {
-          "events": {
-            "type": "array",
-            "items": {
-              "anyOf": [
-                { "$ref": "#/components/schemas/SkillInstallEvent" },
-                { "$ref": "#/components/schemas/TelemetryEvent" }
-              ]
-            }
+          "module": {
+            "type": "string",
+            "enum": [
+              "axm.sh",
+              "@agentxm/registry-client",
+              "@agentxm/registry-access",
+              "@agentxm/registry-protocol",
+              "@agentxm/workspace-kernel",
+              "@agentxm/workspace-features",
+              "@agentxm/extension-content",
+              "@agentxm/extension-kinds",
+              "@agentxm/extension-model",
+              "@agentxm/host-primitives",
+              "@agentxm/cli-maintenance"
+            ]
           },
-          "sentAt": { "type": "string", "format": "date-time" },
-          "context": { "$ref": "#/components/schemas/TelemetryContext" }
+          "filename": {
+            "type": "string",
+            "maxLength": 240,
+            "pattern": "^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 0
+          }
         },
-        "required": ["events", "context"],
+        "required": ["module", "filename", "line", "column"],
         "additionalProperties": false,
-        "title": "Telemetry Events Request",
-        "description": "Request payload accepted by the telemetry events ingestion endpoint."
+        "description": "A source location verified against the reporting AXM build. No absolute path, function text, source excerpt, variables, or extension code is carried."
       },
-      "TelemetryEventsReceipt": {
+      "TelemetryFailureRequest": {
         "type": "object",
         "properties": {
-          "receipt": { "type": "string", "enum": ["received"] },
-          "eventCount": { "type": "integer", "minimum": 1, "maximum": 100 }
+          "service": {
+            "type": "string",
+            "enum": ["registry"]
+          },
+          "requestId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 100,
+                "maximum": 599
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "attemptCount": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
         },
-        "required": ["receipt", "eventCount"],
+        "required": ["service"],
         "additionalProperties": false,
-        "description": "Validated and scheduled for bounded best-effort forwarding; not durable storage or provider ingestion."
-      },
-      "TelemetryPayloadTooLargeErrorEncoded": {
-        "type": "object",
-        "properties": {
-          "kind": { "type": "string", "enum": ["TelemetryPayloadTooLargeError"] },
-          "type": { "type": "string" },
-          "title": { "type": "string" },
-          "status": { "type": "integer" },
-          "detail": { "type": "string" },
-          "instance": { "type": "string" },
-          "code": { "type": "string" }
-        },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
+        "description": "Bounded evidence from the failed Registry request attempt. Request identity is correlation, never authorization or an idempotency key."
       },
       "TelemetryReportingClient": {
         "type": "object",
@@ -1076,110 +1120,790 @@
         "title": "Telemetry Reporting Client",
         "description": "Bounded facts about the client build and host that reported a failure."
       },
-      "TelemetryErrorReport": {
+      "IsoDateTimeString": {
+        "type": "string",
+        "title": "ISO Date-Time String",
+        "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
+        "format": "date-time"
+      },
+      "TelemetryPayloadTooLargeErrorEncoded": {
         "type": "object",
         "properties": {
-          "eventId": {
+          "kind": {
             "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid",
-            "description": "Report identity, fresh per report and unchanged when the same report is resubmitted."
+            "enum": ["TelemetryPayloadTooLargeError"]
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "additionalProperties": false
+      },
+      "TelemetryEventsReceipt": {
+        "type": "object",
+        "properties": {
+          "receipt": {
+            "type": "string",
+            "enum": ["received"]
+          },
+          "eventCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": ["receipt", "eventCount"],
+        "additionalProperties": false,
+        "description": "Validated and scheduled for bounded best-effort forwarding; not durable storage or provider ingestion."
+      },
+      "TelemetryEventsRequest": {
+        "type": "object",
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SkillInstallEvent"
+                },
+                {
+                  "$ref": "#/components/schemas/TelemetryEvent"
+                }
+              ]
+            }
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "context": {
+            "$ref": "#/components/schemas/TelemetryContext"
+          }
+        },
+        "required": ["events", "context"],
+        "additionalProperties": false,
+        "title": "Telemetry Events Request",
+        "description": "Request payload accepted by the telemetry events ingestion endpoint."
+      },
+      "TelemetryContext": {
+        "type": "object",
+        "properties": {
+          "client": {
+            "$ref": "#/components/schemas/TelemetryClientContext"
+          },
+          "os": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "required": ["name"],
+            "additionalProperties": false,
+            "title": "Operating System Context",
+            "description": "Operating system metadata captured alongside telemetry."
+          },
+          "runtime": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "version"],
+            "additionalProperties": false,
+            "title": "Runtime Context",
+            "description": "Language or process runtime metadata captured alongside telemetry."
+          },
+          "device": {
+            "type": "object",
+            "properties": {
+              "arch": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["arch"],
+            "additionalProperties": false,
+            "title": "Device Context",
+            "description": "Device characteristics attached to telemetry submissions."
+          },
+          "ide": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1
+              },
+              "version": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": ["name", "version"],
+            "additionalProperties": false,
+            "title": "IDE Context",
+            "description": "Editor or IDE metadata attached when telemetry originates from a development tool."
+          },
+          "environment": {
+            "type": "string"
+          },
+          "callerAgent": {
+            "type": "string",
+            "enum": [
+              "adal",
+              "fx",
+              "muse-code",
+              "mimo-code",
+              "coder-agents",
+              "aider-desk",
+              "amp",
+              "antigravity",
+              "antigravity-cli",
+              "augment",
+              "claude-code",
+              "cline",
+              "codearts-agent",
+              "codebuddy",
+              "codemaker",
+              "codestudio",
+              "codex",
+              "command-code",
+              "continue",
+              "cortex",
+              "crush",
+              "cursor",
+              "deepagents",
+              "devin",
+              "dexto",
+              "droid",
+              "firebender",
+              "forgecode",
+              "gemini-cli",
+              "github-copilot-cli",
+              "goose",
+              "grok-cli",
+              "hermes",
+              "ibm-bob",
+              "iflow-cli",
+              "junie",
+              "lingma",
+              "kilo",
+              "kimi-cli",
+              "kiro-cli",
+              "kode",
+              "mcpjam",
+              "minimax-code",
+              "mistral-vibe",
+              "mux",
+              "neovate",
+              "openclaw",
+              "opencode",
+              "openhands",
+              "ona",
+              "pi",
+              "vscode",
+              "pochi",
+              "qoder",
+              "qoder-cn",
+              "qwen-code",
+              "replit",
+              "roo",
+              "rovodev",
+              "tabnine-cli",
+              "trae-cn",
+              "trae",
+              "warp",
+              "windsurf",
+              "zencoder",
+              "zed",
+              "zenflow",
+              "chatgpt",
+              "claude-ai",
+              "cowork",
+              "gemini-app",
+              "unknown"
+            ]
+          },
+          "ci": {
+            "type": "boolean"
           },
           "invocationId": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
             "format": "uuid",
-            "description": "Identity of the client process invocation that failed."
-          },
-          "occurredAt": { "$ref": "#/components/schemas/IsoDateTimeString" },
-          "installationId": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid",
-            "description": "Random persisted installation identity; absent when the client could not load or create it."
-          },
-          "activityId": {
-            "type": "string",
-            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid",
-            "description": "Product activity correlation identity when the invocation started one."
-          },
-          "client": { "$ref": "#/components/schemas/TelemetryReportingClient" },
-          "command": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 64,
-            "pattern": "^[a-z][a-z0-9:_-]*( [a-z][a-z0-9:_-]*)*$",
-            "description": "Canonical command identity when known, for example `extensions install`. Never arguments."
-          },
-          "phase": {
-            "type": "string",
-            "enum": ["bootstrap", "configuration", "command", "output"],
-            "title": "Failure Phase",
-            "description": "The invocation phase that settled with the failure: startup, workspace configuration, command execution, or output writing."
-          },
-          "failure": {
-            "type": "object",
-            "properties": {
-              "kind": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 64,
-                "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
-                "description": "Stable diagnostic identifier from the client's enumerated failure set."
-              },
-              "category": {
-                "type": "string",
-                "minLength": 1,
-                "maxLength": 32,
-                "pattern": "^[a-z0-9]+([._-][a-z0-9]+)*$",
-                "description": "AXM error category, for example `validation` or `network`."
-              },
-              "class": {
-                "type": "string",
-                "enum": ["internal", "user", "external"],
-                "title": "Error Class",
-                "description": "Classifies whether a failure is an AXM defect, a user-correctable failure, or an external dependency failure."
-              },
-              "handled": {
-                "type": "boolean",
-                "description": "False when the failure is an unexpected defect rather than an expected error."
-              }
-            },
-            "required": ["kind", "category", "class", "handled"],
-            "additionalProperties": false,
-            "title": "Reported Failure",
-            "description": "Allowlisted diagnostic identity of one terminal failure."
+            "description": "Identity of the client process invocation that produced the batch; the same identity appears on that invocation's client error reports."
           }
         },
-        "required": ["eventId", "invocationId", "occurredAt", "client", "phase", "failure"],
+        "required": ["client"],
         "additionalProperties": false,
-        "title": "Telemetry Error Report",
-        "description": "One bounded, allowlisted report of a consent-controlled client invocation's terminal failure. It carries no messages, stacks, arguments, paths, or other free-form content."
+        "title": "Telemetry Context",
+        "description": "Shared environment metadata attached to analytics event batches."
       },
-      "TelemetryErrorReceipt": {
+      "TelemetryClientContext": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": ["name", "version"],
+        "additionalProperties": false,
+        "title": "Telemetry Client Context",
+        "description": "Identifies the client emitting telemetry, including its name and version."
+      },
+      "TelemetryEvent": {
+        "type": "object",
+        "properties": {
+          "eventId": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Producer-assigned event identity retained across delivery retries for downstream deduplication."
+          },
+          "event": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!skill_install_completed$).+$"
+          },
+          "distinctId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "timestamp": {
+            "type": "string",
+            "allOf": [
+              {
+                "minLength": 1,
+                "format": "date-time"
+              }
+            ]
+          },
+          "properties": {
+            "type": "object",
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                }
+              ],
+              "title": "User Property Value",
+              "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+            }
+          },
+          "userProperties": {
+            "type": "object",
+            "properties": {
+              "set": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "title": "User Property Value",
+                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+                }
+              },
+              "setOnce": {
+                "type": "object",
+                "additionalProperties": {
+                  "anyOf": [
+                    {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "boolean"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "title": "User Property Value",
+                  "description": "Telemetry user property value limited to JSON primitives or flat arrays of JSON primitives."
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "groups": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "anonymous": {
+            "type": "boolean"
+          }
+        },
+        "required": ["eventId", "event", "distinctId", "timestamp"],
+        "additionalProperties": false,
+        "title": "Telemetry Event",
+        "description": "One analytics event captured by the AgentXM client or integration."
+      },
+      "SkillInstallEvent": {
         "type": "object",
         "properties": {
           "eventId": {
             "type": "string",
             "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
-            "format": "uuid",
-            "description": "Identity of the received report."
+            "format": "uuid"
           },
-          "receipt": { "type": "string", "enum": ["received"] }
+          "event": {
+            "type": "string",
+            "enum": ["skill_install_completed"]
+          },
+          "distinctId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+            "format": "uuid"
+          },
+          "timestamp": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          },
+          "anonymous": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "userProperties": {
+            "not": {}
+          },
+          "groups": {
+            "not": {}
+          },
+          "sessionId": {
+            "not": {}
+          },
+          "properties": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": ["project", "user"]
+                  },
+                  "installKind": {
+                    "type": "string",
+                    "enum": ["install", "reinstall"]
+                  },
+                  "targetAgents": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AgentId"
+                    },
+                    "maxItems": 71
+                  },
+                  "activityId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "format": "uuid"
+                  },
+                  "skill": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["git"]
+                      },
+                      "repositoryUrl": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "pattern": "^https:\\/\\/github\\.com\\/[A-Za-z0-9][A-Za-z0-9-]*\\/[A-Za-z0-9_.-]+$"
+                      },
+                      "skillPath": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 1024
+                      }
+                    },
+                    "required": ["kind", "repositoryUrl", "skillPath"],
+                    "additionalProperties": false
+                  },
+                  "revision": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["git"]
+                      },
+                      "commitSha": {
+                        "type": "string",
+                        "pattern": "^[0-9a-f]{40}$"
+                      }
+                    },
+                    "required": ["kind", "commitSha"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["scope", "installKind", "targetAgents", "skill", "revision"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "scope": {
+                    "type": "string",
+                    "enum": ["project", "user"]
+                  },
+                  "installKind": {
+                    "type": "string",
+                    "enum": ["install", "reinstall"]
+                  },
+                  "targetAgents": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AgentId"
+                    },
+                    "maxItems": 71
+                  },
+                  "activityId": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+                    "format": "uuid"
+                  },
+                  "skill": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["registry"]
+                      },
+                      "registryUrl": {
+                        "type": "string",
+                        "enum": ["https://registry.agentxm.ai"]
+                      },
+                      "publisherBindingId": {
+                        "type": "string",
+                        "pattern": "^hbnd_[0-7][0-9a-hjkmnp-tv-z]{25}$"
+                      },
+                      "extensionType": {
+                        "type": "string",
+                        "enum": ["skill"]
+                      },
+                      "packageName": {
+                        "$ref": "#/components/schemas/ExtensionName"
+                      }
+                    },
+                    "required": [
+                      "kind",
+                      "registryUrl",
+                      "publisherBindingId",
+                      "extensionType",
+                      "packageName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "revision": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": ["registry"]
+                      },
+                      "version": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
+                        "title": "Version",
+                        "description": "A semver version like 1.0.0. Ranges are not allowed here.",
+                        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"],
+                        "maxLength": 256
+                      },
+                      "integrity": {
+                        "type": "string",
+                        "pattern": "^sha512-[A-Za-z0-9+/]{86}==$"
+                      }
+                    },
+                    "required": ["kind", "version"],
+                    "additionalProperties": false
+                  }
+                },
+                "required": ["scope", "installKind", "targetAgents", "skill", "revision"],
+                "additionalProperties": false
+              }
+            ]
+          }
         },
-        "required": ["eventId", "receipt"],
+        "required": ["eventId", "event", "distinctId", "timestamp", "anonymous", "properties"],
         "additionalProperties": false,
-        "title": "Telemetry Error Receipt",
-        "description": "Synchronous receipt for a validated report. It is not durable acceptance, provider ingestion, or issue creation."
+        "description": "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption. Unknown fields are discarded."
+      },
+      "ExtensionName": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
+        "title": "Extension Name",
+        "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+        "examples": ["my-skill", "code-review", "prettier"]
+      },
+      "AgentId": {
+        "type": "string",
+        "enum": [
+          "adal",
+          "fx",
+          "muse-code",
+          "mimo-code",
+          "coder-agents",
+          "aider-desk",
+          "amp",
+          "antigravity",
+          "antigravity-cli",
+          "augment",
+          "claude-code",
+          "cline",
+          "codearts-agent",
+          "codebuddy",
+          "codemaker",
+          "codestudio",
+          "codex",
+          "command-code",
+          "continue",
+          "cortex",
+          "crush",
+          "cursor",
+          "deepagents",
+          "devin",
+          "dexto",
+          "droid",
+          "firebender",
+          "forgecode",
+          "gemini-cli",
+          "github-copilot-cli",
+          "goose",
+          "grok-cli",
+          "hermes",
+          "ibm-bob",
+          "iflow-cli",
+          "junie",
+          "lingma",
+          "kilo",
+          "kimi-cli",
+          "kiro-cli",
+          "kode",
+          "mcpjam",
+          "minimax-code",
+          "mistral-vibe",
+          "mux",
+          "neovate",
+          "openclaw",
+          "opencode",
+          "openhands",
+          "ona",
+          "pi",
+          "vscode",
+          "pochi",
+          "qoder",
+          "qoder-cn",
+          "qwen-code",
+          "replit",
+          "roo",
+          "rovodev",
+          "tabnine-cli",
+          "trae-cn",
+          "trae",
+          "warp",
+          "windsurf",
+          "zencoder",
+          "zed",
+          "zenflow",
+          "chatgpt",
+          "claude-ai",
+          "cowork",
+          "gemini-app"
+        ],
+        "title": "Agent ID",
+        "description": "Verified coding agent identifier in the capability catalog.",
+        "examples": ["claude-code", "codex", "cursor"]
+      },
+      "TelemetryMetaResponse": {
+        "type": "object",
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "enum": [true]
+          },
+          "service": {
+            "type": "string",
+            "enum": ["telemetry"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "docs": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "openapi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": ["ok", "service", "message", "docs", "openapi"],
+        "additionalProperties": false,
+        "title": "Telemetry Meta Response",
+        "description": "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment."
       }
     },
     "securitySchemes": {}
   },
   "security": [],
-  "tags": [{ "name": "Meta" }, { "name": "Health" }, { "name": "Events" }, { "name": "Errors" }],
+  "tags": [
+    {
+      "name": "Meta"
+    },
+    {
+      "name": "Health"
+    },
+    {
+      "name": "Events"
+    },
+    {
+      "name": "Errors"
+    }
+  ],
   "servers": [
-    { "url": "http://localhost:4301", "description": "Local dev" },
-    { "url": "https://t.agentxm.ai", "description": "Production domain target" }
+    {
+      "url": "http://localhost:4301",
+      "description": "Local dev"
+    },
+    {
+      "url": "https://t.agentxm.ai",
+      "description": "Production domain target"
+    }
   ]
 }

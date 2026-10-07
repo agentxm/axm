@@ -281,6 +281,10 @@ describe("hook configured-agent outcomes", () => {
           detail: "Hook native locations cannot realize the proposed content",
           cause: [
             {
+              _tag: "ExtensionLifecycleFailed",
+              message: "Hook native locations cannot realize the proposed content",
+            },
+            {
               _tag: "HookDefinitionInvalid",
               message:
                 "Hook audit is blocked for windsurf: No native Hook writer is declared for the selected scope.; Hook enforce is blocked for windsurf: No native Hook writer is declared for the selected scope.",

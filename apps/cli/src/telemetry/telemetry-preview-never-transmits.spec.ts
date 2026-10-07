@@ -53,6 +53,7 @@ const reportAndTrack = (telemetry: TelemetryClientService) =>
     .reportError({
       phase: "command",
       kind: "not_found",
+      operation: "runtime.command",
       category: "not_found",
       errorClass: "user",
       handled: true,
@@ -129,6 +130,7 @@ describe("Telemetry preview", () => {
       const report = yield* decodeErrorReport(payload);
       expect(report.failure).toEqual({
         kind: "not_found",
+        operation: "runtime.command",
         category: "not_found",
         class: "user",
         handled: true,

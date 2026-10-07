@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/ascii-controls-preserve-machine-output",
   title: "ASCII display controls leave machine documents unchanged",
   statement:
-    "When JSON output is selected, AXM shall leave result and diagnostic documents unchanged by AXM_ASCII, TERM, LC_ALL, LC_CTYPE, and LANG display-symbol inputs.",
+    "When JSON output is selected, AXM shall leave result and diagnostic documents, apart from their per-invocation identity, unchanged by AXM_ASCII, TERM, LC_ALL, LC_CTYPE, and LANG display-symbol inputs.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
@@ -39,6 +39,20 @@ const environments = [
   { label: "non-UTF-8 LANG", env: { LANG: "C" } },
 ] satisfies ReadonlyArray<{ readonly label: string; readonly env: NodeJS.ProcessEnv }>;
 
+const failureDocument = (stdout: string) => {
+  const document: unknown = JSON.parse(stdout);
+  if (
+    typeof document !== "object" ||
+    document === null ||
+    Array.isArray(document) ||
+    !("diagnosticId" in document)
+  )
+    throw new Error("Expected a failure document with an invocation diagnostic ID");
+  const { diagnosticId, ...content } = document;
+  expect(diagnosticId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u);
+  return { diagnosticId, content };
+};
+
 describe("Machine output ignores human symbol selection", () => {
   it.each(environments)("$label preserves successful and failed documents", async ({ env }) => {
     const fixture = makeOutputControlsFixture();
@@ -61,7 +75,12 @@ describe("Machine output ignores human symbol selection", () => {
       expect(refusal.detail).toContain("部署-café-unknown");
       expect(ordinaryFailure.stderr.length).toBeGreaterThan(0);
       expect(success).toEqual(ordinarySuccess);
-      expect(failure).toEqual(ordinaryFailure);
+      const ordinaryDocument = failureDocument(ordinaryFailure.stdout);
+      const requestedDocument = failureDocument(failure.stdout);
+      expect(requestedDocument.content).toEqual(ordinaryDocument.content);
+      expect(requestedDocument.diagnosticId).not.toBe(ordinaryDocument.diagnosticId);
+      expect(failure.exitCode).toBe(ordinaryFailure.exitCode);
+      expect(failure.stderr).toBe(ordinaryFailure.stderr);
     } finally {
       fixture.cleanup();
     }

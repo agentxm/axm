@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "system/security/telemetry-payloads-respect-data-boundary",
   title: "Telemetry excludes extension content and secrets",
   statement:
-    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.4.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
+    "Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.5.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.",
   class: "quality",
   characteristic: "privacy",
   role: "interface",
@@ -100,6 +100,7 @@ describe("Telemetry data boundary", () => {
           .reportError({
             phase: "command",
             kind: "not_found",
+            operation: "runtime.command",
             category: "not_found",
             errorClass: "user",
             handled: true,
@@ -118,6 +119,7 @@ describe("Telemetry data boundary", () => {
       expect(report.phase).toBe("command");
       expect(report.failure).toEqual({
         kind: "not_found",
+        operation: "runtime.command",
         category: "not_found",
         class: "user",
         handled: true,
@@ -189,8 +191,9 @@ describe("Telemetry data boundary", () => {
               const report = yield* decodeErrorReport(reports[0]?.body);
               expect(report.phase).toBe("command");
               expect(report.command).toBe("install");
-              expect(report.failure).toEqual({
-                kind: "not_found",
+              expect(report.failure, JSON.stringify(report.failure)).toEqual({
+                kind: "extension-lifecycle-failed",
+                operation: "workspace.operation",
                 category: "not_found",
                 class: "user",
                 handled: true,
@@ -245,10 +248,25 @@ describe("Telemetry data boundary", () => {
         const defect = yield* settle(Effect.die(new TypeError(content)));
 
         for (const [requests, expected] of [
-          [handled, { kind: "validation", category: "validation", class: "user", handled: true }],
+          [
+            handled,
+            {
+              kind: "validation",
+              operation: "runtime.command",
+              category: "validation",
+              class: "user",
+              handled: true,
+            },
+          ],
           [
             defect,
-            { kind: "defect.type-error", category: "internal", class: "internal", handled: false },
+            {
+              kind: "defect.type-error",
+              operation: "runtime.command",
+              category: "internal",
+              class: "internal",
+              handled: false,
+            },
           ],
         ] as const) {
           expectNoSentinel(requests);

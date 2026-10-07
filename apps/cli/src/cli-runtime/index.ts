@@ -106,7 +106,9 @@ export {
   OperationExit,
   OperationExitLive,
   getOperationExitCode,
-  setOperationExitCode,
+  setOperationSettlement,
+  getOperationSettlement,
+  type OperationSettlement,
 } from "./operation-exit.js";
 export {
   CommandCompletion,

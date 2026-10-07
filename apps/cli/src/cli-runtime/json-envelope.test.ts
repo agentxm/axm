@@ -46,6 +46,29 @@ describe("SuggestedActionSchema", () => {
 });
 
 describe("JsonEnvelopeSchema", () => {
+  it("projects diagnostic evidence from wider settlement records", () => {
+    const diagnostic = {
+      kind: "registry.response-decode",
+      operation: "publish.upload",
+      code: "internal",
+      handled: true,
+      phase: "command",
+      message: "local-only diagnostic message",
+      request: { service: "registry", status: 200, url: "/local-only-request" } as const,
+    };
+    const expected = {
+      kind: diagnostic.kind,
+      operation: diagnostic.operation,
+      request: { service: "registry", status: 200 },
+    };
+    const error = makeAppError({ code: "internal", detail: "failed", diagnostic });
+    const envelope = makeJsonErrorEnvelopeFromAppError(error);
+    expect(envelope.diagnostic).toEqual(expected);
+    const result = makeJsonSuccessEnvelope({ payload: {}, ok: false, diagnostic });
+    expect(result.ok === false && result.diagnostic).toEqual(expected);
+    expect(JSON.stringify(result)).not.toContain("local-only");
+  });
+
   const secretSentinel = "AXM_SECRET_SENTINEL_92";
 
   it("decodes success envelopes with suggestions", () => {

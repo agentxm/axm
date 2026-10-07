@@ -41,7 +41,8 @@ describe("Windows workspace mutation contract", () => {
   it("lints staged Windows bytes without changing the index or working tree", async () => {
     expect(process.platform).toBe("win32");
     const workspace = createTempDir("axm windows staged view ");
-    const userHome = path.join(workspace.path, "user home");
+    const home = createTempDir("axm windows user home ");
+    const userHome = home.path;
     const env = {
       HOME: userHome,
       USERPROFILE: userHome,
@@ -104,6 +105,7 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.readFileSync(settingsPath, "utf8")).toBe(validSettings);
     } finally {
       workspace.cleanup();
+      home.cleanup();
     }
   });
 

@@ -1,3 +1,4 @@
+import { RegistryRequestAttempt } from "./request-attempt.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — generated HTTP response errors are translated to typed registry failures by this registry adapter
 /**
  * Remote HTTPS registry client.
@@ -93,7 +94,6 @@ import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failur
 import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
-  RegistryRequestAttempt,
   type RegistryRequestPolicy,
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
@@ -347,7 +347,13 @@ const downloadArchive = (
   onProgress: GetExtensionPackageArgs["onProgress"],
 ): Effect.Effect<Uint8Array, HttpClientError.HttpClientError | RegistryOperationFailed> =>
   Effect.gen(function* () {
-    const attempt = yield* Effect.serviceOption(RegistryRequestAttempt);
+    const attempt = Option.map(
+      yield* Effect.serviceOption(RegistryRequestAttempt),
+      ({ n, of }) => ({
+        n,
+        of,
+      }),
+    );
     const report = onProgress ?? (() => Effect.void);
     if (Option.isSome(attempt) && attempt.value.n > 1) {
       yield* report({ done: 0, attempt: attempt.value });
@@ -416,7 +422,10 @@ export const createRemoteRegistryClient = (
   ) =>
     executeRegistryRequest(effect, {
       operation: args.operation,
-      request: registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
+      request: {
+        ...registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
+        operation: args.operation,
+      },
       replaySafety: args.replaySafety,
       mapError: args.mapError,
       ...(requestPolicy === undefined && args.policy === undefined
@@ -475,6 +484,7 @@ export const createRemoteRegistryClient = (
         if (responseValue === undefined) {
           return Effect.fail(
             new RegistryRequestFailed({
+              reason: "response-decode",
               category: "internal",
               detail: "Remote Registry returned an extension index without a body",
             }),
@@ -590,6 +600,7 @@ export const createRemoteRegistryClient = (
         if (results.every((result) => result.outcome !== "restart-required")) return results;
       }
       return yield* new RegistryRequestFailed({
+        reason: "metadata-churn",
         category: "conflict",
         detail: "Registry metadata changed repeatedly during pagination.",
       });
@@ -822,6 +833,7 @@ export const createRemoteRegistryClient = (
 
         if (indexResult === undefined) {
           return yield* new RegistryRequestFailed({
+            reason: "response-decode",
             category: "internal",
             detail: "Remote Registry returned a package index without a body",
           });
@@ -1104,6 +1116,7 @@ export const createRemoteRegistryClient = (
                 ),
               catch: (cause) =>
                 new RegistryRequestFailed({
+                  reason: "response-decode",
                   category: "internal",
                   detail: "The registry returned an incompatible publication-set preview.",
                   cause,

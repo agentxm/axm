@@ -51,12 +51,13 @@ import {
 import { TelemetryErrorReport, type TelemetryFailurePhase } from "../telemetry/index.js";
 import { captureTelemetry, telemetryReporterLayer } from "../test-support/telemetry-harness.js";
 import { classifyError, withCliErrorHandling, withProcessTelemetry } from "./index.js";
+import { TerminalDiagnostics, makeTerminalDiagnostics } from "./terminal-diagnostics.js";
 
 export const specification = defineSpecification({
   requirement: "system/reliability/telemetry-reports-terminal-failures-once",
   title: "An opted-in invocation reports at most one terminal failure",
   statement:
-    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure.",
+    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
@@ -146,15 +147,21 @@ const observe = <A, E, R>(
   Effect.gen(function* () {
     const capture = captureTelemetry();
     const streams = recordingStreams(options.brokenStdout === true);
+    const diagnostics = yield* makeTerminalDiagnostics({
+      invocationId: "00000000-0000-4000-8000-000000000003",
+      eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
+    });
     const exit = yield* invocation.pipe(
       withProcessTelemetry(reporterLayer(capture.client, options.mode)),
       Effect.provide(invocationLayer(streams)),
+      Effect.provideService(TerminalDiagnostics, diagnostics),
       Effect.exit,
     );
     return {
       result: processResult(exit),
       output: streams.log,
       reports: capture.requests.filter(isErrorReport),
+      diagnostic: yield* diagnostics.current,
     };
   });
 
@@ -172,7 +179,19 @@ const reportsOf = <A, E, R>(
     expect(baseline.reports).toEqual([]);
     expect(observed.result).toEqual(baseline.result);
     expect(observed.output).toEqual(baseline.output);
-    return yield* Effect.forEach(observed.reports, ({ body }) => decodeErrorReport(body));
+    const reports = yield* Effect.forEach(observed.reports, ({ body }) => decodeErrorReport(body));
+    for (const report of reports) {
+      expect(observed.diagnostic._tag).toBe("Some");
+      if (observed.diagnostic._tag === "Some") {
+        expect(report.eventId).toBe(observed.diagnostic.value.eventId);
+        expect(report.invocationId).toBe(observed.diagnostic.value.invocationId);
+      }
+      expect(baseline.diagnostic._tag).toBe("Some");
+      if (baseline.diagnostic._tag === "Some") {
+        expect(report.eventId).toBe(baseline.diagnostic.value.eventId);
+      }
+    }
+    return reports;
   });
 
 const expectOneReport = (
@@ -269,7 +288,7 @@ describe("Terminal failure reporting", () => {
 
           expectOneReport(reports, {
             phase: "command",
-            kind: "validation",
+            kind: "diagnostic.unclassified",
             category: "validation",
             handled: true,
             command: "list",

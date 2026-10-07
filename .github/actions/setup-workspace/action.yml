@@ -37,8 +37,13 @@ runs:
       if: runner.os == 'Linux'
       shell: bash
       run: |
-        sudo apt-get update
-        sudo apt-get install --yes --no-install-recommends libsecret-1-dev
+        # Hosted Ubuntu images configure this mirror list with Azure HTTP first.
+        # Keep the image's HTTPS archive/security mirrors when Azure stalls.
+        if [[ -f /etc/apt/apt-mirrors.txt ]]; then
+          sudo sed -i '\|^http://azure\.archive\.ubuntu\.com/ubuntu/|d' /etc/apt/apt-mirrors.txt
+        fi
+        sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update
+        sudo apt-get -o Acquire::Retries=2 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --yes --no-install-recommends libsecret-1-dev
 
     - name: Install workspace dependencies
       if: inputs.install == 'true'

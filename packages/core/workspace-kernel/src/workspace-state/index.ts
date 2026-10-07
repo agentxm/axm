@@ -494,6 +494,7 @@ export {
   LockEntryEndpointConflict,
   LockEntryNameInvalid,
   PackageContentHashFailed,
+  RuntimeIgnoreWriteError,
   SettingsEntryMissing,
   SupersededCanonicalRemovalFailed,
   SymlinkCreationError,
@@ -531,3 +532,5 @@ export {
 export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";
 
 export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
+
+export { ensureWorkspaceTransientIgnores } from "./workspace/runtime-ignores.js";

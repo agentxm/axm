@@ -224,18 +224,34 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
     onNone: (): ReadonlySet<string> => new Set(),
     onSome: ({ routes }) => routes,
   });
-  const suggestions = suggestionsForScope(
-    setupSuggestions({
-      status: result.status,
-      agentCount: result.agents.length,
-      agentIds: result.agents.map((agent) => agent.id),
-      scope: transition.location.scope,
-      telemetryEnabled,
-    }),
-    transition.location.scope,
-    scopedRoutes,
-  );
+  const suggestions = [
+    ...suggestionsForScope(
+      setupSuggestions({
+        status: result.status,
+        agentCount: result.agents.length,
+        agentIds: result.agents.map((agent) => agent.id),
+        scope: transition.location.scope,
+        telemetryEnabled,
+      }),
+      transition.location.scope,
+      scopedRoutes,
+    ),
+  ];
 
+  const migratedAliases = result.steps
+    .filter((step) => step.label === "Instruction files")
+    .flatMap((step) => step.artifact?.targets ?? [])
+    .filter(
+      (target) => target.change === "updated" && target.path !== result.instructions?.fileName,
+    );
+  const migrationSuggestions =
+    result.status === "initialized"
+      ? migratedAliases.map((target) => ({
+          description: `If ${target.path} is tracked, stop tracking the generated alias; setup leaves the Git index unchanged`,
+          cmd: `git rm --cached -- '${target.path.replaceAll("'", "'\\''")}'`,
+        }))
+      : [];
+  suggestions.push(...migrationSuggestions);
   yield* emitResult(
     { result },
     SetupDocumentSchema,

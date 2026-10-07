@@ -1298,7 +1298,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/install/first-install-establishes-minimal-state`
 - Owner: `cli-e2e`
-- Statement: An explicit source install into an uninitialized scope shall establish the requested agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.
+- Statement: An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall refuse without writing state and permit retry with --agent. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
@@ -4410,6 +4410,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/configuration/setup/initialization.ts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts`](../packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts)
+
+##### First setup describes its writes and preserves instruction content
+
+- Requirement: `cli/setup/first-use-plan-and-migration`
+- Owner: `cli-e2e`
+- Statement: First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: process; selection: per-change
+- Boundary rationale: The shipped CLI owns the confirmation display, bundled installation, filesystem migration, and resulting report.
+- Methods: example
+- Source: [`apps/cli-e2e/src/setup-first-use.spec.ts`](../apps/cli-e2e/src/setup-first-use.spec.ts)
 
 ##### Setup initializes the selected workspace
 

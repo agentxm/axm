@@ -25,16 +25,22 @@ export interface InstructionSourceChoice {
  * already agrees, link or copy an agent's instruction file to the shared
  * source, or pass over an agent that has no instruction convention.
  */
-export type SetupPlanAction = "create" | "update" | "in sync" | "link" | "copy" | "skip";
+export type SetupPlanAction = "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove";
 
 /** Structured facts the presenting adapter turns into setup-plan wording. */
 export type SetupPlanDetail =
   | { readonly _tag: "settings"; readonly agentIds: ReadonlyArray<string> }
   | { readonly _tag: "gitignore" }
   | { readonly _tag: "instructionSource"; readonly seededFrom?: string }
-  | { readonly _tag: "instructionTarget"; readonly agentName: string }
+  | {
+      readonly _tag: "instructionTarget";
+      readonly agentName: string;
+      readonly seededAlias?: boolean;
+      readonly preserved?: boolean;
+    }
   | { readonly _tag: "missingInstructionConvention" }
-  | { readonly _tag: "acceptedResolution" };
+  | { readonly _tag: "acceptedResolution" }
+  | { readonly _tag: "bundledSkill" };
 
 /** One row of the setup plan presented before confirmation. */
 export interface SetupPlanRow {

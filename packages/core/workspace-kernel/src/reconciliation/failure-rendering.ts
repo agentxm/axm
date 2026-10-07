@@ -51,6 +51,7 @@ import {
   LockfileResolvedVersionInvalid,
   LockfileValidationError,
   LockfileWriteError,
+  RuntimeIgnoreWriteError,
   SettingsWriteError,
   PathTraversalDetected,
   ConfiguredAgentOutcomesUnavailable,
@@ -217,6 +218,7 @@ const kernelFailureClasses = () =>
     LockfileDecodeError,
     LockfileVersionUnsupported,
     WorkspaceRootEscape,
+    RuntimeIgnoreWriteError,
     SettingsWriteError,
     LockfileWriteError,
     LockfileValidationError,
@@ -391,6 +393,7 @@ export const renderKernelFailure = (
     case "LockfileVersionUnsupported":
     case "WorkspaceRootEscape":
       return workspaceStateReadFailureToStepFailure(failure);
+    case "RuntimeIgnoreWriteError":
     case "SettingsWriteError":
     case "LockfileWriteError":
     case "LockfileValidationError":

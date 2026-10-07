@@ -10,6 +10,8 @@ import { commitLockfileSnapshotUpdateAtPath } from "../../../desired/lockfile/in
 import { LockfileValidationError } from "../../../desired/lockfile/errors.js";
 import { writeSettingsAtPath } from "../../../desired/settings/index.js";
 import { WorkspaceDocuments, batchableWorkspaceDocuments } from "../../documents.js";
+import { ensureWorkspaceTransientIgnores } from "../../runtime-ignores.js";
+import { SettingsWriteError } from "../../../desired/settings/errors.js";
 import { WorkspaceLocation } from "../../location.js";
 import { readLockfileCell, readSettingsOrDefault } from "../../state-cells.js";
 import { WorkspaceFileWriteLocks } from "../../../../settlement/index.js";
@@ -67,11 +69,26 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
         );
       }),
       writeSettings: (next, options) =>
-        writeSettingsAtPath(location.settingsPath, next, {
-          nativeRoot: location.baseDir,
-          runtimeDir: location.runtimeDir,
-          eligible: options?.roundTrip !== false,
-          locks,
+        Effect.gen(function* () {
+          if (location.scope === "project" && location.initialSettings !== undefined) {
+            const exists = yield* fs.exists(location.settingsPath).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SettingsWriteError({
+                    path: location.settingsPath,
+                    step: "check-target",
+                    cause,
+                  }),
+              ),
+            );
+            if (!exists) yield* ensureWorkspaceTransientIgnores(location.baseDir);
+          }
+          yield* writeSettingsAtPath(location.settingsPath, next, {
+            nativeRoot: location.baseDir,
+            runtimeDir: location.runtimeDir,
+            eligible: options?.roundTrip !== false,
+            locks,
+          });
         }).pipe(Effect.provideContext(io)),
       commitAcceptedResolutions: (base, next, options) =>
         commitLockfileSnapshotUpdateAtPath(location.lockPath, base, next, {

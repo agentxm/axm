@@ -18,11 +18,11 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { setupSkillTargets } from "./skill-targets.js";
 import * as Effect from "effect/Effect";
 import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import type * as Config from "effect/Config";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
@@ -54,9 +54,17 @@ import {
   type WorkspaceStateOptions,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
-import { nativeAuthorityRoots } from "@agentxm/workspace-kernel/locations";
+import {
+  resolveNativeEntry,
+  resolveNativeReferent,
+  nativeAuthorityRoots,
+} from "@agentxm/workspace-kernel/locations";
 import {
   runWorkspaceTransaction,
+  FootprintRecorder,
+  makeFootprintRecorder,
+  readFootprint,
+  type FootprintObservation,
   WorkspaceTransactionScope,
   WorkspaceTransactionScopes,
   type WorkspaceFileWriteLocks,
@@ -65,7 +73,10 @@ import {
 } from "@agentxm/workspace-kernel/settlement";
 
 import { WorkspaceConfigurationFailed } from "../errors.js";
-import { WorkspaceInitializationInteraction } from "./initialization-interaction.js";
+import {
+  type SetupPlanRow,
+  WorkspaceInitializationInteraction,
+} from "./initialization-interaction.js";
 import { bootstrapWorkspace, type SetupAgentCandidate } from "./initialization.js";
 
 /** Every failure a setup run can settle into. */
@@ -368,6 +379,8 @@ export interface SetupTransition {
   /** The person declined the interactive setup. */
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
+  readonly footprint?: ReadonlyArray<FootprintObservation>;
+  readonly instructionPlan?: ReadonlyArray<SetupPlanRow>;
 }
 
 /**
@@ -415,13 +428,14 @@ export const previewOrApplySetupWorkspace = <
       ...(candidate.request.yes !== undefined ? { yes: candidate.request.yes } : {}),
       ...(candidate.request.preview !== undefined ? { preview: candidate.request.preview } : {}),
     };
+    const recorder = yield* makeFootprintRecorder;
     const initialize = Effect.gen(function* () {
       const settled = yield* bootstrapWorkspace(workspaceOptions);
       if (settled.initialized && options?.bundledSkill !== undefined) {
         yield* options.bundledSkill;
       }
-      return settled;
-    });
+      return { ...settled, footprint: yield* readFootprint };
+    }).pipe(Effect.provideService(FootprintRecorder, recorder));
     if (candidate.request.preview === true || candidate.settingsExist) return yield* initialize;
     const scopes = yield* WorkspaceTransactionScopes;
     const scope = yield* scopes.forWorkspace({
@@ -480,6 +494,7 @@ const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =
+  | Effect.Error<ReturnType<typeof setupSkillTargets>>
   | Effect.Error<ReturnType<typeof scanAllSubagentFiles>>
   | Effect.Error<ReturnType<typeof isGitManaged>>
   | Effect.Error<
@@ -515,7 +530,6 @@ export const reportSetupWorkspace = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const fileSystem = yield* FileSystem.FileSystem;
-    const agentRepository = yield* CodingAgentRepository;
     const { settings, location, initialized, wouldInitialize, cancelled, agentCandidates } =
       request.transition;
     const scope = location.scope;
@@ -557,32 +571,51 @@ export const reportSetupWorkspace = (
         : "already-initialized";
     const resolvedStatus: SetupStatus = cancelled ? "cancelled" : status;
 
+    const physicalBaseDir = yield* resolveNativeReferent(location.baseDir);
     const gitManaged = scope === "project" && (yield* isGitManaged(location.baseDir));
     const changeForPath = (filePath: string) =>
       Effect.gen(function* () {
         if (resolvedStatus === "already-initialized" || resolvedStatus === "cancelled") {
           return "unchanged" as const;
         }
-        if (resolvedStatus === "initialized") return "created" as const;
+        if (resolvedStatus === "initialized") {
+          const observed =
+            request.transition.footprint?.filter(
+              (entry) => entry.path === filePath || entry.path.startsWith(filePath + path.sep),
+            ) ?? [];
+          return observed.at(-1)?.change === "removed"
+            ? ("removed" as const)
+            : observed[0]?.change === "created"
+              ? ("created" as const)
+              : observed.length > 0
+                ? ("updated" as const)
+                : ("unchanged" as const);
+        }
+        const instructionRow = request.transition.instructionPlan?.find(
+          (row) => path.join(physicalBaseDir, row.target) === filePath,
+        );
+        if (instructionRow?.action === "in sync") return "unchanged" as const;
+        if (instructionRow?.action === "remove") return "removed" as const;
         const exists = yield* fileSystem
           .exists(filePath)
           .pipe(Effect.catch(() => Effect.succeed(false)));
         return exists ? ("updated" as const) : ("created" as const);
       });
     const displayTargetPath = (filePath: string): string => {
-      const relative = path.relative(location.baseDir, filePath);
+      const relative = path.relative(physicalBaseDir, filePath);
       return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
         ? filePath
         : relative;
     };
     const targetsFor = (paths: ReadonlyArray<string>) =>
       Effect.forEach([...new Set(paths)], (filePath) =>
-        changeForPath(filePath).pipe(
-          Effect.map((change): SetupArtifactTarget => ({
-            path: displayTargetPath(filePath),
-            change,
-          })),
-        ),
+        Effect.gen(function* () {
+          const entry = yield* resolveNativeEntry(filePath);
+          return {
+            path: displayTargetPath(entry.entryPath),
+            change: yield* changeForPath(entry.entryPath),
+          } satisfies SetupArtifactTarget;
+        }),
       );
 
     const workspaceTargets = yield* targetsFor([
@@ -593,6 +626,9 @@ export const reportSetupWorkspace = (
     const instructionTargets =
       instructions?.enabled === true
         ? yield* targetsFor([
+            ...(request.transition.instructionPlan ?? []).map((row) =>
+              path.join(location.baseDir, row.target),
+            ),
             path.join(location.baseDir, instructions.fileName ?? "AGENTS.md"),
             ...agentIds.flatMap((agentId) => {
               if (!isKnownAgentId(agentId)) return [];
@@ -607,31 +643,17 @@ export const reportSetupWorkspace = (
             }),
           ])
         : [];
-    const skillTargets = (yield* Effect.forEach(
-      agentIds.flatMap((agentId) => (isKnownAgentId(agentId) ? [agentId] : [])),
-      (agentId) =>
-        agentRepository.get(agentId).pipe(
-          Effect.flatMap((agent) =>
-            agent.resolveEffectiveSkillsDir({
-              workspaceRoot: location.baseDir,
-              scope: location.scope,
-            }),
-          ),
-          Effect.flatMap((resolved) =>
-            resolved._tag !== "supported"
-              ? Effect.succeed(Option.none<SetupArtifactTarget>())
-              : changeForPath(path.join(resolved.dir, "axm")).pipe(
-                  Effect.map((change) =>
-                    Option.some({
-                      path: displayTargetPath(path.join(resolved.dir, "axm")),
-                      change,
-                      agentIds: [agentId],
-                    }),
-                  ),
-                ),
-          ),
-        ),
-    )).flatMap(Option.toArray);
+    const skillTargets = yield* Effect.forEach(
+      yield* setupSkillTargets(physicalBaseDir, scope, agentIds),
+      (target) =>
+        Effect.gen(function* () {
+          return {
+            ...target,
+            path: displayTargetPath(target.path),
+            change: yield* changeForPath(target.path),
+          };
+        }),
+    );
 
     const steps: Array<SetupPlanStep> = [
       {
@@ -684,7 +706,7 @@ export const reportSetupWorkspace = (
           agents: agentIds,
           version: request.bundledSkill.version,
           change,
-          targets: [{ path: bundledSkillDisplayPath(scope), change }, ...skillTargets],
+          targets: skillTargets,
         },
       });
     }

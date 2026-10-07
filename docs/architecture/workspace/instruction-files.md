@@ -55,7 +55,15 @@ does not make the choice.
 
 AXM does not own the canonical file as a whole, replace user-authored prose,
 turn every instruction into a Rule extension, or treat an existing alias as
-permission to overwrite it. Enabling instruction management does not enable
+permission to overwrite it. First-time setup has one explicit migration exception:
+its approved plan may seed a missing canonical file from an existing regular
+instruction file and replace that seeded-from file with the planned alias. Apply
+rechecks that both files still equal the approved seed before replacement; a
+changed file refuses the transaction. Other existing instruction files remain
+untouched. Setup leaves the Git index unchanged and explains how to stop tracking
+a generated alias with `git rm --cached`.
+
+Enabling instruction management does not enable
 every Rule or Knowledge bundle, and enabling one contributor does not
 grant authority over the shared surface.
 

@@ -13,6 +13,7 @@ import {
   PublicationReadbackTimeout,
   readNpmDistTag,
   readNpmPublication,
+  verifyNpmDownload,
   releaseCohortTarballPath,
   releaseBoundaryError,
   ReleaseBoundaryFailed,
@@ -735,6 +736,127 @@ describe("Homebrew formula identity", () => {
   it("retains a newer formula", () => {
     expect(() => prepareFormula(formula("1.3.0"), "1.2.3", hashes)).toThrow(SupersededRelease);
   });
+});
+
+describe("npm download readiness", () => {
+  const input = { name: "axm.sh", version: "1.2.3", integrity };
+  const tarball = "https://registry.npmjs.org/axm.sh/-/axm.sh-1.2.3.tgz";
+  const metadata = (digest = integrity, url = tarball) =>
+    Response.json({
+      "dist-tags": { latest: "1.2.3" },
+      versions: { "1.2.3": { dist: { integrity: digest, tarball: url } } },
+    });
+
+  it.effect("waits beyond visible metadata until the exact tarball can be downloaded", () =>
+    Effect.gen(function* () {
+      let downloads = 0;
+      const fetcher: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = async (
+        url,
+        options,
+      ) => {
+        expect(options?.signal).toBeDefined();
+        if (String(url) !== tarball) return metadata();
+        expect(options?.redirect).toBe("error");
+        expect(new Headers(options?.headers).get("cache-control")).toBe("no-cache");
+        downloads += 1;
+        return downloads < 3 ? new Response(null, { status: 404 }) : new Response(bytes);
+      };
+      yield* verifyNpmDownload(input, boundedObservation(), fetcher);
+      expect(downloads).toBe(3);
+    }),
+  );
+
+  it.effect(
+    "fails at its deadline when metadata exists but tarball bytes never become visible",
+    () =>
+      Effect.gen(function* () {
+        const failure = yield* verifyNpmDownload(input, boundedObservation(), async (url) =>
+          String(url) === tarball ? new Response(null, { status: 404 }) : metadata(),
+        ).pipe(Effect.flip);
+        expect(failure).toBeInstanceOf(ReleaseBoundaryFailed);
+        expect(failure.cause).toBeInstanceOf(PublicationReadbackTimeout);
+      }),
+  );
+
+  it.effect.each(["metadata", "bytes"])("rejects conflicting %s without retrying", (conflict) =>
+    Effect.gen(function* () {
+      const fetcher = vi.fn<(...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>>(
+        async (url) =>
+          String(url) === tarball
+            ? new Response("different bytes")
+            : metadata(conflict === "metadata" ? "different" : integrity),
+      );
+      const failure = yield* verifyNpmDownload(input, boundedObservation(), fetcher).pipe(
+        Effect.flip,
+      );
+      expect(failure.message).toContain("integrity conflict");
+      expect(fetcher).toHaveBeenCalledTimes(conflict === "metadata" ? 1 : 2);
+    }),
+  );
+
+  it.effect.each([401, 403])("does not retry a tarball authorization failure: %i", (status) =>
+    Effect.gen(function* () {
+      const fetcher = vi.fn<(...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>>(
+        async (url) => (String(url) === tarball ? new Response(null, { status }) : metadata()),
+      );
+      const failure = yield* verifyNpmDownload(input, boundedObservation(), fetcher).pipe(
+        Effect.flip,
+      );
+      expect(failure.message).toContain(`HTTP ${status}`);
+      expect(fetcher).toHaveBeenCalledTimes(2);
+    }),
+  );
+
+  it.effect.each([429, 503])("retries a transient tarball failure: %i", (status) =>
+    Effect.gen(function* () {
+      let downloads = 0;
+      yield* verifyNpmDownload(input, boundedObservation(), async (url) => {
+        if (String(url) !== tarball) return metadata();
+        downloads += 1;
+        return downloads === 1
+          ? new Response(null, { status, headers: { "retry-after": "0" } })
+          : new Response(bytes);
+      });
+      expect(downloads).toBe(2);
+    }),
+  );
+
+  it.effect("rejects an unexpected tarball origin before making that request", () =>
+    Effect.gen(function* () {
+      const fetcher = vi.fn<(...args: Parameters<typeof fetch>) => ReturnType<typeof fetch>>(
+        async () => metadata(integrity, "https://example.com/archive.tgz"),
+      );
+      const failure = yield* verifyNpmDownload(input, boundedObservation(), fetcher).pipe(
+        Effect.flip,
+      );
+      expect(failure.message).toContain("Unexpected npm tarball host");
+      expect(fetcher).toHaveBeenCalledTimes(1);
+    }),
+  );
+
+  it.effect("cancels an in-flight tarball download when verification is interrupted", () =>
+    Effect.gen(function* () {
+      const started = yield* Deferred.make<void>();
+      const aborted = yield* Deferred.make<void>();
+      const verification = yield* verifyNpmDownload(input, {}, (url, options) => {
+        if (String(url) !== tarball) return Promise.resolve(metadata());
+        return new Promise<Response>((_resolve, reject) => {
+          options?.signal?.addEventListener(
+            "abort",
+            () => {
+              Deferred.doneUnsafe(aborted, Effect.void);
+              reject(new DOMException("Download aborted", "AbortError"));
+            },
+            { once: true },
+          );
+          Deferred.doneUnsafe(started, Effect.void);
+        });
+      }).pipe(Effect.forkChild);
+      yield* Deferred.await(started);
+      yield* Fiber.interrupt(verification);
+      yield* Deferred.await(aborted);
+    }),
+  );
 });
 
 describe("npm publication observations", () => {

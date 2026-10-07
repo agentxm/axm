@@ -510,6 +510,62 @@ const NpmMetadata = Schema.Struct({
   versions: Schema.Record(Schema.String, Schema.Unknown),
 });
 const PublishedVersion = Schema.Struct({ dist: Schema.Struct({ integrity: Schema.String }) });
+const DownloadableVersion = Schema.Struct({
+  dist: Schema.Struct({ integrity: Schema.String, tarball: Schema.String }),
+});
+
+// The registry took more than eight minutes to expose an acknowledged 0.42.0
+// upload, and its tarball lagged metadata. Retain a bounded propagation window.
+export const npmPropagationTimeoutMs = 15 * 60_000;
+
+/** Download readiness is separate from existence: a tarball 404 never permits another write. */
+export const verifyNpmDownload = (
+  input: { readonly name: string; readonly version: string; readonly integrity: string },
+  observation: Omit<ImmutablePublicationObservation, "signal"> = {},
+  fetchImplementation: (...args: Parameters<typeof fetch>) => ReturnType<typeof fetch> = fetch,
+) =>
+  Effect.gen(function* () {
+    const coordinate = `${input.name}@${input.version}`;
+    yield* Effect.logInfo(`Waiting for checksum-verified npm download: ${coordinate}`);
+    yield* Effect.tryPromise({
+      try: (signal) =>
+        observePublication({
+          ...observation,
+          timeoutMs: observation.timeoutMs ?? npmPropagationTimeoutMs,
+          signal,
+          name: `${coordinate} tarball`,
+          retryError: isTransientPublicationError,
+          read: async (attemptSignal) => {
+            const metadata = await readNpmMetadata(input.name, fetchImplementation, attemptSignal);
+            const published = metadata?.versions[input.version];
+            if (published === undefined) return null;
+            const { dist } = Schema.decodeUnknownSync(DownloadableVersion)(published);
+            if (dist.integrity !== input.integrity)
+              throw new Error(`Published content integrity conflict: ${coordinate} metadata.`);
+            const url = new URL(dist.tarball);
+            if (url.origin !== "https://registry.npmjs.org" || url.username || url.password)
+              throw new Error(`Unexpected npm tarball host: ${coordinate}.`);
+            const response = await fetchImplementation(url, {
+              signal: AbortSignal.any([attemptSignal, AbortSignal.timeout(30_000)]),
+              redirect: "error",
+              cache: "no-store",
+              headers: { "cache-control": "no-cache" },
+            });
+            if (response.status === 404) {
+              console.log(`npm tarball not yet downloadable: ${coordinate}`);
+              return null;
+            }
+            if (response.status !== 200)
+              throw publicationHttpError(`npm tarball download failed for ${coordinate}`, response);
+            return contentIntegrity(new Uint8Array(await response.arrayBuffer()));
+          },
+          matches: (value) => value === input.integrity,
+          conflicts: (value) => value !== null && value !== input.integrity,
+        }),
+      catch: releaseBoundaryError,
+    });
+    yield* Effect.logInfo(`Verified npm download: ${coordinate}`);
+  });
 
 export class NpmPackagesUninitialized extends Data.TaggedError("NpmPackagesUninitialized")<{
   readonly packages: ReadonlyArray<string>;

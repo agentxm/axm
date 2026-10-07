@@ -16,7 +16,7 @@ import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
-import { createVitest } from "vitest/node";
+import { BaseSequencer, createVitest } from "vitest/node";
 import YAML from "yaml";
 import { withoutLocalGitEnvironment } from "@agentxm/client-e2e-utils";
 
@@ -370,7 +370,12 @@ describe("aggregate required verification", () => {
   });
 
   it("keeps complete source coverage across independent verification partitions", () => {
+    // The two workflow matrices reuse the same selections. Resolve each native
+    // Nx selection once within this test rather than repeatedly starting Nx.
+    const selections = new Map<string | undefined, readonly string[]>();
     const projectNames = (exclude?: string): readonly string[] => {
+      const selected = selections.get(exclude);
+      if (selected !== undefined) return selected;
       const value: unknown = JSON.parse(
         execFileSync(
           "pnpm",
@@ -397,6 +402,7 @@ describe("aggregate required verification", () => {
       if (!Array.isArray(value) || !value.every((name: unknown) => typeof name === "string")) {
         throw new Error("Nx must return the selected project names.");
       }
+      selections.set(exclude, value);
       return value;
     };
     const allProjects = [...projectNames()].sort();
@@ -423,6 +429,7 @@ describe("aggregate required verification", () => {
       ) {
         throw new Error(`${name} must declare its complete partition set.`);
       }
+      const shards = new Map<string, string[]>();
       const selected = matrix.include.flatMap((partition: unknown) => {
         if (
           typeof partition !== "object" ||
@@ -432,11 +439,47 @@ describe("aggregate required verification", () => {
         ) {
           throw new Error(`${name} must select its partitions through native Nx exclusions.`);
         }
+        if ("shard" in partition && typeof partition.shard === "string" && partition.shard) {
+          const group = shards.get(partition.exclude) ?? [];
+          group.push(partition.shard);
+          shards.set(partition.exclude, group);
+          return group.length === 1 ? projectNames(partition.exclude) : [];
+        }
         return projectNames(partition.exclude);
       });
       expect([...selected].sort(), name).toEqual(allProjects);
       expect(new Set(selected).size, name).toBe(selected.length);
+      expect([...shards.values()]).toEqual([["1/2", "2/2"]]);
+      expect([...shards.keys()].flatMap(projectNames)).toEqual(["workspace-features"]);
+      expect(job).toHaveProperty("env.SOURCE_SHARD", "${{ matrix.shard }}");
+      expect(JSON.stringify(job)).toContain('--shard=\\"$SOURCE_SHARD\\"');
     }
+  });
+
+  it("native feature shards cover every discovered file exactly once", async () => {
+    const selections: string[][] = [];
+    let complete: string[] = [];
+    for (const shard of ["1/2", "2/2"]) {
+      const vitest = await createVitest("test", {
+        root: path.join(repoRoot, "packages/core/workspace-features"),
+        config: path.join(repoRoot, "packages/core/workspace-features/vitest.config.ts"),
+        watch: false,
+        reporters: [],
+        shard,
+      });
+      try {
+        const files = await vitest.globTestSpecifications();
+        complete = files.map((file) => file.moduleId).sort();
+        const sequencer = new BaseSequencer(vitest);
+        selections.push((await sequencer.shard(files)).map((file) => file.moduleId));
+      } finally {
+        await vitest.close();
+      }
+    }
+    expect(complete.length).toBeGreaterThan(0);
+    expect(selections.every((files) => files.length > 0)).toBe(true);
+    expect(selections.flat().sort()).toEqual(complete);
+    expect(new Set(selections.flat()).size).toBe(complete.length);
   });
 
   it("reports selected source and E2E tests while accepting an empty partition", () => {

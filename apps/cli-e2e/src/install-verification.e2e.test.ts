@@ -25,11 +25,18 @@ export const executionBinding = {
   ],
   boundary: "installed",
   rationale:
-    "Runs the published installer scripts end to end against a served release layout on the selected installer shell, proving checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product on that shell. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.",
+    "Runs the installer scripts on the selected shell against a controlled layout or, when explicitly selected, the production distribution with latest and exact version selection. Checks checksum-specific rejection, custom destination placement, executable PATH and absolute-path guidance, and a working installed product. Profile and prior-binary preservation remain observations beyond the installation owner's current meaning.",
 } as const;
 
 const installMode = resolveInstallMode();
 const expectedVersion = process.env["AXM_EXPECTED_VERSION"];
+const productionDistribution = process.env["AXM_INSTALL_DISTRIBUTION"] === "production";
+if (productionDistribution && !expectedVersion) {
+  throw new Error("Production installer verification requires AXM_EXPECTED_VERSION.");
+}
+if (productionDistribution && process.env["AXM_INSTALL_BASE_URL"]) {
+  throw new Error("Production installer verification must use the public download defaults.");
+}
 const fixtureBinaryPath = resolveHostBinaryPath();
 const fixtureVersionResult = await createBinaryRunner(fixtureBinaryPath)(["--version"]);
 
@@ -149,9 +156,13 @@ afterAll(async () => {
   await serverContext.close();
 });
 
-const installBaseUrl = process.env["AXM_INSTALL_BASE_URL"] ?? serverContext?.baseUrl;
+// An empty override exercises the installer's production URL selection. The
+// controlled server remains available for checksum-rejection observations.
+const installBaseUrl = productionDistribution
+  ? ""
+  : (process.env["AXM_INSTALL_BASE_URL"] ?? serverContext.baseUrl);
 
-if (installBaseUrl === undefined || installBaseUrl.length === 0) {
+if (!productionDistribution && installBaseUrl.length === 0) {
   throw new Error("Failed to resolve AXM_INSTALL_BASE_URL for install verification");
 }
 
@@ -368,70 +379,75 @@ const verifyInstallMeta = (metaPath: string) => {
 };
 
 describe("install script verification", () => {
-  it(`installs axm with ${installMode}`, async () => {
-    const temp = createTempDir();
+  it.each(productionDistribution ? ["latest", "exact"] : ["fixture"])(
+    `installs %s axm with ${installMode}`,
+    async (selection) => {
+      const options = selection === "latest" ? { version: "" } : {};
 
-    try {
-      if (installMode === "bash") {
-        const scriptPath = path.join(repoRoot, "install.sh");
-        const result = await runCommand("sh", [scriptPath], {
+      const temp = createTempDir();
+
+      try {
+        if (installMode === "bash") {
+          const scriptPath = path.join(repoRoot, "install.sh");
+          const result = await runCommand("sh", [scriptPath], {
+            cwd: repoRoot,
+            env: createBashEnv(temp.path, options),
+          });
+
+          expectCommandSuccess("install.sh", result);
+          expect(getOutput(result)).toContain("Detected platform:");
+          expect(getOutput(result)).toContain("Installed AXM");
+          expect(getOutput(result)).not.toContain("Use AXM in this shell:");
+
+          const installedBinary = path.join(temp.path, ".axm", "bin", "axm");
+          await verifyInstalledBinary(installedBinary);
+          verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
+          await verifyUpgradeModes(installedBinary, createBashEnv(temp.path, options));
+          return;
+        }
+
+        if (installMode === "powershell") {
+          const scriptPath = path.join(repoRoot, "install.ps1");
+          const result = await runCommand(
+            "powershell",
+            ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
+            {
+              cwd: repoRoot,
+              env: createWindowsEnv(temp.path, options),
+            },
+          );
+
+          expectCommandSuccess("install.ps1", result);
+          expect(getOutput(result)).toContain("Detected platform: windows-x64");
+          expect(getOutput(result)).toContain("Installed AXM");
+          expect(getOutput(result)).not.toContain("Use AXM in this shell:");
+
+          const installedBinary = path.join(temp.path, ".axm", "bin", "axm.exe");
+          await verifyInstalledBinary(installedBinary);
+          verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
+          await verifyUpgradeModes(installedBinary, createWindowsEnv(temp.path, options));
+          return;
+        }
+
+        const scriptPath = path.join(repoRoot, "install.cmd");
+        const result = await runCommand("cmd", ["/c", scriptPath], {
           cwd: repoRoot,
-          env: createBashEnv(temp.path),
+          env: createWindowsEnv(temp.path, options),
         });
 
-        expectCommandSuccess("install.sh", result);
-        expect(getOutput(result)).toContain("Detected platform:");
-        expect(getOutput(result)).toContain("Installed AXM");
-        expect(getOutput(result)).not.toContain("Use AXM in this shell:");
-
-        const installedBinary = path.join(temp.path, ".axm", "bin", "axm");
-        await verifyInstalledBinary(installedBinary);
-        verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
-        await verifyUpgradeModes(installedBinary, createBashEnv(temp.path));
-        return;
-      }
-
-      if (installMode === "powershell") {
-        const scriptPath = path.join(repoRoot, "install.ps1");
-        const result = await runCommand(
-          "powershell",
-          ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", scriptPath],
-          {
-            cwd: repoRoot,
-            env: createWindowsEnv(temp.path),
-          },
-        );
-
-        expectCommandSuccess("install.ps1", result);
-        expect(getOutput(result)).toContain("Detected platform: windows-x64");
+        expectCommandSuccess("install.cmd", result);
         expect(getOutput(result)).toContain("Installed AXM");
         expect(getOutput(result)).not.toContain("Use AXM in this shell:");
 
         const installedBinary = path.join(temp.path, ".axm", "bin", "axm.exe");
         await verifyInstalledBinary(installedBinary);
         verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
-        await verifyUpgradeModes(installedBinary, createWindowsEnv(temp.path));
-        return;
+        await verifyUpgradeModes(installedBinary, createWindowsEnv(temp.path, options));
+      } finally {
+        temp.cleanup();
       }
-
-      const scriptPath = path.join(repoRoot, "install.cmd");
-      const result = await runCommand("cmd", ["/c", scriptPath], {
-        cwd: repoRoot,
-        env: createWindowsEnv(temp.path),
-      });
-
-      expectCommandSuccess("install.cmd", result);
-      expect(getOutput(result)).toContain("Installed AXM");
-      expect(getOutput(result)).not.toContain("Use AXM in this shell:");
-
-      const installedBinary = path.join(temp.path, ".axm", "bin", "axm.exe");
-      await verifyInstalledBinary(installedBinary);
-      verifyInstallMeta(path.join(temp.path, ".axm", "install-meta.json"));
-      await verifyUpgradeModes(installedBinary, createWindowsEnv(temp.path));
-    } finally {
-      temp.cleanup();
-    }
-  });
+    },
+  );
 
   it(`prints actionable PATH guidance for ${installMode}`, async () => {
     const temp = createTempDir("axm path guidance ");

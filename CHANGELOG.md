@@ -1,3 +1,18 @@
+## 0.42.0 (2026-10-07)
+
+### 🚀 Features
+
+- Adopt stable Library IDs in the Registry client, remove obsolete named-Library ([500a368ad](https://github.com/agentxm/axm/commit/500a368ad))
+  target parsing, and adopt the published AgentXM Knowledge 1.4.0 bundle.
+
+### ⚠️ Breaking Changes
+
+- Enable opt-out telemetry with stable public skill identities and caller-agent attribution. ([41c4c918e](https://github.com/agentxm/axm/commit/41c4c918e))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.41.0 (2026-10-06)
 
 ### 🩹 Fixes

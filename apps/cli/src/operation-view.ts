@@ -107,13 +107,12 @@ const nativeLocationsDoc = (
     locations.map((location) => JSON.stringify([location.scope, location.address.path])),
   ).size;
   const consumers = new Set(locations.flatMap((location) => location.configuredConsumers)).size;
-  const readers = new Set(locations.flatMap((location) => location.potentialReaders)).size;
   const policies = [...new Set(locations.flatMap((location) => location.policyReasons))];
   return [
     {
       _tag: "paragraph",
       tone: "dim",
-      text: `${planned ? "Planned native locations" : "Native locations"}: ${count(physical, "physical location")}, ${count(locations.length, "unit")}, ${count(consumers, "configured consumer")}${readers === 0 ? "" : `, ${count(readers, "potential reader")}`}.`,
+      text: `${planned ? "Will make available" : "Available"} to ${count(consumers, "configured agent")} in ${count(physical, "location")}.`,
     },
     ...policies.map(
       (reason) => ({ _tag: "paragraph", tone: "dim", text: redactRegistryText(reason) }) as const,

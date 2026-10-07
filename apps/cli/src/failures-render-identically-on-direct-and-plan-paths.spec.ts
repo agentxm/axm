@@ -87,6 +87,7 @@ import {
   SettingsIoError,
   SettingsParseError,
   SettingsWriteError,
+  RuntimeIgnoreWriteError,
   SkillDiscoveryRootInvalid,
   SubagentScanFailed,
   SupersededCanonicalRemovalFailed,
@@ -377,6 +378,10 @@ const representatives: Representatives = {
   NativeLocationError: [
     new NativeLocationError({ target: "/w/hooks/audit/hook.json", reason: "source-overlap" }),
     new NativeLocationError({ target: "/outside/settings.json", reason: "escape" }),
+  ],
+  RuntimeIgnoreWriteError: [
+    new RuntimeIgnoreWriteError({ path: "/w/.gitignore", step: "read-target", cause: ioCause }),
+    new RuntimeIgnoreWriteError({ path: "/w/.gitignore", step: "rename", cause: ioCause }),
   ],
   SettingsWriteError: [
     new SettingsWriteError({ path: "/w/.axm", step: "mkdir", cause: ioCause }),

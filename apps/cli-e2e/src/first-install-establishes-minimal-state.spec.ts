@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/first-install-establishes-minimal-state",
   title: "First install establishes only selected management state",
   statement:
-    "An explicit source install into an uninitialized scope shall establish the requested agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
+    "An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall refuse without writing state and permit retry with --agent. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
@@ -72,6 +72,68 @@ describe("First install", () => {
       }
     });
   }
+
+  for (const [command, scope] of [
+    [["install"], "project"],
+    [["skills", "install"], "project"],
+    [["install"], "user"],
+  ] as const) {
+    it(`detects project agents and reports their native destinations for ${command.join(" ")} in ${scope} scope`, async () => {
+      const fixture = makeEnvironmentProcessFixture();
+      try {
+        const source = writeSource(fixture.root);
+        fs.mkdirSync(path.join(fixture.invoking, ".claude"));
+        const result = await fixture.run([
+          ...command,
+          source,
+          "--skill",
+          "review",
+          "--scope",
+          scope,
+          "--non-interactive",
+        ]);
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const workspace =
+          scope === "project"
+            ? fixture.invoking
+            : path.join(fixture.applicationHome, ".axm/workspace");
+        const nativeRoot = scope === "project" ? fixture.invoking : fixture.applicationHome;
+        expect(JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"))).toMatchObject(
+          {
+            agents: ["claude-code"],
+            instructionFiles: false,
+          },
+        );
+        expect(
+          fs.readFileSync(path.join(nativeRoot, ".claude/skills/review/SKILL.md"), "utf8"),
+        ).toBe(payload);
+        if (scope === "project")
+          expect(fs.readFileSync(path.join(workspace, ".gitignore"), "utf8")).toContain("/.axm/");
+        expect(result.stdout).toContain(".claude/skills/review");
+        expect(result.stdout + result.stderr).not.toContain("No coding agents received");
+      } finally {
+        fixture.cleanup();
+      }
+    });
+  }
+
+  it("refuses undetected first use without writing and permits an explicit retry", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      const source = writeSource(fixture.root);
+      const args = ["install", source, "--skill", "review", "--non-interactive"];
+      const refused = await fixture.run(args);
+      expect(refused.exitCode).toBe(2);
+      expect(refused.stdout + refused.stderr).toContain("--agent");
+      expect(fs.readdirSync(fixture.invoking)).toEqual([]);
+      const retry = await fixture.run([...args, "--agent", "claude-code"]);
+      expect(retry.exitCode, retry.stdout + retry.stderr).toBe(0);
+      expect(retry.stdout).toContain(".claude/skills/review");
+      expect(retry.stdout + retry.stderr).not.toContain("No coding agents received");
+    } finally {
+      fixture.cleanup();
+    }
+  });
 
   for (const condition of [
     "preview",

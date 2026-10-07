@@ -16,8 +16,8 @@ import { afterEach, beforeEach } from "vitest";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceStateOptions } from "@agentxm/workspace-kernel/workspace-state";
 import { bootstrapWorkspace } from "../index.js";
-import { WorkspaceInitializationInteractionTest } from "../testing.js";
-import { setupWorkspaceTestLayer } from "./test-helpers.js";
+import { makeSetupFixture, WorkspaceInitializationInteractionTest } from "../testing.js";
+import { runSetup, setupWorkspaceTestLayer } from "./test-helpers.js";
 
 describe("bootstrapWorkspace", () => {
   let tempDir: string;
@@ -217,15 +217,49 @@ describe("bootstrapWorkspace", () => {
       );
 
       expect(interaction.state.selectInstructionSourceCalls).toEqual([]);
-      expect(interaction.state.presentSetupPlanCalls).toEqual([
-        [
+      expect(interaction.state.presentSetupPlanCalls[0]).toEqual(
+        expect.arrayContaining([
           {
             target: "axm.json",
             action: "create",
             detail: { _tag: "settings", agentIds: ["claude-code"] },
           },
-        ],
-      ]);
+          { target: "axm-lock.yaml", action: "create", detail: { _tag: "acceptedResolution" } },
+          { target: ".agents/skills/axm", action: "create", detail: { _tag: "bundledSkill" } },
+        ]),
+      );
     }),
+  );
+  it.effect(
+    "refuses a seed changed during approval without deleting the user's new content",
+    () => {
+      const fixture = makeSetupFixture({ files: { "CLAUDE.md": "Original instructions\n" } });
+      const interaction = WorkspaceInitializationInteractionTest({
+        confirmSetupPlan: () =>
+          Effect.sync(() => {
+            fixture.writeFile("CLAUDE.md", "Edited while deciding\n");
+            return true;
+          }),
+      });
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const error = yield* runSetup({
+              scope: "project",
+              nonInteractive: false,
+              projectRoot: decodeAbsolutePathSync(fixture.root),
+              telemetryEnabled: false,
+              agents: ["claude-code"],
+            }).pipe(Effect.provide(interaction.layer), Effect.flip);
+            expect(error).toMatchObject({
+              detail: expect.stringContaining("Instruction content changed"),
+            });
+            expect(fixture.readFile("CLAUDE.md")).toBe("Edited while deciding\n");
+            expect(fixture.exists("AGENTS.md")).toBe(false);
+            expect(fixture.exists("axm.json")).toBe(false);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+    },
   );
 });

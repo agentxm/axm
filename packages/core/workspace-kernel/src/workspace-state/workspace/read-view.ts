@@ -70,7 +70,12 @@ export const WorkspaceReadViewsLive = Layer.effect(
               }
               const selected =
                 scope === undefined || scope === location.scope ? model : yield* inherited;
-              return Option.getOrElse(yield* selected.state.settings, createDefaultSettings);
+              return Option.getOrElse(yield* selected.state.settings, () =>
+                (scope === undefined || scope === location.scope) &&
+                location.initialSettings !== undefined
+                  ? location.initialSettings
+                  : createDefaultSettings(),
+              );
             }).pipe(Effect.provideContext(io)),
           acceptedResolutionState: model.state.lockfile.pipe(
             Effect.map((value) => (Option.isSome(value) ? ("ok" as const) : ("missing" as const))),

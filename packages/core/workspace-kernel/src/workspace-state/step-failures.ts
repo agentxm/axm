@@ -25,6 +25,7 @@ import type {
   LockEntryNameInvalid,
   LockedSkillMissing,
   PackageContentHashFailed,
+  RuntimeIgnoreWriteError,
   SettingsEntryMissing,
   SupersededCanonicalRemovalFailed,
   SymlinkCreationError,
@@ -210,6 +211,7 @@ const causeMessage = (cause: unknown): string =>
 
 /** Every workspace-state failure beside the scoped reads, rendered below. */
 export type WorkspaceStateFailure =
+  | RuntimeIgnoreWriteError
   | SettingsWriteError
   | LockfileWriteError
   | LockfileValidationError
@@ -315,6 +317,12 @@ const symlinkCreationDetail = (error: SymlinkCreationError): string => {
 /** Translate one workspace-state read-modify-write or record failure. */
 export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure): StepFailure => {
   switch (error._tag) {
+    case "RuntimeIgnoreWriteError":
+      return makeStepFailure({
+        category: "internal",
+        detail: `Failed to ${error.step === "check-target" || error.step === "read-target" ? "read" : "write"} AXM workspace ignore file: ${error.path}`,
+        cause: error.cause,
+      });
     case "SettingsWriteError":
       return makeStepFailure({
         category: "internal",

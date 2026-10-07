@@ -15,7 +15,11 @@ import type {
 } from "../observed/errors.js";
 import type { SettingsWriteError } from "../desired/settings/errors.js";
 import type { LockfileValidationError, LockfileWriteError } from "../desired/lockfile/errors.js";
-import type { WorkspaceLayoutError, WorkspaceNotInitialized } from "./errors.js";
+import type {
+  RuntimeIgnoreWriteError,
+  WorkspaceLayoutError,
+  WorkspaceNotInitialized,
+} from "./errors.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
@@ -115,7 +119,10 @@ export type WorkspaceStateReadFailure = SettingsReadError | LockfileReadError | 
  * preimage taken before the first mutation.
  */
 export type WorkspaceSettingsMutationFailure =
-  WorkspaceSettingsReadFailure | SettingsWriteError | WorkspaceSnapshotError;
+  | WorkspaceSettingsReadFailure
+  | SettingsWriteError
+  | RuntimeIgnoreWriteError
+  | WorkspaceSnapshotError;
 
 /** Lockfile read-modify-write through the snapshot-commit path. */
 export type WorkspaceLockfileMutationFailure =

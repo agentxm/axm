@@ -113,3 +113,10 @@ export class WorkspaceSourceInvalid extends Data.TaggedError("WorkspaceSourceInv
   readonly detail: string;
   readonly cause?: unknown;
 }> {}
+
+/** Reading or writing the workspace runtime ignore entries failed. */
+export class RuntimeIgnoreWriteError extends Data.TaggedError("RuntimeIgnoreWriteError")<{
+  readonly path: string;
+  readonly step: "check-target" | "read-target" | "write-temp" | "rename";
+  readonly cause: unknown;
+}> {}

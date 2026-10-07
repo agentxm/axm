@@ -69,7 +69,7 @@ it.each([40, 80, 120, 200])(
       columns,
     );
     expect(compactText(text)).toContain(
-      compactText("1 physical location, 1 unit, 2 configured consumers, 1 potential reader"),
+      compactText("Available to 2 configured agents in 1 location."),
     );
     expect(compactText(text)).toContain(
       compactText("Shared Skills policy keeps this entry available"),

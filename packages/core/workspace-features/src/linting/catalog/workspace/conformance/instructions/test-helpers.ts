@@ -173,7 +173,7 @@ export const instructionsTargetUnownedConformance: WorkspaceRuleConformanceCase 
   expectedFindings: [
     {
       message:
-        "An unowned file occupies the Claude Code instruction target; AXM will not modify it. Remove or rename it, or make it the canonical source with `axm instructions enable --file`.",
+        "An unowned file occupies the Claude Code instruction target; AXM will not modify it. Preserve any unique content in the canonical instruction file, then move the conflicting target aside and run `axm sync`. First-time setup can replace only the identical file used to seed its canonical source.",
       location: { file: "CLAUDE.md" },
     },
   ],

@@ -53,8 +53,8 @@ export const instructionsTargetUnownedRule: AdvisoryRule<WorkspaceRuleContext> =
           severity: "warning",
           message:
             `An unowned ${occupantFor(item)} occupies the ${item.agentName} instruction target; ` +
-            "AXM will not modify it. Remove or rename it, or make it the canonical source with " +
-            "`axm instructions enable --file`.",
+            "AXM will not modify it. Preserve any unique content in the canonical instruction file, " +
+            "then move the conflicting target aside and run `axm sync`. First-time setup can replace only the identical file used to seed its canonical source.",
           location: { file: relativeToRoot(context.subject.root, item.targetFile) },
         });
       }

@@ -83,6 +83,8 @@ const planAction = (
       return { mark: "create", word: "link" };
     case "copy":
       return { mark: "create", word: "copy" };
+    case "remove":
+      return { mark: "remove", word: "remove" };
     case "skip":
       return { mark: "unchanged", word: "skip" };
   }
@@ -97,9 +99,15 @@ const planDetail = (detail: SetupPlanDetail): string => {
     case "instructionSource":
       return detail.seededFrom === undefined ? "source" : `seeded from ${detail.seededFrom}`;
     case "instructionTarget":
-      return detail.agentName;
+      return detail.seededAlias
+        ? `${detail.agentName}: replace seeded source with alias`
+        : detail.preserved
+          ? `${detail.agentName}: preserve existing content`
+          : detail.agentName;
     case "missingInstructionConvention":
       return "no instruction convention";
+    case "bundledSkill":
+      return "bundled AXM skill";
     case "acceptedResolution":
       return "accepted resolution";
   }

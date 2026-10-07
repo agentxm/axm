@@ -23,6 +23,9 @@ import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
+import { detectAgentsForScope } from "@agentxm/workspace-kernel/agent-adapters";
+import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions/common";
+import * as Schema from "effect/Schema";
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import {
   AxmSkillCandidateGateLive,
@@ -93,6 +96,7 @@ import { detectCallerAgent } from "./telemetry/caller-agent.js";
 import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
   SettingsReader,
+  resolveUserWorkspaceRoot,
   type RegistryTarget,
   type WorkspaceStateOptions,
   type SourceHostConfig,
@@ -470,6 +474,47 @@ export const withWorkspace =
         ...configured,
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceStateOptions, "builtInSources">;
+      // Only source installs and handoffs supply initial settings. Resolve their
+      // destinations before acquisition, and never alter existing membership.
+      if (
+        resolved.initialSettings !== undefined &&
+        (resolved.initialSettings.agents?.length ?? 0) === 0
+      ) {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root =
+          resolved.scope === "user" ? yield* resolveUserWorkspaceRoot() : resolved.projectRoot;
+        const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: "internal",
+              detail: "Could not inspect workspace settings",
+              cause,
+            }),
+          ),
+        );
+        if (!exists) {
+          const detected = yield* detectAgentsForScope(resolved.projectRoot, "project").pipe(
+            Effect.mapError((cause) =>
+              makeAppError({
+                code: "internal",
+                detail: "Could not detect coding agents",
+                cause,
+              }),
+            ),
+          );
+          const agents = detected.flatMap(({ id }) =>
+            Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : [],
+          );
+          if (agents.length === 0)
+            return yield* makeAppError({
+              code: "usage",
+              detail: "No coding agents were detected for this workspace",
+              recover: "Retry with --agent <agent-id>, for example --agent claude-code",
+            });
+          resolved.initialSettings = { ...resolved.initialSettings, agents };
+        }
+      }
       const wsLayer = makeWorkspaceProgramLayer(resolved);
       const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
         onNone: (): ReadonlySet<string> => new Set(),

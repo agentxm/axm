@@ -1,3 +1,17 @@
+## 0.42.1 (2026-10-07)
+
+### 🚀 Features
+
+- Support bounded publication sets containing up to 200 candidates. ([b05c25aee](https://github.com/agentxm/axm/commit/b05c25aee))
+
+### 🩹 Fixes
+
+- Preserve skill content and native identity across adoption, installation, and publication. ([a3da767f8](https://github.com/agentxm/axm/commit/a3da767f8))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.42.0 (2026-10-07)
 
 ### 🚀 Features

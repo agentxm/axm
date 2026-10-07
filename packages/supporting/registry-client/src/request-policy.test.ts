@@ -1,3 +1,8 @@
+import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
+import { RegistryFailureObservation } from "./failure-observation.js";
+import * as HttpClient from "effect/http/HttpClient";
+import * as Layer from "effect/Layer";
+import { RegistryRequestAttempt } from "./request-attempt.js";
 import * as Deferred from "effect/Deferred";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -14,7 +19,6 @@ import { RegistryRequestFailed, type RegistryRequestMetadata } from "./errors.js
 import {
   executeRegistryRequest,
   PUBLISH_REGISTRY_REQUEST_POLICY,
-  RegistryRequestAttempt,
   OperationRequestBudget,
   RegistryRetryObservation,
   makeOperationRequestBudget,
@@ -273,7 +277,7 @@ describe("executeRegistryRequest", () => {
     Effect.gen(function* () {
       const seen = yield* Ref.make<ReadonlyArray<{ n: number; of: number }>>([]);
       const record = Effect.flatMap(RegistryRequestAttempt, (attempt) =>
-        Ref.update(seen, (all) => [...all, attempt]),
+        Ref.update(seen, (all) => [...all, { n: attempt.n, of: attempt.of }]),
       );
       const attempts = yield* Ref.make(0);
 
@@ -298,7 +302,7 @@ describe("executeRegistryRequest", () => {
     Effect.gen(function* () {
       const seen = yield* Ref.make<ReadonlyArray<{ n: number; of: number }>>([]);
       const record = Effect.flatMap(RegistryRequestAttempt, (attempt) =>
-        Ref.update(seen, (all) => [...all, attempt]),
+        Ref.update(seen, (all) => [...all, { n: attempt.n, of: attempt.of }]),
       );
 
       yield* execute(record.pipe(Effect.as("ok")), { replaySafety: { kind: "mutation" } });
@@ -470,7 +474,12 @@ describe("executeRegistryRequest", () => {
       expect(error.detail).toBe(
         "Registry request did not complete within the configured deadline.",
       );
-      expect(error.metadata?.request).toEqual(requestMetadata);
+      expect(error.metadata?.request).toEqual({
+        ...requestMetadata,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u,
+        ),
+      });
       expect(error.metadata?.requestPolicy).toEqual({
         retryable: true,
         attemptCount: 1,
@@ -492,7 +501,12 @@ describe("executeRegistryRequest", () => {
       const error = yield* Fiber.join(fiber);
 
       expect(error.category).toBe("timeout");
-      expect(error.metadata?.request).toEqual(requestMetadata);
+      expect(error.metadata?.request).toEqual({
+        ...requestMetadata,
+        requestId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u,
+        ),
+      });
       expect(error.metadata?.requestPolicy).toMatchObject({
         retryable: true,
         attemptCount: 1,
@@ -549,3 +563,74 @@ describe("executeRegistryRequest", () => {
     }),
   );
 });
+
+it.effect("retains the response correlation before decoding malformed content", () =>
+  Effect.gen(function* () {
+    const requestId = "11111111-2222-4333-8444-555555555555";
+    const client = captureRegistryErrorResponseBodies(
+      HttpClient.make((sent) =>
+        Effect.succeed(
+          HttpClientResponse.fromWeb(
+            sent,
+            new Response("not-json", { status: 200, headers: { "x-request-id": requestId } }),
+          ),
+        ),
+      ),
+    );
+    const error = yield* executeRegistryRequest(
+      client.get(request.url).pipe(Effect.flatMap((response) => response.json)),
+      {
+        operation: "publish extension version",
+        request: requestMetadata,
+        replaySafety: { kind: "mutation" },
+        policy: policy(),
+        mapError: (cause) =>
+          mapRegistryFailure(cause, {
+            baseUrl: "https://registry.agentxm.ai",
+            networkDetail: "transport",
+            incompatibleDetail: "decode",
+            requestConstructionDetail: "construction",
+            fallbackDetail: "unknown",
+          }),
+      },
+    ).pipe(Effect.flip);
+    expect(error).toBeInstanceOf(RegistryRequestFailed);
+    expect(error._tag === "RegistryRequestFailed" && error.reason).toBe("response-decode");
+    expect(error.metadata?.response).toMatchObject({ status: 200, requestId });
+    expect(error.metadata?.requestPolicy?.attemptCount).toBe(1);
+  }),
+);
+
+it.effect(
+  "gives retried HTTP attempts distinct identities and observes only terminal failures",
+  () =>
+    Effect.gen(function* () {
+      const ids = yield* Ref.make<ReadonlyArray<string>>([]);
+      const failures = yield* Ref.make(0);
+      const client = captureRegistryErrorResponseBodies(
+        HttpClient.make((sent) =>
+          Effect.gen(function* () {
+            const id = sent.headers["x-request-id"];
+            if (id !== undefined) yield* Ref.update(ids, (all) => [...all, id]);
+            const count = (yield* Ref.get(ids)).length;
+            return HttpClientResponse.fromWeb(
+              sent,
+              new Response("{}", { status: count === 1 ? 503 : 200 }),
+            );
+          }),
+        ),
+      );
+      yield* execute(HttpClient.filterStatusOk(client).get(request.url)).pipe(
+        Effect.provide(
+          Layer.succeed(RegistryFailureObservation, {
+            failed: () => Ref.update(failures, (count) => count + 1),
+          }),
+        ),
+      );
+      const observed = yield* Ref.get(ids);
+      expect(observed).toHaveLength(2);
+      expect(new Set(observed).size).toBe(2);
+      for (const id of observed) expect(id).toMatch(/^[0-9a-f-]{36}$/u);
+      expect(yield* Ref.get(failures)).toBe(0);
+    }),
+);

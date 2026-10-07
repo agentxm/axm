@@ -1,3 +1,4 @@
+import { serializeErrorCauseChain } from "./app-error/cause-chain.js";
 /**
  * Envelope pinning for the Registry access family. The kernel renders every
  * access failure once; this file pins the envelope the CLI projects from that
@@ -38,7 +39,7 @@ describe("registry-access envelope projection", () => {
     ]);
   });
 
-  it("renders a typed auth failure in cause position as the kernel renders it alone", () => {
+  it("preserves the typed auth producer and its cause", () => {
     const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
@@ -52,10 +53,10 @@ describe("registry-access envelope projection", () => {
         cause: new DeviceLoginCodeExpired(),
       }),
     );
+    expect(error.code).toBe("auth_expired");
     expect(error.cause).toMatchObject({
-      _tag: "StepFailure",
-      category: "auth",
-      detail: "Login code expired",
+      _tag: "RegistryAccessFailed",
+      cause: { _tag: "DeviceLoginCodeExpired" },
     });
   });
 
@@ -157,7 +158,7 @@ describe("registry-access envelope projection", () => {
       new AuthExchangeFailed({
         detail: "Token refresh request failed",
         suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-        failure: new RegistryRequestFailed({
+        cause: new RegistryRequestFailed({
           category: "network",
           detail: "Token exchange failed: the Registry could not be reached.",
           cause: "socket closed",
@@ -170,7 +171,20 @@ describe("registry-access envelope projection", () => {
     expect(error.suggestions).toEqual([
       { description: "Sign in again.", cmd: "axm login", commandScope: "global" },
     ]);
-    expect(error.cause).toBe("socket closed");
+    expect(error.cause).toMatchObject({
+      _tag: "AuthExchangeFailed",
+      cause: { _tag: "RegistryRequestFailed", cause: "socket closed" },
+    });
+    expect(
+      serializeErrorCauseChain(error.cause).map(({ _tag, message }) => ({ _tag, message })),
+    ).toEqual([
+      { _tag: "AuthExchangeFailed", message: "Token refresh request failed" },
+      {
+        _tag: "RegistryRequestFailed",
+        message: "Token exchange failed: the Registry could not be reached.",
+      },
+      { _tag: "string", message: "socket closed" },
+    ]);
   });
 
   it("passes envelopes through and leaves other expected failures untouched", () => {

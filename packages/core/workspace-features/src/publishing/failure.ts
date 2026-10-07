@@ -101,6 +101,10 @@ export const publishCause = (failure: PublishFailure) => {
   const secrets = collectSensitiveStrings(step.metadata);
   return {
     code: step.category,
+    diagnostic: step.diagnostic ?? {
+      kind: "diagnostic.unclassified",
+      operation: "publish.prepare",
+    },
     class: CAUSE_CLASS_BY_CATEGORY[step.category],
     message: redactRegistryText(step.detail, { secrets }),
     retryable: policy?.retryable ?? false,
@@ -147,6 +151,13 @@ export const aggregatePublishFailure = (
       : "internal";
   return new PublishFailed({
     category,
+    diagnostic: {
+      kind: steps.every((step) => step.diagnostic?.kind === firstStep?.diagnostic?.kind)
+        ? (firstStep?.diagnostic?.kind ?? "diagnostic.unclassified")
+        : "publish.multiple-failures",
+      operation: "publish.upload",
+    },
+    cause: failures,
     detail: `Failed to publish ${failedCount} extension${failedCount === 1 ? "" : "s"}${
       firstStep !== undefined && category !== "internal" ? `: ${firstStep.detail}` : ""
     }`,

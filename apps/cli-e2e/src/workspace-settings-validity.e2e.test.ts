@@ -1,3 +1,4 @@
+import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-home-snapshot.js";
 /**
  * Process-boundary evidence for the executable specification
  * `cli/invalid-workspace-state-gates-operations`, including its
@@ -165,7 +166,7 @@ describe("project workspace settings validity prerequisite", () => {
         }
         const before = {
           project: snapshotTree(workspace.path),
-          user: snapshotTree(userHome.path),
+          user: snapshotHomeWithoutFailureRecords(userHome.path),
         };
 
         const result = await runCli(testCase.args, { cwd: workspace.path, env });
@@ -173,7 +174,7 @@ describe("project workspace settings validity prerequisite", () => {
         expect(result.exitCode, `${testCase.name}\n${result.stdout}${result.stderr}`).not.toBe(0);
         expect({
           project: snapshotTree(workspace.path),
-          user: snapshotTree(userHome.path),
+          user: snapshotHomeWithoutFailureRecords(userHome.path),
         }).toEqual(before);
         if (testCase.machine) {
           expectMachineError(

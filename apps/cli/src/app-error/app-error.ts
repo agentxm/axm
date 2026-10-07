@@ -1,3 +1,4 @@
+import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 
@@ -336,6 +337,8 @@ export const effectiveSuggestionsFor = (error: AppError): ReadonlyArray<Suggeste
 
 export class AppError extends Data.TaggedError("AppError")<{
   readonly code: AppErrorCode;
+  readonly diagnostic?: FailureDiagnostic;
+  readonly diagnosticId?: string;
   readonly title: string;
   readonly detail: string;
   readonly metadata?: FailureMetadata;
@@ -351,6 +354,8 @@ export class AppError extends Data.TaggedError("AppError")<{
 
 export const makeAppError = (args: {
   readonly code: AppErrorCode;
+  readonly diagnostic?: FailureDiagnostic;
+  readonly diagnosticId?: string;
   readonly title?: string;
   readonly detail?: string;
   readonly metadata?: FailureMetadata;
@@ -378,6 +383,8 @@ export const makeAppError = (args: {
 
   return new AppError({
     code: args.code,
+    ...(args.diagnostic === undefined ? {} : { diagnostic: args.diagnostic }),
+    ...(args.diagnosticId === undefined ? {} : { diagnosticId: args.diagnosticId }),
     title: args.title ?? defaultTitleFor(args.code),
     detail: args.detail ?? defaultFailureDetail(args.code),
     ...(args.metadata !== undefined ? { metadata: args.metadata } : {}),

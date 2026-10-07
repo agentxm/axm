@@ -156,7 +156,7 @@ const writeIfChanged = (
         ),
       ),
       onBackupRetained: (error, backupPath) =>
-        new WriteBackupRetained({ backupPath, failure: error }),
+        new WriteBackupRetained({ backupPath, cause: error }),
     });
     yield* authority.record({
       path: configPath,

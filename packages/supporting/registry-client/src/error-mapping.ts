@@ -208,6 +208,7 @@ export const mapNetworkError = (
   baseUrl: string,
 ): RegistryRequestFailed =>
   new RegistryRequestFailed({
+    reason: "transport",
     category: "network",
     detail: message,
     metadata: {
@@ -230,6 +231,7 @@ export const mapNetworkError = (
  */
 export const mapInputSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
   new RegistryRequestFailed({
+    reason: "transport",
     category: "validation",
     detail: message,
     cause: error,
@@ -240,6 +242,7 @@ export const mapInputSchemaError = (error: unknown, message: string): RegistryRe
  */
 export const mapResponseSchemaError = (error: unknown, message: string): RegistryRequestFailed =>
   new RegistryRequestFailed({
+    reason: "transport",
     category: "internal",
     detail: message,
     cause: error,

@@ -53,6 +53,7 @@ export const refPublishBlocked = publishFrame(
       notTried(reviewKit),
     ],
     failure: {
+      diagnostic: { kind: "publish.policy-refusal", operation: "publish.preflight" },
       code: "usage",
       class: "user",
       message: "The archive for code-review is not fully represented by Git HEAD a1b2c3d.",

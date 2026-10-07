@@ -49,6 +49,7 @@ export const publishStepFailureCause = (failure: StepFailure): PublishFailure =>
   isPublishFailure(failure.cause)
     ? failure.cause
     : new PublishFailed({
+        ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
         category: failure.category,
         detail: failure.detail,
         ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),

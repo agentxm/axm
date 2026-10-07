@@ -475,6 +475,12 @@ export const ScreenMachine = (options?: {
                 `${JSON.stringify(
                   makeJsonSuccessEnvelope({
                     payload: encoded,
+                    ...(resultOptions?.diagnosticId === undefined
+                      ? {}
+                      : { diagnosticId: resultOptions.diagnosticId }),
+                    ...(resultOptions?.diagnostic === undefined
+                      ? {}
+                      : { diagnostic: resultOptions.diagnostic }),
                     ...(resultOptions?.ok === undefined ? {} : { ok: resultOptions.ok }),
                     ...(resultOptions?.summary === undefined
                       ? {}
@@ -535,5 +541,19 @@ export const emitResult = <S extends Schema.Top>(
 ): Effect.Effect<void, OutputWriteFailed, Screen | S["EncodingServices"]> =>
   Effect.gen(function* () {
     const screen = yield* Screen;
-    if (!(yield* screen.document(data, schema, options))) yield* screen.result(human());
+    if (!(yield* screen.document(data, schema, options))) {
+      const document = human();
+      yield* screen.result(
+        options?.diagnosticId === undefined
+          ? document
+          : [
+              ...document,
+              {
+                _tag: "paragraph",
+                tone: "dim",
+                text: `Diagnostic ID: ${options.diagnosticId}`,
+              },
+            ],
+      );
+    }
   });

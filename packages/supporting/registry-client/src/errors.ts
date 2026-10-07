@@ -35,6 +35,8 @@ export type RegistryErrorCategory = (typeof REGISTRY_ERROR_CATEGORIES)[number];
 export interface RegistryRequestMetadata {
   readonly service: "registry";
   readonly method?: string;
+  readonly requestId?: string;
+  readonly operation?: string;
   readonly url: string;
 }
 
@@ -81,6 +83,13 @@ export class RegistryProblem extends Data.TaggedError("RegistryProblem")<{
  * deadline timeout, or an unexpected failure.
  */
 export class RegistryRequestFailed extends Data.TaggedError("RegistryRequestFailed")<{
+  readonly reason?:
+    | "response-decode"
+    | "request-construction"
+    | "transport"
+    | "deadline"
+    | "metadata-churn"
+    | "unclassified";
   readonly category: RegistryErrorCategory;
   readonly detail: string;
   readonly metadata?: RegistryErrorMetadata;
@@ -142,6 +151,7 @@ export const withRegistrySemantics = (
       });
     case "RegistryRequestFailed":
       return new RegistryRequestFailed({
+        ...(error.reason === undefined ? {} : { reason: error.reason }),
         category: semantics.category ?? error.category,
         detail: semantics.detail ?? error.detail,
         ...(error.metadata === undefined ? {} : { metadata: error.metadata }),

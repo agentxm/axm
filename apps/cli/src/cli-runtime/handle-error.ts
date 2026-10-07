@@ -4,6 +4,7 @@ import { CliError } from "effect/cli";
 import * as Effect from "effect/Effect";
 import {
   AppError,
+  makeAppError,
   ExitCode,
   appErrorDoc,
   exitCodeFor,
@@ -188,8 +189,35 @@ export const classifyError = (
  * Classifies the error, writes its stderr lines and optional stdout document,
  * and exits.
  */
-export const handleError = (error: unknown, format: OutputFormat) => {
-  const { exitCode, stderr, stderrDoc, stdout } = classifyError(error, format);
+export const handleError = (
+  error: unknown,
+  format: OutputFormat,
+  diagnostic?: {
+    readonly diagnosticId?: string;
+    readonly diagnostic?: AppError["diagnostic"];
+  },
+) => {
+  const original =
+    diagnostic?.diagnosticId === undefined
+      ? undefined
+      : CliError.isCliError(error)
+        ? makeAppError({
+            code: "usage",
+            detail: error._tag === "ShowHelp" ? cliErrorMessage(error.errors) : error.message,
+            cause: error,
+          })
+        : failureToAppError(error);
+  const rendered =
+    original === undefined
+      ? error
+      : makeAppError({
+          ...original,
+          ...(diagnostic?.diagnosticId === undefined
+            ? {}
+            : { diagnosticId: diagnostic.diagnosticId }),
+          ...(diagnostic?.diagnostic === undefined ? {} : { diagnostic: diagnostic.diagnostic }),
+        });
+  const { exitCode, stderr, stderrDoc, stdout } = classifyError(rendered, format);
   const output = Effect.gen(function* () {
     const screen = yield* Screen;
     if (stderrDoc !== undefined) {

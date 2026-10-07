@@ -1,3 +1,6 @@
+import type { CommandSettlementFailure } from "./cli-runtime/telemetry.js";
+import { prepareTerminalFailure } from "./cli-runtime/terminal-diagnostics.js";
+import { errorClassForAppErrorCode } from "./app-error/index.js";
 /**
  * Plan<StepRequirements>-family machine document (`plan-result-v4`) and the emit boundary.
  *
@@ -21,7 +24,7 @@ import {
 import {
   setCommandSemanticProperties,
   getCommandSemanticProperties,
-  setOperationExitCode,
+  setOperationSettlement,
   summarizeCommandOutcome,
   type CommandOutcomeSummary,
   type SourceKind,
@@ -1122,7 +1125,38 @@ export const emitOperationResolution = (
         ? {}
         : { "cli.candidate_id": resolution.candidateId }),
     });
-    yield* setOperationExitCode(exitCode);
+    const failure =
+      failureCode === undefined
+        ? undefined
+        : ({
+            code: failureCode,
+            phase: "command",
+            handled: true,
+            ...(resolution.failure?.diagnostic ??
+              failedUnit?.error?.diagnostic ?? {
+                kind:
+                  resolution.blocking === undefined
+                    ? "diagnostic.unclassified"
+                    : "operation.blocked",
+                operation: "workspace.operation",
+              }),
+          } satisfies CommandSettlementFailure);
+    const diagnostic =
+      failure === undefined
+        ? Option.none()
+        : yield* prepareTerminalFailure(
+            {
+              ...failure,
+              category: failure.code,
+              errorClass: errorClassForAppErrorCode(failure.code),
+            },
+            [
+              resolution.failure,
+              ...resolution.units.flatMap((unit) => (unit.error === undefined ? [] : [unit.error])),
+            ],
+            [resolution.failure?.metadata, ...resolution.units.map((unit) => unit.error?.metadata)],
+          );
+    yield* setOperationSettlement({ exitCode, ...(failure === undefined ? {} : { failure }) });
 
     // Live-to-settled handoff: the terminal lifecycle event lands and every
     // lossless observer (frame collapse, machine writer) drains before the
@@ -1145,7 +1179,13 @@ export const emitOperationResolution = (
           callouts: releaseAgeDoc(options?.recovery, result, { unsettled }),
         });
       },
-      { ...(suggestions === undefined ? {} : { suggestions }), ok },
+      {
+        ...(suggestions === undefined ? {} : { suggestions }),
+        ok,
+        ...(Option.isSome(diagnostic)
+          ? { diagnosticId: diagnostic.value.eventId, diagnostic: diagnostic.value.failure }
+          : {}),
+      },
     );
     return { outcome, exitCode };
   });

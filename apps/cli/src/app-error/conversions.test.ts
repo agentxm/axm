@@ -39,6 +39,19 @@ import { failureToAppError, toAppError } from "./conversions.js";
 import { WorkspaceFailureConversionLive, isWorkspaceFailure } from "./failure-catalog.js";
 import { renderAppError } from "./index.js";
 
+describe("rendered step cause retention", () => {
+  it("keeps an original cause while adding a missing diagnostic", () => {
+    const cause = new Error("original step cause");
+    const failure = new StepFailure({ category: "network", detail: "request failed", cause });
+    const error = toAppError(failure);
+    expect(error.cause).toBe(cause);
+    expect(error.diagnostic).toEqual({
+      kind: "diagnostic.unclassified",
+      operation: "workspace.operation",
+    });
+  });
+});
+
 describe("the application boundary projection", () => {
   it("passes an AppError through unchanged", () => {
     const original = makeAppError({ code: "conflict", detail: "already handled" });
@@ -228,7 +241,8 @@ describe("registry-client failure conversion (golden pairs)", () => {
     };
     const cause = new Error("generated failure");
 
-    const error = toAppError(registryErrorToProblem(body, responseFor(503), { cause }));
+    const producer = registryErrorToProblem(body, responseFor(503), { cause });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("unavailable");
     expect(error.title).toBe("Advisory title");
@@ -246,20 +260,21 @@ describe("registry-client failure conversion (golden pairs)", () => {
         body,
       },
     });
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBe(producer);
+    expect(producer.cause).toBe(cause);
   });
 
   it("applies the per-code default title and detail when the body is not a problem document", () => {
     const cause = new Error("response failure");
-    const error = toAppError(
-      registryErrorToProblem("gateway unavailable", responseFor(502), { cause }),
-    );
+    const producer = registryErrorToProblem("gateway unavailable", responseFor(502), { cause });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("internal");
     expect(error.title).toBe("Internal Error");
     expect(error.detail).toBe("An internal error occurred.");
     expect(error.metadata?.response).toEqual({ status: 502, body: "gateway unavailable" });
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBe(producer);
+    expect(producer.cause).toBe(cause);
   });
 
   it("carries retry-after suggestions from the header for a 429", () => {
@@ -401,27 +416,29 @@ describe("registry-client failure conversion (golden pairs)", () => {
 describe("extension-sources failure conversion (golden pairs)", () => {
   it("renders a syntax failure as a validation envelope with the carried sentence", () => {
     const cause = new Error("decode failure");
-    const error = toAppError(
-      new SourceSyntaxInvalid({ detail: 'Invalid provider shorthand "github:x"', cause }),
-    );
+    const producer = new SourceSyntaxInvalid({
+      detail: 'Invalid provider shorthand "github:x"',
+      cause,
+    });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("validation");
     expect(error.title).toBe("Invalid Request");
     expect(error.detail).toBe('Invalid provider shorthand "github:x"');
     expect(error.suggestions).toBeUndefined();
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBe(producer);
+    expect(producer.cause).toBe(cause);
   });
 
   it("renders an unmatched host as a validation envelope", () => {
-    const error = toAppError(
-      new SourceHostNotConfigured({
-        detail: 'No configured source matches URL "https://example.com/a/b"',
-      }),
-    );
+    const producer = new SourceHostNotConfigured({
+      detail: 'No configured source matches URL "https://example.com/a/b"',
+    });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("validation");
     expect(error.detail).toBe('No configured source matches URL "https://example.com/a/b"');
-    expect(error.cause).toBeUndefined();
+    expect(error.cause).toBe(producer);
   });
 
   it("carries the resolution site's category, sentence, and suggestions verbatim", () => {
@@ -461,31 +478,31 @@ describe("extension-sources failure conversion (golden pairs)", () => {
 
   it("renders a network acquisition failure with the network code", () => {
     const cause = new Error("mkdtemp failure");
-    const error = toAppError(
-      new SourceNetworkFailure({
-        detail: "Temporary source directory could not be created",
-        cause,
-      }),
-    );
+    const producer = new SourceNetworkFailure({
+      detail: "Temporary source directory could not be created",
+      cause,
+    });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("network");
     expect(error.detail).toBe("Temporary source directory could not be created");
     expect(error.retryable).toBeUndefined();
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBe(producer);
+    expect(producer.cause).toBe(cause);
   });
 
   it("maps git clones to network and SHA reads to validation", () => {
     const cause = new Error("git exited 128");
-    const clone = toAppError(
-      new GitOperationFailed({
-        operation: "clone",
-        detail: "Failed to shallow clone https://example.com/repo.git",
-        cause,
-      }),
-    );
+    const cloneProducer = new GitOperationFailed({
+      operation: "clone",
+      detail: "Failed to shallow clone https://example.com/repo.git",
+      cause,
+    });
+    const clone = toAppError(cloneProducer);
     expect(clone.code).toBe("network");
     expect(clone.detail).toBe("Failed to shallow clone https://example.com/repo.git");
-    expect(clone.cause).toBe(cause);
+    expect(clone.cause).toBe(cloneProducer);
+    expect(cloneProducer.cause).toBe(cause);
 
     const treeSha = toAppError(
       new GitOperationFailed({
@@ -500,21 +517,21 @@ describe("extension-sources failure conversion (golden pairs)", () => {
 
   it("restores a workspace catalog port failure one-to-one", () => {
     const cause = new Error("settings unreadable");
-    const error = toAppError(
-      new WorkspaceCatalogUnavailable({
-        category: "validation",
-        detail: "Workspace settings at /tmp/axm.json are not valid JSON",
-        suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
-        cause,
-      }),
-    );
+    const producer = new WorkspaceCatalogUnavailable({
+      category: "validation",
+      detail: "Workspace settings at /tmp/axm.json are not valid JSON",
+      suggestions: [{ description: "Fix the JSON syntax in the settings file, then re-run." }],
+      cause,
+    });
+    const error = toAppError(producer);
 
     expect(error.code).toBe("validation");
     expect(error.detail).toBe("Workspace settings at /tmp/axm.json are not valid JSON");
     expect(error.suggestions).toEqual([
       { description: "Fix the JSON syntax in the settings file, then re-run." },
     ]);
-    expect(error.cause).toBe(cause);
+    expect(error.cause).toBe(producer);
+    expect(producer.cause).toBe(cause);
   });
 
   it("restores an AXM skill gate port failure one-to-one", () => {

@@ -22,6 +22,7 @@ const failed: PublishResultItem = {
   reason: "upload_failed",
   message: "Registry upload is temporarily unavailable.",
   cause: {
+    diagnostic: { kind: "registry.transport", operation: "publish.upload" },
     code: "unavailable",
     class: "external",
     message: "Registry upload is temporarily unavailable.",

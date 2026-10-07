@@ -551,7 +551,12 @@ describe("withCliErrorHandling cancellation", () => {
       expect(capture.requests[0]?.body).toMatchObject({
         command: "update",
         phase: "command",
-        failure: { kind: "network", category: "network", class: "external", handled: true },
+        failure: {
+          kind: "diagnostic.unclassified",
+          category: "network",
+          class: "external",
+          handled: true,
+        },
       });
     }).pipe(
       Effect.provide(

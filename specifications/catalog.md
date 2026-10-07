@@ -2300,11 +2300,26 @@ Observation of product use stays within the documented data boundary and under t
 - Derived from: `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
 
+##### Terminal failure diagnostics remain locally reviewable with telemetry disabled
+
+- Requirement: `system/reliability/failure-diagnostics-can-be-reviewed-and-exported`
+- Owner: `cli-e2e`
+- Statement: A failed invocation shall expose the same Diagnostic ID in its terminal output and bounded local record independently of remote telemetry consent, and AXM shall export that record only to a new local file after the operator supplies the SHA-256 of the exact content they reviewed, without transmitting local messages, stacks or paths. Any remotely eligible source frames shall contain only AXM-owned module names and source-relative locations verified against the reporting build.
+- Class: functional
+- Role: experience
+- Product goals: `privacy-and-consent`, `safe-repetition`
+- Boundary: process; selection: per-change
+- Boundary rationale: The built CLI must retain the failure after its invocation ends, expose its identity through both human and machine output, and admit a separate review and export invocation under the selected user home.
+- Methods: example
+- Derived from: `system/security/telemetry-consent-and-precedence`, `system/reliability/telemetry-failure-never-alters-outcomes`
+- Assumptions: The selected user home is writable and the retained record has not expired or been evicted.
+- Source: [`apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts`](../apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts)
+
 ##### An opted-in invocation reports at most one terminal failure
 
 - Requirement: `system/reliability/telemetry-reports-terminal-failures-once`
 - Owner: `cli`
-- Statement: After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure.
+- Statement: After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`, `safe-repetition`
@@ -5447,7 +5462,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/ascii-controls-preserve-machine-output`
 - Owner: `cli-e2e`
-- Statement: When JSON output is selected, AXM shall leave result and diagnostic documents unchanged by AXM_ASCII, TERM, LC_ALL, LC_CTYPE, and LANG display-symbol inputs.
+- Statement: When JSON output is selected, AXM shall leave result and diagnostic documents, apart from their per-invocation identity, unchanged by AXM_ASCII, TERM, LC_ALL, LC_CTYPE, and LANG display-symbol inputs.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
@@ -5884,7 +5899,7 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/security/telemetry-payloads-respect-data-boundary`
 - Owner: `cli`
-- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.4.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
+- Statement: Every telemetry event and error report AXM sends shall conform to AgentXM Telemetry Ingest API 0.5.0 and contain only identity, correlation, timing, client, command-observation, eligible public skill coordinates and revisions, finite caller and target agent identities, and allowlisted failure-identity data, excluding extension content, authored instructions and knowledge, credentials, and resolved secret values.
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`

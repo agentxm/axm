@@ -1,3 +1,4 @@
+import { snapshotHomeWithoutFailureRecords } from "./test-support/diagnostic-home-snapshot.js";
 /**
  * Built-CLI evidence for `cli/authoring-uses-project-workspace`.
  *
@@ -48,20 +49,20 @@ describe("Authoring commands use the project workspace", () => {
       }
       fs.writeFileSync(settingsPath, JSON.stringify({ ...settings, owner: "@acme" }));
       const beforeProject = snapshotTree(fixture.selected);
-      const beforeHome = snapshotTree(fixture.home);
+      const beforeHome = snapshotHomeWithoutFailureRecords(fixture.home);
       const args = ["skills", "new", "scope-authored", "--owner", "@acme", "--json"];
       const refused = await fixture.run(["-C", fixture.selected, ...args, "--scope", "user"]);
       expect(refused.exitCode, refused.stdout + refused.stderr).toBe(2);
       expect(refused.stdout + refused.stderr).toContain("Unrecognized flag: --scope");
       expect(snapshotTree(fixture.selected)).toEqual(beforeProject);
-      expect(snapshotTree(fixture.home)).toEqual(beforeHome);
+      expect(snapshotHomeWithoutFailureRecords(fixture.home)).toEqual(beforeHome);
       const created = await fixture.run(["-C", fixture.selected, ...args]);
       expect(created.exitCode, created.stdout + created.stderr).toBe(0);
       expect(
         fs.existsSync(path.join(fixture.selected, "skills", "scope-authored", "skill.json")),
       ).toBe(true);
       expect(snapshotTree(fixture.invoking)).toEqual({});
-      expect(snapshotTree(fixture.home)).toEqual(beforeHome);
+      expect(snapshotHomeWithoutFailureRecords(fixture.home)).toEqual(beforeHome);
     } finally {
       fixture.cleanup();
     }

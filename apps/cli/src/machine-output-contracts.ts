@@ -189,6 +189,46 @@ const defineResultFamily = (input: {
   documentation: ["docs/architecture/commands/output.md"],
 });
 
+const diagnosticReviewFamily = defineResultFamily({
+  id: "diagnostic-review",
+  liveness: "immediate",
+  humanOutputKind: "query",
+  humanCoverage: [
+    {
+      file: "apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts",
+      scenarios: ["retained record", "review hash"],
+    },
+  ],
+  schemaNames: ["DiagnosticReviewDocumentSchema"],
+  requiredTopLevelKeys: ["diagnosticId", "sha256", "record"],
+  scenarios: ["retained record", "review hash"],
+  rationale: "Review returns the retained local record and the hash required for export.",
+  commandCoverage: [
+    "apps/cli/src/cli-runtime/diagnostic-record.test.ts",
+    "apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts",
+  ],
+});
+
+const diagnosticExportFamily = defineResultFamily({
+  id: "diagnostic-export",
+  liveness: "immediate",
+  humanOutputKind: "mutation",
+  humanCoverage: [
+    {
+      file: "apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts",
+      scenarios: ["reviewed record exported", "changed record refused", "existing output refused"],
+    },
+  ],
+  schemaNames: ["DiagnosticExportDocumentSchema"],
+  requiredTopLevelKeys: ["diagnosticId", "sha256", "output"],
+  scenarios: ["reviewed record exported", "changed record refused", "existing output refused"],
+  rationale: "Export writes exactly the reviewed record to a new restricted local file.",
+  commandCoverage: [
+    "apps/cli/src/cli-runtime/diagnostic-record.test.ts",
+    "apps/cli-e2e/src/failure-diagnostics-can-be-reviewed-and-exported.spec.ts",
+  ],
+});
+
 const hookTestFamily = defineResultFamily({
   id: "hook-fixture-execution",
   liveness: "progress",
@@ -948,6 +988,7 @@ const formatterPaths = [
   "axm",
   "axm agents",
   "axm cache",
+  "axm diagnostics",
   "axm hooks",
   "axm knowledge",
   "axm mcps",
@@ -1063,6 +1104,8 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(tokenListFamily, ["axm token list"]),
   ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
   ...rowsFor(whoamiFamily, ["axm whoami"]),
+  ...rowsFor(diagnosticReviewFamily, ["axm diagnostics show"]),
+  ...rowsFor(diagnosticExportFamily, ["axm diagnostics export"]),
   ...rowsFor(cacheStatusFamily, ["axm cache status"]),
   ...rowsFor(cacheVerifyFamily, ["axm cache verify"]),
   ...rowsFor(cachePruneFamily, ["axm cache prune"]),

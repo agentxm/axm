@@ -35,12 +35,19 @@ describe("configuration failure record", () => {
   it.effect("names a converted failure by the failure it was raised as", () =>
     Effect.gen(function* () {
       const { outcome, recorded } = yield* observeBuild(
-        Effect.fail(new StepFailure({ category: "validation", detail: "unreadable" })),
+        Effect.fail(
+          new StepFailure({
+            category: "validation",
+            detail: "unreadable",
+            diagnostic: { kind: "settings-read-failed", operation: "workspace.configure" },
+          }),
+        ),
         (error) => error,
       );
       expect(outcome).toMatchObject({ _tag: "AppError", code: "validation" });
       expect(Option.getOrUndefined(recorded)).toEqual({
-        kind: "step-failure",
+        kind: "settings-read-failed",
+        operation: "workspace.configure",
         code: "validation",
         handled: true,
       });
@@ -52,6 +59,7 @@ describe("configuration failure record", () => {
       const { recorded } = yield* observeBuild(Effect.die(new RangeError("bad")), (error) => error);
       expect(Option.getOrUndefined(recorded)).toEqual({
         kind: "defect.range-error",
+        operation: "runtime.command",
         code: "internal",
         handled: false,
       });
@@ -61,7 +69,13 @@ describe("configuration failure record", () => {
   it.effect("holds no identity for any other failure", () =>
     Effect.gen(function* () {
       const { recorded } = yield* observeBuild(
-        Effect.fail(new StepFailure({ category: "validation", detail: "unreadable" })),
+        Effect.fail(
+          new StepFailure({
+            category: "validation",
+            detail: "unreadable",
+            diagnostic: { kind: "settings-read-failed", operation: "workspace.configure" },
+          }),
+        ),
         () => makeAppError({ code: "validation", detail: "raised by the command" }),
       );
       expect(Option.isNone(recorded)).toBe(true);

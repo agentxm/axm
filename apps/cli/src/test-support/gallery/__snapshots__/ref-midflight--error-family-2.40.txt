@@ -1,6 +1,7 @@
  ✖   Invalid skill name
                     validation, exit 9
      Name           "Code Review!"
+     --debug shows the cause.
 Next
      Choose a name matching
      /^[a-z0-9][a-z0-9-]*$/ (max 64

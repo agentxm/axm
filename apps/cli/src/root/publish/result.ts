@@ -1,3 +1,7 @@
+import { publishResultFailure } from "./failure-diagnostic.js";
+import { prepareTerminalFailure } from "../../cli-runtime/terminal-diagnostics.js";
+import { errorClassForAppErrorCode, appErrorCodeForExit } from "../../app-error/index.js";
+import * as Option from "effect/Option";
 /**
  * Emission of the publish result document.
  *
@@ -8,13 +12,18 @@
 
 import * as Effect from "effect/Effect";
 
-import { PublishResultSchema, type PublishResult } from "@agentxm/workspace-features/publishing";
+import {
+  PublishResultSchema,
+  type PublishResult,
+  type PublishFailed,
+} from "@agentxm/workspace-features/publishing";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 import { emitResult } from "../../screen/index.js";
 import { settleOperation, awaitDrained } from "@agentxm/workspace-kernel/operations";
 import { Verbosity } from "../../cli-flags/index.js";
 import {
+  setOperationSettlement,
   type CommandOutcomeSummary,
   type SubjectType,
   getCommandSemanticProperties,
@@ -36,10 +45,39 @@ export const emitPublishResult = (
     readonly elapsedMs?: number;
     readonly suggestions?: ReadonlyArray<SuggestedAction>;
     readonly withoutSuggestions?: boolean;
+    /** Original typed settlement stays local; the result document is a projection. */
+    readonly originalFailure?: PublishFailed;
   },
 ) =>
   Effect.gen(function* () {
     const verbosity = yield* Verbosity;
+    const code = appErrorCodeForExit(options.exitCode);
+    const failure =
+      code === undefined || result.interruption !== undefined
+        ? undefined
+        : publishResultFailure(result, code);
+    const diagnostic =
+      failure === undefined
+        ? Option.none()
+        : yield* prepareTerminalFailure(
+            {
+              ...failure,
+              category: failure.code,
+              errorClass: errorClassForAppErrorCode(failure.code),
+              command: "publish",
+            },
+            [
+              options.originalFailure,
+              result.execution.failure,
+              ...result.execution.outcomes.flatMap((item) =>
+                item.cause === undefined ? [] : [item.cause],
+              ),
+            ],
+          );
+    yield* setOperationSettlement({
+      exitCode: options.exitCode,
+      ...(failure === undefined ? {} : { failure }),
+    });
     const browserSuggestions = publishBrowserSuggestions(result);
     const findingSuggestions = result.execution.outcomes.flatMap((item) =>
       (item.findings ?? []).flatMap((finding) => finding.suggestions),
@@ -75,6 +113,9 @@ export const emitPublishResult = (
           ...withoutSuggestions,
         }),
       {
+        ...(Option.isSome(diagnostic)
+          ? { diagnosticId: diagnostic.value.eventId, diagnostic: diagnostic.value.failure }
+          : {}),
         ...(suggestions.length === 0 ? {} : { suggestions }),
         ...withoutSuggestions,
         ok:

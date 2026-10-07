@@ -1,51 +1,55 @@
-/**
- * Fetch the telemetry OpenAPI spec snapshot.
- *
- * Usage:
- *   pnpm exec nx run cli:sync:telemetry-spec
- */
+import * as Layer from "effect/Layer";
+/** Import the published telemetry contract from its endpoint or an exported file. */
+import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Config from "effect/Config";
+import * as Console from "effect/Console";
+import * as Data from "effect/Data";
+import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
+import * as FetchHttpClient from "effect/http/FetchHttpClient";
+import * as HttpClient from "effect/http/HttpClient";
 
-// @effect-diagnostics nodeBuiltinImport:off globalConsole:off — Bun codegen script, not Effect code
-import * as childProcess from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
+class SpecImportFailed extends Data.TaggedError("SpecImportFailed")<{
+  readonly detail: string;
+  readonly cause?: unknown;
+}> {}
 
-const CORE_ROOT = path.join(import.meta.dirname, "..");
-const SPEC_DIR = path.join(CORE_ROOT, "specs");
-const SPEC_PATH = path.join(SPEC_DIR, "telemetry-openapi.json");
-const readEnvWithDefault = (name: string, fallback: string): string => {
-  const value = process.env[name];
-  return typeof value === "string" && value.length > 0 ? value : fallback;
-};
-const TELEMETRY_URL = readEnvWithDefault("AXM_TELEMETRY_URL", "http://localhost:4301");
-const SPEC_URL = `${TELEMETRY_URL.replace(/\/+$/, "")}/v1/openapi.json`;
-
-console.log(`Fetching OpenAPI spec from ${SPEC_URL}...`);
-
-const fetchResult = childProcess.spawnSync("curl", ["-sf", "--max-time", "10", SPEC_URL], {
-  encoding: "utf-8",
-  timeout: 15_000,
+const sync = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const args = process.argv.slice(2);
+  if (args.length > 2 || (args.length > 0 && (args[0] !== "--input" || args[1] === undefined))) {
+    return yield* new SpecImportFailed({
+      detail:
+        "Use --input <exported-openapi.json>, or no arguments to fetch the telemetry endpoint.",
+    });
+  }
+  const input = args[1];
+  const root = path.resolve(import.meta.dirname, "..");
+  const target = path.join(root, "specs", "telemetry-openapi.json");
+  const text =
+    input === undefined
+      ? yield* Effect.gen(function* () {
+          const baseUrl = yield* Config.String("AXM_TELEMETRY_URL").pipe(
+            Config.withDefault("http://localhost:4301"),
+          );
+          const url = `${baseUrl.replace(/\/+$/, "")}/v1/openapi.json`;
+          const client = yield* HttpClient.HttpClient;
+          const response = yield* HttpClient.filterStatusOk(client)
+            .get(url)
+            .pipe(Effect.timeout("10 seconds"));
+          return yield* response.text;
+        })
+      : yield* fs.readFileString(path.resolve(input));
+  const spec = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text);
+  yield* fs.makeDirectory(path.dirname(target), { recursive: true });
+  yield* fs.writeFileString(target, `${JSON.stringify(spec, null, 2)}\n`);
+  yield* Console.log(`Synced: ${path.relative(root, target)}`);
 });
 
-if (fetchResult.status !== 0) {
-  console.error(`Failed to fetch spec from ${SPEC_URL}`);
-  console.error(fetchResult.stderr || "Is the telemetry service running? Check AXM_TELEMETRY_URL.");
-  process.exit(1);
-}
-
-fs.mkdirSync(SPEC_DIR, { recursive: true });
-fs.writeFileSync(SPEC_PATH, fetchResult.stdout);
-
-const formatResult = childProcess.spawnSync("pnpm", ["exec", "prettier", "--write", SPEC_PATH], {
-  cwd: CORE_ROOT,
-  encoding: "utf-8",
-  timeout: 30_000,
-});
-
-if (formatResult.status !== 0) {
-  console.error("Format failed:");
-  console.error(formatResult.stderr || formatResult.stdout);
-  process.exit(1);
-}
-
-console.log(`Synced: ${path.relative(CORE_ROOT, SPEC_PATH)}`);
+NodeRuntime.runMain(
+  sync.pipe(Effect.provide(Layer.mergeAll(NodeServices.layer, FetchHttpClient.layer))),
+);

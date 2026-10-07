@@ -48,6 +48,7 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 const failure: TelemetryFailureReport = {
   phase: "command",
   kind: "not_found",
+  operation: "runtime.command",
   category: "not_found",
   errorClass: "user",
   handled: true,
@@ -265,7 +266,13 @@ describe("TelemetryClientLive", () => {
           },
           command: "setup",
           phase: "command",
-          failure: { kind: "not_found", category: "not_found", class: "user", handled: true },
+          failure: {
+            kind: "not_found",
+            operation: "runtime.command",
+            category: "not_found",
+            class: "user",
+            handled: true,
+          },
         });
       }),
     );
@@ -302,6 +309,7 @@ describe("TelemetryClientLive", () => {
               ...failure,
               phase: "output",
               kind: "output-write-failed",
+              operation: "runtime.command",
             });
           }),
         );
@@ -743,7 +751,13 @@ describe("telemetry ingest contract decoding", () => {
           ci: false,
         },
         phase: "command",
-        failure: { kind: "validation", category: "validation", class: "user", handled: true },
+        failure: {
+          kind: "validation",
+          operation: "runtime.command",
+          category: "validation",
+          class: "user",
+          handled: true,
+        },
         workspacePath: "/home/operator/project",
       };
 

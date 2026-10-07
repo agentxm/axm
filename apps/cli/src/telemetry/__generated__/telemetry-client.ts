@@ -629,6 +629,113 @@ export const TelemetryReportingClient = Schema.Struct({
   description: "Bounded facts about the client build and host that reported a failure.",
   identifier: "TelemetryReportingClient",
 });
+export type TelemetryFailureRequest = {
+  readonly service: "registry";
+  readonly requestId?: string | null;
+  readonly status?: number | null;
+  readonly attemptCount?: number | null;
+};
+export const TelemetryFailureRequest = Schema.Struct({
+  service: Schema.Literal("registry"),
+  requestId: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({ format: "uuid" }).check(
+        Schema.isPattern(
+          new RegExp("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", "u"),
+        ).annotate({
+          expected:
+            "a string matching the RegExp ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+        }),
+      ),
+      Schema.Null,
+    ]),
+  ),
+  status: Schema.optionalKey(
+    Schema.Union([
+      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" }))
+        .check(
+          Schema.isGreaterThanOrEqualTo(100).annotate({
+            expected: "a value greater than or equal to 100",
+          }),
+        )
+        .check(
+          Schema.isLessThanOrEqualTo(599).annotate({
+            expected: "a value less than or equal to 599",
+          }),
+        ),
+      Schema.Null,
+    ]),
+  ),
+  attemptCount: Schema.optionalKey(
+    Schema.Union([
+      Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+        Schema.isGreaterThanOrEqualTo(1).annotate({
+          expected: "a value greater than or equal to 1",
+        }),
+      ),
+      Schema.Null,
+    ]),
+  ),
+}).annotate({
+  description:
+    "Bounded evidence from the failed Registry request attempt. Request identity is correlation, never authorization or an idempotency key.",
+  identifier: "TelemetryFailureRequest",
+});
+export type TelemetryFailureFrame = {
+  readonly module:
+    | "axm.sh"
+    | "@agentxm/registry-client"
+    | "@agentxm/registry-access"
+    | "@agentxm/registry-protocol"
+    | "@agentxm/workspace-kernel"
+    | "@agentxm/workspace-features"
+    | "@agentxm/extension-content"
+    | "@agentxm/extension-kinds"
+    | "@agentxm/extension-model"
+    | "@agentxm/host-primitives"
+    | "@agentxm/cli-maintenance";
+  readonly filename: string;
+  readonly line: number;
+  readonly column: number;
+};
+export const TelemetryFailureFrame = Schema.Struct({
+  module: Schema.Literals([
+    "axm.sh",
+    "@agentxm/registry-client",
+    "@agentxm/registry-access",
+    "@agentxm/registry-protocol",
+    "@agentxm/workspace-kernel",
+    "@agentxm/workspace-features",
+    "@agentxm/extension-content",
+    "@agentxm/extension-kinds",
+    "@agentxm/extension-model",
+    "@agentxm/host-primitives",
+    "@agentxm/cli-maintenance",
+  ]),
+  filename: Schema.String.check(
+    Schema.isMaxCodePoints(240).annotate({ expected: "a string with at most 240 code points" }),
+  ).check(
+    Schema.isPattern(
+      new RegExp(
+        "^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$",
+        "u",
+      ),
+    ).annotate({
+      expected:
+        "a string matching the RegExp ^src\\/(?:[a-zA-Z0-9_-]+\\/)*[a-zA-Z0-9_-]+(?:\\.[a-zA-Z0-9_-]+)*\\.(?:ts|tsx|js|jsx)$",
+    }),
+  ),
+  line: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+    Schema.isGreaterThanOrEqualTo(1).annotate({ expected: "a value greater than or equal to 1" }),
+  ),
+  column: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+    Schema.isGreaterThanOrEqualTo(0).annotate({ expected: "a value greater than or equal to 0" }),
+  ),
+}).annotate({
+  description:
+    "A source location verified against the reporting AXM build. No absolute path, function text, source excerpt, variables, or extension code is carried.",
+  identifier: "TelemetryFailureFrame",
+});
 export type TelemetryErrorReceipt = { readonly eventId: string; readonly receipt: "received" };
 export const TelemetryErrorReceipt = Schema.Struct({
   eventId: Schema.String.annotate({
@@ -1072,6 +1179,28 @@ export type TelemetryErrorReport = {
     readonly kind: string;
     readonly category: string;
     readonly class: "internal" | "user" | "external";
+    readonly operation: string;
+    readonly request?: TelemetryFailureRequest | null;
+    readonly counts?: {
+      readonly confirmed: number;
+      readonly failed: number;
+      readonly blocked: number;
+      readonly unattempted: number;
+      readonly unknown: number;
+    } | null;
+    readonly related?: ReadonlyArray<{
+      readonly kind: string;
+      readonly operation: string;
+      readonly count: number;
+      readonly request?: TelemetryFailureRequest | null;
+    }> | null;
+    readonly relatedOmitted?: number | null;
+    readonly history?: ReadonlyArray<{
+      readonly operation: string;
+      readonly outcome: "started" | "succeeded" | "failed" | "unknown";
+      readonly elapsedMs: number;
+    }> | null;
+    readonly frames?: ReadonlyArray<TelemetryFailureFrame> | null;
     readonly handled: boolean;
   };
 };
@@ -1178,6 +1307,144 @@ export const TelemetryErrorReport = Schema.Struct({
       description:
         "Classifies whether a failure is an AXM defect, a user-correctable failure, or an external dependency failure.",
     }),
+    operation: Schema.String.annotate({
+      description: "Code-defined operation that failed, never arguments or paths.",
+    })
+      .check(Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }))
+      .check(
+        Schema.isMaxCodePoints(64).annotate({ expected: "a string with at most 64 code points" }),
+      )
+      .check(
+        Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+          expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+        }),
+      ),
+    request: Schema.optionalKey(Schema.Union([TelemetryFailureRequest, Schema.Null])),
+    counts: Schema.optionalKey(
+      Schema.Union([
+        Schema.Struct({
+          confirmed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ),
+          failed: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ),
+          blocked: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ),
+          unattempted: Schema.Number.check(
+            Schema.isInt().annotate({ expected: "an integer" }),
+          ).check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ),
+          unknown: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+            Schema.isGreaterThanOrEqualTo(0).annotate({
+              expected: "a value greater than or equal to 0",
+            }),
+          ),
+        }),
+        Schema.Null,
+      ]),
+    ),
+    related: Schema.optionalKey(
+      Schema.Union([
+        Schema.Array(
+          Schema.Struct({
+            kind: Schema.String.check(
+              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+            )
+              .check(
+                Schema.isMaxCodePoints(64).annotate({
+                  expected: "a string with at most 64 code points",
+                }),
+              )
+              .check(
+                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                  expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+                }),
+              ),
+            operation: Schema.String.check(
+              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+            )
+              .check(
+                Schema.isMaxCodePoints(64).annotate({
+                  expected: "a string with at most 64 code points",
+                }),
+              )
+              .check(
+                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                  expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+                }),
+              ),
+            count: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+              Schema.isGreaterThanOrEqualTo(1).annotate({
+                expected: "a value greater than or equal to 1",
+              }),
+            ),
+            request: Schema.optionalKey(Schema.Union([TelemetryFailureRequest, Schema.Null])),
+          }),
+        ).check(Schema.isMaxLength(8).annotate({ expected: "a value with a length of at most 8" })),
+        Schema.Null,
+      ]),
+    ),
+    relatedOmitted: Schema.optionalKey(
+      Schema.Union([
+        Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })).check(
+          Schema.isGreaterThanOrEqualTo(0).annotate({
+            expected: "a value greater than or equal to 0",
+          }),
+        ),
+        Schema.Null,
+      ]),
+    ),
+    history: Schema.optionalKey(
+      Schema.Union([
+        Schema.Array(
+          Schema.Struct({
+            operation: Schema.String.check(
+              Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+            )
+              .check(
+                Schema.isMaxCodePoints(64).annotate({
+                  expected: "a string with at most 64 code points",
+                }),
+              )
+              .check(
+                Schema.isPattern(new RegExp("^[a-z0-9]+([._-][a-z0-9]+)*$", "u")).annotate({
+                  expected: "a string matching the RegExp ^[a-z0-9]+([._-][a-z0-9]+)*$",
+                }),
+              ),
+            outcome: Schema.Literals(["started", "succeeded", "failed", "unknown"]),
+            elapsedMs: Schema.Number.check(
+              Schema.isInt().annotate({ expected: "an integer" }),
+            ).check(
+              Schema.isGreaterThanOrEqualTo(0).annotate({
+                expected: "a value greater than or equal to 0",
+              }),
+            ),
+          }),
+        ).check(
+          Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" }),
+        ),
+        Schema.Null,
+      ]),
+    ),
+    frames: Schema.optionalKey(
+      Schema.Union([
+        Schema.Array(TelemetryFailureFrame).check(
+          Schema.isMaxLength(16).annotate({ expected: "a value with a length of at most 16" }),
+        ),
+        Schema.Null,
+      ]),
+    ),
     handled: Schema.Boolean.annotate({
       description: "False when the failure is an unexpected defect rather than an expected error.",
     }),
@@ -1188,7 +1455,7 @@ export const TelemetryErrorReport = Schema.Struct({
 }).annotate({
   title: "Telemetry Error Report",
   description:
-    "One bounded, allowlisted report of a consent-controlled client invocation's terminal failure. It carries no messages, stacks, arguments, paths, or other free-form content.",
+    "One bounded, allowlisted report of a consent-controlled client invocation's terminal failure. It carries diagnostic identity, request correlation, bounded operation evidence, and build-verified AXM-owned source locations; never messages, raw stacks, arguments, absolute paths, source excerpts, or other free-form content.",
   identifier: "TelemetryErrorReport",
 });
 export type TelemetryEventsRequest = {
@@ -1688,8 +1955,11 @@ export interface TelemetryClient {
    *
    * **Declared fields only.** Only the declared, bounded fields are accepted.
    * Undeclared fields are ignored: the platform's request decoding drops them
-   * before the report is processed. Reports carry no messages, stack traces,
-   * arguments, paths, or other free-form content.
+   * before the report is processed. Reports identify a failure kind and operation
+   * and may carry bounded request evidence, batch outcomes, operation history,
+   * and AXM-owned source locations verified by the reporting build. They carry
+   * no messages, raw stacks, arguments, absolute paths, source excerpts,
+   * variables, or extension code.
    */
   readonly ErrorsIngest: {
     <Config extends OperationConfig | undefined = undefined>(options: {

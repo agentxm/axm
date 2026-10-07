@@ -7970,6 +7970,87 @@
         ]
       },
       {
+        "name": "diagnostics",
+        "aliases": [],
+        "description": "Review and export local failure diagnostics",
+        "arguments": [],
+        "options": [],
+        "globalOptions": [],
+        "examples": [
+          {
+            "command": "axm diagnostics show <id>",
+            "description": "Review a local record and obtain its SHA-256"
+          },
+          {
+            "command": "axm diagnostics export <id> --review-sha256 <sha256> --output ./diagnostic.json",
+            "description": "Export exactly the reviewed record; no upload occurs"
+          }
+        ],
+        "subcommands": [
+          {
+            "name": "show",
+            "aliases": [],
+            "description": "Review a retained local failure record without transmitting it",
+            "arguments": [
+              {
+                "name": "id",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Diagnostic ID printed by the failed invocation"
+              }
+            ],
+            "options": [],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm diagnostics show <id>",
+                "description": "Review the local record and obtain its SHA-256 before export"
+              }
+            ],
+            "subcommands": []
+          },
+          {
+            "name": "export",
+            "aliases": [],
+            "description": "Write the exact reviewed diagnostic to a new restricted local file",
+            "arguments": [
+              {
+                "name": "id",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "Diagnostic ID printed by the failed invocation"
+              }
+            ],
+            "options": [
+              {
+                "name": "review-sha256",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "SHA-256 of the exact record reviewed with diagnostics show"
+              },
+              {
+                "name": "output",
+                "aliases": [],
+                "type": "string",
+                "required": true,
+                "description": "New local file for the reviewed record; never uploaded"
+              }
+            ],
+            "globalOptions": [],
+            "examples": [
+              {
+                "command": "axm diagnostics export <id> --review-sha256 <sha256> --output ./diagnostic.json",
+                "description": "Write exactly the reviewed record to a new file"
+              }
+            ],
+            "subcommands": []
+          }
+        ]
+      },
+      {
         "name": "upgrade",
         "aliases": [],
         "description": "Update axm to the promoted stable or an exact version",

@@ -255,3 +255,10 @@ export {
   type HookTestResult,
   type HookEvidenceStatus,
 } from "./hook-evidence.js";
+
+export {
+  FailureDiagnosticSchema,
+  FailureOperation,
+  inFailureOperation,
+  type FailureDiagnostic,
+} from "./failure-diagnostic.js";

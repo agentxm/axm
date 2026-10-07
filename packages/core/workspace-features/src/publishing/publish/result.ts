@@ -15,6 +15,7 @@ import { SourceTypeSchema } from "@agentxm/extension-model/unstable/sources/type
 import { SuggestedActionSchema } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   OperationErrorCategorySchema,
+  FailureDiagnosticSchema,
   OperationPreconditionSchema,
   PlanRiskConditionSchema,
 } from "@agentxm/workspace-kernel/operations";
@@ -111,6 +112,7 @@ const PublishPhaseSchema = Schema.Literals([
 });
 
 const PublishCauseSchema = Schema.Struct({
+  diagnostic: FailureDiagnosticSchema,
   code: OperationErrorCategorySchema,
   class: Schema.Literals(["internal", "user", "external"] as const),
   message: Schema.String,

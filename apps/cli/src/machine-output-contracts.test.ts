@@ -1,3 +1,7 @@
+import {
+  DiagnosticReviewDocumentSchema,
+  DiagnosticExportDocumentSchema,
+} from "./root/diagnostics/command.js";
 import { HookTestResultSchema } from "@agentxm/workspace-kernel/operations";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -86,6 +90,8 @@ const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
   CacheStatusOutputSchema,
   CacheVerifyOutputSchema,
   DiscoverOutputSchema,
+  DiagnosticReviewDocumentSchema,
+  DiagnosticExportDocumentSchema,
   ExtensionInventorySchema,
   ExtensionShowResultSchema,
   SubagentRenderResultSchema,

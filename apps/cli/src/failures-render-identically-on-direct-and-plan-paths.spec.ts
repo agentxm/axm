@@ -608,7 +608,7 @@ const representatives: Representatives = {
   WriteBackupRetained: [
     new WriteBackupRetained({
       backupPath: "/tmp/backup/config.json.bak",
-      failure: new McpConfigIoFailed({ detail: "Failed to write MCP config", cause: ioCause }),
+      cause: new McpConfigIoFailed({ detail: "Failed to write MCP config", cause: ioCause }),
     }),
   ],
   DesiredStateIncomplete: [new DesiredStateIncomplete({ problems: "pack demo is missing" })],
@@ -911,7 +911,7 @@ const representatives: Representatives = {
     new AuthExchangeFailed({
       detail: "Token refresh request failed",
       suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
-      failure: new RegistryRequestFailed({
+      cause: new RegistryRequestFailed({
         category: "network",
         detail: "Token exchange failed: the Registry could not be reached.",
         cause: ioCause,

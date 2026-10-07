@@ -63,6 +63,7 @@ const reportFailure = (telemetry: TelemetryClientService) =>
   telemetry.reportError({
     phase: "command",
     kind: "not_found",
+    operation: "runtime.command",
     category: "not_found",
     errorClass: "user",
     handled: true,

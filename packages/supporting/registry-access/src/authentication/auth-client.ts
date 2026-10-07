@@ -530,7 +530,7 @@ export const AuthClientLive = Layer.effect(
             new AuthExchangeFailed({
               detail: "Authorization code exchange failed",
               suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-              failure: registryAccessFailure(registryUrl, "Token exchange failed", error.cause),
+              cause: registryAccessFailure(registryUrl, "Token exchange failed", error.cause),
             }),
           ),
         ),

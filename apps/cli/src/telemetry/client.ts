@@ -1,3 +1,4 @@
+import { TerminalDiagnostics } from "../cli-runtime/terminal-diagnostics.js";
 // @effect-diagnostics anyUnknownInErrorContext:off — telemetry is a best-effort boundary over generated opaque transport failures
 import type { InstalledSkill } from "@agentxm/workspace-features/lifecycle";
 import { type CallerAgent } from "./caller-agent.js";
@@ -123,7 +124,10 @@ const startReporter = (
   ci: boolean,
 ) =>
   Effect.gen(function* () {
-    const invocationId = randomUUID();
+    const diagnosticService = yield* Effect.serviceOption(TerminalDiagnostics);
+    const invocationId = Option.isSome(diagnosticService)
+      ? diagnosticService.value.invocationId
+      : randomUUID();
     const nextEventId = options.eventIdFactory ?? randomUUID;
     const facts = reportingClientFacts(options.client, ci);
     const context = usageEventContext(facts, invocationId);
@@ -231,8 +235,8 @@ const startReporter = (
     const reportError: TelemetryClientService["reportError"] = (failure) =>
       Effect.gen(function* () {
         if (yield* Ref.getAndSet(reported, true)) return;
-        const occurredAt = DateTime.formatIso(yield* DateTime.now);
-        const eventId = nextEventId();
+        const occurredAt = failure.occurredAt ?? DateTime.formatIso(yield* DateTime.now);
+        const eventId = failure.eventId ?? nextEventId();
         yield* own(
           Effect.gen(function* () {
             const report = buildErrorReport({

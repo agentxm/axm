@@ -193,7 +193,7 @@ export class DeviceAuthorizationPending extends Data.TaggedError("DeviceAuthoriz
 export class AuthExchangeFailed extends Data.TaggedError("AuthExchangeFailed")<{
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
-  readonly failure: RegistryClientFailure;
+  readonly cause: RegistryClientFailure;
 }> {}
 
 /**

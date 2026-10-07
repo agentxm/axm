@@ -2,10 +2,11 @@
  * Safe diagnostic identity for a terminal failure.
  *
  * A failure report names its failure only from sets the CLI can enumerate:
- * an application error's problem or code, a typed failure's tag, a defect's
- * built-in error kind or tag. Nothing here reads a detail, message, metadata,
+ * a producer's diagnostic, an application error's problem or code, or a defect's
+ * built-in error kind. Nothing here reads a detail, message, metadata,
  * cause text, argument, or path, so none of them can reach a report.
  */
+import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
@@ -17,7 +18,7 @@ import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import { OutputWriteFailed } from "../screen/streams.js";
 import type { TelemetryFailurePhase } from "../telemetry/index.js";
 
-export interface FailureIdentity {
+export interface FailureIdentity extends FailureDiagnostic {
   /** Stable diagnostic identifier; `unknown` when no enumerable one applies. */
   readonly kind: string;
   readonly code: AppErrorCode;
@@ -79,34 +80,56 @@ const cliErrorKind = (error: CliError.CliError): string | undefined =>
 export const handledFailureIdentity = (failure: unknown): FailureIdentity => {
   if (failure instanceof AppError) {
     return {
-      kind: boundedKind(failure.problem?.code ?? failure.code),
+      ...(failure.diagnostic ?? {
+        kind: boundedKind(
+          failure.problem?.code ??
+            (failure.code === "internal" ? "diagnostic.unclassified" : failure.code),
+        ),
+        operation: "runtime.command",
+      }),
       code: failure.code,
       handled: true,
     };
   }
   if (isWorkspaceFailure(failure)) {
+    const rendered = toAppError(failure);
     return {
-      kind: boundedKind(safeTag(failure) ?? UNKNOWN_KIND),
-      code: toAppError(failure).code,
+      ...(rendered.diagnostic ?? {
+        kind: "diagnostic.unclassified",
+        operation: "workspace.operation",
+      }),
+      code: rendered.code,
       handled: true,
     };
   }
   if (failure instanceof OutputWriteFailed) {
-    return { kind: "output-write-failed", code: "internal", handled: true };
+    return {
+      kind: "output-write-failed",
+      operation: "runtime.output",
+      code: "internal",
+      handled: true,
+    };
   }
   if (CliError.isCliError(failure)) {
     return {
       kind: boundedKind(cliErrorKind(failure) ?? UNKNOWN_KIND),
+      operation: "runtime.arguments",
       code: "usage",
       handled: true,
     };
   }
-  return { kind: UNKNOWN_KIND, code: failureToAppError(failure).code, handled: true };
+  return {
+    kind: "diagnostic.unclassified",
+    operation: "runtime.command",
+    code: failureToAppError(failure).code,
+    handled: true,
+  };
 };
 
-/** Identity of an unexpected defect: its tag, else its built-in error kind. */
+/** Identity of an unexpected defect: its built-in error kind, with owned frames providing specificity. */
 export const defectIdentity = (defect: unknown): FailureIdentity => ({
-  kind: boundedKind(`defect.${safeTag(defect) ?? builtInErrorKind(defect) ?? UNKNOWN_KIND}`),
+  kind: boundedKind(`defect.${builtInErrorKind(defect) ?? UNKNOWN_KIND}`),
+  operation: "runtime.command",
   code: failureToAppError(defect).code,
   handled: false,
 });

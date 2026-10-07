@@ -1,3 +1,6 @@
+import { appErrorWithDiagnostic } from "./terminal-diagnostics.js";
+import { FailureOperation } from "@agentxm/workspace-kernel/operations";
+import * as Context from "effect/Context";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
 import * as Ref from "effect/Ref";
@@ -9,13 +12,7 @@ import * as Option from "effect/Option";
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
 import type { AppErrorCode } from "../app-error/index.js";
-import {
-  AppError,
-  AppErrorCodes,
-  ExitCode,
-  appErrorCodeForExit,
-  exitCodeFor,
-} from "../app-error/index.js";
+import { AppError, ExitCode, exitCodeFor } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import type { InstallSelectionCancelled } from "@agentxm/workspace-kernel/operations";
@@ -33,7 +30,12 @@ export interface WorkspaceInitializationCancelled {
 import { renderAppErrorChannels } from "./handle-error.js";
 import { processOutcome, isProcessOutcome } from "./process-outcome.js";
 import { resolveFormat } from "./resolve-format.js";
-import { OperationExit, getOperationExitCode } from "./operation-exit.js";
+import {
+  OperationExit,
+  getOperationExitCode,
+  getOperationSettlement,
+  type OperationSettlement,
+} from "./operation-exit.js";
 import { CommandCompletion } from "./command-completion.js";
 import {
   readGlobalFlagProperties,
@@ -57,7 +59,7 @@ import {
   type ConfigurationFailureRecord,
 } from "./configuration-failure.js";
 import { CommandArgv, serializeArgv } from "./command-argv.js";
-import { TelemetryPreviewFraming, type TelemetryProperties } from "../telemetry/index.js";
+import { TelemetryPreviewFraming } from "../telemetry/index.js";
 
 import {
   InteractiveScreen,
@@ -109,29 +111,25 @@ const expectedErrorToAppError = (error: ExpectedCliError): AppError | undefined 
 const elapsedMilliseconds = (start: bigint, end: bigint): number =>
   Duration.toMillis(Duration.nanos(end - start));
 
-const isAppErrorCode = (value: unknown): value is AppErrorCode =>
-  AppErrorCodes.some((candidate) => candidate === value);
-
-/**
- * The settled outcome an exit code states, for a command that ended by
- * returning: a signal code is a cancellation, zero is success, and any other
- * code is a handled error whose category the command recorded — an operation
- * resolution records the category it settled with — or, for a command that
- * only returned its exit, the category that exit pairs with.
- */
+/** A failed returned result must carry its producer's diagnostic. */
 const settlementForExit = (
   exitCode: number,
-  semanticProperties: TelemetryProperties,
+  recorded: Option.Option<OperationSettlement>,
 ): Pick<CommandSettlement, "result" | "failure"> => {
   if (exitCode === 130 || exitCode === 143) return { result: "cancelled" };
   if (exitCode === ExitCode.Success) return { result: "success" };
-  const recorded = semanticProperties["cli.error_code"];
-  const code = isAppErrorCode(recorded) ? recorded : appErrorCodeForExit(exitCode);
   return {
     result: "error",
-    ...(code === undefined
-      ? {}
-      : { failure: { code, phase: "command", kind: code, handled: true } }),
+    failure:
+      Option.isSome(recorded) && recorded.value.failure !== undefined
+        ? recorded.value.failure
+        : {
+            code: "internal",
+            phase: "command",
+            kind: "diagnostic.unclassified",
+            operation: "runtime.command",
+            handled: true,
+          },
   };
 };
 
@@ -290,8 +288,7 @@ export const withCliErrorHandling = <A, R>(
     // envelope's own continuation boundary.
     const settleForExit = (exitCode: number) =>
       Effect.gen(function* () {
-        const semanticProperties = yield* getCommandSemanticProperties;
-        yield* settle(settlementForExit(exitCode, semanticProperties));
+        yield* settle(settlementForExit(exitCode, yield* getOperationSettlement));
       });
 
     const settleOutput = Effect.gen(function* () {
@@ -333,6 +330,12 @@ export const withCliErrorHandling = <A, R>(
         recordedConfigurationFailure(configurationFailures, defect),
         (configuration): CommandSettlementFailure => ({
           ...defectIdentity(defect),
+          operation:
+            cause.reasons
+              .map((reason) =>
+                Context.getOrUndefined(Cause.reasonAnnotations(reason), FailureOperation),
+              )
+              .find((value) => value !== undefined) ?? "runtime.command",
           code,
           phase: causeCarriesOutputFailure(cause)
             ? "output"
@@ -363,7 +366,15 @@ export const withCliErrorHandling = <A, R>(
         const resolved = expectedErrorToAppError(error);
         const exitCode = resolved === undefined ? ExitCode.Success : exitCodeFor(resolved.code);
 
-        return writeExpectedCliError(error, options.format).pipe(
+        return Effect.gen(function* () {
+          if (resolved === undefined) {
+            yield* writeExpectedCliError(error, options.format);
+            return;
+          }
+          const failure = yield* commandFailure(error);
+          const rendered = yield* appErrorWithDiagnostic(resolved, failure, options.command);
+          yield* writeExpectedCliError(rendered, options.format);
+        }).pipe(
           // An owned failure may already include an output failure and its
           // compensation (for example, revoking an undelivered token). Once
           // its diagnostic is delivered, retain that failure's exit code when
@@ -399,7 +410,13 @@ export const withCliErrorHandling = <A, R>(
           return Effect.failCause(cause);
         }
 
-        return writeDefect(cause, options.format).pipe(
+        return Effect.gen(function* () {
+          const defect = failureToAppError(Cause.squash(cause));
+          const failure = yield* defectFailure(cause, defect.code);
+          const rendered = yield* appErrorWithDiagnostic(defect, failure, options.command);
+          yield* writeExpectedCliError(rendered, options.format);
+          return defect;
+        }).pipe(
           Effect.flatMap((defect) =>
             settleOutput.pipe(
               Effect.andThen(
@@ -419,14 +436,23 @@ export const withCliErrorHandling = <A, R>(
     const inherited = yield* Effect.serviceOption(OperationExit);
     const operationExit = Option.isSome(inherited)
       ? inherited.value
-      : { ref: yield* Ref.make(Option.none<number>()) };
+      : { ref: yield* Ref.make(Option.none<OperationSettlement>()) };
     const outcome = yield* enrichedProgram.pipe(
       Effect.provide(Layer.mergeAll(CommandSemanticPropertiesLive, ProductActivityLive)),
       Effect.provideService(OperationExit, operationExit),
       // Telemetry previewed while the command runs joins its Screen's stderr.
       Effect.provideService(TelemetryPreviewFraming, options.format),
     );
-    yield* Ref.set(operationExit.ref, Option.some(outcome.exitCode));
+    const recorded = yield* Ref.get(operationExit.ref);
+    yield* Ref.set(
+      operationExit.ref,
+      Option.some({
+        exitCode: outcome.exitCode,
+        ...(Option.isSome(recorded) && recorded.value.failure !== undefined
+          ? { failure: recorded.value.failure }
+          : {}),
+      }),
+    );
     return outcome;
   });
 };

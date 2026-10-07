@@ -32,6 +32,9 @@
           "schemaStructWithTag": "suggestion"
         }
       }
-    ]
+    ],
+    "sourceMap": false,
+    "inlineSourceMap": true,
+    "inlineSources": false
   }
 }

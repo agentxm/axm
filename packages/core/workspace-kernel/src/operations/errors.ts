@@ -15,6 +15,7 @@
  */
 
 import * as Schema from "effect/Schema";
+import { FailureDiagnosticSchema, type FailureDiagnostic } from "./failure-diagnostic.js";
 
 import type { RegistryErrorMetadata } from "@agentxm/registry-client";
 import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/human-handoff";
@@ -140,6 +141,8 @@ export const FailureMetadataSchema = Schema.Struct({
     Schema.Struct({
       service: Schema.String,
       method: Schema.optional(Schema.String),
+      requestId: Schema.optional(Schema.String),
+      operation: Schema.optional(Schema.String),
       url: Schema.String,
     }),
   ),
@@ -214,6 +217,7 @@ export type FailureAction = typeof FailureActionSchema.Type;
  */
 export class StepFailure extends Schema.TaggedError<StepFailure>()("StepFailure", {
   category: OperationErrorCategorySchema,
+  diagnostic: Schema.optional(FailureDiagnosticSchema),
   title: Schema.optional(Schema.String),
   detail: Schema.String,
   problem: Schema.optional(FailureProblemSchema),
@@ -255,6 +259,7 @@ export const stepFailureRetryCanHelp = (
  * optional command) as the first suggestion, ahead of any others.
  */
 export const makeStepFailure = (args: {
+  readonly diagnostic?: FailureDiagnostic | undefined;
   readonly category: OperationErrorCategory;
   readonly title?: string | undefined;
   readonly detail?: string | undefined;
@@ -278,6 +283,7 @@ export const makeStepFailure = (args: {
   ];
   return new StepFailure({
     category: args.category,
+    ...(args.diagnostic === undefined ? {} : { diagnostic: args.diagnostic }),
     ...(args.title === undefined ? {} : { title: args.title }),
     detail: args.detail ?? defaultFailureDetail(args.category),
     ...(args.problem === undefined ? {} : { problem: args.problem }),
@@ -300,6 +306,7 @@ export const makeStepFailure = (args: {
 export const stepFailureWithCause = (failure: StepFailure, cause: unknown): StepFailure =>
   new StepFailure({
     category: failure.category,
+    ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
     ...(failure.title === undefined ? {} : { title: failure.title }),
     detail: failure.detail,
     ...(failure.problem === undefined ? {} : { problem: failure.problem }),

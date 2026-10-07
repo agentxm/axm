@@ -6,6 +6,9 @@ dist
 /release-packages-local/
 *.bak
 
+# Build-owned source attribution metadata, derived from the exact artifact inputs.
+/apps/cli/src/__generated__/diagnostic-sources.ts
+
 # JetBrains: keep shareable project settings, ignore local/generated files.
 .idea/**/workspace.xml
 .idea/**/tasks.xml

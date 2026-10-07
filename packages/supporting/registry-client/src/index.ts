@@ -47,7 +47,6 @@ export { createRemoteRegistryClient } from "./remote-client.js";
 export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
-  RegistryRequestAttempt,
   OperationRequestBudget,
   RegistryRetryObservation,
   executeRegistryRequest,
@@ -199,3 +198,7 @@ export {
   MAX_BUFFERED_ARCHIVE_BYTES,
   MAX_EXTRACTED_ARCHIVE_BYTES,
 } from "./archive-limits.js";
+
+export { RegistryRequestAttempt } from "./request-attempt.js";
+
+export { RegistryFailureObservation } from "./failure-observation.js";

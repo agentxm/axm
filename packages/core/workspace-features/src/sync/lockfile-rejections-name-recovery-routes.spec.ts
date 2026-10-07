@@ -1,3 +1,6 @@
+import { fileRegistryPackagePath } from "../testing/install-world.js";
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -33,7 +36,7 @@ export const specification = defineSpecification({
   requirement: "cli/lockfile-rejections-name-recovery-routes",
   title: "The recovery route for a rejected lockfile re-accepts the desired state",
   statement:
-    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
+    "When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file and any unproven acquired content outside their authoritative paths, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "safe-repetition", "workspace-intent-fidelity"],
@@ -155,6 +158,13 @@ describe("Lockfile rejection recovery routes", () => {
       );
       cleanups.push(() => fs.rmSync(backupPath, { force: true }));
       fs.renameSync(nodePath.join(workspace.root, "axm-lock.yaml"), backupPath);
+      const unproven = workspace.snapshot();
+      const refused = expectResolved(yield* run(previewSync()));
+      expect(deriveOperationOutcome(refused)).toBe("blocked");
+      expect(workspace.snapshot()).toEqual(unproven);
+      const contentBackup = `${backupPath}.content`;
+      cleanups.push(() => fs.rmSync(contentBackup, { recursive: true, force: true }));
+      fs.renameSync(nodePath.join(workspace.root, "agent_extensions"), contentBackup);
       const before = workspace.snapshot();
       yield* run(previewSync());
       expect(workspace.snapshot()).toEqual(before);
@@ -188,7 +198,7 @@ describe("Lockfile rejection recovery routes", () => {
       const lockfile = fs.readFileSync(lockPath, "utf8");
       expect(lockfile).toContain(`lockfileVersion: ${LOCKFILE_VERSION}`);
       // Both Packs admit 1.2.0; the direct pin is a contributor too.
-      expect(YAML.parse(lockfile)).toMatchObject({
+      expect(Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(lockfile))).toMatchObject({
         skills: { [SHARED_MEMBER.name]: { resolved: { version: SHARED_MEMBER_PIN.inside } } },
       });
     });
@@ -247,7 +257,12 @@ describe("Lockfile rejection recovery routes", () => {
           lockfileVersion: LOCKFILE_VERSION,
           skills: {},
         });
-        const connectionRoot = `agent_extensions/registry/${SHARED_MEMBER.owner}/mcps/${DISABLED_MCP.name}`;
+        const connectionRoot = fileRegistryPackagePath(
+          registry,
+          "mcps",
+          DISABLED_MCP.name,
+          SHARED_MEMBER.owner,
+        );
         expect(
           Object.keys(workspace.snapshot()).filter(
             (path) =>

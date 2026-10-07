@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -58,17 +59,17 @@ const manifestFor = (fixture: PackFixture): Readonly<Record<string, unknown>> =>
 });
 
 /** Where a completed acquisition leaves the pack's package, relative to the root. */
-const packDirectory = (fixture: PackFixture): string =>
+const packDirectory = (world: InstallWorld, fixture: PackFixture): string =>
   fixture.authority === "workspace"
     ? nodePath.join("packs", fixture.name)
-    : nodePath.join("agent_extensions", "registry", OWNER, "packs", fixture.name);
+    : fileRegistryPackagePath(world.registry, "packs", fixture.name);
 
-const manifestPath = (fixture: PackFixture): string =>
-  nodePath.join(packDirectory(fixture), "pack.json");
+const manifestPath = (world: InstallWorld, fixture: PackFixture): string =>
+  nodePath.join(packDirectory(world, fixture), "pack.json");
 
 /** A pack authored in the workspace, as `axm packs init` leaves one. */
-const writeAuthoredPack = (root: string, fixture: PackFixture): void => {
-  const directory = nodePath.join(root, packDirectory(fixture));
+const writeAuthoredPack = (world: InstallWorld, fixture: PackFixture): void => {
+  const directory = nodePath.join(world.workspace.root, packDirectory(world, fixture));
   fs.mkdirSync(directory, { recursive: true });
   fs.writeFileSync(nodePath.join(directory, "README.md"), `# ${fixture.name}\n`);
   fs.writeFileSync(
@@ -81,8 +82,8 @@ const writeAuthoredPack = (root: string, fixture: PackFixture): void => {
  * Every pack starts from the package a completed acquisition leaves behind, so
  * the damaged manifest is the only difference a scenario introduces.
  */
-const damageManifest = (root: string, fixture: PackFixture): void => {
-  const file = nodePath.join(root, manifestPath(fixture));
+const damageManifest = (world: InstallWorld, fixture: PackFixture): void => {
+  const file = nodePath.join(world.workspace.root, manifestPath(world, fixture));
   switch (fixture.manifest) {
     case "intact":
       return;
@@ -126,7 +127,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
     cleanups.push(world.cleanup);
     for (const fixture of fixtures) {
       if (fixture.authority === "workspace") {
-        writeAuthoredPack(world.workspace.root, fixture);
+        writeAuthoredPack(world, fixture);
         continue;
       }
       world.registry.writePack(fixture.name, [
@@ -149,7 +150,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
         );
       }
       for (const fixture of fixtures) {
-        damageManifest(world.workspace.root, fixture);
+        damageManifest(world, fixture);
       }
     });
 
@@ -191,7 +192,9 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
                 subject: { kind: "source", source: "@acme/skills/direct" },
               }),
             );
-            const root = "agent_extensions/registry/@acme";
+            const root = nodePath.dirname(
+              nodePath.dirname(fileRegistryPackagePath(world.registry, "packs", "toolkit")),
+            );
             world.workspace.writeFile(
               `${root}/packs/toolkit/pack.json`,
               "unverified package bytes",
@@ -243,7 +246,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
         .provide(
           Effect.gen(function* () {
             yield* seed(world, [target]);
-            const packageBefore = contentUnder(workspace, packDirectory(target));
+            const packageBefore = contentUnder(workspace, packDirectory(world, target));
             expect(packageBefore.length).toBeGreaterThan(0);
             expect(JSON.stringify(readSettings(workspace))).toContain(target.name);
 
@@ -255,7 +258,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
             expect(JSON.stringify(readSettings(workspace))).not.toContain(target.name);
             expect(workspace.readFile("axm-lock.yaml")).not.toContain(target.name);
             // Content whose manifest could not be read is never deleted.
-            expect(contentUnder(workspace, packDirectory(target))).toEqual(packageBefore);
+            expect(contentUnder(workspace, packDirectory(world, target))).toEqual(packageBefore);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -280,7 +283,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
             unit.message ?? "",
             ...(unit.warnings ?? []),
           ]);
-          expect(reported.join("\n")).toContain(manifestPath(target));
+          expect(reported.join("\n")).toContain(manifestPath(world, target));
           expect(reported.join("\n")).toContain("left its package content in place");
         }),
       )
@@ -320,7 +323,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
       .provide(
         Effect.gen(function* () {
           yield* seed(world, [target]);
-          const packageBefore = contentUnder(workspace, packDirectory(target));
+          const packageBefore = contentUnder(workspace, packDirectory(world, target));
 
           const resolution = yield* applyUninstall(
             uninstallRequest({ selector: `${OWNER}/packs/${target.name}` }),
@@ -328,7 +331,7 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
           expect(JSON.stringify(readSettings(workspace))).not.toContain(target.name);
-          expect(contentUnder(workspace, packDirectory(target))).toEqual(packageBefore);
+          expect(contentUnder(workspace, packDirectory(world, target))).toEqual(packageBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -405,9 +408,9 @@ describe("Uninstall a desired pack whose package cannot be read", () => {
             Effect.gen(function* () {
               yield* seed(world, fixtures);
               for (const fixture of fixtures) {
-                expect(workspace.readFile(nodePath.join(packDirectory(fixture), "README.md"))).toBe(
-                  `# ${fixture.name}\n`,
-                );
+                expect(
+                  workspace.readFile(nodePath.join(packDirectory(world, fixture), "README.md")),
+                ).toBe(`# ${fixture.name}\n`);
               }
               const before = workspace.snapshot();
 

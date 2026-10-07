@@ -17,10 +17,21 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import type * as Scope from "effect/Scope";
 
+import {
+  acquiredPackageRelativePath,
+  LockfileReader,
+  WorkspaceLocation,
+  retainedPackageBindings,
+  retainedPackageKeyForRef,
+  computeExtensionPathsForLayout,
+  computeMaterializedTreeIntegrity,
+} from "../workspace-state/index.js";
+import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { FindOptions } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { AcquiredSourceFiles } from "./service.js";
@@ -53,6 +64,21 @@ import {
 } from "../acquisition/index.js";
 
 export { WorkspaceCatalogLive } from "./workspace-catalog-live.js";
+
+/** Select the project anchor only when the local path is contained by it. */
+export const localRefSourcePath = (
+  path: Path.Path,
+  workspaceRoot: string,
+  selectedPath: string,
+): string => {
+  const relative = Option.map(
+    makeWorkspaceRelativeSourcePath(path, workspaceRoot, selectedPath),
+    (value) => value.split(path.sep).join("/"),
+  );
+  return Option.isSome(relative) && relative.value !== ".." && !relative.value.startsWith("../")
+    ? relative.value
+    : selectedPath.split(path.sep).join("/");
+};
 
 // -----------------------------------------------------------------------------
 // Layer
@@ -116,16 +142,8 @@ export const SourceHostProvidersLive: Layer.Layer<
     ): Effect.Effect<TRef, SourceNotResolvable> => {
       if (ref.refType !== "local") return Effect.succeed(ref);
       const selectedPath = fromFileLocation(ref.location);
-      const relative = makeWorkspaceRelativeSourcePath(path, catalog.workspaceRoot, selectedPath);
-      if (Option.isNone(relative)) {
-        return Effect.fail(
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Local extension source path cannot be represented relative to the workspace: ${selectedPath}`,
-          }),
-        );
-      }
-      const normalized = { ...ref, sourcePath: relative.value };
+      const sourcePath = localRefSourcePath(path, catalog.workspaceRoot, selectedPath);
+      const normalized = { ...ref, sourcePath };
       return ref.type === "pack"
         ? Effect.map(
             Effect.forEach(ref.sourceMembers, normalizeLocalRefSourcePath),
@@ -182,20 +200,93 @@ export const SourceHostProvidersLive: Layer.Layer<
       }
     };
 
+    const validatePlacement = <TRef extends ExtensionRef>(
+      ref: TRef,
+    ): Effect.Effect<TRef, SourceNotResolvable> =>
+      ref.refType === "workspace"
+        ? Effect.succeed(ref)
+        : Effect.fromResult(
+            acquiredPackageRelativePath(ref, toExtensionTypePlural(ref.type), ref.name),
+          ).pipe(
+            Effect.mapError(
+              (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail }),
+            ),
+            Effect.as(ref),
+          );
+
     const service: SourceHostProvidersService = {
       find: (source, options) =>
-        findImpl(source, options).pipe(Effect.withSpan("SourceHostProviders.find")),
+        findImpl(source, options).pipe(
+          Effect.flatMap((refs) => Effect.forEach(refs, validatePlacement)),
+          Effect.withSpan("SourceHostProviders.find"),
+        ),
       resolveNamedRegistry: (source, options) =>
-        registryMetaProvider
-          .resolveNamed(source, options)
-          .pipe(
-            Effect.provide(depLayer),
-            Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
+        registryMetaProvider.resolveNamed(source, options).pipe(
+          Effect.provide(depLayer),
+          Effect.tap((selection) =>
+            "ref" in selection ? validatePlacement(selection.ref) : Effect.void,
           ),
+          Effect.withSpan("SourceHostProviders.resolveNamedRegistry"),
+        ),
       acquireForTransition: (ref) =>
         Effect.gen(function* () {
-          const files = yield* fetchImpl(ref.source, ref);
-          if (ref.refType !== "local") return files;
+          yield* validatePlacement(ref);
+          const retained =
+            ref.refType !== "http" && ref.refType !== "git-hosted"
+              ? undefined
+              : yield* Effect.gen(function* () {
+                  const reader = yield* Effect.serviceOption(LockfileReader);
+                  const workspace = yield* Effect.serviceOption(WorkspaceLocation);
+                  if (Option.isNone(reader) || Option.isNone(workspace)) return undefined;
+                  const lock = yield* reader.value.lockfile.pipe(
+                    Effect.mapError(
+                      (cause) =>
+                        new SourceNotResolvable({
+                          category: "validation",
+                          detail: "Accepted package could not be read",
+                          cause,
+                        }),
+                    ),
+                  );
+                  const binding = retainedPackageBindings(lock).find(
+                    (entry) => entry.packageKey === retainedPackageKeyForRef(ref),
+                  );
+                  if (
+                    binding === undefined ||
+                    (ref.refType === "http"
+                      ? JSON.stringify(binding.entry.resolved) !== JSON.stringify(ref.snapshot)
+                      : !("commit" in binding.entry.resolved) ||
+                        binding.entry.resolved.commit !== ref.gitCommitSha ||
+                        binding.entry.resolved.tree !== ref.gitTreeSha)
+                  )
+                    return undefined;
+                  const layout = yield* Ref.get(workspace.value.layout);
+                  const canonicalPath = computeExtensionPathsForLayout(
+                    path.join,
+                    layout,
+                    ref,
+                    "skills",
+                    ref.name,
+                  ).canonicalPath;
+                  const componentPath = ref.distribution?.componentPath ?? ".";
+                  if (
+                    path.resolve(fromFileLocation(ref.location)) !==
+                    path.resolve(canonicalPath, componentPath)
+                  )
+                    return undefined;
+                  const integrity = yield* Effect.option(
+                    computeMaterializedTreeIntegrity(canonicalPath).pipe(Effect.provide(depLayer)),
+                  );
+                  if (Option.isNone(integrity) || integrity.value !== binding.entry.treeIntegrity)
+                    return undefined;
+                  return {
+                    directory: path.join(canonicalPath, componentPath),
+                    packageDirectory: canonicalPath,
+                    componentPath,
+                  };
+                });
+          const files = retained ?? (yield* fetchImpl(ref.source, ref));
+          if (ref.refType !== "local" && retained === undefined) return files;
           // Path sources are mutable. The transition consumes captured bytes,
           // while its normal under-lock freshness check still covers the path.
           const directory = yield* Effect.acquireRelease(
@@ -249,6 +340,7 @@ export const SourceHostProvidersLive: Layer.Layer<
               onSome: (files) => Effect.succeed(files),
             }),
           ),
+          Effect.provideService(Path.Path, path),
           Effect.withSpan("SourceHostProviders.fetch"),
         ),
       cloneUrl: buildCloneUrlFromSource,

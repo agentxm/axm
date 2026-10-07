@@ -15,7 +15,6 @@ import {
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
-import { fromFileLocation } from "@agentxm/host-primitives";
 import {
   type JobStepArtifact,
   type PackMemberSourceSwitchEndpoint,
@@ -71,7 +70,7 @@ const publicUrl = (value: URL): string => {
   return url.href;
 };
 
-const sourceLocator = (ref: ExtensionRef): string => {
+const sourceLocator = (ref: ExtensionRef, path: Path.Path, baseDir: string): string => {
   switch (ref.refType) {
     case "http":
       return `${publicUrl(ref.source.url)}#skill=${encodeURIComponent(ref.source.entry ?? ref.sourcePath)}`;
@@ -80,7 +79,7 @@ const sourceLocator = (ref: ExtensionRef): string => {
     case "git-hosted":
       return `${publicUrl(ref.source.url)}${ref.sourcePath === undefined ? "" : `//${ref.sourcePath}`}`;
     case "local":
-      return fromFileLocation(ref.location);
+      return path.resolve(baseDir, ref.sourcePath ?? ref.source.path);
     case "workspace":
       throw new TypeError("Workspace refs do not participate in acquired source switches");
   }
@@ -106,10 +105,18 @@ const sourceResolution = (ref: ExtensionRef, treeIntegrity: string): string => {
 const sourceIdentity = (ref: ExtensionRef): string =>
   `${ref.owner ?? "@portable"}/${toExtensionTypePlural(ref.type)}/${ref.name}`;
 
-const packMemberEndpoint = (ref: ExtensionRef): PackMemberSourceSwitchEndpoint => {
+const packMemberEndpoint = (
+  ref: ExtensionRef,
+  path: Path.Path,
+  baseDir: string,
+): PackMemberSourceSwitchEndpoint => {
   switch (ref.refType) {
     case "http":
-      return { family: "http", locator: sourceLocator(ref), resolution: sourceResolution(ref, "") };
+      return {
+        family: "http",
+        locator: sourceLocator(ref, path, baseDir),
+        resolution: sourceResolution(ref, ""),
+      };
     case "registry":
       return {
         family: "registry",
@@ -119,14 +126,14 @@ const packMemberEndpoint = (ref: ExtensionRef): PackMemberSourceSwitchEndpoint =
     case "git-hosted":
       return {
         family: "git",
-        locator: sourceLocator(ref),
+        locator: sourceLocator(ref, path, baseDir),
         resolution: `commit ${ref.gitCommitSha}; tree ${ref.gitTreeSha}`,
       };
     case "local":
       return {
         family: "path",
-        locator: sourceLocator(ref),
-        resolution: `path ${sourceLocator(ref)}`,
+        locator: sourceLocator(ref, path, baseDir),
+        resolution: `path ${sourceLocator(ref, path, baseDir)}`,
       };
     case "workspace":
       return {
@@ -153,6 +160,8 @@ const classifyPackMembers = (
         detail: `${sourceIdentity(previousPack)} is not a Pack source-switch root`,
       });
     }
+    const path = yield* Path.Path;
+    const location = yield* WorkspaceLocation;
     const identities = [
       ...new Set([
         ...currentMembers.map(({ ref }) => sourceIdentity(ref)),
@@ -163,8 +172,10 @@ const classifyPackMembers = (
     return identities.map((member): PackMemberSourceSwitchEvidence => {
       const current = currentMembers.find(({ ref }) => sourceIdentity(ref) === member);
       const target = targetMembers.find((ref) => sourceIdentity(ref) === member);
-      const before = current === undefined ? undefined : packMemberEndpoint(current.ref);
-      const after = target === undefined ? undefined : packMemberEndpoint(target);
+      const before =
+        current === undefined ? undefined : packMemberEndpoint(current.ref, path, location.baseDir);
+      const after =
+        target === undefined ? undefined : packMemberEndpoint(target, path, location.baseDir);
       if (current === undefined && after !== undefined) {
         return { member, disposition: "added", after };
       }
@@ -252,9 +263,14 @@ const proposedTreeIntegrity = (
     return yield* comparableTreeIntegrity(files.directory, ref, compareWithRegistry);
   });
 
-const endpoint = (ref: ExtensionRef, treeIntegrity: string): SourceSwitchEndpoint => ({
+const endpoint = (
+  ref: ExtensionRef,
+  treeIntegrity: string,
+  path: Path.Path,
+  baseDir: string,
+): SourceSwitchEndpoint => ({
   family: sourceFamily(ref),
-  locator: sourceLocator(ref),
+  locator: sourceLocator(ref, path, baseDir),
   resolution: sourceResolution(ref, treeIntegrity),
   treeIntegrity,
 });
@@ -352,7 +368,8 @@ export const withSourceSwitches = <R, O>(
           Option.isNone(current) ||
           current.value.accepted === undefined ||
           Option.isNone(previous) ||
-          sourceLocator(previous.value) === sourceLocator(proposal.ref)
+          sourceLocator(previous.value, path, location.baseDir) ===
+            sourceLocator(proposal.ref, path, location.baseDir)
         ) {
           steps.push(step);
           continue;
@@ -413,8 +430,8 @@ export const withSourceSwitches = <R, O>(
             : [],
         );
         const evidence: SourceSwitchEvidence = {
-          before: endpoint(previous.value, beforeTree),
-          after: endpoint(proposal.ref, afterTree),
+          before: endpoint(previous.value, beforeTree, path, location.baseDir),
+          after: endpoint(proposal.ref, afterTree, path, location.baseDir),
           content: beforeTree === afterTree ? "equivalent" : "changed",
           dependencies:
             packMembers === undefined

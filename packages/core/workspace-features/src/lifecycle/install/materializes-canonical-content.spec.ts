@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -41,7 +42,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const CANONICAL_SKILL_DOCUMENT = "agent_extensions/path/@acme/skills/code-review/src/SKILL.md";
+const CANONICAL_SKILL_DOCUMENT = "agent_extensions/_local/project/vendor/code-review/src/SKILL.md";
 
 describe("Install materializes canonical content", () => {
   const cleanups: Array<() => void> = [];
@@ -69,7 +70,7 @@ describe("Install materializes canonical content", () => {
 
             const installed = nodePath.join(
               workspace.root,
-              "agent_extensions/path/@acme/skills/executable-review/run.sh",
+              "agent_extensions/_local/project/vendor/executable-review/run.sh",
             );
             expect(yield* files.readFileString(installed)).toBe(
               yield* files.readFileString(sourceScript),
@@ -102,7 +103,7 @@ describe("Install materializes canonical content", () => {
 
   it.effect.each(localLifecycleRows)(
     "materializes the source content for a local $label",
-    ({ type, label, plural, writePackage, canonicalFile }) => {
+    ({ type, label, writePackage, canonicalFile }) => {
       const { workspace, cleanup } = makeInstallWorld();
       cleanups.push(cleanup);
       const name = `conformance-${label}`;
@@ -114,7 +115,7 @@ describe("Install materializes canonical content", () => {
 
             const relative = canonicalFile(name);
             expect(
-              workspace.readFile(`agent_extensions/path/@acme/${plural}/${name}/${relative}`),
+              workspace.readFile(`agent_extensions/_local/project/vendor/${name}/${relative}`),
             ).toBe(workspace.readFile(`vendor/${name}/${relative}`));
           }),
         )
@@ -161,16 +162,19 @@ describe("Install materializes canonical content", () => {
 
           const canonical = nodePath.join(
             workspace.root,
-            "agent_extensions/registry/@acme/skills/registry-review",
+            fileRegistryPackagePath(registry, "skills", "registry-review"),
           );
           for (const [entry, bytes] of Object.entries(archiveEntries)) {
             expect(fs.readFileSync(nodePath.join(canonical, entry))).toEqual(Buffer.from(bytes));
           }
           expect(
-            entriesUnder(workspace, "agent_extensions/registry/@acme/skills/registry-review")
+            entriesUnder(workspace, fileRegistryPackagePath(registry, "skills", "registry-review"))
               .filter((relative) => relative.endsWith(".md") || relative.endsWith(".json"))
               .map((relative) =>
-                relative.replace("agent_extensions/registry/@acme/skills/registry-review/", ""),
+                relative.replace(
+                  `${fileRegistryPackagePath(registry, "skills", "registry-review")}/`,
+                  "",
+                ),
               )
               .sort(),
           ).toEqual(["skill.json", "src/SKILL.md"]);

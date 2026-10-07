@@ -5,6 +5,7 @@ import type { NativeWriteAuthority } from "../agent-adapters/index.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Ref from "effect/Ref";
 import type * as Config from "effect/Config";
 import type { RegistryClientFactory, RegistryClientFailure } from "@agentxm/registry-client";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
@@ -13,23 +14,28 @@ import {
   extensionRefName,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import type {
-  LockEntry,
+import type { LockEntry, PathTraversalDetected, TreeIntegrity } from "../workspace-state/index.js";
+import {
+  observeAcceptedCanonicalReuse,
+  computeMaterializedTreeIntegrity,
   MaterializedTreeInvalid,
-  PathTraversalDetected,
-  TreeIntegrity,
+  LockfileReader,
+  retainedPackageBindings,
+  retainedPackageKeyForRef,
 } from "../workspace-state/index.js";
-import { observeAcceptedCanonicalReuse } from "../workspace-state/index.js";
 import { extensionRefLifecycleWarnings } from "../resolution/index.js";
 import { materializeRegistryPackageWithTreeIntegrity } from "./registry-materialization.js";
 import {
+  AcquiredContent,
+  sourceRefContentKey,
+  recordMaterializedPackage,
   acquiredDirectoryForRef,
   prepareCanonicalParents,
   materializeExternalPackageWithTreeIntegrity,
   reusableCanonicalTree,
   type CanonicalDirectoryReplacementError,
   type PackageCopyFailed,
-  type PackageMaterializationFailed,
+  PackageMaterializationFailed,
   type ArchiveIntegrityMismatch,
 } from "../acquisition/index.js";
 
@@ -86,6 +92,65 @@ export const acquireCanonicalForRef = <E = never>(
 > =>
   Effect.gen(function* () {
     const { ref } = args;
+    const acquired = yield* Effect.serviceOption(AcquiredContent);
+    const cache = Option.isSome(acquired) ? acquired.value.materializedPackages : undefined;
+    const destination = args.external?.targetPath ?? args.canonicalPath;
+    const key = JSON.stringify([sourceRefContentKey(ref), destination]);
+    if (cache !== undefined) {
+      const previous = (yield* Ref.get(cache)).get(key);
+      if (previous !== undefined) {
+        const current = yield* Effect.option(computeMaterializedTreeIntegrity(destination));
+        if (Option.isSome(current) && current.value === previous) {
+          if (args.validate !== undefined) yield* args.validate(destination);
+          return { packageRoot: destination, treeIntegrity: previous, reused: true };
+        }
+      }
+    }
+    if (!args.force && Option.isNone(args.accepted) && ref.refType !== "registry") {
+      const reader = yield* Effect.serviceOption(LockfileReader);
+      const accepted = Option.isNone(reader)
+        ? undefined
+        : retainedPackageBindings(
+            yield* reader.value.lockfile.pipe(
+              Effect.mapError(
+                (cause) =>
+                  new PackageMaterializationFailed({
+                    path: args.canonicalPath,
+                    step: "prepare-staging",
+                    cause,
+                  }),
+              ),
+            ),
+          ).find((binding) => binding.packageKey === retainedPackageKeyForRef(ref));
+      if (accepted !== undefined) {
+        const entry = accepted.entry;
+        const sameSnapshot =
+          ref.refType === "git-hosted"
+            ? "commit" in entry.resolved &&
+              entry.resolved.commit === ref.gitCommitSha &&
+              entry.resolved.tree === ref.gitTreeSha
+            : ref.refType === "http"
+              ? JSON.stringify(entry.resolved) === JSON.stringify(ref.snapshot)
+              : (yield* computeMaterializedTreeIntegrity(
+                  yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location)),
+                )) === entry.treeIntegrity;
+        if (!sameSnapshot)
+          return yield* new MaterializedTreeInvalid({
+            root: destination,
+            reason:
+              "Adding this component would advance an already retained package; update the package before selecting it",
+          });
+        const current = yield* computeMaterializedTreeIntegrity(destination);
+        if (current !== entry.treeIntegrity)
+          return yield* new MaterializedTreeInvalid({
+            root: destination,
+            reason:
+              "The retained package has changed; restore its accepted content before adding a component",
+          });
+        if (args.validate !== undefined) yield* args.validate(destination);
+        return { packageRoot: destination, treeIntegrity: current, reused: true };
+      }
+    }
     if (ref.refType === "registry" || args.external?.reuse === true) {
       const reuse =
         args.stage === undefined ? reusableCanonicalTree : observeAcceptedCanonicalReuse;
@@ -155,7 +220,10 @@ export const acquireCanonicalForRef = <E = never>(
     }
 
     const packageRoot = yield* acquiredDirectoryForRef(ref, fromFileLocation(ref.location));
-    const materialized = yield* materializeExternalPackageWithTreeIntegrity({
+    const materialized = yield* materializeExternalPackageWithTreeIntegrity<
+      E | PackageMaterializationFailed,
+      NativeWriteAuthority | FileSystem.FileSystem | Path.Path
+    >({
       baseDir: args.stage?.baseDir ?? args.baseDir,
       transient: args.stage !== undefined,
       ...parentReceipt,
@@ -163,13 +231,24 @@ export const acquireCanonicalForRef = <E = never>(
       sourceLocation: args.external?.sourcePath?.(packageRoot) ?? packageRoot,
       copyFailureCode: args.copyFailure.code,
       copyFailureDetail: args.copyFailure.detail,
+      ...(args.validate === undefined ? {} : { validate: args.validate }),
     });
     return {
       packageRoot: materialized.canonicalPath,
       treeIntegrity: materialized.treeIntegrity,
       reused: false,
     } satisfies AcquiredCanonical;
-  });
+  }).pipe(
+    Effect.tap((materialized) =>
+      args.stage !== undefined
+        ? Effect.void
+        : recordMaterializedPackage(
+            args.ref,
+            args.external?.targetPath ?? args.canonicalPath,
+            materialized.treeIntegrity,
+          ),
+    ),
+  );
 
 /** Admit a workspace ref only at the canonical authored location. */
 export const verifyWorkspaceRefLocation = <Err>(args: {

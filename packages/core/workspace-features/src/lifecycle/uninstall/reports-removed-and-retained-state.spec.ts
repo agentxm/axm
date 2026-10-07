@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
@@ -170,7 +171,7 @@ describe("Uninstall effect reporting", () => {
             candidate,
             previewPlanExecution,
           );
-          const canonical = "agent_extensions/registry/@acme/mcps/context";
+          const canonical = fileRegistryPackagePath(world.registry, "mcps", "context");
           const references = preview.units.flatMap((unit) => unit.artifact?.references ?? []);
           expect(references).toContainEqual({
             path: canonical,
@@ -205,7 +206,7 @@ describe("Uninstall effect reporting", () => {
 
   for (const scope of ["project", "user"] as const) {
     it.effect(
-      `names an alternate acquired source segment in ${scope} scope for a Pack and its exclusive member`,
+      `names the actual Registry endpoint despite an alternate source alias in ${scope} scope for a Pack and its exclusive member`,
       () => {
         const registry = makeFileRegistry();
         cleanups.push(registry.cleanup);
@@ -241,8 +242,12 @@ describe("Uninstall effect reporting", () => {
                 .filter((target) => target.change === "removed")
                 .map((target) => target.path);
               const prefix = scope === "project" ? "" : ".axm/workspace/";
-              expect(paths).toContain(`${prefix}agent_extensions/registry/@acme/packs/reviews`);
-              expect(paths).toContain(`${prefix}agent_extensions/registry/@acme/skills/review`);
+              expect(paths).toContain(
+                `${prefix}${fileRegistryPackagePath(registry, "packs", "reviews")}`,
+              );
+              expect(paths).toContain(
+                `${prefix}${fileRegistryPackagePath(registry, "skills", "review")}`,
+              );
               const applied = yield* UninstallExtensions.previewOrApply(
                 candidate,
                 preapprovedPlanExecution,

@@ -1,3 +1,5 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -66,8 +68,10 @@ describe("Install locally named MCP connections", () => {
               "personal-context": { source: "test:@acme/mcps/context" },
             },
           });
-          const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
-          expect(lockfile).toMatchObject({ lockfileVersion: 10 });
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            YAML.parse(workspace.readFile("axm-lock.yaml")),
+          );
+          expect(lockfile).toMatchObject({ lockfileVersion: 11 });
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
           }
@@ -98,7 +102,9 @@ describe("Install locally named MCP connections", () => {
           expect(readSettings(workspace)).toMatchObject({
             mcpServers: { "personal-context": { source: "test:@acme/mcps/context" } },
           });
-          const lockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            YAML.parse(workspace.readFile("axm-lock.yaml")),
+          );
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
           }

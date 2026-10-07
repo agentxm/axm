@@ -1,3 +1,6 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -63,7 +66,18 @@ const initializePack = (root: string) => {
 
 const initializePackWithSkill = (root: string) => {
   const { axmDir, packDir, lockPath } = initializePack(root);
-  const skillDir = path.join(root, "agent_extensions", "registry", "@acme", "skills", "review");
+  const skillDir = path.join(
+    root,
+    "agent_extensions",
+    "_local",
+    "absolute",
+    "root",
+    "tmp",
+    "test-registry",
+    "@acme",
+    "skills",
+    "review",
+  );
   fs.mkdirSync(path.join(skillDir, "src"), { recursive: true });
   fs.writeFileSync(
     path.join(skillDir, "skill.json"),
@@ -84,24 +98,28 @@ const initializePackWithSkill = (root: string) => {
     }),
   );
 
-  const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
+  const lock = Schema.decodeUnknownSync(LockfileSchema)(
+    YAML.parse(fs.readFileSync(lockPath, "utf8")),
+  );
   fs.writeFileSync(
     lockPath,
-    YAML.stringify({
-      ...lock,
-      skills: {
-        review: {
-          source: { type: "registry", url: "file:///tmp/test-registry" },
-          identity: { owner: "@acme", name: "review" },
-          resolved: {
-            version: "1.0.0",
-            integrity: "sha512-AAAA==",
-            publisherBindingId: "hbnd_test",
+    YAML.stringify(
+      storedLockfileFixture({
+        ...lock,
+        skills: {
+          review: {
+            source: { type: "registry", url: "file:///tmp/test-registry" },
+            identity: { owner: "@acme", name: "review" },
+            resolved: {
+              version: "1.0.0",
+              integrity: "sha512-AAAA==",
+              publisherBindingId: "hbnd_test",
+            },
+            treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
           },
-          treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
         },
-      },
-    }),
+      }),
+    ),
   );
 
   const renderedSkill = path.join(root, ".claude", "skills", "review", "SKILL.md");
@@ -299,7 +317,9 @@ describe("packs activation", () => {
       });
       expect(fs.existsSync(renderedSkill)).toBe(false);
       expect(fs.existsSync(skillDir)).toBe(false);
-      const lock = expectRecord(YAML.parse(fs.readFileSync(lockPath, "utf8")));
+      const lock = Schema.decodeUnknownSync(LockfileSchema)(
+        YAML.parse(fs.readFileSync(lockPath, "utf8")),
+      );
       expect(lock["skills"]).not.toHaveProperty("review");
       expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);
     }),

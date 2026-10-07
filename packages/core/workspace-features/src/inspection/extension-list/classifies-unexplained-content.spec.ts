@@ -1,3 +1,5 @@
+import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -13,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/classifies-unexplained-content",
   title: "List classifies content desired state does not explain",
   statement:
-    "When listing extensions, AXM shall classify each detected extension that desired state does not explain as leftover when it is an installed package in the install root that is not configured, undeclared when it is an authored package in its standard authoring folder that is not declared, or unmanaged when it is native agent content, and update and deprecation assessments shall report leftover and undeclared extensions as not applicable.",
+    "When listing extensions, AXM shall classify each detected extension that desired state does not explain as leftover when accepted metadata proves it is an installed package in the install root that is not configured, undeclared when it is an authored package in its standard authoring folder that is not declared, or unmanaged when it is native agent content, and update and deprecation assessments shall report leftover and undeclared extensions as not applicable.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -38,9 +40,15 @@ describe("Unexplained content classification", () => {
   it.effect("tells leftover, undeclared, and unmanaged content apart in a project", () => {
     const fixture = makeInspectionFixture({
       settings: { owner: "@acme" },
+      lockfile: {
+        skills: {
+          stale: makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name: "stale" }),
+        },
+      },
       files: {
-        "agent_extensions/registry/@acme/skills/stale/skill.json": skillManifest("stale"),
-        "agent_extensions/registry/@acme/skills/stale/src/SKILL.md": skillMd("stale"),
+        "agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json":
+          skillManifest("stale"),
+        "agent_extensions/registry.agentxm.ai/@acme/skills/stale/src/SKILL.md": skillMd("stale"),
         "skills/drafted/skill.json": skillManifest("drafted"),
         "skills/drafted/src/SKILL.md": skillMd("drafted"),
         ".agents/skills/native/SKILL.md": skillMd("native"),
@@ -85,14 +93,25 @@ describe("Unexplained content classification", () => {
   });
 
   it.effect("classifies an installed package the user workspace does not configure", () => {
-    const fixture = makeInspectionFixture({ scope: "user", settings: {} });
+    const fixture = makeInspectionFixture({
+      scope: "user",
+      settings: {},
+      lockfile: {
+        skills: {
+          stale: makeRegistrySkillLockEntry({ owner: decodeHandleSync("@acme"), name: "stale" }),
+        },
+      },
+    });
     const write = (relativePath: string, contents: string) => {
       const file = nodePath.join(fixture.workspaceRoot, relativePath);
       fs.mkdirSync(nodePath.dirname(file), { recursive: true });
       fs.writeFileSync(file, contents);
     };
-    write("agent_extensions/registry/@acme/skills/stale/skill.json", skillManifest("stale"));
-    write("agent_extensions/registry/@acme/skills/stale/src/SKILL.md", skillMd("stale"));
+    write(
+      "agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json",
+      skillManifest("stale"),
+    );
+    write("agent_extensions/registry.agentxm.ai/@acme/skills/stale/src/SKILL.md", skillMd("stale"));
     return fixture
       .provide(
         Effect.gen(function* () {

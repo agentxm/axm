@@ -40,6 +40,7 @@ import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/regi
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
 import type { Settings } from "../../desired/settings/schema.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import { storedLockfileFixture } from "./decoders.js";
 import {
   resolveProjectWorkspaceLayout,
   resolveUserWorkspaceLayout,
@@ -445,7 +446,14 @@ const writeScope = (
       writeFileSpec(files, settingsPath, scope.settings, "json");
     }
     if (scope.lockfile !== undefined && lockfilePath !== null) {
-      writeFileSpec(files, lockfilePath, scope.lockfile, "yaml");
+      writeFileSpec(
+        files,
+        lockfilePath,
+        scope.lockfile._tag === "valid" && typeof scope.lockfile.contents !== "string"
+          ? { ...scope.lockfile, contents: storedLockfileFixture(scope.lockfile.contents) }
+          : scope.lockfile,
+        "yaml",
+      );
     }
     if (scope.axmExtensions !== undefined) {
       yield* writeTree(
@@ -527,7 +535,7 @@ const validSettingsContents = {
 };
 
 const validLockfileContents = {
-  lockfileVersion: 10,
+  lockfileVersion: 11,
   skills: {
     "managed-tool": {
       source: {
@@ -734,13 +742,13 @@ export const sameNameAcrossOrigins = (workspaceRoot: string, userHome: string): 
       },
     },
     axmExtensions: {
-      "registry/@owner/skills/some-skill/skill.json": JSON.stringify({
+      "registry.agentxm.ai/@owner/skills/some-skill/skill.json": JSON.stringify({
         owner: "@owner",
         type: "skill",
         name: "some-skill",
         version: "1.0.0",
       }),
-      "registry/@owner/skills/some-skill/src/SKILL.md":
+      "registry.agentxm.ai/@owner/skills/some-skill/src/SKILL.md":
         "---\nname: some-skill\ndescription: Canonical\n---\n# canonical\n",
     },
   },

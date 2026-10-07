@@ -5,8 +5,8 @@ and reconciles native registrations for the workspace's configured agents.
 The native agent owns execution, trust, event timing, and decision aggregation.
 
 Project-authored packages live in `hooks/<name>`. Acquired packages use their
-source-family and identity path, for example
-`agent_extensions/registry/@acme/hooks/block-secrets`.
+source-addressed package path, for example
+`agent_extensions/registry.agentxm.ai/@acme/hooks/block-secrets`.
 
 ## Manifest
 

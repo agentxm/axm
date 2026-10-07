@@ -1,3 +1,7 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
+import { fileRegistryPackagePath } from "../testing/install-world.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import YAML from "yaml";
@@ -39,7 +43,7 @@ export const specification = defineSpecification({
 });
 
 const SKILL = "code-review";
-const CANONICAL = `agent_extensions/path/@acme/skills/${SKILL}/src/SKILL.md`;
+const CANONICAL = `agent_extensions/_local/project/vendor/${SKILL}/src/SKILL.md`;
 const CLAUDE_PROJECTION = `.claude/skills/${SKILL}`;
 const UNIVERSAL_PROJECTION = `.agents/skills/${SKILL}`;
 
@@ -95,9 +99,9 @@ describe("Sync realizes desired workspace state", () => {
             expect(removed).toBe(true);
             expect(deriveOperationOutcome(expectResolved(result))).not.toBe("applied");
             expect(workspace.exists(".claude/agents/planner.md")).toBe(false);
-            expect(workspace.exists("agent_extensions/registry/@acme/subagents/planner")).toBe(
-              false,
-            );
+            expect(
+              workspace.exists(fileRegistryPackagePath(registry, "subagents", "planner")),
+            ).toBe(false);
             expect(workspace.readFile("axm-lock.yaml")).not.toContain("subagents/planner");
           }),
         )
@@ -176,7 +180,11 @@ describe("Sync realizes desired workspace state", () => {
               Effect.gen(function* () {
                 const first = expectResolved(yield* applySync());
                 expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
-                const canonical = `agent_extensions/registry/@acme/${segment}/${name}`;
+                const canonical = fileRegistryPackagePath(
+                  registry,
+                  extensionTypeToPlural[type],
+                  name,
+                );
                 expect(workspace.exists(canonical)).toBe(true);
                 if (!enabled) expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
                 workspace.writeSettings(settings);
@@ -215,7 +223,7 @@ describe("Sync realizes desired workspace state", () => {
           Effect.gen(function* () {
             yield* applySync();
             const retained = workspace.readFile(
-              "agent_extensions/registry/@acme/skills/retained/src/SKILL.md",
+              `${fileRegistryPackagePath(registry, "skills", "retained")}/src/SKILL.md`,
             );
             workspace.writeSettings({
               ...base,
@@ -229,10 +237,14 @@ describe("Sync realizes desired workspace state", () => {
             expect(deriveOperationOutcome(result)).not.toBe("applied");
             expect(JSON.stringify(result)).toContain("accepted-resolution-incompatible");
             expect(
-              workspace.exists("agent_extensions/registry/@acme/skills/ready/src/SKILL.md"),
+              workspace.exists(
+                `${fileRegistryPackagePath(registry, "skills", "ready")}/src/SKILL.md`,
+              ),
             ).toBe(true);
             expect(
-              workspace.readFile("agent_extensions/registry/@acme/skills/retained/src/SKILL.md"),
+              workspace.readFile(
+                `${fileRegistryPackagePath(registry, "skills", "retained")}/src/SKILL.md`,
+              ),
             ).toBe(retained);
             expect(workspace.readFile("axm.json")).toBe(settings);
             const refusal = yield* applySync().pipe(Effect.flip);
@@ -284,14 +296,19 @@ describe("Sync realizes desired workspace state", () => {
             // The member's accepted row is gone and its Registry can no
             // longer serve it, so its closure cannot resolve this run. It is
             // still desired: the Pack still declares it.
-            const lock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+            const lock = Schema.decodeUnknownSync(LockfileSchema)(
+              YAML.parse(workspace.readFile("axm-lock.yaml")),
+            );
             if (typeof lock !== "object" || lock === null || !("mcpServers" in lock)) {
               throw new Error("Expected the lockfile to hold the accepted MCP row");
             }
             const { mcpServers: _accepted, ...withoutMember } = lock;
             void _accepted;
-            workspace.writeFile("axm-lock.yaml", YAML.stringify(withoutMember));
-            workspace.remove("agent_extensions/registry/@acme/mcps/context");
+            workspace.writeFile(
+              "axm-lock.yaml",
+              YAML.stringify(Schema.encodeSync(LockfileSchema)(withoutMember)),
+            );
+            workspace.remove(fileRegistryPackagePath(registry, "mcps", "context"));
             fs.rmSync(path.join(registry.root, "extensions", "@acme", "mcps"), {
               recursive: true,
               force: true,
@@ -304,7 +321,9 @@ describe("Sync realizes desired workspace state", () => {
             const result = expectResolved(yield* applySync());
             expect(deriveOperationOutcome(result)).not.toBe("applied");
             expect(
-              workspace.exists("agent_extensions/registry/@acme/skills/ready/src/SKILL.md"),
+              workspace.exists(
+                `${fileRegistryPackagePath(registry, "skills", "ready")}/src/SKILL.md`,
+              ),
             ).toBe(true);
             expect(nativeHasContext()).toBe(true);
           }),
@@ -402,7 +421,7 @@ describe("Sync realizes desired workspace state", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("repairs a package materialized under the former source-named layout", () => {
+  it.effect("restores accepted content and preserves an unproven copy at another address", () => {
     const registry = makeFileRegistry();
     cleanups.push(registry.cleanup);
     registry.writeSkill(SKILL, [{ version: "1.0.0", body: "Review." }]);
@@ -420,7 +439,7 @@ describe("Sync realizes desired workspace state", () => {
         Effect.gen(function* () {
           const initial = expectResolved(yield* applySync());
           expect(deriveOperationOutcome(initial), JSON.stringify(initial)).toBe("applied");
-          const canonical = `agent_extensions/registry/@acme/skills/${SKILL}`;
+          const canonical = fileRegistryPackagePath(registry, "skills", SKILL);
           const former = `agent_extensions/agentxm/@acme/skills/${SKILL}`;
           fs.mkdirSync(path.dirname(path.join(workspace.root, former)), { recursive: true });
           fs.renameSync(path.join(workspace.root, canonical), path.join(workspace.root, former));
@@ -429,7 +448,7 @@ describe("Sync realizes desired workspace state", () => {
 
           expect(deriveOperationOutcome(repaired)).toBe("applied");
           expect(workspace.exists(canonical)).toBe(true);
-          expect(workspace.exists(former)).toBe(false);
+          expect(workspace.exists(former)).toBe(true);
           expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       )

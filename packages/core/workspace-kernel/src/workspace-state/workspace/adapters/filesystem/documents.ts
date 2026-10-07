@@ -9,7 +9,7 @@ import * as Path from "effect/Path";
 import { commitLockfileSnapshotUpdateAtPath } from "../../../desired/lockfile/index.js";
 import { LockfileValidationError } from "../../../desired/lockfile/errors.js";
 import { writeSettingsAtPath } from "../../../desired/settings/index.js";
-import { WorkspaceDocuments } from "../../documents.js";
+import { WorkspaceDocuments, batchableWorkspaceDocuments } from "../../documents.js";
 import { WorkspaceLocation } from "../../location.js";
 import { readLockfileCell, readSettingsOrDefault } from "../../state-cells.js";
 import { WorkspaceFileWriteLocks } from "../../../../settlement/index.js";
@@ -31,7 +31,7 @@ export const FilesystemWorkspaceDocuments: Layer.Layer<
     const acceptedResolutions = readLockfileCell(location, location.runtimeDir).pipe(
       Effect.provideContext(io),
     );
-    return WorkspaceDocuments.of({
+    return batchableWorkspaceDocuments({
       settings: (scope) =>
         readSettingsOrDefault(
           location,

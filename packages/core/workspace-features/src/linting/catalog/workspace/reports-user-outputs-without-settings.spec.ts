@@ -4,7 +4,10 @@ import { afterEach } from "vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
-import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
+import {
+  storedLockfileFixture,
+  makeRegistrySkillLockEntry,
+} from "@agentxm/workspace-kernel/workspace-state/testing";
 
 import { lintProjectWithHome, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
@@ -28,7 +31,7 @@ export const specification = defineSpecification({
 });
 
 const RULE_ID = "workspace/user-outputs-have-settings";
-const CANONICAL = ".axm/workspace/agent_extensions/registry/@acme/skills/review/src";
+const CANONICAL = ".axm/workspace/agent_extensions/registry.agentxm.ai/@acme/skills/review/src";
 const skill = (name: string) => `---\nname: ${name}\ndescription: Fixture\n---\n# Skill\n`;
 
 describe("User outputs without settings", () => {
@@ -44,16 +47,18 @@ describe("User outputs without settings", () => {
     const home = makeLintWorkspace({
       files: {
         [`${CANONICAL}/SKILL.md`]: skill("review"),
-        ".axm/workspace/axm-lock.yaml": JSON.stringify({
-          lockfileVersion: 10,
-          skills: {
-            review: makeRegistrySkillLockEntry({
-              owner: decodeHandleSync("@acme"),
-              name: "review",
-              sourceName: "agentxm",
-            }),
-          },
-        }),
+        ".axm/workspace/axm-lock.yaml": JSON.stringify(
+          storedLockfileFixture({
+            lockfileVersion: 11,
+            skills: {
+              review: makeRegistrySkillLockEntry({
+                owner: decodeHandleSync("@acme"),
+                name: "review",
+                sourceName: "agentxm",
+              }),
+            },
+          }),
+        ),
         ".claude/skills/notes/SKILL.md": skill("notes"),
       },
     });

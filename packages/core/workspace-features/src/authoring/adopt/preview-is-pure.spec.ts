@@ -1,3 +1,4 @@
+import { seedAcceptedRegistryResolution } from "../test-support/accepted-resolutions.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach } from "vitest";
@@ -43,7 +44,7 @@ describe("Adopt preview purity", () => {
     const created = makeAuthoringWorkspace({ owner: "@acme", agents: [] });
     cleanups.push(created.cleanup);
     writeAuthoringPackage(created.root, authoringTypeFor("skill"), "review", {
-      parent: "agent_extensions/registry/@acme/skills",
+      parent: "agent_extensions/registry.example.com/@acme/skills",
     });
     return { created, before: created.snapshot() };
   };
@@ -61,7 +62,14 @@ describe("Adopt preview purity", () => {
 
   it.effect("a previewed adoption changes no protected state", () =>
     Effect.gen(function* () {
-      const { created, before } = adoptableWorkspace();
+      const { created } = adoptableWorkspace();
+      yield* seedAcceptedRegistryResolution({
+        type: "skill",
+        owner: "@acme",
+        name: "review",
+        version: "1.2.3",
+      }).pipe(Effect.provide(authoringWorkspaceEnvironment(created).layer));
+      const before = created.snapshot();
       const { environment, run } = previewAdoption(created, "@acme/skills/review");
 
       const resolution = yield* run;
@@ -72,7 +80,9 @@ describe("Adopt preview purity", () => {
       ]);
       expect(created.snapshot()).toEqual(before);
       expect(created.exists("skills/review")).toBe(false);
-      expect(created.exists("agent_extensions/registry/@acme/skills/review/skill.json")).toBe(true);
+      expect(
+        created.exists("agent_extensions/registry.example.com/@acme/skills/review/skill.json"),
+      ).toBe(true);
       expect(environment.interaction.confirmApplyChangesCalls).toEqual([]);
     }),
   );

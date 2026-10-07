@@ -307,62 +307,67 @@ describe("Removing a coding agent", () => {
   it.effect.each([
     { kind: "Rules", body: "Keep every change reviewable." },
     { kind: "Knowledge", body: "Reference knowledge" },
-  ])("restores membership when retained $kind content changes during removal", ({ body }) => {
-    let armed = false;
-    let changed = false;
-    let foreign = "";
-    const fixture = makeAgentMembershipFixture({
-      machine: true,
-      settings: instructionSettings,
-      files: instructionFiles,
-      fileSystemLayer: Layer.effect(
-        FileSystem.FileSystem,
-        Effect.map(FileSystem.FileSystem, (fs) =>
-          FileSystem.make({
-            ...fs,
-            rename: (source, target) =>
-              fs.rename(source, target).pipe(
-                Effect.andThen(
-                  Effect.suspend(() => {
-                    if (!armed || changed || !target.endsWith("/axm.json")) return Effect.void;
-                    changed = true;
-                    return fs.writeFileString(
-                      target.slice(0, -"axm.json".length) + "AGENTS.md",
-                      foreign,
-                    );
-                  }),
+  ])(
+    "restores membership when retained $kind content changes during removal",
+    ({ body }) => {
+      let armed = false;
+      let changed = false;
+      let foreign = "";
+      const fixture = makeAgentMembershipFixture({
+        machine: true,
+        settings: instructionSettings,
+        files: instructionFiles,
+        fileSystemLayer: Layer.effect(
+          FileSystem.FileSystem,
+          Effect.map(FileSystem.FileSystem, (fs) =>
+            FileSystem.make({
+              ...fs,
+              rename: (source, target) =>
+                fs.rename(source, target).pipe(
+                  Effect.andThen(
+                    Effect.suspend(() => {
+                      if (!armed || changed || !target.endsWith("/axm.json")) return Effect.void;
+                      changed = true;
+                      return fs.writeFileString(
+                        target.slice(0, -"axm.json".length) + "AGENTS.md",
+                        foreign,
+                      );
+                    }),
+                  ),
                 ),
-              ),
-          }),
+            }),
+          ),
         ),
-      ),
-    });
-    cleanups.push(fixture.cleanup);
-    return Effect.gen(function* () {
-      yield* fixture.provide(handleSync({ preview: false }));
-      const synced = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
-        fixture.rendererState.results.at(-1)?.data,
-      );
-      expect(synced.result.outcome).toBe("applied");
-      const settingsBefore = fixture.readFile("axm.json");
-      const retainedBefore = fixture.readFile("AGENTS.md");
-      expect(fixture.readFile("CLAUDE.md")).toBe(retainedBefore);
-      expect(retainedBefore).toContain(body);
-      foreign = retainedBefore.replace(body, "Foreign changed content");
-      expect(foreign).not.toBe(retainedBefore);
-      armed = true;
-      yield* removeAgent(fixture, "claude-code");
-      const removed = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
-        fixture.rendererState.results.at(-1)?.data,
-      );
-      expect(changed).toBe(true);
-      expect(removed.result.outcome).not.toBe("applied");
-      expect(fixture.readFile("axm.json")).toBe(settingsBefore);
-      expect(fixture.readFile("AGENTS.md")).toBe(foreign);
-      // The external region edit survives; the transaction restores its own alias retirement.
-      expect(fixture.readFile("CLAUDE.md")).toBe(foreign);
-    });
-  });
+      });
+      cleanups.push(fixture.cleanup);
+      return Effect.gen(function* () {
+        yield* fixture.provide(handleSync({ preview: false }));
+        const synced = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          fixture.rendererState.results.at(-1)?.data,
+        );
+        expect(synced.result.outcome).toBe("applied");
+        const settingsBefore = fixture.readFile("axm.json");
+        const retainedBefore = fixture.readFile("AGENTS.md");
+        expect(fixture.readFile("CLAUDE.md")).toBe(retainedBefore);
+        expect(retainedBefore).toContain(body);
+        foreign = retainedBefore.replace(body, "Foreign changed content");
+        expect(foreign).not.toBe(retainedBefore);
+        armed = true;
+        yield* removeAgent(fixture, "claude-code");
+        const removed = yield* Schema.decodeUnknownEffect(PlanResolutionDocumentSchema)(
+          fixture.rendererState.results.at(-1)?.data,
+        );
+        expect(changed).toBe(true);
+        expect(removed.result.outcome).not.toBe("applied");
+        expect(fixture.readFile("axm.json")).toBe(settingsBefore);
+        expect(fixture.readFile("AGENTS.md")).toBe(foreign);
+        // The external region edit survives; the transaction restores its own alias retirement.
+        expect(fixture.readFile("CLAUDE.md")).toBe(foreign);
+      });
+    },
+    // The sync plus removal workflow measured 22–24 seconds in the CI profile.
+    40_000,
+  );
 
   it.effect(
     "removes a departing instruction alias while preserving both required shared regions",
@@ -411,6 +416,8 @@ describe("Removing a coding agent", () => {
         }
       });
     },
+    // The sync plus removal workflow measured 24 seconds in the CI profile.
+    40_000,
   );
 
   it.effect(

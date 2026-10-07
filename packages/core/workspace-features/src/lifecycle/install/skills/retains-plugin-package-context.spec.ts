@@ -3,13 +3,18 @@ import { serveBareRepository } from "../../../testing/git-repositories.js";
 import { zipSync } from "fflate";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import { LockfileReader } from "@agentxm/workspace-kernel/workspace-state";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { makeLifecycleFixture } from "../../testing.js";
+import { SourceHostProviders, SourceNetworkFailure } from "@agentxm/workspace-kernel/sources";
+import { previewPlanExecution } from "@agentxm/workspace-kernel/operations";
+import { UpdateExtensions } from "../../update/update-extensions.js";
 import { InstallExtensions, UninstallExtensions } from "../../index.js";
 import { applySync } from "../../../testing/sync-fixture.js";
+import { applyActivation } from "../../activation/test-helpers.js";
 import { applyUpdate, configuredUpdateRequest } from "../../update/test-helpers.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -25,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "cli/skills/install/retains-plugin-package-context",
   title: "Selected plugin skills retain their upstream package context",
   statement:
-    "When a consumer selects a skill from a supported plugin package, AXM shall retain the complete package and its relative layout unchanged, activate only the selected skill, and preserve that skill's contained links to package resources outside its component directory. If the target filesystem cannot realize that package context without changing the payload, AXM shall report the unsupported activation and roll back the installation.",
+    "When a consumer selects a skill from a supported plugin package, AXM shall retain the complete package and its relative layout unchanged, share that retained package among selected components until the last accepted binding is removed, add components at the accepted package snapshot even when the upstream selector advances, atomically install or update all selected consumers of the package while retaining disabled activation state and refusing disappearance of a selected component, activate only the selected skills, and preserve that skill's contained links to package resources outside its component directory. If the target filesystem cannot realize that package context without changing the payload, AXM shall report the unsupported activation and roll back the installation.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "trustworthy-distribution"],
@@ -86,6 +91,237 @@ describe("Plugin package context", () => {
           false,
         );
       }
+      const retainedBefore = path.resolve(
+        fs.realpathSync(path.join(world.workspace.root, ".claude/skills/review")),
+        "../..",
+      );
+      const retainedIdentity = fs.statSync(retainedBefore).ino;
+      fs.writeFileSync(path.join(source, "skills/other/SKILL.md"), "# Upstream moved\n");
+      yield* world.workspace.provide(
+        applyInstall(
+          installRequest({
+            type: "skill",
+            subject: { kind: "source", source },
+            names: ["skills/other"],
+            all: false,
+          }),
+        ),
+      );
+      const review = path.join(world.workspace.root, ".claude/skills/review");
+      const other = path.join(world.workspace.root, ".claude/skills/other");
+      const retained = path.resolve(fs.realpathSync(review), "../..");
+      expect(path.resolve(fs.realpathSync(other), "../..")).toBe(retained);
+      expect(fs.statSync(retained).ino).toBe(retainedIdentity);
+      const uninstall = (selector: string) =>
+        world.workspace.provide(
+          Effect.gen(function* () {
+            const candidate = yield* UninstallExtensions.prepare({
+              type: Option.some("skill"),
+              selector,
+            });
+            return yield* UninstallExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+          }),
+        );
+      expect(yield* uninstall("review")).toMatchObject({
+        units: [expect.objectContaining({ state: "committed" })],
+      });
+      expect(fs.existsSync(review)).toBe(false);
+      expect(fs.readFileSync(path.join(other, "SKILL.md"), "utf8")).toBe("# Other\n");
+      expect(fs.existsSync(retained)).toBe(true);
+      expect(yield* uninstall("other")).toMatchObject({
+        units: [expect.objectContaining({ state: "committed" })],
+      });
+      expect(fs.existsSync(other)).toBe(false);
+      expect(fs.existsSync(retained)).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+describe("Shared package updates", () => {
+  it.effect.each(["advance", "disabled", "mixed", "missing-component"] as const)(
+    "settles the complete retained package: %s",
+    (scenario) =>
+      Effect.gen(function* () {
+        const world = yield* Effect.acquireRelease(
+          Effect.sync(() => makeInstallWorld()),
+          (world) => Effect.sync(() => world.cleanup()),
+        );
+        const source = path.join(world.workspace.root, "vendor/plugin");
+        fs.mkdirSync(source, { recursive: true });
+        fs.writeFileSync(
+          path.join(source, "plugin.json"),
+          JSON.stringify({
+            $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+            name: "example",
+          }),
+        );
+        for (const name of ["first", "second"]) {
+          fs.mkdirSync(path.join(source, "skills", name), { recursive: true });
+          fs.writeFileSync(path.join(source, "skills", name, "SKILL.md"), `# Accepted ${name}\n`);
+        }
+        const mcp = (url: string) =>
+          JSON.stringify({
+            $schema: "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+            mcpServers: { context: { type: "streamable-http", url } },
+          });
+        if (scenario === "mixed")
+          fs.writeFileSync(path.join(source, "mcp.json"), mcp("https://example.test/accepted"));
+        yield* world.workspace.provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source },
+              names: ["skills/first", "skills/second"],
+              all: false,
+            }),
+          ),
+        );
+        if (scenario === "mixed") {
+          // The inactive connection was retained with the original skill package.
+          yield* world.workspace.provide(
+            applyInstall(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source },
+                names: ["context"],
+                all: false,
+                localName: "work-context",
+              }),
+            ),
+          );
+        }
+        const retained = path.resolve(
+          fs.realpathSync(path.join(world.workspace.root, ".claude/skills/first")),
+          "../..",
+        );
+        if (scenario === "disabled")
+          yield* world.workspace.provide(
+            applyActivation({ type: "skill", name: "second", enabled: false }),
+          );
+        const lockPath = path.join(world.workspace.root, "axm-lock.yaml");
+        const before = fs.readFileSync(lockPath, "utf8");
+        fs.writeFileSync(path.join(source, "skills/first/SKILL.md"), "# Updated first\n");
+        if (scenario !== "missing-component")
+          fs.writeFileSync(path.join(source, "skills/second/SKILL.md"), "# Updated second\n");
+        else fs.rmSync(path.join(source, "skills/second"), { recursive: true });
+        if (scenario === "mixed")
+          fs.writeFileSync(path.join(source, "mcp.json"), mcp("https://example.test/updated"));
+        const outcome = yield* world.workspace.provide(
+          applyUpdate(configuredUpdateRequest({ type: "skill", nameFilters: ["first"] })),
+        );
+        if (scenario !== "missing-component") {
+          if (outcome._tag === "Resolved") expect(outcome.resolution.blocking).toBeUndefined();
+          expect(outcome._tag).toBe("Resolved");
+          if (outcome._tag === "Resolved")
+            expect(
+              outcome.resolution.units.map((unit) => ({
+                state: unit.state,
+                message: unit.message,
+              })),
+            ).toEqual([expect.objectContaining({ state: "committed" })]);
+          for (const name of ["first", "second"])
+            expect(fs.readFileSync(path.join(retained, "skills", name, "SKILL.md"), "utf8")).toBe(
+              `# Updated ${name}\n`,
+            );
+          if (scenario === "disabled")
+            expect(fs.existsSync(path.join(world.workspace.root, ".claude/skills/second"))).toBe(
+              false,
+            );
+          const lock = yield* world.workspace.provide(
+            Effect.gen(function* () {
+              return yield* (yield* LockfileReader).lockfile;
+            }),
+          );
+          expect(lock.skills["first"]?.treeIntegrity).toBe(lock.skills["second"]?.treeIntegrity);
+          if (scenario === "mixed") {
+            const native: unknown = JSON.parse(world.workspace.readFile(".mcp.json"));
+            expect(native).toMatchObject({
+              mcpServers: { "work-context": { url: "https://example.test/updated" } },
+            });
+            expect(
+              Object.values(lock.mcpServers ?? {}).map((entry) => entry.treeIntegrity),
+            ).toEqual([lock.skills["first"]?.treeIntegrity]);
+          }
+        } else {
+          expect(fs.readFileSync(lockPath, "utf8")).toBe(before);
+          for (const name of ["first", "second"])
+            expect(
+              fs.readFileSync(
+                path.join(world.workspace.root, ".claude/skills", name, "SKILL.md"),
+                "utf8",
+              ),
+            ).toBe(`# Accepted ${name}\n`);
+        }
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+describe("Retained Git snapshot additions", () => {
+  it.effect("adds a sibling at the accepted commit after the branch changes", () =>
+    Effect.gen(function* () {
+      const world = yield* Effect.acquireRelease(
+        Effect.sync(() => makeInstallWorld()),
+        (world) => Effect.sync(() => world.cleanup()),
+      );
+      const source = path.join(world.workspace.root, "upstream");
+      fs.mkdirSync(path.join(source, ".claude-plugin"), { recursive: true });
+      fs.writeFileSync(
+        path.join(source, ".claude-plugin/plugin.json"),
+        JSON.stringify({ name: "example", skills: "./skills" }),
+      );
+      for (const name of ["first", "second"]) {
+        fs.mkdirSync(path.join(source, "skills", name), { recursive: true });
+        fs.writeFileSync(path.join(source, "skills", name, "SKILL.md"), `# Accepted ${name}\n`);
+      }
+      const git = (args: ReadonlyArray<string>) =>
+        execFileSync("git", args, { cwd: source, encoding: "utf8" }).trim();
+      git(["init", "--quiet", "--initial-branch=main"]);
+      git(["config", "user.email", "test@example.com"]);
+      git(["config", "user.name", "Test"]);
+      git(["add", "."]);
+      git(["commit", "--quiet", "-m", "accepted"]);
+      const commit = git(["rev-parse", "HEAD"]);
+      const served = yield* Effect.acquireRelease(
+        Effect.promise(() =>
+          serveBareRepository({ root: world.workspace.root, source, name: "plugin" }),
+        ),
+        (repository) => Effect.sync(() => repository.stop()),
+      );
+      const install = (name: string) =>
+        world.workspace.provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source: served.url },
+              names: [`skills/${name}`],
+              all: false,
+            }),
+          ),
+        );
+      expect(yield* install("first")).toMatchObject({
+        units: [expect.objectContaining({ state: "committed" })],
+      });
+      fs.rmSync(path.join(source, "skills/first"), { recursive: true });
+      fs.writeFileSync(path.join(source, "skills/second/SKILL.md"), "# Changed second\n");
+      git(["add", "."]);
+      git(["commit", "--quiet", "-m", "changed branch"]);
+      git(["push", "--quiet", served.repository, "main"]);
+      expect(yield* install("second")).toMatchObject({
+        units: [expect.objectContaining({ state: "committed" })],
+      });
+      for (const name of ["first", "second"]) {
+        expect(world.workspace.readFile(`.claude/skills/${name}/SKILL.md`)).toBe(
+          `# Accepted ${name}\n`,
+        );
+      }
+      const lock = yield* world.workspace.provide(
+        Effect.flatMap(LockfileReader, (reader) => reader.lockfile),
+      );
+      expect(lock.skills["first"]).toMatchObject({ resolved: { commit } });
+      expect(lock.skills["second"]).toMatchObject({ resolved: { commit } });
+      expect(
+        world.workspace.readFile("axm-lock.yaml").match(new RegExp(commit, "gu")),
+      ).toHaveLength(1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });
@@ -107,11 +343,14 @@ describe("HTTP plugin package context", () => {
           "skills/review/cycle": [encode("."), { os: 3, attrs: 0o120777 << 16 }],
           "empty/": new Uint8Array(),
         });
+        const responseBytes = yield* Ref.make(archive);
         const client = HttpClient.make((request) =>
-          Effect.succeed(
-            HttpClientResponse.fromWeb(
-              request,
-              new Response(archive, { headers: { "content-type": "application/zip" } }),
+          Ref.get(responseBytes).pipe(
+            Effect.map((body) =>
+              HttpClientResponse.fromWeb(
+                request,
+                new Response(body, { headers: { "content-type": "application/zip" } }),
+              ),
             ),
           ),
         );
@@ -150,6 +389,22 @@ describe("HTTP plugin package context", () => {
         expect(fs.statSync(path.join(active, "run")).mode & 0o111).toBe(0o111);
         expect(fs.readdirSync(path.join(packageRoot, "empty"))).toEqual([]);
         expect(fs.existsSync(path.join(workspace.root, ".claude/skills/other"))).toBe(false);
+        yield* Ref.set(
+          responseBytes,
+          zipSync({ "skills/other/SKILL.md": encode("# Upstream moved\n") }),
+        );
+        const additional = yield* workspace.provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source: "https://example.test/plugin.zip" },
+              names: ["skills/other"],
+              all: false,
+            }),
+          ),
+        );
+        expect(additional.units.map((unit) => unit.state)).toEqual(["committed"]);
+        expect(workspace.readFile(".claude/skills/other/SKILL.md")).toBe("# Other\n");
         yield* workspace.provide(
           Effect.gen(function* () {
             const candidate = yield* UninstallExtensions.prepare({
@@ -425,6 +680,186 @@ describe("Plugin activation on filesystems without directory links", () => {
           ],
         });
         expect(workspace.snapshot()).toEqual(before);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+describe("Shared package installation", () => {
+  it.effect("rolls back every selected skill when a later component cannot activate", () =>
+    Effect.gen(function* () {
+      const workspace = yield* Effect.acquireRelease(
+        Effect.sync(() =>
+          makeLifecycleFixture({ sources: "live", settings: { agents: ["claude-code"] } }),
+        ),
+        (workspace) => Effect.sync(() => workspace.cleanup()),
+      );
+      const source = path.join(workspace.root, "vendor/plugin");
+      for (const name of ["alpha", "zeta"]) {
+        fs.mkdirSync(path.join(source, "skills", name), { recursive: true });
+        fs.writeFileSync(path.join(source, "skills", name, "SKILL.md"), `# ${name}\n`);
+      }
+      fs.writeFileSync(
+        path.join(source, "plugin.json"),
+        JSON.stringify({
+          $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+          name: "reviews",
+        }),
+      );
+      const before = workspace.snapshot();
+      const firstActivated = yield* Ref.make(false);
+      const fileSystem = yield* FileSystem.FileSystem;
+      const failing = {
+        ...fileSystem,
+        symlink: (from: string, to: string) =>
+          to === path.join(workspace.root, ".agents/skills/zeta")
+            ? Effect.gen(function* () {
+                yield* Ref.set(
+                  firstActivated,
+                  fs.existsSync(path.join(workspace.root, ".agents/skills/alpha")),
+                );
+                return yield* PlatformError.systemError({
+                  _tag: "Unknown",
+                  module: "FileSystem",
+                  method: "symlink",
+                  cause: { code: "ENOSYS" },
+                });
+              })
+            : fileSystem.symlink(from, to),
+      } satisfies FileSystem.FileSystem;
+      const result = yield* workspace
+        .provide(
+          applyInstall(
+            installRequest({
+              type: "skill",
+              subject: { kind: "source", source },
+              all: true,
+            }),
+          ),
+        )
+        .pipe(Effect.provideService(FileSystem.FileSystem, failing));
+      expect(yield* Ref.get(firstActivated)).toBe(true);
+      expect(result.units.every((unit) => unit.state === "failed")).toBe(true);
+      expect(workspace.snapshot()).toEqual(before);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+});
+
+describe("Shared package failure atomicity", () => {
+  it.effect.each(["acquisition", "canonical", "lock", "stale"] as const)(
+    "preserves both accepted selections after a %s failure",
+    (failure) =>
+      Effect.gen(function* () {
+        const world = yield* Effect.acquireRelease(
+          Effect.sync(() => makeInstallWorld()),
+          (world) => Effect.sync(world.cleanup),
+        );
+        const source = path.join(world.workspace.root, "vendor/shared-failure");
+        for (const name of ["first", "second"]) {
+          fs.mkdirSync(path.join(source, "skills", name), { recursive: true });
+          fs.writeFileSync(path.join(source, "skills", name, "SKILL.md"), `# Accepted ${name}\n`);
+        }
+        fs.writeFileSync(
+          path.join(source, "plugin.json"),
+          JSON.stringify({
+            $schema: "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+            name: "shared",
+          }),
+        );
+        const armed = yield* Ref.make(false);
+        const injected = yield* Ref.make(false);
+        const filesystem = yield* FileSystem.FileSystem;
+        const failingFilesystem = {
+          ...filesystem,
+          rename: (from: string, to: string) =>
+            Effect.gen(function* () {
+              const selected =
+                failure === "canonical"
+                  ? from === `${to}.axm-staging` && to.endsWith("/shared-failure")
+                  : failure === "lock" &&
+                    to === path.join(world.workspace.workspaceRoot, "axm-lock.yaml");
+              if ((yield* Ref.get(armed)) && selected && !(yield* Ref.get(injected))) {
+                yield* Ref.set(injected, true);
+                return yield* PlatformError.systemError({
+                  _tag: "Unknown",
+                  module: "FileSystem",
+                  method: "rename",
+                  cause: { code: "EIO" },
+                });
+              }
+              return yield* filesystem.rename(from, to);
+            }),
+        } satisfies FileSystem.FileSystem;
+        yield* world.workspace
+          .provide(
+            Effect.gen(function* () {
+              const installed = yield* applyInstall(
+                installRequest({
+                  type: "skill",
+                  subject: { kind: "source", source },
+                  all: true,
+                }),
+              );
+              expect(installed.units.every((unit) => unit.state === "committed")).toBe(true);
+              for (const name of ["first", "second"])
+                fs.writeFileSync(
+                  path.join(source, "skills", name, "SKILL.md"),
+                  `# Updated ${name}\n`,
+                );
+              const candidate = yield* UpdateExtensions.prepare(
+                configuredUpdateRequest({ type: "skill", nameFilters: ["first"] }),
+              );
+              if (candidate.outcome === "nothing-configured")
+                throw new Error("Expected a shared update");
+              const before = world.workspace.snapshot();
+              const preview = yield* UpdateExtensions.previewOrApply(
+                candidate,
+                previewPlanExecution,
+              );
+              expect(preview.blocking).toBeUndefined();
+              expect(world.workspace.snapshot()).toEqual(before);
+              if (failure === "stale") {
+                fs.appendFileSync(
+                  path.join(world.workspace.workspaceRoot, "axm-lock.yaml"),
+                  "# Intervening acceptance edit\n",
+                );
+                const changed = world.workspace.snapshot();
+                const result = yield* UpdateExtensions.previewOrApply(
+                  candidate,
+                  preapprovedPlanExecution,
+                );
+                expect(result.blocking?.class).toBe("stale-candidate");
+                expect(world.workspace.snapshot()).toEqual(changed);
+                return;
+              }
+              const sources = yield* SourceHostProviders;
+              yield* Ref.set(armed, true);
+              const result = yield* UpdateExtensions.previewOrApply(
+                candidate,
+                preapprovedPlanExecution,
+              ).pipe(
+                Effect.provideService(SourceHostProviders, {
+                  ...sources,
+                  acquireForTransition: (ref) =>
+                    failure === "acquisition"
+                      ? Ref.set(injected, true).pipe(
+                          Effect.andThen(
+                            Effect.fail(
+                              new SourceNetworkFailure({ detail: "Injected acquisition failure" }),
+                            ),
+                          ),
+                        )
+                      : sources.acquireForTransition(ref),
+                }),
+              );
+              expect(yield* Ref.get(injected)).toBe(true);
+              expect(
+                result.units.some((unit) => unit.state === "failed"),
+                JSON.stringify(result),
+              ).toBe(true);
+              expect(world.workspace.snapshot()).toEqual(before);
+            }),
+          )
+          .pipe(Effect.provideService(FileSystem.FileSystem, failingFilesystem));
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

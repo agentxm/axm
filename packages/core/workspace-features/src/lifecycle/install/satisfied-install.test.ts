@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import {
@@ -67,7 +68,7 @@ describe("satisfied install execution", () => {
           );
           const canonical = path.join(
             world.workspace.root,
-            "agent_extensions/registry/@acme/skills/review",
+            fileRegistryPackagePath(world.registry, "skills", "review"),
           );
           if (state === "missing-content") fs.rmSync(canonical, { recursive: true });
           if (state === "drifted-content")

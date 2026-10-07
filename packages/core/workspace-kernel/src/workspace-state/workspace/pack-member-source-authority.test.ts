@@ -94,7 +94,7 @@ describe("packMemberSourceAuthority", () => {
           kind: "accepted",
           entry: acceptedLock({
             source: { type: "path", path: "vendor/tools/toolkit" },
-            resolved: { tree: "sha256-pack-content" },
+            resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
             sourceRoot: "vendor",
           }),
         });

@@ -18,6 +18,7 @@ export {
   acquiredFilesForRef,
   acquiredRegistryPackageFiles,
   sourceRefContentKey,
+  recordMaterializedPackage,
 } from "./acquired-content.js";
 export { selectAcquisitionQueue } from "./acquisition-queue.js";
 export {

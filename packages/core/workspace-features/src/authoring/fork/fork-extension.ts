@@ -344,6 +344,8 @@ export const prepareForkExtension: (
             {
               ...(yield* inspectExtensionPackage(
                 path.join(layout.authoredRoot(source.extensionType), source.name),
+                Option.none(),
+                source.extensionType,
               )),
               origin: providers.origin(source),
             },

@@ -71,7 +71,7 @@ export const makePackWorkspace = (options: PackWorkspaceOptions) => {
       parent:
         member.source === "workspace"
           ? row.plural
-          : `agent_extensions/registry/@acme/${row.plural}`,
+          : `agent_extensions/registry.example.com/@acme/${row.plural}`,
     });
   }
 

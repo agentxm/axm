@@ -16,7 +16,7 @@ export const detail: Doc = [
       { label: "Owner", value: [{ text: "@craigsmitham", link: "https://axm.sh/@craigsmitham" }] },
       {
         label: "Installed at",
-        value: "agent_extensions/registry/@craigsmitham/skills/effect-v4",
+        value: "agent_extensions/registry.agentxm.ai/@craigsmitham/skills/effect-v4",
       },
       {
         label: "Description",

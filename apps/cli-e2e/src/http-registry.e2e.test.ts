@@ -1,3 +1,4 @@
+import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as http from "node:http";
@@ -869,7 +870,7 @@ describe("HTTP registry transport", () => {
       expect(fileInstall.exitCode).toBe(httpInstall.exitCode);
 
       const extensionDir = (workspacePath: string) =>
-        path.join(workspacePath, "agent_extensions", "registry", OWNER, "skills", name);
+        configuredRegistryFixturePath(workspacePath, OWNER, "skills", name);
 
       expect(snapshotDir(extensionDir(httpWorkspace.path))).toEqual(
         snapshotDir(extensionDir(fileWorkspace.path)),

@@ -19,10 +19,7 @@ import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace
 import { LOCKFILE_VERSION, type Lockfile } from "../desired/lockfile/index.js";
 import type { Settings, SourceHostConfig } from "../desired/settings/index.js";
 import type { ExtensionTarget, WorkspaceStateReadFailure } from "./contracts.js";
-import {
-  configuredPackIdentity,
-  configuredPackSourceFamily,
-} from "./desired-configured-identity.js";
+import { configuredPackIdentity } from "./desired-configured-identity.js";
 import type {
   DesiredEvaluationInputs,
   DesiredInputRead,
@@ -169,14 +166,6 @@ export const captureDesiredStateInputs = (
       );
       const identity = identify(proposal);
       if (identity === undefined) continue;
-      const located = args.manifests.locate({
-        owner: identity.owner,
-        name: identity.name,
-        sourceFamily: configuredPackSourceFamily(entry.source, accepted),
-        relativeTo: args.baseDir,
-        workspace:
-          args.layout === undefined ? { baseDir: args.baseDir, settings } : { layout: args.layout },
-      });
       if (proposal !== undefined) {
         const manifest: PackManifest = {
           owner: proposal.owner,
@@ -224,6 +213,13 @@ export const captureDesiredStateInputs = (
         });
         continue;
       }
+      const located = args.manifests.locate({
+        owner: identity.owner,
+        name: identity.name,
+        relativeTo: args.baseDir,
+        workspace:
+          args.layout === undefined ? { baseDir: args.baseDir, settings } : { layout: args.layout },
+      });
       const reused = reusable.get(settingsName);
       if (reused !== undefined && reused.path === located.path) {
         packDocuments.push(reused);

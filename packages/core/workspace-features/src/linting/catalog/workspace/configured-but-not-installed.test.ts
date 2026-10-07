@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../../testing/install-world.js";
 import * as Effect from "effect/Effect";
 import {
   UNCONSTRAINED_DESIRED_NODE,
@@ -62,7 +63,7 @@ const desiredNode = (args: {
         ? {
             type: "pack",
             pack: { authority: "registry", fqn: "@acme/packs/starter" },
-            manifestPath: "agent_extensions/registry/@acme/packs/starter/pack.json",
+            manifestPath: "agent_extensions/registry.agentxm.ai/@acme/packs/starter/pack.json",
             source,
             constraint: "^1.0.0",
             enabled,
@@ -81,7 +82,7 @@ const observed = (
     type: desired.type,
     name: desired.name,
     status,
-    path: `/workspace/agent_extensions/registry/@acme/${PLURALS[desired.type]}/${desired.name}`,
+    path: `/workspace/agent_extensions/registry.agentxm.ai/@acme/${PLURALS[desired.type]}/${desired.name}`,
   } satisfies CanonicalObservation,
 });
 
@@ -244,16 +245,16 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
           Effect.gen(function* () {
             yield* applySync();
             expect(yield* ruleFindings(workspace)).toEqual([]);
-            workspace.remove("agent_extensions/registry/@acme/knowledge/handbook");
+            workspace.remove(fileRegistryPackagePath(registry, "knowledge", "handbook"));
 
             expect((yield* ruleFindings(workspace)).map(({ message }) => message)).toEqual([
               "knowledge bundle 'handbook' is desired, but its canonical content is missing from agent_extensions.",
             ]);
 
             yield* applySync();
-            expect(workspace.exists("agent_extensions/registry/@acme/knowledge/handbook")).toBe(
-              true,
-            );
+            expect(
+              workspace.exists(fileRegistryPackagePath(registry, "knowledge", "handbook")),
+            ).toBe(true);
             expect(yield* ruleFindings(workspace)).toEqual([]);
           }),
         )
@@ -280,7 +281,7 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         Effect.gen(function* () {
           yield* applySync();
           const realized = yield* allFindings(workspace);
-          workspace.remove("agent_extensions/registry/@acme/skills/review");
+          workspace.remove(fileRegistryPackagePath(registry, "skills", "review"));
 
           // No artifact, content, or integrity rule restates the absent tree.
           const findings = yield* allFindings(workspace);
@@ -321,7 +322,9 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         Effect.gen(function* () {
           yield* applySync();
 
-          expect(workspace.exists("agent_extensions/registry/@acme/skills/review")).toBe(false);
+          expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "review"))).toBe(
+            false,
+          );
           expect(yield* ruleFindings(workspace)).toEqual([]);
         }),
       )

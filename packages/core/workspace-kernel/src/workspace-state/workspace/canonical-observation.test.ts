@@ -16,7 +16,6 @@ import { afterEach, beforeEach } from "vitest";
 import { computeMaterializedTreeIntegrity, TreeIntegritySchema } from "./materialized-tree.js";
 import { exactVersion, extensionName, handle } from "../testing.js";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   canonicalPathForAcceptedExtension,
   observeAcceptedResolution,
@@ -64,7 +63,7 @@ const desiredPackMember = (
     {
       type: "pack",
       pack: { authority: "path", fqn: "@acme/packs/team" },
-      manifestPath: "agent_extensions/path/@acme/packs/team/pack.json",
+      manifestPath: "agent_extensions/_local/project/packs/team/pack.json",
       source: "@acme/skills/review",
       sourceAuthority,
       constraint: range,
@@ -89,7 +88,7 @@ const desiredPackMember = (
 const acceptedPath = (path: string, treeIntegrity = placeholderTreeIntegrity): LockEntry => ({
   source: { type: "path", path },
   identity: { owner: handle("@acme"), name: extensionName("review") },
-  resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("path-source-tree-1") },
+  resolved: { tree: treeIntegrity },
   treeIntegrity,
 });
 
@@ -115,8 +114,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         Effect.gen(function* () {
           const path = yield* Path.Path;
           const layout = yield* projectLayout(root);
-          const desired = desiredPackMember({ authority: "path", root: sourceRoot }, range);
-          const accepted = acceptedPath(`${sourceRoot}/nested/review`);
+          const acceptedRoot = sourceRoot.startsWith("../")
+            ? nodePath.resolve(root, sourceRoot)
+            : sourceRoot;
+          const desired = desiredPackMember({ authority: "path", root: acceptedRoot }, range);
+          const accepted = acceptedPath(`${acceptedRoot}/nested/review`);
           const canonical = canonicalPathForAcceptedExtension(path, layout, desired, accepted);
           if (canonical === undefined)
             return yield* Effect.die("Expected an acquired path for the accepted member");
@@ -326,8 +328,9 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         const canonical = nodePath.join(
           root,
           "agent_extensions",
-          "git",
-          "@acme",
+          "github.com",
+          "acme",
+          "tools",
           "skills",
           "review",
         );
@@ -377,7 +380,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
           {
             type: "pack",
             pack: { authority: "registry", fqn: "@acme/packs/platform" },
-            manifestPath: `${root}/agent_extensions/registry/@acme/packs/platform/pack.json`,
+            manifestPath: `${root}/agent_extensions/registry.agentxm.ai/@acme/packs/platform/pack.json`,
             source: "@acme/rules/release",
             constraint: "^2.0.0",
             enabled: true,

@@ -98,7 +98,7 @@ describe("Install apply realizes the previewed closure", () => {
           yield* InstallExtensions.previewOrApply(candidate, previewPlanExecution);
           expect(workspace.snapshot()).toEqual(beforePreview);
           workspace.writeFile(
-            "agent_extensions/path/@acme/skills/code-review/src/SKILL.md",
+            "agent_extensions/_local/project/vendor/code-review/src/SKILL.md",
             "Intervening edit.\n",
           );
           const intervening = workspace.snapshot();
@@ -135,7 +135,7 @@ describe("Install apply realizes the previewed closure", () => {
           expect(applied.units.every((unit) => unit.state === "committed")).toBe(true);
 
           expect(workspace.exists(".claude/skills/code-review")).toBe(true);
-          expect(workspace.exists("agent_extensions/path/@acme/skills/code-review")).toBe(true);
+          expect(workspace.exists("agent_extensions/_local/project/vendor/code-review")).toBe(true);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

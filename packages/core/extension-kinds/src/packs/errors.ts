@@ -48,24 +48,6 @@ export class PackInstallStateMissing
   }
 }
 
-/** Fetching the pack archive from its source failed. */
-export class PackArchiveFetchFailed
-  extends Data.TaggedError("PackArchiveFetchFailed")<{
-    readonly message: string;
-    readonly cause: unknown;
-  }>
-  implements ExtensionKindFailure
-{
-  readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
-    ExtensionKindFailureTypeId;
-  get category(): OperationErrorCategory {
-    return "network";
-  }
-  get detail(): string {
-    return `Failed to fetch pack archive: ${this.message}`;
-  }
-}
-
 /** Staging fetched pack content into the canonical tree failed. */
 export class PackStagingFailed
   extends Data.TaggedError("PackStagingFailed")<{

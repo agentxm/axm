@@ -8,7 +8,7 @@ Use capabilities and configurability offered by our adopted software, infrastruc
 Use extreme brevity and concision in all AGENTS.md and CLAUDE.md and SKILL.md instructions.
 
 Shared product language and naming live in the
-[AgentXM Knowledge bundle](agent_extensions/registry/@agentxm/knowledge/agentxm/src/index.md).
+[AgentXM Knowledge bundle](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md).
 The repository tree, package manifests, and configuration own the current tool
 and package inventory.
 
@@ -21,7 +21,7 @@ explicitly before repository commands. `pnpm axm` runs the Bun entrypoint and
 workspace packages from source through the `axm-source` export condition.
 
 The portable
-[Repository task interface](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
+[Repository task interface](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/engineering/repository-task-interface.md)
 is authoritative for execution-surface semantics and conformance. AXM binds it
 locally in [Repository task interface](docs/guides/repository-task-interface.md) —
 read that binding before adding a script, target, wrapper, cache, or automation
@@ -116,7 +116,7 @@ requirements-engineering guidance linked below with the repository policy in
 placement, binding, admission criteria, metadata, and the disposition ledger.
 Design specifications from intended observable obligations, not the current
 implementation; follow the
-[requirements-engineering guidance](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
+[requirements-engineering guidance](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
 and [testing strategy](docs/architecture/system-wide/testing-strategy.md).
 
 ## Architecture
@@ -373,7 +373,7 @@ requirements.
 | axm-agents | survey | any session running `axm agents` or projecting extensions into configured agents                                                       | —                | a target condition can be stated |
 | axm-output | survey | any session reading AXM human output: a value a terminal lost, a reason a result did not give, a recovery that did not fit the outcome | —                | a target condition can be stated |
 
-<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery src={"scope":"project","root":".","owners":[{"name":"agent-engineering","ref":"@agentxm/knowledge/agent-engineering","root":"agent_extensions/registry/@agentxm/knowledge/agent-engineering"},{"name":"agentxm","ref":"@agentxm/knowledge/agentxm","root":"agent_extensions/registry/@agentxm/knowledge/agentxm"},{"name":"docs","ref":"@craigsmitham/knowledge/docs","root":"agent_extensions/registry/@craigsmitham/knowledge/docs"},{"name":"effect-v4","ref":"@craigsmitham/knowledge/effect-v4","root":"agent_extensions/registry/@craigsmitham/knowledge/effect-v4"},{"name":"field-notes","ref":"@craigsmitham/knowledge/field-notes","root":"agent_extensions/registry/@craigsmitham/knowledge/field-notes"},{"name":"product-engineering","ref":"@craigsmitham/knowledge/product-engineering","root":"agent_extensions/registry/@craigsmitham/knowledge/product-engineering"}]} gen=6262842f678dd45ce7ef360fd0a831e5f76bd05b78fee4ec8b4a4e38f2bc6466 -->
+<!-- axm:start v=1 region=knowledge ext=@agentxm/knowledge/discovery src={"scope":"project","root":".","owners":[{"name":"agent-engineering","ref":"@agentxm/knowledge/agent-engineering","root":"agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agent-engineering"},{"name":"agentxm","ref":"@agentxm/knowledge/agentxm","root":"agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm"},{"name":"docs","ref":"@craigsmitham/knowledge/docs","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs"},{"name":"effect-v4","ref":"@craigsmitham/knowledge/effect-v4","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4"},{"name":"field-notes","ref":"@craigsmitham/knowledge/field-notes","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/field-notes"},{"name":"product-engineering","ref":"@craigsmitham/knowledge/product-engineering","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering"}]} gen=1cbcb08751b0fc4e1ff453afccb37990b4ec471da8c6aa4db07a4167521f412f -->
 
 ## Knowledge Bundles
 
@@ -384,10 +384,10 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@agentxm/knowledge/agent-engineering kind=knowledge -->
 <!-- axm:point v=1 ext=@agentxm/knowledge/agentxm kind=knowledge -->
 
-| Bundle                                                                                           | Description                                                                                                                                                         |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [agent-engineering](agent_extensions/registry/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
-| [agentxm](agent_extensions/registry/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
+| Bundle                                                                                                      | Description                                                                                                                                                         |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [agent-engineering](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agent-engineering/src/index.md) | End-to-end design of goal-directed AI agent systems: agent behavior, multi-agent coordination, prompts, context, harness, skills, evaluation, trust, and operations |
+| [agentxm](agent_extensions/registry.agentxm.ai/@agentxm/knowledge/agentxm/src/index.md)                     | Canonical public AgentXM product language, ecosystem foundations, and durable knowledge about extensions, identity, discovery, and publishing                       |
 
 ### @craigsmitham
 
@@ -396,15 +396,15 @@ Use `axm knowledge concepts --help` to search, read, and explore these bundles.
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/field-notes kind=knowledge -->
 <!-- axm:point v=1 ext=@craigsmitham/knowledge/product-engineering kind=knowledge -->
 
-| Bundle                                                                                                    | Description                                                                                                                                                        |
-| --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| [docs](agent_extensions/registry/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
-| [effect-v4](agent_extensions/registry/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
-| [field-notes](agent_extensions/registry/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for preserving factual session friction, observed cost or impact, outcomes, and safe evidence for later analysis                   |
-| [product-engineering](agent_extensions/registry/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
+| Bundle                                                                                                               | Description                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| [docs](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/docs/src/index.md)                               | Portable documentation craft for authoring, naming, information architecture, auditing, and improving explainers, guides, principles, and evidence-backed patterns |
+| [effect-v4](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/effect-v4/src/index.md)                     | Checklists to consult when designing, implementing, maintaining, or reviewing Effect v4 TypeScript                                                                 |
+| [field-notes](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/field-notes/src/index.md)                 | Operational field-note practice for preserving factual session friction, observed cost or impact, outcomes, and safe evidence for later analysis                   |
+| [product-engineering](agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/index.md) | Opinionated product-development lifecycle from strategy through operations and maintenance, with shared conceptual foundations                                     |
 
 <!-- axm:end v=1 region=knowledge -->
-<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions src={"scope":"project","root":".","owners":[{"name":"field-notes","ref":"@craigsmitham/rules/field-notes","root":"agent_extensions/registry/@craigsmitham/rules/field-notes"},{"name":"use-effect-v4","ref":"@craigsmitham/rules/use-effect-v4","root":"agent_extensions/registry/@craigsmitham/rules/use-effect-v4"}]} gen=56ddd20161966479601832c24ccde446e99359391fe8304f460bd5c6f52ff36e -->
+<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions src={"scope":"project","root":".","owners":[{"name":"field-notes","ref":"@craigsmitham/rules/field-notes","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/rules/field-notes"},{"name":"use-effect-v4","ref":"@craigsmitham/rules/use-effect-v4","root":"agent_extensions/registry.agentxm.ai/@craigsmitham/rules/use-effect-v4"}]} gen=56ddd20161966479601832c24ccde446e99359391fe8304f460bd5c6f52ff36e -->
 <!-- axm:point v=1 ext=@craigsmitham/rules/use-effect-v4@0.2.0 kind=rule -->
 
 ## Use Effect v4

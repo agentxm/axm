@@ -1,3 +1,4 @@
+import { absoluteLocalFixturePath } from "../../test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
@@ -104,7 +105,7 @@ for (const scope of ["project", "user"] as const)
           path.join(workspace, "axm.json"),
           JSON.stringify({ owner: "@acme", agents: ["codex"] }),
         );
-        const source = path.join(fixture.invoking, "package");
+        const source = path.join(fixture.invoking, "package~fixture");
         const native =
           'name = "investigator"\ndescription = "Review"\nsandbox_mode = "read-only"\ndeveloper_instructions = "Review evidence"\n';
         write(
@@ -139,14 +140,7 @@ for (const scope of ["project", "user"] as const)
           });
         const before = snapshotTree(source);
         yield* execute(["install", source, "--subagent", "reviewer"]);
-        const canonical = path.join(
-          workspace,
-          "agent_extensions",
-          "path",
-          "@acme",
-          "subagents",
-          "reviewer",
-        );
+        const canonical = path.join(workspace, absoluteLocalFixturePath(source));
         expect(fs.readFileSync(path.join(canonical, "native", "review.toml"), "utf8")).toBe(native);
         expect(fs.readFileSync(path.join(canonical, "LICENSE"), "utf8")).toBe("Fixture license.\n");
         const nativeRoot = scope === "project" ? fixture.selected : fixture.home;

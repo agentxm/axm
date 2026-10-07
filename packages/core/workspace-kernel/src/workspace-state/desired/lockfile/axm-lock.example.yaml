@@ -1,36 +1,49 @@
-lockfileVersion: 10
-skills:
-  code-review:
+lockfileVersion: 11
+packages:
+  '["git","https://github.com/acme/code-review.git",".","native"]':
     source:
       type: git
       url: https://github.com/acme/code-review.git
-      revision: v1.0.0
-    identity:
-      owner: "@acme"
-      name: code-review
+      path: .
+      format: native
     resolved:
       commit: 0123456789abcdef0123456789abcdef01234567
       tree: abc123def456
     treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
-  local-skill:
+  '["path","skills/my-skill","native"]':
     source:
       type: path
       path: skills/my-skill
-    identity:
-      owner: "@acme"
-      name: local-skill
+      format: native
     resolved:
-      tree: sha256-local-skill
+      tree: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
     treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
-  published-skill:
+  '["registry","https://registry.agentxm.ai","@acme","skills","published-skill"]':
     source:
       type: registry
-      url: https://registry.agentxm.ai
-    identity:
+      url: https://registry.agentxm.ai/
       owner: "@acme"
+      extensionType: skills
       name: published-skill
     resolved:
       version: 1.0.0
       integrity: sha512-example
       publisherBindingId: hbnd_example
     treeIntegrity: sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000
+skills:
+  code-review:
+    package: '["git","https://github.com/acme/code-review.git",".","native"]'
+    revision: v1.0.0
+    identity:
+      owner: "@acme"
+      name: code-review
+  local-skill:
+    package: '["path","skills/my-skill","native"]'
+    identity:
+      owner: "@acme"
+      name: local-skill
+  published-skill:
+    package: '["registry","https://registry.agentxm.ai","@acme","skills","published-skill"]'
+    identity:
+      owner: "@acme"
+      name: published-skill

@@ -1,3 +1,4 @@
+import * as Result from "effect/Result";
 import type { McpBinding } from "@agentxm/workspace-kernel/agent-adapters";
 import { McpServerLockEntrySchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as Schema from "effect/Schema";
@@ -35,6 +36,8 @@ import {
   type SetMcpServerArgs,
   computeMaterializedTreeIntegrity,
   mcpRegistryResolutionKey,
+  acquiredPackageRelativePath,
+  registrySourceLockFields,
   mcpWorkspaceSourceKey,
   type McpServerLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
@@ -81,7 +84,9 @@ const acceptedCanonicalTrees = (
   authority = DEFAULT_REGISTRY_LOCATION,
 ): Effect.Effect<AcceptedResolutions> =>
   Effect.gen(function* () {
-    const root = path.join(base, "agent_extensions", "registry");
+    const root = path.dirname(
+      path.dirname(path.dirname(registryCanonicalPath(base, "@community", "my-server", authority))),
+    );
     const mcpServers: Record<string, McpServerLockEntry> = {};
     const owners = fs.existsSync(root) ? fs.readdirSync(root) : [];
     for (const owner of owners) {
@@ -92,18 +97,19 @@ const acceptedCanonicalTrees = (
           path.join(mcpsRoot, name),
         ).pipe(Effect.orDie);
         mcpServers[mcpRegistryResolutionKey({ authority, owner, name })] = {
-          source: { type: "registry", url: new URL(authority) },
-          identity: { owner: decodeHandleSync(owner), name: decodeExtensionNameSync(name) },
-          resolved: {
-            version: decodeVersionSync("1.0.0"),
-            integrity: "sha512-stub",
-            publisherBindingId: "hbnd_test",
-          },
-          treeIntegrity,
+          ...registrySourceLockFields(
+            makeRegistryRef({ location: authority }).source,
+            decodeHandleSync(owner),
+            decodeExtensionNameSync(name),
+            decodeVersionSync("1.0.0"),
+            "sha512-stub",
+            "hbnd_test",
+            treeIntegrity,
+          ),
         };
       }
     }
-    return { lockfileVersion: 10, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
+    return { lockfileVersion: 11, skills: {}, mcpServers } as const satisfies AcceptedResolutions;
   }).pipe(Effect.provide(NodeServices.layer));
 
 const withServices = (
@@ -244,6 +250,20 @@ const makeRegistryRef = (
   };
 };
 
+const registryCanonicalPath = (
+  base: string,
+  owner: string,
+  name: string,
+  location = DEFAULT_REGISTRY_LOCATION,
+) =>
+  path.join(
+    base,
+    "agent_extensions",
+    Result.getOrThrow(
+      acquiredPackageRelativePath(makeRegistryRef({ owner, name, location }), "mcps", name),
+    ),
+  );
+
 const makeUnsafeRegistryRef = (
   overrides: {
     name?: string;
@@ -353,8 +373,9 @@ describe("installMcpServer", () => {
     owner: string,
     name = "my-server",
     runnable = true,
+    authority = DEFAULT_REGISTRY_LOCATION,
   ) => {
-    const canonicalPath = path.join(base, "agent_extensions", "registry", owner, "mcps", name);
+    const canonicalPath = registryCanonicalPath(base, owner, name, authority);
     fs.mkdirSync(canonicalPath, { recursive: true });
     fs.writeFileSync(
       path.join(canonicalPath, "mcp.json"),
@@ -451,14 +472,7 @@ describe("installMcpServer", () => {
         expect(result.result).toBe("success");
         expect(result.message).toContain("my-server");
 
-        const canonicalPath = path.join(
-          base,
-          "agent_extensions",
-          "registry",
-          "@community",
-          "mcps",
-          "my-server",
-        );
+        const canonicalPath = registryCanonicalPath(base, "@community", "my-server");
         expect(fs.existsSync(path.join(canonicalPath, "mcp.json"))).toBe(true);
       }),
     );
@@ -468,7 +482,13 @@ describe("installMcpServer", () => {
         const { axmDir, base } = setupBase();
         const { registryRoot } = setupLocalRegistry();
         const location = `file://${registryRoot}`;
-        const canonicalPath = setupRegistryCanonical(base, "@community");
+        const canonicalPath = setupRegistryCanonical(
+          base,
+          "@community",
+          "my-server",
+          true,
+          location,
+        );
         const accepted = yield* acceptedCanonicalTrees(base, location);
         fs.writeFileSync(path.join(canonicalPath, "mcp.json"), '{ "edited": true }');
         const drifted = yield* computeMaterializedTreeIntegrity(canonicalPath).pipe(
@@ -638,13 +658,11 @@ describe("installMcpServer", () => {
 
         expect(result.result).toBe("success");
 
-        const canonicalPath = path.join(
+        const canonicalPath = registryCanonicalPath(
           base,
-          "agent_extensions",
-          "registry",
           "@community",
-          "mcps",
           "my-server",
+          `file://${registryRoot}`,
         );
         expect(fs.existsSync(canonicalPath)).toBe(true);
       }),
@@ -862,7 +880,7 @@ describe("installMcpServer", () => {
             fileCount: 4,
             targets: [
               expect.objectContaining({
-                path: "agent_extensions/registry/@community/mcps/my-server",
+                path: "agent_extensions/_local/absolute/root/tmp/reg/@community/mcps/my-server",
                 change: "created",
               }),
               { path: "axm.json", change: "created" },
@@ -933,7 +951,7 @@ describe("installMcpServer", () => {
             fileCount: 2,
             targets: [
               expect.objectContaining({
-                path: "agent_extensions/registry/@community/mcps/my-server",
+                path: "agent_extensions/_local/absolute/root/tmp/reg/@community/mcps/my-server",
               }),
               expect.objectContaining({ path: "axm.json" }),
             ],

@@ -1,3 +1,6 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * Unit tests for the packs remove handler.
  *
@@ -63,7 +66,9 @@ const createPackManifest = (
   };
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
   const lockfilePath = path.join(tempDir, "axm-lock.yaml");
-  const lockfile = expectRecord(YAML.parse(fs.readFileSync(lockfilePath, "utf8")));
+  const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+    YAML.parse(fs.readFileSync(lockfilePath, "utf8")),
+  );
   const skills = expectRecord(lockfile["skills"] ?? {});
   const updatedSkills: Record<string, unknown> = { ...skills };
   const dependencies = expectRecord(normalizedManifest.dependencies);
@@ -86,7 +91,10 @@ const createPackManifest = (
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
   }
-  fs.writeFileSync(lockfilePath, YAML.stringify({ ...lockfile, skills: updatedSkills }));
+  fs.writeFileSync(
+    lockfilePath,
+    YAML.stringify(storedLockfileFixture({ ...lockfile, skills: updatedSkills })),
+  );
   return packDir;
 };
 

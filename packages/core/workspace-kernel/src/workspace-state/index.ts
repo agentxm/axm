@@ -47,6 +47,15 @@ export {
   registrySourceLockFields,
 } from "./desired/lockfile/entry-fields.js";
 export { LOCK_ENTRY_SCHEMA_BY_TYPE } from "./desired/lockfile/schema.js";
+export {
+  retainedPackageSourceForRef,
+  retainedPackageKeyForRef,
+  retainedPackageBindings,
+  packageAddressClaimForRef,
+  acceptedPackageAddressClaims,
+  validatePackageAddressClaims,
+  type PackageAddressClaim,
+} from "./workspace/retained-packages.js";
 
 // Extension path and identity vocabulary
 export {
@@ -64,6 +73,7 @@ export {
 } from "./workspace/install-root.js";
 export {
   acquiredExtensionDisplayPath,
+  acquiredPackageRelativePath,
   BUNDLED_SKILL_OWNER,
   bundledSkillCanonicalRoot,
   computeExtensionPathsForLayout,
@@ -382,7 +392,7 @@ export type {
 export { packMemberBindings } from "./workspace/desired-pack-members.js";
 
 // Narrow workspace-state services
-export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";
+
 export {
   WorkspaceLocation,
   captureNativeDirectoryInputs,
@@ -518,3 +528,5 @@ export {
   readHookEvidence,
 } from "./observed/hooks/evidence.js";
 export { WorkspaceReadViews, withWorkspaceReadView } from "./workspace/read-view.js";
+
+export { WorkspaceDocuments, type WorkspaceDocumentsService } from "./workspace/documents.js";

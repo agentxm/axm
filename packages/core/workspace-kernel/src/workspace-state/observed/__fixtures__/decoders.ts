@@ -8,11 +8,30 @@
  */
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { LockfileSchema, type Lockfile } from "../../desired/lockfile/schema.js";
+import {
+  LOCKFILE_VERSION,
+  LockfileSchema,
+  LockfileViewSchema,
+  type Lockfile,
+} from "../../desired/lockfile/schema.js";
 import { SettingsSchema, type Settings } from "../../desired/settings/schema.js";
 
 export const decodedSettings = (input: unknown): Effect.Effect<Settings, Schema.SchemaError> =>
   Schema.decodeUnknownEffect(SettingsSchema)(input);
 
 export const decodedLockfile = (input: unknown): Effect.Effect<Lockfile, Schema.SchemaError> =>
-  Schema.decodeUnknownEffect(LockfileSchema)(input);
+  Schema.decodeUnknownEffect(LockfileViewSchema)(input);
+
+/** Construct current wire fixtures from explicitly selected per-kind resolution facts. */
+export const storedLockfileFixture = (entries: object) => {
+  const serialized: unknown = JSON.parse(
+    JSON.stringify({
+      lockfileVersion: LOCKFILE_VERSION,
+      skills: {},
+      ...entries,
+    }),
+  );
+  return Schema.encodeSync(LockfileSchema)(
+    Schema.decodeUnknownSync(LockfileViewSchema)(serialized, { onExcessProperty: "error" }),
+  );
+};

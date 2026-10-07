@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -39,7 +40,8 @@ export const specification = defineSpecification({
 const TOOLKIT = "@acme/packs/toolkit";
 const MEMBER = "pack-member";
 const NEIGHBOR = "unrelated";
-const PACK_RELEASE = "agent_extensions/registry/@acme/packs/toolkit/release.txt";
+const packRelease = (registry: FileRegistry) =>
+  `${fileRegistryPackagePath(registry, "packs", "toolkit")}/release.txt`;
 const MEMBER_PROJECTION = `.claude/skills/${MEMBER}/SKILL.md`;
 
 /** Every file under a directory, so "nothing was acquired from it" is provable. */
@@ -121,7 +123,7 @@ describe("Update an extension the workspace does not desire", () => {
         skills: { [NEIGHBOR]: expect.anything() },
       });
       const canonical = workspace.readFile(
-        `agent_extensions/path/@acme/skills/${NEIGHBOR}/src/SKILL.md`,
+        `agent_extensions/_local/project/vendor/${NEIGHBOR}/src/SKILL.md`,
       );
       expect(workspace.readFile(`.claude/skills/${NEIGHBOR}/SKILL.md`)).toBe(canonical);
       expect(workspace.readFile(`.agents/skills/${NEIGHBOR}/SKILL.md`)).toBe(canonical);
@@ -152,10 +154,12 @@ describe("Update an extension the workspace does not desire", () => {
             expect(resolution.units).toEqual([]);
             // Nothing of the closure was acquired: neither the Pack's own
             // content nor the member it would have brought with it.
-            expect(workspace.exists(PACK_RELEASE)).toBe(false);
+            expect(workspace.exists(packRelease(registry))).toBe(false);
             expect(workspace.exists(MEMBER_PROJECTION)).toBe(false);
-            expect(workspace.exists("agent_extensions/registry/@acme/packs/toolkit")).toBe(false);
-            expect(workspace.exists(`agent_extensions/registry/@acme/skills/${MEMBER}`)).toBe(
+            expect(workspace.exists(fileRegistryPackagePath(registry, "packs", "toolkit"))).toBe(
+              false,
+            );
+            expect(workspace.exists(fileRegistryPackagePath(registry, "skills", MEMBER))).toBe(
               false,
             );
             expect(workspace.exists(`.agents/skills/${MEMBER}`)).toBe(false);
@@ -179,7 +183,7 @@ describe("Update an extension the workspace does not desire", () => {
           yield* applyInstall(
             installRequest({ type: "pack", subject: { kind: "source", source: TOOLKIT } }),
           );
-          expect(workspace.readFile(PACK_RELEASE)).toBe("First Pack release.\n");
+          expect(workspace.readFile(packRelease(registry))).toBe("First Pack release.\n");
           expect(workspace.readFile(MEMBER_PROJECTION)).toContain("Required Pack member.");
           const neighborBefore = Object.entries(workspace.snapshot()).filter(([relative]) =>
             relative.includes(NEIGHBOR),
@@ -202,7 +206,7 @@ describe("Update an extension the workspace does not desire", () => {
           );
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.readFile(PACK_RELEASE)).toBe("Second Pack release.\n");
+          expect(workspace.readFile(packRelease(registry))).toBe("Second Pack release.\n");
           expect(
             Object.entries(workspace.snapshot()).filter(([relative]) =>
               relative.includes(NEIGHBOR),

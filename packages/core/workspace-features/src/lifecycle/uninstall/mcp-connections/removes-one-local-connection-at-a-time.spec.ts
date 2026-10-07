@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../../testing/install-world.js";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -60,16 +61,18 @@ describe("Uninstall a locally named MCP connection", () => {
           expect(JSON.stringify(readSettings(workspace))).not.toContain("work-context");
           expect(workspace.readFile(".mcp.json")).not.toContain("work-context");
           expect(workspace.readFile(".mcp.json")).toContain("personal-context");
-          expect(workspace.exists("agent_extensions/registry/@acme/mcps/context/mcp.json")).toBe(
-            true,
-          );
+          expect(
+            workspace.exists(`${fileRegistryPackagePath(registry, "mcps", "context")}/mcp.json`),
+          ).toBe(true);
           expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
 
           yield* applyUninstall(
             uninstallRequest({ type: "mcp-server", selector: "personal-context" }),
           );
 
-          expect(workspace.exists("agent_extensions/registry/@acme/mcps/context")).toBe(false);
+          expect(workspace.exists(fileRegistryPackagePath(registry, "mcps", "context"))).toBe(
+            false,
+          );
           expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 1.0.0");
         }),
       )
@@ -93,7 +96,10 @@ describe("Uninstall a locally named MCP connection", () => {
                 localName: "work-context",
               }),
             );
-            workspace.writeFile("agent_extensions/registry/@acme/mcps/context/mcp.json", "{");
+            workspace.writeFile(
+              `${fileRegistryPackagePath(registry, "mcps", "context")}/mcp.json`,
+              "{",
+            );
 
             const result = yield* applyUninstall(
               uninstallRequest({ type: "mcp-server", selector: "work-context" }),

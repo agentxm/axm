@@ -205,6 +205,7 @@ const readSourceSettings = (
 export const inspectExtensionPackage = (
   directory: string,
   defaultOwner: Option.Option<Handle> = Option.none(),
+  selectedType?: ExtensionType,
 ): Effect.Effect<
   DiscoveredManifestExtensionPackage,
   SourceNotResolvable,
@@ -223,7 +224,10 @@ export const inspectExtensionPackage = (
       ),
     );
     const manifestEntries = entries
-      .filter((entry) => extensionTypeForManifestFilename(entry) !== undefined)
+      .filter((entry) => {
+        const type = extensionTypeForManifestFilename(entry);
+        return type !== undefined && (selectedType === undefined || selectedType === type);
+      })
       .sort();
     const manifestFile = manifestEntries[0];
     if (manifestFile === undefined) {
@@ -524,12 +528,22 @@ export const discoverExtensionPackages = (
           (entry) => extensionTypeForManifestFilename(entry) !== undefined,
         );
         if (manifests.length > 0) {
-          const candidate = yield* inspectExtensionPackage(directory, sourceSettings.owner).pipe(
-            Effect.provideService(FileSystem.FileSystem, fs),
-            Effect.provideService(Path.Path, path),
+          const candidates = yield* Effect.forEach(manifests.sort(), (manifest) =>
+            inspectExtensionPackage(
+              directory,
+              sourceSettings.owner,
+              extensionTypeForManifestFilename(manifest),
+            ).pipe(
+              Effect.provideService(FileSystem.FileSystem, fs),
+              Effect.provideService(Path.Path, path),
+            ),
           );
-          const distributionKey = `${candidate.identity.type}:${candidate.identity.name}`;
-          return !sourceSettings.distributionOptOuts.has(distributionKey) ? [candidate] : [];
+          return candidates.filter(
+            (candidate) =>
+              !sourceSettings.distributionOptOuts.has(
+                `${candidate.identity.type}:${candidate.identity.name}`,
+              ),
+          );
         }
 
         const portable = entries.includes("SKILL.md")

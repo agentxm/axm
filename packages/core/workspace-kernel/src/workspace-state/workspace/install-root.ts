@@ -1,14 +1,9 @@
 /**
  * Install-root inventory.
  *
- * Classifies every entry in a scope's install root (`agent_extensions`): an
- * installed package whose path gives a well-formed extension identity or is
- * proven by an accepted resolution, AXM's own interrupted staging, or an
- * unrecognized entry. Each installed package records whether desired state
- * still reaches it; one that nothing reaches is a leftover.
- *
- * Location inside the install root is AXM's install proof for canonical
- * package directories only. It never proves ownership of agent projections.
+ * Accepted resolutions prove installed package ownership. Directory names do
+ * not: unknown content is preserved, including after accepted metadata loss.
+ * Native projection ownership is established independently.
  *
  * @experimental This API is unstable and may change without notice.
  * @packageDocumentation
@@ -21,8 +16,6 @@ import * as Path from "effect/Path";
 import { isStrictlyWithin } from "@agentxm/extension-model/unstable/path-types";
 import {
   extensionTypes,
-  isExtensionTypePlural,
-  toExtensionType,
   toExtensionTypePlural,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
@@ -32,8 +25,7 @@ import { lockEntries } from "./entry-accessors.js";
 import { isInstallRootStagingName } from "./constants.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
 import { unresolvedPackRoutes } from "./desired-state-queries.js";
-import { sanitizeName } from "./extension-name.js";
-import { computeExtensionPathsForLayout } from "./extension-paths.js";
+import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./extension-paths.js";
 import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
 import type { WorkspaceLayout } from "./layout.js";
 import type { LockfileReaderService } from "./lockfile-reader.js";
@@ -73,52 +65,6 @@ export interface InstallRootInventory {
 
 const PLATFORM_METADATA_FILES: ReadonlySet<string> = new Set([".DS_Store", "Thumbs.db"]);
 
-const isCanonicalName = (name: string) => sanitizeName(name) === name;
-const isOwnerSegment = (segment: string) =>
-  segment.startsWith("@") && segment.length > 1 && isCanonicalName(segment.slice(1));
-
-/**
- * `<source>/@<owner>/<plural>/<name>` for acquired packages, or
- * `@<owner>/<plural>/<name>` for user-scope authored packages.
- */
-const identityOf = (
-  segments: ReadonlyArray<string>,
-): Pick<InstalledPackageEntry, "type" | "name" | "owner" | "sourceDirectory"> | undefined => {
-  const [first = "", second = "", third = "", fourth = ""] = segments;
-  const shape =
-    segments.length === 4 && !first.startsWith("@")
-      ? { sourceDirectory: first, owner: second, plural: third, name: fourth }
-      : segments.length === 3
-        ? { sourceDirectory: undefined, owner: first, plural: second, name: third }
-        : undefined;
-  if (shape === undefined || !isOwnerSegment(shape.owner) || !isCanonicalName(shape.name))
-    return undefined;
-  if (!isExtensionTypePlural(shape.plural)) return undefined;
-  return {
-    type: toExtensionType(shape.plural),
-    name: shape.name,
-    owner: shape.owner,
-    sourceDirectory: shape.sourceDirectory,
-  };
-};
-
-/** Whether a directory can still lead to a well-formed identity path. */
-const isIdentityPrefix = (segments: ReadonlyArray<string>) => {
-  const [first = "", second = "", third = ""] = segments;
-  switch (segments.length) {
-    case 1:
-      return true;
-    case 2:
-      return first.startsWith("@")
-        ? isOwnerSegment(first) && isExtensionTypePlural(second)
-        : isOwnerSegment(second);
-    case 3:
-      return !first.startsWith("@") && isExtensionTypePlural(third);
-    default:
-      return false;
-  }
-};
-
 export interface ObserveInstallRootArgs {
   readonly layout: WorkspaceLayout;
   readonly graph: DesiredStateGraph;
@@ -146,18 +92,26 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
         entry,
       })),
     );
-    const lockedPaths = new Map<string, (typeof accepted)[number] & { readonly reached: boolean }>(
-      accepted.map((row) => [
-        computeExtensionPathsForLayout(
-          path.join,
-          layout,
-          extensionPathSourceFromLockEntry(row.entry),
-          toExtensionTypePlural(row.type),
-          row.entry.identity.name,
-        ).canonicalPath,
-        { ...row, reached: desiredReachesAcceptedRow(graph, row) },
-      ]),
+    const bundledPaths = new Set(
+      graph.nodes.flatMap((node) =>
+        node.type === "skill" && node.identity.authority === "bundled"
+          ? [bundledSkillCanonicalRoot(path.join, layout, node.name)]
+          : [],
+      ),
     );
+    const lockedPaths = new Map<string, Array<(typeof accepted)[number]>>();
+    for (const row of accepted) {
+      const canonicalPath = computeExtensionPathsForLayout(
+        path.join,
+        layout,
+        extensionPathSourceFromLockEntry(row.entry),
+        toExtensionTypePlural(row.type),
+        row.entry.identity.name,
+      ).canonicalPath;
+      const bindings = lockedPaths.get(canonicalPath);
+      if (bindings === undefined) lockedPaths.set(canonicalPath, [row]);
+      else bindings.push(row);
+    }
     // A desired extension whose resolution is not yet accepted may still be
     // materialized into this path, so it reaches every same-named package.
     const routesUnresolved = unresolvedPackRoutes(graph).length > 0;
@@ -178,17 +132,15 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
       );
 
     const leadsToLockedPath = (directory: string) =>
-      [...lockedPaths.keys()].some((locked) => isStrictlyWithin(path, directory, locked));
+      [...lockedPaths.keys(), ...bundledPaths].some((locked) =>
+        isStrictlyWithin(path, directory, locked),
+      );
 
-    const visit = (
-      directory: string,
-      segments: ReadonlyArray<string>,
-    ): Effect.Effect<void, never> =>
+    const visit = (directory: string): Effect.Effect<void, never> =>
       Effect.gen(function* () {
         const names = yield* fs.readDirectory(directory).pipe(Effect.orElseSucceed(() => []));
         for (const name of [...names].sort()) {
           const absolute = path.join(directory, name);
-          const childSegments = [...segments, name];
           if (isInstallRootStagingName(name) || PLATFORM_METADATA_FILES.has(name)) continue;
           if (yield* isLink(absolute)) {
             unrecognized.push({ kind: "unrecognized", path: absolute, entryKind: "symlink" });
@@ -200,39 +152,41 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
             unrecognized.push({ kind: "unrecognized", path: absolute, entryKind: "file" });
             continue;
           }
-          const locked = lockedPaths.get(absolute);
-          const identity = identityOf(childSegments);
-          const type = locked?.type ?? identity?.type;
-          const packageName = locked?.entry.identity.name ?? identity?.name;
+          if (bundledPaths.has(absolute)) continue;
+          const bindings = lockedPaths.get(absolute) ?? [];
+          const locked = bindings[0];
+          const type = locked?.type;
+          const packageName = locked?.entry.identity.name;
           if (type !== undefined && packageName !== undefined) {
-            // A path without a source directory is authored content, which is
-            // never inferred to be undesired.
             const reached =
               routesUnresolved ||
-              (locked === undefined && identity?.sourceDirectory === undefined) ||
-              (locked?.reached ?? false) ||
-              unlockedDesired.some((node) => node.type === type && node.name === packageName);
+              bindings.some((row) => desiredReachesAcceptedRow(graph, row)) ||
+              bindings.some((row) =>
+                unlockedDesired.some(
+                  (node) => node.type === row.type && node.name === row.entry.identity.name,
+                ),
+              );
             packages.push({
               kind: "package",
               type,
               name: packageName,
-              owner: identity?.owner,
-              sourceDirectory: identity?.sourceDirectory,
+              owner: locked?.entry.identity.owner,
+              sourceDirectory: path.relative(root, absolute).split(path.sep)[0],
               path: absolute,
               lockKey: locked?.key,
               reached,
             });
             continue;
           }
-          if (isIdentityPrefix(childSegments) || leadsToLockedPath(absolute)) {
-            yield* visit(absolute, childSegments);
+          if (leadsToLockedPath(absolute)) {
+            yield* visit(absolute);
             continue;
           }
           unrecognized.push({ kind: "unrecognized", path: absolute, entryKind: "directory" });
         }
       });
 
-    if (yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false))) yield* visit(root, []);
+    if (yield* fs.exists(root).pipe(Effect.orElseSucceed(() => false))) yield* visit(root);
 
     return {
       root,

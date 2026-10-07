@@ -1,3 +1,4 @@
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -164,14 +165,16 @@ describe("Pack state inspection", () => {
         },
       },
       files: {
-        "agent_extensions/registry/@acme/packs/toolkit/pack.json": JSON.stringify(manifest),
-        "agent_extensions/registry/@acme/mcps/context/mcp.json": JSON.stringify({
-          owner: "@acme",
-          type: "mcp-server",
-          name: "context",
-          version: "1.0.0",
-          server: { name: "io.acme/context", description: "Context server", version: "1.0.0" },
-        }),
+        [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit/pack.json`]:
+          JSON.stringify(manifest),
+        [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context/mcp.json`]:
+          JSON.stringify({
+            owner: "@acme",
+            type: "mcp-server",
+            name: "context",
+            version: "1.0.0",
+            server: { name: "io.acme/context", description: "Context server", version: "1.0.0" },
+          }),
       },
     });
     return fixture
@@ -179,25 +182,21 @@ describe("Pack state inspection", () => {
         Effect.gen(function* () {
           // Accept the materialized MCP package exactly as written.
           const treeIntegrity = yield* computeMaterializedTreeIntegrity(
-            `${fixture.root}/agent_extensions/registry/@acme/mcps/context`,
+            `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context`,
           );
-          const lockfile: unknown = JSON.parse(fixture.readFile("axm-lock.yaml"));
-          const accepted = Schema.decodeUnknownSync(
-            Schema.Struct({ mcpServers: Schema.Record(Schema.String, Schema.Unknown) }),
-          )(lockfile);
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            JSON.parse(fixture.readFile("axm-lock.yaml")),
+          );
+          const accepted = lockfile.mcpServers?.[resolutionKey];
+          if (accepted === undefined) throw new Error("Expected accepted MCP");
           fixture.writeFile(
             "axm-lock.yaml",
-            JSON.stringify({
-              ...Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(lockfile),
-              mcpServers: {
-                [resolutionKey]: {
-                  ...Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown))(
-                    accepted.mcpServers[resolutionKey],
-                  ),
-                  treeIntegrity,
-                },
-              },
-            }),
+            JSON.stringify(
+              Schema.encodeSync(LockfileSchema)({
+                ...lockfile,
+                mcpServers: { [resolutionKey]: { ...accepted, treeIntegrity } },
+              }),
+            ),
           );
 
           const result = yield* ShowPack.query({ target: "toolkit" });
@@ -229,7 +228,7 @@ describe("Pack state inspection", () => {
             desiredDependencies: [],
           });
           expect(result.canonicalPath).toBe(
-            `${fixture.root}/agent_extensions/registry/@acme/packs/toolkit/pack.json`,
+            `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit/pack.json`,
           );
         }),
       )

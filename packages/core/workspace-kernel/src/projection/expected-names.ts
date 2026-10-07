@@ -3,8 +3,7 @@
  *
  * Lint, sync, agent removal, and uninstall all reconcile native output
  * against the same expectation: every enabled desired extension of each
- * per-agent type, with subagents also expected in the Skill container because
- * that is where their profile is projected. Deriving it once from the graph
+ * per-agent type. Subagents use their own native surface. Deriving this from the graph
  * keeps the callers from drifting apart, and keeps a Pack-contributed member
  * expected even when its own closure is blocked this run.
  *
@@ -25,7 +24,7 @@ export const expectedProjectionNames = (graph: DesiredStateGraph): ExpectedProje
     );
   const subagent = enabled("subagent");
   return {
-    skill: new Set([...enabled("skill"), ...subagent]),
+    skill: enabled("skill"),
     subagent,
     "mcp-server": enabled("mcp-server"),
     hook: enabled("hook"),

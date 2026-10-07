@@ -283,7 +283,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/reports-installed-but-not-configured`
 - Owner: `workspace-features`
-- Statement: When an installed package in the install root is reached by no desired route, lint shall report one warning per such package under workspace/installed-but-not-configured stating its identity, type, scope, canonical path, source directory, and whether a lock row exists, as facts without commands.
+- Statement: When a package proven by accepted metadata in the install root is reached by no desired route, lint shall report one warning per such package under workspace/installed-but-not-configured stating its identity, type, scope, canonical path, source directory, and whether a lock row exists, as facts without commands.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -381,7 +381,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lockfile-rejections-name-recovery-routes`
 - Owner: `workspace-features`
-- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file outside its authoritative path, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.
+- Statement: When a workspace lockfile is rejected as older than the supported version, following the named recovery route (preserving the file and any unproven acquired content outside their authoritative paths, previewing, then applying sync) shall re-accept the desired state into a lockfile at the supported version, selecting each re-accepted extension within its effective desired constraint so that a direct pin on a Pack member holds; when no version satisfies a Pack member's direct pin and every requiring Pack range, the preview and the apply shall each block that member and every Pack requiring it, naming every contributor, and the apply shall accept no resolution for them while independent extensions still converge; and a workspace holding only workspace-authored content shall finish that route without a lockfile.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
@@ -828,7 +828,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 
 - Requirement: `cli/adopt/moves-package-into-workspace-authorship`
 - Owner: `workspace-features`
-- Statement: When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution.
+- Statement: When a person adopts an existing AXM package into an unoccupied authoring location, AXM shall preserve its content in the workspace authoring directory, retain its declared activation (enabling a previously undeclared package), and remove the acquired copy and its external resolution. AXM shall refuse to move a retained package shared by other accepted components or desired consumers, preserving their content and bindings.
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
@@ -1254,6 +1254,19 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace-features/src/discovery/discover.test.ts`
 - Source: [`packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts)
 
+##### Retained package source addresses preserve exclusive ownership
+
+- Requirement: `cli/extensions/install/refuses-overlapping-package-addresses`
+- Owner: `workspace-features`
+- Statement: Before an install changes workspace state, AXM shall refuse distinct retained packages whose source-address paths coincide or overlap on supported filesystems, including case-insensitive spelling, and shall refuse an existing destination or replacement scratch path without accepted ownership. Repeated selected components of the same retained package shall share its address.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/refuses-overlapping-package-addresses.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/refuses-overlapping-package-addresses.spec.ts)
+
 ##### Explicit fixture execution produces bounded, attributable evidence
 
 - Requirement: `cli/hooks/test/executes-declared-fixtures`
@@ -1321,6 +1334,20 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/materializes-canonical-content.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/materializes-canonical-content.spec.ts)
+
+##### Every native extension kind retains its Git package at the source address
+
+- Requirement: `cli/install/retains-all-native-kinds-from-git`
+- Owner: `workspace-features`
+- Statement: Installing any of the seven native extension kinds from Git shall retain its complete package at the source host, repository, and package path. Distinct native kinds co-located at one package root shall share one accepted snapshot and retained directory in project and user scopes, preserve existing selections when adding another kind, and remove the package only after its final selected consumer is removed.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real local Git transport, package files, desired state, accepted lock state, and native outputs exercise every extension kind through the lifecycle boundary.
+- Methods: example, decision-table
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts)
 
 ##### Browser sign-in uses the selected Registry's paired web origin
 
@@ -1437,11 +1464,25 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/install/skills/pinned-upstream-skills-complete-lifecycle.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/pinned-upstream-skills-complete-lifecycle.spec.ts)
 
+##### Pinned source layouts retain one complete package at their source address
+
+- Requirement: `cli/skills/install/retains-pinned-source-packages`
+- Owner: `workspace-features`
+- Statement: For the pinned Basecamp and Matt Pocock plugin layouts and native spot-spew layout, selected skills shall retain the complete package once at its host and repository path, activate only selected components, restore the shared accepted snapshot with one acquisition, and retire that package only after its last consumer is removed.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Recorded pinned layout facts and synthetic bodies travel through real local Git acquisition, filesystem retention, native projection, sync, and removal; the same package boundaries also verify placement for the recorded public source URLs.
+- Methods: example, decision-table
+- Derived from: `cli/skills/install/retains-plugin-package-context`
+- Source: [`packages/core/workspace-features/src/lifecycle/install/skills/retains-pinned-source-packages.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/retains-pinned-source-packages.spec.ts)
+
 ##### Selected plugin skills retain their upstream package context
 
 - Requirement: `cli/skills/install/retains-plugin-package-context`
 - Owner: `workspace-features`
-- Statement: When a consumer selects a skill from a supported plugin package, AXM shall retain the complete package and its relative layout unchanged, activate only the selected skill, and preserve that skill's contained links to package resources outside its component directory. If the target filesystem cannot realize that package context without changing the payload, AXM shall report the unsupported activation and roll back the installation.
+- Statement: When a consumer selects a skill from a supported plugin package, AXM shall retain the complete package and its relative layout unchanged, share that retained package among selected components until the last accepted binding is removed, add components at the accepted package snapshot even when the upstream selector advances, atomically install or update all selected consumers of the package while retaining disabled activation state and refusing disappearance of a selected component, activate only the selected skills, and preserve that skill's contained links to package resources outside its component directory. If the target filesystem cannot realize that package context without changing the payload, AXM shall report the unsupported activation and roll back the installation.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
@@ -3242,7 +3283,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/install/shared-pack-members-need-one-source-authority`
 - Owner: `workspace-features`
-- Statement: When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ.
+- Statement: When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -4012,7 +4053,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/list/classifies-unexplained-content`
 - Owner: `workspace-features`
-- Statement: When listing extensions, AXM shall classify each detected extension that desired state does not explain as leftover when it is an installed package in the install root that is not configured, undeclared when it is an authored package in its standard authoring folder that is not declared, or unmanaged when it is native agent content, and update and deprecation assessments shall report leftover and undeclared extensions as not applicable.
+- Statement: When listing extensions, AXM shall classify each detected extension that desired state does not explain as leftover when accepted metadata proves it is an installed package in the install root that is not configured, undeclared when it is an authored package in its standard authoring folder that is not declared, or unmanaged when it is native agent content, and update and deprecation assessments shall report leftover and undeclared extensions as not applicable.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -4497,7 +4538,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/sync/removes-leftover-installed-packages`
 - Owner: `workspace-features`
-- Statement: When an installed package in the install root is reached by no desired route, sync shall plan one removal unit for it naming its identity, canonical path, and that it is not desired, and shall remove that package directory, any accepted record for it, and the agent projections AXM owns for it without following symbolic links out of the install root, leaving desired packages and unrecognized install-root entries untouched, and shall report convergence only when no such package remains.
+- Statement: When a package proven by accepted metadata in the install root is reached by no desired route, sync shall preview its canonical path for removal as unreachable acquired content, and shall remove that package directory, any accepted record for it, and the agent projections AXM owns for it without following symbolic links out of the install root, leaving desired packages and unproven install-root content untouched even after total accepted metadata loss, and shall report convergence only when no such package remains.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -5042,7 +5083,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Owner: `workspace-kernel`
-- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.
+- Statement: Git and path source discovery shall find every extension type defined by the manifest policy, including distinct native manifests co-located at one complete package root, shall keep portable SKILL.md as the only manifest-free convention, shall omit workspace entries whose distribution intent is false, and shall refuse duplicate declared identities.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
@@ -6201,7 +6242,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace-inventory/leftover-follows-desired-state-reachability`
 - Owner: `workspace-features`
-- Statement: When an installed package in the install root is reached by no desired route, the workspace inventory shall classify it as leftover; it shall classify as leftover no package a desired route reaches and none while desired state is incomplete; and the packages it names as leftover shall be the packages the install-root observation names, so list, lint and sync agree.
+- Statement: When a package proven by accepted metadata in the install root is reached by no desired route, the workspace inventory shall classify it as leftover; it shall classify as leftover no package a desired route reaches and none while desired state is incomplete or accepted ownership is absent; and the packages it names as leftover shall be the packages the install-root observation names, so list, lint and sync agree.
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

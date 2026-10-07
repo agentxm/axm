@@ -1,3 +1,4 @@
+import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -108,7 +109,7 @@ const hasAggregateProjection = (surface: InstallSurface): boolean =>
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
-  path.join(workspacePath, "agent_extensions", "registry", OWNER, surface, name);
+  configuredRegistryFixturePath(workspacePath, OWNER, surface, name);
 
 const configureWorkspaceRegistry = (workspacePath: string, registryPath: string) => {
   const settingsPath = path.join(workspacePath, "axm.json");
@@ -765,7 +766,10 @@ describe("axm install", () => {
         expect(rootFootprint).toContain("modified axm.json");
         expect(rootFootprint).toContain("modified axm-lock.yaml");
         expect(rootFootprint).toContain(
-          `created agent_extensions/registry/${OWNER}/${surface}/${name}`,
+          `created ${path
+            .relative(rootWorkspace.path, extensionDirForSurface(rootWorkspace.path, surface, name))
+            .split(path.sep)
+            .join("/")}`,
         );
 
         const settingsKey = settingsKeyForSurface(surface);
@@ -962,13 +966,24 @@ describe("axm install", () => {
       const labels = result.stdout.result.units.map((unit) => unit.label);
 
       expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.counts.committed).toBe(6);
+      expect(result.stdout.result.counts.committed).toBe(5);
       expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
-      expect(
-        result.stdout.result.units.some((unit) =>
-          unit.artifact?.targets?.some((target) => target.path.includes("pack-mcp")),
-        ),
-      ).toBe(true);
+      expect(result.stdout.result.units).toContainEqual(
+        expect.objectContaining({
+          artifact: expect.objectContaining({
+            nativeLocations: expect.arrayContaining([
+              expect.objectContaining({
+                address: {
+                  kind: "key-path",
+                  path: path.join(workspace.path, ".mcp.json"),
+                  keys: ["mcpServers", "pack-mcp"],
+                },
+                state: "created",
+              }),
+            ]),
+          }),
+        }),
+      );
 
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["workspace-skill"]);
       expectConfiguredEntriesInstalled(workspace.path, "subagents", ["workspace-subagent"]);

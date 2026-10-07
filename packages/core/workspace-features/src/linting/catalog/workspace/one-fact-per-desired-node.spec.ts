@@ -1,3 +1,7 @@
+import { fileRegistryPackagePath } from "../../../testing/install-world.js";
+import type { FileRegistry } from "@agentxm/registry-client/testing";
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -81,9 +85,11 @@ const lint = (workspace: SyncFixture) =>
   );
 
 /** Remove one member's accepted resolution, canonical content, and projections. */
-const forgetMember = (workspace: SyncFixture): void => {
+const forgetMember = (workspace: SyncFixture, registry: FileRegistry): void => {
   const lockPath = nodePath.join(workspace.root, "axm-lock.yaml");
-  const lock: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+  const lock = Schema.decodeUnknownSync(LockfileSchema)(
+    YAML.parse(fs.readFileSync(lockPath, "utf8")),
+  );
   if (typeof lock !== "object" || lock === null || !("skills" in lock)) {
     throw new Error("Expected a lockfile with a skills map");
   }
@@ -93,12 +99,26 @@ const forgetMember = (workspace: SyncFixture): void => {
   }
   fs.writeFileSync(
     lockPath,
-    YAML.stringify({
-      ...lock,
-      skills: Object.fromEntries(Object.entries(skills).filter(([name]) => name !== MEMBER)),
-    }),
+    YAML.stringify(
+      Schema.encodeSync(LockfileSchema)({
+        ...lock,
+        skills: Object.fromEntries(Object.entries(skills).filter(([name]) => name !== MEMBER)),
+      }),
+    ),
   );
-  workspace.remove(`agent_extensions/registry/@acme/skills/${MEMBER}`);
+  workspace.remove(fileRegistryPackagePath(registry, "skills", MEMBER));
+  // Simulate complete loss of the package, without unrelated empty address scaffolding.
+  let ancestor = nodePath.dirname(
+    nodePath.join(workspace.root, fileRegistryPackagePath(registry, "skills", MEMBER)),
+  );
+  const installRoot = nodePath.join(workspace.root, "agent_extensions");
+  while (
+    ancestor.startsWith(`${installRoot}${nodePath.sep}`) &&
+    fs.readdirSync(ancestor).length === 0
+  ) {
+    fs.rmdirSync(ancestor);
+    ancestor = nodePath.dirname(ancestor);
+  }
   workspace.remove(`.claude/skills/${MEMBER}`);
   workspace.remove(`.agents/skills/${MEMBER}`);
 };
@@ -170,14 +190,14 @@ describe("One fact per desired node", () => {
     const loseMember = Effect.gen(function* () {
       yield* applySync();
       const realized = yield* allFindings(workspace);
-      forgetMember(workspace);
+      forgetMember(workspace, registry);
       if (options.member !== undefined) {
         workspace.writeSettings({ ...settings, skills: { [MEMBER]: options.member } });
       }
       if (options.unpublished === true) registry.writeSkill(MEMBER, []);
       return realized;
     });
-    return { workspace, loseMember };
+    return { workspace, registry, loseMember };
   };
 
   /** The one report a sync that cannot restore the member makes, as an operator reads it. */
@@ -203,7 +223,10 @@ describe("One fact per desired node", () => {
   ] as const)(
     "reports $label without an accepted resolution once in lint and once from sync",
     ({ declaredBy, ruleId }) => {
-      const { workspace, loseMember } = workspaceMissingMember({ declaredBy, unpublished: true });
+      const { workspace, registry, loseMember } = workspaceMissingMember({
+        declaredBy,
+        unpublished: true,
+      });
       return workspace
         .provide(
           Effect.gen(function* () {
@@ -211,7 +234,7 @@ describe("One fact per desired node", () => {
             // The whole lint run adds exactly one finding: no artifact or
             // content rule restates the member's absent canonical tree.
             const findings = yield* allFindings(workspace);
-            expect(findings).toHaveLength(realized.length + 1);
+            expect(findings, JSON.stringify(findings)).toHaveLength(realized.length + 1);
             expect(findings).toEqual(
               expect.arrayContaining([
                 ...realized,
@@ -224,7 +247,7 @@ describe("One fact per desired node", () => {
             const reports = yield* syncReports;
             expect(reports).toHaveLength(1);
             expect(reports[0]?.split(FACT)).toHaveLength(2);
-            expect(workspace.exists(`agent_extensions/registry/@acme/skills/${MEMBER}`)).toBe(
+            expect(workspace.exists(fileRegistryPackagePath(registry, "skills", MEMBER))).toBe(
               false,
             );
           }),

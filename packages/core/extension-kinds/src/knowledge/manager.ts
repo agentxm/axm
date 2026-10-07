@@ -2,6 +2,7 @@ import {
   prepareCanonicalParents,
   retireCanonicalDirectory,
   materializeExternalPackageWithTreeIntegrity,
+  recordMaterializedPackage,
 } from "@agentxm/workspace-kernel/acquisition";
 // @effect-diagnostics anyUnknownInErrorContext:off — schema and filesystem errors are swept into KnowledgeIoFailed inside this manager
 /** Lifecycle manager for isolated Open Knowledge Format bundles. */
@@ -335,7 +336,9 @@ export const KnowledgeManagerLive = Layer.effect(
                       ),
                 ),
               ),
-          }).pipe(Effect.asVoid),
+          }).pipe(
+            Effect.flatMap(() => recordMaterializedPackage(ref, canonicalPath, treeIntegrity)),
+          ),
         };
       }).pipe(
         Effect.mapError((cause) =>
@@ -928,11 +931,6 @@ export const KnowledgeManagerLive = Layer.effect(
               ref.sourcePath ?? fromFileLocation(ref.location),
             )
           : Option.none<string>();
-      if (ref.refType === "local" && Option.isNone(workspaceRelativeLocalSourcePath)) {
-        return yield* new KnowledgeDefinitionInvalid({
-          detail: `Local knowledge source must stay within the workspace: ${ref.source.path}`,
-        });
-      }
       const prepared = yield* preparePackage(ref, force === true, nativeInsertionEligible);
       yield* prepared.commit;
       return acquiredFacts(prepared, workspaceRelativeLocalSourcePath);

@@ -34,7 +34,7 @@ const OWNER = "@acme";
 
 const manifests: PackManifestsPort = {
   locate: ({ owner, name }) => {
-    const relativePath = `agent_extensions/registry/${owner}/packs/${name}/pack.json`;
+    const relativePath = `agent_extensions/registry.agentxm.ai/${owner}/packs/${name}/pack.json`;
     const dependencies =
       name === "alpha"
         ? { "@acme/skills/review": "^1.0.0", "@acme/rules/guard": "^1.0.0" }

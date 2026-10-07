@@ -14,7 +14,7 @@ const pack = (dependingPack: string, range: string): DesiredConstraintContributo
   source: "pack",
   dependingPack,
   range,
-  location: `agent_extensions/registry/${dependingPack}/pack.json`,
+  location: `agent_extensions/registry.agentxm.ai/${dependingPack}/pack.json`,
 });
 
 describe("heldBackReleaseWarnings", () => {

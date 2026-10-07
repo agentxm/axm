@@ -140,7 +140,7 @@ const makeSetupTestContext = (opts?: {
       path.join(
         process.cwd(),
         "agent_extensions",
-        "registry",
+        "registry.agentxm.ai",
         "@agentxm",
         "skills",
         "axm",
@@ -346,7 +346,7 @@ describe("setup.handler", () => {
                 label: "@agentxm/skills/axm",
                 status: "applied",
                 artifact: expect.objectContaining({
-                  path: "agent_extensions/registry/@agentxm/skills/axm",
+                  path: "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm",
                   version: AXM_SKILL_VERSION,
                 }),
               }),
@@ -511,7 +511,7 @@ describe("setup.handler", () => {
           const skillJsonPath = path.join(
             tempDir,
             "agent_extensions",
-            "registry",
+            "registry.agentxm.ai",
             "@agentxm",
             "skills",
             "axm",
@@ -520,7 +520,7 @@ describe("setup.handler", () => {
           const skillMdPath = path.join(
             tempDir,
             "agent_extensions",
-            "registry",
+            "registry.agentxm.ai",
             "@agentxm",
             "skills",
             "axm",
@@ -566,7 +566,7 @@ describe("setup.handler", () => {
           );
           fs.writeFileSync(
             path.join(tempDir, "axm-lock.yaml"),
-            "lockfileVersion: 10\nskills: {}\n",
+            "lockfileVersion: 11\npackages: {}\nskills: {}\n",
           );
 
           yield* handleSetup({ scope: "project" });
@@ -1713,7 +1713,7 @@ describe("setup.handler", () => {
           const canonicalParent = path.join(
             tempDir,
             "agent_extensions",
-            "registry",
+            "registry.agentxm.ai",
             "@agentxm",
             "skills",
           );
@@ -1744,7 +1744,7 @@ describe("setup.handler", () => {
           fs.writeFileSync(path.join(tempDir, "axm.json"), "not valid json {{{");
           fs.writeFileSync(
             path.join(tempDir, "axm-lock.yaml"),
-            "lockfileVersion: 10\nskills: {}\n",
+            "lockfileVersion: 11\npackages: {}\nskills: {}\n",
           );
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);

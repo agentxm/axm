@@ -78,7 +78,7 @@ describe("workspace/desired-state-reconcilable canonical modifications", () => {
       type: "skill",
       name: "installed-skill",
       status: "materialization-mismatch",
-      path: "/workspace/agent_extensions/registry/@test/skills/installed-skill",
+      path: "/workspace/agent_extensions/registry.agentxm.ai/@test/skills/installed-skill",
     } satisfies CanonicalObservation;
 
     return Effect.gen(function* () {

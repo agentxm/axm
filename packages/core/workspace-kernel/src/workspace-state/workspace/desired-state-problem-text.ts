@@ -1,3 +1,4 @@
+import { formatDesiredIdentity } from "./desired-identity.js";
 import type { DesiredConstraintContributor, DesiredStateProblem } from "./desired-state-graph.js";
 
 /** Stable text naming every contributor to a desired constraint, shared by lint and sync. */
@@ -51,7 +52,7 @@ export const desiredStateProblemText = (problem: DesiredStateProblem): string =>
     case "pack-resolution-unavailable":
       return `${problem.pack}: ${problem.detail}`;
     case "projection-collision":
-      return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.join(", ")}`;
+      return `${problem.extensionType} ${problem.name}: competing identities ${problem.identities.map(formatDesiredIdentity).join(", ")}`;
     case "constraint-conflict":
       return `${problem.extensionType} ${problem.name}: incompatible constraints ${formatConstraintContributors(problem.contributors)}; decision=blocked; reason=no-satisfying-version`;
     case "workspace-owner-missing":

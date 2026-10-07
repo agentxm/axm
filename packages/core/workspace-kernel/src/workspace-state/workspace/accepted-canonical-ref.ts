@@ -12,6 +12,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
+import type { WorkspaceLayout } from "./layout.js";
+import type { Lockfile } from "../desired/lockfile/schema.js";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   decodeExtensionNameSync,
@@ -38,6 +40,9 @@ import { resolveWorkspaceExtensionRef } from "./configured-entry-resolution/work
 import type { DesiredExtensionNode } from "./desired-state-graph.js";
 import { DesiredStateReader } from "./desired-state-reader.js";
 import { LockfileReader } from "./lockfile-reader.js";
+import { acceptedRowKey } from "./accepted-reachability.js";
+import { lockEntries } from "./entry-accessors.js";
+import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
@@ -62,6 +67,8 @@ export type AcceptedCanonicalRefError =
 export interface AcceptedCanonicalObservation {
   readonly desired: DesiredExtensionNode;
   readonly accepted?: LockEntry;
+  /** Another accepted binding still owns this complete package. */
+  readonly sharedPackage?: boolean;
   readonly observation: CanonicalObservation;
 }
 
@@ -78,9 +85,33 @@ export const removableAcceptedCanonicalPath = (
   canonical: Option.Option<AcceptedCanonicalObservation>,
 ): Option.Option<string> =>
   Option.flatMap(canonical, (state) =>
-    state.desired.identity.authority === "workspace"
+    state.desired.identity.authority === "workspace" || state.sharedPackage === true
       ? Option.none()
       : Option.fromUndefinedOr(state.observation.path),
+  );
+
+/** Accepted package ownership survives until every binding has been retired. */
+const hasOtherPackageBinding = (args: {
+  readonly path: Path.Path;
+  readonly layout: WorkspaceLayout;
+  readonly lockfile: Lockfile;
+  readonly canonicalPath: string;
+  readonly excluded: { readonly type: InstallableExtensionType; readonly key: string };
+}): boolean =>
+  installableExtensionTypes.some((type) =>
+    Object.entries(lockEntries[type].entries(args.lockfile)).some(
+      ([key, entry]) =>
+        !(type === args.excluded.type && key === args.excluded.key) &&
+        args.path.resolve(
+          computeExtensionPathsForLayout(
+            args.path.join,
+            args.layout,
+            extensionPathSourceFromLockEntry(entry),
+            toExtensionTypePlural(type),
+            entry.identity.name,
+          ).canonicalPath,
+        ) === args.path.resolve(args.canonicalPath),
+    ),
   );
 
 /** Exact acquired canonical path reconstructed directly from accepted lock authority. */
@@ -117,7 +148,10 @@ export const acceptedLockedCanonicalPath = (
 export const prepareAcceptedCanonicalTransition = (
   args: AcceptedCanonicalRefArgs & { readonly ref: ExtensionRef },
 ): Effect.Effect<
-  Effect.Effect<void, WorkspaceSnapshotError | SupersededCanonicalRemovalFailed>,
+  Effect.Effect<
+    void,
+    WorkspaceStateReadFailure | WorkspaceSnapshotError | SupersededCanonicalRemovalFailed
+  >,
   WorkspaceStateReadFailure,
   FileSystem.FileSystem | Path.Path | WorkspaceLocation | LockfileReader
 > =>
@@ -126,6 +160,7 @@ export const prepareAcceptedCanonicalTransition = (
     const path = yield* Path.Path;
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
+    const reader = yield* LockfileReader;
     const previous = yield* acceptedLockedCanonicalPath(args);
     if (Option.isNone(previous)) return yield* Effect.succeed(Effect.void);
 
@@ -146,6 +181,16 @@ export const prepareAcceptedCanonicalTransition = (
 
     return yield* Effect.succeed(
       Effect.gen(function* () {
+        if (
+          hasOtherPackageBinding({
+            path,
+            layout,
+            lockfile: yield* reader.lockfile,
+            canonicalPath: previous.value,
+            excluded: { type: args.type, key: args.name },
+          })
+        )
+          return;
         yield* protectWorkspacePath(previous.value);
         yield* fs
           .remove(previous.value, { recursive: true, force: true })
@@ -303,7 +348,8 @@ export const observeDesiredCanonical = (
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const layout = yield* Ref.get(location.layout);
-    const accepted = yield* (yield* LockfileReader).acceptedEntry(desired.type, desired.name);
+    const reader = yield* LockfileReader;
+    const accepted = yield* reader.acceptedEntry(desired.type, desired.name);
     const observation = yield* observeCanonicalExtension({
       layout,
       desired,
@@ -313,6 +359,18 @@ export const observeDesiredCanonical = (
       desired,
       ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
       observation,
+      sharedPackage:
+        observation.path !== undefined &&
+        hasOtherPackageBinding({
+          path: yield* Path.Path,
+          layout,
+          lockfile: yield* reader.lockfile,
+          canonicalPath: observation.path,
+          excluded: {
+            type: desired.type,
+            key: Option.getOrElse(acceptedRowKey(desired), () => desired.name),
+          },
+        }),
     };
   });
 

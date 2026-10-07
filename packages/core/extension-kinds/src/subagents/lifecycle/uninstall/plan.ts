@@ -83,6 +83,7 @@ const subagentArtifact = (args: {
   readonly workspaceRoot: string;
   readonly path: Path.Path;
   readonly change: JobStepArtifact["change"];
+  readonly retainCanonical?: boolean;
   /** How the accepted resolution moved; a retained package keeps its row. */
   readonly lockfileChange: JobStepArtifactTarget["change"];
   readonly scope: JobStepArtifact["scope"];
@@ -95,7 +96,7 @@ const subagentArtifact = (args: {
     subagentSourceTarget({
       name: args.name,
       lockEntry: args.lockEntry,
-      change: targetChange,
+      change: args.retainCanonical === true ? "unchanged" : targetChange,
       scope: args.scope,
     }),
     ...args.materializedTargets.map((target) => ({
@@ -233,6 +234,7 @@ export const planSubagentUninstall: (
               agents: observation.agents,
               nativeLocations: observation.nativeLocations,
               change: "removed",
+              retainCanonical: settlement.canonical === "retained-by-component",
               lockfileChange: "updated",
               scope: location.scope,
             }),

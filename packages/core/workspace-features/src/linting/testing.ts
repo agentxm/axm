@@ -29,6 +29,7 @@ import {
   ConfiguredAgentOutcomesProviderTest,
   makeRegistrySkillLockEntry,
   treeIntegrityOfSync,
+  storedLockfileFixture,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
@@ -231,7 +232,8 @@ export const makeLintWorkspace = (
 // -----------------------------------------------------------------------------
 
 /** Where a project workspace keeps the official AXM skill's canonical package. */
-export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT = "agent_extensions/registry/@agentxm/skills/axm";
+export const OFFICIAL_AXM_SKILL_PACKAGE_ROOT =
+  "agent_extensions/registry.agentxm.ai/@agentxm/skills/axm";
 
 /**
  * An extraneous copy of the official skill outside the selected canonical
@@ -453,7 +455,7 @@ const arrangeOfficialSkill = (state: OfficialAxmSkillState): OfficialSkillArrang
       const { acceptedVersion: _accepted, ...unaccepted } = registryAccepted(
         FIXTURE_CLI_VERSION,
         FIXTURE_CLI_VERSION_RANGE,
-        { "axm-lock.yaml": "lockfileVersion: 10\nskills: {}\n" },
+        { "axm-lock.yaml": "lockfileVersion: 11\npackages: {}\nskills: {}\n" },
       );
       return unaccepted;
     }
@@ -540,19 +542,21 @@ export const makeOfficialAxmSkillWorkspace = (
     });
     fixture.writeFile(
       "axm-lock.yaml",
-      `${JSON.stringify({
-        lockfileVersion: 10,
-        skills: {
-          axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
-            ? {
-                ...entry,
-                treeIntegrity: treeIntegrityOfSync(
-                  nodePath.join(fixture.root, OFFICIAL_AXM_SKILL_PACKAGE_ROOT),
-                ),
-              }
-            : entry,
-        },
-      })}\n`,
+      `${JSON.stringify(
+        storedLockfileFixture({
+          lockfileVersion: 11,
+          skills: {
+            axm: fixture.exists(OFFICIAL_AXM_SKILL_PACKAGE_ROOT)
+              ? {
+                  ...entry,
+                  treeIntegrity: treeIntegrityOfSync(
+                    nodePath.join(fixture.root, OFFICIAL_AXM_SKILL_PACKAGE_ROOT),
+                  ),
+                }
+              : entry,
+          },
+        }),
+      )}\n`,
     );
   }
   return { ...fixture, cliVersion: arrangement.cliVersion };

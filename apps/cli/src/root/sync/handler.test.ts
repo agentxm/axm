@@ -1,3 +1,5 @@
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -11,6 +13,7 @@ import * as Fiber from "effect/Fiber";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
 import {
@@ -26,7 +29,10 @@ import {
   ConfiguredAgentOutcomesProviderLive,
   ProjectionParticipantsLive,
 } from "@agentxm/workspace-kernel/reconciliation/live";
-import { computePackManifestContentIdentity } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  acquiredPackageRelativePath,
+  computePackManifestContentIdentity,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { type PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import { type SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import {
@@ -61,6 +67,24 @@ import { runUninstallCommand } from "../shared/uninstall-command.js";
 import { injectWriteFaults } from "@agentxm/workspace-kernel/settlement/testing";
 import { handleSync } from "./handler.js";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
+
+const canonicalRegistryPath = (
+  baseDir: string,
+  source: Extract<PackRef["source"], { readonly type: "registry" }>,
+  type: "skills" | "packs",
+  name: string,
+) =>
+  path.join(
+    baseDir,
+    "agent_extensions",
+    Result.getOrThrow(
+      acquiredPackageRelativePath(
+        { refType: "registry", owner: handle("@acme"), source },
+        type,
+        name,
+      ),
+    ),
+  );
 
 const writeJson = (filePath: string, value: unknown) => {
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
@@ -399,22 +423,8 @@ const makePackRollbackFixture = (
     },
   });
 
-  const canonicalSkill = path.join(
-    baseDir,
-    "agent_extensions",
-    "registry",
-    "@acme",
-    "skills",
-    "review",
-  );
-  const canonicalPack = path.join(
-    baseDir,
-    "agent_extensions",
-    "registry",
-    "@acme",
-    "packs",
-    "toolkit",
-  );
+  const canonicalSkill = canonicalRegistryPath(baseDir, registrySource, "skills", "review");
+  const canonicalPack = canonicalRegistryPath(baseDir, registrySource, "packs", "toolkit");
   if (options.canonicalPackState === "changed") {
     writePackPackage(canonicalPack, divergentPackManifest);
   }
@@ -471,7 +481,7 @@ const expectPackRollbackPreimages = (
   const lockfile = fs.readFileSync(paths.lockfile, "utf8");
   expect(lockfile).toBe(before.lockfile);
   expect(YAML.parse(lockfile)).toEqual(YAML.parse(before.lockfile));
-  expect(YAML.parse(lockfile)).toMatchObject({
+  expect(Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(lockfile))).toMatchObject({
     packs: { toolkit: { resolved: { version: "1.0.0" } } },
     skills: { review: { resolved: { version: "1.0.0" } } },
   });
@@ -600,12 +610,12 @@ const makeConstraintMismatchFixture = (
   });
   for (const manifest of manifests) {
     writePackPackage(
-      path.join(baseDir, "agent_extensions", "registry", "@acme", "packs", manifest.name),
+      canonicalRegistryPath(baseDir, registrySource, "packs", manifest.name),
       manifest,
     );
   }
   writeSkillPackage(
-    path.join(baseDir, "agent_extensions", "registry", "@acme", "skills", "review"),
+    canonicalRegistryPath(baseDir, registrySource, "skills", "review"),
     "review",
     "1.0.0",
   );
@@ -617,12 +627,7 @@ const makeConstraintMismatchFixture = (
       lockfile: path.join(baseDir, "axm-lock.yaml"),
       settings: path.join(baseDir, "axm.json"),
       canonicalSkill: path.join(
-        baseDir,
-        "agent_extensions",
-        "registry",
-        "@acme",
-        "skills",
-        "review",
+        canonicalRegistryPath(baseDir, registrySource, "skills", "review"),
         "skill.json",
       ),
       materializedSkill: path.join(baseDir, ".agents", "skills", "review", "SKILL.md"),
@@ -1052,7 +1057,11 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
         });
         expect(property(planResultUnits(applied)[0], "label")).toBe(previewLabel);
-        expect(YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8"))).toMatchObject({
+        expect(
+          Schema.decodeUnknownSync(LockfileSchema)(
+            YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8")),
+          ),
+        ).toMatchObject({
           packs: { toolkit: { resolved: { version: "1.0.0" } } },
           skills: { review: { resolved: { version: "1.0.0" } } },
         });
@@ -1152,15 +1161,17 @@ describe("root sync handler", () => {
           canonicalPackState: "missing",
           withMemberDependency: false,
         });
-        // Publishing the missing Pack fails, as does withdrawing its newly
-        // created parent directory, so restoration must report retained state.
+        // Replacement and staging cleanup fail; rollback must expose the
+        // transient path it cannot withdraw instead of claiming restoration.
         const canonicalPack = fixture.paths.canonicalPack;
-        const retainedParent = path.dirname(canonicalPack);
+        const retainedPath = `${canonicalPack}.axm-staging`;
         const faults = injectWriteFaults(
           (operation) =>
             operation.kind === "rename"
               ? operation.path === canonicalPack
-              : operation.kind === "remove" && operation.path === retainedParent,
+              : operation.kind === "remove" &&
+                fs.existsSync(retainedPath) &&
+                (operation.path === retainedPath || operation.path === path.dirname(canonicalPack)),
           "Injected recovery write failure",
         );
         const { provide, rendererState } = makeLayers(
@@ -1172,6 +1183,7 @@ describe("root sync handler", () => {
 
         const payload = expectRecord(rendererState.results[0]?.data);
         const result = expectRecord(property(payload, "result"));
+        expect(result, JSON.stringify(result)).toHaveProperty("recovery");
         const recovery = expectRecord(property(result, "recovery"));
         const snapshotDir = property(recovery, "snapshotDir");
         if (typeof snapshotDir === "string")
@@ -1181,7 +1193,7 @@ describe("root sync handler", () => {
         // The unit and the plan both name the Pack's own failure as the
         // kernel renders it, never a bare failure tag.
         expect(property(failure, "message")).toBe(
-          `Failed to replace the installed package at ${canonicalPack} (internal)`,
+          `Failed to stage pack at ${canonicalPack} (internal)`,
         );
         expect(unit).toMatchObject({
           label: expect.stringContaining("Recover @acme/packs/toolkit"),
@@ -1189,7 +1201,9 @@ describe("root sync handler", () => {
           disposition: "retained",
           message: property(failure, "message"),
         });
-        expect(property(recovery, "retained")).toContain("agent_extensions/registry/@acme/packs");
+        expect(property(recovery, "retained")).toContain(
+          path.relative(tempDir, path.dirname(canonicalPack)).replaceAll("\\", "/"),
+        );
         expect(typeof snapshotDir).toBe("string");
       }),
   );
@@ -1906,7 +1920,11 @@ describe("root sync handler", () => {
       const skillDir = path.join(
         tempDir,
         "agent_extensions",
-        "registry",
+        "_local",
+        "absolute",
+        "root",
+        "tmp",
+        "registry-version-does-not-exist",
         "@acme",
         "skills",
         "review",
@@ -2170,7 +2188,7 @@ describe("root sync handler", () => {
             expect(failure.detail).toContain("configured source differs from accepted authority");
             expect(
               fs.existsSync(
-                path.join(tempDir, "agent_extensions", "path", "@acme", "knowledge", "handbook"),
+                path.join(tempDir, "agent_extensions", "_local", "project", "locked-source"),
               ),
             ).toBe(false);
             expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
@@ -2186,10 +2204,9 @@ describe("root sync handler", () => {
               path.join(
                 tempDir,
                 "agent_extensions",
-                "path",
-                "@acme",
-                "knowledge",
-                "handbook",
+                "_local",
+                "project",
+                "locked-source",
                 "src",
                 "concept.md",
               ),
@@ -2198,7 +2215,14 @@ describe("root sync handler", () => {
           ).toContain("# Locked");
           expect(
             fs.existsSync(
-              path.join(tempDir, "agent_extensions", "registry", "@acme", "knowledge", "handbook"),
+              path.join(
+                tempDir,
+                "agent_extensions",
+                "registry.agentxm.ai",
+                "@acme",
+                "knowledge",
+                "handbook",
+              ),
             ),
           ).toBe(false);
           expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
@@ -2356,6 +2380,8 @@ describe("root sync handler", () => {
         });
         expect(result).toMatchObject({ mode: "preview" });
       }),
+    // Four independent sync invocations measured 23 seconds in the CI profile.
+    40_000,
   );
 
   it.effect("preserves foreign native modes for unsupported subagent targets", () =>

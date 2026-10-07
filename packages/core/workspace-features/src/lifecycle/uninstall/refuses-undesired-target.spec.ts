@@ -30,8 +30,6 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-type Workspace = ReturnType<typeof makeInstallWorld>["workspace"];
-
 interface Row {
   readonly label: string;
   /** What exists before the removal. */
@@ -103,17 +101,6 @@ const rows: ReadonlyArray<Row> = [
   },
 ];
 
-const PLURAL: Partial<Record<InstallableExtensionType, string>> = {
-  skill: "skills",
-  subagent: "subagents",
-};
-
-const writeLeftover = (workspace: Workspace, row: Row) =>
-  workspace.writeFile(
-    `agent_extensions/registry/@acme/${PLURAL[row.type] ?? row.type}/${row.name}/README.md`,
-    "Installed earlier, no longer configured.\n",
-  );
-
 const listedPaths = (resolution: OperationResolution) =>
   resolution.units.flatMap((unit) =>
     (unit.artifact?.targets ?? []).filter(
@@ -134,7 +121,27 @@ describe("Uninstall of a target the workspace does not configure", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          if (row.given === "leftover") writeLeftover(workspace, row);
+          if (row.given === "leftover") {
+            if (row.type === "subagent")
+              world.registry.writeSubagent(row.name, [{ version: "1.0.0", body: "Leftover." }]);
+            else world.registry.writeSkill(row.name, [{ version: "1.0.0", body: "Leftover." }]);
+            yield* applyInstall(
+              installRequest({
+                type: row.type,
+                subject: {
+                  kind: "source",
+                  source: `@acme/${row.type === "subagent" ? "subagents" : "skills"}/${row.name}`,
+                },
+              }),
+            );
+            const settings: unknown = JSON.parse(workspace.readFile("axm.json"));
+            if (typeof settings !== "object" || settings === null)
+              throw new Error("Expected settings");
+            workspace.writeFile(
+              "axm.json",
+              JSON.stringify({ ...settings, skills: {}, subagents: {} }),
+            );
+          }
           if (row.given === "desired") {
             const source = writeLocalSkillPackage(workspace.root, { name: row.name });
             yield* applyInstall(installRequest({ subject: { kind: "source", source } }));

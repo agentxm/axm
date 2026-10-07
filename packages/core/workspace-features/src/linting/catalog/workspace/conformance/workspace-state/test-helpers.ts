@@ -323,7 +323,7 @@ const skillCompatibility = (cliVersion: string) =>
     },
   });
 
-const OFFICIAL_SKILL_PATH = "/workspace/agent_extensions/registry/@agentxm/skills/axm";
+const OFFICIAL_SKILL_PATH = "/workspace/agent_extensions/registry.agentxm.ai/@agentxm/skills/axm";
 
 const assessedOfficialSkill = (cliVersion: string) =>
   ({
@@ -405,20 +405,13 @@ export const knowledgeStateValidConformance: WorkspaceRuleConformanceCase = {
       lockfile: {
         _tag: "valid",
         contents: {
-          lockfileVersion: 10,
+          lockfileVersion: 11,
           skills: {},
           knowledge: {
             handbook: {
-              type: "local",
-              sourceType: "local",
-              sourceName: "local",
-              extensionType: "knowledge",
-              workspaceName: "handbook",
-              packageFormat: "agentxm",
-              packageOwner: "@acme",
-              packageName: "handbook",
-              path: "knowledge-source",
-              contentIdentity: "accepted-content",
+              source: { type: "path", path: "knowledge-source" },
+              identity: { owner: "@acme", name: "handbook" },
+              resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
               treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
             },
           },
@@ -465,7 +458,7 @@ const leftoverPackage = {
   name: "review",
   owner: "@acme",
   sourceDirectory: "agentxm",
-  path: "/workspace/agent_extensions/registry/@acme/skills/review",
+  path: "/workspace/agent_extensions/registry.agentxm.ai/@acme/skills/review",
   lockKey: "review",
   reached: false,
 } as const satisfies InstalledPackageEntry;
@@ -483,20 +476,20 @@ export const installedButNotConfiguredConformance: WorkspaceRuleConformanceCase 
           ...leftoverPackage,
           lockKey: undefined,
           name: "draft",
-          path: "/workspace/agent_extensions/registry/@acme/skills/draft",
+          path: "/workspace/agent_extensions/registry.agentxm.ai/@acme/skills/draft",
         },
       ],
     }),
   expectedFindings: [
     {
       message:
-        "Installed skill '@acme/skills/review' is not configured in project scope: canonical path agent_extensions/registry/@acme/skills/review, source directory agentxm, lock row present.",
-      location: { file: "agent_extensions/registry/@acme/skills/review" },
+        "Installed skill '@acme/skills/review' is not configured in project scope: canonical path agent_extensions/registry.agentxm.ai/@acme/skills/review, source directory agentxm, lock row present.",
+      location: { file: "agent_extensions/registry.agentxm.ai/@acme/skills/review" },
     },
     {
       message:
-        "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/registry/@acme/skills/draft, source directory agentxm, no lock row.",
-      location: { file: "agent_extensions/registry/@acme/skills/draft" },
+        "Installed skill '@acme/skills/draft' is not configured in project scope: canonical path agent_extensions/registry.agentxm.ai/@acme/skills/draft, source directory agentxm, no lock row.",
+      location: { file: "agent_extensions/registry.agentxm.ai/@acme/skills/draft" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

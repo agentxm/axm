@@ -130,7 +130,7 @@ describe("acceptedResolutionFor", () => {
           entry: {
             source: { type: "path", path: "../sources/planner" },
             identity: { owner: handle("@acme"), name: extensionName("planner") },
-            resolved: { tree: sourceHash },
+            resolved: { tree: treeIntegrity },
             treeIntegrity,
           },
         }),

@@ -24,6 +24,7 @@ import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import type { TreeIntegrity } from "../../workspace-state/index.js";
 import * as Result from "effect/Result";
 import * as Scope from "effect/Scope";
 import {
@@ -66,6 +67,7 @@ import {
   type ConfiguredAgentOperation,
   type PlanExecution,
 } from "../../operations/index.js";
+import { preflightPackagePlacement } from "./package-placement.js";
 import { applyPlan } from "./apply-plan.js";
 import {
   isExecutionCandidateFresh,
@@ -465,10 +467,30 @@ export const prepareExecutionCandidate = Effect.fn("prepareExecutionCandidate")(
         }),
     ),
   );
+  const placement = yield* preflightPackagePlacement(
+    originalSteps.flatMap(acquisitionRefsForStep),
+  ).pipe(Effect.result);
+  const placementPlan: Plan<Requirements, Output> = Result.isSuccess(placement)
+    ? {
+        ...augmented.plan,
+        materialPaths: [...(augmented.plan.materialPaths ?? []), ...placement.success],
+      }
+    : {
+        ...augmented.plan,
+        preconditions: [
+          ...(augmented.plan.preconditions ?? []),
+          {
+            id: "retained-package-placement",
+            label: "Retained package placement",
+            status: "unmet",
+            detail: placement.failure.detail,
+          },
+        ],
+      };
   const augmentedPlan =
     operations.length === 0
-      ? augmented.plan
-      : withPlannedAgentOutcomes(augmented.plan, projectedOutcomes);
+      ? placementPlan
+      : withPlannedAgentOutcomes(placementPlan, projectedOutcomes);
 
   // Readiness blockers and unmet preconditions join the declared risk
   // conditions, so the candidate carries every reason it could be refused.
@@ -793,6 +815,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           },
         );
   const acquiredContent = {
+    materializedPackages: yield* Ref.make<ReadonlyMap<string, TreeIntegrity>>(new Map()),
     requestedKeys: new Set(uniqueSourceRefs.map(sourceRefContentKey)),
     filesByKey: new Map(
       acquiredResults.flatMap((result) =>

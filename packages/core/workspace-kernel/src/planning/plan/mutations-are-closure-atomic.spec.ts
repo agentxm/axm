@@ -80,7 +80,7 @@ const makeWorkspace = (prefix: string) =>
     const settingsPath = path.join(root, "axm.json");
     const lockPath = path.join(root, "axm-lock.yaml");
     yield* fs.writeFileString(settingsPath, '{\n  "skills": {\n    "alpha": "workspace"\n  }\n}\n');
-    yield* fs.writeFileString(lockPath, "lockfileVersion: 10\nskills: {}\n");
+    yield* fs.writeFileString(lockPath, "lockfileVersion: 11\npackages: {}\nskills: {}\n");
     return { root, workspaceDir, settingsPath, lockPath };
   });
 
@@ -309,7 +309,7 @@ describe("A workspace change that cannot complete", () => {
                   );
                   yield* write(
                     workspace.lockPath,
-                    "lockfileVersion: 10\nskills:\n  alpha: 1.1.0\n",
+                    "lockfileVersion: 11\npackages: {}\nskills:\n  alpha: 1.1.0\n",
                   );
                   yield* write(path.join(canonical, "SKILL.md"), "# alpha 1.1.0\n");
                   yield* write(projection, "# alpha 1.1.0\n");

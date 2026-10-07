@@ -75,7 +75,7 @@ const makeWorkspace = (withOrigin: boolean) => {
   );
   fs.writeFileSync(
     path.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 10, skills: {} }),
+    JSON.stringify({ lockfileVersion: 11, packages: {}, skills: {} }),
   );
   writeSkill(root, "extensions/shared", "shared");
   writeSkill(root, "extensions/private", "private");

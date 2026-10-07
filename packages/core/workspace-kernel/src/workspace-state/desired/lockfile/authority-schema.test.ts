@@ -1,3 +1,4 @@
+import { storedLockfileFixture } from "../../observed/__fixtures__/decoders.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
@@ -20,10 +21,13 @@ describe("authoritative external-resolution lockfile", () => {
   });
 
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(10);
+    expect(LOCKFILE_VERSION).toBe(11);
     expect(
-      decodeLockfile({ lockfileVersion: 10, skills: {} }, { onExcessProperty: "error" }),
-    ).toEqual({ lockfileVersion: 10, skills: {} });
+      decodeLockfile(
+        { lockfileVersion: 11, packages: {}, skills: {} },
+        { onExcessProperty: "error" },
+      ),
+    ).toEqual({ lockfileVersion: 11, skills: {} });
     expect(() =>
       decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();
@@ -74,9 +78,9 @@ describe("authoritative external-resolution lockfile", () => {
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
     const local = {
-      source: { type: "path", path: "../extension-sources/review" },
+      source: { type: "path", path: "/extension-sources/review" },
       identity: { owner: "@acme", name: "review" },
-      resolved: { tree: "sha256-local-tree" },
+      resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     };
 
@@ -98,7 +102,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
-        { source: { type: "path", path: "../extension-sources/review" } },
+        { source: { type: "path", path: "/extension-sources/review" } },
         { onExcessProperty: "error" },
       ),
     ).toThrow();
@@ -107,7 +111,7 @@ describe("authoritative external-resolution lockfile", () => {
   it("round-trips every self-describing source locator", () => {
     const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
     const lockfile = {
-      lockfileVersion: 10,
+      lockfileVersion: 11,
       skills: {
         git: {
           source: {
@@ -131,17 +135,16 @@ describe("authoritative external-resolution lockfile", () => {
           treeIntegrity,
         },
         path: {
-          source: { type: "path", path: "../extension-sources/local" },
+          source: { type: "path", path: "/extension-sources/local" },
           identity: { owner: "@acme", name: "local" },
-          resolved: { tree: "sha256-local-tree" },
+          resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
           treeIntegrity,
         },
       },
     };
 
-    expect(encodeLockfile(decodeLockfile(lockfile, { onExcessProperty: "error" }))).toEqual(
-      lockfile,
-    );
+    const stored = storedLockfileFixture(lockfile);
+    expect(encodeLockfile(decodeLockfile(stored, { onExcessProperty: "error" }))).toEqual(stored);
   });
 
   it("keeps registry identity and provenance without receipt fields", () => {
@@ -230,7 +233,7 @@ describe("authoritative external-resolution lockfile", () => {
       source: { type: "path", path: "catalog/packs/toolkit" },
       sourceRoot: "catalog",
       identity: { owner: "@acme", name: "toolkit" },
-      resolved: { tree: "sha256-pack-content" },
+      resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
       manifestVersion: "2.0.0",
       manifestContentIdentity: computePackManifestContentIdentity({
@@ -256,7 +259,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 10, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 11, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

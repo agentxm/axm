@@ -20,7 +20,10 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 
 import { OperationRequestBudget } from "@agentxm/registry-client";
-import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  extensionRefName,
+  type ExtensionRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions/fqn";
 import {
   SkillManager,
@@ -428,7 +431,12 @@ export const collectConfiguredPackRecovery = (args: {
       graph: proposedGraph,
       refs: [
         ...new Map(
-          recovered.flatMap(({ refs }) => refs).map((ref) => [sourceRefContentKey(ref), ref]),
+          recovered
+            .flatMap(({ refs }) => refs)
+            .map((ref) => [
+              JSON.stringify([sourceRefContentKey(ref), ref.type, extensionRefName(ref)]),
+              ref,
+            ]),
         ).values(),
       ],
       releaseAge:

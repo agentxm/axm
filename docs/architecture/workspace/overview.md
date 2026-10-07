@@ -123,12 +123,23 @@ Canonical extension content has one of three authorities:
 Project workspaces keep those authorities physically distinct. Authored
 packages live in the type-specific roots declared by `axm.json`, defaulting to
 `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`, `mcps/`, and
-`packs/`. Acquired packages use one identity layout:
-`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. The source
-family is `registry`, `git`, or `path`, independent of a configured source's
-name. Packages without a declared owner use `@portable`. The ignored `.axm/`
-directory is runtime state, not project configuration or canonical package
-inventory.
+`packs/`. Acquired packages live beneath `agent_extensions/` at their actual source
+address. Network sources use the host and complete repository or Registry
+endpoint path; local sources use `_local/project/` or `_local/absolute/`
+coordinates. Registry packages append their published owner, kind, and name;
+Git packages retain their repository-relative package boundary. HTTP sources
+retain their logical URL and selected artifact boundary. Configured aliases and
+transport-family labels do not replace source addresses.
+
+A package directory is independent of its selected extension kinds. All selected
+components share one complete retained snapshot, including unselected files.
+Adding a selection uses the accepted snapshot; update replaces it atomically for
+all consumers. [Lockfile](lockfile.md) owns accepted resolution and retention.
+Address segments use reversible escaping for unsafe or reserved filesystem
+names. Exact, case-folded, ancestor, and physical-path collisions fail preflight;
+AXM never invents a suffix to hide a collision. Unknown content is preserved,
+including after lock loss. The ignored `.axm/` directory is runtime state, not
+project configuration or canonical package inventory.
 User scope mirrors the project workspace contract under `~/.axm/workspace/`:
 `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and `.axm/` runtime state.
 It has no authored type roots; user-authored `workspace` sources and authoring

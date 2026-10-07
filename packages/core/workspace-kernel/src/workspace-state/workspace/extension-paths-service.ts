@@ -1,5 +1,5 @@
 /**
- * Extension paths: where the selected scope keeps a skill's or Pack's
+ * Extension paths: where the selected scope keeps a skill's
  * canonical content. Skill directories for Registry sources follow the
  * immutable Registry name, resolved from the accepted lock entry, then the
  * configured source, then the name given; every other source uses the shared
@@ -17,12 +17,10 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 
 import { parseSourceQualifiedRegistrySourcePatternParts } from "@agentxm/extension-model/unstable/extensions";
-import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LockedSkillMissing } from "./errors.js";
 import { sanitizeName } from "./extension-name.js";
 import { LockfileReader, type LockfileReaderService } from "./lockfile-reader.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
-import { computePackPathsForLayout, type PackDirPath } from "./pack-paths.js";
 import type { WorkspaceStateReadFailure } from "./contracts.js";
 import { SettingsReader, type SettingsReaderService } from "./settings-reader.js";
 import {
@@ -42,12 +40,6 @@ export interface ExtensionPathsService {
     WorkspaceStateReadFailure | LockedSkillMissing,
     FileSystem.FileSystem | Path.Path
   >;
-  /** The Pack directory path. Packs are always registry-sourced. */
-  readonly packDir: (
-    name: string,
-    owner: Handle,
-    sourceName: string,
-  ) => Effect.Effect<PackDirPath, never, Path.Path>;
 }
 
 export class ExtensionPaths extends ServiceMap.Service<ExtensionPaths, ExtensionPathsService>()(
@@ -97,18 +89,6 @@ export const makeExtensionPaths = (
         const entrySource = extensionPathSourceFromLockEntry(entry);
         const dirName = entry.identity.name;
         return computeSkillPathsForLayout(path.join, layout, entrySource, sanitizeName(dirName));
-      }),
-    packDir: (name, owner, sourceName) =>
-      Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const layout = yield* Ref.get(location.layout);
-        return computePackPathsForLayout(
-          path.join,
-          layout,
-          sourceName === "workspace" ? "workspace" : "registry",
-          owner,
-          name,
-        );
       }),
   };
 };

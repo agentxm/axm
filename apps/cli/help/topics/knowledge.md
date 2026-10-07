@@ -4,9 +4,9 @@ Before distributing package-root files, read `axm help publish` for the
 Registry-only archive policy and effective preview.
 
 Project-authored Knowledge bundles live under `./knowledge/<name>`; acquired
-bundles use the source-family and identity-based canonical scheme. For example,
+bundles use the source-addressed retained-package scheme. For example,
 a Registry bundle lives under
-`./agent_extensions/registry/<@owner>/knowledge/<name>`. Active bundles are
+`./agent_extensions/registry.agentxm.ai/<@owner>/knowledge/<name>`. Active bundles are
 discoverable from a compact table in the canonical workspace instruction file.
 
 A knowledge bundle is portable reference material — architecture notes, domain
@@ -178,7 +178,7 @@ not.
 ## Install and update
 
 `axm knowledge install <source>` (or the generic `axm install`) materializes
-the bundle under `agent_extensions/registry/<owner>/knowledge/<name>/`, records it in
+the bundle under `agent_extensions/registry.agentxm.ai/<owner>/knowledge/<name>/`, records it in
 `axm-lock.yaml`, and refreshes the local concept index.
 
 ```bash

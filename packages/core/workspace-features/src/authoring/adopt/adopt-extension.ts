@@ -75,6 +75,9 @@ import {
   DesiredStateWriter,
   SettingsWriter,
   observeInstallRoot,
+  desiredNodeReachesRow,
+  desiredReachesAcceptedRow,
+  retainedPackageBindings,
   type ConfiguredAgentOutcomesProvider,
   resolveWorkspaceExtensionRef,
   type LockfileValidationError,
@@ -273,14 +276,19 @@ export const prepareAdoptExtension: (
   // The acquired copy adoption moves is the one the install-root inventory
   // names for exactly this identity; the canonical location is never
   // recomputed by hand here.
-  const observeAcquiredCopies = Effect.gen(function* () {
+  const observeAcquiredPackages = Effect.gen(function* () {
     const inventory = yield* observeInstallRoot({
       layout: layout,
       graph: yield* (yield* DesiredStateReader).graph(),
       locks,
     });
-    return inventory.packages.filter((entry) => entry.type === parsed.type && entry.name === name);
+    return inventory.packages;
   });
+  const observeAcquiredCopies = observeAcquiredPackages.pipe(
+    Effect.map((packages) =>
+      packages.filter((entry) => entry.type === parsed.type && entry.name === name),
+    ),
+  );
   const acquiredCopy = (yield* observeAcquiredCopies).find((entry) => entry.owner === parsed.owner);
 
   // In-place adoption is decided from what is on disk now and repeated under
@@ -332,6 +340,33 @@ export const prepareAdoptExtension: (
       detail: `No acquired copy of ${fqn} is installed in this workspace to adopt`,
     });
   }
+  if (mode === "move" && acquiredCopy !== undefined) {
+    const bindings = retainedPackageBindings(yield* locks.lockfile);
+    const selected = bindings.find(
+      (binding) => binding.type === parsed.type && binding.key === acquiredCopy.lockKey,
+    );
+    const otherBindings =
+      selected !== undefined &&
+      bindings.some(
+        (binding) =>
+          binding.packageKey === selected.packageKey &&
+          (binding.type !== selected.type || binding.key !== selected.key),
+      );
+    const graph = yield* (yield* DesiredStateReader).graph();
+    const otherConsumers =
+      acquiredCopy.lockKey !== undefined &&
+      graph.nodes.some(
+        (node) =>
+          (node.type !== parsed.type || node.name !== name) &&
+          desiredNodeReachesRow(node, { type: parsed.type, key: acquiredCopy.lockKey ?? "" }),
+      );
+    if (otherBindings || otherConsumers)
+      return yield* new AuthoringFailed({
+        category: "conflict",
+        detail:
+          "This retained package is shared by other selected components; fork it into authorship instead of moving their content",
+      });
+  }
   const sourceDir = acquiredCopy?.path ?? targetDir;
   const acquiredPath = path.relative(location.baseDir, sourceDir);
 
@@ -375,10 +410,15 @@ export const prepareAdoptExtension: (
     label: `Adopt ${fqn}`,
     enabled,
     nativeInsertionEligible: false,
-    markAuthored: Effect.andThen(
-      declaration.retireExternalResolution,
-      declaration.declare({ enabled: true, mcpPreferences: current.mcpPreferences }),
-    ),
+    markAuthored: Effect.gen(function* () {
+      yield* declaration.retireExternalResolution;
+      yield* declaration.declare({ enabled: true, mcpPreferences: current.mcpPreferences });
+      if (acquiredCopy?.lockKey !== undefined) {
+        const graph = yield* (yield* DesiredStateReader).graph();
+        if (!desiredReachesAcceptedRow(graph, { type: parsed.type, key: acquiredCopy.lockKey }))
+          yield* accepted.removeAccepted(parsed.type, acquiredCopy.lockKey);
+      }
+    }),
     finalizeAuthored: declaration.declare({ enabled, mcpPreferences: current.mcpPreferences }),
   } as const;
 

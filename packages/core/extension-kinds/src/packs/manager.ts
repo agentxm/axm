@@ -3,6 +3,7 @@ import {
   PackManager,
   type PackMaterializationFacts,
   makeBaseManagerMembers,
+  acquireCanonicalForRef,
   listMaterializableFromDisk,
 } from "@agentxm/workspace-kernel/materialization";
 
@@ -15,7 +16,6 @@ import {
  * @experimental This API is unstable and may change without notice.
  */
 
-import type { NativeWriteAuthority } from "@agentxm/workspace-kernel/agent-adapters";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
@@ -31,42 +31,27 @@ import {
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
   computePackManifestContentIdentity,
-  computePackageContentHash,
   gitSourceLockFields,
   pathSourceLockFields,
   registrySourceLockFields,
-  computeMaterializedTreeIntegrity,
   decodePackManifestDocument,
-  type MaterializedTreeInvalid,
   type TreeIntegrity,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { fromFileLocation } from "@agentxm/host-primitives";
-import {
-  PackArchiveFetchFailed,
-  PackDefinitionInvalid,
-  PackInstallStateMissing,
-  PackStagingFailed,
-} from "./errors.js";
+import { PackDefinitionInvalid, PackInstallStateMissing, PackStagingFailed } from "./errors.js";
 import type {
   PackRef,
   RegistryPackRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
-import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { makeWorkspaceRelativeSourcePath } from "@agentxm/extension-model/unstable/path-types";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
-  reusableCanonicalTree,
-  prepareCanonicalParents,
   retireCanonicalDirectory,
-  type PackageMaterializationFailed,
-  replaceCanonicalDirectoryWithInspection,
   configuredPacksToDiskRefs,
-  copyExtensionDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
 
 // Build pack SetPackArgs from a registry ref
@@ -103,7 +88,6 @@ const buildExternalSetPackArgs = (args: {
   readonly ref: Exclude<PackRef, { readonly refType: "registry" | "workspace" }>;
   readonly versionRange: Option.Option<string>;
   readonly treeIntegrity: TreeIntegrity;
-  readonly contentIdentity: SourceHash;
   readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
   /** The workspace-relative source view a local Pack and its members were discovered under. */
   readonly workspaceRelativeLocalSourceRoot: Option.Option<string>;
@@ -125,14 +109,18 @@ const buildExternalSetPackArgs = (args: {
       name: args.ref.pack.name,
       lockEntry: {
         ...pathSourceLockFields(
-          Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
-          args.contentIdentity,
+          args.ref.sourcePath ??
+            Option.getOrElse(args.workspaceRelativeLocalSourcePath, () => localSourcePath),
           args.ref.name,
           args.treeIntegrity,
           args.ref.owner,
         ),
         ...shared,
-        sourceRoot: Option.getOrElse(args.workspaceRelativeLocalSourceRoot, () => localSourcePath),
+        sourceRoot: Option.match(args.workspaceRelativeLocalSourceRoot, {
+          onNone: () => localSourcePath,
+          onSome: (relative) =>
+            relative === ".." || relative.startsWith("../") ? localSourcePath : relative,
+        }),
       },
       versionRange: args.versionRange,
     };
@@ -159,19 +147,6 @@ const buildExternalSetPackArgs = (args: {
   };
 };
 
-const sourceLayoutFamily = (
-  ref: Exclude<PackRef, { readonly refType: "workspace" }>,
-): "git" | "path" | "registry" => {
-  switch (ref.source.type) {
-    case "local":
-      return "path";
-    case "git":
-      return "git";
-    case "registry":
-      return "registry";
-  }
-};
-
 // -----------------------------------------------------------------------------
 // Live Layer
 // -----------------------------------------------------------------------------
@@ -186,7 +161,6 @@ export const PackManagerLive = Layer.effect(
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const sources = yield* SourceHostProviders;
     const baseDir = location.baseDir;
 
     const noContent: PackMaterializationFacts = {
@@ -214,8 +188,7 @@ export const PackManagerLive = Layer.effect(
       const packDir = computePackPathsForLayout(
         path.join,
         currentLayout(),
-        ref.refType === "workspace" ? "workspace" : sourceLayoutFamily(ref),
-        ref.owner,
+        ref,
         ref.pack.name,
       ).canonicalPath;
       const canonicalExists = yield* fs.exists(packDir).pipe(Effect.orElseSucceed(() => false));
@@ -232,90 +205,55 @@ export const PackManagerLive = Layer.effect(
         }
         return noContent;
       }
-      const reusable = yield* reusableCanonicalTree({
+      const materialized = yield* acquireCanonicalForRef({
+        ref,
+        type: "pack",
+        baseDir,
         canonicalPath: packDir,
-        requested:
-          ref.refType === "registry"
-            ? {
-                refType: "registry",
-                owner: ref.owner,
-                name: ref.pack.name,
-                version: ref.version,
-                publisherBindingId: ref.publisherBindingId,
-              }
-            : { refType: ref.refType, name: ref.pack.name },
         accepted: yield* lockfile.entry("pack", ref.pack.name),
         force: force === true,
-      });
-      if (Option.isSome(reusable)) return acquired(reusable.value);
-
-      return yield* Effect.scoped(
-        Effect.gen(function* () {
-          const fetched = yield* sources
-            .fetch(ref)
-            .pipe(
+        nativeInsertionEligible: nativeInsertionEligible === true,
+        external: { reuse: true },
+        copyFailure: { code: "internal", detail: (target) => `Failed to retain Pack at ${target}` },
+        validate: (stagingPath) =>
+          Effect.gen(function* () {
+            const manifestPath = path.join(stagingPath, PACK_MANIFEST_FILENAME);
+            const contents = yield* fs.readFileString(manifestPath).pipe(
               Effect.mapError(
-                (e: Error) => new PackArchiveFetchFailed({ message: e.message, cause: e }),
+                (cause) =>
+                  new PackDefinitionInvalid({
+                    detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
+                    cause,
+                  }),
               ),
             );
-          const materialized = yield* replaceCanonicalDirectoryWithInspection<
-            TreeIntegrity,
-            | PackStagingFailed
-            | PackDefinitionInvalid
-            | MaterializedTreeInvalid
-            | PackageMaterializationFailed,
-            FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-          >({
-            baseDir,
-            canonicalPath: packDir,
-            ...(nativeInsertionEligible === true
-              ? {
-                  prepareParents: prepareCanonicalParents({
-                    canonicalPath: packDir,
-                    eligible: true,
-                  }),
-                }
-              : {}),
-            populate: (stagingPath) =>
-              copyExtensionDirectory(fetched.directory, stagingPath).pipe(
-                Effect.mapError((cause) => new PackStagingFailed({ packDir, cause })),
-              ),
-            inspect: (stagingPath) =>
-              Effect.gen(function* () {
-                const manifestPath = path.join(stagingPath, PACK_MANIFEST_FILENAME);
-                const contents = yield* fs.readFileString(manifestPath).pipe(
-                  Effect.mapError(
-                    (cause) =>
-                      new PackDefinitionInvalid({
-                        detail: `Fetched Pack has no readable manifest at ${manifestPath}`,
-                        cause,
-                      }),
-                  ),
-                );
-                const observed = decodePackManifestDocument(contents);
-                if (observed.status !== "decoded") {
-                  return yield* new PackDefinitionInvalid({
-                    detail: `Fetched Pack manifest is ${observed.status}: ${manifestPath}`,
-                  });
-                }
-                const expected = computePackManifestContentIdentity({
-                  owner: ref.owner,
-                  type: "pack",
-                  name: ref.pack.name,
-                  version: ref.version,
-                  dependencies: ref.pack.dependencies,
-                });
-                if (observed.contentIdentity !== expected) {
-                  return yield* new PackDefinitionInvalid({
-                    detail: `Fetched Pack ${observed.manifest.owner}/packs/${observed.manifest.name}@${observed.manifest.version} does not match the selected Pack ${ref.owner}/packs/${ref.pack.name}@${ref.version} dependency declaration`,
-                  });
-                }
-                return yield* computeMaterializedTreeIntegrity(stagingPath);
-              }),
-          });
-          return acquired(materialized.inspection);
-        }),
+            const observed = decodePackManifestDocument(contents);
+            if (observed.status !== "decoded") {
+              return yield* new PackDefinitionInvalid({
+                detail: `Fetched Pack manifest is ${observed.status}: ${manifestPath}`,
+              });
+            }
+            const expected = computePackManifestContentIdentity({
+              owner: ref.owner,
+              type: "pack",
+              name: ref.pack.name,
+              version: ref.version,
+              dependencies: ref.pack.dependencies,
+            });
+            if (observed.contentIdentity !== expected) {
+              return yield* new PackDefinitionInvalid({
+                detail: `Fetched Pack ${observed.manifest.owner}/packs/${observed.manifest.name}@${observed.manifest.version} does not match the selected Pack ${ref.owner}/packs/${ref.pack.name}@${ref.version} dependency declaration`,
+              });
+            }
+          }),
+      }).pipe(
+        Effect.mapError((cause) =>
+          cause instanceof PackDefinitionInvalid
+            ? cause
+            : new PackStagingFailed({ packDir, cause }),
+        ),
       );
+      return acquired(materialized.treeIntegrity);
     });
     const materializeUninstall: PackManagerService["materializeUninstall"] = Effect.fn(
       "PackManager.materializeUninstall",
@@ -343,13 +281,6 @@ export const PackManagerLive = Layer.effect(
         if (ref.refType === "registry") {
           return Option.some(buildSetPackArgs(ref, versionRange, treeIntegrity.value));
         }
-        const packDir = computePackPathsForLayout(
-          path.join,
-          currentLayout(),
-          sourceLayoutFamily(ref),
-          ref.owner,
-          ref.pack.name,
-        ).canonicalPath;
         const workspaceRelativeLocalSourcePath =
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, fromFileLocation(ref.location))
@@ -358,21 +289,11 @@ export const PackManagerLive = Layer.effect(
           ref.refType === "local"
             ? makeWorkspaceRelativeSourcePath(path, baseDir, ref.source.path)
             : Option.none<string>();
-        if (
-          ref.refType === "local" &&
-          (Option.isNone(workspaceRelativeLocalSourcePath) ||
-            Option.isNone(workspaceRelativeLocalSourceRoot))
-        ) {
-          return yield* new PackDefinitionInvalid({
-            detail: `Local Pack source path must stay within the workspace root: ${ref.source.path}`,
-          });
-        }
         return Option.some(
           buildExternalSetPackArgs({
             ref,
             versionRange,
             treeIntegrity: treeIntegrity.value,
-            contentIdentity: yield* computePackageContentHash(packDir),
             workspaceRelativeLocalSourcePath,
             workspaceRelativeLocalSourceRoot,
           }),

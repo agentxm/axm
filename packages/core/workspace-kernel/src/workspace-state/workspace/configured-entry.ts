@@ -39,7 +39,8 @@ const isAcquisitionEntry = <TEntry extends ConfiguredEntryAcquisitionState>(
 
 export const acquisitionConfiguredEntries = <TEntry extends ConfiguredEntryAcquisitionState>(
   entries: Readonly<Record<string, TEntry>>,
+  retainedNames: ReadonlySet<string> = new Set(),
 ): ReadonlyArray<readonly [string, AcquisitionEntry<TEntry>]> =>
-  enabledConfiguredEntries(entries).flatMap(([name, entry]) =>
-    isAcquisitionEntry(entry) ? [[name, entry] as const] : [],
-  );
+  Object.entries(entries)
+    .filter(([name, entry]) => isConfiguredEntryEnabled(entry) || retainedNames.has(name))
+    .flatMap(([name, entry]) => (isAcquisitionEntry(entry) ? [[name, entry] as const] : []));

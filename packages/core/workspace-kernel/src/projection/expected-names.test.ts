@@ -41,7 +41,12 @@ describe("expected projection names", () => {
     expect(expected.skill.has("retired")).toBe(false);
   });
 
-  it("expects subagents in the Skill container, because that is where their profile lands", () => {
-    expect([...expectedProjectionNames(graph).skill].sort()).toEqual(["alpha", "scout"]);
+  it("does not retain Skill outputs for a Subagent with the same name", () => {
+    const expected = expectedProjectionNames({
+      ...graph,
+      nodes: [node("skill", "shared", false), node("subagent", "shared", true)],
+    });
+    expect([...expected.skill]).toEqual([]);
+    expect([...expected.subagent]).toEqual(["shared"]);
   });
 });

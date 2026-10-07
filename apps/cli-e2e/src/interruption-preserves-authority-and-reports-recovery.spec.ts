@@ -1,3 +1,4 @@
+import { registryFixturePath } from "./test-support/retained-paths.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -182,9 +183,7 @@ describe("An interrupted workspace change", () => {
 
       const canonical = path.join(
         workspace.path,
-        "agent_extensions",
-        "registry",
-        OWNER,
+        registryFixturePath(registry.url, OWNER),
         "skills",
         "alpha",
       );
@@ -243,7 +242,7 @@ describe("An interrupted workspace change", () => {
       expect(proceeded.exitCode, proceeded.stdout + proceeded.stderr).toBe(0);
       expect(
         fs.existsSync(
-          path.join(workspace.path, "agent_extensions", "registry", OWNER, "skills", "alpha"),
+          path.join(workspace.path, registryFixturePath(registry.url, OWNER), "skills", "alpha"),
         ),
       ).toBe(true);
     } finally {

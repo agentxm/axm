@@ -109,7 +109,10 @@ describe("version preview", () => {
       path.join(tempDir, "axm.json"),
       JSON.stringify({ owner: "@acme", agents: [], skills: { review: "workspace" } }),
     );
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 10\nskills: {}\n");
+    fs.writeFileSync(
+      path.join(tempDir, "axm-lock.yaml"),
+      "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+    );
     const packageRoot = path.join(tempDir, "skills", "review");
     fs.mkdirSync(path.join(packageRoot, "src"), { recursive: true });
     fs.writeFileSync(

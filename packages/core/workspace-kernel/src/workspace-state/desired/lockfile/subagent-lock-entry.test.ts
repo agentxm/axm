@@ -1,18 +1,17 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
+import { storedLockfileFixture } from "../../observed/__fixtures__/decoders.js";
 import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
 import { LockfileSchema, SubagentLockEntrySchema } from "./schema.js";
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
 const localEntry = {
-  source: { type: "path", path: "../subagents/planner" },
+  source: { type: "path", path: "/sources/subagents/planner" },
   identity: { owner: "@acme", name: "planner" },
-  resolved: { tree: contentIdentity },
+  resolved: { tree: treeIntegrity },
   treeIntegrity,
 } as const;
 
@@ -48,13 +47,15 @@ describe("Subagent accepted resolutions", () => {
 
   it("decodes a current lockfile with Subagent external resolution state", () => {
     expect(
-      Schema.decodeUnknownSync(LockfileSchema)({
-        lockfileVersion: 10,
-        skills: {},
-        subagents: {
-          planner: localEntry,
-        },
-      }).subagents?.["planner"],
+      Schema.decodeUnknownSync(LockfileSchema)(
+        storedLockfileFixture({
+          lockfileVersion: 11,
+          skills: {},
+          subagents: {
+            planner: localEntry,
+          },
+        }),
+      ).subagents?.["planner"],
     ).toEqual(localEntry);
   });
 });

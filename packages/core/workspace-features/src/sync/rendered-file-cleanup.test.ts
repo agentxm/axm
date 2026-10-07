@@ -50,7 +50,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const canonicalSkill = path.join(
           tempDir,
           "agent_extensions",
-          "registry",
+          "registry.agentxm.ai",
           "@acme",
           "skills",
           "code-review",

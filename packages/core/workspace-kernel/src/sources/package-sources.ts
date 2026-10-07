@@ -156,7 +156,11 @@ export const findExtensionPackagesFromSource = (
           (ref) =>
             Effect.gen(function* () {
               const files = yield* providers.fetch(ref);
-              const candidate = yield* inspectExtensionPackage(files.directory);
+              const candidate = yield* inspectExtensionPackage(
+                files.directory,
+                Option.none(),
+                ref.type,
+              );
               return { ...candidate, origin };
             }),
           { concurrency: 8 },

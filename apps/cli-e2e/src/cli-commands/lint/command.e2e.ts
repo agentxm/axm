@@ -98,7 +98,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         });
         fs.writeFileSync(
           path.join(temp.path, "axm-lock.yaml"),
-          "lockfileVersion: 10\nskills: {}\n",
+          "lockfileVersion: 11\npackages: {}\nskills: {}\n",
         );
 
         const machine = await runCli(["lint", "--json"], { cwd: temp.path, env });

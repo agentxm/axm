@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -86,9 +87,9 @@ describe("Configured installs preflight the complete selected aggregate contribu
               // Each Pack retains its own closure; the shared native unit renders after both.
               expect(result.units.filter(({ label }) => label.includes("packs/"))).toHaveLength(2);
               for (const name of ["alpha", "beta"]) {
-                expect(
-                  workspace.exists(`agent_extensions/registry/@acme/${row.plural}/${name}`),
-                ).toBe(true);
+                expect(workspace.exists(fileRegistryPackagePath(registry, row.plural, name))).toBe(
+                  true,
+                );
                 expect(workspace.readFile("axm-lock.yaml")).toContain(name);
                 expect(workspace.readFile(row.native)).toContain(name);
               }
@@ -126,9 +127,9 @@ describe("Configured installs preflight the complete selected aggregate contribu
             expect(workspace.snapshot()).toEqual(before);
             expect(deriveOperationOutcome(yield* applyInstall(request))).toBe("applied");
             for (const name of ["alpha", "beta"]) {
-              expect(
-                workspace.exists(`agent_extensions/registry/@acme/${row.plural}/${name}`),
-              ).toBe(true);
+              expect(workspace.exists(fileRegistryPackagePath(registry, row.plural, name))).toBe(
+                true,
+              );
               expect(workspace.readFile(row.native)).toContain(name);
             }
           }),

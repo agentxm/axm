@@ -183,7 +183,7 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 10, skills: {} },
+            contents: { lockfileVersion: 11, skills: {} },
           },
         },
       };
@@ -193,7 +193,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const parsed = YAML.parse(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(10);
+      expect(decoded.lockfileVersion).toBe(11);
     }),
   );
 
@@ -261,15 +261,15 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "registry/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
-            "git/@owner/skills/some-skill/SKILL.md": "# acquired\n",
+            "registry.agentxm.ai/@owner/skills/some-skill/src/SKILL.md": "# canonical\n",
+            "github.com/owner/tools/some-skill/SKILL.md": "# acquired\n",
           },
         },
       };
       const deps = yield* buildFixture(spec);
 
-      const canonical = `${WORKSPACE_ROOT}/agent_extensions/registry/@owner/skills/some-skill/src/SKILL.md`;
-      const acquired = `${WORKSPACE_ROOT}/agent_extensions/git/@owner/skills/some-skill/SKILL.md`;
+      const canonical = `${WORKSPACE_ROOT}/agent_extensions/registry.agentxm.ai/@owner/skills/some-skill/src/SKILL.md`;
+      const acquired = `${WORKSPACE_ROOT}/agent_extensions/github.com/owner/tools/some-skill/SKILL.md`;
       expect(yield* exists(deps, canonical)).toBe(true);
       expect(yield* exists(deps, acquired)).toBe(true);
       expect(yield* readBytes(deps, canonical)).toBe("# canonical\n");
@@ -304,14 +304,14 @@ describe("buildFixture: scanner-visible trees", () => {
         userHome: USER_HOME,
         project: {
           axmExtensions: {
-            "registry/@owner/skills/present/src/SKILL.md": "# present\n",
-            "registry/@owner/skills/missing/src/SKILL.md": { _tag: "absent" },
+            "registry.agentxm.ai/@owner/skills/present/src/SKILL.md": "# present\n",
+            "registry.agentxm.ai/@owner/skills/missing/src/SKILL.md": { _tag: "absent" },
           },
         },
       };
       const deps = yield* buildFixture(spec);
-      const presentPath = `${WORKSPACE_ROOT}/agent_extensions/registry/@owner/skills/present/src/SKILL.md`;
-      const missingPath = `${WORKSPACE_ROOT}/agent_extensions/registry/@owner/skills/missing/src/SKILL.md`;
+      const presentPath = `${WORKSPACE_ROOT}/agent_extensions/registry.agentxm.ai/@owner/skills/present/src/SKILL.md`;
+      const missingPath = `${WORKSPACE_ROOT}/agent_extensions/registry.agentxm.ai/@owner/skills/missing/src/SKILL.md`;
       expect(yield* exists(deps, presentPath)).toBe(true);
       expect(yield* exists(deps, missingPath)).toBe(false);
     }),
@@ -536,7 +536,7 @@ describe("named scenario constructors", () => {
         expect(
           yield* exists(
             deps,
-            `${WORKSPACE_ROOT}/agent_extensions/registry/@owner/skills/some-skill/src/SKILL.md`,
+            `${WORKSPACE_ROOT}/agent_extensions/registry.agentxm.ai/@owner/skills/some-skill/src/SKILL.md`,
           ),
         ).toBe(true);
       }),
@@ -577,9 +577,9 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 10, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 11, skills: {} } },
           axmExtensions: {
-            "git/@owner/skills/legacy/SKILL.md": "# acquired\n",
+            "github.com/owner/tools/legacy/SKILL.md": "# acquired\n",
           },
           agentDirs: {
             "claude-code": {
@@ -598,7 +598,7 @@ describe("buildFixture: serialize round trip", () => {
       const checks: ReadonlyArray<readonly [string, true]> = [
         [PROJECT_SETTINGS_PATH, true],
         [PROJECT_LOCKFILE_PATH, true],
-        [`${WORKSPACE_ROOT}/agent_extensions/git/@owner/skills/legacy/SKILL.md`, true],
+        [`${WORKSPACE_ROOT}/agent_extensions/github.com/owner/tools/legacy/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.claude/skills/some-skill/SKILL.md`, true],
         [`${WORKSPACE_ROOT}/.mcp.json`, true],
         [USER_SETTINGS_PATH, true],

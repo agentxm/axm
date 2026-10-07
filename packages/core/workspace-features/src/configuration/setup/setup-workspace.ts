@@ -476,7 +476,7 @@ export const previewAgentDefault = (
 };
 
 const bundledSkillDisplayPath = (scope: WorkspaceScope): string =>
-  acquiredDisplayPath(scope, `registry/${BUNDLED_SKILL_OWNER}/skills/axm`);
+  acquiredDisplayPath(scope, `registry.agentxm.ai/${BUNDLED_SKILL_OWNER}/skills/axm`);
 
 /** Every failure describing the settled setup can surface. */
 export type SetupReportFailure =

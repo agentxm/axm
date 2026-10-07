@@ -32,7 +32,7 @@ const accepted = (source: unknown): McpServerLockEntry =>
     source,
     identity: { owner: "@acme", name: "context" },
     resolved: {
-      tree: "tree",
+      tree: `sha256-tree-v2:${"0".repeat(64)}`,
       ...(typeof source === "object" && source !== null && "type" in source && source.type === "git"
         ? { commit: "commit" }
         : {}),
@@ -49,7 +49,7 @@ const evaluate = (source: string, rows: Readonly<Record<string, McpServerLockEnt
     inheritedSettings: Schema.decodeUnknownSync(SettingsSchema)({}),
     defaultRegistry: "test",
     registryEndpoints: {},
-    acceptedResolutions: { lockfileVersion: 10, skills: {}, mcpServers: rows },
+    acceptedResolutions: { lockfileVersion: 11, skills: {}, mcpServers: rows },
     packDocuments: [],
     readSet: [],
   });

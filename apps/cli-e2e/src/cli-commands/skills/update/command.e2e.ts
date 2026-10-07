@@ -82,11 +82,11 @@ describe("axm skills update", () => {
         expect(result.exitCode).toBe(0);
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.skills["my-skill"]).toMatchObject({
-          source: lockBefore.skills["my-skill"].source,
+        expect(lockAfter.packages[lockAfter.skills["my-skill"].package]).toMatchObject({
+          source: lockBefore.packages[lockBefore.skills["my-skill"].package].source,
         });
-        expect(lockAfter.skills["my-skill"].resolved.tree).not.toBe(
-          lockBefore.skills["my-skill"].resolved.tree,
+        expect(lockAfter.packages[lockAfter.skills["my-skill"].package].resolved.tree).not.toBe(
+          lockBefore.packages[lockBefore.skills["my-skill"].package].resolved.tree,
         );
         expect(lockAfter.skills["another-skill"]).toMatchObject(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
@@ -184,9 +184,9 @@ describe("axm skills update", () => {
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
         expect(lockAfter.skills["my-skill"]).toEqual(lockBefore.skills["my-skill"]);
-        expect(lockAfter.skills["another-skill"].resolved.tree).not.toBe(
-          lockBefore.skills["another-skill"].resolved.tree,
-        );
+        expect(
+          lockAfter.packages[lockAfter.skills["another-skill"].package].resolved.tree,
+        ).not.toBe(lockBefore.packages[lockBefore.skills["another-skill"].package].resolved.tree);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(fs.readFileSync(disabledSkillContentPath, "utf-8")).not.toContain(
           "Source update for E2E.",
@@ -229,8 +229,8 @@ describe("axm skills update", () => {
         expect(result.exitCode).toBe(0);
 
         const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.skills["my-skill"].resolved.tree).not.toBe(
-          lockBefore.skills["my-skill"].resolved.tree,
+        expect(lockAfter.packages[lockAfter.skills["my-skill"].package].resolved.tree).not.toBe(
+          lockBefore.packages[lockBefore.skills["my-skill"].package].resolved.tree,
         );
         expect(lockAfter.skills["another-skill"]).toEqual(lockBefore.skills["another-skill"]);
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);

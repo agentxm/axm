@@ -15,8 +15,6 @@ import {
   reusableCanonicalTree,
 } from "./canonical-directory.js";
 import * as Data from "effect/Data";
-import * as Schema from "effect/Schema";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   computeMaterializedTreeIntegrity,
   type LockEntry,
@@ -629,7 +627,7 @@ describe("package materialization helpers", () => {
         const accepted = Option.some<LockEntry>({
           source: { type: "path", path: sourcePath },
           identity: { name: extensionName("review") },
-          resolved: { tree: Schema.decodeUnknownSync(SourceHashSchema)("sha256-source") },
+          resolved: { tree: acceptedTree },
           treeIntegrity: acceptedTree,
         });
         const requested = { refType: "local", name: "review" } as const;

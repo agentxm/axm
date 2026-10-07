@@ -5,7 +5,6 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 import {
   DesiredStateReader,
   type DesiredStateEvaluation,
@@ -86,13 +85,6 @@ const emptyInventory = (): Effect.Effect<ExtensionInventory, WorkspaceStateReadF
     undeclaredCount: 0,
     unmanagedCount: 0,
   });
-const fs = (() => {
-  const module = process.getBuiltinModule("node:fs");
-  if (!module) {
-    throw new Error("node:fs builtin is unavailable");
-  }
-  return module;
-})();
 const path = (() => {
   const module = process.getBuiltinModule("node:path");
   if (!module) {
@@ -328,53 +320,6 @@ export const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
 
-const hasEntries = (
-  value: Readonly<Record<string, unknown>> | undefined,
-): value is Record<string, unknown> => value !== undefined && Object.keys(value).length > 0;
-
-export interface WriteWorkspaceFilesOptions {
-  readonly agents?: ReadonlyArray<string> | undefined;
-  readonly owner?: string | undefined;
-  readonly skills?: Record<string, unknown> | undefined;
-  readonly mcps?: Record<string, unknown> | undefined;
-  readonly subagents?: Record<string, unknown> | undefined;
-  readonly rules?: Record<string, unknown> | undefined;
-  readonly packs?: Record<string, unknown> | undefined;
-  readonly sources?: ReadonlyArray<unknown> | undefined;
-  readonly lockfileSkills?: Record<string, unknown> | undefined;
-  readonly lockfileMcpServers?: Record<string, unknown> | undefined;
-  readonly lockfileSubagents?: Record<string, unknown> | undefined;
-  readonly lockfileRules?: Record<string, unknown> | undefined;
-  readonly lockfilePacks?: Record<string, unknown> | undefined;
-}
-
-export const writeWorkspaceFiles = (runtimeDir: string, opts: WriteWorkspaceFilesOptions = {}) => {
-  const settings: Record<string, unknown> = {
-    agents: [...(opts.agents ?? ["claude-code"])],
-    ...(opts.owner && { owner: opts.owner }),
-    ...(hasEntries(opts.skills) && { skills: opts.skills }),
-    ...(hasEntries(opts["mcps"]) && { mcps: opts["mcps"] }),
-    ...(hasEntries(opts.subagents) && { subagents: opts.subagents }),
-    ...(hasEntries(opts.rules) && { rules: opts.rules }),
-    ...(hasEntries(opts.packs) && { packs: opts.packs }),
-    ...(opts.sources && { sources: opts.sources }),
-  };
-
-  const lockfile: Record<string, unknown> = {
-    lockfileVersion: 10,
-    skills: opts.lockfileSkills ?? {},
-    ...(hasEntries(opts.lockfileMcpServers) && { mcps: opts.lockfileMcpServers }),
-    ...(hasEntries(opts.lockfileSubagents) && { subagents: opts.lockfileSubagents }),
-    ...(hasEntries(opts.lockfileRules) && { rules: opts.lockfileRules }),
-    ...(hasEntries(opts.lockfilePacks) && { packs: opts.lockfilePacks }),
-  };
-
-  const workspaceRoot = path.dirname(runtimeDir);
-  fs.mkdirSync(runtimeDir, { recursive: true });
-  fs.writeFileSync(path.join(workspaceRoot, "axm.json"), JSON.stringify(settings));
-  fs.writeFileSync(path.join(workspaceRoot, "axm-lock.yaml"), YAML.stringify(lockfile));
-};
-
 export const makeLocalSkillLockEntry = (opts?: {
   readonly path?: string;
   readonly agents?: ReadonlyArray<string>;
@@ -386,7 +331,7 @@ export const makeLocalSkillLockEntry = (opts?: {
     owner: decodeHandleSync("@test"),
     name: decodeExtensionNameSync("installed"),
   },
-  resolved: { tree: TEST_CONTENT_IDENTITY },
+  resolved: { tree: TEST_TREE_INTEGRITY },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 

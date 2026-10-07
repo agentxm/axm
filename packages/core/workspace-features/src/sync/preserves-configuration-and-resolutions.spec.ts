@@ -1,3 +1,7 @@
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
+import { gitPackagePath, fileRegistryPackagePath } from "../testing/install-world.js";
+import * as Schema from "effect/Schema";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -49,7 +53,7 @@ export const specification = defineSpecification({
 
 const SKILL = "code-review";
 const CLAUDE_PROJECTION = `.claude/skills/${SKILL}`;
-const CANONICAL = `agent_extensions/path/@acme/skills/${SKILL}`;
+const CANONICAL = `agent_extensions/_local/project/vendor/${SKILL}`;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -94,14 +98,16 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             yield* applySync();
             const lock = workspace.readFile("axm-lock.yaml");
             const settings = workspace.readFile("axm.json");
-            workspace.remove("agent_extensions/registry/@acme/packs/toolkit");
+            workspace.remove(fileRegistryPackagePath(published, "packs", "toolkit"));
             published.writePack("toolkit", [
               { version: "1.0.0", dependencies: { [`@acme/skills/${SKILL}`]: "^1.0.0" } },
               { version: "1.1.0", dependencies: {} },
             ]);
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
             expect(
-              workspace.readFile("agent_extensions/registry/@acme/packs/toolkit/pack.json"),
+              workspace.readFile(
+                `${fileRegistryPackagePath(published, "packs", "toolkit")}/pack.json`,
+              ),
             ).toContain(SKILL);
             expect(workspace.readFile("axm-lock.yaml")).toBe(lock);
             expect(workspace.readFile("axm.json")).toBe(settings);
@@ -221,7 +227,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           agents: ["claude-code"],
           skills: { [SKILL]: remote.url },
         });
-        const canonical = `agent_extensions/git/@acme/skills/${SKILL}`;
+        const canonical = gitPackagePath(remote.url, `vendor/${SKILL}`);
         yield* workspace.provide(
           Effect.gen(function* () {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
@@ -263,8 +269,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
           const canonicalFile = nodePath.join(
             workspace.root,
-            "agent_extensions/git/@acme/skills",
-            SKILL,
+            gitPackagePath(remote.url, `vendor/${SKILL}`),
             "src/SKILL.md",
           );
           const retainedTime = new Date("2001-01-01T00:00:00.000Z");
@@ -299,7 +304,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
       yield* workspace.provide(
         Effect.gen(function* () {
           expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
-          workspace.remove(`agent_extensions/git/@acme/skills/${SKILL}`);
+          workspace.remove(gitPackagePath(remote.url, `vendor/${SKILL}`));
           remote.replaceHistory();
           const before = workspace.snapshot();
           const refusal = yield* applySync().pipe(Effect.flip);
@@ -328,7 +333,9 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         yield* workspace.provide(
           Effect.gen(function* () {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
-            const lock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+            const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
+              YAML.parse(workspace.readFile("axm-lock.yaml")),
+            );
             if (!isRecord(lock) || !isRecord(lock["skills"])) {
               throw new Error("Expected skill lock entry");
             }
@@ -341,8 +348,8 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             } else {
               entry["resolved"]["tree"] = "0".repeat(40);
             }
-            workspace.writeFile("axm-lock.yaml", YAML.stringify(lock));
-            workspace.remove(`agent_extensions/git/@acme/skills/${SKILL}`);
+            workspace.writeFile("axm-lock.yaml", YAML.stringify(storedLockfileFixture(lock)));
+            workspace.remove(gitPackagePath(remote.url, `vendor/${SKILL}`));
             const before = workspace.snapshot();
             const refusal = yield* applySync().pipe(Effect.flip);
             expect(refusal).toBeInstanceOf(WorkspaceSyncFailed);
@@ -393,7 +400,9 @@ describe("Sync preserves configuration and accepted resolutions", () => {
 
           // Both Packs admit 1.2.0, but the direct pin is a contributor too:
           // recovery and the direct entry settle on the one version all admit.
-          const lock: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
+          const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
+            YAML.parse(workspace.readFile("axm-lock.yaml")),
+          );
           if (!isRecord(lock) || !isRecord(lock["skills"])) {
             throw new Error("Expected skill lock entries");
           }

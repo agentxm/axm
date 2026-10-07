@@ -98,7 +98,11 @@ export const prepareUninstallArtifact = (
         });
       else if (before?.identity.authority === "workspace")
         references.push({ path: relative, state: "retained", reason: "workspace-authored source" });
-      else if (after !== undefined || sourceRemainsDesired)
+      else if (
+        after !== undefined ||
+        sourceRemainsDesired ||
+        canonical.value.sharedPackage === true
+      )
         references.push({
           path: relative,
           state: "retained",

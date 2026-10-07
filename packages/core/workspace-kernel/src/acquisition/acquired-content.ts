@@ -1,10 +1,13 @@
 /** Verified source trees retained for one workspace transition. */
 
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as ServiceMap from "effect/Context";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
+import * as Ref from "effect/Ref";
+import type { TreeIntegrity } from "../workspace-state/index.js";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { ExtensionFiles } from "@agentxm/extension-model/unstable/sources/source-host-provider";
 import type { StepFailure } from "../operations/index.js";
@@ -55,10 +58,11 @@ export const sourceRefContentKey = (ref: ExtensionRef): string => {
       return JSON.stringify([
         "http",
         ref.source.url.href,
+        ref.source.kind,
         ref.source.entry,
-        ref.sourcePath,
+        ref.distribution?.packageRoot ?? ref.sourcePath,
+        ref.distribution?.format ?? "native",
         ref.snapshot,
-        ref.name,
       ]);
     case "git-hosted":
       return JSON.stringify([
@@ -67,18 +71,25 @@ export const sourceRefContentKey = (ref: ExtensionRef): string => {
         gitTransportContextFingerprint(),
         ref.gitCommitSha,
         ref.gitTreeSha,
-        ref.sourcePath ?? ".",
-        ref.type,
-        ref.name,
+        ref.distribution?.packageRoot ?? ref.sourcePath ?? ".",
+        ref.distribution?.format ?? "native",
       ]);
-    case "local":
-      return JSON.stringify(["path", ref.location, ref.sourcePath ?? ".", ref.type, ref.name]);
+    case "local": {
+      const location = fromFileLocation(ref.location).replaceAll("\\", "/");
+      const component = ref.distribution?.componentPath;
+      const suffix = component === undefined || component === "." ? "" : `/${component}`;
+      const root =
+        suffix !== "" && location.endsWith(suffix) ? location.slice(0, -suffix.length) : location;
+      return JSON.stringify(["path", root, ref.distribution?.format ?? "native"]);
+    }
     case "workspace":
       return JSON.stringify(["workspace", ref.location, ref.type, ref.name]);
   }
 };
 
 export interface AcquiredContentService {
+  /** Bounded by the candidate's selected source packages; discarded after execution. */
+  readonly materializedPackages?: Ref.Ref<ReadonlyMap<string, TreeIntegrity>>;
   readonly requestedKeys: ReadonlySet<string>;
   readonly filesByKey: ReadonlyMap<string, ExtensionFiles>;
   readonly failuresByKey: ReadonlyMap<string, StepFailure>;
@@ -88,6 +99,20 @@ export interface AcquiredContentService {
 export class AcquiredContent extends ServiceMap.Service<AcquiredContent, AcquiredContentService>()(
   "@agentxm/workspace-kernel/acquisition/AcquiredContent",
 ) {}
+
+/** Remember publication only within the current candidate and exact acquisition. */
+export const recordMaterializedPackage = (
+  ref: ExtensionRef,
+  destination: string,
+  integrity: TreeIntegrity,
+) =>
+  Effect.gen(function* () {
+    const acquired = yield* Effect.serviceOption(AcquiredContent);
+    const cache = Option.isSome(acquired) ? acquired.value.materializedPackages : undefined;
+    if (cache === undefined) return;
+    const key = JSON.stringify([sourceRefContentKey(ref), destination]);
+    yield* Ref.update(cache, (current) => new Map(current).set(key, integrity));
+  });
 
 /** How a reader would obtain a source's bytes when the transition holds none. */
 export type AcquiredContentRetrieval = "on-disk" | "remote";
@@ -142,10 +167,25 @@ const acquiredContentForKey = (
 export const acquiredFilesForRef = (
   ref: ExtensionRef,
   retrieval: AcquiredContentRetrieval,
-): Effect.Effect<Option.Option<ExtensionFiles>, SourceNotAcquired> =>
-  ref.refType === "workspace"
-    ? Effect.succeed(Option.none())
-    : acquiredContentForKey(sourceRefContentKey(ref), `${ref.type} ${ref.name}`, retrieval);
+): Effect.Effect<Option.Option<ExtensionFiles>, SourceNotAcquired, Path.Path> =>
+  Effect.gen(function* () {
+    if (ref.refType === "workspace") return Option.none();
+    const captured = yield* acquiredContentForKey(
+      sourceRefContentKey(ref),
+      `${ref.type} ${ref.name}`,
+      retrieval,
+    );
+    if (Option.isNone(captured) || ref.refType === "registry" || ref.distribution === undefined)
+      return captured;
+    const path = yield* Path.Path;
+    const packageDirectory = captured.value.packageDirectory ?? captured.value.directory;
+    return Option.some({
+      ...captured.value,
+      packageDirectory,
+      directory: path.join(packageDirectory, ref.distribution.componentPath),
+      componentPath: ref.distribution.componentPath,
+    });
+  });
 
 /** The transition's bytes for one Registry package, which is only ever retrieved remotely. */
 export const acquiredRegistryPackageFiles = (

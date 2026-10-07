@@ -271,10 +271,9 @@ describe("axm knowledge lifecycle", () => {
       const installedRoot = path.join(
         temp.path,
         "agent_extensions",
-        "path",
-        "@acme",
-        "knowledge",
-        "platform",
+        "_local",
+        "project",
+        "knowledge-source",
       );
       const installedConceptPath = path.join(installedRoot, "src", "architecture.md");
       const installedConcept = fs.readFileSync(installedConceptPath, "utf8");
@@ -716,10 +715,9 @@ describe("axm knowledge lifecycle", () => {
       const canonical = path.join(
         temp.path,
         "agent_extensions",
-        "path",
-        "@acme",
-        "knowledge",
-        "platform",
+        "_local",
+        "project",
+        "knowledge-source",
       );
       expect(fs.existsSync(path.join(canonical, "src", "architecture.md"))).toBe(true);
       expect(fs.existsSync(path.join(temp.path, ".agents", "knowledge"))).toBe(false);
@@ -731,7 +729,7 @@ describe("axm knowledge lifecycle", () => {
       );
       expect(installedInstructions).toContain("### @acme");
       expect(installedInstructions).toContain(
-        "[platform](agent_extensions/path/@acme/knowledge/platform/src/index.md)",
+        "[platform](agent_extensions/_local/project/knowledge-source/src/index.md)",
       );
       expect(installedInstructions).toContain("Platform architecture and operational guidance.");
 

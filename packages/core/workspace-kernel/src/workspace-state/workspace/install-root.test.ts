@@ -75,13 +75,13 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
     nodeFs.mkdirSync(nodePath.dirname(absolute), { recursive: true });
     nodeFs.writeFileSync(absolute, content);
   };
-  const observe = (desired: DesiredStateGraph) =>
+  const observe = (desired: DesiredStateGraph, locks = noLocks) =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
       const layout = yield* resolveProjectWorkspaceLayout(makeAbsolutePath(path, root), {
         owner: handle("@acme"),
       });
-      const inventory = yield* observeInstallRoot({ layout, graph: desired, locks: noLocks });
+      const inventory = yield* observeInstallRoot({ layout, graph: desired, locks });
       const relative = (absolute: string) => nodePath.relative(root, absolute);
       return {
         packages: inventory.packages.map((entry) => [relative(entry.path), entry.reached]),
@@ -105,8 +105,11 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         const authoredRoot = path.join(root, "skills");
         write("axm.json", "{}");
         write("skills/authored/SKILL.md", "# Authored");
-        write("agent_extensions/registry/@acme/skills/review/skill.json", "{}");
-        write("axm-lock.yaml", JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, skills: {} }));
+        write("agent_extensions/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
+        write(
+          "axm-lock.yaml",
+          JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, packages: {}, skills: {} }),
+        );
         const layout = yield* resolveProjectWorkspaceLayout(projectRoot, {});
         const counts = yield* Ref.make({ documents: 0, authoredDirectories: 0 });
         const countedFs: FileSystem.FileSystem = {
@@ -161,33 +164,102 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
       }),
   );
 
+  it.effect("recognizes declared bundled authority without inventing an external lock row", () =>
+    Effect.gen(function* () {
+      write("agent_extensions/registry.agentxm.ai/@agentxm/skills/axm/skill.json", "{}");
+      const bundled: DesiredExtensionNode = {
+        type: "skill",
+        name: "axm",
+        enabled: true,
+        origins: [],
+        constraint: UNCONSTRAINED_DESIRED_NODE,
+        source: "workspace",
+        identity: { authority: "bundled", fqn: "@agentxm/skills/axm" },
+      };
+      expect(yield* observe(graph([bundled]))).toEqual({
+        packages: [],
+        leftovers: [],
+        unrecognized: [],
+      });
+      expect((yield* observe(graph([]))).unrecognized).toEqual([
+        ["agent_extensions/registry.agentxm.ai", "directory"],
+      ]);
+    }),
+  );
+
   it.effect("classifies packages, leftovers, staging, and unrecognized entries", () =>
     Effect.gen(function* () {
-      write("agent_extensions/registry/@acme/skills/review/skill.json", "{}");
-      write("agent_extensions/registry/@acme/skills/stale/skill.json", "{}");
-      write("agent_extensions/registry/@acme/skills/stale.axm-staging/skill.json", "{}");
-      write("agent_extensions/registry/notes.txt", "hand-written");
-      write("agent_extensions/registry/loose/SKILL.md", "# loose");
-      nodeFs.symlinkSync("/nowhere", nodePath.join(root, "agent_extensions/registry/link"));
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json", "{}");
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/stale.axm-staging/skill.json", "{}");
+      write("agent_extensions/registry.agentxm.ai/notes.txt", "hand-written");
+      write("agent_extensions/registry.agentxm.ai/loose/SKILL.md", "# loose");
+      nodeFs.symlinkSync(
+        "/nowhere",
+        nodePath.join(root, "agent_extensions/registry.agentxm.ai/link"),
+      );
 
-      const observed = yield* observe(graph([node("review")]));
+      const observed = yield* observe(graph([node("review")]), {
+        lockfile: Effect.succeed({
+          lockfileVersion: LOCKFILE_VERSION,
+          skills: {
+            review: makeRegistrySkillLockEntry({ owner: handle("@acme"), name: "review" }),
+            stale: makeRegistrySkillLockEntry({ owner: handle("@acme"), name: "stale" }),
+          },
+        }),
+      });
 
       expect(observed.packages).toEqual([
-        ["agent_extensions/registry/@acme/skills/review", true],
-        ["agent_extensions/registry/@acme/skills/stale", false],
+        ["agent_extensions/registry.agentxm.ai/@acme/skills/review", true],
+        ["agent_extensions/registry.agentxm.ai/@acme/skills/stale", false],
       ]);
-      expect(observed.leftovers).toEqual(["agent_extensions/registry/@acme/skills/stale"]);
+      expect(observed.leftovers).toEqual([
+        "agent_extensions/registry.agentxm.ai/@acme/skills/stale",
+      ]);
       expect(observed.unrecognized).toEqual([
-        ["agent_extensions/registry/link", "symlink"],
-        ["agent_extensions/registry/loose", "directory"],
-        ["agent_extensions/registry/notes.txt", "file"],
+        ["agent_extensions/registry.agentxm.ai/link", "symlink"],
+        ["agent_extensions/registry.agentxm.ai/loose", "directory"],
+        ["agent_extensions/registry.agentxm.ai/notes.txt", "file"],
       ]);
+    }),
+  );
+
+  it.effect("preserves plausible package trees without accepted ownership", () =>
+    Effect.gen(function* () {
+      write("agent_extensions/github.com/acme/plugins/skills/review/SKILL.md", "# Modified");
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json", "{}");
+      const observed = yield* observe(graph([]));
+      expect(observed.packages).toEqual([]);
+      expect(observed.leftovers).toEqual([]);
+      expect(observed.unrecognized).toEqual([
+        ["agent_extensions/github.com", "directory"],
+        ["agent_extensions/registry.agentxm.ai", "directory"],
+      ]);
+    }),
+  );
+
+  it.effect("retains a shared path when any accepted binding remains desired", () =>
+    Effect.gen(function* () {
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
+      const entry = makeRegistrySkillLockEntry({ owner: handle("@acme"), name: "review" });
+      for (const skills of [
+        { review: entry, other: entry },
+        { other: entry, review: entry },
+      ]) {
+        const observed = yield* observe(graph([node("review")]), {
+          lockfile: Effect.succeed({ lockfileVersion: LOCKFILE_VERSION, skills }),
+        });
+        expect(observed.packages).toEqual([
+          ["agent_extensions/registry.agentxm.ai/@acme/skills/review", true],
+        ]);
+        expect(observed.leftovers).toEqual([]);
+      }
     }),
   );
 
   it.effect("claims no leftover while desired state is incomplete", () =>
     Effect.gen(function* () {
-      write("agent_extensions/registry/@acme/skills/stale/skill.json", "{}");
+      write("agent_extensions/registry.agentxm.ai/@acme/skills/stale/skill.json", "{}");
       const observed = yield* observe(graph([], false));
       expect(observed.leftovers).toEqual([]);
     }),

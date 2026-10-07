@@ -51,7 +51,7 @@ const documents = (
   byName: Readonly<Record<string, PackManifestObservation>>,
 ): PackManifestsPort => ({
   locate: ({ owner: packOwner, name }) => {
-    const relativePath = `agent_extensions/registry/${packOwner}/packs/${name}/pack.json`;
+    const relativePath = `agent_extensions/registry.agentxm.ai/${packOwner}/packs/${name}/pack.json`;
     return {
       path: `/workspace/${relativePath}`,
       relativePath,
@@ -186,7 +186,7 @@ describe("Uncertainty never proves absence", () => {
           settings,
           documents: { toolkit: manifest },
           lockfile: {
-            lockfileVersion: 10,
+            lockfileVersion: 11,
             skills: {},
             packs: {
               toolkit: makeRegistryPackLockEntry({
@@ -208,7 +208,7 @@ describe("Uncertainty never proves absence", () => {
             settings,
             documents: { toolkit: observation },
             lockfile: {
-              lockfileVersion: 10,
+              lockfileVersion: 11,
               skills: {},
               packs: {
                 toolkit: makeRegistryPackLockEntry({

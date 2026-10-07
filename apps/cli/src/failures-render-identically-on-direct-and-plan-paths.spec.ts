@@ -118,7 +118,6 @@ import {
   McpWorkspacePackageInvalid,
 } from "@agentxm/extension-kinds/mcp-connections";
 import {
-  PackArchiveFetchFailed,
   PackDefinitionInvalid,
   PackInstallStateMissing,
   PackStagingFailed,
@@ -319,7 +318,6 @@ type KindFailure =
   | SkillMaterializationFailed
   | PackDefinitionInvalid
   | PackInstallStateMissing
-  | PackArchiveFetchFailed
   | PackStagingFailed
   | KnowledgeDefinitionInvalid
   | KnowledgeIoFailed
@@ -560,7 +558,6 @@ const representatives: Representatives = {
   AxmSkillIncompatible: [new AxmSkillIncompatible({ compatibility: incompatibleAxmSkill })],
   PackDefinitionInvalid: [new PackDefinitionInvalid({ detail: "Workspace pack is missing" })],
   PackInstallStateMissing: [new PackInstallStateMissing({ name: "demo" })],
-  PackArchiveFetchFailed: [new PackArchiveFetchFailed({ message: "reset", cause: ioCause })],
   PackStagingFailed: [new PackStagingFailed({ packDir: "/w/packs/demo", cause: ioCause })],
   KnowledgeDefinitionInvalid: [
     new KnowledgeDefinitionInvalid({ detail: "Failed to parse knowledge.json" }),

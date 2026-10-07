@@ -29,7 +29,6 @@ import * as Effect from "effect/Effect";
 import {
   treeIntegrityOfSync,
   MockWorkspaceTransactionScope,
-  TEST_CONTENT_IDENTITY,
   WorkspaceReadTest,
   describeTestFailure,
   extensionName,
@@ -143,7 +142,7 @@ const makeHookManagerLayer = (
           {
             source: { type: "path" as const, path: decodeRelativePathSync("source-hook") },
             identity: { owner: handle("@acme"), name: extensionName(name) },
-            resolved: { tree: TEST_CONTENT_IDENTITY },
+            resolved: { tree: treeIntegrityOfSync(nodePath.join(workspaceRoot, "source-hook")) },
             treeIntegrity: treeIntegrityOfSync(nodePath.join(workspaceRoot, "source-hook")),
           },
         ]),
@@ -162,7 +161,7 @@ const makeHookManagerLayer = (
           hooks: entries,
         },
         acceptedResolutions: readLockedHooks().pipe(
-          Effect.map((hooks) => ({ lockfileVersion: 10, skills: {}, hooks })),
+          Effect.map((hooks) => ({ lockfileVersion: 11, skills: {}, hooks })),
         ),
         graph: {
           packMembership: [],
@@ -461,7 +460,7 @@ describe("HookManager", () => {
         expect(raw).toContain("echo keep");
         expect(raw).toContain('"PreToolUse"');
         expect(raw).toContain('"matcher": "Write|Edit"');
-        expect(raw).toContain("agent_extensions/path/@acme/hooks/identity-check/src/hook.sh");
+        expect(raw).toContain("agent_extensions/_local/project/source-hook/src/hook.sh");
         expect(raw).not.toContain('"name": "identity-check"');
         expect(existsSync(`${settingsPath}.bak`)).toBe(false);
       } finally {

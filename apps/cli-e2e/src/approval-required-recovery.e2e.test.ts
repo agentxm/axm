@@ -102,7 +102,7 @@ describe("Advance-approval recovery over the built CLI", () => {
       expect(settings).toMatchObject({ skills: { review: "./vendor/review" } });
       expect(fs.existsSync(path.join(fixture.invoking, "skills/review"))).toBe(false);
       expect(
-        snapshotTree(path.join(fixture.invoking, "agent_extensions/path/@acme/skills/review")),
+        snapshotTree(path.join(fixture.invoking, "agent_extensions/_local/project/vendor/review")),
       ).toEqual(sourceBefore);
       expect(snapshotTree(replacement)).toEqual(sourceBefore);
       expect(fs.readFileSync(path.join(fixture.invoking, "unrelated.txt"), "utf8")).toBe(

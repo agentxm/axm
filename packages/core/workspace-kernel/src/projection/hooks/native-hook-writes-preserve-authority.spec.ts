@@ -40,7 +40,7 @@ const owner: HookOwnership = {
   name: "audit",
   ref: "@acme/hooks/audit",
   scope: "project",
-  root: "agent_extensions/registry/@acme/hooks/audit",
+  root: "agent_extensions/registry.agentxm.ai/@acme/hooks/audit",
 };
 const groups = (proof: HookOwnership = owner) => ({
   PreToolUse: [
@@ -351,7 +351,7 @@ describe("native Hook ownership", () => {
             ...owner,
             name: "second",
             ref: "@acme/hooks/second",
-            root: "agent_extensions/registry/@acme/hooks/second",
+            root: "agent_extensions/registry.agentxm.ai/@acme/hooks/second",
           };
           const rendered = { PreToolUse: [...groups().PreToolUse, ...groups(second).PreToolUse] };
           const authority = NativeWriteAuthorityLive.pipe(

@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../../testing/install-world.js";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -135,11 +136,13 @@ describe("pack install graph", () => {
           const resolution = yield* applyInstall(packRequest(source));
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.exists("agent_extensions/path/@acme/packs/mixed-pack/pack.json")).toBe(
-            true,
-          );
           expect(
-            workspace.exists("agent_extensions/registry/@acme/skills/official/src/SKILL.md"),
+            workspace.exists("agent_extensions/_local/project/fixtures/mixed-pack/pack.json"),
+          ).toBe(true);
+          expect(
+            workspace.exists(
+              `${fileRegistryPackagePath(registry, "skills", "official")}/src/SKILL.md`,
+            ),
           ).toBe(true);
           const lockfile = workspace.readFile("axm-lock.yaml");
           expect(lockfile).toContain("mixed-pack");
@@ -244,8 +247,10 @@ describe("pack install graph", () => {
           expect(details).toHaveLength(2);
           expect(details.join("\n")).toContain("alpha");
           expect(details.join("\n")).toContain("beta");
-          expect(workspace.exists("agent_extensions/registry/@acme/skills/alpha")).toBe(false);
-          expect(workspace.exists("agent_extensions/registry/@acme/skills/beta")).toBe(false);
+          expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "alpha"))).toBe(
+            false,
+          );
+          expect(workspace.exists(fileRegistryPackagePath(registry, "skills", "beta"))).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

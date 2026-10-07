@@ -38,7 +38,10 @@ export const writeWorkspaceState = (
       2,
     )}\n`,
   );
-  fs.writeFileSync(path.join(workspaceRoot, "axm-lock.yaml"), "lockfileVersion: 10\nskills: {}\n");
+  fs.writeFileSync(
+    path.join(workspaceRoot, "axm-lock.yaml"),
+    "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+  );
 };
 
 export interface AuthoredSkillFixture {

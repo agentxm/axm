@@ -11,6 +11,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
+import { configuredRegistryFixturePath } from "../../test-support/retained-paths.js";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "../../e2e/workspace-pack-state.js";
 
@@ -354,7 +355,7 @@ describe("axm packs add/remove", () => {
       const lock = readLock();
       expect(lock.packs?.["mixed-pack"]).toBeUndefined();
       expect(lock.skills?.["workspace-member"]).toBeUndefined();
-      expect(lock.skills?.["registry-member"]).toMatchObject({
+      expect(lock.packages[lock.skills?.["registry-member"].package]).toMatchObject({
         source: { type: "registry" },
         resolved: {
           version: "0.0.1",
@@ -596,7 +597,7 @@ describe("axm packs install", () => {
       });
       expect(readSettings().skills?.[skillName]).toBe("workspace");
       expect(readLock().skills?.[skillName]).toBeUndefined();
-      expect(readLock().packs?.[packName]).toMatchObject({
+      expect(readLock().packages[readLock().packs?.[packName].package]).toMatchObject({
         source: { type: "registry" },
         resolved: { version: "0.0.1" },
       });
@@ -725,10 +726,8 @@ describe("axm packs install", () => {
 
       const directDesiredEntry = readSettings().skills?.[directSkill];
       expect(directDesiredEntry).toBeDefined();
-      const directCanonical = path.join(
+      const directCanonical = configuredRegistryFixturePath(
         temp.path,
-        "agent_extensions",
-        "registry",
         "@test",
         "skills",
         directSkill,
@@ -810,18 +809,15 @@ describe("axm packs install", () => {
       for (const skill of [directSkill, firstMember, secondMember]) {
         expect(lock.skills?.[skill]).toBeDefined();
       }
-      expect(lock.packs?.[firstPack]).toMatchObject({ source: { type: "registry" } });
-      expect(lock.packs?.[secondPack]).toMatchObject({ source: { type: "registry" } });
+      expect(lock.packages[lock.packs?.[firstPack].package]).toMatchObject({
+        source: { type: "registry" },
+      });
+      expect(lock.packages[lock.packs?.[secondPack].package]).toMatchObject({
+        source: { type: "registry" },
+      });
 
       for (const skill of [directSkill, firstMember, secondMember]) {
-        const canonical = path.join(
-          temp.path,
-          "agent_extensions",
-          "registry",
-          "@test",
-          "skills",
-          skill,
-        );
+        const canonical = configuredRegistryFixturePath(temp.path, "@test", "skills", skill);
         const projection = path.join(temp.path, ".claude", "skills", skill);
         expect(fs.existsSync(canonical), `${skill} canonical package`).toBe(true);
         expect(fs.lstatSync(projection).isSymbolicLink(), `${skill} Claude projection`).toBe(true);
@@ -892,15 +888,13 @@ describe("axm packs install", () => {
       expect(lock.packs).toBeDefined();
       expect(lock.packs["installable-pack"]).toBeDefined();
       const lockEntry = lock.packs["installable-pack"];
-      expect(lockEntry.source.type).toBe("registry");
+      expect(lock.packages[lockEntry.package].source.type).toBe("registry");
       expect(lockEntry.identity.owner).toBe("@test");
       expect(lockEntry.identity.name).toBe("installable-pack");
 
       // Verify pack directory exists on disk
-      const packDir = path.join(
+      const packDir = configuredRegistryFixturePath(
         temp.path,
-        "agent_extensions",
-        "registry",
         "@test",
         "packs",
         "installable-pack",
@@ -961,22 +955,15 @@ describe("axm packs install", () => {
           counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
         },
       });
-      expect(readLock().packs?.["recoverable-pack"]).toMatchObject({
+      expect(readLock().packages[readLock().packs?.["recoverable-pack"].package]).toMatchObject({
         source: { type: "registry" },
       });
-      expect(readLock().skills?.["recoverable-member"]).toMatchObject({
+      expect(readLock().packages[readLock().skills?.["recoverable-member"].package]).toMatchObject({
         source: { type: "registry" },
       });
       expect(
         fs.existsSync(
-          path.join(
-            temp.path,
-            "agent_extensions",
-            "registry",
-            "@test",
-            "skills",
-            "recoverable-member",
-          ),
+          configuredRegistryFixturePath(temp.path, "@test", "skills", "recoverable-member"),
         ),
       ).toBe(true);
       expect(
@@ -1135,14 +1122,18 @@ describe("axm packs install", () => {
       expect(lock.packs).toBeDefined();
       expect(lock.packs["deps-pack"]).toBeDefined();
       const packEntry = lock.packs["deps-pack"];
-      expect(packEntry.source.type).toBe("registry");
-      expect(packEntry.resolved.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
-      expect(packEntry.resolved.version.startsWith("^")).toBe(false);
-      expect(packEntry.resolved.version.startsWith("~")).toBe(false);
+      expect(lock.packages[packEntry.package].source.type).toBe("registry");
+      expect(lock.packages[packEntry.package].resolved.version).toMatch(
+        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/,
+      );
+      expect(lock.packages[packEntry.package].resolved.version.startsWith("^")).toBe(false);
+      expect(lock.packages[packEntry.package].resolved.version.startsWith("~")).toBe(false);
       expect(packEntry).not.toHaveProperty("resolvedSkills");
       const resolvedSkill = lock.skills["dep-skill"];
-      expect(resolvedSkill.resolved.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
-      expect(resolvedSkill.resolved.publisherBindingId).toMatch(/^hbnd_/);
+      expect(lock.packages[resolvedSkill.package].resolved.version).toMatch(
+        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/,
+      );
+      expect(lock.packages[resolvedSkill.package].resolved.publisherBindingId).toMatch(/^hbnd_/);
 
       // Verify pack in settings
       const settings = readSettings();
@@ -1214,7 +1205,7 @@ describe("axm packs install", () => {
       const lock = readLock();
       const packEntry = lock.packs["subagent-pack"];
       expect(packEntry).not.toHaveProperty("resolvedSubagents");
-      expect(lock.subagents["dep-subagent"]).toMatchObject({
+      expect(lock.packages[lock.subagents["dep-subagent"].package]).toMatchObject({
         source: { type: "registry" },
         resolved: {
           version: "1.0.0",
@@ -1228,14 +1219,7 @@ describe("axm packs install", () => {
       expect(settings.subagents?.["dep-subagent"]).toBeUndefined();
       expect(
         fs.existsSync(
-          path.join(
-            temp.path,
-            "agent_extensions",
-            "registry",
-            "@test",
-            "subagents",
-            "dep-subagent",
-          ),
+          configuredRegistryFixturePath(temp.path, "@test", "subagents", "dep-subagent"),
         ),
       ).toBe(true);
     } finally {
@@ -1285,7 +1269,9 @@ describe("axm packs install", () => {
         },
       );
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
-      expect(readConsumerLock().packs?.["reconciled-pack"]).toMatchObject({
+      expect(
+        readConsumerLock().packages[readConsumerLock().packs?.["reconciled-pack"].package],
+      ).toMatchObject({
         source: { type: "registry" },
         resolved: { version: "0.0.1" },
       });
@@ -1319,7 +1305,10 @@ describe("axm packs install", () => {
       expect(fs.lstatSync(memberProjection).isSymbolicLink()).toBe(true);
       expect(fs.readFileSync(consumerSettingsPath, "utf-8")).toBe(settingsBefore);
       expect(fs.readFileSync(consumerLockPath, "utf-8")).toBe(lockBefore);
-      expect(readConsumerLock().packs["reconciled-pack"].resolved.version).toBe("0.0.1");
+      expect(
+        readConsumerLock().packages[readConsumerLock().packs["reconciled-pack"].package].resolved
+          .version,
+      ).toBe("0.0.1");
 
       const second = await runCli(["sync", "--json"], { cwd: consumer.path });
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);

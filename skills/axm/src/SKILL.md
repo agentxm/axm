@@ -114,11 +114,15 @@ type-specific authored root, such as `skills/<name>` or `rules/<name>`, through
 the applicable authoring workflow. User scope has no authored roots and does
 not accept user-authored `workspace` sources; the bundled AXM skill is an
 internal static package. For an acquired package, preserve its accepted
-publisher identity and treat local drift under the scope's
-`agent_extensions/<source-family>/<owner>/<plural-type>/<name>` root as
-evidence to resolve, not permission to overwrite. Registry, Git, and local-path
-packages use the `registry`, `git`, and `path` source families respectively;
-packages without a declared owner use `@portable`.
+publisher identity. Resolve its canonical path from AXM inspection, rather than
+constructing one: retained roots under `agent_extensions/` use the actual
+source host and package boundary, or `_local` source coordinates. Treat local
+drift as evidence to resolve, not permission to overwrite. Several selected
+components may share one complete retained package; unselected siblings are
+not installed extensions. Update and retirement follow accepted package
+bindings, including disabled selections and Pack routes. Preserve unknown
+content after lock loss. Consult `axm help workspace-state` for the current
+layout, lock contract, and recovery boundaries.
 When a projection is named as the desired permanent source, identify it as
 non-authoritative, resolve the canonical package first, make semantic changes
 there, then verify the projection from AXM state.

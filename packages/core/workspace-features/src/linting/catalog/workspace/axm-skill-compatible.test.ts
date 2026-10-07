@@ -5,7 +5,7 @@ import { SettingsIoError } from "@agentxm/workspace-kernel/workspace-state";
 import { contextFor, validLockfile, validSettings } from "./conformance/test-helpers.js";
 import { axmSkillCompatibleRule } from "./axm-skill-compatible.js";
 
-const OFFICIAL_SKILL_PATH = "/workspace/agent_extensions/registry/@agentxm/skills/axm";
+const OFFICIAL_SKILL_PATH = "/workspace/agent_extensions/registry.agentxm.ai/@agentxm/skills/axm";
 
 it.effect("reports an unreadable AXM skill compatibility state against the settings", () =>
   Effect.gen(function* () {

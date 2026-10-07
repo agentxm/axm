@@ -6,6 +6,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import YAML from "yaml";
 import {
   TreeIntegritySchema,
@@ -18,11 +19,11 @@ import {
   type WorkspaceLocationService,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
+  storedLockfileFixture,
   treeIntegrityOf,
   SyncNodeFileSystem,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { NO_MATERIALIZATION_OBSERVATION } from "@agentxm/workspace-kernel/materialization";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 
 import {
   ExtensionDependencyConstraintMapSchema,
@@ -122,7 +123,6 @@ export const makeWorkspaceLocationMock = (
     return location;
   });
 
-const TEST_CONTENT_IDENTITY = Schema.decodeUnknownSync(SourceHashSchema)("test-content");
 const TEST_TREE_INTEGRITY = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
@@ -139,7 +139,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v10 accepted resolutions to the workspace under test.
+ * valid v11 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -210,7 +210,7 @@ const normalizeTestLockMap = (
                 name: value["packageName"] ?? value["workspaceName"] ?? name,
               },
               resolved: {
-                tree: value["contentIdentity"] ?? value["sourceHash"] ?? TEST_CONTENT_IDENTITY,
+                tree: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
               },
               treeIntegrity: value["treeIntegrity"] ?? TEST_TREE_INTEGRITY,
             },
@@ -367,7 +367,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 10,
+    lockfileVersion: 11,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),
@@ -391,7 +391,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
 
   return {
     settings: JSON.stringify(settings),
-    lockfile: YAML.stringify(lockfile),
+    lockfile: YAML.stringify(storedLockfileFixture(lockfile)),
   };
 };
 
@@ -465,7 +465,7 @@ export const makeLocalSkillLockEntry = (opts?: {
     owner: normalizeHandle(opts?.owner ?? "@acme"),
     name: extensionName(opts?.name ?? "test"),
   },
-  resolved: { tree: TEST_CONTENT_IDENTITY },
+  resolved: { tree: TEST_TREE_INTEGRITY },
   treeIntegrity: TEST_TREE_INTEGRITY,
 });
 

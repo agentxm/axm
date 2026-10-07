@@ -14,14 +14,25 @@ import * as Layer from "effect/Layer";
 import type * as Semaphore from "effect/Semaphore";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
+import {
+  WorkspaceDocuments,
+  withAcceptedResolutionBatch,
+  type WorkspaceDocumentsService,
+} from "./documents.js";
 import { lockEntries, type LockEntryByType } from "./entry-accessors.js";
-import type { WorkspaceLockfileMutationFailure } from "./contracts.js";
+import type {
+  WorkspaceLockfileMutationFailure,
+  WorkspaceLockfileReadFailure,
+} from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
 
 type Write = Effect.Effect<void, WorkspaceLockfileMutationFailure>;
 
 export interface AcceptedResolutionWriterService {
+  /** Stage all accepted components and publish once inside an existing transaction. */
+  readonly withBatch: <A, E, R>(
+    effect: Effect.Effect<A, E, R>,
+  ) => Effect.Effect<A, E | WorkspaceLockfileReadFailure | WorkspaceLockfileMutationFailure, R>;
   /**
    * Record one accepted resolution under its lock key (the workspace name,
    * or the MCP resolution key). A skill or subagent resolution that is
@@ -102,6 +113,7 @@ export const makeAcceptedResolutionWriter = (
       }),
     ).pipe(Effect.withSpan("AcceptedResolutionWriter.removeAcceptedEntries"));
   return {
+    withBatch: (effect) => withAcceptedResolutionBatch(effect, documents),
     setAccepted: (type, key, entry, options) =>
       serialized(
         Effect.gen(function* () {

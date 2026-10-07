@@ -15,7 +15,6 @@ import { AcceptedResolutionWriter } from "../../workspace/accepted-resolution-wr
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import * as Schema from "effect/Schema";
 import YAML from "yaml";
-import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
@@ -29,7 +28,6 @@ import {
   writeLockfile,
 } from "./lockfile.js";
 
-const contentIdentity = Schema.decodeUnknownSync(SourceHashSchema)("sha256-content");
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
   `sha256-tree-v2:${"0".repeat(64)}`,
 );
@@ -39,7 +37,7 @@ const localEntry = (pathValue: string, packageName = "review"): SkillLockEntry =
     owner: decodeHandleSync("@acme"),
     name: decodeExtensionNameSync(packageName),
   },
-  resolved: { tree: contentIdentity },
+  resolved: { tree: treeIntegrity },
   treeIntegrity,
 });
 
@@ -65,27 +63,27 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 10,
-          skills: { review: localEntry("../sources/review") },
+          lockfileVersion: 11,
+          skills: { review: localEntry("/sources/sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
 
         const parsed: unknown = YAML.parse(
           fs.readFileSync(path.join(axmDir, "axm-lock.yaml"), "utf8"),
         );
-        expect(parsed).toEqual(lockfile);
+        expect(Schema.decodeUnknownSync(LockfileSchema)(parsed)).toEqual(lockfile);
         expect(fs.existsSync(path.join(axmDir, "axm-lock.yaml.lock"))).toBe(false);
       }),
     ),
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 10, skills: {} };
+    const base: Lockfile = { lockfileVersion: 11, skills: {} };
     const result = applyLockfileUpdates(base, [
-      (lockfile) => ({ ...lockfile, skills: { review: localEntry("../one") } }),
+      (lockfile) => ({ ...lockfile, skills: { review: localEntry("/sources/one") } }),
       (lockfile) => ({
         ...lockfile,
-        skills: { ...lockfile.skills, plan: localEntry("../two", "plan") },
+        skills: { ...lockfile.skills, plan: localEntry("/sources/two", "plan") },
       }),
     ]);
     expect(Object.keys(result.skills).sort()).toEqual(["plan", "review"]);
@@ -94,15 +92,15 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 10, skills: {} };
+        const base: Lockfile = { lockfileVersion: 11, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 10,
-          skills: { existing: localEntry("../existing", "existing") },
+          lockfileVersion: 11,
+          skills: { existing: localEntry("/sources/existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
           (lockfile) => ({
             ...lockfile,
-            skills: { ...lockfile.skills, review: localEntry("../review", "review") },
+            skills: { ...lockfile.skills, review: localEntry("/sources/review", "review") },
           }),
         ]);
         expect(Object.keys(result.skills).sort()).toEqual(["existing", "review"]);
@@ -114,20 +112,25 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 10,
-          skills: { review: localEntry("../old") },
+          lockfileVersion: 11,
+          skills: { review: localEntry("/sources/old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 10,
-          skills: { ...base.skills, independent: localEntry("../independent", "independent") },
+          lockfileVersion: 11,
+          skills: {
+            ...base.skills,
+            independent: localEntry("/sources/independent", "independent"),
+          },
         });
         const next: Lockfile = {
-          lockfileVersion: 10,
-          skills: { review: localEntry("../new") },
+          lockfileVersion: 11,
+          skills: { review: localEntry("/sources/new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
-        expect(result.skills["review"]).toEqual(localEntry("../new"));
-        expect(result.skills["independent"]).toEqual(localEntry("../independent", "independent"));
+        expect(result.skills["review"]).toEqual(localEntry("/sources/new"));
+        expect(result.skills["independent"]).toEqual(
+          localEntry("/sources/independent", "independent"),
+        );
       }),
     ),
   );
@@ -135,19 +138,19 @@ describe("lockfile", () => {
   it.effect.each([
     {
       fault: "an unrecognised key",
-      raw: "lockfileVersion: 10\nskills: {}\nextra: 1\n",
+      raw: "lockfileVersion: 11\npackages: {}\nskills: {}\nextra: 1\n",
       error: LockfileDecodeError,
     },
     {
       fault: "an unsupported version",
-      raw: "lockfileVersion: 11\nskills: {}\n",
+      raw: "lockfileVersion: 12\nskills: {}\n",
       error: LockfileVersionUnsupported,
     },
   ])("refuses a commit reread with $fault without changing the file", ({ raw, error }) =>
     run(
       Effect.gen(function* () {
         const target = path.join(root, "axm-lock.yaml");
-        const base: Lockfile = { lockfileVersion: 10, skills: {} };
+        const base: Lockfile = { lockfileVersion: 11, skills: {} };
         fs.writeFileSync(target, raw);
 
         const failure = yield* Effect.flip(commitLockfileSnapshotUpdateAtPath(target, base, base));
@@ -183,8 +186,8 @@ describe("lockfile", () => {
         const secondWriter = Context.get(second, AcceptedResolutionWriter);
         yield* Effect.all(
           [
-            firstWriter.setAccepted("skill", "first", localEntry("../first", "first")),
-            secondWriter.setAccepted("skill", "second", localEntry("../second", "second")),
+            firstWriter.setAccepted("skill", "first", localEntry("/sources/first", "first")),
+            secondWriter.setAccepted("skill", "second", localEntry("/sources/second", "second")),
           ],
           { concurrency: "unbounded" },
         );

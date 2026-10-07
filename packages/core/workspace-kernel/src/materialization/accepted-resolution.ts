@@ -21,7 +21,6 @@ import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/ex
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
-import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
 import {
   gitSourceLockFields,
   pathSourceLockFields,
@@ -48,7 +47,6 @@ export class InstallStateMissing extends Data.TaggedError("InstallStateMissing")
 
 /** The content identity a canonical acquisition established, as the lockfile records it. */
 export interface AcquiredContentIdentity {
-  readonly sourceHash: SourceHash;
   readonly treeIntegrity: TreeIntegrity;
   /** Workspace-root-relative local source path; `None` for non-local refs. */
   readonly workspaceRelativeLocalSourcePath: Option.Option<string>;
@@ -128,10 +126,9 @@ const lockEntry = (ref: AcquiredRef, acquired: AcquiredContentIdentity): SkillLo
       };
     }
     case "local": {
-      const path = Option.getOrElse(
-        acquired.workspaceRelativeLocalSourcePath,
-        () => ref.source.path,
-      );
+      const path =
+        ref.sourcePath ??
+        Option.getOrElse(acquired.workspaceRelativeLocalSourcePath, () => ref.source.path);
       return ref.owner === undefined
         ? {
             source: {
@@ -140,16 +137,10 @@ const lockEntry = (ref: AcquiredRef, acquired: AcquiredContentIdentity): SkillLo
               ...(ref.distribution === undefined ? {} : { distribution: ref.distribution }),
             },
             identity: { name: ref.name },
-            resolved: { tree: acquired.sourceHash },
+            resolved: { tree: acquired.treeIntegrity },
             treeIntegrity: acquired.treeIntegrity,
           }
-        : pathSourceLockFields(
-            path,
-            acquired.sourceHash,
-            ref.name,
-            acquired.treeIntegrity,
-            ref.owner,
-          );
+        : pathSourceLockFields(path, ref.name, acquired.treeIntegrity, ref.owner);
     }
     case "registry":
       return registrySourceLockFields(

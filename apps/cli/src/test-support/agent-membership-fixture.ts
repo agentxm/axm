@@ -1,3 +1,4 @@
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * A real project workspace and the whole application layer over it, for the
  * specifications that observe a coding-agent membership change.
@@ -74,7 +75,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
   // JSON is valid YAML, so the lockfile fixture needs no emitter.
   writeFile(
     "axm-lock.yaml",
-    `${JSON.stringify({ lockfileVersion: 10, skills: {}, ...options.lockfile }, null, 2)}\n`,
+    `${JSON.stringify(storedLockfileFixture(options.lockfile ?? {}), null, 2)}\n`,
   );
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
     writeFile(relativePath, contents);

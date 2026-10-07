@@ -149,8 +149,8 @@ describe("container receipt continuity", () => {
         '{\n  "token": "private-token",\n  "empty": {"managed":true}\n}\n',
       ],
       [
-        "# authored\r\nlockfileVersion: 10\r\nskills: {}",
-        "# authored\nlockfileVersion: 10\nskills:\n  owned:\n    value: true\n",
+        "# authored\r\nlockfileVersion: 11\r\npackages: {}\r\nskills: {}",
+        "# authored\nlockfileVersion: 11\npackages: {}\nskills:\n  owned:\n    value: true\n",
       ],
       ['{"token":"α😀","list":[]}', '{\n  "token": "α😀",\n  "list": ["managed"]\n}\n'],
     ]) {

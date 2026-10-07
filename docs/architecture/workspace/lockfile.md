@@ -31,29 +31,31 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a path content identity.
 
-The current strict version is version 10. Every acquired package row separates
-four facts: a self-describing `source` locator, declared package `identity`, the
-family-specific immutable `resolved` result, and `treeIntegrity` for the
-complete installed package tree under
-`agent_extensions/<source-family>/<owner>/<plural-type>/<name>/`. This
-package-level identity covers every shipped file, including companion files
-outside the extension's primary payload, rather than treating a single manifest
-or entry file as the installed unit.
+The current strict version is version 11. Its `packages` map records each
+retained package once: the self-describing source locator, immutable resolved
+snapshot, and integrity of the complete retained tree. Per-kind maps bind
+selected extension identities and component paths to that package. Package keys
+identify stable source boundaries; revisions and artifact digests identify the
+accepted snapshot separately.
+
+The retained directory follows the actual source address, as described in
+[canonical extension content](overview.md#canonical-extension-content).
+Neither a local alias nor the selected extension kind changes that directory.
+Several Skills, MCP connections, or co-located native extension kinds can share
+one package without duplicating its payload or accepted snapshot. A selection
+never activates its unselected siblings.
 
 Registry locators record the Registry URL; their resolution records version,
-archive integrity, and publisher binding. Git locators record clone URL plus an
-optional selected path and revision; their resolution records commit and tree.
-Path locators record a workspace-relative path; their resolution records the
-observed tree. Configured Registry names and Registry version constraints remain
-desired-state input rather than lock identity.
+archive integrity, and publisher binding. Git locators record clone URL and
+selected package boundary; their resolution records commit and tree. Local
+locators distinguish project-relative and absolute filesystem coordinates.
+HTTP locators preserve the logical URL, source kind, selected index entry, and
+accepted artifact manifest needed for exact replay. Configured Registry names
+and version constraints remain desired-state input rather than package identity.
 
-Most extension maps are keyed by workspace extension name. MCP resolution rows
-are instead keyed by source identity: source authority plus published package
-FQN for Registry packages, or the corresponding stable identity for another
-source class. The local connection name is deliberately absent from that key.
-Consequently, multiple local MCP connections can share one accepted resolution
-and one canonical acquired package without making the lock row a declaration of
-any connection.
+Most extension maps are keyed by workspace extension name. MCP bindings use
+source identity independently of local connection aliases. These bindings refer
+to the same package record when their components share its retained boundary.
 
 Exact fields and the strict lockfile version remain executable contracts owned
 by schemas and behavior tests. The architectural requirement is that the row
@@ -86,14 +88,16 @@ version ranges and explicit Registry authorities, alongside its manifest version
 and semantic content identity. A configured Pack that matches that row derives
 its dependency edges from this declaration even when installed files are absent
 or changed. Git and path rows retain the source root used by inherited members.
-Selected member resolutions remain in their own per-kind maps; updating one
-member does not rewrite its owning Packs. Inline MCP definitions,
+Selected member bindings remain in their own per-kind maps. Updating a package
+advances every selected binding to that package together, including disabled
+selections and members reached through multiple Packs. An owning Pack at a
+different package boundary retains its accepted resolution. Inline MCP definitions,
 workspace-authored content, and bundled content have no artificial external-
 resolution rows.
 
-An MCP row remains reachable while at least one local connection or Pack route
-requires its source. Removing one local connection does not remove shared
-canonical content or its accepted row; removing the final route does.
+A package remains retained while any selected binding or desired direct or Pack
+route requires it. Removing one selection retires only its native outputs and
+unused binding. The last consumer releases the package and its accepted metadata.
 
 ## Planning and materialization
 
@@ -108,7 +112,9 @@ Sync and reinstall rematerialize only the exact locked identity. When a mutable
 Git or path source no longer reproduces that identity and canonical
 content is unavailable, the affected semantic mutation closure blocks. AXM
 does not substitute current bytes. An explicit update may resolve and accept a
-new identity within durable version intent.
+new identity within durable version intent. It reacquires a shared package once
+and validates every retained selection before publishing the replacement; a
+missing component blocks the whole package transition.
 
 Present byte drift in acquired external canonical content does not alter the
 lock row or transfer authorship. It does make the accepted installed tree
@@ -149,8 +155,8 @@ when a known current-scope lockfile is newer but current settings are absent.
 
 An older lockfile requires explicit re-acceptance rather than migration:
 preserve the incompatible bytes outside the authoritative path, review desired
-intent, remove the incompatible file, preview fresh resolution, and apply only
-after reviewing the preview. External resolutions may change because the old
+intent, and preserve unproven acquired content outside prospective destination
+paths before previewing fresh resolution. Apply only after reviewing the preview. External resolutions may change because the old
 accepted format is not read. A workspace containing only workspace-authored
 content may correctly finish with no lockfile.
 

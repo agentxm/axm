@@ -60,6 +60,8 @@ import {
 } from "./desired-state-graph.js";
 import { desiredProblemSubject } from "./desired-state-queries.js";
 import { lockEntryMatchesSourceLocator } from "./lock-entry.js";
+import { lockEntries } from "./entry-accessors.js";
+import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
 import { mcpResolutionKey } from "./mcp-source-identity.js";
 
 interface CandidateCommon {
@@ -499,6 +501,31 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
   const groups = new Map<string, Candidate[]>();
   for (const unresolved of candidates) {
     let candidate = unresolved;
+    if (
+      unresolved.type !== "mcp-server" &&
+      unresolved.authority === "sourced" &&
+      (unresolved.identity.authority === "path" ||
+        unresolved.identity.authority === "git" ||
+        unresolved.identity.authority === "http")
+    ) {
+      const accepted = lockEntries[unresolved.type].entries(inputs.acceptedResolutions)[
+        unresolved.name
+      ];
+      if (
+        accepted !== undefined &&
+        accepted.identity.owner !== undefined &&
+        accepted.source.type === unresolved.identity.authority &&
+        lockEntryMatchesSourceLocator(accepted, unresolved.source)
+      ) {
+        candidate = {
+          ...unresolved,
+          identity: {
+            ...unresolved.identity,
+            fqn: `${accepted.identity.owner}/${toExtensionTypePlural(unresolved.type)}/${accepted.identity.name}`,
+          },
+        };
+      }
+    }
     if (
       unresolved.type === "mcp-server" &&
       unresolved.authority === "sourced" &&

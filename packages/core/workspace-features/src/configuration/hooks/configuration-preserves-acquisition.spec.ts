@@ -1,3 +1,4 @@
+import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -100,7 +101,7 @@ describe("Configuring installed Hooks", () => {
               }
               const lock = world.workspace.readFile("axm-lock.yaml");
               const content = world.workspace.readFile(
-                "agent_extensions/registry/@acme/hooks/audit/hook.json",
+                `${fileRegistryPackagePath(world.registry, "hooks", "audit")}/hook.json`,
               );
               expect(deriveOperationOutcome(yield* configure("replacement"))).toBe("applied");
               const settings: unknown = JSON.parse(world.workspace.readFile("axm.json"));
@@ -114,7 +115,9 @@ describe("Configuring installed Hooks", () => {
               expect(native.match(/replacement/g)).toHaveLength(1);
               expect(world.workspace.readFile("axm-lock.yaml")).toBe(lock);
               expect(
-                world.workspace.readFile("agent_extensions/registry/@acme/hooks/audit/hook.json"),
+                world.workspace.readFile(
+                  `${fileRegistryPackagePath(world.registry, "hooks", "audit")}/hook.json`,
+                ),
               ).toBe(content);
               if (route === "two-packs") {
                 expect(settings).toHaveProperty("hooks.audit", {

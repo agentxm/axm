@@ -1,3 +1,4 @@
+import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { createRequire } from "node:module";
 
 import * as Effect from "effect/Effect";
@@ -68,6 +69,7 @@ const minimalValueFor = (field: string, version: number): unknown => {
   switch (field) {
     case "lockfileVersion":
       return version;
+    case "packages":
     case "skills":
       return {};
     default:
@@ -91,16 +93,23 @@ describe("Published lockfile schema", () => {
   it.effect("every acquired Pack requires its accepted dependency declaration", () =>
     Effect.gen(function* () {
       const document = publishedLockfileSchema();
-      const alternatives = Schema.decodeUnknownSync(
+      const packMap = child(child(lockfileDefinition(document), "properties"), "packs");
+      const variants = Schema.decodeUnknownSync(
         Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
-      )(child(child(document, "definitions"), "PackLockEntry")["anyOf"]);
-      expect(alternatives).toHaveLength(3);
-      for (const alternative of alternatives) {
-        expect(decodeStringArray(alternative["required"])).toEqual(
-          expect.arrayContaining(["dependencies", "manifestVersion", "manifestContentIdentity"]),
-        );
-        expect(child(alternative, "properties")).not.toHaveProperty("members");
-      }
+      )(packMap["anyOf"]);
+      const map = variants.find((variant) => variant["type"] === "object");
+      if (map === undefined) throw new Error("Expected Pack binding map");
+      const binding = child(map, "additionalProperties");
+      expect(decodeStringArray(binding["required"])).toEqual(
+        expect.arrayContaining([
+          "package",
+          "identity",
+          "dependencies",
+          "manifestVersion",
+          "manifestContentIdentity",
+        ]),
+      );
+      expect(child(binding, "properties")).not.toHaveProperty("members");
       const manifest = {
         owner: "@acme",
         type: "pack",
@@ -131,22 +140,19 @@ describe("Published lockfile schema", () => {
         {
           source: { type: "path", path: "sources/tools" },
           sourceRoot: "sources",
-          resolved: { tree: "accepted-tree" },
+          resolved: { tree: `sha256-tree-v2:${"0".repeat(64)}` },
         },
       ]) {
         const row = { ...common, ...resolution };
-        yield* decodeLockfile({
-          lockfileVersion: LOCKFILE_VERSION,
-          skills: {},
-          packs: { tools: row },
-        });
+        const stored = storedLockfileFixture({ packs: { tools: row } });
+        yield* decodeLockfile(stored);
+        const binding = stored.packs?.["tools"];
+        if (binding === undefined) throw new Error("Expected Pack binding");
         for (const field of ["dependencies", "manifestVersion", "manifestContentIdentity"]) {
-          const missing = Object.fromEntries(Object.entries(row).filter(([key]) => key !== field));
-          yield* decodeLockfile({
-            lockfileVersion: LOCKFILE_VERSION,
-            skills: {},
-            packs: { tools: missing },
-          }).pipe(Effect.flip);
+          const missing = Object.fromEntries(
+            Object.entries(binding).filter(([key]) => key !== field),
+          );
+          yield* decodeLockfile({ ...stored, packs: { tools: missing } }).pipe(Effect.flip);
         }
       }
     }),

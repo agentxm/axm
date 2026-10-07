@@ -62,7 +62,7 @@ describe("axm skills install", () => {
         const stat = fs.lstatSync(claudeSkillsDir);
         expect(stat.isSymbolicLink()).toBe(true);
         const localRoot =
-          path.join(fs.realpathSync(temp.path), "agent_extensions", "path") + path.sep;
+          path.join(fs.realpathSync(temp.path), "agent_extensions", "_local") + path.sep;
         expect(fs.realpathSync(claudeSkillsDir).startsWith(localRoot)).toBe(true);
         expect(fs.realpathSync(anotherClaudeSkillsDir).startsWith(localRoot)).toBe(true);
       } finally {
@@ -88,16 +88,18 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify lockfile structure
-        expect(lock.lockfileVersion).toBe(10);
+        expect(lock.lockfileVersion).toBe(11);
         expect(lock.skills).toBeDefined();
 
         // Each skill entry should carry a self-describing source and immutable resolution.
         for (const skillName of ["my-skill", "another-skill"]) {
           const entry = lock.skills[skillName];
           expect(entry).toBeDefined();
-          expect(entry.source).toMatchObject({ type: "path" });
-          expect(entry.source.path).toBeDefined();
-          expect(entry.resolved.tree).toMatch(/^[a-f0-9]{64}$/);
+          expect(lock.packages[entry.package].source).toMatchObject({ type: "path" });
+          expect(lock.packages[entry.package].source.path).toBeDefined();
+          expect(lock.packages[entry.package].resolved.tree).toMatch(
+            /^sha256-tree-v2:[a-f0-9]{64}$/,
+          );
           expect(entry).not.toHaveProperty("agents");
           expect(entry).not.toHaveProperty("installedAt");
           expect(entry).not.toHaveProperty("updatedAt");
@@ -205,7 +207,7 @@ describe("axm skills install", () => {
         const packageRoot = path.join(
           temp.path,
           "agent_extensions",
-          "registry",
+          "registry.agentxm.ai",
           "@agentxm",
           "skills",
           "axm",
@@ -256,17 +258,29 @@ describe("axm skills install", () => {
           lockPath,
           YAML.stringify({
             ...lock,
-            skills: {
-              ...lock["skills"],
-              axm: {
-                source: { type: "registry", url: "https://registry.agentxm.ai" },
-                identity: { owner: "@agentxm", name: "axm" },
+            packages: {
+              ...Object(lock["packages"]),
+              '["registry","https://registry.agentxm.ai","@agentxm","skills","axm"]': {
+                source: {
+                  type: "registry",
+                  url: "https://registry.agentxm.ai/",
+                  owner: "@agentxm",
+                  extensionType: "skills",
+                  name: "axm",
+                },
                 resolved: {
                   version: "99.0.0",
                   integrity: `sha512-${Buffer.alloc(64).toString("base64")}`,
                   publisherBindingId: "hbnd_test",
                 },
                 treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
+              },
+            },
+            skills: {
+              ...lock["skills"],
+              axm: {
+                package: '["registry","https://registry.agentxm.ai","@agentxm","skills","axm"]',
+                identity: { owner: "@agentxm", name: "axm" },
               },
             },
           }),
@@ -341,7 +355,7 @@ describe("axm skills install", () => {
         // Expected structure:
         // axm.json
         // axm-lock.yaml
-        // agent_extensions/path/<owner>/skills/my-skill/
+        // agent_extensions/_local/project/vendor/my-skill/
         //     src/SKILL.md
         // .claude/
         //   skills/
@@ -411,14 +425,14 @@ describe("axm skills install", () => {
         const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
 
         // Verify new lockfile structure
-        expect(lock.lockfileVersion).toBe(10);
+        expect(lock.lockfileVersion).toBe(11);
         expect(lock.skills).toBeDefined();
         expect(lock.skills["my-skill"]).toBeDefined();
 
         const entry = lock.skills["my-skill"];
-        expect(entry.source).toMatchObject({ type: "path" });
-        expect(entry.source.path).toBeDefined();
-        expect(entry.resolved.tree).toMatch(/^[a-f0-9]{64}$/);
+        expect(lock.packages[entry.package].source).toMatchObject({ type: "path" });
+        expect(lock.packages[entry.package].source.path).toBeDefined();
+        expect(lock.packages[entry.package].resolved.tree).toMatch(/^sha256-tree-v2:[a-f0-9]{64}$/);
         expect(entry.agents).toBeUndefined();
         expect(entry.installedAt).toBeUndefined();
         expect(entry.updatedAt).toBeUndefined();
@@ -452,7 +466,7 @@ describe("axm skills install", () => {
             fs
               .realpathSync(resolvedLink)
               .startsWith(
-                path.join(fs.realpathSync(temp.path), "agent_extensions", "path") + path.sep,
+                path.join(fs.realpathSync(temp.path), "agent_extensions", "_local") + path.sep,
               ),
           ).toBe(true);
         }
@@ -563,7 +577,7 @@ describe("axm skills install", () => {
         expect(output).toContain("Would install");
 
         // Verify no files were created
-        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "path");
+        const localExtensionsRoot = path.join(temp.path, "agent_extensions", "_local");
         expect(fs.existsSync(localExtensionsRoot)).toBe(false);
       } finally {
         temp.cleanup();

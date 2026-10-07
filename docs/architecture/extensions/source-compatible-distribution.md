@@ -59,10 +59,21 @@ runtime plugin framework. Their result separates:
 | AXM key        | A safe management identifier, separate from upstream bytes.  |
 | Format         | The discovery semantics selected by the package declaration. |
 
-A standalone skill has coincident package and component roots. A plugin can
+A standalone skill has coincident package and component roots. Native manifests
+for any of the seven extension kinds may share a package root. A plugin can
 have several components sharing one package root. Its manifest, support files,
 and component paths stay together even when only selected components become
 active. AXM metadata and receipts belong outside the upstream payload.
+
+The package boundary, selected component, accepted snapshot, and native output
+are separate identities. A retained package uses its actual source address,
+independently of the selected kinds or local aliases. Adding another selection
+reuses the accepted snapshot. Update stages one replacement and validates all
+retained selections, including disabled and Pack-reached consumers, before
+committing canonical content, bindings, and native outputs together. Missing
+components or a failed write roll back that package transition. Removing one
+selection preserves the package until its final consumer is removed. See
+[Lockfile](../workspace/lockfile.md) for the authority and recovery contract.
 
 Two candidates declaring the same name remain distinct by source-relative path.
 Ambiguity is resolved when selecting a member or native destination, not by

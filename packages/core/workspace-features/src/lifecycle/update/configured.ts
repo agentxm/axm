@@ -61,6 +61,10 @@ import {
 import { type ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   DesiredStateReader,
+  LockfileReader,
+  AcceptedResolutionWriter,
+  acceptedRowKey,
+  retainedPackageBindings,
   SettingsReader,
   WorkspaceLocation,
   acceptedResolutionRef,
@@ -103,6 +107,8 @@ import type { VersionRange } from "@agentxm/extension-model/unstable/version-con
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
 import {
+  groupRetainedPackageSteps,
+  buildPackMemberStep,
   toTypedLabel,
   StepFailureConversion,
   type StepFailureConversionService,
@@ -169,6 +175,7 @@ interface CollectedWorkspaceUpdatePlans {
 }
 
 interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection {
+  readonly retainedNames?: ReadonlySet<string>;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   /**
    * Whether the invoking surface can prompt while a planned advance runs.
@@ -732,7 +739,7 @@ const resolveMcpServerIntent = (
               ref,
               localName: decodeExtensionNameSync(name),
               versionRange,
-              force: false,
+              force: reacquiresContent(ref),
               nonInteractive,
             } satisfies Omit<McpServerInstallIntent, "sourceIdentity">)
           : undefined,
@@ -880,9 +887,10 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: D
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("skill");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
-      hasConfiguredSource,
-    );
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    ).filter(hasConfiguredSource);
     const resolved = yield* Effect.forEach(
       entries,
       ([name, entry]) =>
@@ -916,7 +924,10 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("rule");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -951,7 +962,10 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("hook");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -989,7 +1003,10 @@ const collectKnowledgePlans = (
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("knowledge");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection);
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    );
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -1032,9 +1049,10 @@ const collectSubagentPlans = (
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("subagent");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
-      hasConfiguredSource,
-    );
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    ).filter(hasConfiguredSource);
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -1078,28 +1096,27 @@ const collectMcpServerPlans = (
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("mcp-server");
     const seenSourceClosures = new Set<string>();
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).flatMap(
-      (entry): ReadonlyArray<typeof entry> => {
-        const [name, configuredEntry] = entry;
-        const desired = graph.nodes.find(
-          (node) => node.type === "mcp-server" && node.name === name,
-        );
-        if (
-          configuredEntry.source === undefined ||
-          isWorkspaceSourceLocator(configuredEntry.source) ||
-          desired === undefined ||
-          !isSourcedDesiredExtension(desired)
-        ) {
-          return [entry];
-        }
-        // Every local connection to one source shares one resolution, so the
-        // closure advances once, through its first connection.
-        const sourceKey = desiredMcpSourceKey(desired.identity);
-        if (seenSourceClosures.has(sourceKey)) return [];
-        seenSourceClosures.add(sourceKey);
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    ).flatMap((entry): ReadonlyArray<typeof entry> => {
+      const [name, configuredEntry] = entry;
+      const desired = graph.nodes.find((node) => node.type === "mcp-server" && node.name === name);
+      if (
+        configuredEntry.source === undefined ||
+        isWorkspaceSourceLocator(configuredEntry.source) ||
+        desired === undefined ||
+        !isSourcedDesiredExtension(desired)
+      ) {
         return [entry];
-      },
-    );
+      }
+      // Every local connection to one source shares one resolution, so the
+      // closure advances once, through its first connection.
+      const sourceKey = desiredMcpSourceKey(desired.identity);
+      if (seenSourceClosures.has(sourceKey)) return [];
+      seenSourceClosures.add(sourceKey);
+      return [entry];
+    });
 
     const resolved = yield* Effect.forEach(
       entries,
@@ -1143,9 +1160,10 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
     const location = yield* WorkspaceLocation;
     const conversion = yield* StepFailureConversion;
     const configured = yield* settings.entries("pack");
-    const entries = selectedEntries(acquisitionConfiguredEntries(configured), selection).filter(
-      hasConfiguredSource,
-    );
+    const entries = selectedEntries(
+      acquisitionConfiguredEntries(configured, selection.retainedNames),
+      selection,
+    ).filter(hasConfiguredSource);
 
     const requestBudget = yield* Effect.serviceOption(OperationRequestBudget);
     const prepared = yield* Effect.forEach(
@@ -1360,27 +1378,141 @@ export const buildWorkspaceUpdatePlan: (
   WorkspaceUpdateCollectorContext | ReleaseAgePosture
 > = Effect.fn("UpdateExtensions.sweepConfigured")(function* (args) {
   const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
-  const selection: WorkspaceUpdateCollectionRequest = {
-    names: args.names === undefined ? undefined : new Set(args.names),
-    releaseAgeEvaluation,
-    nonInteractive: args.nonInteractive,
+  const accepted = retainedPackageBindings(yield* (yield* LockfileReader).lockfile);
+  const priorGraph = yield* (yield* DesiredStateReader).graph();
+  const namesForBinding = (binding: (typeof accepted)[number]): ReadonlyArray<string> => {
+    const nodes = priorGraph.nodes.filter(
+      (node) =>
+        node.type === binding.type && Option.getOrUndefined(acceptedRowKey(node)) === binding.key,
+    );
+    return nodes.length > 0 ? nodes.map((node) => node.name) : [binding.key];
   };
+  const requestedNames = args.names === undefined ? undefined : new Set(args.names);
+  const selectedPackages = new Set(
+    accepted
+      .filter(
+        (binding) =>
+          matchesRequestedType(args.type, binding.type) &&
+          namesForBinding(binding).some(
+            (name) =>
+              (requestedNames === undefined || requestedNames.has(name)) &&
+              priorGraph.nodes.some(
+                (node) => node.type === binding.type && node.name === name && node.enabled,
+              ),
+          ),
+      )
+      .map((binding) => binding.packageKey),
+  );
+  const selectionFor = (type: WorkspaceUpdatableType): WorkspaceUpdateCollectionRequest => {
+    const retainedNames = new Set(
+      accepted
+        .filter((binding) => binding.type === type && selectedPackages.has(binding.packageKey))
+        .flatMap(namesForBinding),
+    );
+    const names = matchesRequestedType(args.type, type)
+      ? requestedNames === undefined
+        ? undefined
+        : new Set([...requestedNames, ...retainedNames])
+      : retainedNames;
+    return { names, retainedNames, releaseAgeEvaluation, nonInteractive: args.nonInteractive };
+  };
+  const selectedType = (type: WorkspaceUpdatableType) =>
+    matchesRequestedType(args.type, type) ||
+    accepted.some((binding) => binding.type === type && selectedPackages.has(binding.packageKey));
   // Pack advances resolve first: their proposed manifests are part of the one
   // graph every configured entry advances within.
-  const packs = matchesRequestedType(args.type, "pack")
-    ? yield* observeUnit(collectorUnit("pack"), collectPackPlans(selection))
+  const packs = selectedType("pack")
+    ? yield* observeUnit(collectorUnit("pack"), collectPackPlans(selectionFor("pack")))
     : undefined;
   const graph = packs?.graph ?? (yield* readProposedGraph([]));
   const entryCollections = new Map<WorkspaceUpdatableType, CollectedWorkspaceUpdatePlans>();
   for (const { type, collect } of makeWorkspaceUpdateCollectors()) {
-    if (!matchesRequestedType(args.type, type)) continue;
-    entryCollections.set(type, yield* observeUnit(collectorUnit(type), collect(selection, graph)));
+    if (!selectedType(type)) continue;
+    entryCollections.set(
+      type,
+      yield* observeUnit(collectorUnit(type), collect(selectionFor(type), graph)),
+    );
   }
   const collections = installableExtensionTypes.flatMap((type) => {
     const collection = type === "pack" ? packs?.collection : entryCollections.get(type);
     return collection === undefined ? [] : [collection];
   });
   const fragments = collections.flatMap((collection) => collection.fragments);
+  const derivedResolvers = {
+    skill: resolveConfiguredSkill,
+    subagent: resolveConfiguredSubagent,
+    rule: resolveConfiguredRule,
+    hook: resolveConfiguredHook,
+    knowledge: resolveConfiguredKnowledge,
+    "mcp-server": resolveConfiguredMcpServer,
+  };
+  const settings = yield* SettingsReader;
+  const conversionForMembers = yield* StepFailureConversion;
+  for (const node of graph.nodes) {
+    if (node.type === "pack" || node.source === undefined) continue;
+    const binding = accepted.find(
+      (candidate) =>
+        candidate.type === node.type &&
+        candidate.key === Option.getOrUndefined(acceptedRowKey(node)),
+    );
+    if (binding === undefined || !selectedPackages.has(binding.packageKey)) continue;
+    const configured = (yield* settings.entries(node.type))[node.name];
+    if (configured !== undefined && configured.kind !== "configuration") continue;
+    const alreadyPlanned = fragments.some(
+      ({ step }) =>
+        step.readiness !== "error" &&
+        [
+          ...(step.acquisitionRefs ?? []),
+          ...(step.sourceBinding === undefined
+            ? []
+            : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]),
+        ].some((ref) => ref.type === node.type && ref.name === binding.entry.identity.name),
+    );
+    if (alreadyPlanned) continue;
+    const memberType = node.type;
+    const memberSource = node.source;
+    const member = yield* withinEffectiveConstraint(graph, node.type, node.name, (effective) =>
+      Effect.gen(function* () {
+        const resolved = yield* derivedResolvers[memberType](
+          node.name,
+          memberSource,
+          releaseAgeEvaluation,
+          effective.range,
+        );
+        const step = yield* buildPackMemberStep({
+          ref: resolved.ref,
+          nonInteractive: args.nonInteractive,
+          strictAgentSync: true,
+          force: resolved.ref.refType !== "registry",
+          desiredEnabled: node.enabled,
+          standalone: true,
+          toStepFailure: conversionForMembers.toStepFailure,
+        });
+        return toCollectedWorkspaceUpdatePlans({
+          plans: [
+            {
+              _tag: "Plan",
+              name: `Update ${node.name}`,
+              description: Option.none(),
+              jobs: [{ concurrency: 1, steps: [step] }],
+            },
+          ],
+        });
+      }).pipe(
+        Effect.catch((error) =>
+          Effect.succeed(
+            toCollectedWorkspaceUpdatePlans({
+              plans: [
+                workspacePlanningErrorPlan(node.type, node.name, error, conversionForMembers),
+              ],
+            }),
+          ),
+        ),
+      ),
+    );
+    fragments.push(...toCollectedWorkspaceUpdatePlans(member).fragments);
+  }
+
   const holdbacks = normalizeReleaseAgeRecords(
     collections.flatMap((collection) => collection.holdbacks),
   );
@@ -1401,12 +1533,36 @@ export const buildWorkspaceUpdatePlan: (
     bypasses,
   } satisfies NonNullable<Plan<InstallStepRequirements>["releaseAge"]>;
 
+  const acceptedWriter = yield* AcceptedResolutionWriter;
+  const conversion = yield* StepFailureConversion;
+  const location = yield* WorkspaceLocation;
+  const steps = yield* groupRetainedPackageSteps({
+    steps: fragments.map(({ step }) => step),
+    artifact: { path: location.baseDir, scope: location.scope, change: "updated" },
+    message: "Updated retained package components",
+    acceptedResolutions: acceptedWriter.withBatch,
+    toStepFailure: conversion.toStepFailure,
+    additionalKeys: (step) => {
+      const fragment = fragments.find((fragment) => fragment.step === step);
+      if (fragment === undefined) return [];
+      return accepted.flatMap((binding) =>
+        namesForBinding(binding).some(
+          (name) =>
+            fragment.key === `${binding.type}:${name}` ||
+            fragment.key.startsWith(`${binding.type}:${name}:`) ||
+            step.label === toTypedLabel(binding.type, name),
+        )
+          ? [binding.packageKey]
+          : [],
+      );
+    },
+  });
   return {
     _tag: "WorkspaceUpdatePlan",
     plan: makeWorkspaceUpdatePlan(
       args.planName,
       args.planDescription,
-      fragments.map((fragment) => fragment.step),
+      steps,
       args.type,
       releaseAge,
     ),

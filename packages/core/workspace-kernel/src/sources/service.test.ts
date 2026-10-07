@@ -118,7 +118,7 @@ const runWithService = <A, E>(
 describe("local source workspace resolution", () => {
   for (const sourceView of ["vendor", "../vendor"]) {
     it.effect(
-      `keeps inherited Pack member sources relative to the workspace for ${sourceView}`,
+      `retains project-relative or external absolute Pack member source identity for ${sourceView}`,
       () => {
         const root = mkdtempSync(nodePath.join(tmpdir(), "axm-pack-source-workspace-"));
         const workspaceRoot = nodePath.join(root, "workspace");
@@ -162,12 +162,13 @@ describe("local source workspace resolution", () => {
             const pack = refs[0];
             if (pack?.type !== "pack" || pack.refType !== "local")
               return yield* Effect.die("Expected one local Pack");
-            expect(pack.sourcePath).toBe(`${sourceView}/workflow`);
+            const acceptedRoot = sourceView.startsWith("../") ? sourceRoot : sourceView;
+            expect(pack.sourcePath).toBe(`${acceptedRoot}/workflow`);
             expect(
               pack.sourceMembers
                 .map((member) => (member.refType === "local" ? member.sourcePath : undefined))
                 .sort(),
-            ).toEqual([`${sourceView}/guide`, `${sourceView}/nested/review`]);
+            ).toEqual([`${acceptedRoot}/guide`, `${acceptedRoot}/nested/review`]);
           }).pipe(
             Effect.ensuring(
               Effect.sync(() => rmSync(root, { recursive: true })).pipe(Effect.ignore),

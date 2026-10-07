@@ -1,3 +1,4 @@
+import { AcquiredContent, sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -96,6 +97,11 @@ const withFetched = <A, E, R>(
     const workspace = WorkspaceReadTest({ baseDir: root });
     const dependencies = Layer.mergeAll(
       workspace,
+      Layer.succeed(AcquiredContent, {
+        requestedKeys: new Set([sourceRefContentKey(ref)]),
+        filesByKey: new Map([[sourceRefContentKey(ref), { directory: source }]]),
+        failuresByKey: new Map(),
+      }),
       Layer.mock(RegistryClientFactory, {}),
       Layer.mock(SourceHostProviders, {
         fetch: () => Effect.succeed({ directory: source }),
@@ -108,13 +114,7 @@ const withFetched = <A, E, R>(
     return yield* Effect.gen(function* () {
       const location = yield* WorkspaceLocation;
       const layout = yield* Ref.get(location.layout);
-      const canonical = computePackPathsForLayout(
-        path.join,
-        layout,
-        "registry",
-        ref.owner,
-        ref.name,
-      ).canonicalPath;
+      const canonical = computePackPathsForLayout(path.join, layout, ref, ref.name).canonicalPath;
       yield* fs.makeDirectory(canonical, { recursive: true });
       yield* fs.writeFileString(path.join(canonical, "retained.txt"), "accepted content");
       return yield* use(canonical);

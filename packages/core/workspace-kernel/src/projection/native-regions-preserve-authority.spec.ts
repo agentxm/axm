@@ -34,7 +34,7 @@ for (const kind of ["rules", "knowledge"] as const) {
   const owner: NativeRegionSource = {
     name: "guide",
     ref: `@acme/${kind}/guide`,
-    root: `agent_extensions/registry/@acme/${kind}/guide`,
+    root: `agent_extensions/registry.agentxm.ai/@acme/${kind}/guide`,
     scope: "project",
   };
   describe(`${kind} native region`, () => {

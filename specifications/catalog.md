@@ -5955,6 +5955,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Methods: contract, example
 - Source: [`packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-set-digests-follow-versioned-vectors.spec.ts)
 
+##### Publication sets support bounded catalogs of up to 200 candidates
+
+- Requirement: `registry/publication-sets-support-bounded-catalogs`
+- Owner: `registry-protocol`
+- Statement: AXM shall accept publication-set-v2 descriptor sets containing up to 200 distinct valid candidates and validate their complete digest-bound admission responses; it shall reject sets containing more than 200 candidates before accepting admission evidence.
+- Class: constraint
+- Role: interface
+- Product goals: `trustworthy-distribution`, `dependable-change-process`
+- Boundary: memory; selection: per-change
+- Methods: contract, example
+- Source: [`packages/core/registry-protocol/src/unstable/registry/publication-sets-support-bounded-catalogs.spec.ts`](../packages/core/registry-protocol/src/unstable/registry/publication-sets-support-bounded-catalogs.spec.ts)
+
 ##### Resolution metadata keeps batch evidence complete and attributable
 
 - Requirement: `registry/resolution-metadata-preserves-batch-evidence`

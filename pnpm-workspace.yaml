@@ -7,24 +7,20 @@ verifyDepsBeforeRun: error
 # mise owns the pnpm version; keep the lockfile as one document for dependency graph readers.
 pmOnFail: ignore
 
-peerDependencyRules:
-  allowedVersions:
-    "@nx/vitest>vitest": "5"
-
 catalog:
   "@effect/eslint-plugin": ^0.3.2
   "@effect/language-service": ^0.87.3
   "@effect/openapi-generator": 4.0.1
   "@effect/platform-node": 4.0.1
   "@effect/platform-node-shared": 4.0.1
-  "@effect/tsgo": ^0.48.1
+  "@effect/tsgo": ^0.51.1
   "@effect/vitest": 4.0.1
   "@eslint/js": ^10.0.0
-  "@nx/devkit": 23.2.1
-  "@nx/eslint": 23.2.1
-  "@nx/eslint-plugin": 23.2.1
-  "@nx/js": 23.2.1
-  "@nx/vitest": 23.2.1
+  "@nx/devkit": 23.3.0
+  "@nx/eslint": 23.3.0
+  "@nx/eslint-plugin": 23.3.0
+  "@nx/js": 23.3.0
+  "@nx/vitest": 23.3.0
   "@swc-node/register": ^1.12.1
   "@swc/core": ^1.16.2
   "@types/bun": ^1.4.2
@@ -46,14 +42,14 @@ catalog:
   jsonc-parser: ^3.3.1
   smol-toml: ^1.9.0
   lint-staged: ^17.5.1
-  nx: 23.2.1
+  nx: 23.3.0
   packageurl-js: ^2.0.1
   prettier: ^3.9.8
   semver: ^7.8.5
   simple-git: ^4.0.1
   typescript: npm:@typescript/typescript6@^6.0.2
   typescript-eslint: ^8.71.1
-  vite: ^8.3.2
+  vite: ^8.3.3
   vitest: ^5.0.3
   yaml: ^2.9.1
   eslint-plugin-boundaries: 7.2.0
@@ -71,15 +67,33 @@ allowBuilds:
 
 minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
+  # Reviewed exact-version exceptions for the selected dependency refresh.
+  - "nx@23.3.0"
+  - "@nx/devkit@23.3.0"
+  - "@nx/eslint@23.3.0"
+  - "@nx/eslint-plugin@23.3.0"
+  - "@nx/js@23.3.0"
+  - "@nx/nx-darwin-arm64@23.3.0"
+  - "@nx/nx-darwin-x64@23.3.0"
+  - "@nx/nx-freebsd-x64@23.3.0"
+  - "@nx/nx-linux-arm-gnueabihf@23.3.0"
+  - "@nx/nx-linux-arm64-gnu@23.3.0"
+  - "@nx/nx-linux-arm64-musl@23.3.0"
+  - "@nx/nx-linux-x64-gnu@23.3.0"
+  - "@nx/nx-linux-x64-musl@23.3.0"
+  - "@nx/nx-win32-arm64-msvc@23.3.0"
+  - "@nx/nx-win32-x64-msvc@23.3.0"
+  - "@nx/vitest@23.3.0"
+  - "@nx/workspace@23.3.0"
+  - "@effect/tsgo@0.51.1"
+  - "@effect/tsgo-darwin-arm64@0.51.1"
+  - "@effect/tsgo-darwin-x64@0.51.1"
+  - "@effect/tsgo-linux-arm64@0.51.1"
+  - "@effect/tsgo-linux-arm@0.51.1"
+  - "@effect/tsgo-linux-x64@0.51.1"
+  - "@effect/tsgo-win32-arm64@0.51.1"
+  - "@effect/tsgo-win32-x64@0.51.1"
   - "@agentxm/*"
-  - "@effect/tsgo@0.48.1"
-  - "@effect/tsgo-darwin-arm64@0.48.1"
-  - "@effect/tsgo-darwin-x64@0.48.1"
-  - "@effect/tsgo-linux-arm64@0.48.1"
-  - "@effect/tsgo-linux-arm@0.48.1"
-  - "@effect/tsgo-linux-x64@0.48.1"
-  - "@effect/tsgo-win32-arm64@0.48.1"
-  - "@effect/tsgo-win32-x64@0.48.1"
   - "@typescript-eslint/eslint-plugin@8.71.1"
   - "@typescript-eslint/parser@8.71.1"
   - "@typescript-eslint/project-service@8.71.1"

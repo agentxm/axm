@@ -324,10 +324,11 @@ export const paintPrompt = (
 };
 
 /**
- * A wait standing open: the running mark, what is being waited on, how long is
- * left at the value column, and the keys beneath it. The line never carries a
- * value a person copies — the wait printed those to the transcript once — so
- * it is safe to repaint and truncate.
+ * A wait standing open: the running mark, what is being waited on and how long
+ * is left — or, for a wait that does not expire, its clock at the value
+ * column — and the keys beneath it. The line never carries a value a person
+ * copies — the wait printed those to the transcript once — so it is safe to
+ * repaint and truncate.
  */
 export const paintWait = (
   node: WaitNode,
@@ -339,10 +340,16 @@ export const paintWait = (
     indent,
     first: gutter(markGlyph("working", style)),
   });
+  const timed =
+    node.remaining === undefined
+      ? status
+      : withSupplement(status, node.remaining, style, contentStart, {
+          gap: style.glyphs.separator,
+        });
   const clocked =
     node.clock === undefined
-      ? status
-      : withSupplement(status, node.clock, style, style.valueColumn, {
+      ? timed
+      : withSupplement(timed, node.clock, style, style.valueColumn, {
           gap: (last) => spaces(Math.max(COLUMN_GAP, style.valueColumn - displayWidth(last))),
         });
   const lines =

@@ -10,6 +10,7 @@ import { login } from "./login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   authRegistry,
+  authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
@@ -45,7 +46,7 @@ describe("Single-invocation device sign-in", () => {
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
       expect(ports.presenterState.pendingEmissions).toEqual([]);
       expect(ports.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice" },
+        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
       ]);
       expect(Option.isSome(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);

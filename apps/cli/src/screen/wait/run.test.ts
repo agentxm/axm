@@ -16,8 +16,8 @@ import type { WaitView } from "./wait.js";
 const view: WaitView = {
   subject: "device-authorization",
   detail: "waiting on you",
-  label: "Device sign-in",
-  status: "Waiting for approval on registry.agentxm.ai",
+  label: "Terminal sign-in",
+  status: "Waiting for you to sign in",
   brief: [
     {
       _tag: "paragraph",
@@ -97,7 +97,7 @@ describe("runWait", () => {
       // The brief first, once, then the settled record the wait leaves behind.
       expect(harness.transcript[0]).toEqual(view.brief);
       expect(harness.transcript.at(-1)).toMatchObject([
-        { _tag: "answer", mark: "dim", label: "Device sign-in" },
+        { _tag: "answer", mark: "dim", label: "Terminal sign-in" },
       ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
@@ -115,7 +115,7 @@ describe("runWait", () => {
       yield* Effect.yieldNow;
 
       const frame = lastFrame(harness);
-      expect(frame).toContain("Waiting for approval on registry.agentxm.ai");
+      expect(frame).toContain("Waiting for you to sign in");
       expect(frame).not.toContain("https://auth.test");
 
       yield* Deferred.succeed(release, undefined);
@@ -140,7 +140,7 @@ describe("runWait", () => {
       // A stopped wait preserves both instructions and its truthful disposition.
       expect(harness.transcript).toEqual([
         view.brief,
-        [{ _tag: "headline", tone: "warn", text: "Device sign-in: waiting stopped" }],
+        [{ _tag: "headline", tone: "warn", text: "Terminal sign-in: waiting stopped" }],
       ]);
       expect(harness.shown.at(-1)).toBeUndefined();
     }),
@@ -261,7 +261,7 @@ describe("runStaticWait", () => {
       expect(harness.shown.filter((part) => part !== undefined)).toEqual([]);
       expect(harness.transcript[0]).toEqual(view.brief);
       expect(harness.transcript.at(-1)).toMatchObject([
-        { _tag: "answer", mark: "dim", label: "Device sign-in" },
+        { _tag: "answer", mark: "dim", label: "Terminal sign-in" },
       ]);
     }),
   );

@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/chooses-device-code-where-no-browser-can-open",
   title: "Interactive sign-in chooses the device code where no browser can open",
   statement:
-    "When interactive sign-in names no flow, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.",
+    "When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.",
   class: "functional",
   role: "experience",
   goals: ["platform-reach", "actionable-diagnostics"],

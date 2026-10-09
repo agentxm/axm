@@ -7741,7 +7741,7 @@
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Use OAuth device-code sign-in; recommended for SSH and headless environments"
+            "description": "Sign in with a code; recommended for SSH and headless environments"
           },
           {
             "name": "wait-for-human",
@@ -7755,7 +7755,7 @@
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Replace an existing pending device sign-in intentionally"
+            "description": "Replace an existing pending sign-in intentionally"
           }
         ],
         "globalOptions": [],
@@ -7767,7 +7767,7 @@
           },
           {
             "command": "axm login --device-code --wait-for-human 300 --json",
-            "description": "Start or resume device sign-in and wait up to 300 seconds"
+            "description": "Start or resume sign-in with a code and wait up to 300 seconds"
           }
         ],
         "subcommands": []

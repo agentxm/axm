@@ -1,39 +1,20 @@
 import type { Doc } from "../../screen/doc.js";
 import { waitDoc } from "../../screen/wait/view.js";
 import type { WaitView } from "../../screen/wait/wait.js";
+import { handoffWaitView } from "../../root/auth/view.js";
 
 const EXPIRES_AT_MS = 600_000;
 const NOW_MS = EXPIRES_AT_MS - 272_000;
 
-export const deviceSignIn: WaitView = {
-  subject: "device-authorization",
-  detail: "waiting on you",
-  label: "Device sign-in",
-  status: "Waiting for approval on registry.agentxm.ai",
-  brief: [
-    { _tag: "paragraph", text: "Sign in to AgentXM.ai with a one-time code." },
-    {
-      _tag: "paragraph",
-      text: [{ text: "One-time code: " }, { text: "WDJB-MJHT", copyable: true }],
-    },
-    {
-      _tag: "paragraph",
-      text: [
-        { text: "Open: " },
-        { text: "https://agentxm.ai/device?user_code=WDJB-MJHT", copyable: true },
-      ],
-    },
-    {
-      _tag: "paragraph",
-      tone: "dim",
-      text: [
-        { text: "Or enter the code at: " },
-        { text: "https://agentxm.ai/device", copyable: true },
-      ],
-    },
-  ],
+export const deviceSignIn: WaitView = handoffWaitView({
+  _tag: "DeviceLogin",
+  registryHost: "registry.agentxm.ai",
+  verificationUriComplete: "https://agentxm.ai/device?user_code=WDJB-MJHT",
+  verificationUri: "https://agentxm.ai/device",
+  userCode: "WDJB-MJHT",
   expiresAtMs: EXPIRES_AT_MS,
-};
+  browserOpened: false,
+});
 
 /**
  * One wait as the terminal shows it: the brief that printed once, carrying the

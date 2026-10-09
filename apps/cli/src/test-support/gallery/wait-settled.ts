@@ -16,6 +16,6 @@ const publicationAuthorization: WaitView = {
  * elapsed time sits at the value column, beside the answers of the same run.
  */
 export const waitSettledFixture: Doc = [
-  { _tag: "answer", mark: "ok", label: "Device sign-in", value: "48.2s" },
+  { _tag: "answer", mark: "ok", label: "Terminal sign-in", value: "48.2s" },
   ...waitSettled(publicationAuthorization, 12_400),
 ];

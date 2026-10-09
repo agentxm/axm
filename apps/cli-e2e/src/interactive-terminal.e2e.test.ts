@@ -425,22 +425,25 @@ describe.skipIf(!ptyIsSupported)("a wait under a pseudo-terminal", () => {
         columns: 100,
         rows: 30,
         env,
-        actions: [{ awaiting: "Waiting for approval" }, { send: Keys.escape }],
+        actions: [{ awaiting: "Waiting for you to sign in" }, { send: Keys.escape }],
       });
 
       const [opened] = result.actions;
       expect(opened?.matched, result.transcript).toBe(true);
-      // The brief printed the code and the page once; only the countdown and
+      // The brief printed the page and the code once; only the countdown and
       // its keys repaint beneath it.
-      expect(result.transcript).toContain("One-time code: ABCD-1234");
+      expect(result.transcript).toContain("To sign in, open this link in a browser:");
+      expect(result.transcript).toContain("Make sure it shows the code");
+      expect(result.transcript).toContain("ABCD-1234");
       expect(result.transcript).toContain(`${auth.url}/device?user_code=ABCD-1234`);
       expect(opened?.emitted).toContain("left");
       expect(opened?.emitted).toContain("o  open");
       expect(opened?.emitted).toContain("c  copy");
       expect(opened?.emitted).toContain("esc  stop");
 
-      // Stopping the wait leaves the sign-in itself untouched and names the
-      // command that resumes it.
+      // Stopping the wait leaves the sign-in itself untouched, says how long
+      // the code is still good for, and names the command that resumes it.
+      expect(result.transcript).toContain("Stopped waiting. The code is still good for");
       expect(result.timedOut, result.transcript).toBe(false);
       expect(result.exitCode, result.transcript).toBe(16);
       expect(result.transcript).toContain("axm login --device-code --wait-for-human 300");

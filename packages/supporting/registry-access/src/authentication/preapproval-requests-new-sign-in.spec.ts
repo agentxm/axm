@@ -9,6 +9,7 @@ import type { SessionReplacementDecision } from "./login-presenter.js";
 import {
   authCredentialFile,
   authRegistry,
+  authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
@@ -96,7 +97,7 @@ describe("Login preapproval over a valid session", () => {
       expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
       expect(context.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice" },
+        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
       ]);
     }).pipe(Effect.provide(context.layer));
   });
@@ -112,6 +113,7 @@ describe("Login preapproval over a valid session", () => {
         status: "logged-in",
         registryHost: authRegistryHost,
         handle: "@alice",
+        email: authEmail,
       });
     }).pipe(Effect.provide(context.layer));
   });

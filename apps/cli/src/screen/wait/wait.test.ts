@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
+import { asciiGlyphs } from "../glyphs.js";
 import { paintText } from "../paint-text.js";
 import { waitDoc, waitSettled } from "./view.js";
 import { reduceWaitKey, waitKeys, type WaitView } from "./wait.js";
@@ -8,9 +9,9 @@ import { reduceWaitKey, waitKeys, type WaitView } from "./wait.js";
 const view: WaitView = {
   subject: "device-authorization",
   detail: "waiting on you",
-  label: "Device sign-in",
-  status: "Waiting for approval on registry.agentxm.ai",
-  brief: [{ _tag: "paragraph", text: "Sign in with a one-time code." }],
+  label: "Terminal sign-in",
+  status: "Waiting for you to sign in",
+  brief: [{ _tag: "paragraph", text: "To sign in, open this link in a browser:" }],
   expiresAtMs: 600_000,
 };
 
@@ -20,11 +21,12 @@ const key = (name: string, options?: { readonly ctrl?: boolean }) => ({
   ctrl: options?.ctrl === true,
 });
 
-const paint = (view: WaitView, nowMs: number, columns = 80): string =>
+const paint = (view: WaitView, nowMs: number, columns = 80, ascii = false): string =>
   paintText(waitDoc(view, { open: true, copy: true }, { nowMs }), {
     width: columns,
     colors: false,
     spinner: "◒",
+    ...(ascii ? { glyphs: asciiGlyphs } : {}),
   }).join("\n");
 
 describe("reduceWaitKey", () => {
@@ -57,9 +59,15 @@ describe("reduceWaitKey", () => {
 });
 
 describe("waitDoc", () => {
-  it("counts down to the moment the handoff expires", () => {
-    expect(paint(view, 600_000 - 272_000)).toContain("4m 32s left");
-    expect(paint(view, 600_000 - 45_000)).toContain("45s left");
+  it("counts down to the moment the handoff expires, as minutes and seconds", () => {
+    expect(paint(view, 600_000 - 292_000)).toContain("Waiting for you to sign in · 4:52 left");
+    expect(paint(view, 600_000 - 45_000)).toContain("Waiting for you to sign in · 0:45 left");
+  });
+
+  it("joins the countdown with the painter's own separator", () => {
+    expect(paint(view, 600_000 - 292_000, 80, true)).toContain(
+      "Waiting for you to sign in - 4:52 left",
+    );
   });
 
   it("says a handoff has run out rather than counting past it", () => {
@@ -69,7 +77,7 @@ describe("waitDoc", () => {
   it("carries the running mark and every key beneath the line", () => {
     const painted = paint(view, 0);
     expect(painted).toContain("◒");
-    expect(painted).toContain("Waiting for approval on registry.agentxm.ai");
+    expect(painted).toContain("Waiting for you to sign in");
     expect(painted).toContain("open");
     expect(painted).toContain("copy");
     expect(painted).toContain("stop");
@@ -89,7 +97,7 @@ describe("waitDoc", () => {
 describe("waitSettled", () => {
   it("leaves one ✔ line with the label and the time it took", () => {
     expect(waitSettled(view, 12_400)).toEqual([
-      { _tag: "answer", mark: "dim", label: "Device sign-in", value: "Wait completed in 12.4s" },
+      { _tag: "answer", mark: "dim", label: "Terminal sign-in", value: "Wait completed in 12.4s" },
     ]);
   });
 });

@@ -66,6 +66,12 @@ export interface ParagraphNode {
   readonly _tag: "paragraph";
   readonly text: Text;
   readonly tone?: Tone;
+  /**
+   * Set apart at the content edge, past the gutter, the way a `Next` action's
+   * target is: for the one value a sentence above it asks a person to act on,
+   * such as the link a sign-in asks them to open.
+   */
+  readonly inset?: true;
 }
 
 /**
@@ -206,7 +212,8 @@ export interface PromptNode {
 
 /**
  * A wait standing open: the running mark in the gutter, what is being waited
- * on, its clock at the value column, and the key chips that act on it. The
+ * on, how long is left or its clock at the value column, and the key chips
+ * that act on it. The
  * `Screen` builds one while a wait is open — on a person, or on the system,
  * such as another operation that holds the workspace; views never build it.
  */
@@ -215,9 +222,11 @@ export interface WaitNode {
   /** What the terminal is parked on, in one line that never carries a value to copy. */
   readonly status: Text;
   /**
-   * At the value column: how long is left for a wait that expires, or how
-   * long it has lasted for one that does not.
+   * How long is left for a wait that expires, which the painter joins to the
+   * status with its separator, so the line reads as one sentence.
    */
+  readonly remaining?: Text;
+  /** At the value column: how long a wait that does not expire has lasted. */
   readonly clock?: Text;
   /** Who or what holds the wait, dim at the content column beneath it. */
   readonly detail?: Text;

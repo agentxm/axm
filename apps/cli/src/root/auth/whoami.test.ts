@@ -24,6 +24,7 @@ const ALICE = normalizeHandle("@alice");
 
 const defaultWhoami = {
   userHandle: ALICE,
+  email: null,
   tokenType: "session",
   authority: "account" as const,
   permissions: null,

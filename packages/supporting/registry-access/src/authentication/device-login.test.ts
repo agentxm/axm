@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 import { handle } from "../test-helpers.js";
 
 import { AuthClientTest } from "./auth-client.js";
-import { DeviceLoginCodeExpired, RegistryAccessFailed } from "./errors.js";
+import { DeviceLoginCodeExpired, DeviceLoginDenied, RegistryAccessFailed } from "./errors.js";
 import { CredentialStore, CredentialStoreTest } from "../credentials/credential-store.js";
 import { initiateDeviceLogin, runDeviceLogin, DeviceLoginInteractionTest } from "./device-login.js";
 import { AuthLoginPresenterTest } from "./login-presenter.js";
@@ -27,12 +27,15 @@ const makeLayers = (opts?: {
   readonly getMeFails?: boolean;
   readonly machine?: boolean;
   readonly deviceCodeExpired?: boolean;
+  readonly deviceLoginDenied?: boolean;
+  readonly abandonWaits?: boolean;
 }) => {
   // Machine mode mirrors the CLI Live: the pending document is consumed and
   // the human path is skipped.
-  const presenter = AuthLoginPresenterTest(
-    opts?.machine ? { tryEmitPendingDeviceLogin: () => Effect.succeed(true) } : undefined,
-  );
+  const presenter = AuthLoginPresenterTest({
+    ...(opts?.machine ? { tryEmitPendingDeviceLogin: () => Effect.succeed(true) } : {}),
+    ...(opts?.abandonWaits ? { abandonWaits: true } : {}),
+  });
   const deviceAuthorizations: Array<string> = [];
   const interaction = DeviceLoginInteractionTest({
     openBrowser: () => Effect.succeed(opts?.browserOpens ?? false),
@@ -54,11 +57,13 @@ const makeLayers = (opts?: {
     pollDeviceToken: () =>
       opts?.deviceCodeExpired
         ? Effect.fail(new DeviceLoginCodeExpired())
-        : Effect.succeed({
-            access_token: "axm_ses_new",
-            refresh_token: "axm_ref_new",
-            expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
-          }),
+        : opts?.deviceLoginDenied
+          ? Effect.fail(new DeviceLoginDenied())
+          : Effect.succeed({
+              access_token: "axm_ses_new",
+              refresh_token: "axm_ref_new",
+              expires_at: DateTime.makeUnsafe("2099-06-01T00:00:00Z"),
+            }),
     getMe: () =>
       opts?.getMeFails
         ? Effect.fail(
@@ -69,6 +74,7 @@ const makeLayers = (opts?: {
           )
         : Effect.succeed({
             userHandle: handle("@alice"),
+            email: null,
             tokenType: "session",
             authority: "account" as const,
             permissions: null,
@@ -148,11 +154,44 @@ describe("runDeviceLogin", () => {
       const error = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
       expect(error).toMatchObject({
         category: "auth_expired",
-        detail: "The pending device sign-in expired. No credentials were changed.",
+        detail: "That code expired. Run axm login to get a new one.",
       });
 
       const store = yield* CredentialStore;
       expect((yield* store.load(REGISTRY_URL))._tag).toBe("None");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("says the sign-in was canceled in the browser and changes nothing", () => {
+    const { layer } = makeLayers({ deviceLoginDenied: true });
+
+    return Effect.gen(function* () {
+      const error = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      expect(error).toMatchObject({
+        category: "auth_denied",
+        detail: "Sign-in canceled in the browser. Nothing changed.",
+      });
+
+      const store = yield* CredentialStore;
+      expect((yield* store.load(REGISTRY_URL))._tag).toBe("None");
+      const pendingStore = yield* PendingDeviceLoginStore;
+      expect(Option.isNone(yield* pendingStore.load())).toBe(true);
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("says how many whole minutes a stopped wait's code is still good for", () => {
+    const { layer } = makeLayers({ abandonWaits: true });
+
+    return Effect.gen(function* () {
+      const stopped = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      expect(stopped).toMatchObject({
+        _tag: "DeviceAuthorizationPending",
+        waitEnded: { _tag: "Stopped" },
+        minutesLeft: 10,
+      });
+
+      const pendingStore = yield* PendingDeviceLoginStore;
+      expect(Option.isSome(yield* pendingStore.load())).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 

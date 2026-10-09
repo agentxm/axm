@@ -101,7 +101,7 @@ const paintNode = (
     }
     case "paragraph":
       return paintPrefixed(node.text, style, {
-        indent: content,
+        indent: node.inset === true ? content + GUTTER_WIDTH : content,
         first: "",
         ...(node.tone === undefined ? {} : { tone: node.tone }),
       });

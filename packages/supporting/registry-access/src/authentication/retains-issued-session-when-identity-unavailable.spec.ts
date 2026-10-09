@@ -42,6 +42,7 @@ describe("Identity lookup recovery", () => {
             return identityAvailable
               ? Effect.succeed({
                   userHandle: authHandle,
+                  email: null,
                   tokenType: "session",
                   authority: "account" as const,
                   permissions: null,

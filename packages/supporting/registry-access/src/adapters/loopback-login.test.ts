@@ -55,6 +55,7 @@ const makeAuthClientLayer = () =>
     getMe: () =>
       Effect.succeed({
         userHandle: handle("@alice"),
+        email: null,
         tokenType: "session",
         authority: "account" as const,
         permissions: null,

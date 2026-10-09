@@ -113,10 +113,10 @@ export const PendingDeviceLoginStoreLive = Layer.effect(
               new RegistryAccessFailed({
                 category: "auth",
                 detail:
-                  "Pending login storage was invalid and has been removed. Start a new device sign-in.",
+                  "Pending login storage was invalid and has been removed. Start a new sign-in.",
                 suggestions: [
                   {
-                    description: "Start a new device sign-in.",
+                    description: "Start a new sign-in.",
                     cmd: "axm login --device-code --json",
                   },
                 ],

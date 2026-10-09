@@ -1,4 +1,8 @@
-Sign in to AgentXM.ai with a one-time code.
-One-time code: WDJB-MJHT
-Open: https://agentxm.ai/device?user_code=WDJB-MJHT
-Or enter the code at: https://agentxm.ai/device
+To sign in, open this link in a browser:
+
+     https://agentxm.ai/device?user_code=WDJB-MJHT
+
+Make sure it shows the code WDJB-MJHT.
+
+Next
+     https://agentxm.ai/device

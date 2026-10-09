@@ -34,15 +34,15 @@ export const duration = (elapsedMs: number): string =>
     : `${Math.round(elapsedMs / 100) / 10}s`;
 
 /**
- * How long is left before a handoff expires, as an open wait says it. A wait
- * that has run out says so rather than counting past zero.
+ * How long is left before a handoff expires, as an open wait says it: minutes
+ * and zero-padded seconds, as a clock reads. A wait that has run out says so
+ * rather than counting past zero.
  */
 export const remainingTime = (remainingMs: number): string => {
   if (remainingMs <= 0) return "expired";
   const seconds = Math.ceil(remainingMs / 1_000);
-  if (seconds < 60) return `${String(seconds)}s left`;
   const minutes = Math.floor(seconds / 60);
-  return `${String(minutes)}m ${String(seconds % 60)}s left`;
+  return `${String(minutes)}:${String(seconds % 60).padStart(2, "0")} left`;
 };
 
 /** The word one of an open wait's keys carries. */

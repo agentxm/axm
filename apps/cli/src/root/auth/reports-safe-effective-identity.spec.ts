@@ -158,6 +158,7 @@ describe("Safe effective identity", () => {
               getMe: () =>
                 Effect.sync(() => ({
                   userHandle: normalizeHandle("@alice"),
+                  email: "private@example.test",
                   tokenType: "oidc",
                   authority: "limited" as const,
                   permissions: {

@@ -35,6 +35,8 @@ const TOKEN_SETTINGS_URL = "https://agentxm.ai/u/settings/tokens";
 const signIn = (description: string, cmd: string) =>
   ({ description, cmd, commandScope: "global" }) as const;
 
+const minutes = (count: number): string => (count === 1 ? "1 minute" : `${String(count)} minutes`);
+
 /**
  * Translate one Registry access failure. A typed access failure in cause
  * position renders recursively, so a diagnostic chain reads each link the way
@@ -66,7 +68,7 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
         suggestions: [
           signIn("Sign in.", "axm login"),
           signIn(
-            "Start a non-blocking device sign-in and ask a person to approve it.",
+            "Start a non-blocking sign-in with a code and ask a person to approve it.",
             "axm login --device-code --json",
           ),
           { description: "Create a personal access token in AgentXM.ai.", url: TOKEN_SETTINGS_URL },
@@ -90,22 +92,21 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
     case "DeviceLoginDenied":
       return makeStepFailure({
         category: "auth",
-        detail: "Login was denied or cancelled",
+        detail: "Sign-in canceled in the browser. Nothing changed.",
         suggestions: [signIn("Try signing in again.", "axm login")],
       });
     case "DeviceLoginCodeExpired":
       return makeStepFailure({
         category: "auth",
-        detail: "Login code expired",
+        detail: "That code expired. Run axm login to get a new one.",
         suggestions: [signIn("Try signing in again.", "axm login")],
       });
     case "DeviceAuthorizationPending":
       return makeStepFailure({
         category: "timeout",
-        detail:
-          error.waitEnded._tag === "Stopped"
-            ? "Waiting for device sign-in was stopped. The pending flow is still available."
-            : `Device sign-in did not complete within ${String(error.waitEnded.seconds)} seconds. The pending flow is still available.`,
+        // However the wait ended, the code is untouched and the next sign-in
+        // picks it up, so a stopped wait and an elapsed one read the same.
+        detail: `Stopped waiting. The code is still good for ${minutes(error.minutesLeft)}. Run axm login to pick up where you left off.`,
         status: "pending-human",
         retryable: true,
         blockedOn: "human",
@@ -121,7 +122,7 @@ export const registryAccessFailureToStepFailure = (error: RegistryAccessFailure)
           expiresAt: error.expiresAt,
           resume: error.resume,
         },
-        suggestions: [signIn("Resume waiting after approval.", error.resume)],
+        suggestions: [signIn("Pick up the sign-in where you left off.", error.resume)],
       });
     case "AuthInteractionAbandoned":
       return makeStepFailure({ category: "usage", detail: error.message });

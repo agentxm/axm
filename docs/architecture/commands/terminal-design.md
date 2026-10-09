@@ -48,7 +48,9 @@ prompt mark `?`, and the caret ❯.
 Fields, answers, waits, and callout asides put their value at the value
 column, which is the start of a ledger's second column — column 36 at eighty
 columns, moving left as the name column shrinks. A settled setup or publish
-therefore reads as one aligned record.
+therefore reads as one aligned record. The one exception is a wait that
+expires: how long is left is part of its sentence, so the painter joins it to
+the status with its separator rather than setting it at the value column.
 
 ## Vocabulary
 

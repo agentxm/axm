@@ -55,6 +55,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
   const renderer = options.machine === true ? TestMachineRenderer.make() : TestRenderer.make();
   const identity: MeResponse = {
     userHandle: EXISTING_HANDLE,
+    email: null,
     tokenType: "session",
     authority: "account" as const,
     permissions: null,

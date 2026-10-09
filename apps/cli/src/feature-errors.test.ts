@@ -27,26 +27,24 @@ describe("registry-access envelope projection", () => {
     const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
-        detail: "The pending device sign-in expired.",
-        recover: "Run axm login to start a new device sign-in.",
+        detail: "That code expired.",
+        recover: "Run axm login to get a new one.",
       }),
     );
     expect(error.code).toBe("auth_expired");
     expect(error.title).toBe("Authentication Expired");
-    expect(error.detail).toBe("The pending device sign-in expired.");
-    expect(error.suggestions).toEqual([
-      { description: "Run axm login to start a new device sign-in." },
-    ]);
+    expect(error.detail).toBe("That code expired.");
+    expect(error.suggestions).toEqual([{ description: "Run axm login to get a new one." }]);
   });
 
   it("preserves the typed auth producer and its cause", () => {
     const error = failureToAppError(
       new RegistryAccessFailed({
         category: "auth_expired",
-        detail: "The pending device sign-in expired. No credentials were changed.",
+        detail: "That code expired. Run axm login to get a new one.",
         suggestions: [
           {
-            description: "Request a new device sign-in code.",
+            description: "Get a new sign-in code.",
             cmd: "axm login --device-code --json",
           },
         ],
@@ -68,7 +66,7 @@ describe("registry-access envelope projection", () => {
     expect(error.suggestions).toEqual([
       { description: "Sign in.", cmd: "axm login", commandScope: "global" },
       {
-        description: "Start a non-blocking device sign-in and ask a person to approve it.",
+        description: "Start a non-blocking sign-in with a code and ask a person to approve it.",
         cmd: "axm login --device-code --json",
         commandScope: "global",
       },
@@ -99,14 +97,14 @@ describe("registry-access envelope projection", () => {
   it("renders the device-login terminal outcomes verbatim", () => {
     const denied = failureToAppError(new DeviceLoginDenied());
     expect(denied.code).toBe("auth");
-    expect(denied.detail).toBe("Login was denied or cancelled");
+    expect(denied.detail).toBe("Sign-in canceled in the browser. Nothing changed.");
     expect(denied.suggestions).toEqual([
       { description: "Try signing in again.", cmd: "axm login", commandScope: "global" },
     ]);
 
     const expired = failureToAppError(new DeviceLoginCodeExpired());
     expect(expired.code).toBe("auth");
-    expect(expired.detail).toBe("Login code expired");
+    expect(expired.detail).toBe("That code expired. Run axm login to get a new one.");
     expect(expired.suggestions).toEqual([
       { description: "Try signing in again.", cmd: "axm login", commandScope: "global" },
     ]);
@@ -118,6 +116,7 @@ describe("registry-access envelope projection", () => {
         registryUrl: "https://registry.example.test",
         intervalSeconds: 2,
         waitEnded: { _tag: "Elapsed", seconds: 30 },
+        minutesLeft: 4,
         verificationUri: "https://auth.agentxm.ai/device",
         verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
         userCode: "ABCD-1234",
@@ -142,15 +141,39 @@ describe("registry-access envelope projection", () => {
       resume: "axm login --device-code --wait-for-human 300 --json",
     });
     expect(error.detail).toBe(
-      "Device sign-in did not complete within 30 seconds. The pending flow is still available.",
+      "Stopped waiting. The code is still good for 4 minutes. Run axm login to pick up where you left off.",
     );
     expect(error.suggestions).toEqual([
       {
-        description: "Resume waiting after approval.",
+        description: "Pick up the sign-in where you left off.",
         cmd: "axm login --device-code --wait-for-human 300 --json",
         commandScope: "global",
       },
     ]);
+  });
+
+  it("tells a person who stopped waiting how long the code is still good for", () => {
+    const pending = (minutesLeft: number) =>
+      failureToAppError(
+        new DeviceAuthorizationPending({
+          registryUrl: "https://registry.example.test",
+          intervalSeconds: 2,
+          waitEnded: { _tag: "Stopped" },
+          minutesLeft,
+          verificationUri: "https://auth.agentxm.ai/device",
+          verificationUriComplete: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+          userCode: "ABCD-1234",
+          expiresAt: "2026-08-10T16:05:00.000Z",
+          resume: "axm login --device-code --wait-for-human 300 --json",
+        }),
+      );
+    expect(pending(1).detail).toBe(
+      "Stopped waiting. The code is still good for 1 minute. Run axm login to pick up where you left off.",
+    );
+    expect(pending(12).detail).toBe(
+      "Stopped waiting. The code is still good for 12 minutes. Run axm login to pick up where you left off.",
+    );
+    expect(pending(12).code).toBe("timeout");
   });
 
   it("overlays exchange semantics while keeping the transport failure's evidence", () => {

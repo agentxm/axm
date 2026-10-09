@@ -19,7 +19,7 @@ import {
   makePersistedCredentialsUnsupportedError,
 } from "../credentials/credential-store.js";
 import { DeviceLoginInteraction } from "../authentication/device-login.js";
-import { emitLoginSuccess } from "../authentication/login-output.js";
+import { emitLoginSuccess, type LoginIdentity } from "../authentication/login-output.js";
 import { AuthLoginPresenter } from "../authentication/login-presenter.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
 import { LoopbackCallbackRejected, startLoopbackServer } from "./loopback-server.js";
@@ -57,7 +57,10 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
       expires_at: token.expires_at,
     });
 
-    return Option.map(meResult, (me) => me.userHandle);
+    return Option.map(meResult, (me): LoginIdentity => ({
+      handle: me.userHandle,
+      email: me.email,
+    }));
   });
 
 export const runLoopbackLogin = (registryUrl: string) =>
@@ -109,7 +112,7 @@ export const runLoopbackLogin = (registryUrl: string) =>
                 suggestions: [
                   { description: "Try browser sign-in again.", cmd: "axm login" },
                   {
-                    description: "Use device-code sign-in on a remote or headless machine.",
+                    description: "Sign in with a code on a remote or headless machine.",
                     cmd: "axm login --device-code",
                   },
                 ],
@@ -125,17 +128,19 @@ export const runLoopbackLogin = (registryUrl: string) =>
         });
       }
 
-      const handle = yield* presenter.withProgress({ _tag: "CompletingSignIn", registryHost }, () =>
-        Effect.gen(function* () {
-          const token = yield* authClient.exchangePkceCode({
-            code: callback.code,
-            verifier,
-            redirectUri: server.redirectUri,
-          });
-          return yield* persistLoginCredentials(registryUrl, token);
-        }),
+      const identity = yield* presenter.withProgress(
+        { _tag: "CompletingSignIn", registryHost },
+        () =>
+          Effect.gen(function* () {
+            const token = yield* authClient.exchangePkceCode({
+              code: callback.code,
+              verifier,
+              redirectUri: server.redirectUri,
+            });
+            return yield* persistLoginCredentials(registryUrl, token);
+          }),
       );
       yield* server.complete;
-      yield* emitLoginSuccess(registryUrl, handle);
+      yield* emitLoginSuccess(registryUrl, identity);
     }),
   );

@@ -861,17 +861,17 @@ const representatives: Representatives = {
   RegistryAccessFailed: [
     new RegistryAccessFailed({
       category: "auth_expired",
-      detail: "The pending device sign-in expired.",
+      detail: "That code expired. Run axm login to get a new one.",
       suggestions: [
-        { description: "Start a new device sign-in.", cmd: "axm login --device-code --json" },
+        { description: "Get a new sign-in code.", cmd: "axm login --device-code --json" },
       ],
     }),
     new RegistryAccessFailed({
       category: "auth_denied",
-      detail: "The pending device sign-in was denied.",
+      detail: "Sign-in canceled in the browser. Nothing changed.",
       suggestions: [
         {
-          description: "Request a new device sign-in code.",
+          description: "Start a new sign-in when ready.",
           cmd: "axm login --device-code --json",
         },
       ],
@@ -885,6 +885,7 @@ const representatives: Representatives = {
   DeviceAuthorizationPending: [
     new DeviceAuthorizationPending({
       waitEnded: { _tag: "Elapsed", seconds: 30 },
+      minutesLeft: 4,
       registryUrl: "https://registry.example.test",
       intervalSeconds: 2,
       verificationUri: "https://auth.agentxm.ai/device",
@@ -895,6 +896,7 @@ const representatives: Representatives = {
     }),
     new DeviceAuthorizationPending({
       waitEnded: { _tag: "Stopped" },
+      minutesLeft: 1,
       registryUrl: "https://registry.example.test",
       intervalSeconds: 2,
       verificationUri: "https://auth.agentxm.ai/device",

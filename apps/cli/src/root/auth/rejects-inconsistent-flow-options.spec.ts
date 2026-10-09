@@ -138,7 +138,7 @@ describe("Sign-in option validation", () => {
       expect(wait && Option.getOrElse(wait.description, () => "")).toContain("seconds");
       expect(doc.examples).toContainEqual({
         command: "axm login --device-code --wait-for-human 300 --json",
-        description: "Start or resume device sign-in and wait up to 300 seconds",
+        description: "Start or resume sign-in with a code and wait up to 300 seconds",
       });
     }),
   );

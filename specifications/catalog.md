@@ -421,6 +421,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Assumptions: The copy a person asks for runs through the application's wait, which this capability does not drive; the examples observe that the sign-in itself never copies.
 - Source: [`packages/supporting/registry-access/src/authentication/device-sign-in-copies-only-on-request.spec.ts`](../packages/supporting/registry-access/src/authentication/device-sign-in-copies-only-on-request.spec.ts)
 
+##### Signing in again picks up a sign-in that is still pending
+
+- Requirement: `cli/login/resumes-pending-sign-in-when-no-flow-is-named`
+- Owner: `registry-access`
+- Statement: When sign-in names no flow and an unexpired device authorization is pending for the selected Registry, AXM shall wait on that authorization instead of starting a new sign-in, without saying it fell back to device-code sign-in.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-access/src/authentication/login.ts`, `packages/supporting/registry-access/src/authentication/device-login.ts`
+- Assumptions: A display is set, so without a pending authorization the same environment would choose browser sign-in.
+- Source: [`packages/supporting/registry-access/src/authentication/resumes-pending-sign-in-when-no-flow-is-named.spec.ts`](../packages/supporting/registry-access/src/authentication/resumes-pending-sign-in-when-no-flow-is-named.spec.ts)
+
 ##### A name gives way last, and keeps what tells it apart
 
 - Requirement: `cli/names-yield-width-last`
@@ -2220,7 +2234,7 @@ AXM works on every supported operating system, runtime, shell, and filesystem.
 
 - Requirement: `cli/login/chooses-device-code-where-no-browser-can-open`
 - Owner: `registry-access`
-- Statement: When interactive sign-in names no flow, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.
+- Statement: When interactive sign-in names no flow and no unexpired device authorization is pending for the selected Registry, AXM shall choose device-code sign-in and say why over SSH without a display, in CI, in Codespaces, and on Linux other than WSL when none of DISPLAY, WAYLAND_DISPLAY, or BROWSER is set, and shall otherwise choose browser sign-in; a BROWSER setting shall not make an SSH session without a display choose browser sign-in.
 - Class: functional
 - Role: experience
 - Product goals: `platform-reach`, `actionable-diagnostics`

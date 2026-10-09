@@ -25,8 +25,8 @@
  ?   Instructions file name
      ❯ docs/AGENTS.md
 
- ◒   Waiting for approval on
-     registry.agentxm.ai   4m 32s left
+ ◒   Waiting for you to sign in
+     4:32 left
       o  open    c  copy    esc  stop
 
  ✔   Instructions source

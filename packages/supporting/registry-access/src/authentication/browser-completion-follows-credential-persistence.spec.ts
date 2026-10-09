@@ -86,6 +86,7 @@ describe("Truthful browser sign-in completion", () => {
             getMe: () =>
               Effect.succeed({
                 userHandle: normalizeHandle("@alice"),
+                email: null,
                 tokenType: "session",
                 authority: "account" as const,
                 permissions: null,

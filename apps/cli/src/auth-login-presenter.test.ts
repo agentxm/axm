@@ -25,7 +25,9 @@ import {
 } from "./test-support/presenter-test.js";
 import { withLiveOperation } from "./operation-lifecycle.js";
 import { AuthLoginPresenterLive } from "./auth-login-presenter.js";
-import { OutputWriteFailed, Screen } from "./screen/index.js";
+import { OutputWriteFailed, Screen, paragraphDoc } from "./screen/index.js";
+import { waitDoc } from "./screen/wait/view.js";
+import { deviceCodeFallbackNote, handoffWaitView } from "./root/auth/view.js";
 
 const pendingResult: DeviceLoginPendingResult = {
   status: "pending-human",
@@ -53,19 +55,28 @@ const pendingResult: DeviceLoginPendingResult = {
   },
 };
 
-const pendingSuggestions = [
-  {
-    description: "Open the AXM device authorization page",
-    url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-  },
-  {
-    description: "Open the clean fallback page and enter the code",
-    url: "https://auth.agentxm.ai/device",
-  },
-  {
-    description: "Resume after approval",
-    cmd: "axm login --device-code --wait-for-human 300 --json",
-  },
+const signInPage = {
+  description: "Open the sign-in page",
+  url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+};
+
+const codeEntryPage = {
+  description: "Or open the sign-in page without the code and enter it",
+  url: "https://auth.agentxm.ai/device",
+};
+
+const waitForSignIn = {
+  description: "Wait for the sign-in to finish",
+  cmd: "axm login --device-code --wait-for-human 300 --json",
+};
+
+const pendingSuggestions = [signInPage, codeEntryPage, waitForSignIn];
+
+/** The brief a terminal sign-in prints once, as a person reads it. */
+const terminalSignInBrief = [
+  "To sign in, open this link in a browser:",
+  "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+  "Make sure it shows the code ABCD-1234.",
 ];
 
 const deviceHandoff = {
@@ -204,7 +215,7 @@ describe("AuthLoginPresenterLive", () => {
       }).pipe(Effect.provide(Layer.provide(AuthLoginPresenterLive, dependencies)));
     }),
   );
-  it.effect("parks on the device handoff with its code and both links", () => {
+  it.effect("asks a person to open the link and check the code, as the browser does", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
@@ -212,22 +223,55 @@ describe("AuthLoginPresenterLive", () => {
       const settled = yield* presenter.awaitHuman(deviceHandoff, Effect.succeed("approved"));
 
       expect(settled).toBe("approved");
-      expect(logs.info).toEqual([
-        "Sign in to AgentXM.ai with a one-time code.",
-        "One-time code: ABCD-1234",
-      ]);
-      // Both pages travel as suggestions, so an agent reaches what a person does.
-      expect(state.suggestions).toEqual([
-        {
-          description: "Open the AXM device authorization page",
-          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-        },
-        {
-          description: "Open the clean fallback page and enter the code",
-          url: "https://auth.agentxm.ai/device",
-        },
-      ]);
+      expect(logs.info).toEqual(terminalSignInBrief);
+      // The link a person opens stands on its own line; the clean page for
+      // typing the code by hand is the one action that follows.
+      expect(state.suggestions).toEqual([codeEntryPage]);
     }).pipe(Effect.provide(layer));
+  });
+
+  it("sets the link apart and shows the code in bold", () => {
+    const view = handoffWaitView(deviceHandoff);
+    expect(view.brief).toEqual([
+      { _tag: "paragraph", text: "To sign in, open this link in a browser:" },
+      { _tag: "blank" },
+      {
+        _tag: "paragraph",
+        inset: true,
+        text: [{ text: "https://auth.agentxm.ai/device?user_code=ABCD-1234", copyable: true }],
+      },
+      { _tag: "blank" },
+      {
+        _tag: "paragraph",
+        text: [
+          { text: "Make sure it shows the code " },
+          { text: "ABCD-1234", bold: true },
+          { text: "." },
+        ],
+      },
+      { _tag: "blank" },
+      { _tag: "next", actions: [codeEntryPage] },
+    ]);
+  });
+
+  it("says it is waiting for the person to sign in, and how long the code has left", () => {
+    const view = handoffWaitView(deviceHandoff);
+    expect(view.status).toBe("Waiting for you to sign in");
+    expect(view.label).toBe("Terminal sign-in");
+    expect(
+      waitDoc(view, { open: true, copy: true }, { nowMs: deviceHandoff.expiresAtMs - 292_000 }),
+    ).toEqual([
+      {
+        _tag: "wait",
+        status: "Waiting for you to sign in",
+        remaining: "4:52 left",
+        chips: [
+          { key: "o", word: "open" },
+          { key: "c", word: "copy" },
+          { key: "esc", word: "stop" },
+        ],
+      },
+    ]);
   });
 
   it.effect("copies the pre-filled link, not the code, only when the person asks", () => {
@@ -261,7 +305,7 @@ describe("AuthLoginPresenterLive", () => {
         { _tag: "Waiting", subject: "device-authorization" },
         { _tag: "WaitEnded", subject: "device-authorization" },
       ]);
-      expect(startedUnits(state)).toEqual(["Device sign-in"]);
+      expect(startedUnits(state)).toEqual(["Terminal sign-in"]);
     }).pipe(Effect.provide(layer));
   });
 
@@ -299,9 +343,11 @@ describe("AuthLoginPresenterLive", () => {
       yield* presenter.notePendingApproval(pendingResult);
 
       expect(logs.success).toEqual([]);
-      // The guidance offers the two pages; the outcome adds only the resume.
-      expect(state.suggestions).toEqual(pendingSuggestions);
-      expect(logs.info).toContain("One-time code: ABCD-1234");
+      // The guidance offers the page for typing the code; the outcome adds
+      // only the command that keeps waiting.
+      expect(state.suggestions).toEqual([codeEntryPage, waitForSignIn]);
+      expect(logs.info).toEqual(terminalSignInBrief);
+      expect(logs.warn).toEqual(["Sign-in is waiting for you in the browser."]);
     }).pipe(Effect.provide(layer));
   });
 
@@ -328,11 +374,40 @@ describe("AuthLoginPresenterLive", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("reports login success with and without a handle in human mode", () => {
+  it.effect("emits the signed-in account's email in the machine login document", () => {
+    const { layer, state } = makeMachine();
+
+    return Effect.gen(function* () {
+      const presenter = yield* AuthLoginPresenter;
+      yield* presenter.emitLoginSuccess({
+        status: "logged-in",
+        registryHost: "registry.agentxm.ai",
+        handle: "@alice",
+        email: "alice@example.test",
+      });
+
+      expect(state.results[0]?.data).toEqual({
+        result: {
+          status: "logged-in",
+          registryHost: "registry.agentxm.ai",
+          handle: "@alice",
+          email: "alice@example.test",
+        },
+      });
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("names the account by email, else by handle, else not at all", () => {
     const { layer, state, logs } = makeHuman();
 
     return Effect.gen(function* () {
       const presenter = yield* AuthLoginPresenter;
+      yield* presenter.emitLoginSuccess({
+        status: "logged-in",
+        registryHost: "registry.agentxm.ai",
+        handle: "@alice",
+        email: "alice@example.test",
+      });
       yield* presenter.emitLoginSuccess({
         status: "logged-in",
         registryHost: "registry.agentxm.ai",
@@ -344,11 +419,25 @@ describe("AuthLoginPresenterLive", () => {
       });
 
       expect(logs.success).toEqual([
-        "Logged in to registry.agentxm.ai as @alice.",
-        "Logged in to registry.agentxm.ai.",
+        "Signed in to registry.agentxm.ai as alice@example.test",
+        "Signed in to registry.agentxm.ai as @alice",
+        "Signed in to registry.agentxm.ai",
       ]);
-      expect(state.suggestions).toEqual([...loginSuccessSuggestions, ...loginSuccessSuggestions]);
+      expect(state.suggestions).toEqual([
+        ...loginSuccessSuggestions,
+        ...loginSuccessSuggestions,
+        ...loginSuccessSuggestions,
+      ]);
     }).pipe(Effect.provide(layer));
+  });
+
+  it("says why sign-in uses a code", () => {
+    expect(deviceCodeFallbackNote("remote-or-headless").doc).toEqual(
+      paragraphDoc("This environment appears to be remote or headless; signing in with a code."),
+    );
+    expect(deviceCodeFallbackNote("loopback-bind-failed").doc).toEqual(
+      paragraphDoc("Could not start a local callback server; signing in with a code instead."),
+    );
   });
 
   it.effect("publishes each sign-in phase as one lifecycle unit", () => {
@@ -376,7 +465,7 @@ describe("AuthLoginPresenterLive", () => {
       );
 
       expect(startedUnits(state)).toEqual([
-        "device authorization on registry.agentxm.ai",
+        "sign-in code from registry.agentxm.ai",
         "credentials for registry.agentxm.ai",
         "sign-in to registry.agentxm.ai",
       ]);

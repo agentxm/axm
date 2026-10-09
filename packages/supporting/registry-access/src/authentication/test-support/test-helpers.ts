@@ -54,6 +54,7 @@ export const authRegistry = "https://registry.example.test";
 export const otherAuthRegistry = "https://other.example.test";
 export const authRegistryHost = "registry.example.test";
 export const authHandle = normalizeHandle("@alice");
+export const authEmail = "alice@example.test";
 export const authExpiry = DateTime.makeUnsafe("2099-01-01T00:00:00.000Z");
 
 export const storedAuthCredentials = {
@@ -132,6 +133,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
     getMe: () =>
       Effect.succeed({
         userHandle: authHandle,
+        email: authEmail,
         tokenType: "session",
         authority: "account" as const,
         permissions: null,

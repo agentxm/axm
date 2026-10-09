@@ -38,6 +38,7 @@ import { paragraphDoc } from "../../screen/index.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
 const ALICE = normalizeHandle("@alice");
+const ALICE_EMAIL = "alice@example.test";
 const UNKNOWN = normalizeHandle("@unknown");
 
 const makeLayers = (opts?: {
@@ -87,6 +88,7 @@ const makeLayers = (opts?: {
 
   const meData: MeResponse = opts?.meResponse ?? {
     userHandle: ALICE,
+    email: ALICE_EMAIL,
     tokenType: "session",
     authority: "account" as const,
     permissions: null,
@@ -277,7 +279,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
+              l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
           ),
         ).toBe(true);
       }),
@@ -327,7 +329,7 @@ describe("auth login handler", () => {
     expect(failure.suggestions).toEqual([
       { description: "Try browser sign-in again.", cmd: "axm login" },
       {
-        description: "Use device-code sign-in on a remote or headless machine.",
+        description: "Sign in with a code on a remote or headless machine.",
         cmd: "axm login --device-code",
       },
     ]);
@@ -372,7 +374,7 @@ describe("auth login handler", () => {
           .filter((log) => log._tag === "info")
           .map((log) => log.message);
         expect(instructions).toContain(
-          "This environment appears to be remote or headless; using device-code sign-in.",
+          "This environment appears to be remote or headless; signing in with a code.",
         );
         const result = expectRecord(
           property(expectRecord(rendererState.results[0]?.data), "result"),
@@ -391,33 +393,38 @@ describe("auth login handler", () => {
   // expose, so the wording it prints is proved at the view boundary.
   it("names the loopback fallback before the device flow it replaces it with", () => {
     expect(deviceCodeFallbackNote("loopback-bind-failed").doc).toEqual(
-      paragraphDoc("Could not start a local callback server; using device-code sign-in instead."),
+      paragraphDoc("Could not start a local callback server; signing in with a code instead."),
     );
     expect(deviceCodeFallbackNote("remote-or-headless").doc).toEqual(
-      paragraphDoc("This environment appears to be remote or headless; using device-code sign-in."),
+      paragraphDoc("This environment appears to be remote or headless; signing in with a code."),
     );
   });
 
-  it.effect("displays the complete URL, clean fallback, and code separately", () => {
-    const { provide, rendererState } = makeLayers();
-    return provide(
-      Effect.gen(function* () {
-        yield* handleLogin({ yes: false, deviceCode: true });
-        const instructions = rendererState.logs
-          .filter((log) => log._tag === "info")
-          .map((log) => log.message);
-        expect(rendererState.suggestions).toContainEqual({
-          description: "Open the AXM device authorization page",
-          url: "https://auth.agentxm.ai/device?user_code=ABCD-1234",
-        });
-        expect(rendererState.suggestions).toContainEqual({
-          description: "Open the clean fallback page and enter the code",
-          url: "https://auth.agentxm.ai/device",
-        });
-        expect(instructions.some((message) => message.includes("ABCD-1234"))).toBe(true);
-      }),
-    );
-  });
+  it.effect(
+    "asks for the link to be opened and the code checked, with the clean page as the action",
+    () => {
+      const { provide, rendererState } = makeLayers();
+      return provide(
+        Effect.gen(function* () {
+          yield* handleLogin({ yes: false, deviceCode: true });
+          const instructions = rendererState.logs
+            .filter((log) => log._tag === "info")
+            .map((log) => log.message);
+          expect(instructions).toEqual(
+            expect.arrayContaining([
+              "To sign in, open this link in a browser:",
+              "https://auth.agentxm.ai/device?user_code=ABCD-1234",
+              "Make sure it shows the code ABCD-1234.",
+            ]),
+          );
+          expect(rendererState.suggestions).toContainEqual({
+            description: "Or open the sign-in page without the code and enter it",
+            url: "https://auth.agentxm.ai/device",
+          });
+        }),
+      );
+    },
+  );
 
   it.effect("prompts when already logged in", () => {
     const { provide, rendererState, sessionReplacementPrompts } = makeLayers({
@@ -437,7 +444,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
+              l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
           ),
         ).toBe(true);
       }),
@@ -461,7 +468,7 @@ describe("auth login handler", () => {
           rendererState.logs.some(
             (l) =>
               l._tag === "success" &&
-              l.message.includes(`Logged in to registry.agentxm.ai as ${ALICE}.`),
+              l.message === `Signed in to registry.agentxm.ai as ${ALICE_EMAIL}`,
           ),
         ).toBe(true);
       }),
@@ -550,7 +557,7 @@ describe("auth login handler", () => {
         expect(sessionReplacementPrompts).toEqual([true]);
         expect(
           rendererState.logs.filter(
-            (l) => l._tag === "success" && l.message.includes("Logged in to"),
+            (l) => l._tag === "success" && l.message.includes("Signed in to"),
           ),
         ).toHaveLength(0);
         expect(rendererState.logs).toContainEqual({
@@ -682,7 +689,7 @@ describe("auth login handler", () => {
 
       expect(
         rendererState2.logs.some(
-          (l) => l._tag === "success" && l.message.includes("Logged in to registry.agentxm.ai."),
+          (l) => l._tag === "success" && l.message === "Signed in to registry.agentxm.ai",
         ),
       ).toBe(true);
       expect(

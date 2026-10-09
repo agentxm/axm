@@ -91,6 +91,11 @@ export interface DeviceFlowResponse {
 
 export interface MeResponse {
   readonly userHandle: Handle;
+  /**
+   * The account's email address, when the Registry has one. Sign-in names the
+   * account by it; identity reports leave it out.
+   */
+  readonly email: string | null;
   readonly tokenType: string;
   /**
    * `account` means the credential carries the whole account's authority and
@@ -548,7 +553,7 @@ export const AuthClientLive = Layer.effect(
         })
         .pipe(
           Effect.mapError((error) =>
-            mapRegistryAccessError(registryUrl, "Could not initiate device sign-in", error),
+            mapRegistryAccessError(registryUrl, "Could not start sign-in", error),
           ),
         );
 
@@ -607,6 +612,7 @@ export const AuthClientLive = Layer.effect(
 
         return {
           userHandle: normalizeHandle(decoded.user.handle),
+          email: decoded.user.email,
           tokenType: decoded.token.type,
           authority: decoded.token.authority,
           permissions: readTokenPermissions(decoded.token.permissions),

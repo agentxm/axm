@@ -10,6 +10,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -30,6 +31,7 @@ import type {
   LoopbackLoginFallback,
 } from "../adapters/loopback-server.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
+import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import { runLoopbackLogin } from "../adapters/loopback-login.js";
 import { selectLoginStrategy } from "./login-strategy.js";
 import { loginStrategyEnvironment } from "../adapters/environment.js";
@@ -93,7 +95,7 @@ export const classifyLoopbackFailure = (
         suggestions: [
           { description: "Try browser sign-in again.", cmd: "axm login" },
           {
-            description: "Use device-code sign-in on a remote or headless machine.",
+            description: "Sign in with a code on a remote or headless machine.",
             cmd: "axm login --device-code",
           },
         ],
@@ -137,6 +139,18 @@ const shouldReplaceValidSession = (request: LoginRequest, handle: string) =>
     return decision === "replace";
   });
 
+/**
+ * Whether an unexpired device authorization is still pending for this
+ * Registry. A sign-in that names no flow picks it up, so stopping a wait
+ * never strands a code that is still good.
+ */
+const hasResumableDeviceLogin = (registryUrl: string) =>
+  Effect.gen(function* () {
+    const pending = yield* (yield* PendingDeviceLoginStore).load();
+    if (Option.isNone(pending) || pending.value.registryUrl !== registryUrl) return false;
+    return !(yield* DateTime.isPast(pending.value.expiresAt));
+  });
+
 export const login = Effect.fn("Login.run")(function* (request: LoginRequest, registryUrl: string) {
   const credentials = yield* CredentialStore;
   const presenter = yield* AuthLoginPresenter;
@@ -178,18 +192,20 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     }
   }
 
+  const namesFlow = request.deviceCode || request.waitForHumanSeconds !== undefined;
+  const resumesPending = !namesFlow && (yield* hasResumableDeviceLogin(registryUrl));
   const strategy =
-    request.waitForHumanSeconds === undefined
-      ? selectLoginStrategy(
+    request.waitForHumanSeconds !== undefined || resumesPending
+      ? "device-code"
+      : selectLoginStrategy(
           { deviceCode: request.deviceCode, nonInteractive: request.nonInteractive },
           yield* loginStrategyEnvironment,
-        )
-      : "device-code";
+        );
   const deviceOptions = (openBrowser: boolean) => deviceLoginOptions(request, openBrowser);
   const unattended = request.nonInteractive || request.machineOutput;
 
   if (strategy === "device-code") {
-    if (!request.deviceCode && request.waitForHumanSeconds === undefined) {
+    if (!namesFlow && !resumesPending) {
       yield* presenter.noteDeviceCodeFallback("remote-or-headless");
     }
     if (request.waitForHumanSeconds !== undefined && unattended) {
@@ -213,11 +229,10 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
   if (request.nonInteractive) {
     return yield* new RegistryAccessFailed({
       category: "auth",
-      detail:
-        "Loopback browser sign-in requires an interactive terminal. Use device-code sign-in instead.",
+      detail: "Browser sign-in requires an interactive terminal. Sign in with a code instead.",
       suggestions: [
         {
-          description: "Use device-code sign-in on a remote or headless machine.",
+          description: "Sign in with a code on a remote or headless machine.",
           cmd: "axm login --device-code",
         },
       ],

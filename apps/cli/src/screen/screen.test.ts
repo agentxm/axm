@@ -25,7 +25,7 @@ const gate = {
 const wait: WaitView = {
   subject: "device-authorization",
   detail: "waiting on you",
-  label: "Device sign-in",
+  label: "Terminal sign-in",
   status: "Waiting for approval",
   brief: [{ _tag: "paragraph", text: "Open the browser." }],
 };

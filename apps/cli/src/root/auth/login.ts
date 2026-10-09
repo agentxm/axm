@@ -108,14 +108,12 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 const loginConfig = {
   yes: preapprovalCapabilityFlag(loginCapabilities),
   deviceCode: Flag.Boolean("device-code").pipe(
-    Flag.withDescription(
-      "Use OAuth device-code sign-in; recommended for SSH and headless environments",
-    ),
+    Flag.withDescription("Sign in with a code; recommended for SSH and headless environments"),
     Flag.withDefault(false),
   ),
   waitForHuman: waitForHumanOption,
   restart: Flag.Boolean("restart").pipe(
-    Flag.withDescription("Replace an existing pending device sign-in intentionally"),
+    Flag.withDescription("Replace an existing pending sign-in intentionally"),
     Flag.withDefault(false),
   ),
 } as const;
@@ -142,7 +140,7 @@ export const loginCommand = Command.make(
     { command: "axm login --device-code", description: "Sign in from SSH or a headless machine" },
     {
       command: "axm login --device-code --wait-for-human 300 --json",
-      description: "Start or resume device sign-in and wait up to 300 seconds",
+      description: "Start or resume sign-in with a code and wait up to 300 seconds",
     },
   ]),
 );

@@ -17,7 +17,7 @@ export interface AuthViewEntry {
 export const authProgressLabel = (progress: AuthLoginProgress): string => {
   switch (progress._tag) {
     case "StartingDeviceAuthorization":
-      return `device authorization on ${progress.registryHost}`;
+      return `sign-in code from ${progress.registryHost}`;
     case "SavingCredentials":
       return `credentials for ${progress.registryHost}`;
     case "CompletingSignIn":
@@ -60,34 +60,39 @@ export const deviceCodeFallbackNote = (
 ): AuthViewEntry => ({
   doc: paragraphDoc(
     reason === "remote-or-headless"
-      ? "This environment appears to be remote or headless; using device-code sign-in."
-      : "Could not start a local callback server; using device-code sign-in instead.",
+      ? "This environment appears to be remote or headless; signing in with a code."
+      : "Could not start a local callback server; signing in with a code instead.",
   ),
   instruction: true,
 });
 
-/**
- * The two pages a device sign-in offers: the one that carries the code
- * already, and the clean one for entering it by hand. Machine output emits
- * them as suggestions, so an agent reaches the same two places a person does.
- */
-const deviceHandoffActions = (handoff: {
+/** The page that carries the code already: the one a person is asked to open. */
+const signInPageAction = (handoff: {
   readonly verificationUriComplete: string;
-  readonly verificationUri: string;
-}): ReadonlyArray<SuggestedAction> => [
-  {
-    description: "Open the AXM device authorization page",
-    url: handoff.verificationUriComplete,
-  },
-  { description: "Open the clean fallback page and enter the code", url: handoff.verificationUri },
-];
+}): SuggestedAction => ({
+  description: "Open the sign-in page",
+  url: handoff.verificationUriComplete,
+});
+
+/** The clean page a person enters the code on by hand, offered second. */
+const codeEntryPageAction = (handoff: { readonly verificationUri: string }): SuggestedAction => ({
+  description: "Or open the sign-in page without the code and enter it",
+  url: handoff.verificationUri,
+});
+
+/** The command that keeps waiting on a pending sign-in. */
+const resumeAction = (result: DeviceLoginPendingResult): SuggestedAction => ({
+  description: "Wait for the sign-in to finish",
+  cmd: result.resume,
+});
 
 /** The pages of a pending sign-in, and the command that resumes waiting on it. */
 export const pendingDeviceSuggestions = (
   result: DeviceLoginPendingResult,
 ): ReadonlyArray<SuggestedAction> => [
-  ...deviceHandoffActions(result),
-  { description: "Resume after approval", cmd: result.resume },
+  signInPageAction(result),
+  codeEntryPageAction(result),
+  resumeAction(result),
 ];
 
 export const loginSuccessSuggestions = [
@@ -105,6 +110,37 @@ const copyable = (label: string, value: string): ReadonlyArray<Span> => [
 ];
 
 /**
+ * What signing in from the terminal asks of a person, in the words the
+ * browser's approval page uses: open the link, then check that the page shows
+ * the same code. The link stands apart on its own line so it is never cut,
+ * and the clean page for typing the code by hand follows as the one action.
+ */
+const terminalSignInBrief = (handoff: {
+  readonly verificationUriComplete: string;
+  readonly verificationUri: string;
+  readonly userCode: string;
+}): Doc => [
+  { _tag: "paragraph", text: "To sign in, open this link in a browser:" },
+  { _tag: "blank" },
+  {
+    _tag: "paragraph",
+    inset: true,
+    text: [{ text: handoff.verificationUriComplete, copyable: true }],
+  },
+  { _tag: "blank" },
+  {
+    _tag: "paragraph",
+    text: [
+      { text: "Make sure it shows the code " },
+      { text: handoff.userCode, bold: true },
+      { text: "." },
+    ],
+  },
+  { _tag: "blank" },
+  { _tag: "next", actions: [codeEntryPageAction(handoff)] },
+];
+
+/**
  * The block one handoff prints to the transcript when its wait opens: what a
  * person has to do, and the values they copy to do it. It is printed once,
  * never repainted, so nothing here is subject to the live region's width.
@@ -112,11 +148,7 @@ const copyable = (label: string, value: string): ReadonlyArray<Span> => [
 const handoffBrief = (handoff: HumanHandoff): Doc => {
   switch (handoff._tag) {
     case "DeviceLogin":
-      return [
-        { _tag: "paragraph", text: "Sign in to AgentXM.ai with a one-time code." },
-        { _tag: "paragraph", text: copyable("One-time code", handoff.userCode) },
-        { _tag: "next", actions: deviceHandoffActions(handoff) },
-      ];
+      return terminalSignInBrief(handoff);
     case "LoopbackLogin":
       return [
         {
@@ -150,7 +182,7 @@ const handoffBrief = (handoff: HumanHandoff): Doc => {
 const handoffStatus = (handoff: HumanHandoff): string => {
   switch (handoff._tag) {
     case "DeviceLogin":
-      return `Waiting for approval on ${handoff.registryHost}`;
+      return "Waiting for you to sign in";
     case "LoopbackLogin":
       return `Waiting for browser sign-in on ${handoff.registryHost}`;
     case "PublishAuthorization":
@@ -162,7 +194,7 @@ const handoffStatus = (handoff: HumanHandoff): string => {
 const handoffLabel = (handoff: HumanHandoff): string => {
   switch (handoff._tag) {
     case "DeviceLogin":
-      return "Device sign-in";
+      return "Terminal sign-in";
     case "LoopbackLogin":
       return "Browser sign-in";
     case "PublishAuthorization":
@@ -212,38 +244,39 @@ export const handoffWaitView = (handoff: HumanHandoff): WaitView => ({
  * code and links the wait would have shown.
  */
 export const pendingHandoffBrief = (result: DeviceLoginPendingResult): Doc =>
-  handoffBrief({
-    _tag: "DeviceLogin",
-    registryHost: result.registryHost,
-    verificationUriComplete: result.verificationUriComplete,
-    verificationUri: result.verificationUri,
-    userCode: result.userCode,
-    expiresAtMs: Date.parse(result.expiresAt),
-    browserOpened: false,
-  });
+  terminalSignInBrief(result);
 
 /**
  * The outcome that sign-in settled on, and the command that resumes it. The
  * pages to open came with the guidance above it, so only the resume is left.
  */
 export const pendingApprovalDoc = (result: DeviceLoginPendingResult): Doc => [
-  { _tag: "headline", tone: "warn", text: "Device sign-in is waiting for approval." },
-  {
-    _tag: "next",
-    actions: [{ description: "Resume after approval", cmd: result.resume }],
-  },
+  { _tag: "headline", tone: "warn", text: "Sign-in is waiting for you in the browser." },
+  { _tag: "next", actions: [resumeAction(result)] },
 ];
+
+/**
+ * Who a sign-in signed in as, the way the browser names the account: by its
+ * email address, else by its handle, else not at all.
+ */
+const signedInAs = (result: {
+  readonly handle?: string | undefined;
+  readonly email?: string | undefined;
+}): string | undefined => result.email ?? result.handle;
 
 export const loginSuccessDoc = (result: {
   readonly registryHost: string;
   readonly handle?: string | undefined;
-}): Doc =>
-  successDoc(
-    result.handle === undefined
-      ? `Logged in to ${result.registryHost}.`
-      : `Logged in to ${result.registryHost} as ${result.handle}.`,
+  readonly email?: string | undefined;
+}): Doc => {
+  const account = signedInAs(result);
+  return successDoc(
+    account === undefined
+      ? `Signed in to ${result.registryHost}`
+      : `Signed in to ${result.registryHost} as ${account}`,
     { suggestions: loginSuccessSuggestions },
   );
+};
 export const loopbackStartView = (start: {
   readonly redirectUri: string;
   readonly authorizeUrl: string;

@@ -9,6 +9,7 @@ import { login } from "./login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   authRegistry,
+  authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
@@ -47,7 +48,7 @@ describe("Approved authorization", () => {
       expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
       expect(ports.presenterState.loginSuccesses).toEqual([
-        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice" },
+        { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
       ]);
 
       // The established session is what a subsequent command presents.

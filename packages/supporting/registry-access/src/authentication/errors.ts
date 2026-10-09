@@ -174,6 +174,8 @@ export type DeviceWaitEnded =
 
 export class DeviceAuthorizationPending extends Data.TaggedError("DeviceAuthorizationPending")<{
   readonly waitEnded: DeviceWaitEnded;
+  /** Whole minutes the pending code was still good for when the wait ended; at least one. */
+  readonly minutesLeft: number;
   readonly registryUrl: string;
   readonly intervalSeconds: number;
   readonly verificationUri: string;

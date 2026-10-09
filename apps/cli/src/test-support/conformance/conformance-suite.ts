@@ -81,6 +81,7 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         return;
       case "wait":
         pushText(node.status);
+        pushText(node.remaining);
         pushText(node.clock);
         pushText(node.detail);
         node.chips.forEach((chip) => {
@@ -302,6 +303,7 @@ export const collectSemanticFacts = (doc: Doc): ReadonlyArray<SemanticFact> => {
         return;
       case "wait":
         spans(node.status, `${path}.status`);
+        spans(node.remaining, `${path}.remaining`);
         spans(node.clock, `${path}.clock`);
         spans(node.detail, `${path}.detail`);
         node.chips.forEach((chip, index) =>

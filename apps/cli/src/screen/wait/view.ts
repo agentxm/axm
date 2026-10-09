@@ -2,7 +2,7 @@
  * What an open wait looks like, and what it leaves behind.
  *
  * The live line carries only what is safe to repaint: the running mark, what
- * the terminal is parked on, the countdown at the value column, and the keys
+ * the terminal is parked on and how long is left, and the keys
  * beneath it. The link and the code went to the transcript once when the wait
  * opened, so nothing a person copies is ever truncated. When the wait settles
  * it leaves one line: the same record shape an answered question leaves.
@@ -26,7 +26,7 @@ export const waitDoc = (view: WaitView, keys: WaitKeys, facts: { readonly nowMs:
     status: view.status,
     ...(view.expiresAtMs === undefined
       ? {}
-      : { clock: remainingTime(view.expiresAtMs - facts.nowMs) }),
+      : { remaining: remainingTime(view.expiresAtMs - facts.nowMs) }),
     chips: waitChips(keys),
   },
 ];

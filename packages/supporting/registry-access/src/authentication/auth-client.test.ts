@@ -977,6 +977,7 @@ describe("AuthClient.getMe", () => {
       const result = yield* client.getMe("axm_ses_test");
       expect(capturedAuth).toBe("Bearer axm_ses_test");
       expect(result.userHandle).toBe("@alice");
+      expect(result.email).toBe("alice@example.com");
       expect(result.tokenType).toBe("session");
       // A session carries the account's whole authority, so it reports no
       // permission level and no restrictions — there is nothing narrower to
@@ -988,6 +989,7 @@ describe("AuthClient.getMe", () => {
       expect(Object.keys(result).sort()).toEqual([
         "approvedAt",
         "authority",
+        "email",
         "expiresAt",
         "permissions",
         "resourceRestrictions",

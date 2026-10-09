@@ -26,7 +26,7 @@ import {
   CredentialStore,
   makePersistedCredentialsUnsupportedError,
 } from "../credentials/credential-store.js";
-import { emitLoginSuccess } from "./login-output.js";
+import { emitLoginSuccess, type LoginIdentity } from "./login-output.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
 import type { NormalizedTokenResponse } from "./oauth-contract.js";
 import { PendingDeviceLoginStore, type PendingDeviceLogin } from "./pending-device-login-store.js";
@@ -85,6 +85,16 @@ export const DeviceLoginInteractionTest = (overrides?: {
 
 const UNKNOWN_HANDLE = normalizeHandle("@unknown");
 
+/** What an expired code says, whether the wait or a later resume found it expired. */
+const CODE_EXPIRED = "That code expired. Run axm login to get a new one.";
+
+/**
+ * The whole minutes a pending code is still good for, as a stopped wait says
+ * it. A code with less than a minute left still counts as one.
+ */
+const wholeMinutesLeft = (remainingSeconds: number): number =>
+  Math.max(1, Math.floor(remainingSeconds / 60));
+
 const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
@@ -104,7 +114,10 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
       expires_at: token.expires_at,
     });
 
-    return Option.map(meResult, (me) => me.userHandle);
+    return Option.map(meResult, (me): LoginIdentity => ({
+      handle: me.userHandle,
+      email: me.email,
+    }));
   });
 
 export interface RunDeviceLoginOptions {
@@ -258,7 +271,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
       } else {
         return yield* new RegistryAccessFailed({
           category: "conflict",
-          detail: `A device sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
+          detail: `A sign-in for ${new URL(existing.value.registryUrl).host} is already pending.`,
           suggestions: [
             {
               description: "Finish the pending sign-in before starting another.",
@@ -298,10 +311,10 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
 const pendingLoginNotFound = () =>
   new RegistryAccessFailed({
     category: "not_found",
-    detail: "No pending device sign-in was found.",
+    detail: "No pending sign-in was found.",
     suggestions: [
       {
-        description: "Start a device sign-in first.",
+        description: "Start a sign-in first.",
         cmd: "axm login --device-code --json",
       },
     ],
@@ -339,10 +352,10 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
       yield* pendingStore.clear();
       return yield* new RegistryAccessFailed({
         category: "auth_expired",
-        detail: "The pending device sign-in expired. No credentials were changed.",
+        detail: CODE_EXPIRED,
         suggestions: [
           {
-            description: "Request a new device sign-in code.",
+            description: "Get a new sign-in code.",
             cmd: "axm login --device-code --json",
           },
         ],
@@ -352,19 +365,24 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     const polling = authClient.pollDeviceToken(pending.deviceCode, pending.interval);
     // The sign-in itself is untouched by how the terminal stopped waiting, so
     // both endings resolve to the same pending outcome and the same resume.
-    const stillPending = (waitEnded: DeviceWaitEnded) => {
-      const action = makePendingResult(pending).action;
-      return new DeviceAuthorizationPending({
-        waitEnded,
-        registryUrl: pending.registryUrl,
-        intervalSeconds: pending.interval,
-        verificationUri: action.fallbackUrl,
-        verificationUriComplete: action.url,
-        userCode: action.code,
-        expiresAt: action.expiresAt,
-        resume: action.resume,
+    const stillPending = (waitEnded: DeviceWaitEnded) =>
+      Effect.gen(function* () {
+        const action = makePendingResult(pending).action;
+        const secondsLeft = Duration.toSeconds(
+          DateTime.distance(yield* DateTime.now, pending.expiresAt),
+        );
+        return yield* new DeviceAuthorizationPending({
+          waitEnded,
+          minutesLeft: wholeMinutesLeft(secondsLeft),
+          registryUrl: pending.registryUrl,
+          intervalSeconds: pending.interval,
+          verificationUri: action.fallbackUrl,
+          verificationUriComplete: action.url,
+          userCode: action.code,
+          expiresAt: action.expiresAt,
+          resume: action.resume,
+        });
       });
-    };
     // The wait ends at whichever comes first: the requested bound or the
     // code's own expiry. Reaching the expiry is terminal, not a pending wait.
     const remainingSeconds = Math.max(
@@ -383,7 +401,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
                 DeviceAuthorizationPending | DeviceLoginCodeExpired
               > =>
                 waitSeconds < remainingSeconds
-                  ? Effect.fail(stillPending({ _tag: "Elapsed", seconds: waitSeconds }))
+                  ? stillPending({ _tag: "Elapsed", seconds: waitSeconds })
                   : Effect.fail(new DeviceLoginCodeExpired()),
             }),
           );
@@ -404,19 +422,17 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
       .pipe(
         // Stopping the wait is not a denial: the code is still live and the
         // stored sign-in is left exactly where it was.
-        Effect.catchTag("AuthInteractionAbandoned", () =>
-          Effect.fail(stillPending({ _tag: "Stopped" })),
-        ),
+        Effect.catchTag("AuthInteractionAbandoned", () => stillPending({ _tag: "Stopped" })),
         Effect.catchTag("DeviceLoginCodeExpired", (error) =>
           pendingStore.clear().pipe(
             Effect.flatMap(() =>
               Effect.fail(
                 new RegistryAccessFailed({
                   category: "auth_expired",
-                  detail: "The pending device sign-in expired. No credentials were changed.",
+                  detail: CODE_EXPIRED,
                   suggestions: [
                     {
-                      description: "Request a new device sign-in code.",
+                      description: "Get a new sign-in code.",
                       cmd: "axm login --device-code --json",
                     },
                   ],
@@ -432,10 +448,10 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
               Effect.fail(
                 new RegistryAccessFailed({
                   category: "auth_denied",
-                  detail: "Device sign-in was denied or cancelled. No credentials were changed.",
+                  detail: "Sign-in canceled in the browser. Nothing changed.",
                   suggestions: [
                     {
-                      description: "Start a new device sign-in when ready.",
+                      description: "Start a new sign-in when ready.",
                       cmd: "axm login --device-code --json",
                     },
                   ],
@@ -448,11 +464,12 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
       );
 
     yield* pendingStore.clear();
-    const handle = yield* presenter.withProgress({ _tag: "SavingCredentials", registryHost }, () =>
-      persistLoginCredentials(registryUrl, token),
+    const identity = yield* presenter.withProgress(
+      { _tag: "SavingCredentials", registryHost },
+      () => persistLoginCredentials(registryUrl, token),
     );
 
-    yield* emitLoginSuccess(registryUrl, handle);
+    yield* emitLoginSuccess(registryUrl, identity);
   });
 
 export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>

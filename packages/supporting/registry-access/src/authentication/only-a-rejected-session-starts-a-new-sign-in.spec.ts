@@ -58,6 +58,7 @@ describe("Login over a stored session", () => {
             named.push(accessToken);
             return {
               userHandle: authHandle,
+              email: null,
               tokenType: "session",
               authority: "account" as const,
               permissions: null,

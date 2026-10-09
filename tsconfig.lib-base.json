@@ -6,10 +6,18 @@
         "name": "@effect/language-service",
         "includeSuggestionsInTsc": false,
         "allowedUnstableApis": [
+          "@effect/platform-node",
+          "@effect/vitest",
+          "effect/ByteSize",
           "effect/cli",
+          "effect/FileSystem",
           "effect/http",
           "effect/process",
-          "effect/encoding/Sse"
+          "effect/encoding/Sse",
+          "effect/Path",
+          "effect/PlatformError",
+          "effect/Stdio",
+          "effect/Terminal"
         ],
         "diagnosticSeverity": {
           "preferSchemaOverJson": "off",

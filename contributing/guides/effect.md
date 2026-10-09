@@ -67,10 +67,13 @@ generator contract. A prior warning count is not an exception list: inspect
 the current source and typecheck result before retaining a boundary.
 
 The compiler allow-list explicitly accepts the existing `effect/cli`,
-`effect/http`, `effect/process`, and `effect/encoding/Sse` dependencies, which
-stable Effect still marks unstable. Keep Effect pinned to an exact version and
-verify these boundaries when upgrading. Other unstable or experimental APIs
-continue to produce diagnostics.
+`effect/http`, `effect/process`, and `effect/encoding/Sse` dependencies, plus
+the platform modules (`effect/FileSystem`, `effect/Path`,
+`effect/PlatformError`, `effect/Stdio`, `effect/Terminal`, `effect/ByteSize`,
+`@effect/platform-node`) and `@effect/vitest`, which stable Effect still marks
+unstable. Keep Effect pinned to an exact version and verify these boundaries
+when upgrading. Other unstable or experimental APIs continue to produce
+diagnostics.
 
 ### JSON Schema annotations
 

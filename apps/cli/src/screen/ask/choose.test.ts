@@ -125,15 +125,25 @@ describe("chooseDoc", () => {
     ]);
   });
 
-  it("drops every option's details before it touches a title, and names the caret's beneath", () => {
+  it("shortens details beside titles while the line leaves them room, and names the caret's whole beneath", () => {
     expect(paint(48)).toEqual([
+      " ?   Instructions source",
+      " ❯   AGENTS.md          recommended · existing …",
+      "     CLAUDE.md          existing · 64 lines",
+      "     Other…             type a file name",
+      "     recommended · existing · 128 lines",
+    ]);
+    expect(paint(48, 24, { index: 1 }).at(-1)).toBe("");
+  });
+
+  it("drops every option's details before it touches a title, and names the caret's beneath", () => {
+    expect(paint(40)).toEqual([
       " ?   Instructions source",
       " ❯   AGENTS.md",
       "     CLAUDE.md",
       "     Other…",
       "     recommended · existing · 128 lines",
     ]);
-    expect(paint(48, 24, { index: 1 }).at(-1)).toBe("     existing · 64 lines");
   });
 
   it("shortens the caret's details at their end where the line is shorter still", () => {

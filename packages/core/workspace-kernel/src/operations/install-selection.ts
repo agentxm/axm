@@ -18,6 +18,8 @@ export interface InstallSelectionCandidate {
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly description: Option.Option<string>;
+  /** The source's own heading for the candidate, when the source sorts what it offers. */
+  readonly group: Option.Option<string>;
 }
 
 export class InstallSelectionCancelled extends Data.TaggedError("InstallSelectionCancelled")<{

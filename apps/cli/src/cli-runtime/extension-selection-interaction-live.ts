@@ -60,7 +60,18 @@ const candidateOption = (
   title: candidate.name,
   value: candidate,
   ...(Option.isSome(candidate.description) ? { details: [candidate.description.value] } : {}),
+  ...(Option.isSome(candidate.group) ? { group: candidate.group.value } : {}),
 });
+
+/** How many candidates the source offers, and under how many headings when it sorts them. */
+const offered = (
+  candidates: ReadonlyArray<InstallSelectionCandidate>,
+  noun: { readonly one: string; readonly other: string },
+): string => {
+  const count = `${String(candidates.length)} ${candidates.length === 1 ? noun.one : noun.other}`;
+  const groups = new Set(candidates.flatMap((candidate) => Option.toArray(candidate.group))).size;
+  return groups > 1 ? `${count} in ${String(groups)} groups` : count;
+};
 
 /**
  * How the pick names what it offers. The lifecycle offers one type at a time,
@@ -88,12 +99,15 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
       select: (candidates: ReadonlyArray<InstallSelectionCandidate>) => {
         const subject = selectionSubject(candidates);
         const question = `Select ${subject.other} to install`;
+        const noun = { one: subject.other.replace(/s$/, ""), other: subject.other };
         return screen
           .ask(
             pickAsk({
               question,
+              note: offered(candidates, noun),
               label: subject.label,
-              noun: { one: subject.other.replace(/s$/, ""), other: subject.other },
+              noun,
+              verb: "install",
               min: 1,
               options: candidates.map(candidateOption),
             }),

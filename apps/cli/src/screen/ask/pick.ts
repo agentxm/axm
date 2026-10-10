@@ -6,8 +6,9 @@
  * the group's header, whose mark says whether all, some, or none of them are
  * picked and which toggles them together. Typing narrows the list to the
  * options whose titles contain what was typed, and a group with none of them
- * goes. The list shows as much as the height it is given allows, names what it
- * left out above and below, and keeps the header of the caret's group pinned
+ * goes. The list shows as much as the height it is given allows, and never more
+ * than a screenful a person can take in at once; it names what it left out
+ * above and below, and keeps the header of the caret's group pinned
  * above it once the header has scrolled away. Neither the reducer nor the view
  * touches the terminal.
  */
@@ -26,6 +27,12 @@ import {
   type PickNoun,
 } from "./ask.js";
 import { listWindow, skippedAbove, windowLines } from "./list-window.js";
+
+/**
+ * The most lines a list takes however tall the terminal is, so the question,
+ * the caret's details, and the keys stay within a glance of the caret.
+ */
+const LIST_LINES = 14;
 
 /** Where the caret stands, what is picked, what narrows the list, and what was refused. */
 export interface PickState {
@@ -291,12 +298,14 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   // caret's details where the list cannot carry them take their lines before
   // any row does.
   const described = ask.options.some((option) => (option.details?.length ?? 0) > 0);
-  const room =
+  const room = Math.min(
+    LIST_LINES,
     rows -
-    2 -
-    (ask.note === undefined ? 0 : 1) -
-    (state.problem === undefined ? 0 : 1) -
-    (described ? 1 : 0);
+      2 -
+      (ask.note === undefined ? 0 : 1) -
+      (state.problem === undefined ? 0 : 1) -
+      (described ? 1 : 0),
+  );
   const window = listWindow(list.length, state.cursor, room, groupHeaderOf(list));
   const shownRow = (index: number): PromptOption => {
     const row = list[index];
@@ -305,6 +314,16 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   };
   const above = skippedAbove(window);
   const filtered = state.filter.length > 0;
+  const shown = shownOptions(list);
+  // A pick the filter hides still counts, and would otherwise look lost.
+  const hidden = filtered ? state.picked.size - pickedOf(shown, state.picked) : 0;
+  const selected = `${String(state.picked.size)} of ${String(ask.options.length)} selected${hidden === 0 ? "" : ` (${String(hidden)} hidden)`}`;
+  const submit =
+    ask.verb === undefined
+      ? "confirm"
+      : state.picked.size === 0
+        ? ask.verb
+        : `${ask.verb} ${String(state.picked.size)}`;
   return [
     promptNode(ask, {
       chips: [],
@@ -323,19 +342,19 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
         : {}),
       hint: filtered
         ? {
-            status: [
-              `${String(state.picked.size)} selected`,
-              `${String(shownOptions(list).length)} of ${String(ask.options.length)} shown`,
+            status: [selected, `${String(shown.length)} shown`],
+            keys: [
+              { key: "^a", word: "all shown" },
+              { key: "esc", word: "clears the filter" },
             ],
-            keys: [{ key: "esc", word: "clears the filter" }],
           }
         : {
-            status: [`${String(state.picked.size)} selected`],
+            status: [selected],
             keys: [
               { key: "arrows", word: "move" },
               { key: "space", word: "toggle" },
               { key: "^a", word: "all" },
-              { key: "enter", word: "confirm" },
+              { key: "enter", word: submit },
             ],
           },
     }),

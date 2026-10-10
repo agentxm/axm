@@ -97,6 +97,14 @@ const detailCell = (
     artifact === undefined ? undefined : artifactPaths(artifact),
   ]);
 
+/**
+ * What a location policy means to a reader. A policy this view has no words
+ * for still shows by its own name rather than go unsaid.
+ */
+const LOCATION_POLICIES: Readonly<Record<string, string>> = {
+  "workspace-shared-skills": "Includes the shared skills location that AXM keeps by policy.",
+};
+
 const nativeLocationsDoc = (
   locations: ReadonlyArray<NativeLocationOutcome>,
   detailed: boolean,
@@ -115,7 +123,12 @@ const nativeLocationsDoc = (
       text: `${planned ? "Will make available" : "Available"} to ${count(consumers, "configured agent")} in ${count(physical, "location")}.`,
     },
     ...policies.map(
-      (reason) => ({ _tag: "paragraph", tone: "dim", text: redactRegistryText(reason) }) as const,
+      (reason) =>
+        ({
+          _tag: "paragraph",
+          tone: "dim",
+          text: LOCATION_POLICIES[reason] ?? redactRegistryText(reason),
+        }) as const,
     ),
     ...locations
       .filter(
@@ -552,6 +565,29 @@ const foldedLedger = (
   ];
 };
 
+/** Where the version sits in the columns plan and result ledgers share. */
+const VERSION_COLUMN = 1;
+
+/**
+ * A settled ledger without its version column where no row has a version to
+ * show. A column of absences tells a reader nothing the rows do not, and the
+ * width goes to what each row did instead.
+ */
+const withoutEmptyVersions = (
+  columns: ReadonlyArray<LedgerColumn>,
+  rows: ReadonlyArray<LedgerRow>,
+): { readonly columns: ReadonlyArray<LedgerColumn>; readonly rows: ReadonlyArray<LedgerRow> } => {
+  if (rows.length === 0 || rows.some((row) => row.cells[VERSION_COLUMN] !== ABSENT)) {
+    return { columns, rows };
+  }
+  const without = <A>(values: ReadonlyArray<A>): ReadonlyArray<A> =>
+    values.filter((_, index) => index !== VERSION_COLUMN);
+  return {
+    columns: without(columns),
+    rows: rows.map((row) => ({ ...row, cells: without(row.cells) })),
+  };
+};
+
 const headlineTone = (outcome: ReturnType<typeof deriveOperationOutcome>): Tone => {
   switch (outcome) {
     case "previewed":
@@ -832,11 +868,15 @@ export const operationDoc = (
     settledAlike !== undefined &&
     resolution.blocking === undefined &&
     resolution.failure?.detail === undefined;
-  const ledger = foldedLedger(
+  const settled = withoutEmptyVersions(
     ledgerColumns(presentation, "Status"),
     visible.map((unit) =>
       resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce),
     ),
+  );
+  const ledger = foldedLedger(
+    settled.columns,
+    settled.rows,
     detailed || quiet
       ? []
       : foldGroups(presentation, [

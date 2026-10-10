@@ -98,6 +98,11 @@ export interface PickAsk<A> extends AskBase {
   readonly min?: number;
   /** The most options that may be picked; any number by default. */
   readonly max?: number;
+  /**
+   * What `enter` does with the options picked, such as `install`; the hint
+   * says it with their count. `enter` confirms where the question names none.
+   */
+  readonly verb?: string;
   /** The answer the picked options make, given their positions in `options`. */
   readonly answer: (picked: ReadonlyArray<number>) => A;
 }

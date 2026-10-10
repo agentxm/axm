@@ -262,7 +262,7 @@ describe("pickDoc", () => {
       "   ◯ Subagents                     0 of 2",
       "   ◯   reviewer                    A second reader for risky changes",
       "   ◯   planner                     Breaks a goal into ordered tasks",
-      "2 selected · ↑↓ move · space toggle · ^a all · enter confirm",
+      "2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm",
     ]);
   });
 
@@ -273,7 +273,7 @@ describe("pickDoc", () => {
       " ❯ ◉   code-review                 Reviews a diff before you open a pull request",
       "   ◯ Subagents                     0 of 1 shown",
       "   ◯   reviewer                    A second reader for risky changes",
-      "2 selected · 2 of 6 shown · esc clears the filter",
+      "2 of 6 selected (1 hidden) · 2 shown · ^a all shown · esc clears the filter",
     ]);
   });
 
@@ -285,7 +285,7 @@ describe("pickDoc", () => {
       "     ↑ 2 more",
       " ❯ ◯   changelog                   Drafts release notes from merged work",
       "     ↓ 4 more",
-      "2 selected · ↑↓ move · space toggle · ^a all · enter confirm",
+      "2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm",
     ]);
   });
 
@@ -293,7 +293,35 @@ describe("pickDoc", () => {
     const state = stateAfter(toolkit, [key("down")]);
     expect(paint(toolkit, state, 48).slice(-2)).toEqual([
       "     Reviews a diff before you open a pull requ…",
-      "2 selected · space · ^a all · enter",
+      "2 of 6 selected · space · ^a all · enter",
+    ]);
+  });
+
+  it("shortens descriptions beside names while the line leaves them room to read", () => {
+    const state = stateAfter(toolkit, [key("down")]);
+    expect(paint(toolkit, state, 64).slice(2, 4)).toEqual([
+      " ❯ ◉   code-review              Reviews a diff before you open …",
+      "   ◉   triage                   Sorts incoming issues by severi…",
+    ]);
+    expect(paint(toolkit, state, 64).at(-2)).toBe(
+      "     code-review · Reviews a diff before you open a pull request",
+    );
+  });
+
+  it("shows a screenful of a long list however tall the terminal is", () => {
+    const long = pickAsk({
+      question: "Select skills to install",
+      noun: { one: "skill", other: "skills" },
+      options: Array.from({ length: 40 }, (_, index) => ({
+        title: `skill-${String(index)}`,
+        value: index,
+      })),
+    });
+    const lines = paint(long, initialPickState(long), 80, 60);
+    expect(lines).toHaveLength(16);
+    expect(lines.slice(-2)).toEqual([
+      "     ↓ 27 more",
+      "0 of 40 selected · ↑↓ move · space toggle · ^a all · enter confirm",
     ]);
   });
 
@@ -309,8 +337,18 @@ describe("pickDoc", () => {
       " ❯ ◯ Claude Code",
       "   ◯ Codex",
       "   ◯ Cursor",
-      "0 selected · space · ^a all · enter",
+      "0 of 3 selected · space · ^a · enter",
     ]);
+  });
+
+  it("says what enter does with the picked options where the question names it", () => {
+    const install = { ...agents, verb: "install" };
+    expect(paint(install, initialPickState(install)).at(-1)).toBe(
+      "0 of 3 selected · ↑↓ move · space toggle · ^a all · enter install",
+    );
+    expect(paint(install, stateAfter(install, [space, key("down"), space])).at(-1)).toBe(
+      "2 of 3 selected · ↑↓ move · space toggle · ^a all · enter install 2",
+    );
   });
 
   it("names a refusal beneath the hint", () => {
@@ -329,7 +367,9 @@ describe("pickDoc", () => {
       " > [-] Skills                      2 of 4",
       "   [x]   code-review               Reviews a diff before you open a pull request",
     ]);
-    expect(lines.at(-1)).toBe("2 selected - up/down move - space toggle - ^a all - enter confirm");
+    expect(lines.at(-1)).toBe(
+      "2 of 6 selected - up/down move - space toggle - ^a all - enter confirm",
+    );
   });
 });
 

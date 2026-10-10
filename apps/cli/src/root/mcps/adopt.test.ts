@@ -324,7 +324,7 @@ describe("mcps adopt output", () => {
 
         expect(logs.success).toEqual(["Adopted 1 MCP server"]);
         expect(rendererState.summaries).toEqual([
-          "Adopt 1 MCP server   updated   2 files, axm.json, .gemini/settings.json",
+          "Adopt 1 MCP server   updated   2 files, axm.json",
         ]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect installed MCP servers", cmd: "axm mcps list" },

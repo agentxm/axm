@@ -131,9 +131,7 @@ describe("mcps enable/disable output", () => {
         });
 
         expect(logs.success).toEqual(["Enabled 1 MCP server"]);
-        expect(rendererState.summaries).toEqual([
-          `context   updated   2 files, axm.json, ${path.join(tempDir, ".mcp.json")}`,
-        ]);
+        expect(rendererState.summaries).toEqual(["context   updated   2 files, axm.json"]);
         expect(rendererState.suggestions).toEqual([
           { description: "Inspect installed MCP servers", cmd: "axm mcps list" },
           { description: "Undo", cmd: "axm mcps disable context" },

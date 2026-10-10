@@ -199,6 +199,12 @@ export interface PromptNode {
   readonly options?: ReadonlyArray<PromptOption>;
   /** How many options did not fit below the list, named on one line beneath it. */
   readonly more?: number;
+  /**
+   * The option after the last, for a list that keeps a line to name the
+   * caret's details. Where every option carries its details beside its title
+   * that line is free, and this option takes it.
+   */
+  readonly spare?: PromptOption;
   /** The answer being typed, behind the caret. */
   readonly entry?: Text;
   /**

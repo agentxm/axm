@@ -11,6 +11,6 @@ Setting up AXM in ~/code/storefront
    ◯ AiderDesk
    ◯ Amp
    ◯ Antigravity
-   ◯ Antigravity CLI
-     ↓ 58 more
+     ↓ 59 more
+     skills: .adal/skills
 2 selected · space · ^a all · enter

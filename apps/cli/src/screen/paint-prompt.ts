@@ -283,12 +283,35 @@ const paintHint = (
 };
 
 /**
+ * What the caret's option means, on the one line a list keeps for it when its
+ * options are too long to carry their details beside their titles. The line
+ * shortens at its end, so the list stays exactly as tall as it looks.
+ */
+const paintCurrentDetails = (
+  options: ReadonlyArray<PromptOption>,
+  style: ResolvedStyle,
+  indent: number,
+): ReadonlyArray<string> => {
+  const current = options.find((option) => option.current === true);
+  const details = current === undefined ? [] : optionDetails(current, style);
+  if (details.length === 0) return [];
+  const start = indent + GUTTER_WIDTH;
+  const text = plain(details);
+  const line =
+    style.width === "unbounded"
+      ? text
+      : plain(truncateText(text, Math.max(1, style.width - start), "end", style.glyphs.ellipsis));
+  return [`${spaces(start)}${paintSpans([{ text: line }], style, "dim")}`];
+};
+
+/**
  * A question and what answers it: its question line, a dim note beneath it,
  * and — for a question whose answers need reading — the options that fit,
  * with a line naming how many it left out above and below, and the hint
  * beneath the list. Options show their details only when every option's fit
  * whole: a list whose details come and go row by row would read as options
- * that have none, so a narrow list drops them all before it touches a title.
+ * that have none, so a narrow list drops them all before it touches a title
+ * and names the caret's own beneath the list instead.
  */
 export const paintPrompt = (
   node: PromptNode,
@@ -296,15 +319,21 @@ export const paintPrompt = (
   indent: number,
 ): ReadonlyArray<string> => {
   const contentStart = indent + GUTTER_WIDTH;
-  const options = node.options ?? [];
-  const withDetails = options.every((option) => {
-    const start = optionLead(option, style, indent).width;
-    const title = optionTitle(option, style, start);
-    return (
-      style.width === "unbounded" ||
-      detailsStart(title, style, start) + spansWidth(optionDetails(option, style)) <= style.width
-    );
-  });
+  const listed = node.options ?? [];
+  const withDetails = [...listed, ...(node.spare === undefined ? [] : [node.spare])].every(
+    (option) => {
+      const start = optionLead(option, style, indent).width;
+      const title = optionTitle(option, style, start);
+      return (
+        style.width === "unbounded" ||
+        detailsStart(title, style, start) + spansWidth(optionDetails(option, style)) <= style.width
+      );
+    },
+  );
+  // The line kept for the caret's details goes to the next option when no
+  // option needs it.
+  const options = withDetails && node.spare !== undefined ? [...listed, node.spare] : listed;
+  const more = (node.more ?? 0) - (options.length - listed.length);
   return [
     ...paintQuestion(node, style, indent),
     ...(node.note === undefined
@@ -316,9 +345,8 @@ export const paintPrompt = (
         : paintSkipped(style.glyphs.arrows.up, option.before, style, indent)),
       paintOption(option, style, indent, withDetails),
     ]),
-    ...(node.more === undefined || node.more <= 0
-      ? []
-      : paintSkipped(style.glyphs.arrows.down, node.more, style, indent)),
+    ...(more <= 0 ? [] : paintSkipped(style.glyphs.arrows.down, more, style, indent)),
+    ...(withDetails ? [] : paintCurrentDetails(options, style, indent)),
     ...(node.hint === undefined ? [] : paintHint(node.hint, style, indent)),
   ];
 };

@@ -20,7 +20,7 @@ import {
   type ChooseAsk,
   type ChooseOption,
 } from "./ask.js";
-import { listWindow } from "./list-window.js";
+import { listWindow, windowLines } from "./list-window.js";
 
 /** Which option the caret stands on. */
 export interface ChooseState {
@@ -65,9 +65,14 @@ export const reduceChoose = <A>(
 
 /** The question as the live scene shows it in `rows` lines while it stands open. */
 export const chooseDoc = <A>(ask: ChooseAsk<A>, state: ChooseState, rows: number): Doc => {
-  // The question and its note take their lines before any option does.
-  const room = rows - 1 - (ask.note === undefined ? 0 : 1);
+  // The question, its note, and the line that names the caret's details where
+  // the list cannot carry them take their lines before any option does.
+  const described = ask.options.some((option) => (option.details?.length ?? 0) > 0);
+  const room = rows - 1 - (ask.note === undefined ? 0 : 1) - (described ? 1 : 0);
   const window = listWindow(ask.options.length, state.index, room);
+  // A window squeezed past its room has no line left to lend.
+  const spare =
+    windowLines(window, ask.options.length) <= room ? ask.options[window.end] : undefined;
   return [
     promptNode(ask, {
       chips: [],
@@ -78,6 +83,14 @@ export const chooseDoc = <A>(ask: ChooseAsk<A>, state: ChooseState, rows: number
         ...(offset === 0 && window.start > 0 ? { before: window.start } : {}),
       })),
       more: ask.options.length - window.end,
+      ...(described && spare !== undefined
+        ? {
+            spare: {
+              title: spare.title,
+              ...(spare.details === undefined ? {} : { details: spare.details }),
+            },
+          }
+        : {}),
     }),
   ];
 };

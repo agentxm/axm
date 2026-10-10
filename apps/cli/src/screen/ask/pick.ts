@@ -25,7 +25,7 @@ import {
   type PickAsk,
   type PickNoun,
 } from "./ask.js";
-import { listWindow, skippedAbove } from "./list-window.js";
+import { listWindow, skippedAbove, windowLines } from "./list-window.js";
 
 /** Where the caret stands, what is picked, what narrows the list, and what was refused. */
 export interface PickState {
@@ -287,9 +287,16 @@ const groupHeaderOf =
 /** The question as the live scene shows it in `rows` lines while it stands open. */
 export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc => {
   const list = pickRows(ask, state.filter);
-  // The question, its note, the hint, and a refusal take their lines before
+  // The question, its note, the hint, a refusal, and the line that names the
+  // caret's details where the list cannot carry them take their lines before
   // any row does.
-  const room = rows - 2 - (ask.note === undefined ? 0 : 1) - (state.problem === undefined ? 0 : 1);
+  const described = ask.options.some((option) => (option.details?.length ?? 0) > 0);
+  const room =
+    rows -
+    2 -
+    (ask.note === undefined ? 0 : 1) -
+    (state.problem === undefined ? 0 : 1) -
+    (described ? 1 : 0);
   const window = listWindow(list.length, state.cursor, room, groupHeaderOf(list));
   const shownRow = (index: number): PromptOption => {
     const row = list[index];
@@ -310,6 +317,10 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
         }),
       ],
       more: list.length - window.end,
+      // A window squeezed past its room has no line left to lend.
+      ...(described && window.end < list.length && windowLines(window, list.length) <= room
+        ? { spare: shownRow(window.end) }
+        : {}),
       hint: filtered
         ? {
             status: [

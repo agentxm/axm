@@ -17,6 +17,7 @@ import {
 } from "@agentxm/workspace-features/lifecycle";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
+  InstallSelectionCancelled,
   deriveOperationOutcome,
   operationPresentation,
   type ConfirmationRecoveryArgument,
@@ -84,10 +85,18 @@ const showDiagnostics = (candidate: InstallExtensionsCandidate) =>
     }
   });
 
+/**
+ * A person who backs out of choosing what to install has not failed: the
+ * cancellation reaches the runtime as itself, which settles it as a clean
+ * exit, and every other failure becomes the error envelope.
+ */
+const settlingFailure = (failure: unknown) =>
+  failure instanceof InstallSelectionCancelled ? failure : failureToAppError(failure);
+
 const body = (args: InstallCommandArgs) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.prepare(args.request).pipe(
-      Effect.mapError(failureToAppError),
+      Effect.mapError(settlingFailure),
     );
     yield* showDiagnostics(candidate);
 

@@ -1,0 +1,43 @@
+name: Registry contract drift
+
+# Compares the Registry contract the client is generated from with the one the
+# development Registry serves. Informational only: it is not part of Required
+# CI, so drift never blocks an unrelated change.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: registry-contract-drift-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NX_TUI: "false"
+  NX_DEFAULT_OUTPUT_STYLE: static
+  NX_TASKS_RUNNER_DYNAMIC_OUTPUT: "false"
+  NX_SKIP_REMOTE_CACHE: "true"
+
+jobs:
+  compare:
+    name: Compare the recorded and served contracts
+    if: github.repository == 'agentxm/axm'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up workspace toolchain
+        uses: ./.github/actions/setup-workspace
+
+      - name: Compare with the development Registry
+        env:
+          AXM_REGISTRY_SPEC_URL: https://registry-dev.agentxm.ai
+        run: pnpm exec nx run registry-client:check:registry-spec

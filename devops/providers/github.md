@@ -23,8 +23,10 @@ confirm independent relationship lifecycles.
   protection, Actions permissions, and secret administration.
 - [CI](../../.github/workflows/ci.yml),
   [release preparation](../../.github/workflows/prepare-release.yml),
-  [publication](../../.github/workflows/publish.yml) declare
-  configured workflows and permissions; presence does not prove successful use.
+  [publication](../../.github/workflows/publish.yml), and the non-blocking
+  [Registry contract drift](../../.github/workflows/registry-contract-drift.yml)
+  check declare configured workflows and permissions; presence does not prove
+  successful use.
 
 Workflow `GITHUB_TOKEN` permissions are job-scoped. Release preparation uses it
 to push one candidate branch, open its pull request, and explicitly dispatch CI;

@@ -9,7 +9,7 @@ ARGUMENTS
 
 FLAGS
      --scope                       Workspace scope (choices: project, user; default project)
-     --all                         Install every matching extension without prompting
+     --all                         Install everything the source offers without prompting
      --ignore-release-age          Take a release younger than the configured minimum release age, for this run only
 
 GLOBAL FLAGS

@@ -67,6 +67,8 @@ export interface GitHostedRefDetails {
   readonly gitTreeSha: string;
   /** Immutable commit checked out while resolving this ref. */
   readonly gitCommitSha: string;
+  /** The source acquired this package from another publisher and does not offer it as its own. */
+  readonly heldBySource?: true;
 }
 
 /** Ref details for registry sources. @experimental */
@@ -110,6 +112,8 @@ export interface LocalRefDetails {
   /** Selected member relative to the supplied source directory, before workspace normalization. */
   readonly sourceRelativePath?: string;
   readonly distribution?: DistributionDescriptor;
+  /** The source acquired this package from another publisher and does not offer it as its own. */
+  readonly heldBySource?: true;
 }
 
 /** Ref details for intrinsic workspace sources. @experimental */
@@ -166,7 +170,11 @@ export type McpServerExtensionRefBase<
   TRefType extends RefType,
   TSource extends Source,
 > = ExtensionRefBase<"mcp-server", TRefType, TSource> & {
-  readonly server: { readonly name: ExtensionName };
+  readonly server: {
+    readonly name: ExtensionName;
+    /** What the package's manifest says it is for, where discovery read one. */
+    readonly description?: string;
+  };
 };
 
 /** @experimental */
@@ -191,6 +199,8 @@ export type PackRefBase<TRefType extends RefType, TSource extends Source> = Exte
   readonly version: Version;
   readonly pack: {
     readonly name: ExtensionName;
+    /** What the package's manifest says it is for, where discovery read one. */
+    readonly description?: string;
     readonly dependencies: PackMemberConstraintMap;
   };
 };

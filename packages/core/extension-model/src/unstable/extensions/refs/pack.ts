@@ -41,6 +41,28 @@ type SourceInheritedPackMembers = {
   readonly sourceMembers: ReadonlyArray<SourceInheritedPackMemberRef>;
 };
 
+/**
+ * The candidates beside a Pack that one of its dependencies names. A member is
+ * matched by declared identity, so exactly one match is the member and any
+ * other count leaves the dependency unresolved in this source view.
+ *
+ * @experimental
+ */
+export const sourceInheritedMembersNamed = (
+  pack: SourceInheritedPackMembers,
+  identity: {
+    readonly type: SourceInheritedPackMemberRef["type"];
+    readonly owner: string;
+    readonly name: string;
+  },
+): ReadonlyArray<SourceInheritedPackMemberRef> =>
+  pack.sourceMembers.filter(
+    (candidate) =>
+      candidate.type === identity.type &&
+      candidate.owner === identity.owner &&
+      candidate.name === identity.name,
+  );
+
 // -----------------------------------------------------------------------------
 // Layer 3: Concrete Pack Extension Refs
 // -----------------------------------------------------------------------------

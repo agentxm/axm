@@ -112,6 +112,7 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
+  selectAcrossSourceTypes,
   selectInstallRefs,
   type InstallSelectionFailure,
   type InstallSelectionRequest,
@@ -303,8 +304,33 @@ const parseSourceInstallRequest = (
   }
 };
 
-/** One source-backed selection, retaining accepted identity for repeated requests. */
-const settleSourceInstall = <T extends SourceInstallType>(
+/**
+ * How one type's refs are chosen once the source has shown them. The typed
+ * route asks the shared selection policy; a locator that named nothing decides
+ * across every type at once and hands each type its share.
+ */
+type ChooseRefs = <Ref extends ExtensionRef>(
+  refs: ReadonlyArray<Ref>,
+  selection: InstallSelectionRequest,
+) => Effect.Effect<ReadonlyArray<Ref>, SelectionRefused, InstallSelectionInteraction>;
+
+/**
+ * One type's install opened as far as the source's contents: what it found,
+ * what the request already named, and the rest of the settling, which waits
+ * for a choice. Discovery finishes for every type before anything is asked.
+ */
+const openedChoice = <Ref extends ExtensionRef, Settled, E0, R0>(
+  discovered: ReadonlyArray<Ref>,
+  selection: InstallSelectionRequest,
+  finish: (selected: ReadonlyArray<Ref>) => Effect.Effect<Settled, E0, R0>,
+) => ({
+  discovered,
+  selection,
+  settle: (choose: ChooseRefs) => choose(discovered, selection).pipe(Effect.flatMap(finish)),
+});
+
+/** One source-backed type opened, retaining accepted identity for repeated requests. */
+const openSourceInstall = <T extends SourceInstallType>(
   type: T,
   source: string,
   selectors: ReadonlyArray<string>,
@@ -339,39 +365,57 @@ const settleSourceInstall = <T extends SourceInstallType>(
               type,
               selectsRegistryRelease(parsed) ? { ...parsed, versionRange: Option.none() } : parsed,
             );
-    const selected = yield* selectFrom(discovered, {
-      type,
-      selectors: names,
-      all: request.all,
-      nonInteractive: request.nonInteractive,
-    });
-    const broadRegistry =
-      namedRegistry === undefined && acceptedRefs.length === 0 && selectsRegistryRelease(parsed)
-        ? yield* resolveRegistryInstallRefs(type, parsed, selected.map(extensionRefName))
-        : undefined;
-    const resolved = namedRegistry ?? broadRegistry;
-    const entries = yield* Effect.sync(() =>
-      resolved === undefined
-        ? finalizeInstallRefs(parsed, selected)
-        : resolved.refs.filter((entry) =>
-            selected.some((ref) => extensionRefName(ref) === extensionRefName(entry.ref)),
-          ),
-    ).pipe(Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }));
-    return {
-      refs: entries,
-      foundCount: discovered.length,
-      resolutionProbes: parsed.resolutionProbes,
-      releaseAge: resolved?.releaseAge,
-    };
+    return openedChoice(
+      discovered,
+      { type, selectors: names, all: request.all, nonInteractive: request.nonInteractive },
+      (selected) =>
+        Effect.gen(function* () {
+          const broadRegistry =
+            namedRegistry === undefined &&
+            acceptedRefs.length === 0 &&
+            selectsRegistryRelease(parsed)
+              ? yield* resolveRegistryInstallRefs(type, parsed, selected.map(extensionRefName))
+              : undefined;
+          const resolved = namedRegistry ?? broadRegistry;
+          const entries = yield* Effect.sync(() =>
+            resolved === undefined
+              ? finalizeInstallRefs(parsed, selected)
+              : resolved.refs.filter((entry) =>
+                  selected.some((ref) => extensionRefName(ref) === extensionRefName(entry.ref)),
+                ),
+          ).pipe(Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }));
+          return {
+            refs: entries,
+            foundCount: discovered.length,
+            resolutionProbes: parsed.resolutionProbes,
+            releaseAge: resolved?.releaseAge,
+          };
+        }),
+    );
   });
 
+/** A source-backed type's settling tagged with the type it settles. */
+const openTaggedSourceInstall = <T extends SourceInstallType>(
+  type: T,
+  source: string,
+  selectors: ReadonlyArray<string>,
+  request: InstallExtensionsRequest,
+) =>
+  openSourceInstall(type, source, selectors, request).pipe(
+    Effect.map((opened) => ({
+      discovered: opened.discovered,
+      selection: opened.selection,
+      settle: (choose: ChooseRefs) =>
+        opened.settle(choose).pipe(Effect.map((settled) => ({ type, settled }))),
+    })),
+  );
+
 /**
- * Settle which of one type's extensions a source install takes: parse the
- * request, discover what the source offers, and let the person choose. Nothing
- * here reads which coding agents the workspace configures, so a first install
- * can make this choice before it knows them.
+ * Open one type's install: parse the request and discover what the source
+ * offers. Nothing here asks, and nothing reads which coding agents the
+ * workspace configures, so a first install can choose before it knows them.
  */
-const settleTypeChoice = (
+const openTypeChoice = (
   type: InstallableExtensionType,
   source: string,
   request: InstallExtensionsRequest,
@@ -380,30 +424,15 @@ const settleTypeChoice = (
     const selectors = installSelectorsFor(request.selectors, type);
     switch (type) {
       case "skill":
-        return {
-          type: "skill" as const,
-          settled: yield* settleSourceInstall("skill", source, selectors, request),
-        };
+        return yield* openTaggedSourceInstall("skill", source, selectors, request);
       case "subagent":
-        return {
-          type: "subagent" as const,
-          settled: yield* settleSourceInstall("subagent", source, selectors, request),
-        };
+        return yield* openTaggedSourceInstall("subagent", source, selectors, request);
       case "rule":
-        return {
-          type: "rule" as const,
-          settled: yield* settleSourceInstall("rule", source, selectors, request),
-        };
+        return yield* openTaggedSourceInstall("rule", source, selectors, request);
       case "hook":
-        return {
-          type: "hook" as const,
-          settled: yield* settleSourceInstall("hook", source, selectors, request),
-        };
+        return yield* openTaggedSourceInstall("hook", source, selectors, request);
       case "knowledge":
-        return {
-          type: "knowledge" as const,
-          settled: yield* settleSourceInstall("knowledge", source, selectors, request),
-        };
+        return yield* openTaggedSourceInstall("knowledge", source, selectors, request);
       case "mcp-server": {
         const parsed = yield* parseMcpServerInstallRequest({
           source,
@@ -468,44 +497,50 @@ const settleTypeChoice = (
         if (discovered.length === 0) {
           yield* finalizeMcpServerInstallIntent(parsed, sourceRequest, discovered);
         }
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: effectiveSelectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        if (Option.isSome(request.localName) && selected.length > 1) {
-          return yield* installRefused({
-            category: "usage",
-            detail: "--as can only be used when installing one MCP server",
-          });
-        }
-        const selectedRegistry =
-          namedRegistry ??
-          (acceptedMcpServers.length === 0 &&
-          selectsRegistryRelease({
-            source: sourceRequest.source,
-            versionRange: parsed.versionRange,
-          })
-            ? yield* resolveRegistryInstallRefs(
-                type,
-                {
-                  ...sourceRequest,
+        return openedChoice(
+          discovered,
+          {
+            type,
+            selectors: effectiveSelectors,
+            all: request.all,
+            nonInteractive: request.nonInteractive,
+          },
+          (selected) =>
+            Effect.gen(function* () {
+              if (Option.isSome(request.localName) && selected.length > 1) {
+                return yield* installRefused({
+                  category: "usage",
+                  detail: "--as can only be used when installing one MCP server",
+                });
+              }
+              const selectedRegistry =
+                namedRegistry ??
+                (acceptedMcpServers.length === 0 &&
+                selectsRegistryRelease({
+                  source: sourceRequest.source,
                   versionRange: parsed.versionRange,
-                  names: [],
-                  resolutionProbes: [],
-                },
-                selected.map(extensionRefName),
-                sourceRequest.versionRange,
-              )
-            : undefined);
-        return {
-          type: "mcp-server" as const,
-          parsed,
-          sourceRequest,
-          selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
-          releaseAge: selectedRegistry?.releaseAge,
-        };
+                })
+                  ? yield* resolveRegistryInstallRefs(
+                      type,
+                      {
+                        ...sourceRequest,
+                        versionRange: parsed.versionRange,
+                        names: [],
+                        resolutionProbes: [],
+                      },
+                      selected.map(extensionRefName),
+                      sourceRequest.versionRange,
+                    )
+                  : undefined);
+              return {
+                type: "mcp-server" as const,
+                parsed,
+                sourceRequest,
+                selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
+                releaseAge: selectedRegistry?.releaseAge,
+              };
+            }),
+        );
       }
       case "pack": {
         const parsed = yield* parsePackInstallRequest({
@@ -550,47 +585,55 @@ const settleTypeChoice = (
             detail: "No pack was found in the source",
           });
         }
-        const selected = yield* selectFrom(discovered, {
-          type,
-          selectors: effectiveSelectors,
-          all: request.all,
-          nonInteractive: request.nonInteractive,
-        });
-        const selectedRegistry =
-          namedRegistry ??
-          (acceptedPacks.length === 0 && selectsRegistryRelease(sourceRequest)
-            ? yield* resolveRegistryInstallRefs(
-                type,
-                { ...sourceRequest, names: [], resolutionProbes: [] },
-                selected.map(extensionRefName),
-              )
-            : undefined);
-        return {
-          type: "pack" as const,
-          parsed,
-          sourceRequest,
-          selected,
-          selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
-          releaseAge: selectedRegistry?.releaseAge,
-          releaseAgeEvaluation: selectedRegistry?.evaluation,
-          accepted: acceptedPacks.length > 0,
-        };
+        return openedChoice(
+          discovered,
+          {
+            type,
+            selectors: effectiveSelectors,
+            all: request.all,
+            nonInteractive: request.nonInteractive,
+          },
+          (selected) =>
+            Effect.gen(function* () {
+              const selectedRegistry =
+                namedRegistry ??
+                (acceptedPacks.length === 0 && selectsRegistryRelease(sourceRequest)
+                  ? yield* resolveRegistryInstallRefs(
+                      type,
+                      { ...sourceRequest, names: [], resolutionProbes: [] },
+                      selected.map(extensionRefName),
+                    )
+                  : undefined);
+              return {
+                type: "pack" as const,
+                parsed,
+                sourceRequest,
+                selected,
+                selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
+                releaseAge: selectedRegistry?.releaseAge,
+                releaseAgeEvaluation: selectedRegistry?.evaluation,
+                accepted: acceptedPacks.length > 0,
+              };
+            }),
+        );
       }
     }
   });
 
-/** One type's settled choice, carried from selection to planning. */
-type SettledTypeInstall = Effect.Success<ReturnType<typeof settleTypeChoice>>;
+type OpenedTypeChoice = Effect.Success<ReturnType<typeof openTypeChoice>>;
 
-const settleForType: (
-  type: InstallableExtensionType,
-  source: string,
-  request: InstallExtensionsRequest,
-) => Effect.Effect<
+/** One type's settled choice, carried from selection to planning. */
+type SettledTypeInstall = Effect.Success<ReturnType<OpenedTypeChoice["settle"]>>;
+
+/** Finish settling one opened type with the refs `choose` takes from it. */
+const settleOpened = (
+  opened: OpenedTypeChoice,
+  choose: ChooseRefs,
+): Effect.Effect<
   SettledTypeInstall,
   InstallExtensionsFailure | SelectionRefused,
   PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
-> = settleTypeChoice;
+> => opened.settle(choose);
 
 /**
  * Plan one type's settled choice. This is where the configured coding agents
@@ -759,11 +802,12 @@ export type InstallExtensionsSelection =
     };
 
 /**
- * A locator names a place, not a type. Each installable type is offered the
- * source and the ones that find nothing there simply do not contribute; if no
- * type matches, the locator held nothing AXM can install. A refusal the
- * selection itself raised is never "nothing here": it surfaces as is. Every
- * type is asked before any is planned.
+ * A locator names a place, not a type. Every installable type opens the source
+ * and the ones that find nothing there simply do not contribute; if no type
+ * matches, the locator held nothing AXM can install. What the request named is
+ * chosen type by type. What it left open is chosen once, across every type the
+ * source offers, before anything is planned. A refusal the selection itself
+ * raised is never "nothing here": it surfaces as is.
  */
 const settleLocatorInstall = (source: string, request: InstallExtensionsRequest) =>
   Effect.gen(function* () {
@@ -782,22 +826,47 @@ const settleLocatorInstall = (source: string, request: InstallExtensionsRequest)
       explicitlySelectedTypes.length > 0 ? explicitlySelectedTypes : installableExtensionTypes;
     const sources = yield* SourceHostProviders;
     const locatorSources = yield* makeLocatorSourceView(sources, candidateTypes.length);
-    const attempts = yield* Effect.forEach(
-      candidateTypes,
-      (type) =>
-        settleForType(type, source, request).pipe(
-          Effect.map(Option.some),
-          Effect.catch((failure) =>
-            failure._tag === "SelectionRefused"
-              ? Effect.fail(failure.failure)
-              : isNoMatch(failure)
-                ? Effect.succeed(Option.none<SettledTypeInstall>())
+    const settled = yield* Effect.gen(function* () {
+      const attempts = yield* Effect.forEach(
+        candidateTypes,
+        (type) =>
+          openTypeChoice(type, source, request).pipe(
+            Effect.map(Option.some),
+            Effect.catch((failure) =>
+              isNoMatch(failure)
+                ? Effect.succeed(Option.none<OpenedTypeChoice>())
                 : Effect.fail(failure),
+            ),
           ),
-        ),
-      { concurrency: 1 },
-    ).pipe(Effect.provideService(SourceHostProviders, locatorSources));
-    const settled = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
+        { concurrency: 1 },
+      );
+      const opened = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
+      // A type the request or the locator already named keeps its own answer.
+      const left = opened.filter((choice) => choice.selection.selectors.length === 0);
+      const takes =
+        left.length === 0
+          ? () => false
+          : yield* selectAcrossSourceTypes(
+              left.flatMap((choice): ReadonlyArray<ExtensionRef> => choice.discovered),
+              { all: request.all },
+            );
+      const chosen = yield* Effect.forEach(
+        opened,
+        (choice) =>
+          choice.selection.selectors.length > 0
+            ? settleOpened(choice, selectFrom).pipe(Effect.map(Option.some))
+            : choice.discovered.some(takes)
+              ? settleOpened(choice, (refs) => Effect.succeed(refs.filter(takes))).pipe(
+                  Effect.map(Option.some),
+                )
+              : Effect.succeed(Option.none<SettledTypeInstall>()),
+        { concurrency: 1 },
+      );
+      return chosen.flatMap((choice) => (Option.isSome(choice) ? [choice.value] : []));
+    }).pipe(
+      Effect.catchTag("SelectionRefused", (refused) => Effect.fail(refused.failure)),
+      Effect.provideService(SourceHostProviders, locatorSources),
+    );
     if (settled.length === 0) return yield* nothingInstallable;
     return {
       kind: "locator",
@@ -820,6 +889,19 @@ export const selectInstallExtensions: (
   }
 
   const source = request.subject.source;
+  if (
+    request.all &&
+    installableExtensionTypes.some(
+      (candidate) => installSelectorsFor(request.selectors, candidate).length > 0,
+    )
+  ) {
+    return yield* installRefused({
+      category: "usage",
+      detail: "--all cannot be combined with a per-type selector",
+      recover:
+        "Pass --all alone to take everything the source offers, or name the extensions to install with their per-type selectors",
+    });
+  }
   const type = yield* Option.match(request.type, {
     onSome: (value) => Effect.succeed<InstallableExtensionType | "locator">(value),
     onNone: () => resolveRootInstallIntent(source).pipe(Effect.map((intent) => intent.type)),
@@ -848,7 +930,8 @@ export const selectInstallExtensions: (
 
   if (type === "locator") return yield* settleLocatorInstall(source, request);
 
-  const settled = yield* settleForType(type, source, request).pipe(
+  const opened = yield* openTypeChoice(type, source, request);
+  const settled = yield* settleOpened(opened, selectFrom).pipe(
     Effect.catchTag("SelectionRefused", (refused) => Effect.fail(refused.failure)),
   );
   return { kind: "typed", source, settled } satisfies InstallExtensionsSelection;

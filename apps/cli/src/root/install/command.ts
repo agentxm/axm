@@ -54,7 +54,7 @@ const selectorFlag = (type: InstallableExtensionType) => {
 };
 
 const allFlag = Flag.Boolean("all").pipe(
-  withParameterDescription("Select every matching extension in the source"),
+  withParameterDescription("Select everything the source offers"),
   withParameterDefault(false),
 );
 
@@ -145,7 +145,7 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
           type === undefined
             ? "axm install ./extensions --all"
             : `axm ${extensionTypeToPlural[type]} install ./extensions --all`,
-        description: "Install every matching extension without prompting",
+        description: "Install everything the source offers without prompting",
       },
     ]),
   );

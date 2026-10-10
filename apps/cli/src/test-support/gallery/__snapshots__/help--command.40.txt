@@ -19,8 +19,8 @@ FLAGS
                     (choices: project,
                     user; default
                     project)
-     --all          Install every
-                    matching extension
+     --all          Install everything
+                    the source offers
                     without prompting
      --ignore-release-age
        Take a release younger than the

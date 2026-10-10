@@ -167,7 +167,7 @@ describe("discoverExtensionPackages", () => {
         path.join(tempDir, "axm.json"),
         JSON.stringify({ owner: "@source-owner", skills: { ignored: "./elsewhere" } }),
       );
-      writeManifest(path.join(tempDir, "one"), "skill.json", {
+      writeManifest(path.join(tempDir, "skills", "one"), "skill.json", {
         type: "skill",
         name: "review",
         version: "1.0.0",

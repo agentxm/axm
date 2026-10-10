@@ -13,24 +13,27 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   InstallSelectionInteraction,
   ExtensionLifecycleFailed,
+  deriveOperationOutcome,
+  type InstallSelectionCandidate,
 } from "@agentxm/workspace-kernel/operations";
-import { contentUnder, readSettings } from "../test-helpers.js";
+import { contentUnder, readSettings } from "./test-helpers.js";
 import {
   applyInstall,
   installRequest,
   makeInstallWorld,
   type InstallWorld,
-} from "../../../testing/install-world.js";
+} from "../../testing/install-world.js";
 import {
+  writeLocalRulePackage,
   writeLocalSkillPackage,
   writeLocalSubagentPackage,
-} from "../../../testing/local-packages.js";
+} from "../../testing/local-packages.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/skills/install/selects-requested-source-skills",
-  title: "Installation selects the requested extensions from a source",
+  requirement: "cli/install/selects-requested-source-extensions",
+  title: "Installation selects the requested extensions from what a source offers",
   statement:
-    "For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; external skills shall also be selectable by exact source-relative path, including distinct same-name candidates; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.",
+    "For an installable source, a request that names one or more of its extensions shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches, with external skills also selectable by exact source-relative path, including distinct same-name candidates; a source shall offer the extensions it authors and not the packages it holds from other publishers, which shall remain installable by name; a request that selects all shall install, without opening a selection interaction, every offered Pack and every other offered extension that no Pack among them brings, across the types the request covers; a request that both names extensions and selects all, and an unattended request that does neither, shall fail as usage guidance; a request that leaves the choice open where a selection interaction is available shall ask once across every type the source offers; and an extension chosen both directly and through a Pack shall keep both routes as one unit. One policy decides this for every installable type.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
@@ -43,16 +46,17 @@ export const specification = defineSpecification({
     // apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts.
     "apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts",
   ],
-  supersedes: [],
-  assumptions: [],
+  supersedes: ["cli/skills/install/selects-requested-source-skills"],
+  assumptions: [
+    "Discovery decides which of a source's packages it offers and which it holds from other publishers, under extension-discovery/workspace-sources-offer-their-authored-roots; selection takes that standing as given.",
+  ],
   openQuestions: [
     "Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?",
-    "How should an all selection and a name selection be combined or refused when both are supplied?",
   ],
   limitations: [
     {
       limitation:
-        "The source populations are local native trees with unique and same-name skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here.",
+        "The source populations are local native trees with unique and same-name skills, two uniquely named subagents, and one mixed local source holding a Pack, its member, a rule, and an acquired skill. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here.",
       retirementCondition:
         "Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.",
     },
@@ -154,7 +158,49 @@ const selections = [
   { label: "every discovered skill", names: [], all: true, selected: sourceSkills },
 ] as const;
 
-describe("Select skills from a supplied source", () => {
+const writePack = (
+  sourceRoot: string,
+  name: string,
+  dependencies: Readonly<Record<string, string>>,
+): void => {
+  const directory = nodePath.join(sourceRoot, "packs", name);
+  fs.mkdirSync(directory, { recursive: true });
+  fs.writeFileSync(
+    nodePath.join(directory, "pack.json"),
+    `${JSON.stringify({
+      owner: "@acme",
+      type: "pack",
+      name,
+      version: "1.0.0",
+      description: `The ${name} pack.`,
+      dependencies,
+    })}\n`,
+  );
+};
+
+/**
+ * A source that authors a Pack, the skill it brings, a skill and a rule of
+ * their own, and keeps one skill it installed from another publisher.
+ */
+const writeSource = (world: InstallWorld): string => {
+  const source = nodePath.join(world.workspace.root, "upstream");
+  writeLocalSkillPackage(source, { name: "review" });
+  writeLocalSkillPackage(source, { name: "lint" });
+  writeLocalRulePackage(source, { name: "style" });
+  writePack(source, "kit", { "@acme/skills/review": "^1.0.0" });
+  writeLocalSkillPackage(nodePath.join(source, "agent_extensions", "registry.example", "@other"), {
+    name: "audit",
+    owner: "@other",
+  });
+  return source;
+};
+
+const declared = (world: InstallWorld, plural: string): ReadonlyArray<string> => {
+  const entries = readSettings(world.workspace)[plural];
+  return typeof entries === "object" && entries !== null ? Object.keys(entries).sort() : [];
+};
+
+describe("Select extensions from a supplied source", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
@@ -408,4 +454,159 @@ describe("Select skills from a supplied source", () => {
       expect(snapshotDirectory(source)).toEqual(sourceBefore);
     }),
   );
+
+  it.effect("asks one question covering every type, and takes only what was chosen", () => {
+    const created = makeInstallWorld();
+    cleanups.push(created.cleanup);
+    const source = writeSource(created);
+    const questions: Array<ReadonlyArray<InstallSelectionCandidate>> = [];
+
+    return created.workspace
+      .provide(
+        applyInstall(
+          installRequest({
+            subject: { kind: "source", source },
+            selectors: {},
+            all: false,
+            nonInteractive: false,
+          }),
+        ).pipe(
+          Effect.provideService(InstallSelectionInteraction, {
+            select: (candidates) => {
+              questions.push(candidates);
+              return Effect.succeed(
+                candidates.filter(({ name }) => name === "kit" || name === "style"),
+              );
+            },
+          }),
+        ),
+      )
+      .pipe(
+        Effect.tap((resolution) =>
+          Effect.sync(() => {
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(
+              questions.map((asked) => asked.map(({ type, name }) => `${type}:${name}`)),
+            ).toEqual([["pack:kit", "skill:lint", "skill:review", "rule:style"]]);
+            expect(questions[0]?.[0]?.brings).toEqual([{ type: "skill", name: "review" }]);
+            expect(declared(created, "packs")).toEqual(["kit"]);
+            expect(declared(created, "rules")).toEqual(["style"]);
+            // The Pack brought its member; nobody chose it directly.
+            expect(declared(created, "skills")).toEqual([]);
+            expect(created.workspace.readFile("axm-lock.yaml")).toContain("review");
+          }),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+  });
+
+  it.effect("--all takes every Pack and what no Pack brings, leaving acquired copies", () => {
+    const created = makeInstallWorld();
+    cleanups.push(created.cleanup);
+    const source = writeSource(created);
+
+    return created.workspace
+      .provide(
+        applyInstall(
+          installRequest({ subject: { kind: "source", source }, selectors: {}, all: true }),
+        ),
+      )
+      .pipe(
+        Effect.tap((resolution) =>
+          Effect.sync(() => {
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(declared(created, "packs")).toEqual(["kit"]);
+            expect(declared(created, "skills")).toEqual(["lint"]);
+            expect(declared(created, "rules")).toEqual(["style"]);
+            expect(created.workspace.readFile("axm-lock.yaml")).not.toContain("audit");
+          }),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+  });
+
+  it.effect("installs an acquired copy when the request names it", () => {
+    const created = makeInstallWorld();
+    cleanups.push(created.cleanup);
+    const source = writeSource(created);
+
+    return created.workspace
+      .provide(
+        applyInstall(
+          installRequest({
+            subject: { kind: "source", source },
+            selectors: { skill: ["audit"] },
+          }),
+        ),
+      )
+      .pipe(
+        Effect.tap((resolution) =>
+          Effect.sync(() => {
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(declared(created, "skills")).toEqual(["audit"]);
+          }),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+  });
+
+  it.effect("keeps both routes, as one unit, for a member also chosen directly", () => {
+    const created = makeInstallWorld();
+    cleanups.push(created.cleanup);
+    const source = writeSource(created);
+
+    return created.workspace
+      .provide(
+        applyInstall(
+          installRequest({
+            subject: { kind: "source", source },
+            selectors: { pack: ["kit"], skill: ["review"] },
+          }),
+        ),
+      )
+      .pipe(
+        Effect.tap((resolution) =>
+          Effect.sync(() => {
+            expect(deriveOperationOutcome(resolution)).toBe("applied");
+            expect(resolution.units.map((unit) => unit.id)).toEqual([
+              "skills/review, @acme/packs/kit",
+            ]);
+            expect(declared(created, "packs")).toEqual(["kit"]);
+            expect(declared(created, "skills")).toEqual(["review"]);
+          }),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+  });
+
+  it.effect("refuses --all together with a per-type selector", () => {
+    const created = makeInstallWorld();
+    cleanups.push(created.cleanup);
+    const source = writeSource(created);
+
+    return created.workspace
+      .provide(
+        applyInstall(
+          installRequest({
+            subject: { kind: "source", source },
+            selectors: { skill: ["review"] },
+            all: true,
+          }),
+        ),
+      )
+      .pipe(
+        Effect.flip,
+        Effect.tap((failure) =>
+          Effect.sync(() => {
+            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+            expect(failure).toMatchObject({
+              category: "usage",
+              detail: "--all cannot be combined with a per-type selector",
+            });
+            expect(declared(created, "skills")).toEqual([]);
+          }),
+        ),
+        Effect.provide(NodeServices.layer),
+      );
+  });
 });

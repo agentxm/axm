@@ -293,11 +293,12 @@ export const ShareWorkspace = {
       ),
     );
 
-    const discovered = yield* discoverExtensionPackages(location.baseDir, {
+    // A workspace shares what it authors, not the copies it holds from other publishers.
+    const discovered = (yield* discoverExtensionPackages(location.baseDir, {
       names: [],
       owner: Option.none(),
       type: "*",
-    });
+    })).filter((candidate) => candidate.standing === "offered");
     const extensions = discovered.map((candidate): SharedExtension => {
       const type = candidate.kind === "manifest" ? candidate.identity.type : "skill";
       const name = candidate.kind === "manifest" ? candidate.identity.name : candidate.name;

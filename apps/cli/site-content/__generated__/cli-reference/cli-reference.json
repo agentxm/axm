@@ -388,7 +388,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -424,7 +424,7 @@
               },
               {
                 "command": "axm skills install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -1304,7 +1304,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -1370,7 +1370,7 @@
               },
               {
                 "command": "axm mcps install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -2306,7 +2306,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -2334,7 +2334,7 @@
               },
               {
                 "command": "axm subagents install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -3237,7 +3237,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -3265,7 +3265,7 @@
               },
               {
                 "command": "axm rules install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -3975,7 +3975,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -4003,7 +4003,7 @@
               },
               {
                 "command": "axm hooks install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -4975,7 +4975,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -5003,7 +5003,7 @@
               },
               {
                 "command": "axm knowledge install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -6090,7 +6090,7 @@
                 "aliases": [],
                 "type": "boolean",
                 "required": false,
-                "description": "Select every matching extension in the source",
+                "description": "Select everything the source offers",
                 "default": false
               },
               {
@@ -6118,7 +6118,7 @@
               },
               {
                 "command": "axm packs install ./extensions --all",
-                "description": "Install every matching extension without prompting"
+                "description": "Install everything the source offers without prompting"
               }
             ],
             "subcommands": []
@@ -6934,7 +6934,7 @@
             "aliases": [],
             "type": "boolean",
             "required": false,
-            "description": "Select every matching extension in the source",
+            "description": "Select everything the source offers",
             "default": false
           },
           {

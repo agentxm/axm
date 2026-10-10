@@ -5,6 +5,7 @@ description: How AXM install expresses direct extension intent and realizes the 
 depends-on:
   - ./overview.md
   - ../workspace/invariants.md
+  - ../extensions/source-compatible-distribution.md
 ---
 
 # Install
@@ -55,6 +56,25 @@ The root command is the normal fully qualified extension surface. A type
 command group may accept additional type-specific inputs, but both forms
 express the same durable intent and produce the same underlying plan and result.
 
+## What a source offers
+
+A source offers the extensions it authors. A source that is an AXM workspace
+authors what its configured type directories hold, and nothing elsewhere in the
+repository. It also holds packages it acquired from other publishers beneath
+its install root; discovery reports them as held, because a Pack beside them
+may inherit them as members, but neither `--all` nor the selection question
+takes them. They stay installable by name, and they arrive with a Pack that
+depends on them. [Source-compatible distribution](../extensions/source-compatible-distribution.md#discovery-semantics)
+owns how discovery decides both.
+
+Every installable type opens the source before anything is chosen. Names and
+patterns select within their type. `--all` takes every offered Pack and every
+other offered extension no Pack among them brings, so nothing becomes desired
+both directly and through a Pack unless a person chose it twice; a member
+chosen both ways keeps both routes and settles as one unit. `--all` and a
+per-type selector do not combine. A request that leaves the choice open asks
+once, with Packs first.
+
 MCP convenience flags distinguish literal inputs from host environment
 references: `--bind INPUT_ID=VALUE` pairs with `--bind-env INPUT_ID=ENV_NAME`,
 and `--header NAME=VALUE` pairs with `--header-env NAME=ENV_NAME`. These values
@@ -82,8 +102,10 @@ The `cli/install/*` specifications own install's binding obligations — recorde
 intent and realized state (`cli/install/direct-intent-recorded-and-realized`),
 pure preview (`cli/install/preview-is-pure`), idempotence
 (`cli/install/reinstall-is-idempotent`), preservation of unrelated and unowned
-state (`cli/install/preserves-unrelated-and-unowned-state`), and parity between
-root and type-specific forms
-(`cli/install/root-and-type-forms-express-same-intent`). The
+state (`cli/install/preserves-unrelated-and-unowned-state`), parity between
+root and type-specific forms (`cli/install-forms-express-same-intent`), what a
+source offers and how a request selects from it
+(`cli/install/selects-requested-source-extensions`), and the single selection
+question (`cli/install/source-selection-is-one-question`). The
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.

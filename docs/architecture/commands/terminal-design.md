@@ -132,7 +132,9 @@ Status glyphs are ✔ for `ok`, ▲ for `warn`, ✖ for `error`, ● for `info`,
 a running unit, and · for a unit not yet started. Change operations are `+`
 created, `~` updated, `-` removed, and `=` unchanged; a row that did not change
 as planned carries ▲ blocked, ✖ failed, ↶ rolled back, or · not tried. A
-grouped selection shows ◉ selected and ◪ partially selected. The same glyph
+grouped selection shows ◉ selected and ◪ partially selected: a group only some
+of whose options are picked, or an option that comes along with a picked one
+without being picked itself. The same glyph
 always carries the same meaning, so ▲ means "attention" whether it marks a
 callout or a blocked row.
 
@@ -255,7 +257,11 @@ when both do not fit; a line the question refuses stays open with the reason
 beneath it in the attention mark.
 
 A list that takes several puts each option's selection mark between the caret
-and the title. Options that share a group sit one step in under the group's
+and the title. An option may bring others with it; while it is picked, each
+option it brings carries the partial mark unless it is picked in its own
+right, and the line beneath the list counts those apart as included. Taking
+everything takes only what no other option showing brings. Options that share
+a group sit one step in under the group's
 header, whose mark is partial while only some of them are picked and whose
 count sits at the value column; a group whose header scrolls away stays
 pinned above the window while the caret is in it. The left arrow folds the

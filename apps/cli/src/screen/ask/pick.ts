@@ -2,7 +2,9 @@
  * The `Pick` kind: several options from a list that narrows as a person types.
  *
  * Every option carries a mark saying whether it is picked, and `space` toggles
- * the one under the caret. Options that name a group sit one step in beneath
+ * the one under the caret. An option may bring others with it; while it is
+ * picked, those it brings carry the partial mark, which says they come along
+ * without having been picked themselves. Options that name a group sit one step in beneath
  * the group's header, whose mark says whether all, some, or none of them are
  * picked and which toggles them together. The left arrow folds the caret's
  * group to its header and the right arrow opens it again. Typing narrows the
@@ -266,7 +268,8 @@ const shownOptions = (rows: ReadonlyArray<PickRow>): ReadonlyArray<number> =>
  * the page keys move it a screenful, and `home` and `end` take it to either
  * end; the left arrow folds the caret's group and the right arrow opens it;
  * `space` toggles the row under it, a group's header toggling the options of
- * the group that show; `ctrl`+`a` toggles every option that shows; `enter`
+ * the group that show; `ctrl`+`a` toggles every option that shows and that no
+ * other option showing brings; `enter`
  * submits what is picked once it is within the question's bounds. Typed text
  * narrows the list, `backspace` takes back a character, and `ctrl`+`u` or
  * escape clears the filter. Escape with nothing typed, and an interrupt,
@@ -305,7 +308,7 @@ export const reducePick = <A>(ask: PickAsk<A>, state: PickState, key: AskKey): P
       row._tag === "Group",
     );
   }
-  if (key.ctrl && key.name === "a") return toggled(ask, state, shownOptions(rows));
+  if (key.ctrl && key.name === "a") return toggled(ask, state, unbrought(ask, shownOptions(rows)));
   if (key.ctrl && key.name === "u") return refiltered(ask, state, "");
   if (key.name === "backspace") {
     return state.filter.length === 0
@@ -316,6 +319,26 @@ export const reducePick = <A>(ask: PickAsk<A>, state: PickState, key: AskKey): P
   return typed === undefined
     ? { _tag: "Next", state }
     : refiltered(ask, state, `${state.filter}${typed}`);
+};
+
+/**
+ * The options that come along with those picked: what a picked option brings,
+ * less what is picked in its own right.
+ */
+const includedWith = <A>(ask: PickAsk<A>, picked: ReadonlySet<number>): ReadonlySet<number> =>
+  new Set(
+    [...picked]
+      .flatMap((index) => ask.options[index]?.brings ?? [])
+      .filter((index) => !picked.has(index)),
+  );
+
+/**
+ * The options `ctrl`+`a` takes: every one that shows and that no other option
+ * showing brings, so taking everything takes nothing twice.
+ */
+const unbrought = <A>(ask: PickAsk<A>, shown: ReadonlyArray<number>): ReadonlyArray<number> => {
+  const brought = new Set(shown.flatMap((index) => ask.options[index]?.brings ?? []));
+  return shown.filter((index) => !brought.has(index));
 };
 
 const pickedOf = (indices: ReadonlyArray<number>, picked: ReadonlySet<number>): number =>
@@ -332,7 +355,12 @@ const markOf = (indices: ReadonlyArray<number>, picked: ReadonlySet<number>): Pr
  * mark stands for all of them either way. A folded header names the first of
  * the options behind it.
  */
-const optionOf = <A>(ask: PickAsk<A>, state: PickState, row: PickRow): PromptOption => {
+const optionOf = <A>(
+  ask: PickAsk<A>,
+  state: PickState,
+  row: PickRow,
+  included: ReadonlySet<number>,
+): PromptOption => {
   if (row._tag === "Group") {
     const filtered = state.filter.length > 0;
     const counted = filtered ? row.shown : row.members;
@@ -355,7 +383,7 @@ const optionOf = <A>(ask: PickAsk<A>, state: PickState, row: PickRow): PromptOpt
   return {
     title: option?.title ?? "",
     ...(option?.details === undefined ? {} : { details: option.details }),
-    picked: state.picked.has(row.index) ? "all" : "none",
+    picked: state.picked.has(row.index) ? "all" : included.has(row.index) ? "some" : "none",
     ...(row.grouped ? { depth: 1 } : {}),
   };
 };
@@ -386,9 +414,10 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   const detailLines = !described ? 0 : rows - fixed - DETAIL_LINES >= LIST_LINES ? DETAIL_LINES : 1;
   const room = Math.min(LIST_LINES, rows - fixed - detailLines);
   const window = listWindow(list.length, state.cursor, room, groupHeaderOf(list));
+  const included = includedWith(ask, state.picked);
   const shownRow = (index: number): PromptOption => {
     const row = list[index];
-    const option = row === undefined ? { title: "" } : optionOf(ask, state, row);
+    const option = row === undefined ? { title: "" } : optionOf(ask, state, row, included);
     return index === state.cursor ? { ...option, current: true } : option;
   };
   const above = skippedAbove(window);
@@ -397,6 +426,8 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   // A pick the filter hides still counts, and would otherwise look lost.
   const hidden = filtered ? state.picked.size - pickedOf(shown, state.picked) : 0;
   const selected = `${String(state.picked.size)} of ${String(ask.options.length)} selected${hidden === 0 ? "" : ` (${String(hidden)} hidden)`}`;
+  // What comes along is counted apart from what was picked: it leaves when its bringer does.
+  const taken = included.size === 0 ? [selected] : [selected, `${String(included.size)} included`];
   const grouped = list.some((row) => row._tag === "Group");
   // The groups whose headers the window has not reached, so a person knows
   // what the rows left out below are before scrolling to them.
@@ -412,7 +443,7 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
       ? "confirm"
       : state.picked.size === 0
         ? ask.verb
-        : `${ask.verb} ${String(state.picked.size)}`;
+        : `${ask.verb} ${String(state.picked.size + included.size)}`;
   return [
     promptNode(ask, {
       chips: [],
@@ -433,14 +464,14 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
         : {}),
       hint: filtered
         ? {
-            status: [selected, `${String(shown.length)} shown`],
+            status: [...taken, `${String(shown.length)} shown`],
             keys: [
               { key: "^a", word: "all shown" },
               { key: "esc", word: "clears the filter" },
             ],
           }
         : {
-            status: [selected],
+            status: taken,
             keys: [
               { key: "arrows", word: "move" },
               ...(grouped ? [{ key: "sides", word: "fold" }] : []),

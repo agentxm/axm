@@ -27,12 +27,12 @@ import {
   type ExtensionType,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
-import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 import { readPluginDistribution, type PluginSkillDistribution } from "./plugin-distribution.js";
 import { readPluginMarketplace } from "./plugin-marketplace.js";
 import { SourceNotResolvable } from "./errors.js";
+import { readSourceWorkspace } from "./source-workspace.js";
 
 export interface ExtensionPackageFilter {
   readonly names: ReadonlyArray<string>;
@@ -40,8 +40,15 @@ export interface ExtensionPackageFilter {
   readonly type: ExtensionType | "*";
 }
 
+/**
+ * Whether a source puts a package forward as its own. A source holds the
+ * packages it acquired from other publishers without offering them.
+ */
+export type SourceStanding = "offered" | "held";
+
 export interface DiscoveredManifestExtensionPackage {
   readonly kind: "manifest";
+  readonly standing: SourceStanding;
   readonly directory: string;
   readonly identity: ManifestIdentity;
   readonly manifest: ExtensionManifest;
@@ -49,6 +56,7 @@ export interface DiscoveredManifestExtensionPackage {
 
 export interface DiscoveredPortableSkillPackage {
   readonly kind: "portable-skill";
+  readonly standing: SourceStanding;
   readonly directory: string;
   readonly sourcePath: string;
   readonly distribution?: DistributionDescriptor;
@@ -58,6 +66,7 @@ export interface DiscoveredPortableSkillPackage {
 
 export interface DiscoveredPluginMcpPackage {
   readonly kind: "plugin-mcp";
+  readonly standing: SourceStanding;
   readonly directory: string;
   readonly sourcePath: string;
   readonly distribution: DistributionDescriptor;
@@ -71,32 +80,6 @@ export type DiscoveredExtensionPackage =
 export const isManifestExtensionPackage = (
   candidate: DiscoveredExtensionPackage,
 ): candidate is DiscoveredManifestExtensionPackage => candidate.kind === "manifest";
-
-const DistributionEntrySchema = Schema.Union([
-  Schema.String,
-  Schema.Struct({
-    source: Schema.optionalKey(Schema.String),
-    distribute: Schema.optionalKey(Schema.Boolean),
-  }),
-]);
-
-const DistributionMapSchema = Schema.Record(Schema.String, DistributionEntrySchema);
-
-const SourceSettingsSchema = Schema.Struct({
-  owner: Schema.optionalKey(HandleSchema),
-  skills: Schema.optionalKey(DistributionMapSchema),
-  mcpServers: Schema.optionalKey(DistributionMapSchema),
-  subagents: Schema.optionalKey(DistributionMapSchema),
-  rules: Schema.optionalKey(DistributionMapSchema),
-  hooks: Schema.optionalKey(DistributionMapSchema),
-  knowledge: Schema.optionalKey(DistributionMapSchema),
-  packs: Schema.optionalKey(DistributionMapSchema),
-});
-
-interface SourceSettings {
-  readonly owner: Option.Option<Handle>;
-  readonly distributionOptOuts: ReadonlySet<string>;
-}
 
 const matchesFilter = (
   identity: {
@@ -123,85 +106,6 @@ const matchesPortableSkillFilter = (
         name === candidate.skill.displayName,
     )) &&
   Option.isNone(filter.owner);
-
-const readSourceSettings = (
-  root: string,
-): Effect.Effect<SourceSettings, SourceNotResolvable, FileSystem.FileSystem | Path.Path> =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const settingsPath = path.join(root, "axm.json");
-    const exists = yield* fs.exists(settingsPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Source settings could not be inspected: ${settingsPath}`,
-            cause,
-          }),
-      ),
-    );
-    if (!exists) {
-      return { owner: Option.none<Handle>(), distributionOptOuts: new Set<string>() };
-    }
-
-    const text = yield* fs.readFileString(settingsPath).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Source settings could not be read: ${settingsPath}`,
-            cause,
-          }),
-      ),
-    );
-    const raw = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(text).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Source settings contain invalid JSON: ${settingsPath}`,
-            cause,
-          }),
-      ),
-    );
-    const settings = yield* Schema.decodeUnknownEffect(SourceSettingsSchema)(raw).pipe(
-      Effect.mapError(
-        (cause) =>
-          new SourceNotResolvable({
-            category: "validation",
-            detail: `Source settings contain an invalid owner: ${settingsPath}`,
-            cause,
-          }),
-      ),
-    );
-    const distributionOptOuts = new Set<string>();
-    const collect = (
-      type: ExtensionType,
-      entries: Readonly<Record<string, typeof DistributionEntrySchema.Type>> | undefined,
-    ) => {
-      for (const [name, entry] of Object.entries(entries ?? {})) {
-        if (
-          typeof entry !== "string" &&
-          entry.source === "workspace" &&
-          entry.distribute === false
-        ) {
-          distributionOptOuts.add(`${type}:${name}`);
-        }
-      }
-    };
-    collect("skill", settings.skills);
-    collect("mcp-server", settings.mcpServers);
-    collect("subagent", settings.subagents);
-    collect("rule", settings.rules);
-    collect("hook", settings.hooks);
-    collect("knowledge", settings.knowledge);
-    collect("pack", settings.packs);
-    return {
-      owner: Option.fromUndefinedOr(settings.owner),
-      distributionOptOuts,
-    };
-  });
 
 export const inspectExtensionPackage = (
   directory: string,
@@ -264,7 +168,7 @@ export const inspectExtensionPackage = (
         (cause) => new SourceNotResolvable({ category: "validation", detail: cause.detail, cause }),
       ),
     );
-    return { kind: "manifest", directory, identity, manifest };
+    return { kind: "manifest", standing: "offered", directory, identity, manifest };
   });
 
 const sourceName = (value: string): ExtensionName => {
@@ -314,6 +218,7 @@ const readPortableSkill = (
         : Option.none<Readonly<Record<string, unknown>>>();
     return Option.some({
       kind: "portable-skill",
+      standing: "offered",
       directory,
       sourcePath,
       name,
@@ -327,15 +232,20 @@ const readPortableSkill = (
     });
   });
 
-const distinctPortableNames = (
-  candidates: ReadonlyArray<DiscoveredExtensionPackage>,
-): ReadonlyArray<DiscoveredExtensionPackage> => {
+const distinctPortableNames = <Candidate extends DiscoveredExtensionPackage>(
+  candidates: ReadonlyArray<Candidate>,
+  taken: ReadonlySet<string> = new Set(),
+): ReadonlyArray<Candidate> => {
   const names = new Map<string, number>();
   for (const candidate of candidates)
     if (candidate.kind === "portable-skill")
       names.set(candidate.name, (names.get(candidate.name) ?? 0) + 1);
   return candidates.map((candidate) => {
-    if (candidate.kind !== "portable-skill" || names.get(candidate.name) === 1) return candidate;
+    if (
+      candidate.kind !== "portable-skill" ||
+      (names.get(candidate.name) === 1 && !taken.has(candidate.name))
+    )
+      return candidate;
     const suffix = createHash("sha256").update(candidate.sourcePath).digest("hex").slice(0, 8);
     const name = decodeExtensionNameSync(
       `${candidate.name.slice(0, 55).replace(/-+$/u, "")}-${suffix}`,
@@ -343,6 +253,14 @@ const distinctPortableNames = (
     return { ...candidate, name, skill: { ...candidate.skill, name } };
   });
 };
+
+/** The key a workspace entry's distribution intent names a discovered package by. */
+const distributionKey = (candidate: DiscoveredExtensionPackage): Option.Option<string> =>
+  candidate.kind === "manifest"
+    ? Option.some(`${candidate.identity.type}:${candidate.identity.name}`)
+    : candidate.kind === "portable-skill"
+      ? Option.some(`skill:${candidate.name}`)
+      : Option.none();
 
 const identityKey = (candidate: DiscoveredExtensionPackage): string =>
   candidate.kind === "manifest"
@@ -395,13 +313,23 @@ export const discoverExtensionPackages = (
     }
 
     const resolvedRoot = path.resolve(root);
-    const sourceSettings = yield* readSourceSettings(resolvedRoot);
-    const scan = (
+    const workspace = yield* readSourceWorkspace(resolvedRoot);
+
+    /**
+     * What one directory is, on its own evidence: the packages it declares
+     * when it is a marketplace, a plugin, a manifest package, or a skill, and
+     * nothing when it is only a folder that may contain them.
+     */
+    const look = (
       directory: string,
-      depth: number,
-    ): Effect.Effect<ReadonlyArray<DiscoveredExtensionPackage>, SourceNotResolvable> =>
+    ): Effect.Effect<
+      {
+        readonly entries: ReadonlyArray<string>;
+        readonly packages: Option.Option<ReadonlyArray<DiscoveredExtensionPackage>>;
+      },
+      SourceNotResolvable
+    > =>
       Effect.gen(function* () {
-        if (depth > DISCOVERY_MAX_DEPTH) return [];
         const entries = yield* fs.readDirectory(directory).pipe(
           Effect.mapError(
             (cause) =>
@@ -469,6 +397,7 @@ export const discoverExtensionPackages = (
               path.relative(resolvedRoot, packageDirectory).split(path.sep).join("/") || ".";
             const components: DiscoveredPluginMcpPackage[] = mcps.map((nativeComponent) => ({
               kind: "plugin-mcp",
+              standing: "offered",
               directory: packageDirectory,
               sourcePath: rootPath,
               name: sourceName(nativeComponent.name),
@@ -521,9 +450,14 @@ export const discoverExtensionPackages = (
               Effect.provideService(Path.Path, path),
             ),
           );
-          return members.flat();
+          return { entries, packages: Option.some(members.flat()) };
         }
-        if (Option.isSome(plugin)) return yield* components(directory, plugin.value);
+        if (Option.isSome(plugin)) {
+          return {
+            entries,
+            packages: Option.some(yield* components(directory, plugin.value)),
+          };
+        }
 
         const manifests = entries.filter(
           (entry) => extensionTypeForManifestFilename(entry) !== undefined,
@@ -532,19 +466,14 @@ export const discoverExtensionPackages = (
           const candidates = yield* Effect.forEach(manifests.sort(), (manifest) =>
             inspectExtensionPackage(
               directory,
-              sourceSettings.owner,
+              workspace.owner,
               extensionTypeForManifestFilename(manifest),
             ).pipe(
               Effect.provideService(FileSystem.FileSystem, fs),
               Effect.provideService(Path.Path, path),
             ),
           );
-          return candidates.filter(
-            (candidate) =>
-              !sourceSettings.distributionOptOuts.has(
-                `${candidate.identity.type}:${candidate.identity.name}`,
-              ),
-          );
+          return { entries, packages: Option.some(candidates) };
         }
 
         const portable = entries.includes("SKILL.md")
@@ -557,31 +486,130 @@ export const discoverExtensionPackages = (
               Effect.provideService(Path.Path, path),
             )
           : Option.none<DiscoveredPortableSkillPackage>();
-        const current =
-          Option.isSome(portable) &&
-          !sourceSettings.distributionOptOuts.has(`skill:${portable.value.name}`)
-            ? [portable.value]
-            : [];
-        if (Option.isSome(portable) || depth === DISCOVERY_MAX_DEPTH) return current;
-
-        const children = yield* Effect.forEach(
-          entries.filter((entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry)).sort(),
-          (entry) =>
-            Effect.gen(function* () {
-              const child = path.join(directory, entry);
-              const link = yield* fs.readLink(child).pipe(Effect.option);
-              if (Option.isSome(link)) return [];
-              const info = yield* fs.stat(child).pipe(Effect.option);
-              if (Option.isNone(info) || info.value.type !== "Directory") return [];
-              return yield* scan(child, depth + 1);
-            }),
-          { concurrency: 16 },
-        );
-        return [...current, ...children.flat()];
+        return {
+          entries,
+          packages: Option.map(portable, (skill) => [skill]),
+        };
       });
 
-    const candidates = yield* scan(resolvedRoot, 0);
-    const sorted = [...distinctPortableNames(candidates)]
+    /** Which of a directory's entries are real directories, in order; links are not followed. */
+    const folders = (
+      directory: string,
+      entries: ReadonlyArray<string>,
+    ): Effect.Effect<ReadonlyArray<string>> =>
+      Effect.forEach(
+        [...entries].sort(),
+        (entry) =>
+          Effect.gen(function* () {
+            const child = path.join(directory, entry);
+            const link = yield* fs.readLink(child).pipe(Effect.option);
+            if (Option.isSome(link)) return [];
+            const info = yield* fs.stat(child).pipe(Effect.option);
+            return Option.isNone(info) || info.value.type !== "Directory" ? [] : [child];
+          }),
+        { concurrency: 16 },
+      ).pipe(Effect.map((children) => children.flat()));
+
+    /** A broad walk does not descend into dependency trees, build output, or tool caches. */
+    const walkable = (entries: ReadonlyArray<string>): ReadonlyArray<string> =>
+      entries.filter((entry) => !DISCOVERY_SKIPPED_DIRECTORIES.has(entry));
+
+    /** Every package at or beneath a directory, stopping below whatever is one. */
+    const scan = (
+      directory: string,
+      depth: number,
+      maxDepth: number,
+    ): Effect.Effect<ReadonlyArray<DiscoveredExtensionPackage>, SourceNotResolvable> =>
+      Effect.gen(function* () {
+        if (depth > maxDepth) return [];
+        const { entries, packages } = yield* look(directory);
+        if (Option.isSome(packages)) return packages.value;
+        if (depth === maxDepth) return [];
+        const children = yield* Effect.forEach(
+          yield* folders(directory, walkable(entries)),
+          (child) => scan(child, depth + 1, maxDepth),
+          { concurrency: 16 },
+        );
+        return children.flat();
+      });
+
+    /** The packages directly inside one root a workspace authors a type in. */
+    const authoredIn = (
+      directory: string,
+    ): Effect.Effect<ReadonlyArray<DiscoveredExtensionPackage>, SourceNotResolvable> =>
+      Effect.gen(function* () {
+        const [authoredRoot] = yield* folders(path.dirname(directory), [path.basename(directory)]);
+        if (authoredRoot === undefined) return [];
+        const entries = yield* fs.readDirectory(authoredRoot).pipe(
+          Effect.mapError(
+            (cause) =>
+              new SourceNotResolvable({
+                category: "validation",
+                detail: `Extension source directory could not be read: ${authoredRoot}`,
+                cause,
+              }),
+          ),
+        );
+        const children = yield* Effect.forEach(
+          yield* folders(authoredRoot, entries),
+          (child) =>
+            look(child).pipe(Effect.map(({ packages }) => Option.getOrElse(packages, () => []))),
+          { concurrency: 16 },
+        );
+        return children.flat();
+      });
+
+    const top = yield* look(resolvedRoot);
+    const own = yield* Option.match(top.packages, {
+      // The root is itself a package, so its layout is the publisher's own.
+      onSome: (packages) => Effect.succeed({ authored: packages, acquired: [] }),
+      onNone: () =>
+        Effect.gen(function* () {
+          const [heldRoot] = yield* folders(resolvedRoot, [path.basename(workspace.heldRoot)]);
+          const acquired =
+            heldRoot === undefined ? [] : yield* scan(heldRoot, 0, Number.POSITIVE_INFINITY);
+          const authored = yield* Option.match(workspace.authoredRoots, {
+            // A workspace has said where it authors; nothing else is its offer.
+            onSome: (roots) =>
+              Effect.forEach(roots, ({ directory }) => authoredIn(directory), {
+                concurrency: 16,
+              }),
+            onNone: () =>
+              Effect.gen(function* () {
+                const children = yield* folders(resolvedRoot, walkable(top.entries));
+                return yield* Effect.forEach(
+                  children.filter((child) => child !== heldRoot),
+                  (child) => scan(child, 1, DISCOVERY_MAX_DEPTH),
+                  { concurrency: 16 },
+                );
+              }),
+          });
+          return { authored: authored.flat(), acquired };
+        }),
+    });
+
+    const offered = distinctPortableNames(
+      own.authored.filter((candidate) =>
+        Option.match(distributionKey(candidate), {
+          onNone: () => true,
+          onSome: (key) => !workspace.distributionOptOuts.has(key),
+        }),
+      ),
+    );
+    // A package the source both authors and holds a copy of is the source's own.
+    const offeredIdentities = new Set(offered.map(identityKey));
+    const held = distinctPortableNames(
+      own.acquired
+        .filter((candidate) => !offeredIdentities.has(identityKey(candidate)))
+        .map((candidate) => ({ ...candidate, standing: "held" as const })),
+      new Set(
+        offered.flatMap((candidate) =>
+          candidate.kind === "portable-skill" ? [candidate.name] : [],
+        ),
+      ),
+    );
+    const candidates = [...offered, ...held];
+    const sorted = candidates
       .filter((candidate) =>
         candidate.kind === "manifest"
           ? matchesFilter(candidate.identity, filter)

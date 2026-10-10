@@ -29,6 +29,17 @@ export type ExtensionRef =
   | PackRef;
 
 /**
+ * Whether the source this ref was discovered in holds the package as a copy
+ * it acquired from another publisher. Discovery decides this from where the
+ * source keeps the package; a held package is installable by name and as a
+ * Pack's member, but is not part of what the source offers.
+ *
+ * @experimental
+ */
+export const sourceHolds = (ref: ExtensionRef): boolean =>
+  (ref.refType === "local" || ref.refType === "git-hosted") && ref.heldBySource === true;
+
+/**
  * The name an extension's own manifest gives it: the configured workspace
  * name it occupies. A Registry ref's `name` is the package the Registry
  * serves it under and may differ; Registry operations use that one.

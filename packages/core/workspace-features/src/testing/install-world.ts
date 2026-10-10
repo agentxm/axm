@@ -38,21 +38,26 @@ export const installRequest = (args: {
   readonly nativeOauth?: boolean;
   readonly nonInteractive?: boolean;
   readonly planName?: string;
-}): InstallExtensionsRequest => ({
-  type: Option.fromUndefinedOr(args.type),
-  subject: args.subject,
-  selectors: args.selectors ?? (args.type === undefined ? {} : { [args.type]: args.names ?? [] }),
-  all: args.all ?? true,
+}): InstallExtensionsRequest => {
+  const selectors =
+    args.selectors ?? (args.type === undefined ? {} : { [args.type]: args.names ?? [] });
+  return {
+    type: Option.fromUndefinedOr(args.type),
+    subject: args.subject,
+    selectors,
+    // A request that names extensions takes those; one that names none takes all.
+    all: args.all ?? Object.values(selectors).every((names) => names.length === 0),
 
-  localName: Option.fromUndefinedOr(args.localName),
-  bind: args.bind ?? [],
-  bindEnv: args.bindEnv ?? [],
-  ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
-  ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
-  nonInteractive: args.nonInteractive ?? true,
-  planName: args.planName ?? "Install extensions",
-  planDescription: Option.none(),
-});
+    localName: Option.fromUndefinedOr(args.localName),
+    bind: args.bind ?? [],
+    bindEnv: args.bindEnv ?? [],
+    ...(args.distributionId === undefined ? {} : { distributionId: args.distributionId }),
+    ...(args.nativeOauth === undefined ? {} : { nativeOauth: args.nativeOauth }),
+    nonInteractive: args.nonInteractive ?? true,
+    planName: args.planName ?? "Install extensions",
+    planDescription: Option.none(),
+  };
+};
 
 /** Settle a request and preview it: nothing is written. */
 export const previewInstall = (request: InstallExtensionsRequest) =>

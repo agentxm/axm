@@ -25,7 +25,11 @@ type RuleExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
   Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
 > & {
-  readonly rule: { readonly name: ExtensionName };
+  readonly rule: {
+    readonly name: ExtensionName;
+    /** What the package's manifest says it is for, where discovery read one. */
+    readonly description?: string;
+  };
 };
 
 /** @experimental */

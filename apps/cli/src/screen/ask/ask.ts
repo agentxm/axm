@@ -83,6 +83,12 @@ interface PickEntry {
   readonly group?: string;
   /** Whether the option is picked when the question opens. */
   readonly selected?: true;
+  /**
+   * The options picking this one takes with it, by their positions in the
+   * question. An option a picked one brings comes along without being picked
+   * itself, and its mark says so.
+   */
+  readonly brings?: ReadonlyArray<number>;
 }
 
 /** One option of a `Pick` and the value picking it contributes to the answer. */

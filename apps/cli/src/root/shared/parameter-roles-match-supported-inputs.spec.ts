@@ -203,7 +203,7 @@ describe("Parameter roles", () => {
       for (const route of ["axm install", ...types.map((type) => `axm ${type} install`)]) {
         const help = helpFor(files, route);
         expect(help.flags.find(({ name }) => name === "all")?.description, route).toBe(
-          "Select every matching extension in the source",
+          "Select everything the source offers",
         );
       }
       for (const route of ["axm login", "axm setup", "axm demote"]) {

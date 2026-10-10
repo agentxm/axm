@@ -248,6 +248,7 @@ export {
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
   type InstallSelectionCandidate,
+  type InstallSelectionMember,
 } from "./install-selection.js";
 
 export {

@@ -16,7 +16,7 @@ configured agent's native Model Context Protocol configuration.
 ## Responsibilities
 
 AXM preserves the MCP server definition, binds workspace-specific inputs, and
-merges an owned server entry into each supported native configuration. It
+projects a declared server entry into each supported native configuration. It
 supports both published extension content and explicit inline workspace
 configuration because local server connections are a routine MCP use case.
 
@@ -58,9 +58,8 @@ A server definition from an extension is canonical extension content. An inline
 server definition is authoritative workspace configuration. Native MCP entries
 are derived outputs in both cases. An inline definition has no fabricated
 extension archive, canonical extension content, or resolved extension version;
-no artificial lock row is created. AXM owns only entries
-it created and can still identify; unrelated entries and surrounding
-configuration remain untouched.
+no artificial lock row is created. A declaration authorizes the exact named
+native entry; unrelated entries and surrounding configuration remain untouched.
 
 Authority is structural in the workspace model. A sourced definition carries a
 source locator. An inline definition carries an explicit `connection` and no
@@ -101,28 +100,20 @@ the [specification catalog](../../../specifications/catalog.md), owns the
 declaration and activation outcome. Publication applies its separate
 eligibility checks to the supplied connection identity.
 
-## Ownership and coexistence
+## Declaration authority and coexistence
 
-One named server entry is the native ownership unit; the containing file is
-not. Entries with different names coexist. An unowned entry with the name AXM
-must realize is a collision, even when its connection details happen to match.
+One named server entry is the declared unit; the containing file is not.
+Creation, full replacement, equal-value no-ops, retention and explicit cleanup
+follow [native declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority).
+The containing map key identifies the local connection independently of its
+source identity. Native JSON, JSONC, YAML, TOML and special writer routes emit
+host-supported configuration without AXM ownership properties. TOML comments
+and fences are annotations, not authority; inline tables and subtables use the
+same parser-derived key selection.
 
-AXM-managed entries carry type-appropriate provenance that survives ordinary
-serialization changes. AXM may update or remove only that entry. A native
-format that cannot preserve unrelated entries or identify AXM's entry safely is
-unsupported. Even an equivalent unowned entry remains unowned during ordinary
-observation and reconciliation; manual preservation, relocation, or removal
-owns collision recovery.
-
-The existing version-1 `x-axm` metadata remains the ownership format. Its `ext`
-and `ref` identify the published package while the containing native map key or
-TOML region identifies the local connection. Supporting local names therefore
-does not require an ownership-format version change.
-
-Uninstall selects a local connection name. It removes only that connection's
-settings and projections while another local connection or Pack route still
-needs the source. The final removal also deletes the shared accepted resolution
-and acquired canonical package.
+Uninstall selects a local connection name. Shared package content and accepted
+resolution remain while another local connection or Pack route needs them.
+Retained executable references prevent deleting their canonical package.
 
 MCP credentials belong to the native host. AXM retains symbolic environment
 references or native OAuth intent and never obtains their values. Known
@@ -147,7 +138,7 @@ environment availability, OAuth and reload requirements remain host actions.
   MCP dialect.
 - Workspace input values and secrets never appear in diagnostics, plans, or
   machine results.
-- Read-modify-write operations preserve unowned native configuration.
+- Read-modify-write operations preserve native configuration outside the declared entry.
 - Same-target updates are serialized and stale observations write nothing.
 - Source-closure updates resolve once and refresh every local connection in the
   closure.
@@ -156,18 +147,8 @@ environment availability, OAuth and reload requirements remain host actions.
 
 ## Testing strategy
 
-Behavior tests prove canonical-content and inline authority, input binding,
-secret-safe output, unrelated-entry preservation, same-name collisions,
-provenance drift, explicit import boundaries, manual unowned-collision
-recovery, target-dialect rendering, shared-target concurrency, unsupported
-transports, activation, safe removal, repeated reconciliation, local-name
-coexistence, shared source resolution, closure-wide updates, and one-at-a-time
-uninstall.
-
-JSON and YAML entries prove ownership through versioned `x-axm` metadata with
-the extension or workspace-local inline identity in `ext`, plus source and
-reference provenance.
-TOML uses one `region=mcp-server:<name>` fence per server so AXM can replace
-only that byte range without an AST round trip that reformats unrelated user
-configuration. Both forms follow the shared
-[managed-file ownership contract](../workspace/managed-file-ownership.md).
+Behavior tests cover effective declaration authority, complete replacement,
+secret-safe output, import batch revalidation, shared-reader compatibility,
+physical containment, retained entries, explicit cleanup and disable, source
+closures, repeat reconciliation and transaction rollback. Native-host exercises
+separately establish startup and connection state; serializer tests do not.

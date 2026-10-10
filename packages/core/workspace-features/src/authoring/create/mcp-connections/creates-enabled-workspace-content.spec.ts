@@ -74,7 +74,7 @@ describe("Creating an MCP server", () => {
             receipt.kind === "created-file" &&
             receipt.identity.physicalPath === `${created.root}/.mcp.json`,
         ),
-      ).toBe(true);
+      ).toBe(false);
       const manifest = Schema.decodeUnknownSync(McpServerManifestSchema)(
         JSON.parse(created.read("mcps/review/mcp.json") ?? "null"),
       );

@@ -183,7 +183,9 @@ canonical extension content merely to fit the ordinary sourced-extension flow.
 
 ### Managed outputs
 
-AXM owns only outputs it created and can still identify. Ownership evidence is
+Native MCP and Hook outputs use
+[native declaration authority](managed-file-ownership.md#native-declaration-authority).
+For other file artifacts, AXM owns only outputs it created and can still identify. Ownership evidence is
 type-specific and survives ordinary formatting or serialization changes. Name,
 path, and byte equality are observations, not ownership proof.
 
@@ -200,7 +202,8 @@ desired-state reachability.
 A disabled leaf remains desired: AXM retains or acquires its canonical content
 and accepted identity, while withdrawing its active outputs. A disabled Pack
 also remains desired, but contributes no member routes. Members whose last
-route disappears are retired with their owned outputs and accepted records;
+route disappears lose active management. Native MCP and Hook registrations remain;
+other owned outputs and accepted records follow their lifecycle rules;
 members reached directly or by another enabled Pack remain. Re-enabling a leaf
 uses its accepted content. Re-enabling a Pack realizes its resulting dependency
 graph, including acquiring members that were retired.
@@ -251,7 +254,8 @@ content.
 
 Managed outputs are derived and AXM-owned only while AXM can prove unit-local
 authority. Every agent adapter and workspace-surface writer follows the same
-rules:
+rules for file artifacts. Native MCP and Hook configuration instead follows
+[native declaration authority](managed-file-ownership.md#native-declaration-authority).
 
 - Create a missing AXM-owned projection.
 - Restore an AXM-owned projection whose authoritative-input generation is stale.
@@ -282,15 +286,16 @@ a partial rendering. Whether a written unit is current is a separate question,
 answered by [projection facts](invariants.md#projection-facts) from the unit
 itself.
 
-Removing one contributor removes only that contributor's representation. A unit
+For file artifacts, removing one contributor removes only that contributor's representation. A unit
 is removed entirely only when its contributor set becomes empty, mirroring the
 retention rule that an extension survives while any desired route still reaches
 it.
 
-Unowned native content may coexist only when the extension type establishes an
+Native MCP and Hook retention follows the declaration-authority contract above.
+Unowned file artifacts may coexist only when the extension type establishes an
 independent boundary. Content occupying a required unit is a collision; content
 whose authority cannot be determined is ambiguous. AXM preserves both and
-blocks only the affected work. AXM never adopts equivalent native content;
+blocks only the affected work. AXM never adopts equivalent file content;
 manual preservation, relocation, or removal owns recovery.
 
 ## Safe workspace changes

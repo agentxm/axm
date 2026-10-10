@@ -129,7 +129,7 @@ describe("Registry MCP installation with shared native targets", () => {
           const native = world.workspace.readFile(".mcp.json");
           expect(native).toContain("${API_TOKEN}");
           expect(native).toContain("personal-server");
-          expect(native).toContain('"x-axm"');
+          expect(native).not.toContain('"x-axm"');
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

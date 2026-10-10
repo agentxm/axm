@@ -1,6 +1,6 @@
 {
   "skill_name": "axm",
-  "suite_version": "0.8.0",
+  "suite_version": "0.10.0",
   "evaluation_contract": "evals/evaluation-contract.json",
   "evals": [
     {
@@ -1095,6 +1095,39 @@
         "It does not infer accepted packages or selections from directory shape.",
         "It preserves unproven content and consults current workspace-state help and preview before proposing recovery.",
         "It does not delete, overwrite, or claim successful restoration of the unknown root."
+      ]
+    },
+    {
+      "id": 104,
+      "stage": "execution",
+      "prompt": "The workspace declares an inline MCP named docs for Codex. Its native docs entry has a different command and an old x-axm table that Codex warns it ignores. The developer asks to sync that declaration. Plan the bounded action; no executable upgrades or publication are authorized.",
+      "expected_output": "A bounded native declaration plan with truthful replacement, retention, and verification claims.",
+      "assertions": [
+        "Treat the validated effective declaration as authority to replace the complete named native entry without a separate adoption or ownership approval.",
+        "Preview the Codex scoped file and entry, preserve other servers, remove stale unsupported fields on reprojection, and retain symbolic secrets.",
+        "Verify projection capability and actual native connection state separately; do not claim serializer success proves connection."
+      ]
+    },
+    {
+      "id": 105,
+      "stage": "execution",
+      "prompt": "The developer removed a Hook declaration and removed Cursor from workspace agents, then asks for a read-only sync preview. Native registrations remain. Explain their disposition.",
+      "expected_output": "A bounded native declaration plan with truthful replacement, retention, and verification claims.",
+      "assertions": [
+        "Keep the preview read-only and report registrations as retained; absent declarations or membership alone do not authorize deletion.",
+        "Do not claim retained registrations stopped executing.",
+        "For cleanup after declaration removal, require exact native file and registration selection rather than a global orphan sweep."
+      ]
+    },
+    {
+      "id": 106,
+      "stage": "execution",
+      "prompt": "A declared Hook package changes event, matcher, and script argument. Native settings also contain an unrelated command whose argument mentions that package root. Plan the update.",
+      "expected_output": "A bounded native declaration plan with truthful replacement, retention, and verification claims.",
+      "assertions": [
+        "Select direct parsed runtime invocations under the exact declared canonical script root, never event, index, or broad substring matches.",
+        "Replace selected registrations and consolidate duplicate old execution without changing unrelated commands or group order.",
+        "Reject unsafe selection and refuse package deletion while retained registrations reference its code; distinguish fixture receipts from native invocation evidence."
       ]
     }
   ]

@@ -8,6 +8,12 @@ export const OwnershipUnitAddressSchema = Schema.Union([
     path: Schema.String,
     keys: Schema.NonEmptyArray(Schema.String),
   }),
+  Schema.Struct({
+    kind: Schema.Literal("hook-registrations"),
+    path: Schema.String,
+    settingsKey: Schema.String,
+    scriptRoots: Schema.NonEmptyArray(Schema.String),
+  }),
   Schema.Struct({ kind: Schema.Literal("region"), path: Schema.String, region: Schema.String }),
   Schema.Struct({ kind: Schema.Literal("file"), path: Schema.String }),
 ]).annotate({
@@ -24,7 +30,7 @@ export const NativeLocationOutcomeSchema = Schema.Struct({
   configuredConsumers: Schema.Array(Schema.String),
   potentialReaders: Schema.Array(Schema.String),
   policyReasons: Schema.Array(Schema.String),
-  ownership: Schema.Literals(["owned", "unowned", "absent", "unverified"]),
+  ownership: Schema.Literals(["owned", "unowned", "declared", "absent", "unverified"]),
   proof: Schema.optional(Schema.String),
   state: Schema.Literals([
     "created",
@@ -70,7 +76,9 @@ export const nativeUnitKey = (unit: Pick<NativeLocationOutcome, "scope" | "addre
       ? unit.address.keys
       : unit.address.kind === "region"
         ? unit.address.region
-        : null,
+        : unit.address.kind === "hook-registrations"
+          ? [unit.address.settingsKey, unit.address.scriptRoots]
+          : null,
   ]);
 
 /** Preserve evidence across visits while the final observation owns the unit's state. */

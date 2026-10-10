@@ -98,23 +98,23 @@ A governing standard may define canonical extension content, a runtime
 protocol, or a host file convention. AXM preserves that boundary rather than
 treating every type as an AXM-specific file format.
 
-## Ownership and coexistence
+## Authority and coexistence
 
-Each extension type defines the smallest native unit AXM can own. That unit is
+Each extension type defines the smallest native unit AXM may change. That unit is
 the boundary for observation, collision detection, reconciliation, and removal.
 A unit's **contributor set** is the set of extensions whose realization it
 carries. A **single-contributor unit** carries exactly one extension; an
 **aggregate unit** carries every extension its membership rule reaches:
 
-| Type       | Native ownership unit                                        | Contributors | Contributor set                                    |
-| ---------- | ------------------------------------------------------------ | ------------ | -------------------------------------------------- |
-| Skill      | One agent-facing Skill directory                             | One          | That Skill                                         |
-| MCP Server | One named native configuration entry                         | One          | That MCP Server or inline definition               |
-| Subagent   | One native profile file or named entry                       | One          | That Subagent                                      |
-| Hook       | The AXM-owned hook entries in one agent's hook configuration | Many         | Every active Hook realized natively for that agent |
-| Rule       | The managed Rule contribution region                         | Many         | Every active Rule                                  |
-| Knowledge  | The managed discovery region                                 | Many         | Every active bundle admitted to publish discovery  |
-| Pack       | None; a Pack realizes only desired-state relationships       | —            | —                                                  |
+| Type       | Native authority unit                                                 | Contributors | Contributor set                                    |
+| ---------- | --------------------------------------------------------------------- | ------------ | -------------------------------------------------- |
+| Skill      | One agent-facing Skill directory                                      | One          | That Skill                                         |
+| MCP Server | One named native configuration entry                                  | One          | That MCP Server or inline definition               |
+| Subagent   | One native profile file or named entry                                | One          | That Subagent                                      |
+| Hook       | Declaration-selected registrations under exact canonical script roots | Many         | Every active Hook realized natively for that agent |
+| Rule       | The managed Rule contribution region                                  | Many         | Every active Rule                                  |
+| Knowledge  | The managed discovery region                                          | Many         | Every active bundle admitted to publish discovery  |
+| Pack       | None; a Pack realizes only desired-state relationships                | —            | —                                                  |
 
 A single-contributor unit's content is a function of one extension, so
 per-extension work composes safely. An aggregate unit's content is a function
@@ -124,15 +124,18 @@ authoritative for each unit's classification. A type document that declares an
 aggregate unit states its exact membership rule, and a new type or realization
 target states whether its unit carries one extension or many before it ships.
 
-Different unowned units may coexist when the native format preserves them
+Native MCP and Hook units follow
+[declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority),
+including complete replacement and retention when intent disappears.
+Other artifact types require ownership proof. Their unowned units may coexist when the native format preserves them
 independently. The same required unit, malformed ownership evidence, or a format
 that cannot preserve surrounding content is a blocker. AXM never widens
 ownership from an entry or region to the containing file merely because it must
 use read-modify-write.
 
 Every type document states how its unit is identified, what can coexist, what
-collides, and what AXM may remove. Observation and reconciliation never adopt
-native content, including semantically equivalent content. A person or agent
+collides, and what AXM may remove. For artifacts requiring ownership proof,
+observation and reconciliation never adopt content, including semantically equivalent content. A person or agent
 manually preserves, relocates, or removes an unowned collision. Any separately
 invoked type-specific import contract is outside this recovery boundary.
 

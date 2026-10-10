@@ -11,8 +11,7 @@ const proofText: Record<AgentOutputOwnershipProof, string> = {
   "canonical-source-link": "links to its accepted canonical source",
   "copied-directory-receipt": "matches its recorded managed directory",
   "managed-banner": "carries an AXM ownership marker",
-  "managed-mcp-entry": "is an AXM-managed MCP entry",
-  "managed-hook-group": "is an AXM-managed hook group",
+  "effective-native-declaration": "has an effective AXM native declaration",
 };
 
 export const userOutputsHaveSettingsRule: AdvisoryRule<WorkspaceRuleContext> = {

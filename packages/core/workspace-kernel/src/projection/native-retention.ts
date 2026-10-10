@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import { parseNativeConfigRoot } from "../agent-adapters/index.js";
+import { readDeclaredHookGroups, parseNativeConfigRoot } from "../agent-adapters/index.js";
 import {
   nativeUnitKey,
   readCopiedDirectory,
@@ -137,6 +137,18 @@ const observeRetention = (
         path,
         context,
       );
+    } else if (unit.address.kind === "hook-registrations") {
+      content = yield* readDeclaredHookGroups(
+        unit.address.path,
+        unit.address.settingsKey,
+        yield* fs.readFileString(address.referentPath),
+        unit.address.scriptRoots.map((root) => ({
+          name: root,
+          ref: "retention",
+          scope: unit.scope,
+          root,
+        })),
+      );
     } else if (unit.address.kind === "region") {
       content = yield* nativeManagedRegionContent({
         targetPath: unit.address.path,
@@ -209,7 +221,7 @@ export const captureNativeRetentionWitnesses = (
         locations
           .filter(
             (unit) =>
-              unit.ownership === "owned" &&
+              (unit.ownership === "owned" || unit.ownership === "declared") &&
               (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0) &&
               (unit.state === "retained" || unit.state === "unchanged"),
           )

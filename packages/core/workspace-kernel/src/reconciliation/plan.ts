@@ -27,7 +27,6 @@ import {
 import {
   CodingAgentRepository,
   captureAgentOutputAuthority,
-  type AgentOutputAuthority,
   applyPlannedProjections,
   applyProjectionPlans,
   observeProjectionPlans,
@@ -42,11 +41,7 @@ import {
   type ExpectedProjectionNames,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
-import {
-  pruneManagedMcpServersForAgents,
-  syncInlineMcpServerToAgents,
-  type NativeWriteAuthority,
-} from "../agent-adapters/index.js";
+import { syncInlineMcpServerToAgents, type NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { ManagerRequirements } from "../materialization/index.js";
 import type { RecipeRequirements } from "./extensions/operations.js";
 import {
@@ -199,8 +194,8 @@ const mergeArtifactTargets = (
 
 /**
  * Realize one inline server on every configured agent. Whether the write is
- * safe, and what drifted, was decided when the plan was assembled: an unowned
- * collision is a planning-phase blocker and the drift facts arrive as
+ * compatible, and what drifted, was decided when the plan was assembled;
+ * shared-reader conflicts block the plan and drift facts arrive as
  * `inspectionWarnings`, so this step only writes.
  */
 export const buildInlineMcpServerSyncOperation = ({
@@ -208,12 +203,10 @@ export const buildInlineMcpServerSyncOperation = ({
   entry,
   agentIds,
   inspectionWarnings,
-  nativeInsertionEligiblePaths,
   nativeLocations,
   location,
   adapter,
 }: {
-  readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
   readonly name: string;
   readonly entry: McpServerEntry;
@@ -237,8 +230,7 @@ export const buildInlineMcpServerSyncOperation = ({
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       serverName: name,
-      nativeInsertionEligible: false,
-      nativeInsertionEligiblePaths,
+
       entry,
       scope: location.scope,
     });
@@ -284,76 +276,6 @@ export const buildInlineMcpServerSyncOperation = ({
   }).pipe(Effect.mapError(adapter.toStepFailure)),
 });
 
-export const buildMcpServerPruneOperation = ({
-  declaredServerNames,
-  authority,
-  agentIds,
-  location,
-  adapter,
-}: {
-  readonly authority: AgentOutputAuthority;
-  readonly declaredServerNames: ReadonlySet<string>;
-  readonly agentIds: ReadonlyArray<string>;
-  readonly location: WorkspaceLocationService;
-  readonly adapter: StepFailureConversionService;
-}): PlannedJobStep<SyncStepRequirements> => ({
-  key: "mcp-server:prune",
-  label: "mcp-server stale managed entries",
-  readiness: "ready",
-  run: pruneManagedMcpServersForAgents(agentIds, {
-    nativeDirectoryInputs: location.nativeDirectoryInputs,
-    workspaceRoot: location.baseDir,
-    declaredServerNames,
-    expectedManagedEntries: authority.expectedMcpEntries,
-    scope: location.scope,
-  }).pipe(
-    Effect.map((outcomes) => {
-      const warnings = outcomes.filter((outcome) => outcome._tag !== "success");
-      const nativeLocations = combineNativeLocationOutcomes(
-        outcomes.flatMap((outcome) =>
-          "targets" in outcome
-            ? (outcome.targets ?? []).flatMap((target) =>
-                target.nativeLocation === undefined ? [] : [target.nativeLocation],
-              )
-            : [],
-        ),
-      );
-      const firstNative = nativeLocations[0];
-      return {
-        result: "success",
-        ...(firstNative === undefined
-          ? {}
-          : {
-              artifact: {
-                path: firstNative.address.path,
-                scope: location.scope,
-                change: "updated" as const,
-                nativeLocations,
-              },
-            }),
-        message:
-          warnings.length === 0
-            ? "Pruned stale managed MCP server entries"
-            : `Pruned stale managed MCP server entries with ${count(warnings.length, "warning")}`,
-      } satisfies JobStepResult;
-    }),
-    Effect.mapError(adapter.toStepFailure),
-  ),
-});
-
-// -----------------------------------------------------------------------------
-// Aggregate-unit reconciliation steps
-// -----------------------------------------------------------------------------
-
-/**
- * The Knowledge discovery reconciliation step, or nothing when discovery is
- * already current.
- *
- * The signature is declared rather than inferred: the step this returns is a
- * `PlannedJobStep`, and letting the emitter infer it would publish the object
- * literal's structure and expand the manager failure union into every package
- * that contributes to it — including packages this one does not declare.
- */
 export const collectKnowledgeStep: (args: {
   readonly nativeProjection?: NativeProjectionOptions;
   readonly adapter: StepFailureConversionService;
@@ -634,25 +556,6 @@ export const collectHooksStep = Effect.fn("Sync.collectHooksStep")(function* (ar
   const location = yield* WorkspaceLocation;
   if (args.prepared === undefined && !projectionFactsNeedReconciliation(facts))
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
-  const unsupported = facts.find(
-    ({ observation }) => observation.reasonCode === "unsupported-version",
-  );
-  if (unsupported !== undefined) {
-    return Option.some<PlannedJobStep<SyncStepRequirements>>({
-      key: SYNC_RECOVERY_IDS.hookProjections,
-      label: "managed hook projections",
-      readiness: "error",
-      errorMessage:
-        unsupported.observation.message ??
-        "Managed hook projection uses an unsupported marker version; upgrade AXM.",
-      artifact: {
-        path: "managed hook projections",
-        scope: location.scope,
-        change: "unchanged",
-        managedRegions: managedRegionsForFacts(facts),
-      },
-    });
-  }
   const proposedResult =
     args.prepared === undefined
       ? undefined

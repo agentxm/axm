@@ -26,7 +26,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/preserves-unrelated-and-unowned-state",
   title: "Uninstall preserves unrelated and unowned files",
   statement:
-    "When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned agent configuration, and the original local or workspace-authored source package.",
+    "When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned file artifacts, unselected native configuration, and the original local or workspace-authored source package. Explicit native cleanup shall withdraw only the captured MCP name or Hook registrations in configured agents and the selected scope.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -155,7 +155,7 @@ describe("Uninstall preserves unowned state", () => {
   );
 
   it.effect(
-    "removing an MCP connection withdraws its own native entry and leaves every unowned one",
+    "removing an MCP connection withdraws its selected native entry and leaves every other one",
     () => {
       const { workspace, registry } = world();
       registry.writeMcp("demo", [{ version: "1.0.0" }]);

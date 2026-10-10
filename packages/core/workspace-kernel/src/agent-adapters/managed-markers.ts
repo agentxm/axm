@@ -14,7 +14,7 @@ export const MARKER_KIND_END = "axm:end" as const;
 export const MARKER_KIND_FILE = "axm:file" as const;
 export const MARKER_KIND_POINT = "axm:point" as const;
 
-export type RegionName = "rules" | "knowledge" | "instruction-aliases" | `mcp-server:${string}`;
+export type RegionName = "rules" | "knowledge" | "instruction-aliases";
 
 export type FileCommentStyle =
   | { readonly kind: "line"; readonly prefix: "#" | "//" }
@@ -157,10 +157,7 @@ const decodeMarkerValue = (value: string): Option.Option<string> => {
 };
 
 const isRegionName = (value: string): value is RegionName =>
-  value === "rules" ||
-  value === "knowledge" ||
-  value === "instruction-aliases" ||
-  /^mcp-server:[A-Za-z0-9][A-Za-z0-9._-]*$/u.test(value);
+  value === "rules" || value === "knowledge" || value === "instruction-aliases";
 
 const markerAttributes = (marker: ManagedMarker): ReadonlyArray<readonly [string, string]> => {
   const common: Array<readonly [string, string]> = [["v", String(marker.v)]];

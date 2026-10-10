@@ -44,10 +44,11 @@ import {
 import { installMcpServer } from "./install/install-operation.js";
 import {
   inspectDesiredMcpServer,
-  captureAgentOutputAuthority,
+  nativePackageReferences,
 } from "@agentxm/workspace-kernel/projection";
 import {
   McpConfigIoFailed,
+  McpConfigInvalid,
   McpSharedTargetConflict,
   removeMcpServerFromAgents,
 } from "@agentxm/workspace-kernel/agent-adapters";
@@ -269,8 +270,7 @@ export const McpServerManagerLive = Layer.effect(
     const makeMaterializeRemoval = (
       retainCanonical: boolean,
     ): McpServerManagerService["materializeUninstall"] =>
-      Effect.fn("McpServerManager.materializeRemoval")(function* ({ target }) {
-        const ownership = yield* captureAgentOutputAuthority();
+      Effect.fn("McpServerManager.materializeRemoval")(function* ({ target, nativeCleanup }) {
         const graph = yield* desiredState.graph();
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === target.name,
@@ -284,13 +284,16 @@ export const McpServerManagerLive = Layer.effect(
         const retainShared =
           closure !== undefined && closure.localNames.some((name) => name !== target.name);
         const configuredAgents = yield* settings.configuredAgents;
-        const outcomes = yield* removeMcpServerFromAgents(configuredAgents, {
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          workspaceRoot: baseDir,
-          scope: location.scope,
-          serverName: target.name,
-          expectedManagedEntries: ownership.expectedMcpEntries,
-        });
+        const outcomes =
+          nativeCleanup === "retain"
+            ? []
+            : yield* removeMcpServerFromAgents(configuredAgents, {
+                nativeDirectoryInputs: location.nativeDirectoryInputs,
+                workspaceRoot: baseDir,
+                scope: location.scope,
+                serverName: target.name,
+                disableOnly: retainCanonical,
+              });
         if (
           !outcomes.every((outcome) => outcome._tag === "success" || outcome._tag === "unsupported")
         ) {
@@ -328,6 +331,16 @@ export const McpServerManagerLive = Layer.effect(
         });
         const serverPath = removableAcceptedCanonicalPath(canonical);
         if (Option.isSome(serverPath)) {
+          const retained = yield* nativePackageReferences({
+            workspaceRoot: baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            scope: location.scope,
+            packageRoot: serverPath.value,
+          });
+          if (retained.length > 0)
+            return yield* new McpConfigInvalid({
+              detail: `Cannot remove MCP package while native registrations still reference it at ${retained.join(", ")}. Remove those exact registrations explicitly, then retry uninstall.`,
+            });
           yield* retireCanonicalDirectory(serverPath.value).pipe(
             Effect.mapError(
               (cause) =>

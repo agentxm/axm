@@ -14,14 +14,10 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import * as Layer from "effect/Layer";
-import {
-  buildAxmMcpMetadataFromSettingsSource,
-  readYamlEntry,
-  writeAgentMcpConfig,
-} from "../../agent-adapters/index.js";
+import { readYamlEntry, writeAgentMcpConfig } from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import {
-  collectManagedAgentMcpServers,
+  collectNativeAgentMcpServers,
   inspectDesiredMcpServer,
   withMcpInspectionReadView,
 } from "./inspection.js";
@@ -99,7 +95,6 @@ const writeCodexConfig = (workspaceRoot: string, lines: ReadonlyArray<string>) =
 
 const writeHermesEntry = (workspaceRoot: string, entry: Readonly<Record<string, unknown>>) =>
   writeAgentMcpConfig({
-    nativeInsertionEligible: false,
     workspaceRoot,
     serverName: "context",
     serversPath: ["mcp_servers"] as const,
@@ -134,7 +129,7 @@ describe("agent MCP config inspection", () => {
           writeCodexConfig(workspaceRoot, ["[mcp_servers.context]", 'command = "different"']);
           const next = yield* withMcpInspectionReadView(inspectAgentMcpServer(request));
           expect(next).not.toBe(first);
-          expect(next.status).toBe("unmanaged");
+          expect(next.status).toBe("drift");
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -149,25 +144,24 @@ describe("agent MCP config inspection", () => {
           mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-distinct-containers-")),
         );
         try {
-          const owner = buildAxmMcpMetadataFromSettingsSource("inline", "context");
-          const entry = { command: "node", "x-axm": owner };
+          const entry = { command: "node" };
           writeFileSync(
             nodePath.join(workspaceRoot, ".mcp.json"),
             JSON.stringify({ mcpServers: { context: entry }, mcp: { separate: entry } }),
           );
           symlinkSync(".mcp.json", nodePath.join(workspaceRoot, "crush.json"));
-          const results = yield* collectManagedAgentMcpServers({
+          const results = yield* collectNativeAgentMcpServers({
             workspaceRoot,
             scope: "project",
             agentIds: ["claude-code", "crush"],
             nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-            expectedOwnershipByName: { context: [owner], separate: [owner] },
+            declaredMcpNames: new Set(["context", "separate"]),
           });
           expect(
             results.map((result) => [result.agentId, result.keyPath, result.ownership]),
           ).toEqual([
-            ["claude-code", ["mcpServers", "context"], "owned"],
-            ["crush", ["mcp", "separate"], "owned"],
+            ["claude-code", ["mcpServers", "context"], "declared"],
+            ["crush", ["mcp", "separate"], "declared"],
           ]);
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -218,11 +212,9 @@ describe("agent MCP config inspection", () => {
 
           const error = yield* withHome(
             workspaceRoot,
-            collectManagedAgentMcpServers({
+            collectNativeAgentMcpServers({
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-              expectedOwnershipByName: {
-                context: [buildAxmMcpMetadataFromSettingsSource("inline", "context")],
-              },
+              declaredMcpNames: new Set(["context"]),
               workspaceRoot,
               scope: "user",
               agentIds: ["hermes"],
@@ -255,12 +247,6 @@ describe("agent MCP config inspection", () => {
               'command = "npx"',
               "enabled = true",
               "",
-              '[mcp_servers.context."x-axm"]',
-              "v = 1",
-              'ext = "@workspace/mcps/context"',
-              'source = "inline"',
-              "managed = true",
-              "",
               "[mcp_servers.context.env]",
               'ACME_REGION = "west"',
               "# axm:end v=1 region=mcp-server:context ext=@agentxm/mcps/context",
@@ -285,7 +271,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("reports a current registry-backed Codex TOML projection as a match", () =>
+  it.effect("does not infer sourced currency from native presence without a manifest", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = realpathSync(
@@ -315,7 +301,7 @@ describe("agent MCP config inspection", () => {
             entry: registryContextEntry,
           });
 
-          expect(result.status).toBe("match");
+          expect(result.status).toBe("unverified");
           expect(result.path).toBe(nodePath.join(workspaceRoot, ".codex/config.toml"));
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -324,7 +310,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("does not treat pre-v1 Codex comments as ownership", () =>
+  it.effect("does not infer sourced currency from historical comments", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = realpathSync(
@@ -347,7 +333,7 @@ describe("agent MCP config inspection", () => {
             entry: registryContextEntry,
           });
 
-          expect(result.status).toBe("unmanaged");
+          expect(result.status).toBe("unverified");
           expect(result.fields).toEqual([]);
           expect(result.path).toBe(nodePath.join(workspaceRoot, ".codex/config.toml"));
         } finally {
@@ -357,7 +343,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("reports an absent registry-backed Codex projection as absent", () =>
+  it.effect("reports unavailable source authority even when native state is absent", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = realpathSync(
@@ -372,7 +358,7 @@ describe("agent MCP config inspection", () => {
             entry: registryContextEntry,
           });
 
-          expect(result.status).toBe("absent");
+          expect(result.status).toBe("unverified");
           expect(result.path).toBe(nodePath.join(workspaceRoot, ".codex/config.toml"));
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -381,7 +367,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("reports an unmanaged same-name Codex projection as unmanaged", () =>
+  it.effect("reports unavailable source authority independently of same-name native state", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = realpathSync(
@@ -402,7 +388,7 @@ describe("agent MCP config inspection", () => {
             entry: registryContextEntry,
           });
 
-          expect(result.status).toBe("unmanaged");
+          expect(result.status).toBe("unverified");
           expect(result.path).toBe(nodePath.join(workspaceRoot, ".codex/config.toml"));
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
@@ -421,12 +407,6 @@ describe("agent MCP config inspection", () => {
           yield* withHome(
             workspaceRoot,
             writeHermesEntry(workspaceRoot, {
-              "x-axm": {
-                v: 1,
-                managed: true,
-                ext: "@workspace/mcps/context",
-                source: "inline",
-              },
               enabled: true,
               command: "npx",
               args: ["-y", "@acme/context-mcp"],
@@ -447,12 +427,6 @@ describe("agent MCP config inspection", () => {
               expect(result.status).toBe("match");
               expect(result.path).toBe(`${workspaceRoot}/.hermes/config.yaml`);
               expect(result.expected).toMatchObject({
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/context",
-                  source: "inline",
-                },
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
@@ -477,12 +451,6 @@ describe("agent MCP config inspection", () => {
           yield* withHome(
             workspaceRoot,
             writeHermesEntry(workspaceRoot, {
-              "x-axm": {
-                v: 1,
-                managed: true,
-                ext: "@workspace/mcps/context",
-                source: "inline",
-              },
               enabled: true,
               command: "pnpx",
               args: ["-y", "@acme/context-mcp"],
@@ -545,7 +513,7 @@ describe("agent MCP config inspection", () => {
             }),
           ).pipe(
             Effect.map((result) => {
-              expect(result.status).toBe("unmanaged");
+              expect(result.status).toBe("drift");
               expect(result.actual).toMatchObject({ command: "npx" });
             }),
           );
@@ -556,7 +524,7 @@ describe("agent MCP config inspection", () => {
     ),
   );
 
-  it.effect("collects AXM-managed Hermes YAML entries", () =>
+  it.effect("collects declared and unselected Hermes YAML entries", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = realpathSync(
@@ -585,11 +553,9 @@ describe("agent MCP config inspection", () => {
 
           yield* withHome(
             workspaceRoot,
-            collectManagedAgentMcpServers({
+            collectNativeAgentMcpServers({
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-              expectedOwnershipByName: {
-                context: [buildAxmMcpMetadataFromSettingsSource("inline", "context")],
-              },
+              declaredMcpNames: new Set(["context"]),
               workspaceRoot,
               scope: "user",
               agentIds: ["hermes"],
@@ -599,7 +565,22 @@ describe("agent MCP config inspection", () => {
               expect(result).toEqual([
                 {
                   agentId: "hermes",
-                  ownership: "owned",
+                  ownership: "unowned",
+                  serverName: "filesystem",
+                  keyPath: ["mcp_servers", "filesystem"],
+                  path: configPath,
+                  absolutePath: configPath,
+                  target: {
+                    nativeRoot: workspaceRoot,
+                    scope: "user",
+                    path: configPath,
+                    format: "yaml",
+                    attribution: "agent",
+                  },
+                },
+                {
+                  agentId: "hermes",
+                  ownership: "declared",
                   serverName: "context",
                   keyPath: ["mcp_servers", "context"],
                   path: configPath,

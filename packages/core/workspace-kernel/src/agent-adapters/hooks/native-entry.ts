@@ -8,11 +8,9 @@ export const renderNativeHookGroup = (
     readonly matcher?: string | undefined;
     readonly timeoutMs?: number | undefined;
     readonly name?: string | undefined;
-    readonly metadata?: Readonly<Record<string, unknown>> | undefined;
   },
 ): Record<string, unknown> => {
   const entry: Record<string, unknown> = { type: "command", command: args.command };
-  if (args.metadata !== undefined) entry["x-axm"] = args.metadata;
   if (dialect.commandNameSerialization === "manifest" && args.name !== undefined)
     entry["name"] = args.name;
   if (args.timeoutMs !== undefined)

@@ -1014,6 +1014,7 @@ describe("buildUninstallOperation", () => {
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
+        nativeCleanup: "selected",
       });
       expect(result.message).toBe(
         "Unconfigured skills/review; preserved its workspace-authored source",
@@ -1177,6 +1178,7 @@ describe("buildUninstallOperation", () => {
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
+        nativeCleanup: "selected",
       });
       expect(projected).toBe(false);
       expect(configured).toBe(false);
@@ -1222,6 +1224,7 @@ describe("buildUninstallOperation", () => {
 
       expect(materializeUninstall).toHaveBeenCalledWith({
         target: { type: "skill", name: "review" },
+        nativeCleanup: "selected",
       });
       expect(configured).toBe(false);
     }),

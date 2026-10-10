@@ -1358,7 +1358,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("prunes disabled managed MCP server configs without re-materializing them", () =>
+  it.effect("disables declared MCP entries with the host flag or exact removal", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
@@ -1415,7 +1415,7 @@ describe("root sync handler", () => {
       const previewUnits = planResultUnits(preview);
       expect(previewUnits).toMatchObject([
         {
-          label: "stale managed agent projections",
+          label: "disable mcp-server browser",
           state: "ready",
         },
       ]);
@@ -1430,7 +1430,7 @@ describe("root sync handler", () => {
       });
       expect(planResultUnits(applied)).toMatchObject([
         {
-          label: "stale managed agent projections",
+          label: "disable mcp-server browser",
           state: "committed",
         },
       ]);
@@ -1442,11 +1442,12 @@ describe("root sync handler", () => {
       const codexConfig = fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8");
       expect(claudeConfig.mcpServers).toEqual({});
       expect(cursorConfig.mcpServers).toEqual({});
-      expect(codexConfig).not.toContain("browser");
+      expect(codexConfig).toContain("browser");
+      expect(codexConfig).toContain("enabled = false");
     }),
   );
 
-  it.effect("restores drifted AXM-owned inline MCP agent configs", () =>
+  it.effect("replaces drifted declared inline MCP agent configs", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
@@ -1488,7 +1489,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("agrees with MCP list that a legacy Codex ownership fence is unmanaged", () =>
+  it.effect("reprojects a declared Codex entry independently of old annotations", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
@@ -1537,7 +1538,7 @@ describe("root sync handler", () => {
               {
                 agentId: "codex",
                 outcome: "failed",
-                reasonCode: "mcp-unmanaged",
+                reasonCode: "stale-projection",
                 path: configPath,
               },
             ],
@@ -1559,7 +1560,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("refuses to overwrite an unowned inline MCP agent config collision", () =>
+  it.effect("previews and applies replacement of an unmarked inline MCP entry", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
@@ -1583,25 +1584,18 @@ describe("root sync handler", () => {
 
       yield* provide(handleSync({ preview: true, failOnChange: true }));
 
-      expect(rendererState.results[0]?.data).toMatchObject({
-        result: {
-          contract: "plan-result-v4",
-          outcome: "blocked",
-          blocking: {
-            class: "precondition-unmet",
-            phase: "planning",
-            causeCode: "conflict",
-            detail: expect.stringContaining("collides with unowned native config"),
-          },
-          units: [
-            expect.objectContaining({
-              state: "blocked",
-              message: expect.stringContaining("collides with unowned native config"),
-            }),
-          ],
-        },
+      const preview = expectPreviewedPlanResult(rendererState.results[0]?.data, {
+        planName: "Sync workspace",
+        totalSteps: 1,
       });
+      expect(planResultUnits(preview)).toHaveLength(1);
       expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"python"');
+      rendererState.results.length = 0;
+      yield* provide(handleSync({ preview: false }));
+      expect(JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"))).toMatchObject({
+        mcpServers: { demo: { command: "node", args: ["server.js"] } },
+      });
+      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).not.toContain("x-axm");
     }),
   );
 

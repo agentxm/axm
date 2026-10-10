@@ -15,9 +15,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "cli/sync/preserves-unowned-agent-content",
-  title: "Sync never removes agent-native content without AXM ownership proof",
+  title: "Sync preserves content outside declaration or ownership authority",
   statement:
-    "When sync retires agent-native content that desired state no longer reaches, it shall remove only content AXM can prove it owns and shall leave hand-authored neighbors in the same agent directory untouched; and when a desired projection would overwrite agent-native content AXM cannot prove it owns, sync shall block that projection and leave the content untouched.",
+    "For file artifacts outside native MCP and Hook declaration authority, sync shall retire or overwrite only content with AXM ownership proof and preserve hand-authored neighbors. For native MCP entries and Hook registrations, validated effective declarations shall authorize their exact units without a marker or adoption gate; sync shall preserve unselected native units and shall not prune registrations solely because their declarations disappear.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -66,9 +66,15 @@ describe("Sync preserves unowned agent content", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("blocks an inline MCP server that collides with an unowned native entry", () => {
-    const unowned = JSON.stringify(
-      { mcpServers: { demo: { command: "hand-written", args: [] } } },
+  it.effect("replaces a declared unmarked MCP entry while preserving its native neighbors", () => {
+    const initial = JSON.stringify(
+      {
+        custom: true,
+        mcpServers: {
+          demo: { command: "hand-written", args: [], obsolete: "stale-entry-field" },
+          foreign: { command: "keep", args: [] },
+        },
+      },
       null,
       2,
     );
@@ -80,7 +86,7 @@ describe("Sync preserves unowned agent content", () => {
           demo: { connection: { transport: "stdio", command: "node", args: ["server.js"] } },
         },
       },
-      files: { ".mcp.json": unowned },
+      files: { ".mcp.json": initial },
     });
     cleanups.push(workspace.cleanup);
     return workspace
@@ -88,9 +94,21 @@ describe("Sync preserves unowned agent content", () => {
         Effect.gen(function* () {
           const result = expectResolved(yield* applySync());
 
-          expect(countUnitStates(result.units).blocked).toBeGreaterThan(0);
-          expect(JSON.stringify(result)).toContain("collides with unowned native config");
-          expect(workspace.readFile(".mcp.json")).toBe(unowned);
+          expect(countUnitStates(result.units).blocked).toBe(0);
+          expect(countUnitStates(result.units).committed).toBeGreaterThan(0);
+          const native = workspace.readFile(".mcp.json");
+          const decoded: unknown = JSON.parse(native);
+          expect(decoded).toMatchObject({
+            custom: true,
+            mcpServers: {
+              demo: { command: "node", args: ["server.js"] },
+              foreign: { command: "keep", args: [] },
+            },
+          });
+          expect(native).not.toContain("stale-entry-field");
+          expect(native).not.toContain("hand-written");
+          yield* applySync();
+          expect(workspace.readFile(".mcp.json")).toBe(native);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

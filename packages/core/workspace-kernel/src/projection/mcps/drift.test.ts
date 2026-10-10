@@ -4,7 +4,7 @@ import { projectExpectedEntry } from "../../agent-adapters/index.js";
 import { diffAgentEntry } from "./drift.js";
 
 describe("MCP drift", () => {
-  it("compares nested metadata without reporting order-only drift", () => {
+  it("reports obsolete native metadata as value drift", () => {
     const expected = projectExpectedEntry({
       serverName: "demo",
       entry: {
@@ -48,6 +48,6 @@ describe("MCP drift", () => {
         command: "npx",
         args: ["-y", "@acme/context"],
       }),
-    ).toEqual({ _tag: "match" });
+    ).toEqual({ _tag: "drift", fields: ["x-axm"] });
   });
 });

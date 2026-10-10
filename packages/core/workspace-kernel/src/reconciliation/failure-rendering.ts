@@ -111,8 +111,6 @@ import {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
@@ -276,8 +274,6 @@ const kernelFailureClasses = () =>
     SubagentIoFailed,
     McpConfigInvalid,
     McpConfigIoFailed,
-    McpEntryUnmanaged,
-    McpOwnershipMarkerInvalid,
     McpDefinitionInvalid,
     McpSharedTargetConflict,
     NativeWriteRefused,
@@ -457,8 +453,6 @@ const renderKernelFailureDetails = (
     case "SubagentIoFailed":
     case "McpConfigInvalid":
     case "McpConfigIoFailed":
-    case "McpEntryUnmanaged":
-    case "McpOwnershipMarkerInvalid":
     case "McpDefinitionInvalid":
     case "McpSharedTargetConflict":
     case "NativeWriteRefused":

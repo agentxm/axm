@@ -13,16 +13,9 @@ import type {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
 } from "../../agent-adapters/index.js";
 
 /** Every failure MCP inspection and drift classification surface. */
 export type McpInspectionError =
-  | McpConfigInvalid
-  | McpConfigIoFailed
-  | McpEntryUnmanaged
-  | McpOwnershipMarkerInvalid
-  | McpDefinitionInvalid
-  | McpSharedTargetConflict;
+  McpConfigInvalid | McpConfigIoFailed | McpDefinitionInvalid | McpSharedTargetConflict;

@@ -196,7 +196,7 @@ wants to affect:
 This division avoids using one command as a general way to repair unrelated
 problems. The [command design](commands/overview.md) owns the detailed boundaries.
 
-## Ownership is the safety boundary
+## Unit-local authority is the safety boundary
 
 AXM changes only the smallest unit for which it can establish authority:
 
@@ -207,11 +207,13 @@ AXM changes only the smallest unit for which it can establish authority:
 - Managed outputs belong to AXM only while AXM can prove its authority over the
   specific directory, file, entry, or managed region.
 
-AXM does not take ownership merely because content appears in a familiar path.
-Unowned content may coexist when an extension type provides an independent
+Native MCP and Hook configuration follows
+[declaration authority](workspace/managed-file-ownership.md#native-declaration-authority).
+File artifacts require ownership evidence; appearing in a familiar path does
+not establish it. Unowned file content may coexist when an extension type provides an independent
 ownership boundary. When it collides with a required output or its authority is
 ambiguous, AXM reports the fact, blocks the affected work, and leaves the
-content alone. AXM does not adopt even equivalent native content; manual
+content alone. AXM does not adopt even equivalent file content; manual
 preservation, relocation, or removal owns recovery.
 
 Operations change workspace state by semantic mutation closure: the smallest

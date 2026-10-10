@@ -121,6 +121,7 @@ const nativeLocationsDoc = (
       .filter(
         (location) =>
           detailed ||
+          (planned && location.ownership === "declared") ||
           location.state === "retained" ||
           location.state === "blocked" ||
           location.state === "unverified",
@@ -129,9 +130,11 @@ const nativeLocationsDoc = (
         const address =
           location.address.kind === "key-path"
             ? `${location.address.path} ${JSON.stringify(location.address.keys)}`
-            : location.address.kind === "region"
-              ? `${location.address.path} (region ${JSON.stringify(location.address.region)})`
-              : location.address.path;
+            : location.address.kind === "hook-registrations"
+              ? `${location.address.path} (${location.address.settingsKey}; scripts under ${location.address.scriptRoots.join(", ")})`
+              : location.address.kind === "region"
+                ? `${location.address.path} (region ${JSON.stringify(location.address.region)})`
+                : location.address.path;
         const aliases = location.aliases.filter((alias) => alias !== location.address.path);
         const availability = [
           ...new Set(

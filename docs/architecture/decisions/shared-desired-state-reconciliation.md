@@ -46,7 +46,7 @@ subjects. Enclosing closures declare which projections and postconditions
 they own, so neither settings permissions nor closure responsibilities depend
 on combinations of skip flags.
 
-## Execution and ownership
+## Execution and unit authority
 
 Dependencies and shared native ownership units determine semantic closures.
 Within a closure, acquisition, accepted records, and required outputs settle
@@ -83,3 +83,8 @@ to the accepted behavior.
 Reconsider this boundary if independent product capabilities acquire genuinely
 different authority models, rather than introducing command-specific exceptions
 to desired-state realization.
+
+Native MCP and Hook configuration uses
+[declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority):
+desired presence authorizes bounded writes, while absence retains registrations.
+File and region ownership protections remain separate.

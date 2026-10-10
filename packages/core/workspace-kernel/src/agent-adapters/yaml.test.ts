@@ -1,22 +1,9 @@
 import { describe, expect, it } from "vitest";
-import {
-  deleteYamlEntry,
-  managedYamlNames,
-  parseYaml,
-  readYamlEntry,
-  setYamlEntry,
-  setYamlScalar,
-} from "./yaml.js";
-
-const managedInline = {
-  managed: true,
-  source: "inline",
-};
+import { deleteYamlEntry, parseYaml, readYamlEntry, setYamlEntry, setYamlScalar } from "./yaml.js";
 
 describe("yaml utilities", () => {
   it("creates a config document from an empty file", () => {
     const raw = setYamlEntry("", ["mcp_servers"], "context", {
-      "x-axm": managedInline,
       command: "npx",
       args: ["-y", "@acme/context-mcp"],
       env: { ACME_TOKEN: "secret" },
@@ -28,7 +15,6 @@ describe("yaml utilities", () => {
           command: "npx",
           args: ["-y", "@acme/context-mcp"],
           env: { ACME_TOKEN: "secret" },
-          "x-axm": managedInline,
         },
       },
     });
@@ -48,7 +34,6 @@ describe("yaml utilities", () => {
     ].join("\n");
 
     const raw = setYamlEntry(existing, ["mcp_servers"], "context", {
-      "x-axm": managedInline,
       command: "npx",
     });
 
@@ -62,7 +47,6 @@ describe("yaml utilities", () => {
     });
     expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
       command: "npx",
-      "x-axm": managedInline,
     });
   });
 
@@ -72,9 +56,6 @@ describe("yaml utilities", () => {
       "  filesystem:",
       "    command: npx",
       "  context:",
-      "    x-axm:",
-      "      managed: true",
-      "      source: inline",
       "    command: npx",
       "",
     ].join("\n");
@@ -88,40 +69,15 @@ describe("yaml utilities", () => {
   });
 
   it("sets scalar values in nested entries", () => {
-    const raw = [
-      "mcp_servers:",
-      "  context:",
-      "    x-axm:",
-      "      managed: true",
-      "      source: inline",
-      "    command: npx",
-      "    enabled: true",
-      "",
-    ].join("\n");
+    const raw = ["mcp_servers:", "  context:", "    command: npx", "    enabled: true", ""].join(
+      "\n",
+    );
 
     const next = setYamlScalar(raw, ["mcp_servers", "context", "enabled"], false);
 
     expect(readYamlEntry(next, ["mcp_servers"], "context")).toMatchObject({
       enabled: false,
     });
-  });
-
-  it("collects only managed server names", () => {
-    const raw = [
-      "mcp_servers:",
-      "  filesystem:",
-      "    command: npx",
-      "  context:",
-      "    x-axm:",
-      "      managed: true",
-      "      source: inline",
-      "    command: npx",
-      "",
-    ].join("\n");
-
-    expect(managedYamlNames(raw, ["mcp_servers"], (entry) => entry["x-axm"] !== undefined)).toEqual(
-      ["context"],
-    );
   });
 
   it("rejects configs whose servers key is not a mapping", () => {

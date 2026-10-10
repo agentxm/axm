@@ -100,7 +100,10 @@ with the whole-surface workspace specifications
 to the project and file that own it. The rest of this section elaborates that
 boundary.
 
-AXM preserves unowned content by default. Preservation does not prove that the
+Native MCP and Hook entries follow
+[declaration authority](workspace/managed-file-ownership.md#native-declaration-authority).
+Other outputs require unit-local ownership evidence. AXM preserves their unowned
+content by default. Preservation does not prove that the
 surrounding workspace state is valid or safely reconcilable. Each extension
 type defines whether unowned content can coexist independently, collides with a
 required output, or leaves authority ambiguous. A collision or ambiguity is a
@@ -108,7 +111,7 @@ blocker, not an invitation to take ownership.
 
 Local edits to an installed external extension do not make that extension
 workspace-authored, but ordinary reconciliation also does not erase those
-edits. AXM does not adopt unowned native content. Manual preservation,
+edits. AXM does not adopt unowned file artifacts. Manual preservation,
 relocation, or removal owns recovery from an unowned collision.
 
 Authority to change a unit is not authority to decide its contents. Where one

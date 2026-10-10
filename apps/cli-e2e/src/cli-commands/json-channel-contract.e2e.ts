@@ -117,6 +117,8 @@ describe("JSON-mode channel contract (--json)", () => {
             "--non-interactive",
             "--agent",
             "claude-code",
+            "--agent",
+            "github-copilot-cli",
             "--json",
           ],
           { cwd: temp.path },
@@ -131,11 +133,18 @@ describe("JSON-mode channel contract (--json)", () => {
           JSON.stringify(
             {
               ...settings,
-              agents: ["claude-code"],
+              agents: ["claude-code", "github-copilot-cli"],
               mcpServers: {
                 demo: {
                   enabled: true,
-                  connection: { transport: "stdio", command: "node", args: ["server.js"], env: {} },
+                  connection: {
+                    transport: "stdio",
+                    command: "node",
+                    args: ["server.js"],
+                    // A literal expansion expression cannot be represented losslessly
+                    // by the native readers sharing this target.
+                    env: { REGION: "${REGION:-west}" },
+                  },
                 },
               },
             },
@@ -159,6 +168,7 @@ describe("JSON-mode channel contract (--json)", () => {
           ),
         );
         const mcpBefore = fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8");
+        const settingsBefore = fs.readFileSync(settingsPath, "utf8");
 
         const result = await runCli(["sync", "--non-interactive", "--json"], {
           cwd: temp.path,
@@ -183,7 +193,9 @@ describe("JSON-mode channel contract (--json)", () => {
             counts: expect.objectContaining({ blocked: 1, committed: 0, failed: 0 }),
           }),
         );
+        expect(result.stdout).toContain("literal native metasyntax cannot be preserved");
         expect(fs.readFileSync(path.join(temp.path, ".mcp.json"), "utf8")).toBe(mcpBefore);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(settingsBefore);
       } finally {
         temp.cleanup();
       }

@@ -13,24 +13,15 @@ import { applyEdits, modify } from "jsonc-parser";
 import {
   McpConfigInvalid,
   McpConfigIoFailed,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   WriteBackupRetained,
   type NativeFormatFailure,
 } from "../errors.js";
 import { runWithTransientFileBackup } from "../transient-backup.js";
 import { NativeWriteAuthority } from "../native-write-authority.js";
-import { stringifyToml, stringifyTomlKey } from "../toml.js";
-import { detachNativeTomlMcpEntry } from "./toml-adoption.js";
+import { editNativeTomlMcpEntry, detachNativeTomlMcpEntry } from "./toml-adoption.js";
 import { deleteYamlEntry, readYamlEntry, setYamlEntry, setYamlScalar } from "../yaml.js";
 import {
-  isAxmManagedMcpEntry,
-  readAxmMcpMetadata,
-  type AxmMcpMetadata,
-} from "./entry-semantics.js";
-import {
   decodeJsonMcpConfig,
-  parseTomlMcpEntry,
   readNativeMcpConfig,
   readNativeMcpDocument,
   readNativeMcpValues,
@@ -42,7 +33,6 @@ import type {
   McpServersPath,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import type { NativeArtifactChange } from "../agents/coding-agent.js";
-import { reconcileKeyedBlock } from "../managed-regions-keyed-block.js";
 import { deriveStructuralInverse, type NativeLocationOutcome } from "../../locations/index.js";
 
 export interface WriteAgentMcpConfigArgs {
@@ -51,12 +41,10 @@ export interface WriteAgentMcpConfigArgs {
   readonly serversPath: McpServersPath;
   readonly target: McpConfigTarget;
   readonly entry: Readonly<Record<string, unknown>>;
-  /** The caller proved this operation introduces a previously unreachable intent or route. */
-  readonly nativeInsertionEligible: boolean;
-  /** Owners derived from the accepted intent before an explicitly requested replacement. */
-  readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
+
+  /** Declared routes resolving to this physical native target. */
   readonly aliases?: ReadonlyArray<string>;
-  /** Explicit import authority, bound to the exact observed declaration and physical file. */
+  /** Optional import preimage, bound to the exact observed entry and physical file. */
   readonly adoption?: {
     readonly filePath: string;
     readonly expectedEntry: Readonly<Record<string, unknown>>;
@@ -64,8 +52,7 @@ export interface WriteAgentMcpConfigArgs {
 }
 
 export interface RemoveAgentMcpConfigArgs {
-  /** Exact owners derived from accepted intent before the withdrawal. */
-  readonly expectedManagedEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  /** Declared routes resolving to this physical native target. */
   readonly aliases?: ReadonlyArray<string>;
   readonly workspaceRoot: string;
   readonly serverName: string;
@@ -73,6 +60,7 @@ export interface RemoveAgentMcpConfigArgs {
   readonly target: McpConfigTarget;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
+  readonly dryRun?: boolean;
 }
 
 /** One native MCP declaration discovered for conversion into a package. */
@@ -119,11 +107,6 @@ const writeIfChanged = (
   targetPath: string,
   before: Option.Option<string>,
   newRaw: string,
-  insertion: {
-    readonly unit: string;
-    readonly aliases: ReadonlyArray<string>;
-    readonly eligible: boolean;
-  },
 ): Effect.Effect<
   AgentMcpConfigWriteResult,
   NativeFormatFailure,
@@ -134,13 +117,8 @@ const writeIfChanged = (
     if (oldRaw === newRaw) return { targets: [] };
     const fs = yield* FileSystem.FileSystem;
     const authority = yield* NativeWriteAuthority;
-    const capture = yield* authority.captureInsertion({
-      path: configPath,
-      beforeRaw: before,
-      ...insertion,
-    });
     yield* authority.protect(configPath);
-    const createdDirectories = yield* authority.createParentDirectories(configPath);
+    yield* authority.createParentDirectories(configPath);
     yield* runWithTransientFileBackup({
       sourcePath: configPath,
       oldRaw,
@@ -162,7 +140,6 @@ const writeIfChanged = (
       path: configPath,
       change: Option.isNone(before) ? "created" : "modified",
     });
-    yield* authority.recordInsertion({ capture, afterRaw: newRaw, createdDirectories });
     return {
       targets: [
         {
@@ -205,18 +182,12 @@ const removeJsonLike = (args: {
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
-}): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
+}): Effect.Effect<string, McpConfigInvalid> =>
   Effect.gen(function* () {
     if (args.raw.trim().length === 0) return args.raw;
     const { servers } = yield* decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath);
     const existing = servers?.[args.serverName];
     if (existing === undefined) return args.raw;
-    if (!isRecord(existing) || !isAxmManagedMcpEntry(existing)) {
-      return yield* new McpEntryUnmanaged({
-        serverName: args.serverName,
-        configPath: args.configPath,
-      });
-    }
     const activation = args.activationField.required;
     if (args.disableOnly && activation !== null) {
       return applyEdits(
@@ -281,18 +252,12 @@ const removeYaml = (args: {
   readonly serverName: string;
   readonly activationField: McpActivationField;
   readonly disableOnly: boolean;
-}): Effect.Effect<string, McpConfigInvalid | McpEntryUnmanaged> =>
+}): Effect.Effect<string, McpConfigInvalid> =>
   Effect.try({
     try: () => {
       if (args.raw.trim().length === 0) return args.raw;
       const existing = readYamlEntry(args.raw, args.serversPath, args.serverName);
       if (existing === undefined) return args.raw;
-      if (!isAxmManagedMcpEntry(existing)) {
-        throw new McpEntryUnmanaged({
-          serverName: args.serverName,
-          configPath: args.configPath,
-        });
-      }
       const activation = args.activationField.required;
       if (args.disableOnly && activation !== null) {
         return setYamlScalar(
@@ -303,8 +268,7 @@ const removeYaml = (args: {
       }
       return deleteYamlEntry(args.raw, args.serversPath, args.serverName);
     },
-    catch: (error) =>
-      error instanceof McpEntryUnmanaged ? error : mapYamlError(args.configPath, error),
+    catch: (error) => mapYamlError(args.configPath, error),
   });
 
 const retireYaml = (args: {
@@ -321,62 +285,12 @@ const retireYaml = (args: {
     catch: (error) => mapYamlError(args.configPath, error),
   });
 
-const tomlRegion = (serverName: string) => `mcp-server:${serverName}` as const;
-
-/** The owner a TOML fence names: the entry's own AXM ownership record. */
-const tomlOwner = (
-  serverName: string,
-  entry: Readonly<Record<string, unknown>>,
-): Effect.Effect<string, McpConfigInvalid> =>
-  Option.match(readAxmMcpMetadata(entry), {
-    onNone: () =>
-      Effect.fail(
-        new McpConfigInvalid({
-          detail: `MCP entry ${serverName} carries no AXM ownership metadata to fence with`,
-        }),
-      ),
-    onSome: (metadata) => Effect.succeed(metadata.ext),
-  });
-
-const invalidTomlRegion = (serverName: string, state: "malformed" | "unsupported-version") =>
-  new McpOwnershipMarkerInvalid({ serverName, state, operation: "modify" });
-
 const upsertToml = (args: {
   readonly raw: string;
   readonly serversPath: McpServersPath;
   readonly serverName: string;
   readonly entry: Readonly<Record<string, unknown>>;
-}): Effect.Effect<string, McpOwnershipMarkerInvalid | McpConfigInvalid> =>
-  Effect.gen(function* () {
-    const parentHeaders = new Set(
-      args.serversPath.map(
-        (_, index) =>
-          `[${args.serversPath
-            .slice(0, index + 1)
-            .map(stringifyTomlKey)
-            .join(".")}]`,
-      ),
-    );
-    const document = args.serversPath.reduceRight<Readonly<Record<string, unknown>>>(
-      (nested, key) => Object.fromEntries([[key, nested]]),
-      Object.fromEntries([[args.serverName, args.entry]]),
-    );
-    const block = stringifyToml(document)
-      .split("\n")
-      .filter((line) => !parentHeaders.has(line))
-      .join("\n")
-      .trim();
-    const reconciliation = reconcileKeyedBlock({
-      content: args.raw,
-      region: tomlRegion(args.serverName),
-      owner: yield* tomlOwner(args.serverName, args.entry),
-      rendered: block,
-    });
-    return reconciliation.state.state === "malformed" ||
-      reconciliation.state.state === "unsupported-version"
-      ? yield* invalidTomlRegion(args.serverName, reconciliation.state.state)
-      : reconciliation.updated;
-  });
+}) => editNativeTomlMcpEntry(args.raw, args.serversPath, args.serverName, args.entry);
 
 const removeToml = (args: {
   readonly raw: string;
@@ -384,41 +298,24 @@ const removeToml = (args: {
   readonly serverName: string;
   readonly disableOnly: boolean;
   readonly activationField: McpActivationField;
-}): Effect.Effect<string, McpOwnershipMarkerInvalid> => {
-  const region = tomlRegion(args.serverName);
-  const inspected = reconcileKeyedBlock({
-    content: args.raw,
-    region,
-    owner: "",
-    rendered: "",
+}) =>
+  Effect.gen(function* () {
+    const values = yield* readNativeMcpValues({
+      configPath: "native.toml",
+      raw: args.raw,
+      format: "toml",
+      serversPath: args.serversPath,
+    });
+    const existing = values[args.serverName];
+    if (existing === undefined) return args.raw;
+    const activation = args.activationField.required;
+    if (args.disableOnly && activation !== null && isRecord(existing))
+      return yield* editNativeTomlMcpEntry(args.raw, args.serversPath, args.serverName, {
+        ...existing,
+        [activation.name]: activation.disabled,
+      });
+    return yield* detachNativeTomlMcpEntry(args.raw, args.serversPath, args.serverName);
   });
-  if (inspected.state.state === "malformed" || inspected.state.state === "unsupported-version") {
-    return Effect.fail(invalidTomlRegion(args.serverName, inspected.state.state));
-  }
-  if (inspected.state.state === "absent") return Effect.succeed(args.raw);
-  const activation = args.activationField.required;
-  if (args.disableOnly && activation !== null) {
-    const field = activation.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const rendered = inspected.state.body.replace(
-      new RegExp(`^${field} = (?:true|false)$`, "m"),
-      `${activation.name} = ${String(activation.disabled)}`,
-    );
-    // The block keeps the owner it already names; the fenced entry's own
-    // ownership record is the fallback when the marker carries none.
-    const owner =
-      inspected.state.startMarker.ext ??
-      Option.getOrUndefined(
-        readAxmMcpMetadata(
-          parseTomlMcpEntry(inspected.state.body, args.serversPath, args.serverName),
-        ),
-      )?.ext ??
-      region;
-    return Effect.succeed(
-      reconcileKeyedBlock({ content: args.raw, region, owner, rendered }).updated,
-    );
-  }
-  return Effect.succeed(inspected.updated);
-};
 
 const readExisting = (
   configPath: string,
@@ -439,7 +336,7 @@ const assertAdoptionCurrent = (
         }),
       );
 
-/** Render only after proving absence, ownership, or exact-observation adoption. */
+/** Render the declared entry after validating its native readers and optional import preimage. */
 const preserveOtherNativeValues = (args: {
   readonly configPath: string;
   readonly format: McpConfigTarget["format"];
@@ -482,33 +379,6 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
     const existing = values[args.serverName];
     if (args.adoption !== undefined) {
       yield* assertAdoptionCurrent(configPath, args.serverName, existing, args.adoption);
-    } else if (Object.hasOwn(values, args.serverName)) {
-      const currentOwner = isRecord(existing) ? readAxmMcpMetadata(existing) : Option.none();
-      const desiredOwner = readAxmMcpMetadata(args.entry);
-      if (
-        Option.isNone(currentOwner) ||
-        Option.isNone(desiredOwner) ||
-        (!Equal.equals(currentOwner.value, desiredOwner.value) &&
-          !(args.previousManagedEntries ?? []).some((owner) =>
-            Equal.equals(owner, currentOwner.value),
-          ))
-      ) {
-        return yield* new McpEntryUnmanaged({ serverName: args.serverName, configPath });
-      }
-      if (target.format === "toml") {
-        const region = reconcileKeyedBlock({
-          content: raw,
-          region: tomlRegion(args.serverName),
-          owner: currentOwner.value.ext,
-          rendered: "",
-        });
-        if (
-          region.state.state !== "complete" ||
-          region.state.startMarker.ext !== currentOwner.value.ext
-        ) {
-          return yield* new McpEntryUnmanaged({ serverName: args.serverName, configPath });
-        }
-      }
     }
     if (Equal.equals(existing, args.entry)) return raw;
     const renderArgs = {
@@ -521,13 +391,7 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
     const next = yield* Effect.gen(function* () {
       switch (target.format) {
         case "toml":
-          return yield* upsertToml({
-            ...renderArgs,
-            raw:
-              args.adoption === undefined
-                ? raw
-                : yield* detachNativeTomlMcpEntry(raw, args.serversPath, args.serverName),
-          });
+          return yield* upsertToml(renderArgs);
         case "yaml":
           return yield* upsertYaml(renderArgs);
         case "json":
@@ -562,7 +426,7 @@ const prepareMcpWrite = (args: WriteAgentMcpConfigArgs, configPath: string, raw:
     return next;
   });
 
-const insertionTarget = (
+const nativeTargetAliases = (
   args: {
     readonly workspaceRoot: string;
     readonly target: McpConfigTarget;
@@ -580,7 +444,6 @@ const insertionTarget = (
         : args.target.path;
     return {
       path: configPath,
-      unit: JSON.stringify(["mcp-server", args.serversPath, args.serverName]),
       aliases: args.aliases ?? [path.resolve(args.workspaceRoot, declaredPath)],
     };
   });
@@ -598,7 +461,7 @@ const describeNativeResult = (
   unitState?: NativeLocationOutcome["state"],
 ) =>
   Effect.gen(function* () {
-    const receipt = yield* insertionTarget(args, configPath);
+    const routes = yield* nativeTargetAliases(args, configPath);
     return {
       targets: result.targets.map((target) => ({
         ...target,
@@ -609,12 +472,12 @@ const describeNativeResult = (
             path: configPath,
             keys: [...args.serversPath, args.serverName],
           },
-          aliases: receipt.aliases,
+          aliases: routes.aliases,
           configuredConsumers: [],
           potentialReaders: [],
           policyReasons: [],
-          ownership: "owned",
-          proof: "managed-mcp-entry",
+          ownership: "declared",
+          proof: "effective-native-declaration",
           state: unitState ?? target.change,
           mechanism: "structured-entry",
           availability: [],
@@ -655,13 +518,7 @@ export const writeAgentMcpConfig = (
         const result =
           raw === next
             ? { targets: [{ path: args.target.path, change: "unchanged" as const }] }
-            : yield* writeIfChanged(configPath, args.target.path, before, next, {
-                ...(yield* insertionTarget(args, configPath)),
-                eligible:
-                  args.nativeInsertionEligible &&
-                  args.adoption === undefined &&
-                  !Object.hasOwn(values, args.serverName),
-              });
+            : yield* writeIfChanged(configPath, args.target.path, before, next);
         return yield* describeNativeResult(
           args,
           configPath,
@@ -717,26 +574,8 @@ export type RemoveAgentMcpConfigsArgs = Omit<RemoveAgentMcpConfigArgs, "serverNa
 
 const renderMcpRemovals = (args: RemoveAgentMcpConfigsArgs, configPath: string, raw: string) =>
   Effect.gen(function* () {
-    const values = yield* readNativeMcpValues({
-      configPath,
-      raw,
-      format: args.target.format,
-      serversPath: args.serversPath,
-    });
     let next = raw;
     for (const serverName of [...new Set(args.serverNames)].sort()) {
-      if (Object.hasOwn(values, serverName)) {
-        const value = values[serverName];
-        const metadata = isRecord(value) ? readAxmMcpMetadata(value) : Option.none();
-        if (
-          Option.isNone(metadata) ||
-          !(args.expectedManagedEntries[serverName] ?? []).some((expected) =>
-            Equal.equals(expected, metadata.value),
-          )
-        ) {
-          return yield* new McpEntryUnmanaged({ serverName, configPath });
-        }
-      }
       next = yield* renderMcpRemoval({ ...args, serverName }, configPath, next);
     }
     yield* readNativeMcpValues({
@@ -793,58 +632,16 @@ export const removeAgentMcpConfigs = (
           .sort();
         const rendered = yield* renderMcpRemovals(args, configPath, raw);
         if (raw === rendered) return { targets: [] };
-        const receipts = yield* Effect.forEach(names, (serverName) =>
-          insertionTarget({ ...args, serverName }, configPath),
-        );
-        const first = receipts[0];
-        if (first === undefined) return { targets: [] };
-        const inverse = args.disableOnly
-          ? Option.none()
-          : yield* authority.resolveInsertions({
-              path: configPath,
-              units: receipts.map((receipt) => receipt.unit),
-              aliases: first.aliases,
-              raw,
-            });
-        let result: AgentMcpConfigWriteResult;
-        if (
-          Option.isSome(inverse) &&
-          inverse.value.kind === "remove-file" &&
-          (yield* authority.retireInsertion({ ...first, raw, empty: true }))
-        ) {
-          result = { targets: [{ path: args.target.path, change: "removed" }] };
-        } else {
-          const next =
-            Option.isSome(inverse) && inverse.value.kind === "restore-text"
-              ? inverse.value.text
-              : rendered;
-          yield* readNativeMcpValues({
-            configPath,
-            raw: next,
-            format: args.target.format,
-            serversPath: args.serversPath,
-          });
-          yield* preserveOtherNativeValues({
-            configPath,
-            format: args.target.format,
-            serversPath: args.serversPath,
-            serverNames: names,
-            before: raw,
-            after: next,
-          });
-          result = yield* writeIfChanged(configPath, args.target.path, before, next, {
-            ...first,
-            eligible: false,
-          });
-          if (!args.disableOnly)
-            for (const receipt of receipts) yield* authority.forgetInsertion(receipt);
-        }
+        const result: AgentMcpConfigWriteResult =
+          args.dryRun === true
+            ? { targets: [{ path: args.target.path, change: "updated" }] }
+            : yield* writeIfChanged(configPath, args.target.path, before, rendered);
         const outcomes = yield* Effect.forEach(names, (serverName) =>
           describeNativeResult(
             { ...args, serverName },
             configPath,
             result,
-            args.disableOnly ? "updated" : "removed",
+            args.disableOnly && args.activationField.required !== null ? "updated" : "removed",
           ),
         );
         return { targets: outcomes.flatMap((outcome) => outcome.targets) };
@@ -915,10 +712,7 @@ export const retireAgentMcpConfig = (
             before: raw,
             after: next,
           });
-          return yield* writeIfChanged(configPath, args.target.path, before, next, {
-            ...(yield* insertionTarget(args, configPath)),
-            eligible: false,
-          });
+          return yield* writeIfChanged(configPath, args.target.path, before, next);
         }),
       )
       .pipe(Effect.flatMap((result) => describeNativeResult(args, configPath, result, "removed")));

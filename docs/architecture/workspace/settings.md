@@ -112,15 +112,16 @@ into project desired state.
 Settings is not the complete desired-state model and does not describe current
 workspace state.
 
-| Settings does not own                                | Owner                                                                              |
-| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| Expanding Pack members                               | Desired-state derivation from authored manifests and accepted locked Pack metadata |
-| Selecting and accepting an exact external identity   | Resolution and authoritative lock state                                            |
-| Proving extension content or managed outputs exist   | Observed filesystem and agent state                                                |
-| Materializing, updating, or removing managed content | Lifecycle commands and sync                                                        |
-| Establishing ownership of existing native units      | Authorship and unit-local AXM ownership evidence                                   |
-| Storing credentials or resolved secrets              | The user's environment or external secret store                                    |
-| Choosing CLI telemetry behavior                      | Process or user environment policy                                                 |
+| Settings does not own                                | Owner                                                                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| Expanding Pack members                               | Desired-state derivation from authored manifests and accepted locked Pack metadata                                           |
+| Selecting and accepting an exact external identity   | Resolution and authoritative lock state                                                                                      |
+| Proving extension content or managed outputs exist   | Observed filesystem and agent state                                                                                          |
+| Materializing, updating, or removing managed content | Lifecycle commands and sync                                                                                                  |
+| Authorizing native MCP and Hook entries              | Validated effective declarations; see [native declaration authority](managed-file-ownership.md#native-declaration-authority) |
+| Establishing ownership of file artifacts             | Authorship and unit-local AXM ownership evidence                                                                             |
+| Storing credentials or resolved secrets              | The user's environment or external secret store                                                                              |
+| Choosing CLI telemetry behavior                      | Process or user environment policy                                                                                           |
 
 ## Authoring defaults and identity
 

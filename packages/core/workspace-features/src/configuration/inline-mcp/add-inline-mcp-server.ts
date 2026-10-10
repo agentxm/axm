@@ -239,7 +239,7 @@ const projectStep = (
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
       serverName: candidate.name,
-      nativeInsertionEligible: !candidate.replacesExistingEntry,
+
       entry,
       scope: location.scope,
     }).pipe(Effect.mapError(kernelFailureToStepFailure));

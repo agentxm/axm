@@ -56,7 +56,10 @@ reasons, ownership evidence, change state, and availability evidence.
 and distinct configured consumers separately. Two agents sharing one file do
 not mean two physical writes. `changed`, `retained`, `blocked`, and
 `unverified` count unit states. Rolled-back or unsettled units do not retain
-planned claims of committed native changes.
+planned claims of committed native changes. Native MCP and Hook units use
+`ownership: "declared"` and `proof: "effective-native-declaration"`; that is current
+authorization, not historical ownership. Hook addresses identify the settings key
+and selected canonical script roots. `retained` does not mean execution stopped.
 
 Native file readback establishes what was written. An agent's runtime may
 select a different configuration, so its availability remains `unverified`

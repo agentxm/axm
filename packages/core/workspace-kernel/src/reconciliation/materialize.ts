@@ -1,3 +1,4 @@
+import { removeMcpServerFromAgents } from "../agent-adapters/index.js";
 import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Desired-state materialization planning: select desired nodes, judge
@@ -10,7 +11,6 @@ import { resolveNativeReferent, type NativeLocationOutcome } from "../locations/
  * @experimental All exports from this module are unstable and may change without notice.
  */
 
-import { newlyConfiguredMcpRoutePaths } from "../agent-adapters/index.js";
 import { acquiredFilesForRef, skillDirectoryNameForRef } from "../acquisition/index.js";
 import { fromFileLocation, toFileLocation } from "@agentxm/host-primitives";
 import * as DateTime from "effect/DateTime";
@@ -389,14 +389,12 @@ const buildMcpServerSyncOperation = ({
   manager,
   ref,
   sourceIdentity,
-  nativeInsertionEligiblePaths,
   force,
   transitionLabel,
   nativeLocations,
   scope,
   adapter,
 }: {
-  readonly nativeInsertionEligiblePaths: ReadonlySet<string>;
   readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
   readonly sourceIdentity: string;
@@ -429,7 +427,6 @@ const buildMcpServerSyncOperation = ({
         args: {
           ref,
           sourceIdentity,
-          nativeInsertionEligiblePaths,
           nonInteractive: true,
           force,
         },
@@ -658,16 +655,6 @@ export const collectMaterializeSteps = (args: {
       directoryRoutes.skill.clear();
       directoryRoutes.subagent.clear();
     }
-    const nativeInsertionEligibleMcpPaths =
-      unresolvedPackRoutes(priorMcpGraph).length > 0
-        ? new Set<string>()
-        : yield* newlyConfiguredMcpRoutePaths({
-            previousAgentIds: yield* settings.configuredAgents,
-            agentIds: configuredAgents,
-            scope: location.scope,
-            workspaceRoot: location.baseDir,
-            nativeDirectoryInputs: location.nativeDirectoryInputs,
-          });
     const desiredActivation = (ref: ExtensionRef): boolean =>
       desiredState.nodes.some(
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
@@ -1111,17 +1098,6 @@ export const collectMaterializeSteps = (args: {
             Effect.provideService(Path.Path, path),
           );
           if (current) return Option.none<PlannedJobStep<MaterializeStepRequirements>>();
-          const conflicts = inspections.filter((inspection) => inspection.status === "unmanaged");
-          if (conflicts.length > 0) {
-            return Option.some<PlannedJobStep<MaterializeStepRequirements>>({
-              key: `${SYNC_RECOVERY_IDS.inlineMcpCollision}:${node.name}`,
-              label: `mcp-server ${node.name}`,
-              readiness: "error",
-              errorMessage: `Inline MCP server ${node.name} collides with unowned native config at ${conflicts
-                .map((inspection) => inspection.path)
-                .join(", ")}; move or remove the unowned entry before rerunning axm sync`,
-            });
-          }
           const blocked = inspections.filter(
             (inspection) => inspection.status === "blocked" || inspection.status === "unverified",
           );
@@ -1143,7 +1119,6 @@ export const collectMaterializeSteps = (args: {
               name: node.name,
               entry,
               agentIds: configuredAgents,
-              nativeInsertionEligiblePaths: nativeInsertionEligibleMcpPaths,
               inspectionWarnings: inspections.flatMap((inspection) =>
                 inspection.status === "drift"
                   ? [
@@ -1163,6 +1138,90 @@ export const collectMaterializeSteps = (args: {
     ).pipe(
       Effect.map((steps) => steps.flatMap((step) => (Option.isSome(step) ? [step.value] : []))),
     );
+    const disabledMcpSteps = yield* Effect.forEach(
+      selectedDesiredNodes(desiredState, selection).filter(
+        (node) => node.type === "mcp-server" && !node.enabled,
+      ),
+      (node) =>
+        Effect.gen(function* () {
+          const inspection = yield* inspectDesiredMcpServer({
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            agentIds: configuredAgents,
+            node,
+            entry: configuredMcpServerEntries[node.name],
+            canonicalPaths: [],
+          });
+          if (inspection.current) return [];
+          const removal = {
+            workspaceRoot: location.baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            scope: location.scope,
+            serverName: node.name,
+            disableOnly: true,
+          };
+          const preview = yield* removeMcpServerFromAgents(configuredAgents, {
+            ...removal,
+            dryRun: true,
+          });
+          const failures = preview.filter((outcome) => outcome._tag === "failed");
+          if (failures.length > 0)
+            return [
+              {
+                key: `mcp-server:disable:${node.name}`,
+                label: `disable mcp-server ${node.name}`,
+                readiness: "error",
+                errorMessage: failures.map((outcome) => outcome.reason).join("; "),
+              } satisfies PlannedJobStep<MaterializeStepRequirements>,
+            ];
+          const nativeLocations = preview.flatMap((outcome) =>
+            (outcome.targets ?? []).flatMap((target) =>
+              target.nativeLocation === undefined ? [] : [target.nativeLocation],
+            ),
+          );
+          return [
+            {
+              key: `mcp-server:disable:${node.name}`,
+              label: `disable mcp-server ${node.name}`,
+              readiness: "ready",
+              artifact: {
+                path: nativeLocations[0]?.address.path ?? node.name,
+                scope: location.scope,
+                change: "updated",
+                nativeLocations,
+              },
+              run: removeMcpServerFromAgents(configuredAgents, removal).pipe(
+                Effect.flatMap((outcomes) => {
+                  const failed = outcomes.filter((outcome) => outcome._tag === "failed");
+                  if (failed.length > 0)
+                    return Effect.fail(
+                      new WorkspaceSyncFailed({
+                        category: "conflict",
+                        detail: failed.map((outcome) => outcome.reason).join("; "),
+                      }),
+                    );
+                  return Effect.succeed({
+                    result: "success" as const,
+                    message: `Disabled MCP server ${node.name}`,
+                    artifact: {
+                      path: nativeLocations[0]?.address.path ?? node.name,
+                      scope: location.scope,
+                      change: "updated" as const,
+                      nativeLocations: outcomes.flatMap((outcome) =>
+                        (outcome.targets ?? []).flatMap((target) =>
+                          target.nativeLocation === undefined ? [] : [target.nativeLocation],
+                        ),
+                      ),
+                    },
+                  });
+                }),
+                Effect.mapError(args.adapter.toStepFailure),
+              ),
+            } satisfies PlannedJobStep<MaterializeStepRequirements>,
+          ];
+        }),
+    ).pipe(Effect.map((steps) => steps.flat()));
     const validateAcceptedLocalMaterialization = (ref: ExtensionRef) =>
       Effect.gen(function* () {
         if (ref.refType !== "local") return;
@@ -1341,24 +1400,10 @@ export const collectMaterializeSteps = (args: {
     const addedHookRoutes = new Set(
       configuredAgents.filter((agent) => !priorHookAgents.includes(agent)),
     );
-    const nativeInsertionEligibleHookNames = new Set(
-      unresolvedPackRoutes(priorHookGraph).length > 0
-        ? []
-        : changedHooks
-            .filter(
-              (ref) =>
-                desiredReachability(priorHookGraph, { type: "hook", name: ref.hook.name })
-                  .decision === "not-reached",
-            )
-            .map((ref) => ref.hook.name),
-    );
     const preparedHookProjection =
       changedHooks.length === 0
         ? undefined
         : yield* hookManager.prepareProjection(changedHooks, {
-            nativeInsertionEligibleNames: nativeInsertionEligibleHookNames,
-            nativeInsertionEligibleAgentIds:
-              unresolvedPackRoutes(priorHookGraph).length > 0 ? new Set() : addedHookRoutes,
             configuredAgents,
             desiredGraph: desiredState,
           });
@@ -1481,7 +1526,6 @@ export const collectMaterializeSteps = (args: {
                   sourceIdentity,
                   nativeLocations,
                   scope: location.scope,
-                  nativeInsertionEligiblePaths: nativeInsertionEligibleMcpPaths,
                   force,
                   transitionLabel,
                   adapter: args.adapter,
@@ -1494,6 +1538,7 @@ export const collectMaterializeSteps = (args: {
                 }),
           ),
         ...inlineMcpServerSteps,
+        ...disabledMcpSteps,
         ...subagentRefs.filter(({ materialize }) => materialize).map(subagentMaterializeStep),
         ...ruleRefs
           .filter(({ materialize }) => materialize)

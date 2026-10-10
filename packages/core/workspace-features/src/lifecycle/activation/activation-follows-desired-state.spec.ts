@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "cli/activation-follows-desired-state",
   title: "Activation preserves leaf content and realizes Pack dependency routes",
   statement:
-    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.",
+    "When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members when no retained native registrations reference their code, and retaining members reached elsewhere or needed by native references, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -294,7 +294,9 @@ describe("Activation follows desired state", () => {
                 workspace.exists(
                   fileRegistryPackagePath(registry, extensionTypeToPlural[type], name),
                 ),
-              ).toBe(false);
+              ).toBe(type === "hook");
+              if (type === "hook")
+                expect(workspace.readFile(".claude/settings.json")).not.toContain(`/${name}/src/`);
               expect(
                 workspace.readFile(
                   `${fileRegistryPackagePath(registry, "packs", "reviews")}/pack.json`,
@@ -317,6 +319,62 @@ describe("Activation follows desired state", () => {
       },
     );
   }
+
+  it.effect("disables a Pack's MCP through the host enable flag with a pure exact preview", () => {
+    const world = makeInstallWorld({ settings: { agents: ["codex"] } });
+    cleanups.push(world.cleanup);
+    const { workspace, registry } = world;
+    registry.writeMcp("review", [{ version: "1.0.0" }]);
+    registry.writePack("reviews", [
+      { version: "1.0.0", dependencies: { "@acme/mcps/review": "^1.0.0" } },
+    ]);
+    const foreign = '[mcp_servers.foreign]\ncommand = "keep"\n';
+    workspace.writeFile(".codex/config.toml", foreign);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applyInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: "@acme/packs/reviews" },
+            }),
+          );
+          expect(workspace.readFile(".codex/config.toml")).toContain("enabled = true");
+          const before = workspace.snapshot();
+          const request = { type: "pack", name: "reviews", enabled: false } as const;
+          const preview = yield* previewActivation(request);
+          expect(preview._tag === "Resolved" ? preview.outcome : preview._tag).toBe("previewed");
+          expect(workspace.snapshot()).toEqual(before);
+          if (preview._tag === "Resolved" && preview.candidate._tag === "SetActivation")
+            expect(preview.candidate.artifact.nativeLocations).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  scope: "project",
+                  configuredConsumers: ["codex"],
+                  state: "updated",
+                  ownership: "declared",
+                  address: expect.objectContaining({
+                    kind: "key-path",
+                    keys: ["mcp_servers", "review"],
+                  }),
+                }),
+              ]),
+            );
+          const disabled = yield* applyActivation(request);
+          expect(
+            disabled._tag === "Resolved" ? disabled.outcome : disabled._tag,
+            JSON.stringify(disabled),
+          ).toBe("applied");
+          expect(workspace.readFile(".codex/config.toml")).toContain("enabled = false");
+          expect(workspace.readFile(".codex/config.toml")).toContain(foreign);
+          const enabled = yield* applyActivation({ ...request, enabled: true });
+          expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
+          expect(workspace.readFile(".codex/config.toml")).toContain("enabled = true");
+          expect(workspace.readFile(".codex/config.toml")).toContain(foreign);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   it.effect(
     "rejects a newly enabled Pack constraint that conflicts with retained accepted content",

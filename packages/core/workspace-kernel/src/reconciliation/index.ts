@@ -67,7 +67,6 @@ export {
 } from "./rendered-file-cleanup.js";
 export {
   buildInlineMcpServerSyncOperation,
-  buildMcpServerPruneOperation,
   collectCleanupStep,
   collectHooksStep,
   collectInstructionStep,

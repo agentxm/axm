@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/remove/removes-membership-and-owned-outputs",
   title: "Removing a coding agent retires it together with the outputs only it reached",
   statement:
-    "When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned outputs no remaining configured agent reaches in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.",
+    "When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches, retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -508,12 +508,15 @@ describe("Removing a coding agent", () => {
       const first = yield* decodeResult();
       expect(first.result.outcome).toBe("applied");
       const shared = first.result.nativeLocations.filter(
-        (unit) => unit.address.path === `${fixture.root}/.mcp.json`,
+        (unit) =>
+          unit.address.path === `${fixture.root}/.mcp.json` &&
+          unit.address.kind === "key-path" &&
+          unit.address.keys.at(-1) === "api",
       );
       expect(shared).toHaveLength(1);
       expect(shared[0]).toMatchObject({
         address: { kind: "key-path", keys: ["mcpServers", "api"] },
-        ownership: "owned",
+        ownership: "declared",
         configuredConsumers: ["claude-code", "github-copilot-cli"],
       });
       const nativeBefore = fixture.readFile(".mcp.json");
@@ -524,7 +527,6 @@ describe("Removing a coding agent", () => {
             command: "node",
             args: ["api.js"],
             env: { TOKEN: "${TOKEN}" },
-            "x-axm": { v: 1, managed: true, ext: "@workspace/mcps/api", source: "inline" },
           },
           foreign: { command: "keep-me", args: ["foreign.js"] },
         },
@@ -541,15 +543,18 @@ describe("Removing a coding agent", () => {
       expect(fixture.readFile(".mcp.json")).toBe(nativeBefore);
       expect(fixture.readLockfileText()).toBe(lockBefore);
       const retained = removed.result.nativeLocations.filter(
-        (unit) => unit.address.path === `${fixture.root}/.mcp.json`,
+        (unit) =>
+          unit.address.path === `${fixture.root}/.mcp.json` &&
+          unit.address.kind === "key-path" &&
+          unit.address.keys.at(-1) === "api",
       );
       expect(retained).toHaveLength(1);
       expect(retained[0]).toMatchObject({
         address: { kind: "key-path", keys: ["mcpServers", "api"] },
-        ownership: "owned",
+        ownership: "declared",
         state: "retained",
         configuredConsumers: ["github-copilot-cli"],
-        reason: expect.stringContaining("Still required by configured consumers"),
+        reason: "Still required by configured consumers: github-copilot-cli.",
       });
       expect(removed.result.nativeLocationCounts.changed).toBe(0);
       const inventory = yield* fixture.provide(
@@ -600,8 +605,10 @@ describe("Removing a coding agent", () => {
         const first = yield* decodeResult();
         expect(first.result.outcome).toBe("applied");
         for (const suffix of [`.trae/skills/${SKILL}`, ".trae/mcp.json"]) {
-          const units = first.result.nativeLocations.filter((unit) =>
-            unit.address.path.endsWith(suffix),
+          const units = first.result.nativeLocations.filter(
+            (unit) =>
+              unit.address.path.endsWith(suffix) &&
+              (unit.address.kind !== "key-path" || unit.address.keys.at(-1) === "context"),
           );
           expect(units).toHaveLength(1);
           expect(units[0]?.configuredConsumers).toEqual(["trae", "trae-cn"]);
@@ -620,8 +627,10 @@ describe("Removing a coding agent", () => {
         expect(fixture.snapshotOf("skills")).toEqual(sourceBefore);
         expect(fixture.readFile(".trae/mcp.json")).toBe(mcpBefore);
         for (const suffix of [`.trae/skills/${SKILL}`, ".trae/mcp.json"]) {
-          const retained = removed.result.nativeLocations.filter((unit) =>
-            unit.address.path.endsWith(suffix),
+          const retained = removed.result.nativeLocations.filter(
+            (unit) =>
+              unit.address.path.endsWith(suffix) &&
+              (unit.address.kind !== "key-path" || unit.address.keys.at(-1) === "context"),
           );
           expect(retained).toHaveLength(1);
           expect(retained[0]).toMatchObject({

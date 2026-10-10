@@ -138,7 +138,8 @@ publisher or semantic version. Update advances that shared source; restore and
 reinstall retain the accepted content; removal releases it after its last route.
 
 The adapter preserves explicit transport and literal URL/header semantics, and
-checks native output through the existing ownership and readback boundary.
+checks native output through the [declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority)
+and readback boundary.
 Portable stdio working-directory and plugin-variable semantics, vendor MCP
 manifest loaders, and unknown plugin runtime components remain unsupported.
 Their files can be retained without activation. CLI evidence for Claude Code,

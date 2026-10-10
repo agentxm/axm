@@ -168,11 +168,11 @@ Fixture execution is not sandboxed and does not prove native loading, trust, or
 host invocation. Inspect package code before running it. Lint, preview,
 installation, synchronization, and publication do not execute fixture code.
 
-## Native state and ownership
+## Native state and declaration authority
 
 Hooks activate only through native settings. Unsupported required targets block
 before writing; AXM does not generate instruction fallbacks. Disabling a hook
-withdraws its owned native registrations and retains its package and preferences.
+withdraws selected configured-agent native registrations and retains its package and preferences.
 
 Install and sync report per-agent outcomes and reasons. `projected` means a
 preview has a supported native representation; `current` describes configuration
@@ -185,12 +185,23 @@ evidence. Missing, invalid, historical, and stale evidence remain distinct.
 reports static package facts and prospective configured-agent outcomes. Published
 inspection does not inherit local fixture receipts or claim native invocation.
 
-Generated entries carry structured `x-axm` metadata identifying the package,
-scope, canonical source root, binding, and selected implementations. AXM preserves
-foreign entries and unrelated native settings. A command merely pointing inside
-`agent_extensions` is not ownership proof; lint reports ambiguous ownership for
-such entries. Compatible readers of an aliased native file share one physical
-registration only when their complete native renderings agree.
+A Hook declaration selects direct `bash`, `node`, `bun` or `python3` invocations
+whose script is strictly beneath its exact canonical package root in the
+selected scope. Updating a package replaces those registrations across changed
+events, matchers, scripts and arguments, consolidating old duplicates. AXM emits
+no ownership property and preserves other commands, matcher groups and their
+order. Overlapping roots, duplicate desired registrations and selected scripts
+in unsupported shell compositions block the write. An event, array index or
+command substring never grants authority. Compatible readers of an aliased
+native file must agree before one physical write.
+
+Removing declarations, agents or Pack routes retains registrations; retained
+commands can still execute. Explicit disable/uninstall captures the selected
+package and withdraws registrations from configured agents before discarding
+intent. After intent is gone, remove only the exact native registrations
+manually. Native files remain. Acquired-package removal is refused while retained
+registrations reference its code. Fixture receipts remain execution evidence,
+separate from registration currency and actual native-host invocation.
 
 ## Native bundles
 
@@ -220,7 +231,7 @@ reads that file's resource list automatically. Exported commands require the
 bundle root as their working directory; exporting does not register or run them.
 The bounded export format refuses consumer configuration, environment bindings,
 configuration references, and absolute workstation arguments. It omits workspace
-state and AXM registration ownership. Declare every required helper as an asset;
+state and AXM declaration selection. Declare every required helper as an asset;
 AXM does not discover dependencies by executing or parsing scripts.
 
 ## Commands
@@ -236,7 +247,7 @@ AXM does not discover dependencies by executing or parsing scripts.
 - `axm hooks show <name>` — inspect installed state and per-agent reasons.
 - `axm hooks enable <name>` / `axm hooks disable <name>` — reconcile activation.
 - `axm hooks update <name>` — update the accepted package version.
-- `axm hooks uninstall <name>` — withdraw owned outputs and remove acquired state.
+- `axm hooks uninstall <name>` — withdraw selected configured-agent registrations and remove unreferenced acquired state.
 - `axm sync --preview` — inspect reconciliation without writing.
 - `axm hooks publish @owner/hooks/<name> --preview` — inspect publication validation.
 

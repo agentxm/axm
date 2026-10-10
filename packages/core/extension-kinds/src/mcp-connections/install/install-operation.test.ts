@@ -340,7 +340,6 @@ const makeOp = (
           }),
       strictAgentSync: Option.fromUndefinedOr(overrides.strictAgentSync),
       ...(overrides.bindings === undefined ? {} : { bindings: overrides.bindings }),
-      nativeInsertionEligible: true,
     },
   };
 };

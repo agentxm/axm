@@ -890,11 +890,10 @@ export const prepareImportNativeExtension: (
           ...common,
           target: { type: "mcp-server", name },
           materializeWhenDisabled: true,
-          materializeInstall: (ref, options) =>
+          materializeInstall: (ref) =>
             materializeAuthoredMcpServer({
               ref,
               nonInteractive: request.nonInteractive,
-              nativeInsertionEligible: options.nativeInsertionEligible,
             }),
           buildArtifact: ({ materialization }) =>
             Effect.succeed({

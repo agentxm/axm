@@ -26,12 +26,8 @@ import {
   syncManifestMcpServerToAgents,
   syncPluginMcpServerToAgents,
   type McpServerSyncOutcome,
-  type AxmMcpMetadata,
 } from "@agentxm/workspace-kernel/agent-adapters";
-import {
-  CodingAgentRepository,
-  captureAgentOutputAuthority,
-} from "@agentxm/workspace-kernel/projection";
+import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
   desiredReachability,
   mcpRegistryResolutionKey,
@@ -126,9 +122,6 @@ const syncConfiguredAgentsOnInstall = (args: {
   readonly nothingRunnable: boolean;
   readonly enabled: boolean;
   readonly entry: McpServerEntry;
-  readonly nativeInsertionEligible: boolean;
-  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-  readonly previousManagedEntries: ReadonlyArray<AxmMcpMetadata>;
 }) =>
   Effect.gen(function* () {
     const agentRepo = yield* CodingAgentRepository;
@@ -171,11 +164,6 @@ const syncConfiguredAgentsOnInstall = (args: {
         ...(args.entry.distribution === undefined ? {} : { distribution: args.entry.distribution }),
         ...(args.entry.bindings === undefined ? {} : { bindings: args.entry.bindings }),
         ...(args.entry.auth === undefined ? {} : { auth: args.entry.auth }),
-        nativeInsertionEligible: args.nativeInsertionEligible,
-        ...(args.nativeInsertionEligiblePaths === undefined
-          ? {}
-          : { nativeInsertionEligiblePaths: args.nativeInsertionEligiblePaths }),
-        previousManagedEntries: args.previousManagedEntries,
       };
       const synced = yield* args.entry.kind === "sourced" &&
       args.entry.nativeComponent !== undefined
@@ -257,11 +245,9 @@ export const installMcpServer: (
           })
         : undefined;
     const desiredGraph = yield* desiredStateReader.graph();
-    const nativeInsertionEligible =
-      op.args.nativeInsertionEligible ??
+    const firstDeclaration =
       desiredReachability(desiredGraph, { type: "mcp-server", name: localName }).decision ===
-        "not-reached";
-    const nativeAuthority = yield* captureAgentOutputAuthority();
+      "not-reached";
     const sourceIdentity = op.args.sourceIdentity ?? (yield* requestedMcpSourceIdentity(ref));
     const existingClosure = desiredGraph.mcpSourceClosures.find(
       (closure) => closure.key === sourceIdentity,
@@ -275,7 +261,7 @@ export const installMcpServer: (
     const facts = yield* manager.materializeInstall({
       ref,
       force: op.args.force,
-      nativeInsertionEligible,
+      nativeInsertionEligible: op.args.nativeInsertionEligible ?? firstDeclaration,
     });
     const resolution = yield* manager.acceptedResolution({
       ref,
@@ -328,7 +314,7 @@ export const installMcpServer: (
             allowUnambiguous:
               op.args.authorizeDistributionSelection === true ||
               op.args.declaration !== undefined ||
-              nativeInsertionEligible,
+              firstDeclaration,
           });
     if (selected?._tag === "blocked") {
       return yield* new McpConfigurationRefused({ localName, reason: selected.reason });
@@ -425,11 +411,6 @@ export const installMcpServer: (
             nothingRunnable,
             enabled: projectionEntry.enabled !== false,
             entry: projectionEntry,
-            nativeInsertionEligible: projectionName === localName && nativeInsertionEligible,
-            ...(op.args.nativeInsertionEligiblePaths === undefined
-              ? {}
-              : { nativeInsertionEligiblePaths: op.args.nativeInsertionEligiblePaths }),
-            previousManagedEntries: nativeAuthority.expectedMcpEntries[projectionName] ?? [],
           });
         }),
       { concurrency: 1 },

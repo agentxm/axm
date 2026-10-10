@@ -1,7 +1,7 @@
 /**
  * Regression tests for graph-derived hook unit rendering.
  *
- * Hook ownership units are aggregates: the AXM-owned entries in each
+ * Hook projection units aggregate declaration-selected registrations in each
  * agent's native hook configuration render the complete
  * contributor set the desired-state graph reaches, including Pack-contributed
  * hooks that never appear in settings.
@@ -247,7 +247,7 @@ describe("HookManager graph-derived unit projection", () => {
     }).pipe(Effect.provide(layer));
   });
 
-  it.effect("keeps the other pack's native entry when one pack leaves the graph", () => {
+  it.effect("retains both native registrations when one pack leaves the graph", () => {
     writeHookPackage("pack-a-hook");
     writeHookPackage("pack-b-hook");
     const before = makeTestLayer({
@@ -279,7 +279,46 @@ describe("HookManager graph-derived unit projection", () => {
           .pipe(Effect.flatMap(applyProjectionPlans));
       }).pipe(Effect.provide(after));
       const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
-      expect(raw).not.toContain("pack-a-hook");
+      expect(raw.split("pack-a-hook/src/hook.sh").length - 1).toBe(1);
+      expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
+    });
+  });
+
+  it.effect("withdraws an explicitly disabled Hook while preserving its active sibling", () => {
+    writeHookPackage("pack-a-hook");
+    writeHookPackage("pack-b-hook");
+    const nodes = [packHookNode("pack-a-hook", "pack-a"), packHookNode("pack-b-hook", "pack-b")];
+    const locked = decodeLockMap({
+      "pack-a-hook": registryLock(baseDir, "pack-a-hook"),
+      "pack-b-hook": registryLock(baseDir, "pack-b-hook"),
+    });
+    const before = makeTestLayer({
+      graph: completeGraph(nodes),
+      locked,
+      configuredAgents: ["claude-code"],
+    });
+    const after = makeTestLayer({
+      graph: completeGraph(
+        nodes.map((node) => ({ ...node, enabled: node.name !== "pack-a-hook" })),
+      ),
+      locked,
+      configuredAgents: ["claude-code"],
+    });
+    return Effect.gen(function* () {
+      yield* Effect.gen(function* () {
+        yield* applyPlannedProjections(yield* HookManager);
+      }).pipe(Effect.provide(before));
+      yield* Effect.gen(function* () {
+        const manager = yield* HookManager;
+        yield* applyPlannedProjections(manager);
+        expect(
+          (yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).every(
+            (unit) => unit.current,
+          ),
+        ).toBe(true);
+      }).pipe(Effect.provide(after));
+      const raw = nodeFs.readFileSync(nodePath.join(baseDir, ".claude", "settings.json"), "utf8");
+      expect(raw).not.toContain("pack-a-hook/src/hook.sh");
       expect(raw.split("pack-b-hook/src/hook.sh").length - 1).toBe(1);
     });
   });

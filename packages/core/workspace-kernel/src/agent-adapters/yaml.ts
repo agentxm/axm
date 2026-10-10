@@ -1,5 +1,5 @@
 /**
- * YAML config helpers for AXM-owned structured config edits.
+ * YAML config helpers for bounded structured config edits.
  *
  * @experimental All exports from this module are unstable and may change without notice.
  * @packageDocumentation
@@ -56,18 +56,6 @@ export const readYamlEntry = (
   if (!isRecord(servers)) return undefined;
   const entry = servers[serverName];
   return isRecord(entry) ? entry : undefined;
-};
-
-export const managedYamlNames = (
-  raw: string,
-  serversPath: ReadonlyArray<string>,
-  isManaged: (entry: Readonly<Record<string, unknown>>) => boolean,
-): ReadonlyArray<string> => {
-  const servers = validateServersShape(raw, serversPath);
-  if (!isRecord(servers)) return [];
-  return Object.entries(servers).flatMap(([name, entry]) =>
-    isRecord(entry) && isManaged(entry) ? [name] : [],
-  );
 };
 
 export const setYamlEntry = (

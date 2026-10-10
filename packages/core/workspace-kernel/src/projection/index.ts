@@ -271,18 +271,18 @@ export {
 // MCP projection facts
 export type { McpInspectionError } from "./mcps/errors.js";
 export {
-  collectManagedAgentMcpServers,
+  collectNativeAgentMcpServers,
   inspectDesiredMcpServer,
   withMcpInspectionReadView,
   mcpInspectionOutcome,
   mcpInspectionsCurrent,
   type AgentMcpInspectionStatus,
   type AgentMcpServerInspection,
-  type CollectManagedAgentMcpServersArgs,
+  type CollectNativeAgentMcpServersArgs,
   type DesiredMcpServerInspection,
   type DesiredMcpServerSubject,
   type InspectDesiredMcpServerArgs,
-  type ManagedAgentMcpServer,
+  type NativeAgentMcpServer,
 } from "./mcps/inspection.js";
 export { diffAgentEntry, type DriftReport } from "./mcps/drift.js";
 
@@ -326,3 +326,5 @@ export {
   validateNativeRetentionWitnesses,
   type NativeRetentionWitness,
 } from "./native-retention.js";
+
+export { nativePackageReferences } from "./native-package-references.js";

@@ -127,18 +127,19 @@ closure; shared source state remains until its final route is removed.
 The smallest native unit of a managed output that AXM can own, observe, and
 change independently — a directory, file, named entry, or marked region. Each
 extension type declares its units and whether each carries one contributor or
-many; the ownership table in the
-[extension architecture](extensions/overview.md#ownership-and-coexistence) is
+many; the authority table in the
+[extension architecture](extensions/overview.md#authority-and-coexistence) is
 authoritative.
 
 ## Projection
 
-An AXM-owned managed output unit derived from desired workspace state, whether
-from canonical extension content or, as with inline MCP entries and
-instruction aliases, directly from workspace configuration. All projections
-follow the same ownership, reconciliation, and projection-fact rules. A
-projection is AXM-owned only when AXM created and still owns it; occupying an
-expected path does not establish ownership.
+An output unit derived from desired workspace state, whether from canonical
+extension content or, as with inline MCP entries and instruction aliases,
+directly from workspace configuration. Native MCP and Hook projections follow
+[declaration authority](workspace/managed-file-ownership.md#native-declaration-authority).
+Other projections require unit-local ownership evidence; occupying an expected
+path does not establish ownership. Projection facts establish currency
+independently of the authority to change a unit.
 
 ## Source
 

@@ -17,7 +17,7 @@ import {
   hasNativeHookIntroductions,
   interpretNativeHookChanges,
 } from "./hooks/reader-semantics.js";
-import { readManagedHookUnits } from "./hooks/managed-groups.js";
+import { readDeclaredHookUnits } from "./hooks/managed-groups.js";
 import { interpretNativeMcpEntry } from "./mcps/reader-semantics.js";
 import { parseNativeConfigRoot } from "./native-config-syntax.js";
 
@@ -130,7 +130,7 @@ export const preflightNativeConfigReaders = (args: {
         });
         parsed.push(root);
         if (reader.kind === "hook" && reader.settingsKey !== undefined)
-          yield* readManagedHookUnits(alias, reader.settingsKey, raw, []).pipe(
+          yield* readDeclaredHookUnits(alias, reader.settingsKey, raw, []).pipe(
             Effect.mapError(
               (cause) =>
                 new McpConfigInvalid({

@@ -297,20 +297,25 @@ export const prepareUninstallExtensions: (
                 }),
             ),
           );
-          const cleanup = yield* collectCleanupStep({
-            expectedNames: expectedProjectionNames(proposal.after),
-            subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
-            adapter: conversion,
-          }).pipe(
-            Effect.mapError(
-              (cause) =>
-                new ExtensionLifecycleFailed({
-                  category: "conflict",
-                  detail: "Cannot establish owned uninstall outputs",
-                  cause,
-                }),
-            ),
-          );
+          // Native MCP and Hook withdrawal belongs to the targeted manager.
+          // An absence-retention step would promise to preserve the same unit it removes.
+          const cleanup =
+            leafType === "mcp-server" || leafType === "hook"
+              ? Option.none()
+              : yield* collectCleanupStep({
+                  expectedNames: expectedProjectionNames(proposal.after),
+                  subjects: [{ type: leafType, name: nameFromLabel(step.label) }],
+                  adapter: conversion,
+                }).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new ExtensionLifecycleFailed({
+                        category: "conflict",
+                        detail: "Cannot establish owned uninstall outputs",
+                        cause,
+                      }),
+                  ),
+                );
           const removal = {
             ...step,
             artifact,

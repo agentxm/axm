@@ -55,12 +55,6 @@ describe("Sync checks require preview", () => {
           {
             mcpServers: {
               obsolete: {
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/obsolete",
-                  source: "inline",
-                },
                 command: "node",
                 args: ["obsolete-server.js"],
               },

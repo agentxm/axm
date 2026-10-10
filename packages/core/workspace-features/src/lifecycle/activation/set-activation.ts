@@ -395,6 +395,7 @@ const activationArtifact = (
     fileCount: targets.length,
     targets,
     nativeLocations: combineNativeLocationOutcomes([
+      ...realization.nativeWithdrawals,
       ...Option.match(realization.materialization, {
         onNone: () => [],
         onSome: (collected) =>
@@ -547,6 +548,8 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
           proposal,
           enabled: request.enabled,
           subjects: [subject],
+          hookWithdrawals: [],
+          nativeWithdrawals: [],
           materialization: Option.none(),
           retirement: Option.none(),
         }
@@ -714,7 +717,7 @@ const settlePack = (request: SetActivationRequest, adapter: StepFailureConversio
             {
               path: relative,
               state: canonical.value.observation.status === "usable" ? "retained" : "unknown",
-              reason: "canonical content required by resulting desired state",
+              reason: "canonical content retained",
             },
           ];
         }),

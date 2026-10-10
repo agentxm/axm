@@ -106,7 +106,6 @@ describe("truthful native MCP destinations", () => {
           ...args,
           serverName: "context",
           entry,
-          nativeInsertionEligible: true,
         });
         expect(written).toMatchObject([
           { _tag: "failed", reason: expect.stringContaining("unresolved"), targets: [] },
@@ -126,7 +125,6 @@ describe("truthful native MCP destinations", () => {
         const removed = yield* removeMcpServerFromAgents(["codex"], {
           ...args,
           serverName: "context",
-          expectedManagedEntries: {},
         });
         expect(removed).toMatchObject([{ _tag: "failed", targets: [] }]);
         expect(yield* fs.readDirectory(workspaceRoot)).toEqual([]);

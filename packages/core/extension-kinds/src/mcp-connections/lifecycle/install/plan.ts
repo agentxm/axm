@@ -37,7 +37,6 @@ import {
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { installMcpServer } from "../../install/install-operation.js";
-import { captureAgentOutputAuthority } from "@agentxm/workspace-kernel/projection";
 import { materializeRegistryPackage } from "@agentxm/workspace-kernel/materialization";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
@@ -648,10 +647,9 @@ export const planMcpServerInstall: (
         const definition = yield* readPluginMcpDefinition(manifestPath, nativeComponent);
         const entries = yield* settings.entries("mcp-server");
         const entry = entries[intent.localName];
-        const authority = yield* captureAgentOutputAuthority();
         yield* validatePluginMcpServerTargets({
           nativeDirectoryInputs: location.nativeDirectoryInputs,
-          nativeInsertionEligible: false,
+
           workspaceRoot: location.baseDir,
           definition,
           source: printSourceParams(ref.source),
@@ -662,7 +660,6 @@ export const planMcpServerInstall: (
           scope: location.scope,
           serverName: intent.localName,
           enabled: entries[intent.localName]?.enabled ?? true,
-          previousManagedEntries: authority.expectedMcpEntries[intent.localName] ?? [],
         }).pipe(
           Effect.mapError((cause) =>
             installRefused({
@@ -727,10 +724,9 @@ export const planMcpServerInstall: (
             detail: `Shared MCP alias ${name} blocks the source update: ${resolution.reason}`,
           });
       }
-      const authority = yield* captureAgentOutputAuthority();
       yield* validateManifestMcpServerTargets({
         nativeDirectoryInputs: location.nativeDirectoryInputs,
-        nativeInsertionEligible: false,
+
         workspaceRoot: location.baseDir,
         manifest,
         agentIds: yield* settings.configuredAgents,
@@ -738,7 +734,6 @@ export const planMcpServerInstall: (
         serverName: intent.localName,
         ...preferences,
         enabled: entries[intent.localName]?.enabled ?? true,
-        previousManagedEntries: authority.expectedMcpEntries[intent.localName] ?? [],
       }).pipe(
         Effect.mapError((cause) =>
           installRefused({

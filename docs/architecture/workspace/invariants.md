@@ -73,7 +73,7 @@ The desired-state graph is the sole reachability authority. It derives direct
 routes and activation from settings, authored Pack dependencies from current
 manifests, and acquired Pack dependencies from matching accepted declarations.
 Lock rows never create roots. Canonical content and native output never create
-reachability or cleanup authority; physical removal still needs ownership proof.
+reachability or cleanup authority; physical removal still needs the applicable unit authority.
 
 For sourced MCP servers, the graph distinguishes each local connection node
 from its source-resolution closure. Connection nodes own local names and
@@ -155,8 +155,10 @@ Every lint error and sync blocker has one demonstrated recovery owner:
 - manual preservation, relocation, or removal of unowned native content.
 
 Recovery ownership is a test classification, not suggested-action metadata.
-AXM does not adopt unowned native content, even when it is semantically
-equivalent to the required output.
+File artifacts require ownership evidence independently of equivalent content.
+Native MCP and Hook configuration instead follows
+[declaration authority](managed-file-ownership.md#native-declaration-authority),
+including same-name replacement and retention when declarations disappear.
 
 ## Recovery-conformance verification
 

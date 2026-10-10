@@ -88,7 +88,7 @@ describe("native artifact parent withdrawal", () => {
                 expectedSubagentFiles: {
                   review: [{ ext: "@acme/subagents/review", src: "subagents/review" }],
                 },
-                expectedMcpEntries: {},
+                declaredMcpNames: new Set<string>(),
                 expectedHooks: [],
                 expectedRegions: { rule: [], knowledge: [] },
               },

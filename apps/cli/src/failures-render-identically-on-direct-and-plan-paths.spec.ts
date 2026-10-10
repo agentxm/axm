@@ -138,8 +138,6 @@ import {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
   NativeWriteRefused,
   SubagentIoFailed,
@@ -592,14 +590,7 @@ const representatives: Representatives = {
   McpConfigIoFailed: [
     new McpConfigIoFailed({ detail: "Failed to write MCP config", cause: ioCause }),
   ],
-  McpEntryUnmanaged: [new McpEntryUnmanaged({ serverName: "demo", configPath: "/w/.mcp.json" })],
-  McpOwnershipMarkerInvalid: [
-    new McpOwnershipMarkerInvalid({
-      serverName: "demo",
-      state: "unsupported-version",
-      operation: "modify",
-    }),
-  ],
+
   McpDefinitionInvalid: [new McpDefinitionInvalid({ detail: "No command or URL" })],
   McpSharedTargetConflict: [
     new McpSharedTargetConflict({ reason: "members disagree on the shared target" }),

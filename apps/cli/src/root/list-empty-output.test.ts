@@ -3,16 +3,25 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
+import * as Result from "effect/Result";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { afterEach, beforeEach } from "vitest";
 
-import { writeWorkspaceFiles } from "../test-support/test-stubs.js";
+import {
+  computeMaterializedTreeIntegritySync,
+  writeWorkspaceFiles,
+} from "../test-support/test-stubs.js";
 import {
   expectNoPlanEnvelope,
   makeWorkspaceHandlerTestContext,
 } from "../test-support/test-helpers.js";
 import { handleList as handleListHook } from "./hooks/list.js";
 import { handleList as handleListMcpServers } from "./mcps/list.js";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  acquiredPackageRelativePath,
+  mcpRegistryResolutionKey,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 
 describe("list command empty output", () => {
@@ -48,9 +57,45 @@ describe("list command empty output", () => {
     );
   };
 
-  const writeRegistryMcpWorkspace = () => {
+  const writeRegistryMcpWorkspace = (agents: ReadonlyArray<string> = ["codex"]) => {
+    const canonical = path.join(
+      tempDir,
+      "agent_extensions",
+      Result.getOrThrow(
+        acquiredPackageRelativePath(
+          {
+            refType: "registry",
+            owner: decodeHandleSync("@acme"),
+            source: {
+              type: "registry",
+              name: "test",
+              location: new URL("file:///tmp/test-registry"),
+              owner: Option.none(),
+            },
+          },
+          "mcps",
+          "context",
+        ),
+      ),
+    );
+    fs.mkdirSync(canonical, { recursive: true });
+    fs.writeFileSync(
+      path.join(canonical, "mcp.json"),
+      JSON.stringify({
+        owner: "@acme",
+        type: "mcp-server",
+        name: "context",
+        version: "2.3.4",
+        server: {
+          name: "io.github.acme/context",
+          description: "Test MCP",
+          version: "2.3.4",
+          remotes: [{ type: "streamable-http", url: "https://mcp.acme.test/mcp" }],
+        },
+      }),
+    );
     writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      agents: ["codex"],
+      agents,
       mcps: {
         context: {
           source: "@acme/mcps/context",
@@ -72,6 +117,7 @@ describe("list command empty output", () => {
           name: "context",
           resolvedVersion: "2.3.4",
           integrity: "sha512-AAAA==",
+          treeIntegrity: computeMaterializedTreeIntegritySync(canonical),
           sourceName: "test",
           publisherBindingId: "hbnd_test",
         },
@@ -168,33 +214,7 @@ describe("list command empty output", () => {
 
   it.effect("emits MCP server rows in machine mode without a plan envelope", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
-    writeWorkspaceFiles(path.join(tempDir, ".axm"), {
-      mcps: {
-        context: {
-          source: "@acme/mcps/context",
-          distribution: {
-            kind: "remote",
-            transport: "streamable-http",
-            url: "https://mcp.acme.test/mcp",
-          },
-        },
-      },
-      lockfileMcpServers: {
-        [mcpRegistryResolutionKey({
-          authority: "file:///tmp/test-registry",
-          owner: "@acme",
-          name: "context",
-        })]: {
-          type: "registry",
-          owner: "@acme",
-          name: "context",
-          resolvedVersion: "2.3.4",
-          integrity: "sha512-AAAA==",
-          sourceName: "test",
-          publisherBindingId: "hbnd_test",
-        },
-      },
-    });
+    writeRegistryMcpWorkspace(["claude-code"]);
 
     return provide(
       Effect.gen(function* () {
@@ -234,12 +254,6 @@ describe("list command empty output", () => {
       'url = "https://mcp.acme.test/mcp"',
       "enabled = true",
       "",
-      '[mcp_servers.context."x-axm"]',
-      "v = 1",
-      "managed = true",
-      'ext = "@acme/mcps/context"',
-      'source = "registry"',
-      'ref = "@acme/mcps/context"',
       "# axm:end v=1 region=mcp-server:context ext=@acme/mcps/context",
     ]);
 
@@ -266,7 +280,7 @@ describe("list command empty output", () => {
     );
   });
 
-  it.effect("reports a legacy Codex ownership fence as unmanaged", () => {
+  it.effect("reports obsolete native metadata as drift regardless of comments", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeRegistryMcpWorkspace();
     writeCodexConfig([
@@ -295,7 +309,7 @@ describe("list command empty output", () => {
                 {
                   agentId: "codex",
                   outcome: "failed",
-                  reasonCode: "mcp-unmanaged",
+                  reasonCode: "stale-projection",
                   path: path.join(tempDir, ".codex/config.toml"),
                 },
               ],
@@ -306,7 +320,7 @@ describe("list command empty output", () => {
     );
   });
 
-  it.effect("preserves the unmanaged Codex collision classification", () => {
+  it.effect("reports differing unmarked Codex values as stale", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeRegistryMcpWorkspace();
     writeCodexConfig([
@@ -328,7 +342,7 @@ describe("list command empty output", () => {
                 {
                   agentId: "codex",
                   outcome: "failed",
-                  reasonCode: "mcp-unmanaged",
+                  reasonCode: "stale-projection",
                   path: path.join(tempDir, ".codex/config.toml"),
                 },
               ],

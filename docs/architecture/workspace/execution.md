@@ -224,12 +224,14 @@ finishes.
 Adapters translate canonical extension content or authoritative inline
 configuration into agent-native outputs. Workspace-surface writers do the same
 for shared outputs such as instruction files. Each adapter owns observation,
-serialization, and durable ownership evidence for its smallest independently
-mutable unit—not workspace intent, resolution, or canonical authority.
+serialization, and the authority of its smallest independently mutable unit.
+Native MCP and Hook adapters use [declaration authority](managed-file-ownership.md#native-declaration-authority);
+file artifacts retain durable ownership evidence. Neither determines workspace
+intent, resolution, or canonical authority.
 
-Every adapter distinguishes missing, incomplete, stale, obsolete, divergent,
-unowned collision, and ambiguous ownership. AXM creates, restores, or removes
-only proven owned units. Unowned or ambiguous units are preserved and block only
+File-artifact adapters distinguish missing, incomplete, stale, obsolete,
+divergent, unowned collision, and ambiguous ownership. AXM creates, restores,
+or removes only their proven owned units. Unowned or ambiguous units are preserved and block only
 their affected closure.
 
 An adapter receives the complete contributor set its unit requires from shared

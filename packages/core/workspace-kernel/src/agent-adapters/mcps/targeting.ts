@@ -311,25 +311,3 @@ export const resolveConfiguredMcpTargets = (args: {
     }
     return result;
   });
-
-/** A new agent alias grants insertion only when it introduces a new physical file. */
-export const newlyConfiguredMcpRoutePaths = (args: {
-  readonly previousAgentIds: ReadonlyArray<string>;
-  readonly agentIds: ReadonlyArray<string>;
-  readonly scope: "project" | "user";
-  readonly workspaceRoot: string;
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-}) =>
-  Effect.gen(function* () {
-    if (args.agentIds.every((agentId) => args.previousAgentIds.includes(agentId)))
-      return new Set<string>();
-    const previous = yield* resolveConfiguredMcpTargets({
-      ...args,
-      agentIds: args.previousAgentIds,
-    });
-    const next = yield* resolveConfiguredMcpTargets(args);
-    const previousPaths = new Set(previous.map((group) => group.path));
-    return new Set(
-      next.filter((group) => !previousPaths.has(group.path)).map((group) => group.path),
-    );
-  });

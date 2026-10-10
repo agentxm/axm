@@ -619,6 +619,9 @@ describe("axm install", () => {
 
       const disabled = await runJsonCommand(workspace.path, ["packs", "disable", packName]);
       expect(disabled.stdout.result.outcome).toBe("applied");
+      // Disable withdraws captured Hook registrations before a later sync may
+      // retire the canonical code that those registrations previously used.
+      await runJsonCommand(workspace.path, ["sync"]);
       for (const row of leafRows) {
         const canonical = extensionDirForSurface(workspace.path, row.plural, memberName(row));
         expect(fs.existsSync(canonical), `${row.type} exclusive canonical root retired`).toBe(
@@ -677,6 +680,11 @@ describe("axm install", () => {
       }
       await expectCleanWorkspace(workspace.path, "all leaf members pack-only");
 
+      // Removing a Pack route retains native registrations. Explicitly withdraw
+      // executable Hook registrations before asking to delete their package code.
+      for (const row of leafRows.filter((member) => member.type === "hook")) {
+        await runJsonCommand(workspace.path, ["hooks", "disable", memberName(row)]);
+      }
       const uninstallPreview = await runJsonCommand(
         workspace.path,
         ["packs", "uninstall", packName],
@@ -700,6 +708,11 @@ describe("axm install", () => {
           fs.existsSync(extensionDirForSurface(workspace.path, row.plural, memberName(row))),
           `${row.type} exclusive canonical root removed`,
         ).toBe(false);
+      }
+      for (const row of leafRows.filter((member) => member.type === "mcp-server")) {
+        expect(
+          JSON.parse(fs.readFileSync(path.join(workspace.path, ".mcp.json"), "utf8")),
+        ).toHaveProperty(`mcpServers.${memberName(row)}`);
       }
       expect(fs.readFileSync(path.join(unownedDirectory, "SKILL.md"), "utf8")).toBe(
         "# Hand written\n",

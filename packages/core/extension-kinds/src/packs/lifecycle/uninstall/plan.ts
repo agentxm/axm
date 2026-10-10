@@ -468,7 +468,7 @@ export const planPackUninstall: (
     ),
   );
   const artifacts = yield* Effect.forEach(orderedTargets, (target) =>
-    prepareUninstallArtifact(target, proposal),
+    prepareUninstallArtifact(target, proposal, { nativeCleanup: "retain" }),
   ).pipe(
     Effect.mapError((cause) =>
       installRefused({
@@ -513,6 +513,7 @@ export const planPackUninstall: (
         });
       case "mcp-server":
         return buildUninstallOperation(mcpServerManager, exclusiveMemberRetentionPolicy, {
+          nativeCleanup: "retain",
           toStepFailure: conversion.toStepFailure,
           target,
         });
@@ -529,6 +530,7 @@ export const planPackUninstall: (
         });
       case "hook":
         return buildUninstallOperation(hookManager, exclusiveMemberRetentionPolicy, {
+          nativeCleanup: "retain",
           toStepFailure: conversion.toStepFailure,
           target,
           enclosingClosure: { projections: [target.type] },

@@ -27,10 +27,7 @@ import {
   instructionsTargetStaleConformance,
   instructionsTargetUnownedConformance,
 } from "./conformance/instructions/test-helpers.js";
-import {
-  mcpAgentDriftConformance,
-  mcpAgentOrphanedConformance,
-} from "./conformance/mcps/test-helpers.js";
+import { mcpAgentDriftConformance } from "./conformance/mcps/test-helpers.js";
 import {
   desiredStateReconcilableConformance,
   sourceEndpointsAlignedConformance,
@@ -40,7 +37,6 @@ import {
   agentsProjectionsStaleConformance,
   axmSkillDeclaredConformance,
   axmSkillCompatibleConformance,
-  hookOwnershipAmbiguousConformance,
   knowledgeStateValidConformance,
   authoredPackageDeclaredConformance,
   installRootEntriesRecognizedConformance,
@@ -80,7 +76,6 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   instructionsGitignoreCurrentConformance,
   projectionOwnershipValidConformance,
   projectionContributorsRenderedConformance,
-  hookOwnershipAmbiguousConformance,
   managedFileUnownedConformance,
   installedButNotConfiguredConformance,
   deprecatedInstalledConformance,
@@ -97,7 +92,6 @@ const cases: ReadonlyArray<WorkspaceRuleConformanceCase> = [
   mcpTransportExclusivityConformance,
   mcpNoSecretLiteralConformance,
   mcpAgentDriftConformance,
-  mcpAgentOrphanedConformance,
   skillsLockfileAlignedConformance,
   skillsIntegrityValidConformance,
   skillsArtifactsCorrectConformance,

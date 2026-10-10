@@ -8,6 +8,7 @@ import {
   aggregateOwnershipUnits,
   observeAgentOutputs,
   captureAgentOutputAuthority,
+  nativePackageReferences,
 } from "../projection/index.js";
 import {
   acceptedCanonicalObservation,
@@ -31,6 +32,7 @@ import { acceptedRowKey, sameDesiredIdentity } from "../workspace-state/index.js
 export const prepareUninstallArtifact = (
   target: ExtensionTarget,
   proposal?: DesiredStateProposal,
+  options?: { readonly nativeCleanup?: "selected" | "retain" },
 ) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
@@ -108,9 +110,31 @@ export const prepareUninstallArtifact = (
           state: "retained",
           reason: "required by resulting desired state",
         });
-      else if (canonical.value.observation.status === "usable")
+      else if (canonical.value.observation.status === "usable") {
+        if (target.type === "mcp-server" || target.type === "hook" || target.type === "pack") {
+          const retained = yield* nativePackageReferences({
+            workspaceRoot: location.baseDir,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            scope: location.scope,
+            packageRoot: absolute,
+            ...(options?.nativeCleanup === "retain"
+              ? {}
+              : {
+                  withdrawal: {
+                    type: target.type,
+                    name: target.name,
+                    agentIds: yield* settings.configuredAgents,
+                  },
+                }),
+          });
+          if (retained.length > 0)
+            return yield* new WorkspaceSyncFailed({
+              category: "conflict",
+              detail: `Cannot remove canonical package while retained native registrations reference it at ${retained.join(", ")}. Remove those exact registrations explicitly before uninstalling.`,
+            });
+        }
         targets.push({ path: relative, change: "removed" });
-      else
+      } else
         references.push({
           path: relative,
           state: "unknown",
@@ -123,6 +147,7 @@ export const prepareUninstallArtifact = (
           .filter((node) => node.type === type && node.enabled)
           .map((node) => node.name),
       );
+    const configuredAgents = yield* settings.configuredAgents;
     const inventory = yield* observeAgentOutputs({
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       workspaceRoot: location.baseDir,
@@ -153,11 +178,27 @@ export const prepareUninstallArtifact = (
           state: "retained",
           reason: "native output is not AXM-owned",
         });
+      else if (options?.nativeCleanup === "retain" && target.type === "mcp-server")
+        references.push({
+          path: relative,
+          state: "retained",
+          reason:
+            "Lost Pack reachability does not authorize native cleanup; execution may remain active.",
+        });
       else if (after?.enabled === true)
         references.push({
           path: relative,
           state: "retained",
           reason: "required by resulting desired state",
+        });
+      else if (
+        target.type === "mcp-server" &&
+        !output.claimantAgentIds.some((agentId) => configuredAgents.includes(agentId))
+      )
+        references.push({
+          path: relative,
+          state: "retained",
+          reason: "Native registration is outside configured agents; execution may remain active.",
         });
       else
         targets.push(

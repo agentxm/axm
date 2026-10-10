@@ -1073,7 +1073,6 @@
             "workspace/projection-contributors-rendered": {
               "$ref": "#/definitions/LintRuleSeverity"
             },
-            "workspace/hook-ownership-ambiguous": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/managed-file-unowned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/installed-but-not-configured": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/deprecated-installed": { "$ref": "#/definitions/LintRuleSeverity" },
@@ -1094,7 +1093,6 @@
             "workspace/mcps-transport-exclusivity": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-no-secret-literal": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/mcps-agent-drift": { "$ref": "#/definitions/LintRuleSeverity" },
-            "workspace/mcps-agent-orphaned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-lockfile-aligned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-integrity-valid": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/skills-artifacts-correct": { "$ref": "#/definitions/LintRuleSeverity" },

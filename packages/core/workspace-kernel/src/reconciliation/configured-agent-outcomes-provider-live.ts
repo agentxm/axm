@@ -99,7 +99,11 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
         const units = nativeLocations.filter((unit) => unit.configuredConsumers.includes(agentId));
         const current =
           units.length > 0 &&
-          units.every((unit) => unit.ownership === "owned" && unit.state === "unchanged");
+          units.every(
+            (unit) =>
+              (unit.ownership === "owned" || unit.ownership === "declared") &&
+              unit.state === "unchanged",
+          );
         return {
           extensionType: request.type,
           name,
@@ -111,10 +115,10 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
               ? "no-applicable-native-unit"
               : "native-projection-not-current",
           reason: current
-            ? "Owned native units match desired content; runtime selection is unverified."
+            ? "Selected native units match desired content; runtime selection is unverified."
             : units.length === 0
               ? "No applicable native unit was observed for this agent."
-              : "Native units are missing, unowned, or differ from desired content.",
+              : "Native units are missing, lack applicable authority, or differ from desired content.",
           nativeUnitKeys: units.map(nativeUnitKey),
         };
       }),

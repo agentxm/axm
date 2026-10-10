@@ -61,7 +61,7 @@ const fixture = Effect.gen(function* () {
     },
     expectedHooks: [],
     expectedRegions: { rule: [], knowledge: [] },
-    expectedMcpEntries: {},
+    declaredMcpNames: new Set<string>(),
     expectedSkillSources: { review: [source] },
     expectedSubagentFiles: {},
     authoredSkills: { layout, entries: settings.skills ?? {} },

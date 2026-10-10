@@ -1,10 +1,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import {
-  isAxmManagedMcpEntry,
-  planMcpServerTargets,
-} from "@agentxm/workspace-kernel/agent-adapters";
+import { planMcpServerTargets } from "@agentxm/workspace-kernel/agent-adapters";
 import { diffAgentEntry } from "@agentxm/workspace-kernel/projection";
 import type {
   McpServerEntry,
@@ -35,8 +32,7 @@ const managedConfigActuals = (
     (actual) =>
       (actual.origin._tag === "agent-mcp-config" ||
         actual.origin._tag === "workspace-mcp-config") &&
-      actual.config !== null &&
-      isAxmManagedMcpEntry(actual.config),
+      actual.config !== null,
   );
 
 const configuredAgentIds = (context: WorkspaceRuleContext): Effect.Effect<ReadonlySet<string>> =>

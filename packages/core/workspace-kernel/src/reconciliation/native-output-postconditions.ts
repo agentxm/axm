@@ -37,7 +37,7 @@ const observeNativeOutputs = (
     const agentIds = configuredAgents ?? (yield* settings.configuredAgents);
     const nodes = graph.nodes.filter(
       (node) =>
-        node.enabled &&
+        (node.enabled || node.type === "mcp-server") &&
         node.type !== "pack" &&
         (subjects === undefined ||
           subjects.some((subject) => subject.type === node.type && subject.name === node.name)),
@@ -123,7 +123,7 @@ export const captureRequiredNativeOutputs = (
         (reason) => reason !== "instruction-propagation",
       );
       if (
-        unit.ownership !== "owned" ||
+        (unit.ownership !== "owned" && unit.ownership !== "declared") ||
         changedKeys.has(nativeUnitKey(unit)) ||
         (configuredConsumers.length === 0 && !requiredPolicy)
       )
@@ -176,7 +176,11 @@ export const validateNativeOutputPostconditions = (
       (unit) =>
         !retired.has(nativeUnitKey(unit)) &&
         unit.state !== "removed" &&
-        (unit.ownership === "owned" || unit.state === "created" || unit.state === "updated") &&
+        unit.state !== "retained" &&
+        (unit.ownership === "owned" ||
+          unit.ownership === "declared" ||
+          unit.state === "created" ||
+          unit.state === "updated") &&
         (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0),
     );
     if (required.length === 0) return;
@@ -200,7 +204,10 @@ export const validateNativeOutputPostconditions = (
     const current = new Map(observed.map((unit) => [nativeUnitKey(unit), unit]));
     for (const expected of required) {
       const actual = current.get(nativeUnitKey(expected));
-      if (actual?.ownership !== "owned" || actual.state !== "unchanged")
+      if (
+        (actual?.ownership !== "owned" && actual?.ownership !== "declared") ||
+        actual.state !== "unchanged"
+      )
         return yield* new WorkspaceSyncFailed({
           category: "conflict",
           detail: `Required native output does not match desired content after reconciliation: ${expected.address.path}`,

@@ -34,7 +34,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/preview-is-pure",
   title: "Sync preview describes required changes without applying them",
   statement:
-    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.",
+    "When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native units and their authority, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -149,7 +149,7 @@ describe("Sync preview purity", () => {
             expect.arrayContaining(["claude-code", "cursor"]),
           );
           expect(
-            native.every((unit) => unit.state === "created" && unit.ownership === "absent"),
+            native.every((unit) => unit.state === "created" && unit.ownership === "declared"),
           ).toBe(true);
           expect(workspace.snapshot()).toEqual(before);
         }),
@@ -221,7 +221,8 @@ describe("Sync preview purity", () => {
               nodePath.join(workspace.root, ".mcp.json"),
             ].sort(),
             state: "created",
-            ownership: "absent",
+            ownership: "declared",
+            proof: "effective-native-declaration",
           });
           expect(workspace.snapshot()).toEqual(before);
         }),

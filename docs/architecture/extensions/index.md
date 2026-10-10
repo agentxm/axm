@@ -12,12 +12,12 @@ among AXM extension types.
 - [Source-compatible distribution](source-compatible-distribution.md) — existing
   formats, unchanged payloads, creator publication, and installation handoff
 - [MCP Servers](mcp-servers.md) — server definitions from extension content or
-  inline configuration merged into native MCP configuration
+  inline configuration projected into declared native entries
 - [Subagents](subagents.md) — portable delegated-agent definitions rendered to
   native profiles or capability-preserving fallbacks
 - [Rules](rules.md) — reusable behavior guidance contributed to a managed
   instruction surface
-- [Hooks](hooks.md) — native implementations, consumer configuration, owned
+- [Hooks](hooks.md) — native implementations, consumer configuration, declared
   activation, and separate execution evidence
 - [Knowledge](knowledge.md) — isolated Open Knowledge Format bundles with
   on-demand discovery

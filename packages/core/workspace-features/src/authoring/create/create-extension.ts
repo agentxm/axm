@@ -828,11 +828,10 @@ export const prepareCreateExtension: (
           target: { type: "mcp-server", name },
           location,
           enabled: true,
-          materializeInstall: (ref, options) =>
+          materializeInstall: (ref) =>
             materializeAuthoredMcpServer({
               ref,
               nonInteractive,
-              nativeInsertionEligible: options.nativeInsertionEligible,
             }),
           buildArtifact: ({ change, materialization }) =>
             authoredNativeArtifact({

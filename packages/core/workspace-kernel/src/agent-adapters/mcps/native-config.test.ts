@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import {
   decodeJsonMcpConfig,
   resolveAgentMcpConfigTargetPath,
-  managedNativeMcpEntryNames,
+  readNativeMcpValues,
   readNativeMcpEntry,
   readNativeMcpServers,
 } from "./native-config.js";
@@ -39,7 +39,7 @@ describe("native MCP config reads", () => {
         Effect.flip,
       );
       expect(failure._tag).toBe("McpConfigInvalid");
-      const names = yield* managedNativeMcpEntryNames({
+      const names = yield* readNativeMcpValues({
         format: "json",
         configPath: ".mcp.json",
         raw,
@@ -49,7 +49,7 @@ describe("native MCP config reads", () => {
     }),
   );
 
-  it.effect("names only the AXM-managed entries and reads one by name", () =>
+  it.effect("lists all native entries and reads one by name", () =>
     Effect.gen(function* () {
       const read = {
         format: "json" as const,
@@ -57,7 +57,7 @@ describe("native MCP config reads", () => {
         raw: JSON.stringify({ mcpServers: { demo: managed, other: { command: "x" } } }),
         serversPath: ["mcpServers"] as const,
       };
-      expect(yield* managedNativeMcpEntryNames(read)).toEqual(["demo"]);
+      expect(Object.keys(yield* readNativeMcpValues(read))).toEqual(["demo", "other"]);
       expect(yield* readNativeMcpEntry({ ...read, serverName: "other" })).toEqual(
         Option.some({ command: "x" }),
       );

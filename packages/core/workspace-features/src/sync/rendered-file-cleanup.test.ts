@@ -23,7 +23,7 @@ const AXM_MANAGED_MARKER =
 const outputAuthority = (overrides: Partial<AgentOutputAuthority>): AgentOutputAuthority => ({
   expectedRegions: { rule: [], knowledge: [] },
   expectedHooks: [],
-  expectedMcpEntries: {},
+  declaredMcpNames: new Set([]),
   expectedSkillSources: {},
   expectedSubagentFiles: {},
   ...overrides,
@@ -310,7 +310,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         root: "agent_extensions/@acme/hooks/guard",
       },
     ],
-    expectedMcpEntries: {},
+    declaredMcpNames: new Set([]),
     expectedSkillSources: {},
     expectedSubagentFiles: {},
   };
@@ -332,7 +332,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
     );
   };
 
-  it.effect("scoped cleanup retains unrelated managed entries for a removed agent", () =>
+  it.effect("scope selection does not authorize implicit native MCP cleanup", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-scoped-mcp-cleanup-"));
       try {
@@ -340,7 +340,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         const entry = (name: string) => ({
           command: "npx",
           args: [name],
-          "x-axm": { v: 1, managed: true, ext: `@workspace/mcps/${name}`, source: "inline" },
         });
         const retained = entry("unrelated");
         fs.writeFileSync(
@@ -352,25 +351,20 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           expectedNames: expectedNames(),
           subjects: [{ type: "mcp-server", name: "selected" }],
           authority: outputAuthority({
-            expectedMcpEntries: {
-              selected: [
-                { v: 1, managed: true, ext: "@workspace/mcps/selected", source: "inline" },
-              ],
-              unrelated: [
-                { v: 1, managed: true, ext: "@workspace/mcps/unrelated", source: "inline" },
-              ],
-            },
+            declaredMcpNames: new Set(["selected", "unrelated"]),
           }),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
         const observed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
-        expect(observed).toEqual({ mcpServers: { unrelated: retained } });
+        expect(observed).toEqual({
+          mcpServers: { selected: entry("selected"), unrelated: retained },
+        });
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }),
   );
 
-  it.effect("removes AXM-managed MCP entries and keeps user-authored servers", () =>
+  it.effect("retains declared and undeclared MCP entries after agent removal", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-mcp-cleanup-"));
       try {
@@ -383,12 +377,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                 "acme-managed": {
                   command: "npx",
                   args: ["-y", "acme-mcp"],
-                  "x-axm": {
-                    v: 1,
-                    managed: true,
-                    ext: "@workspace/mcps/acme-managed",
-                    source: "inline",
-                  },
                 },
                 "user-server": { command: "npx", args: ["-y", "user-mcp"] },
               },
@@ -402,26 +390,34 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           desiredAgentIds: new Set(),
           expectedNames: expectedNames(),
           authority: outputAuthority({
-            expectedMcpEntries: {
-              "acme-managed": [
-                { v: 1, managed: true, ext: "@workspace/mcps/acme-managed", source: "inline" },
-              ],
-            },
+            declaredMcpNames: new Set(["acme-managed"]),
           }),
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(mcpConfig, "utf8"));
         expect(parsed).toEqual({
-          mcpServers: { "user-server": { command: "npx", args: ["-y", "user-mcp"] } },
+          mcpServers: {
+            "acme-managed": { command: "npx", args: ["-y", "acme-mcp"] },
+            "user-server": { command: "npx", args: ["-y", "user-mcp"] },
+          },
         });
-        expect(result.removedPaths).toEqual(expect.arrayContaining([`${mcpConfig}#acme-managed`]));
+        expect(result.removedPaths).toEqual([]);
+        expect(result.nativeLocations).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              ownership: "declared",
+              state: "retained",
+              reason: expect.stringContaining("does not authorize"),
+            }),
+          ]),
+        );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }),
   );
 
-  it.effect("strips AXM-managed hook groups and keeps user-authored groups", () =>
+  it.effect("retains all Hook groups after agent removal", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-hook-cleanup-"));
       try {
@@ -448,15 +444,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                       {
                         type: "command",
                         command: managedHookCommand,
-                        "x-axm": {
-                          v: 1,
-                          managed: true,
-                          unit: "hook:guard",
-                          source: "extension",
-                          ref: "@acme/hooks/guard",
-                          scope: "project",
-                          root: "agent_extensions/@acme/hooks/guard",
-                        },
                       },
                     ],
                   },
@@ -477,7 +464,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           expectedNames: expectedNames(),
           dryRun: true,
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
-        expect(preview.removedPaths).toContain(`${settingsPath}#guard`);
+        expect(preview.removedPaths).toEqual([]);
         expect(fs.readFileSync(settingsPath, "utf8")).toBe(before);
 
         const result = yield* reconcileAgentOutputs({
@@ -487,18 +474,16 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-        expect(parsed).toEqual({
-          permissions: { allow: ["Bash"] },
-          hooks: { PreToolUse: [unownedCollision, userGroup] },
-        });
-        expect(result.removedPaths).toEqual(expect.arrayContaining([`${settingsPath}#guard`]));
+        expect(parsed).toEqual(JSON.parse(before));
+        expect(result.removedPaths).toEqual([]);
+        expect(fs.readFileSync(settingsPath, "utf8")).toBe(before);
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
     }),
   );
 
-  it.effect("drops the hooks key entirely when only managed groups existed", () =>
+  it.effect("retains a Hook-only native container after agent removal", () =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-hook-only-"));
       try {
@@ -516,15 +501,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
                       {
                         type: "command",
                         command: managedHookCommand,
-                        "x-axm": {
-                          v: 1,
-                          managed: true,
-                          unit: "hook:guard",
-                          source: "extension",
-                          ref: "@acme/hooks/guard",
-                          scope: "project",
-                          root: "agent_extensions/@acme/hooks/guard",
-                        },
                       },
                     ],
                   },
@@ -536,6 +512,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
           )}\n`,
         );
 
+        const before = fs.readFileSync(settingsPath, "utf8");
         yield* reconcileAgentOutputs({
           authority: hookAuthority,
           desiredAgentIds: new Set(),
@@ -543,7 +520,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
         }).pipe(Effect.provide(makeClaudeCodeLayer(tempDir)));
 
         const parsed: unknown = JSON.parse(fs.readFileSync(settingsPath, "utf8"));
-        expect(parsed).toEqual({});
+        expect(parsed).toEqual(JSON.parse(before));
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -560,12 +537,6 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
             mcpServers: {
               "acme-managed": {
                 command: "npx",
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/acme-managed",
-                  source: "inline",
-                },
               },
             },
           },

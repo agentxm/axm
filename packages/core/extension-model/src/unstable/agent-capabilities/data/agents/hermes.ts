@@ -65,7 +65,7 @@ export const hermesAgent = {
         availability: { via: "native" },
         vendorStatus: { state: "active" },
         notes:
-          "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. AXM writes that YAML file directly with per-entry x-axm metadata, preserving user-authored servers and coexisting with hermes mcp commands.\n",
+          "Hermes declares MCP servers under mcp_servers in ~/.hermes/config.yaml. AXM writes declared named entries in that YAML file without ownership metadata, preserving other entries and coexisting with hermes mcp commands.\n",
         docs: [],
         sources: ["https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp"],
         scopes: ["user"],

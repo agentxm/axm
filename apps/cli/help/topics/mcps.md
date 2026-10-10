@@ -116,9 +116,9 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   Streamable HTTP with native authentication. SSE requires `--transport sse`;
   the URL suffix never selects transport. Use `--header-env Name=ENV_NAME`
   for symbolic headers, or `--connection` for canonical connection JSON.
-- `axm mcps import --preview` — inspect unmanaged entries, fingerprints,
-  ownership transfers, configured readers, planned writes and blockers.
-  Apply adopts the entire selected batch atomically. Any selected blocker
+- `axm mcps import --preview` — inspect native entries, fingerprints,
+  desired declarations, configured readers, planned writes and blockers.
+  Apply records the entire selected batch atomically without stamping native entries. Any selected blocker
   refuses the batch; repeat `--name <entry>` to select an explicit subset.
   Unsupported native fields and literal credentials remain untouched.
   `--as` explicitly converts an entry into an authored package.
@@ -133,8 +133,8 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   credentials, starts OAuth or contacts an MCP endpoint.
 - `axm mcps enable <name>` / `axm mcps disable <name>` — keep a server installed
   while toggling whether AXM materializes it.
-- `axm mcps uninstall <local-name>` — remove one connection and its AXM-owned
-  agent entries. Shared package content and resolution remain until their last
+- `axm mcps uninstall <local-name>` — remove one connection and its exact named
+  entries from configured agents in the selected scope. Shared package content and resolution remain until their last
   connection or Pack route is removed.
 
 Authoring commands mirror the other extension types:
@@ -168,10 +168,13 @@ Remote development, containers and WSL are outside these local host claims.
 
 The key and dialect vary per agent (`mcpServers`, `servers`, `mcp`,
 `mcp_servers`, `context_servers`). Local transports render as `command`/`args`;
-remote transports render as `url`/`headers`. AXM only edits entries whose
-ownership it can prove and preserves servers added by other tools. `axm sync`
-restores missing or stale AXM-owned entries and blocks the affected server on
-unowned or ambiguous collisions. Every configured agent whose transport and
+remote transports render as `url`/`headers`. A validated effective declaration
+authorizes its named entry, including a different unmarked same-name entry.
+Sync replaces the complete entry and removes fields no longer declared; equal
+decoded values are a no-op. Other entries and settings remain untouched. Native
+settings contain no injected AXM ownership metadata.
+
+Every configured agent whose transport and
 config capability can represent the server receives it; there is no per-server
 agent list. A configured agent that cannot represent the transport or secret
 reference is reported as unsupported with an explicit reason. A projection
@@ -180,8 +183,14 @@ skipped.
 
 Some agents share one native config file. AXM writes one entry that every
 sharing agent reads; a genuine dialect conflict between sharing agents blocks
-the server with an explicit reason. Reconciliation removes only stale AXM-owned
-state and preserves unmanaged collisions.
+the server with an explicit reason. Removing or renaming a declaration,
+removing an agent, or losing a Pack route retains native entries and does not
+prove execution stopped. Use explicit `mcps disable` or `mcps uninstall` while
+the declaration exists to withdraw its exact key from configured agents. After
+intent has gone, inspect the native file and manually remove only that key.
+There is no global orphan cleanup. Native files and parents remain; uninstall
+refuses acquired-package deletion while retained registrations reference its
+code. Projection capability and actual host connection state are separate checks.
 
 ## Settings and lockfile
 
@@ -241,10 +250,11 @@ AXM never expands either using its own environment. A target that cannot
 preserve the meaning is unsupported. Fixed Registry inputs cannot be overridden;
 optional unset inputs are omitted and required inputs must be bound.
 
-`enabled: false` withdraws AXM-owned configuration while retaining the connection.
-Unowned entries remain untouched. Shared native files require agreement from
-all configured applicable readers. Native name collisions and higher-priority
-unmanaged entries are reported rather than overwritten. A running host may
+`enabled: false` disables the exact declared entry using a required native flag
+or withdraws that entry while retaining the connection declaration. Unselected
+entries remain untouched. Shared native files require agreement from all
+configured applicable readers. Conflicting effective declarations and
+incompatible readers block the affected write. A running host may
 need reload, restart or renewed trust after any change; configuration withdrawal
 does not prove disconnection, process termination or token revocation.
 

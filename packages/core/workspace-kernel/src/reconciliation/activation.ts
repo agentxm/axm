@@ -1,3 +1,5 @@
+import { removeMcpServerFromAgents, type HookNativeDeclaration } from "../agent-adapters/index.js";
+import { combineNativeLocationOutcomes, type NativeLocationOutcome } from "../locations/index.js";
 /**
  * Realizing an activation change, for every extension type through one
  * recipe: publish the proposed desired state, then ask each kind manager to
@@ -19,7 +21,12 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
-import type { DesiredExtensionNode, LockfileReader } from "../workspace-state/index.js";
+import {
+  SettingsReader,
+  WorkspaceLocation,
+  type DesiredExtensionNode,
+  type LockfileReader,
+} from "../workspace-state/index.js";
 import {
   HookManager,
   KnowledgeManager,
@@ -31,6 +38,8 @@ import {
   type ManagerRequirements,
 } from "../materialization/index.js";
 import {
+  captureAgentOutputAuthority,
+  observeProjectionPlans,
   applyInstructionSurfacePlans,
   applyProjectionPlans,
   projectionPlanExclusionWarnings,
@@ -61,6 +70,8 @@ export interface ActivationRealization {
   readonly enabled: boolean;
   /** The desired nodes whose activation this change moves, in the resulting graph. */
   readonly subjects: ReadonlyArray<DesiredExtensionNode>;
+  readonly hookWithdrawals: ReadonlyArray<HookNativeDeclaration>;
+  readonly nativeWithdrawals: ReadonlyArray<NativeLocationOutcome>;
   /** The sync steps that materialize what became active. */
   readonly materialization: Option.Option<CollectedMaterializeSteps>;
   /** The retirement of acquired content nothing reaches once the change applies. */
@@ -96,6 +107,53 @@ export const prepareActivationRealization = (args: {
           }),
         )
       : Option.none<CollectedMaterializeSteps>();
+    const hookNames = new Set(
+      args.enabled
+        ? []
+        : args.subjects.filter((node) => node.type === "hook").map((node) => node.name),
+    );
+    const hookWithdrawals =
+      hookNames.size === 0
+        ? []
+        : (yield* captureAgentOutputAuthority()).expectedHooks.filter(({ name }) =>
+            hookNames.has(name),
+          );
+    const nativeWithdrawals: NativeLocationOutcome[] = [];
+    if (!args.enabled) {
+      const location = yield* WorkspaceLocation;
+      const agentIds = yield* (yield* SettingsReader).configuredAgents;
+      for (const node of args.subjects.filter((node) => node.type === "mcp-server")) {
+        const outcomes = yield* removeMcpServerFromAgents(agentIds, {
+          workspaceRoot: location.baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          scope: location.scope,
+          serverName: node.name,
+          disableOnly: true,
+          dryRun: true,
+        });
+        const failed = outcomes.filter((outcome) => outcome._tag === "failed");
+        if (failed.length > 0)
+          return yield* new WorkspaceSyncFailed({
+            category: "conflict",
+            detail: failed.map((outcome) => outcome.reason).join("; "),
+          });
+        nativeWithdrawals.push(
+          ...outcomes.flatMap((outcome) =>
+            (outcome.targets ?? []).flatMap((target) =>
+              target.nativeLocation === undefined ? [] : [target.nativeLocation],
+            ),
+          ),
+        );
+      }
+      if (hookWithdrawals.length > 0) {
+        const plans = yield* (yield* HookManager).projectionPlans({
+          desiredGraph: args.proposal.after,
+          hookWithdrawals,
+        });
+        const observed = yield* observeProjectionPlans(plans);
+        nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
+      }
+    }
     const retirement =
       !args.enabled && args.retireUnreachable
         ? yield* collectUnreachableRetirement(args.adapter, {
@@ -107,6 +165,8 @@ export const prepareActivationRealization = (args: {
       proposal: args.proposal,
       enabled: args.enabled,
       subjects: args.subjects,
+      hookWithdrawals,
+      nativeWithdrawals: combineNativeLocationOutcomes(nativeWithdrawals),
       materialization,
       retirement,
     } satisfies ActivationRealization;
@@ -149,6 +209,7 @@ const withdrawProjection = (
  */
 const reconcileAggregateProjections = (
   types: ReadonlySet<ExtensionType>,
+  hookWithdrawals: ReadonlyArray<HookNativeDeclaration>,
 ): Effect.Effect<
   ReadonlyArray<string>,
   ExtensionManagerFailure,
@@ -157,7 +218,8 @@ const reconcileAggregateProjections = (
   Effect.gen(function* () {
     const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];
     if (types.has("rule")) plans.push(...(yield* (yield* RuleManager).projectionPlans()));
-    if (types.has("hook")) plans.push(...(yield* (yield* HookManager).projectionPlans()));
+    if (types.has("hook"))
+      plans.push(...(yield* (yield* HookManager).projectionPlans({ hookWithdrawals })));
     if (types.has("knowledge")) plans.push(...(yield* (yield* KnowledgeManager).projectionPlans()));
     return types.has("rule") || types.has("hook") || types.has("knowledge")
       ? yield* applyInstructionSurfacePlans(plans)
@@ -201,6 +263,7 @@ export const realizeActivation = (realization: ActivationRealization) =>
     }
     const warnings = yield* reconcileAggregateProjections(
       new Set(realization.subjects.map((node) => node.type)),
+      realization.hookWithdrawals,
     );
     if (Option.isSome(realization.retirement)) {
       const result = yield* runStep(realization.retirement.value);

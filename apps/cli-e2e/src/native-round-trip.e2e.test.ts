@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { snapshotTree } from "@agentxm/test-support";
+import YAML from "yaml";
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 
@@ -9,13 +10,13 @@ export const executionBinding = {
   requirements: [
     "settings-contract/withdraws-new-settings-entries-exactly",
     "workspace/lockfile/withdraws-new-resolutions-exactly",
-    "workspace/mcps/withdraws-eligible-native-insertions-exactly",
+    "workspace/mcps/explicit-cleanup-preserves-unselected-state",
     "workspace/locations/container-receipts-require-continuous-identity",
     "cli/uninstall/preserves-unrelated-and-unowned-state",
   ],
   boundary: "process",
   rationale:
-    "Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.",
+    "Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.",
 } as const;
 
 const write = (target: string, contents: string) => {
@@ -108,6 +109,34 @@ describe("new intent and precise withdrawal across CLI processes", () => {
       expect(fs.existsSync(path.join(fixture.selected, ".axm", "projection-containers.json"))).toBe(
         false,
       );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("withdraws a user MCP key while retaining the Hermes YAML container", async () => {
+    const fixture = makeDirectoryFixture();
+    try {
+      await execute(fixture, ["setup", "--yes", "--scope", "user", "--agent", "hermes"]);
+      const native = path.join(fixture.home, ".hermes", "config.yaml");
+      expect(fs.existsSync(native)).toBe(false);
+      await execute(fixture, [
+        "mcps",
+        "add",
+        "user-demo",
+        "--scope",
+        "user",
+        "--command",
+        "node",
+        "--arg",
+        "server.js",
+      ]);
+      expect(YAML.parse(fs.readFileSync(native, "utf8"))).toMatchObject({
+        mcp_servers: { "user-demo": { command: "node", args: ["server.js"] } },
+      });
+      await execute(fixture, ["mcps", "uninstall", "user-demo", "--scope", "user"]);
+      expect(fs.statSync(native).isFile()).toBe(true);
+      expect(YAML.parse(fs.readFileSync(native, "utf8"))).toEqual({ mcp_servers: {} });
     } finally {
       fixture.cleanup();
     }
@@ -222,7 +251,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
     });
   }
 
-  it("expires cleanup evidence when the whole workspace moves between CLI processes", async () => {
+  it("preserves native containers and runtime identity when the workspace moves", async () => {
     const fixture = makeDirectoryFixture();
     try {
       write(path.join(fixture.selected, "axm.json"), settings("claude-code"));
@@ -253,8 +282,8 @@ describe("new intent and precise withdrawal across CLI processes", () => {
         nativeIdentity.ino,
       );
 
-      // A new process may withdraw the owned entry, but the old workspace's
-      // receipt no longer authorizes removing its now-empty native container.
+      // The explicit declaration still selects the key after moving; neither
+      // that selector nor runtime bookkeeping authorizes deleting its container.
       await execute({ ...fixture, selected: moved }, ["mcps", "uninstall", "context"]);
       const remainingNative = path.join(moved, ".mcp.json");
       expect(JSON.parse(fs.readFileSync(remainingNative, "utf8"))).not.toHaveProperty(
@@ -408,7 +437,15 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           "uninstall",
           "context",
         ]);
-        expect(snapshotTree(fixture.selected)).toEqual(before);
+        if (kind === "hook") {
+          expect(JSON.parse(fs.readFileSync(nativePath, "utf8"))).toMatchObject({ keep: true });
+          expect(fs.readFileSync(nativePath, "utf8")).not.toContain("src/hook.sh");
+          const expected = {
+            ...before,
+            ".claude/settings.json": snapshotTree(fixture.selected)[".claude/settings.json"],
+          };
+          expect(snapshotTree(fixture.selected)).toEqual(expected);
+        } else expect(snapshotTree(fixture.selected)).toEqual(before);
       } finally {
         fixture.cleanup();
       }
@@ -456,7 +493,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
   ] as const;
   for (const row of cases)
     for (const sourceKind of ["inline", "local"] as const) {
-      it(`restores ${row.label} after a new ${sourceKind} MCP connection`, async () => {
+      it(`preserves ${row.label} containers after explicit ${sourceKind} MCP cleanup`, async () => {
         const fixture = makeDirectoryFixture();
         try {
           const workspace =
@@ -496,9 +533,6 @@ describe("new intent and precise withdrawal across CLI processes", () => {
                 },
               }),
             );
-          const beforeWorkspace = snapshotTree(workspace);
-          const beforeNative =
-            row.scope === "user" ? snapshotTree(path.join(nativeRoot, ".hermes")) : undefined;
           await execute(
             fixture,
             sourceKind === "inline"
@@ -517,9 +551,24 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           );
           expect(fs.readFileSync(target, "utf8")).toContain("context");
           await execute(fixture, ["mcps", "uninstall", "context", "--scope", row.scope]);
-          expect(snapshotTree(workspace)).toEqual(beforeWorkspace);
-          if (beforeNative !== undefined)
-            expect(snapshotTree(path.join(nativeRoot, ".hermes"))).toEqual(beforeNative);
+          const remaining = fs.readFileSync(target, "utf8");
+          expect(fs.statSync(target).isFile()).toBe(true);
+          expect(remaining).not.toContain("context");
+          if (row.before !== undefined) {
+            if (row.before.includes("Authored comment"))
+              expect(remaining).toContain("Authored comment");
+            if (row.before.includes("keep")) expect(remaining).toContain("keep");
+            if (row.before.includes("model")) expect(remaining).toContain('model = "custom"');
+            if (row.before.includes("&labels")) expect(remaining).toContain("&labels");
+          }
+          if ("alias" in row && row.alias)
+            expect(fs.readlinkSync(target)).toBe(".native/shared.json");
+          expect(
+            JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8")),
+          ).not.toHaveProperty("mcpServers.context");
+          const settled = snapshotTree(workspace);
+          await execute(fixture, ["mcps", "uninstall", "context", "--scope", row.scope]);
+          expect(snapshotTree(workspace)).toEqual(settled);
         } finally {
           fixture.cleanup();
         }

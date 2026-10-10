@@ -1,3 +1,4 @@
+import { nativePackageReferences } from "../projection/index.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -122,24 +123,56 @@ export const collectUnreachableRetirement = (
                 detail: `Cannot retire unverified acquired content at ${canonical}`,
               });
           }
-          return { ...row, canonical, shared, exists, removeCanonical: exists && !shared };
+          const nativeReferences =
+            exists && (row.type === "mcp-server" || row.type === "hook" || row.type === "pack")
+              ? yield* nativePackageReferences({
+                  workspaceRoot: location.baseDir,
+                  nativeDirectoryInputs: location.nativeDirectoryInputs,
+                  scope: location.scope,
+                  packageRoot: canonical,
+                }).pipe(
+                  Effect.mapError(
+                    (cause) =>
+                      new WorkspaceSyncFailed({
+                        category: "conflict",
+                        detail: `Cannot inspect retained native references to ${canonical}`,
+                        cause,
+                      }),
+                  ),
+                )
+              : [];
+          return {
+            ...row,
+            canonical,
+            shared,
+            exists,
+            nativeReferences,
+            removeCanonical: exists && !shared && nativeReferences.length === 0,
+          };
         }),
     );
     if (retired.length === 0)
+      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    const retainedNative = retired.filter((row) => row.nativeReferences.length > 0);
+    const removable = retired.filter((row) => row.nativeReferences.length === 0);
+    if (removable.length === 0)
       return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const retiredPackages = [...new Map(retired.map((row) => [row.canonical, row])).values()];
     const artifact = {
       path: lockfileDisplayPath(location.scope),
       scope: location.scope,
-      change: "updated" as const,
+      change: removable.length === 0 ? ("unchanged" as const) : ("updated" as const),
       references: retiredPackages
         .filter((row) => !row.removeCanonical)
         .map((row) => ({
           path: path.relative(location.baseDir, row.canonical),
           state: row.exists ? ("retained" as const) : ("absent" as const),
-          reason: row.exists
-            ? "shared acquired content remains desired"
-            : "canonical content is already absent",
+          reason:
+            row.nativeReferences.length > 0
+              ? `Retained native registrations reference package code at ${row.nativeReferences.join(", ")}; canonical content and accepted resolution remain.`
+              : row.exists
+                ? "shared acquired content remains desired"
+                : "canonical content is already absent",
         })),
       targets: retiredPackages
         .filter((row) => row.removeCanonical)
@@ -167,7 +200,7 @@ export const collectUnreachableRetirement = (
             });
           }
           const remaining: Array<(typeof retired)[number]> = [];
-          for (const row of retired) {
+          for (const row of removable) {
             const accepted = yield* currentLocks.entry(row.type, row.key);
             // An earlier step of this run may have settled the row already
             // (materializing authored content withdraws the resolution it
@@ -183,6 +216,19 @@ export const collectUnreachableRetirement = (
           const packages = [...new Map(remaining.map((row) => [row.canonical, row])).values()];
           for (const row of packages) {
             if (row.removeCanonical) {
+              if (row.type === "mcp-server" || row.type === "hook" || row.type === "pack") {
+                const references = yield* nativePackageReferences({
+                  workspaceRoot: location.baseDir,
+                  nativeDirectoryInputs: location.nativeDirectoryInputs,
+                  scope: location.scope,
+                  packageRoot: row.canonical,
+                });
+                if (references.length > 0)
+                  return yield* new WorkspaceSyncFailed({
+                    category: "conflict",
+                    detail: `Native registrations began referencing ${row.canonical} before retirement`,
+                  });
+              }
               const integrity = yield* computeMaterializedTreeIntegrity(row.canonical);
               if (integrity !== row.entry.treeIntegrity)
                 return yield* new WorkspaceSyncFailed({
@@ -208,7 +254,7 @@ export const collectUnreachableRetirement = (
         validate: () =>
           Effect.gen(function* () {
             const currentLocks = yield* LockfileReader;
-            for (const row of retired) {
+            for (const row of removable) {
               if (Option.isSome(yield* currentLocks.entry(row.type, row.key)))
                 return yield* new WorkspaceSyncFailed({
                   category: "conflict",
@@ -237,7 +283,8 @@ export const collectUnreachableRetirement = (
         Effect.mapError(adapter.toStepFailure),
         Effect.as({
           result: "success" as const,
-          message: `Retired ${retired.length} unreachable accepted extensions`,
+          message: `Retired ${removable.length} unreachable accepted extensions${retainedNative.length === 0 ? "" : `; retained ${retainedNative.length} packages referenced by native registrations`}`,
+          ...(removable.length === 0 ? { disposition: "unchanged" as const } : {}),
           artifact,
         }),
       ),

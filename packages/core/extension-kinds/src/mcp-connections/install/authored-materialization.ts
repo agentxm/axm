@@ -30,7 +30,6 @@ import { installMcpServer } from "./install-operation.js";
 export const materializeAuthoredMcpServer = (args: {
   readonly ref: McpServerExtensionRef;
   readonly nonInteractive: boolean;
-  readonly nativeInsertionEligible: boolean;
 }): Effect.Effect<
   Option.Option<McpServerMaterializationFacts>,
   ExtensionManagerFailure,
@@ -43,7 +42,6 @@ export const materializeAuthoredMcpServer = (args: {
       authorizeDistributionSelection: true,
       nonInteractive: args.nonInteractive,
       force: false,
-      nativeInsertionEligible: args.nativeInsertionEligible,
     },
   }).pipe(
     Effect.map((result) => {

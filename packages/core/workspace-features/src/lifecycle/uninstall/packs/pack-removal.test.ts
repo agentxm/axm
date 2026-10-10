@@ -9,6 +9,7 @@ import { afterEach } from "vitest";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 
+import { applyActivation } from "../../activation/test-helpers.js";
 import { SetActivation } from "../../activation/set-activation.js";
 import { readSettings } from "../../install/test-helpers.js";
 import {
@@ -69,6 +70,64 @@ describe("pack removal", () => {
       )}\n`,
     );
   };
+
+  it.effect("retains an exclusive MCP registration when its last Pack route leaves", () => {
+    const { workspace, registry } = world();
+    registry.writeMcp("context", [{ version: "1.0.0" }]);
+    registry.writePack("toolkit", [
+      { version: "1.0.0", dependencies: { "@acme/mcps/context": "^1.0.0" } },
+    ]);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* installPack("@acme/packs/toolkit");
+          const native = workspace.readFile(".mcp.json");
+          const preview = yield* previewUninstall(
+            uninstallRequest({ type: "pack", selector: "toolkit" }),
+          );
+          expect(preview.units.flatMap((unit) => unit.artifact?.references ?? [])).toContainEqual(
+            expect.objectContaining({
+              path: ".mcp.json",
+              state: "retained",
+              reason: expect.stringContaining("execution may remain active"),
+            }),
+          );
+          const result = yield* removePack("toolkit");
+          expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("applied");
+          expect(workspace.readFile(".mcp.json")).toBe(native);
+          expect(workspace.readFile("axm-lock.yaml")).not.toContain("context");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect(
+    "refuses Pack retirement while its retained Hook invokes package code, then allows explicit disable",
+    () => {
+      const { workspace, registry } = world();
+      registry.writeHook("guard", [{ version: "1.0.0" }]);
+      registry.writePack("toolkit", [
+        { version: "1.0.0", dependencies: { "@acme/hooks/guard": "^1.0.0" } },
+      ]);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* installPack("@acme/packs/toolkit");
+            const before = workspace.snapshot();
+            const failure = yield* previewUninstall(
+              uninstallRequest({ type: "pack", selector: "toolkit" }),
+            ).pipe(Effect.flip);
+            expect(JSON.stringify(failure)).toContain("retained native registrations reference");
+            expect(workspace.snapshot()).toEqual(before);
+            yield* applyActivation({ type: "hook", name: "guard", enabled: false });
+            const result = yield* removePack("toolkit");
+            expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe("applied");
+            expect(workspace.readFile(".claude/settings.json")).not.toContain("guard/src/");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect.each(["toolkit", "@acme/packs/toolkit"])(
     "removes the pack and its resolution when selected as %s",

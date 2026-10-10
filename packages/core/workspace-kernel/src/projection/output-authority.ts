@@ -2,12 +2,7 @@
 import * as Effect from "effect/Effect";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
-import {
-  buildAxmMcpMetadata,
-  buildAxmMcpMetadataFromSettingsSource,
-  type AxmMcpMetadata,
-  type HookOwnership,
-} from "../agent-adapters/index.js";
+import { type HookNativeDeclaration } from "../agent-adapters/index.js";
 import type { NativeRegionSource } from "./native-managed-region.js";
 import {
   bundledSkillCanonicalRoot,
@@ -22,11 +17,11 @@ import {
 } from "../workspace-state/index.js";
 
 export interface AgentOutputAuthority {
-  readonly expectedHooks: ReadonlyArray<HookOwnership>;
+  readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
   readonly expectedRegions: Readonly<
     Record<"rule" | "knowledge", ReadonlyArray<NativeRegionSource>>
   >;
-  readonly expectedMcpEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly expectedSubagentFiles: Readonly<
     Record<
@@ -51,8 +46,8 @@ interface OutputAuthorityInputs {
 
 export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOutputAuthority => {
   const subagentFiles: Record<string, Array<{ ext: string; src: string }>> = {};
-  const mcpEntries: Record<string, AxmMcpMetadata[]> = {};
-  const expectedHooks: HookOwnership[] = [];
+  const declaredMcpNames = new Set<string>();
+  const expectedHooks: HookNativeDeclaration[] = [];
   const expectedRegions: Record<"rule" | "knowledge", NativeRegionSource[]> = {
     rule: [],
     knowledge: [],
@@ -97,7 +92,7 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
     );
   }
   const addHook = (name: string, ref: string, source: string) => {
-    const root = args.path.relative(args.baseDir, source);
+    const root = args.path.resolve(args.baseDir, source);
     if (
       !expectedHooks.some((hook) => hook.name === name && hook.ref === ref && hook.root === root)
     ) {
@@ -125,6 +120,7 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
     );
   }
   for (const [name, entry] of Object.entries(args.acceptedResolutions.hooks ?? {})) {
+    if (!args.desired.nodes.some((node) => node.type === "hook" && node.name === name)) continue;
     const paths = computeExtensionPathsForLayout(
       args.path.join,
       args.layout,
@@ -133,19 +129,6 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
       entry.identity.name,
     );
     addHook(name, `${entry.identity.owner}/hooks/${entry.identity.name}`, paths.canonicalPath);
-  }
-  for (const [name, entry] of Object.entries(args.settings.hooks ?? {})) {
-    if (
-      entry.source === "workspace" &&
-      args.layout.scope === "project" &&
-      args.layout.owner !== undefined
-    ) {
-      addHook(
-        name,
-        `${args.layout.owner}/hooks/${name}`,
-        args.path.join(args.layout.authoredRoot("hook"), name),
-      );
-    }
   }
   for (const [name, entry] of Object.entries(args.settings.subagents ?? {})) {
     if (
@@ -184,27 +167,7 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
         args.path.join(args.layout.authoredRoot("hook"), node.name),
       );
     }
-    if (node.type === "mcp-server") {
-      const identity = node.identity;
-      const configured = args.settings.mcpServers?.[node.name];
-      if (identity.authority === "inline") {
-        mcpEntries[node.name] = [buildAxmMcpMetadataFromSettingsSource("inline", node.name)];
-      } else if (
-        (identity.authority === "path" || identity.authority === "git") &&
-        identity.resolutionKey !== undefined &&
-        configured?.kind === "sourced" &&
-        configured.nativeComponent !== undefined
-      ) {
-        mcpEntries[node.name] = [
-          buildAxmMcpMetadataFromSettingsSource(configured.source, node.name),
-        ];
-      } else if (identity.fqn !== undefined) {
-        // Native sourced MCP metadata names the accepted manifest identity.
-        mcpEntries[node.name] = [
-          buildAxmMcpMetadata({ ext: identity.fqn, source: "registry", ref: identity.fqn }),
-        ];
-      }
-    }
+    if (node.type === "mcp-server") declaredMcpNames.add(node.name);
     if (
       node.type === "subagent" &&
       node.identity.authority === "workspace" &&
@@ -217,14 +180,10 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
       );
     }
   }
-  for (const [name, entry] of Object.entries(args.settings.mcpServers ?? {})) {
-    if (entry.kind === "inline")
-      mcpEntries[name] = [buildAxmMcpMetadataFromSettingsSource("inline", name)];
-  }
   return {
     expectedSkillSources: deriveSkillOutputSources(args),
     expectedSubagentFiles: subagentFiles,
-    expectedMcpEntries: mcpEntries,
+    declaredMcpNames,
     expectedHooks,
     expectedRegions,
   };

@@ -289,7 +289,7 @@ describe("HookManager", () => {
       }),
   );
 
-  it.effect("grants insertion receipts only to a newly added physical reader route", () =>
+  it.effect("projects declared native routes without insertion receipts", () =>
     Effect.gen(function* () {
       const workspaceRoot = mkdtempSync(
         nodePath.join(realpathSync(tmpdir()), "axm-hook-new-route-"),
@@ -303,12 +303,13 @@ describe("HookManager", () => {
           yield* manager
             .projectionPlans({ nativeInsertionEligibleAgentIds: new Set(["devin"]) })
             .pipe(Effect.flatMap(applyProjectionPlans));
-          const receipts = readFileSync(
-            nodePath.join(workspaceRoot, ".axm/projection-containers.json"),
-            "utf8",
+          expect(existsSync(nodePath.join(workspaceRoot, ".axm/projection-containers.json"))).toBe(
+            false,
           );
-          expect(receipts).toContain(".devin/config.json");
-          expect(receipts).not.toContain(".claude/settings.json");
+          for (const route of [".devin/config.json", ".claude/settings.json"])
+            expect(readFileSync(nodePath.join(workspaceRoot, route), "utf8")).toContain(
+              "src/hook.sh",
+            );
         }).pipe(
           Effect.provide(
             makeHookManagerLayer(workspaceRoot, {
@@ -323,44 +324,39 @@ describe("HookManager", () => {
     }),
   );
 
-  it.effect(
-    "does not grant a repair receipt when a newly added alias shares an existing reader",
-    () =>
-      Effect.gen(function* () {
-        const workspaceRoot = mkdtempSync(
-          nodePath.join(realpathSync(tmpdir()), "axm-hook-existing-route-"),
+  it.effect("keeps an aliased native route free of ownership receipts", () =>
+    Effect.gen(function* () {
+      const workspaceRoot = mkdtempSync(
+        nodePath.join(realpathSync(tmpdir()), "axm-hook-existing-route-"),
+      );
+      try {
+        const packageRoot = nodePath.join(workspaceRoot, "source-hook");
+        writeHookPackage(packageRoot, "audit", { bindings: [{ event: "SessionStart" }] });
+        mkdirSync(nodePath.join(workspaceRoot, ".claude"));
+        mkdirSync(nodePath.join(workspaceRoot, ".devin"));
+        writeFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "");
+        symlinkSync("../.claude/settings.json", nodePath.join(workspaceRoot, ".devin/config.json"));
+        yield* Effect.gen(function* () {
+          const manager = yield* HookManager;
+          yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
+          yield* manager
+            .projectionPlans({ nativeInsertionEligibleAgentIds: new Set(["devin"]) })
+            .pipe(Effect.flatMap(applyProjectionPlans));
+          expect(existsSync(nodePath.join(workspaceRoot, ".axm/projection-containers.json"))).toBe(
+            false,
+          );
+        }).pipe(
+          Effect.provide(
+            makeHookManagerLayer(workspaceRoot, {
+              configuredAgents: ["claude-code", "devin"],
+              hooks: ["audit"],
+            }),
+          ),
         );
-        try {
-          const packageRoot = nodePath.join(workspaceRoot, "source-hook");
-          writeHookPackage(packageRoot, "audit", { bindings: [{ event: "SessionStart" }] });
-          mkdirSync(nodePath.join(workspaceRoot, ".claude"));
-          mkdirSync(nodePath.join(workspaceRoot, ".devin"));
-          writeFileSync(nodePath.join(workspaceRoot, ".claude/settings.json"), "");
-          symlinkSync(
-            "../.claude/settings.json",
-            nodePath.join(workspaceRoot, ".devin/config.json"),
-          );
-          yield* Effect.gen(function* () {
-            const manager = yield* HookManager;
-            yield* manager.materializeInstall({ ref: makeLocalHookRef("audit", packageRoot) });
-            yield* manager
-              .projectionPlans({ nativeInsertionEligibleAgentIds: new Set(["devin"]) })
-              .pipe(Effect.flatMap(applyProjectionPlans));
-            expect(
-              existsSync(nodePath.join(workspaceRoot, ".axm/projection-containers.json")),
-            ).toBe(false);
-          }).pipe(
-            Effect.provide(
-              makeHookManagerLayer(workspaceRoot, {
-                configuredAgents: ["claude-code", "devin"],
-                hooks: ["audit"],
-              }),
-            ),
-          );
-        } finally {
-          rmSync(workspaceRoot, { recursive: true, force: true });
-        }
-      }),
+      } finally {
+        rmSync(workspaceRoot, { recursive: true, force: true });
+      }
+    }),
   );
 
   for (const coReader of ["devin", "gemini-cli"] as const) {
@@ -407,9 +403,7 @@ describe("HookManager", () => {
                 },
               ]);
               const beforeRepeat = readFileSync(native, "utf8");
-              expect(beforeRepeat).toContain('"implementationIds": [');
-              expect(beforeRepeat).toContain('"claude-code"');
-              expect(beforeRepeat).toContain('"devin"');
+              expect(beforeRepeat).not.toContain("x-axm");
               expect(beforeRepeat.match(/"command":/g)).toHaveLength(1);
               yield* applyPlannedProjections(manager);
               expect(readFileSync(native, "utf8")).toBe(beforeRepeat);

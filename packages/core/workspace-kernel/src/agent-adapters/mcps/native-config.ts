@@ -17,10 +17,7 @@ import { parse, type ParseError } from "jsonc-parser";
 import { parse as parseToml } from "smol-toml";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { McpConfigInvalid, McpConfigIoFailed } from "../errors.js";
-import { managedKeyedBlockNames } from "../managed-regions-keyed-block.js";
-import { parseTomlValue, stringifyTomlKey } from "../toml.js";
-import { managedYamlNames, parseYaml, readYamlEntry } from "../yaml.js";
-import { isAxmManagedMcpEntry } from "./entry-semantics.js";
+import { parseYaml } from "../yaml.js";
 import { assertNativeMutationWithin } from "../../locations/index.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -154,9 +151,6 @@ export const decodeJsonMcpConfig = (
     return { root, servers };
   });
 
-const yamlInvalid = (configPath: string, cause: unknown): McpConfigInvalid =>
-  new McpConfigInvalid({ detail: `Invalid MCP config YAML: ${configPath}`, cause });
-
 export interface NativeMcpConfigRead {
   readonly format: McpConfigTarget["format"];
   readonly configPath: string;
@@ -228,123 +222,13 @@ export const readNativeMcpServers = (
     ),
   );
 
-/**
- * The entry one server holds in a keyed (JSON-like or YAML) native config.
- * TOML entries live in fenced blocks and are read by their block instead.
- */
+/** Read a selected entry through the same complete-file parser for every format. */
 export const readNativeMcpEntry = (
   args: NativeMcpConfigRead & { readonly serverName: string },
-): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, McpConfigInvalid> => {
-  switch (args.format) {
-    case "yaml":
-      return Effect.try({
-        try: () => readYamlEntry(args.raw, args.serversPath, args.serverName),
-        catch: (cause) => yamlInvalid(args.configPath, cause),
-      }).pipe(Effect.map((entry) => Option.fromUndefinedOr(entry)));
-    case "toml":
-      return Effect.succeed(Option.none());
-    case "json":
-    case "jsonc":
-    case "starlark":
-    case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format).pipe(
-        Effect.map(({ servers }) => {
-          const entry = servers?.[args.serverName];
-          return isRecord(entry) ? Option.some(entry) : Option.none();
-        }),
-      );
-  }
-};
-
-/** The names of every AXM-managed server entry a native config holds. */
-export const managedNativeMcpEntryNames = (
-  args: NativeMcpConfigRead,
-): Effect.Effect<ReadonlyArray<string>, McpConfigInvalid> => {
-  switch (args.format) {
-    case "toml":
-      return Effect.succeed(managedKeyedBlockNames(args.raw));
-    case "yaml":
-      return Effect.try({
-        try: () => managedYamlNames(args.raw, args.serversPath, isAxmManagedMcpEntry),
-        catch: (cause) => yamlInvalid(args.configPath, cause),
-      });
-    case "json":
-    case "jsonc":
-    case "starlark":
-    case "vscode-settings":
-      return decodeJsonMcpConfig(args.configPath, args.raw, args.serversPath, args.format).pipe(
-        Effect.map(({ servers }) =>
-          Object.entries(servers ?? {}).flatMap(([name, entry]) =>
-            isRecord(entry) && isAxmManagedMcpEntry(entry) ? [name] : [],
-          ),
-        ),
-      );
-  }
-};
-
-const tomlTableHeader = (
-  serversPath: ReadonlyArray<string>,
-  serverName: string,
-  suffix?: string,
-): string =>
-  `[${[...serversPath, serverName, ...(suffix === undefined ? [] : [suffix])].map(stringifyTomlKey).join(".")}]`;
-
-/** Whether a TOML config declares the server's table anywhere, fenced or not. */
-export const hasTomlMcpEntry = (
-  raw: string,
-  serversPath: ReadonlyArray<string>,
-  serverName: string,
-): boolean => {
-  const header = tomlTableHeader(serversPath, serverName);
-  return raw.split(/\r?\n/u).some((line) => line.trim() === header);
-};
-
-/**
- * Decode one server's TOML table, with its nested tables, from a block of
- * lines. Keys come from the file, so they are collected in Maps and only
- * become object keys through `Object.fromEntries`, never by assignment.
- */
-export const parseTomlMcpEntry = (
-  rawBlock: string,
-  serversPath: ReadonlyArray<string>,
-  serverName: string,
-): Readonly<Record<string, unknown>> => {
-  const rootHeader = tomlTableHeader(serversPath, serverName);
-  let currentTable: "root" | string | null = null;
-  const root = new Map<string, unknown>();
-  const nested = new Map<string, Map<string, unknown>>();
-
-  for (const line of rawBlock.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0 || trimmed.startsWith("#")) continue;
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      if (trimmed === rootHeader) {
-        currentTable = "root";
-        continue;
-      }
-      const nestedMatch = /^\[[^.]+(?:\.[^\]]+)\.([A-Za-z0-9_-]+|"[^"]+")\]$/.exec(trimmed);
-      const nestedKey = nestedMatch?.[1]?.replace(/^"|"$/g, "");
-      currentTable =
-        nestedKey !== undefined && trimmed.startsWith(rootHeader.slice(0, -1)) ? nestedKey : null;
-      if (currentTable !== null && currentTable !== "root") nested.set(currentTable, new Map());
-      continue;
-    }
-
-    const separator = trimmed.indexOf("=");
-    if (separator <= 0 || currentTable === null) continue;
-    const key = trimmed.slice(0, separator).trim().replace(/^"|"$/g, "");
-    const value = parseTomlValue(trimmed.slice(separator + 1).trim());
-    if (currentTable === "root") {
-      root.set(key, value);
-      continue;
-    }
-    const current = nested.get(currentTable) ?? new Map<string, unknown>();
-    current.set(key, value);
-    nested.set(currentTable, current);
-  }
-
-  return Object.fromEntries([
-    ...root,
-    ...[...nested].map(([table, values]) => [table, Object.fromEntries(values)] as const),
-  ]);
-};
+): Effect.Effect<Option.Option<Readonly<Record<string, unknown>>>, McpConfigInvalid> =>
+  readNativeMcpValues(args).pipe(
+    Effect.map((values) => {
+      const entry = values[args.serverName];
+      return isRecord(entry) ? Option.some(entry) : Option.none();
+    }),
+  );

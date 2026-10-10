@@ -6467,6 +6467,20 @@ Changes and releases land through the governed repository process with required 
 
 #### Constraints
 
+##### The tracked Registry contract matches its recorded digest
+
+- Requirement: `registry-client/contract-snapshot-matches-its-recorded-digest`
+- Owner: `registry-client`
+- Statement: The tracked Registry contract document shall be stored in its canonical form, two-space indented JSON followed by a newline, and its SHA-256 digest shall equal the digest recorded beside it, so the contract the client is generated from can be compared with the contract a Registry serves.
+- Class: constraint
+- Role: supporting
+- Product goals: `dependable-change-process`
+- Boundary: repository; selection: per-change
+- Boundary rationale: Only the committed contract snapshot and the committed digest record show which Registry contract the public client was generated from.
+- Methods: contract
+- Derived from: `packages/supporting/registry-client/scripts/sync-registry-spec.ts`
+- Source: [`packages/supporting/registry-client/src/registry-contract-snapshot-matches-its-recorded-digest.spec.ts`](../packages/supporting/registry-client/src/registry-contract-snapshot-matches-its-recorded-digest.spec.ts)
+
 ##### The public system depends on private platform responsibilities only through published contracts
 
 - Requirement: `system/architecture/public-system-depends-only-on-published-contracts`

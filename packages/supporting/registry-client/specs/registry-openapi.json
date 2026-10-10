@@ -8,7 +8,9 @@
   "paths": {
     "/v1": {
       "get": {
-        "tags": ["Meta"],
+        "tags": [
+          "Meta"
+        ],
         "operationId": "Meta.get",
         "parameters": [],
         "security": [],
@@ -40,7 +42,9 @@
     },
     "/v1/auth/device/code": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "operationId": "Auth.issueDeviceCode",
         "parameters": [],
         "security": [],
@@ -92,7 +96,9 @@
                     "type": "string",
                     "minLength": 1,
                     "description": "OAuth public client identifier.",
-                    "examples": ["example-client"]
+                    "examples": [
+                      "example-client"
+                    ]
                   },
                   "scope": {
                     "anyOf": [
@@ -106,7 +112,9 @@
                     ]
                   }
                 },
-                "required": ["client_id"],
+                "required": [
+                  "client_id"
+                ],
                 "additionalProperties": false
               }
             }
@@ -117,7 +125,9 @@
     },
     "/v1/auth/token": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "operationId": "Auth.exchangeToken",
         "parameters": [],
         "security": [],
@@ -221,7 +231,9 @@
                         "type": "string",
                         "minLength": 1,
                         "description": "OAuth client identifier.",
-                        "examples": ["example-client"]
+                        "examples": [
+                          "example-client"
+                        ]
                       },
                       {
                         "type": "null"
@@ -277,7 +289,9 @@
                       {
                         "type": "string",
                         "description": "Token exchange: the type of subject_token. Only urn:ietf:params:oauth:token-type:jwt is accepted.",
-                        "examples": ["urn:ietf:params:oauth:token-type:jwt"]
+                        "examples": [
+                          "urn:ietf:params:oauth:token-type:jwt"
+                        ]
                       },
                       {
                         "type": "null"
@@ -300,7 +314,9 @@
                       {
                         "type": "string",
                         "description": "Token exchange: the type of token requested. Only urn:ietf:params:oauth:token-type:access_token is issued.",
-                        "examples": ["urn:ietf:params:oauth:token-type:access_token"]
+                        "examples": [
+                          "urn:ietf:params:oauth:token-type:access_token"
+                        ]
                       },
                       {
                         "type": "null"
@@ -323,7 +339,9 @@
                       {
                         "type": "string",
                         "description": "Token exchange: requested lifetime of the workload token in whole seconds. Defaults to 15 minutes; at most 1 hour.",
-                        "examples": ["900"]
+                        "examples": [
+                          "900"
+                        ]
                       },
                       {
                         "type": "null"
@@ -331,7 +349,9 @@
                     ]
                   }
                 },
-                "required": ["grant_type"],
+                "required": [
+                  "grant_type"
+                ],
                 "additionalProperties": false
               }
             }
@@ -342,7 +362,9 @@
     },
     "/v1/auth/revoke": {
       "post": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "operationId": "Auth.revokeOAuthToken",
         "parameters": [],
         "security": [],
@@ -387,7 +409,10 @@
                     "anyOf": [
                       {
                         "type": "string",
-                        "enum": ["refresh_token", "access_token"],
+                        "enum": [
+                          "refresh_token",
+                          "access_token"
+                        ],
                         "description": "Optional RFC 7009 token type hint. Revocation remains non-enumerating."
                       },
                       {
@@ -396,7 +421,9 @@
                     ]
                   }
                 },
-                "required": ["token"],
+                "required": [
+                  "token"
+                ],
                 "additionalProperties": false
               }
             }
@@ -407,7 +434,9 @@
     },
     "/v1/auth/me": {
       "get": {
-        "tags": ["Auth"],
+        "tags": [
+          "Auth"
+        ],
         "operationId": "Auth.getMe",
         "parameters": [],
         "security": [
@@ -472,7 +501,9 @@
     },
     "/v1/tokens": {
       "get": {
-        "tags": ["Tokens"],
+        "tags": [
+          "Tokens"
+        ],
         "operationId": "Tokens.list",
         "parameters": [
           {
@@ -578,7 +609,9 @@
         "summary": "List access tokens"
       },
       "post": {
-        "tags": ["Tokens"],
+        "tags": [
+          "Tokens"
+        ],
         "operationId": "Tokens.create",
         "parameters": [],
         "security": [
@@ -691,7 +724,9 @@
     },
     "/v1/tokens/{tokenId}": {
       "delete": {
-        "tags": ["Tokens"],
+        "tags": [
+          "Tokens"
+        ],
         "operationId": "Tokens.delete",
         "parameters": [
           {
@@ -769,7 +804,9 @@
     },
     "/v1/owners/{handle}": {
       "get": {
-        "tags": ["Owners"],
+        "tags": [
+          "Owners"
+        ],
         "operationId": "Owners.getOwner",
         "parameters": [
           {
@@ -830,7 +867,9 @@
     },
     "/v1/extensions/{owner}": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.listByOwner",
         "parameters": [
           {
@@ -956,7 +995,9 @@
                                     ]
                                   }
                                 },
-                                "required": ["archivedAt"],
+                                "required": [
+                                  "archivedAt"
+                                ],
                                 "additionalProperties": false
                               },
                               {
@@ -977,7 +1018,9 @@
                       }
                     }
                   },
-                  "required": ["extensions"],
+                  "required": [
+                    "extensions"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1029,7 +1072,9 @@
     },
     "/v1/extensions/{owner}/{type}": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.listByType",
         "parameters": [
           {
@@ -1208,7 +1253,9 @@
                                     ]
                                   }
                                 },
-                                "required": ["archivedAt"],
+                                "required": [
+                                  "archivedAt"
+                                ],
                                 "additionalProperties": false
                               },
                               {
@@ -1235,12 +1282,19 @@
                         },
                         {
                           "type": "string",
-                          "enum": ["Infinity", "-Infinity", "NaN"]
+                          "enum": [
+                            "Infinity",
+                            "-Infinity",
+                            "NaN"
+                          ]
                         }
                       ]
                     }
                   },
-                  "required": ["extensions", "total"],
+                  "required": [
+                    "extensions",
+                    "total"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -1292,7 +1346,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}": {
       "head": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.head",
         "parameters": [
           {
@@ -1352,7 +1408,9 @@
         "summary": "Check whether an extension exists"
       },
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.get",
         "parameters": [
           {
@@ -1532,7 +1590,11 @@
                             ]
                           }
                         },
-                        "required": ["version", "published", "integrity"],
+                        "required": [
+                          "version",
+                          "published",
+                          "integrity"
+                        ],
                         "additionalProperties": false
                       }
                     },
@@ -1540,7 +1602,10 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["public", "private"],
+                          "enum": [
+                            "public",
+                            "private"
+                          ],
                           "readOnly": true
                         },
                         {
@@ -1577,7 +1642,9 @@
                               ]
                             }
                           },
-                          "required": ["archivedAt"],
+                          "required": [
+                            "archivedAt"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -1667,7 +1734,9 @@
         "summary": "Get extension metadata"
       },
       "patch": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.updateVisibility",
         "parameters": [
           {
@@ -1843,7 +1912,9 @@
         }
       },
       "delete": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.deleteExtension",
         "parameters": [
           {
@@ -1889,7 +1960,9 @@
                     },
                     "state": {
                       "type": "string",
-                      "enum": ["pending"]
+                      "enum": [
+                        "pending"
+                      ]
                     },
                     "requiredConfirmation": {
                       "type": "string"
@@ -1910,7 +1983,11 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["Infinity", "-Infinity", "NaN"]
+                              "enum": [
+                                "Infinity",
+                                "-Infinity",
+                                "NaN"
+                              ]
                             }
                           ]
                         },
@@ -1923,7 +2000,11 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
+                                  "enum": [
+                                    "Infinity",
+                                    "-Infinity",
+                                    "NaN"
+                                  ]
                                 }
                               ]
                             },
@@ -1933,11 +2014,20 @@
                           ]
                         }
                       },
-                      "required": ["versions", "libraryMembershipCount", "downloadCount"],
+                      "required": [
+                        "versions",
+                        "libraryMembershipCount",
+                        "downloadCount"
+                      ],
                       "additionalProperties": false
                     }
                   },
-                  "required": ["operationId", "state", "requiredConfirmation", "warnings"],
+                  "required": [
+                    "operationId",
+                    "state",
+                    "requiredConfirmation",
+                    "warnings"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -2053,7 +2143,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getVersion",
         "parameters": [
           {
@@ -2121,7 +2213,9 @@
                     },
                     "status": {
                       "type": "string",
-                      "enum": ["available"],
+                      "enum": [
+                        "available"
+                      ],
                       "readOnly": true
                     },
                     "published": {
@@ -2342,7 +2436,9 @@
         "summary": "Get an exact extension version"
       },
       "put": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.publishVersion",
         "parameters": [
           {
@@ -2463,7 +2559,9 @@
                     },
                     "publish_status": {
                       "type": "string",
-                      "enum": ["available"],
+                      "enum": [
+                        "available"
+                      ],
                       "readOnly": true
                     },
                     "visibility": {
@@ -2530,7 +2628,9 @@
                     },
                     "publish_status": {
                       "type": "string",
-                      "enum": ["available"],
+                      "enum": [
+                        "available"
+                      ],
                       "readOnly": true
                     },
                     "visibility": {
@@ -2733,7 +2833,9 @@
     },
     "/v1/extensions/deletions/{operationId}": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getDeletionOperation",
         "parameters": [
           {
@@ -2772,7 +2874,12 @@
                     },
                     "state": {
                       "type": "string",
-                      "enum": ["pending", "dispatching", "completed", "failed"]
+                      "enum": [
+                        "pending",
+                        "dispatching",
+                        "completed",
+                        "failed"
+                      ]
                     },
                     "requestedAt": {
                       "$ref": "#/components/schemas/IsoDateTimeString"
@@ -2901,7 +3008,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}/archive": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.downloadArchive",
         "parameters": [
           {
@@ -3019,7 +3128,9 @@
         "summary": "Download extension archive"
       },
       "head": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.headArchive",
         "parameters": [
           {
@@ -3089,7 +3200,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/visibility": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getVisibility",
         "parameters": [
           {
@@ -3138,7 +3251,10 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": ["manifest", "workspace"]
+                  "enum": [
+                    "manifest",
+                    "workspace"
+                  ]
                 },
                 {
                   "type": "null"
@@ -3252,7 +3368,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/archival": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getArchival",
         "parameters": [
           {
@@ -3360,7 +3478,9 @@
         "summary": "Get extension archival"
       },
       "put": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.putArchival",
         "parameters": [
           {
@@ -3513,7 +3633,9 @@
         }
       },
       "delete": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.deleteArchival",
         "parameters": [
           {
@@ -3658,7 +3780,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/deprecation": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getDeprecation",
         "parameters": [
           {
@@ -3766,7 +3890,9 @@
         "summary": "Get extension deprecation"
       },
       "put": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.putDeprecation",
         "parameters": [
           {
@@ -3932,7 +4058,9 @@
         }
       },
       "delete": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.deleteDeprecation",
         "parameters": [
           {
@@ -4090,7 +4218,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/{version}/yank": {
       "post": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.yankVersion",
         "parameters": [
           {
@@ -4165,7 +4295,12 @@
                       "anyOf": [
                         {
                           "type": "string",
-                          "enum": ["broken", "security", "accidental", "other"]
+                          "enum": [
+                            "broken",
+                            "security",
+                            "accidental",
+                            "other"
+                          ]
                         },
                         {
                           "type": "null"
@@ -4286,7 +4421,9 @@
         }
       },
       "delete": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.unyankVersion",
         "parameters": [
           {
@@ -4451,7 +4588,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/versions/yank": {
       "post": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.yankAvailableVersions",
         "parameters": [
           {
@@ -4494,7 +4633,9 @@
                   "properties": {
                     "selection": {
                       "type": "string",
-                      "enum": ["all-available"]
+                      "enum": [
+                        "all-available"
+                      ]
                     },
                     "affectedVersions": {
                       "type": "array",
@@ -4504,10 +4645,16 @@
                     },
                     "futureVersionsAffected": {
                       "type": "boolean",
-                      "enum": [false]
+                      "enum": [
+                        false
+                      ]
                     }
                   },
-                  "required": ["selection", "affectedVersions", "futureVersionsAffected"],
+                  "required": [
+                    "selection",
+                    "affectedVersions",
+                    "futureVersionsAffected"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -4599,7 +4746,9 @@
     },
     "/v1/extensions/{owner}/{type}/{name}/deletion": {
       "get": {
-        "tags": ["Extensions"],
+        "tags": [
+          "Extensions"
+        ],
         "operationId": "Extensions.getDeletionPreview",
         "parameters": [
           {
@@ -4687,7 +4836,11 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["Infinity", "-Infinity", "NaN"]
+                              "enum": [
+                                "Infinity",
+                                "-Infinity",
+                                "NaN"
+                              ]
                             }
                           ]
                         }
@@ -4718,7 +4871,11 @@
                             },
                             {
                               "type": "string",
-                              "enum": ["Infinity", "-Infinity", "NaN"]
+                              "enum": [
+                                "Infinity",
+                                "-Infinity",
+                                "NaN"
+                              ]
                             }
                           ]
                         },
@@ -4731,7 +4888,11 @@
                                 },
                                 {
                                   "type": "string",
-                                  "enum": ["Infinity", "-Infinity", "NaN"]
+                                  "enum": [
+                                    "Infinity",
+                                    "-Infinity",
+                                    "NaN"
+                                  ]
                                 }
                               ]
                             },
@@ -4741,11 +4902,19 @@
                           ]
                         }
                       },
-                      "required": ["versions", "libraryMembershipCount", "downloadCount"],
+                      "required": [
+                        "versions",
+                        "libraryMembershipCount",
+                        "downloadCount"
+                      ],
                       "additionalProperties": false
                     }
                   },
-                  "required": ["requiredConfirmation", "eligibility", "warnings"],
+                  "required": [
+                    "requiredConfirmation",
+                    "eligibility",
+                    "warnings"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -4817,7 +4986,9 @@
     },
     "/v1/resolutions/metadata": {
       "post": {
-        "tags": ["Resolutions"],
+        "tags": [
+          "Resolutions"
+        ],
         "operationId": "Resolutions.postMetadata",
         "parameters": [],
         "security": [
@@ -4856,7 +5027,10 @@
                       "type": "string"
                     }
                   },
-                  "required": ["code", "detail"],
+                  "required": [
+                    "code",
+                    "detail"
+                  ],
                   "additionalProperties": false
                 }
               },
@@ -4886,13 +5060,19 @@
                   "properties": {
                     "code": {
                       "type": "string",
-                      "enum": ["request-too-large", "response-too-large"]
+                      "enum": [
+                        "request-too-large",
+                        "response-too-large"
+                      ]
                     },
                     "detail": {
                       "type": "string"
                     }
                   },
-                  "required": ["code", "detail"],
+                  "required": [
+                    "code",
+                    "detail"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -4917,13 +5097,18 @@
                   "properties": {
                     "code": {
                       "type": "string",
-                      "enum": ["backend-unavailable"]
+                      "enum": [
+                        "backend-unavailable"
+                      ]
                     },
                     "detail": {
                       "type": "string"
                     }
                   },
-                  "required": ["code", "detail"],
+                  "required": [
+                    "code",
+                    "detail"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -4946,7 +5131,9 @@
     },
     "/v1/publish-previews": {
       "post": {
-        "tags": ["PublishPreviews"],
+        "tags": [
+          "PublishPreviews"
+        ],
         "operationId": "PublishPreviews.previewExtensionPublishes",
         "parameters": [],
         "security": [
@@ -5038,7 +5225,9 @@
     },
     "/v1/libraries": {
       "get": {
-        "tags": ["Libraries"],
+        "tags": [
+          "Libraries"
+        ],
         "operationId": "Libraries.listLibraries",
         "parameters": [
           {
@@ -5141,10 +5330,18 @@
                     },
                     "viewerRelative": {
                       "type": "boolean",
-                      "enum": [true]
+                      "enum": [
+                        true
+                      ]
                     }
                   },
-                  "required": ["libraries", "total", "limit", "offset", "viewerRelative"],
+                  "required": [
+                    "libraries",
+                    "total",
+                    "limit",
+                    "offset",
+                    "viewerRelative"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5206,7 +5403,9 @@
     },
     "/v1/libraries/{libraryId}": {
       "get": {
-        "tags": ["Libraries"],
+        "tags": [
+          "Libraries"
+        ],
         "operationId": "Libraries.getLibrary",
         "parameters": [
           {
@@ -5291,7 +5490,9 @@
     },
     "/v1/libraries/{libraryId}/members": {
       "get": {
-        "tags": ["Libraries"],
+        "tags": [
+          "Libraries"
+        ],
         "operationId": "Libraries.listLibraryMembers",
         "parameters": [
           {
@@ -5436,7 +5637,9 @@
     },
     "/v1/discovery": {
       "post": {
-        "tags": ["Discovery"],
+        "tags": [
+          "Discovery"
+        ],
         "operationId": "Discovery.postDiscovery",
         "parameters": [],
         "security": [
@@ -5466,7 +5669,10 @@
                           },
                           "status": {
                             "type": "string",
-                            "enum": ["resolved", "invalid_purl"]
+                            "enum": [
+                              "resolved",
+                              "invalid_purl"
+                            ]
                           },
                           "extensions": {
                             "type": "array",
@@ -5486,14 +5692,19 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": ["registry"]
+                                          "enum": [
+                                            "registry"
+                                          ]
                                         },
                                         "url": {
                                           "type": "string",
                                           "format": "uri"
                                         }
                                       },
-                                      "required": ["type", "url"],
+                                      "required": [
+                                        "type",
+                                        "url"
+                                      ],
                                       "additionalProperties": false
                                     },
                                     {
@@ -5501,7 +5712,9 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": ["git"]
+                                          "enum": [
+                                            "git"
+                                          ]
                                         },
                                         "url": {
                                           "type": "string",
@@ -5514,7 +5727,10 @@
                                           "type": "string"
                                         }
                                       },
-                                      "required": ["type", "url"],
+                                      "required": [
+                                        "type",
+                                        "url"
+                                      ],
                                       "additionalProperties": false
                                     },
                                     {
@@ -5522,13 +5738,18 @@
                                       "properties": {
                                         "type": {
                                           "type": "string",
-                                          "enum": ["path"]
+                                          "enum": [
+                                            "path"
+                                          ]
                                         },
                                         "path": {
                                           "type": "string"
                                         }
                                       },
-                                      "required": ["type", "path"],
+                                      "required": [
+                                        "type",
+                                        "path"
+                                      ],
                                       "additionalProperties": false
                                     }
                                   ]
@@ -5554,13 +5775,18 @@
                                               "properties": {
                                                 "type": {
                                                   "type": "string",
-                                                  "enum": ["registry"]
+                                                  "enum": [
+                                                    "registry"
+                                                  ]
                                                 },
                                                 "version": {
                                                   "type": "string"
                                                 }
                                               },
-                                              "required": ["type", "version"],
+                                              "required": [
+                                                "type",
+                                                "version"
+                                              ],
                                               "additionalProperties": false
                                             },
                                             {
@@ -5568,7 +5794,9 @@
                                               "properties": {
                                                 "type": {
                                                   "type": "string",
-                                                  "enum": ["git"]
+                                                  "enum": [
+                                                    "git"
+                                                  ]
                                                 },
                                                 "url": {
                                                   "type": "string",
@@ -5581,7 +5809,10 @@
                                                   "type": "string"
                                                 }
                                               },
-                                              "required": ["type", "url"],
+                                              "required": [
+                                                "type",
+                                                "url"
+                                              ],
                                               "additionalProperties": false
                                             },
                                             {
@@ -5589,19 +5820,29 @@
                                               "properties": {
                                                 "type": {
                                                   "type": "string",
-                                                  "enum": ["path"]
+                                                  "enum": [
+                                                    "path"
+                                                  ]
                                                 },
                                                 "path": {
                                                   "type": "string"
                                                 }
                                               },
-                                              "required": ["type", "path"],
+                                              "required": [
+                                                "type",
+                                                "path"
+                                              ],
                                               "additionalProperties": false
                                             }
                                           ]
                                         }
                                       },
-                                      "required": ["owner", "type", "name", "resolution"],
+                                      "required": [
+                                        "owner",
+                                        "type",
+                                        "name",
+                                        "resolution"
+                                      ],
                                       "additionalProperties": false
                                     },
                                     {
@@ -5613,7 +5854,10 @@
                                   "type": "array",
                                   "items": {
                                     "type": "string",
-                                    "enum": ["package", "extension"]
+                                    "enum": [
+                                      "package",
+                                      "extension"
+                                    ]
                                   }
                                 },
                                 "official": {
@@ -5635,12 +5879,19 @@
                             }
                           }
                         },
-                        "required": ["purl", "version", "status", "extensions"],
+                        "required": [
+                          "purl",
+                          "version",
+                          "status",
+                          "extensions"
+                        ],
                         "additionalProperties": false
                       }
                     }
                   },
-                  "required": ["results"],
+                  "required": [
+                    "results"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5699,7 +5950,9 @@
                         "type": "string"
                       }
                     },
-                    "required": ["axmVersion"],
+                    "required": [
+                      "axmVersion"
+                    ],
                     "additionalProperties": false
                   },
                   "packages": {
@@ -5728,14 +5981,19 @@
                                     "properties": {
                                       "type": {
                                         "type": "string",
-                                        "enum": ["registry"]
+                                        "enum": [
+                                          "registry"
+                                        ]
                                       },
                                       "url": {
                                         "type": "string",
                                         "format": "uri"
                                       }
                                     },
-                                    "required": ["type", "url"],
+                                    "required": [
+                                      "type",
+                                      "url"
+                                    ],
                                     "additionalProperties": false
                                   },
                                   {
@@ -5743,7 +6001,9 @@
                                     "properties": {
                                       "type": {
                                         "type": "string",
-                                        "enum": ["git"]
+                                        "enum": [
+                                          "git"
+                                        ]
                                       },
                                       "url": {
                                         "type": "string",
@@ -5756,7 +6016,10 @@
                                         "type": "string"
                                       }
                                     },
-                                    "required": ["type", "url"],
+                                    "required": [
+                                      "type",
+                                      "url"
+                                    ],
                                     "additionalProperties": false
                                   },
                                   {
@@ -5764,13 +6027,18 @@
                                     "properties": {
                                       "type": {
                                         "type": "string",
-                                        "enum": ["path"]
+                                        "enum": [
+                                          "path"
+                                        ]
                                       },
                                       "path": {
                                         "type": "string"
                                       }
                                     },
-                                    "required": ["type", "path"],
+                                    "required": [
+                                      "type",
+                                      "path"
+                                    ],
                                     "additionalProperties": false
                                   }
                                 ]
@@ -5786,17 +6054,27 @@
                                 ]
                               }
                             },
-                            "required": ["ref", "source"],
+                            "required": [
+                              "ref",
+                              "source"
+                            ],
                             "additionalProperties": false
                           }
                         }
                       },
-                      "required": ["purl", "version", "declaredExtensions"],
+                      "required": [
+                        "purl",
+                        "version",
+                        "declaredExtensions"
+                      ],
                       "additionalProperties": false
                     }
                   }
                 },
-                "required": ["client", "packages"],
+                "required": [
+                  "client",
+                  "packages"
+                ],
                 "additionalProperties": false
               }
             }
@@ -5807,7 +6085,9 @@
     },
     "/v1/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "operationId": "Health.getShallowHealth",
         "parameters": [],
         "security": [],
@@ -5821,10 +6101,16 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["pass", "warn", "fail"]
+                      "enum": [
+                        "pass",
+                        "warn",
+                        "fail"
+                      ]
                     }
                   },
-                  "required": ["status"],
+                  "required": [
+                    "status"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -5847,7 +6133,9 @@
     },
     "/v1/health/dependencies": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "operationId": "Health.getDeepHealth",
         "parameters": [
           {
@@ -5877,7 +6165,11 @@
                   "properties": {
                     "status": {
                       "type": "string",
-                      "enum": ["pass", "warn", "fail"]
+                      "enum": [
+                        "pass",
+                        "warn",
+                        "fail"
+                      ]
                     },
                     "serviceId": {
                       "anyOf": [
@@ -5953,14 +6245,22 @@
                                 },
                                 "componentType": {
                                   "type": "string",
-                                  "enum": ["datastore", "system", "component"]
+                                  "enum": [
+                                    "datastore",
+                                    "system",
+                                    "component"
+                                  ]
                                 },
                                 "measurementName": {
                                   "type": "string"
                                 },
                                 "status": {
                                   "type": "string",
-                                  "enum": ["pass", "warn", "fail"]
+                                  "enum": [
+                                    "pass",
+                                    "warn",
+                                    "fail"
+                                  ]
                                 },
                                 "observedValue": {
                                   "type": "number"
@@ -6011,7 +6311,9 @@
                       ]
                     }
                   },
-                  "required": ["status"],
+                  "required": [
+                    "status"
+                  ],
                   "additionalProperties": false
                 }
               }
@@ -6034,7 +6336,9 @@
     },
     "/v1/search": {
       "get": {
-        "tags": ["Search"],
+        "tags": [
+          "Search"
+        ],
         "operationId": "Search.searchExtensions",
         "parameters": [
           {
@@ -6043,7 +6347,10 @@
             "schema": {
               "type": "string",
               "description": "Search query string. Use an empty string to list the public catalog.",
-              "examples": ["git commit", ""]
+              "examples": [
+                "git commit",
+                ""
+              ]
             },
             "required": true
           },
@@ -6101,7 +6408,13 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": ["relevance", "popular", "newest", "updated", "name"]
+                  "enum": [
+                    "relevance",
+                    "popular",
+                    "newest",
+                    "updated",
+                    "name"
+                  ]
                 },
                 {
                   "type": "null"
@@ -6162,7 +6475,11 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": ["all", "active", "deprecated"]
+                  "enum": [
+                    "all",
+                    "active",
+                    "deprecated"
+                  ]
                 },
                 {
                   "type": "null"
@@ -6178,7 +6495,11 @@
               "anyOf": [
                 {
                   "type": "string",
-                  "enum": ["all", "public", "private"]
+                  "enum": [
+                    "all",
+                    "public",
+                    "private"
+                  ]
                 },
                 {
                   "type": "null"
@@ -6259,7 +6580,9 @@
     },
     "/v1/secret-scanning/alerts": {
       "post": {
-        "tags": ["SecretScanning"],
+        "tags": [
+          "SecretScanning"
+        ],
         "operationId": "SecretScanning.reportAlert",
         "parameters": [
           {
@@ -6364,7 +6687,9 @@
     },
     "/v1/debug/stream": {
       "get": {
-        "tags": ["Debug"],
+        "tags": [
+          "Debug"
+        ],
         "operationId": "Debug.debugStream",
         "parameters": [
           {
@@ -6426,7 +6751,10 @@
                       "$ref": "#/components/schemas/DebugStreamEventEncoded"
                     }
                   },
-                  "required": ["event", "data"],
+                  "required": [
+                    "event",
+                    "data"
+                  ],
                   "additionalProperties": false
                 },
                 "x-effect-stream": {
@@ -6440,14 +6768,18 @@
                           "properties": {
                             "_tag": {
                               "type": "string",
-                              "enum": ["Fail"]
+                              "enum": [
+                                "Fail"
+                              ]
                             },
                             "error": {
                               "type": "object",
                               "properties": {
                                 "_tag": {
                                   "type": "string",
-                                  "enum": ["DebugStreamInterrupted"]
+                                  "enum": [
+                                    "DebugStreamInterrupted"
+                                  ]
                                 },
                                 "after": {
                                   "anyOf": [
@@ -6456,16 +6788,26 @@
                                     },
                                     {
                                       "type": "string",
-                                      "enum": ["Infinity", "-Infinity", "NaN"]
+                                      "enum": [
+                                        "Infinity",
+                                        "-Infinity",
+                                        "NaN"
+                                      ]
                                     }
                                   ]
                                 }
                               },
-                              "required": ["_tag", "after"],
+                              "required": [
+                                "_tag",
+                                "after"
+                              ],
                               "additionalProperties": false
                             }
                           },
-                          "required": ["_tag", "error"],
+                          "required": [
+                            "_tag",
+                            "error"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -6473,11 +6815,16 @@
                           "properties": {
                             "_tag": {
                               "type": "string",
-                              "enum": ["Die"]
+                              "enum": [
+                                "Die"
+                              ]
                             },
                             "defect": {}
                           },
-                          "required": ["_tag", "defect"],
+                          "required": [
+                            "_tag",
+                            "defect"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -6485,7 +6832,9 @@
                           "properties": {
                             "_tag": {
                               "type": "string",
-                              "enum": ["Interrupt"]
+                              "enum": [
+                                "Interrupt"
+                              ]
                             },
                             "fiberId": {
                               "anyOf": [
@@ -6498,7 +6847,10 @@
                               ]
                             }
                           },
-                          "required": ["_tag", "fiberId"],
+                          "required": [
+                            "_tag",
+                            "fiberId"
+                          ],
                           "additionalProperties": false
                         }
                       ]
@@ -6535,11 +6887,15 @@
         "properties": {
           "ok": {
             "type": "boolean",
-            "enum": [true]
+            "enum": [
+              true
+            ]
           },
           "service": {
             "type": "string",
-            "enum": ["registry"]
+            "enum": [
+              "registry"
+            ]
           },
           "message": {
             "type": "string",
@@ -6570,7 +6926,13 @@
             ]
           }
         },
-        "required": ["ok", "service", "message", "docs", "openapi"],
+        "required": [
+          "ok",
+          "service",
+          "message",
+          "docs",
+          "openapi"
+        ],
         "additionalProperties": false,
         "title": "Meta Response",
         "description": "Registry service metadata including health status and documentation entry points."
@@ -6580,7 +6942,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["DecodeErrorResponse"]
+            "enum": [
+              "DecodeErrorResponse"
+            ]
           },
           "type": {
             "type": "string"
@@ -6601,7 +6965,14 @@
             "type": "string"
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code"
+        ],
         "additionalProperties": false
       },
       "DeviceCodeResponse": {
@@ -6651,10 +7022,15 @@
         "properties": {
           "error": {
             "type": "string",
-            "enum": ["invalid_client", "invalid_scope"]
+            "enum": [
+              "invalid_client",
+              "invalid_scope"
+            ]
           }
         },
-        "required": ["error"],
+        "required": [
+          "error"
+        ],
         "additionalProperties": false,
         "title": "Device Code OAuth Error"
       },
@@ -6696,7 +7072,9 @@
             "description": "Where a person with billing authority can raise the limit: the plan page for the owner, or the seats page when seats are short."
           }
         },
-        "required": ["retryable"],
+        "required": [
+          "retryable"
+        ],
         "additionalProperties": false,
         "title": "Publish Details",
         "description": "Extended error details for publish-related and retryable error responses."
@@ -6726,7 +7104,13 @@
             "$ref": "#/components/schemas/PublishDetails"
           }
         },
-        "required": ["type", "title", "status", "detail", "code"],
+        "required": [
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code"
+        ],
         "additionalProperties": false,
         "title": "Problem Details",
         "description": "RFC 9457 Problem Details payload for AgentXM Registry errors."
@@ -6750,12 +7134,16 @@
           },
           "issued_token_type": {
             "type": "string",
-            "enum": ["urn:ietf:params:oauth:token-type:access_token"],
+            "enum": [
+              "urn:ietf:params:oauth:token-type:access_token"
+            ],
             "description": "Token exchange (RFC 8693): the type of the issued token. Present only for a token exchange."
           },
           "token_type": {
             "type": "string",
-            "enum": ["Bearer"]
+            "enum": [
+              "Bearer"
+            ]
           },
           "expires_in": {
             "type": "integer",
@@ -6769,7 +7157,12 @@
             "description": "Space-delimited scopes the workload token carries. Absent for a signed-in session, which carries its holder's whole authority."
           }
         },
-        "required": ["access_token", "token_type", "expires_in", "expires_at"],
+        "required": [
+          "access_token",
+          "token_type",
+          "expires_in",
+          "expires_at"
+        ],
         "additionalProperties": false,
         "title": "Token Response",
         "description": "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token."
@@ -6779,7 +7172,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["TokenOAuthError"]
+            "enum": [
+              "TokenOAuthError"
+            ]
           },
           "error": {
             "type": "string",
@@ -6803,7 +7198,11 @@
             "description": "Human-readable explanation of the error."
           }
         },
-        "required": ["kind", "error", "error_description"],
+        "required": [
+          "kind",
+          "error",
+          "error_description"
+        ],
         "additionalProperties": false
       },
       "UserId": {
@@ -6811,7 +7210,9 @@
         "pattern": "^user_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "User ID",
         "description": "Identifies a registered user account. Assigned at sign-up and referenced by tokens, memberships, and audit trails.",
-        "examples": ["user_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "user_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "AuthMeUser": {
         "type": "object",
@@ -6822,7 +7223,9 @@
           "handle": {
             "type": "string",
             "description": "The user's registry handle.",
-            "examples": ["@example"]
+            "examples": [
+              "@example"
+            ]
           },
           "email": {
             "anyOf": [
@@ -6837,7 +7240,11 @@
             ]
           }
         },
-        "required": ["id", "handle", "email"],
+        "required": [
+          "id",
+          "handle",
+          "email"
+        ],
         "additionalProperties": false,
         "title": "Authenticated User",
         "description": "Your profile information."
@@ -6847,7 +7254,11 @@
         "properties": {
           "permission": {
             "type": "string",
-            "enum": ["read", "publish", "admin"],
+            "enum": [
+              "read",
+              "publish",
+              "admin"
+            ],
             "description": "What the token may do: read extensions, publish versions, or administer them."
           },
           "owners": {
@@ -6856,7 +7267,11 @@
               "type": "string"
             },
             "description": "Owner handles the token reaches, or \"all\".",
-            "examples": [["@example"]]
+            "examples": [
+              [
+                "@example"
+              ]
+            ]
           },
           "extensions": {
             "type": "array",
@@ -6864,10 +7279,18 @@
               "type": "string"
             },
             "description": "Extensions the token reaches, in @handle/<plural-type>/<name> form.",
-            "examples": [["@example/skills/release-bot"]]
+            "examples": [
+              [
+                "@example/skills/release-bot"
+              ]
+            ]
           }
         },
-        "required": ["permission", "owners", "extensions"],
+        "required": [
+          "permission",
+          "owners",
+          "extensions"
+        ],
         "additionalProperties": false,
         "title": "Token Permissions",
         "description": "What a limited credential may do, and to which owners and extensions."
@@ -6890,7 +7313,9 @@
             "description": "Extension patterns this credential is limited to, or null if unrestricted."
           }
         },
-        "required": ["extensions"],
+        "required": [
+          "extensions"
+        ],
         "additionalProperties": false,
         "title": "Resource Restrictions",
         "description": "What this credential is allowed to access. Present only when the authority is `limited`."
@@ -6900,7 +7325,9 @@
         "pattern": "^tpub_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "Trusted Publisher ID",
         "description": "Identifies a trusted publisher: a CI workflow identity a user allowed to exchange its OIDC token for a short-lived workload token.",
-        "examples": ["tpub_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "tpub_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "AuthMeTrustedPublisher": {
         "type": "object",
@@ -6913,7 +7340,10 @@
             "description": "The trusted publisher's name."
           }
         },
-        "required": ["id", "name"],
+        "required": [
+          "id",
+          "name"
+        ],
         "additionalProperties": false,
         "title": "Trusted Publisher",
         "description": "The trusted publisher a workload token was exchanged through."
@@ -6927,7 +7357,11 @@
           },
           "type": {
             "type": "string",
-            "enum": ["session", "pat", "oidc"],
+            "enum": [
+              "session",
+              "pat",
+              "oidc"
+            ],
             "title": "Token Type",
             "description": "The type of authentication token."
           },
@@ -6955,7 +7389,10 @@
           },
           "authority": {
             "type": "string",
-            "enum": ["account", "limited"],
+            "enum": [
+              "account",
+              "limited"
+            ],
             "title": "Credential Authority",
             "description": "`account` when the credential is you signed in, bounded only by your permissions. `limited` when it is a credential you deliberately made narrower than yourself."
           },
@@ -7019,7 +7456,10 @@
             "$ref": "#/components/schemas/AuthMeToken"
           }
         },
-        "required": ["user", "token"],
+        "required": [
+          "user",
+          "token"
+        ],
         "additionalProperties": false,
         "title": "Auth Me Response",
         "description": "Your user profile and credential details."
@@ -7029,7 +7469,9 @@
         "pattern": "^tok_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "Token ID",
         "description": "Identifies an access token or personal access token (PAT) issued to a user. Used to authenticate API requests to the registry.",
-        "examples": ["tok_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "tok_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "TokenListItem": {
         "type": "object",
@@ -7119,7 +7561,11 @@
             ]
           }
         },
-        "required": ["tokens", "has_more", "cursor"],
+        "required": [
+          "tokens",
+          "has_more",
+          "cursor"
+        ],
         "additionalProperties": false,
         "title": "Token List Response",
         "description": "A page of your access tokens."
@@ -7167,7 +7613,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["ForbiddenError"]
+            "enum": [
+              "ForbiddenError"
+            ]
           },
           "type": {
             "type": "string"
@@ -7227,7 +7675,14 @@
             ]
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code"
+        ],
         "additionalProperties": false
       },
       "CreateTokenPermissionsRequest": {
@@ -7246,7 +7701,11 @@
               }
             ],
             "description": "Owner selectors for extension permissions. Use full handles or \"all\".",
-            "examples": [["@example"]]
+            "examples": [
+              [
+                "@example"
+              ]
+            ]
           },
           "extensions": {
             "anyOf": [
@@ -7261,15 +7720,25 @@
               }
             ],
             "description": "Extension selectors in @handle/<plural-type>/<name> form.",
-            "examples": [["@example/skills/release-bot"]]
+            "examples": [
+              [
+                "@example/skills/release-bot"
+              ]
+            ]
           },
           "permission": {
             "type": "string",
-            "enum": ["read", "publish", "admin"],
+            "enum": [
+              "read",
+              "publish",
+              "admin"
+            ],
             "description": "What the token may do: read extensions, publish versions, or administer them."
           }
         },
-        "required": ["permission"],
+        "required": [
+          "permission"
+        ],
         "additionalProperties": false,
         "title": "Create Token Permissions Request",
         "description": "Structured permission request for the token."
@@ -7281,7 +7750,9 @@
             "type": "string",
             "minLength": 1,
             "description": "Human-readable name for the token.",
-            "examples": ["CI publish token"]
+            "examples": [
+              "CI publish token"
+            ]
           },
           "permissions": {
             "$ref": "#/components/schemas/CreateTokenPermissionsRequest"
@@ -7293,7 +7764,11 @@
             "description": "How long the token lasts, in seconds. At least 1 hour; at most 90 days for a publish or admin token and 365 days for a read token."
           }
         },
-        "required": ["name", "permissions", "expires_in"],
+        "required": [
+          "name",
+          "permissions",
+          "expires_in"
+        ],
         "additionalProperties": false,
         "title": "Create Token Request",
         "description": "Request body for creating a new personal access token."
@@ -7322,7 +7797,14 @@
             "$ref": "#/components/schemas/IsoDateTimeString"
           }
         },
-        "required": ["id", "token", "name", "permissions", "created_at", "expires_at"],
+        "required": [
+          "id",
+          "token",
+          "name",
+          "permissions",
+          "created_at",
+          "expires_at"
+        ],
         "additionalProperties": false,
         "title": "Create Token Response",
         "description": "Your new access token. The token value is only shown once — save it now."
@@ -7332,7 +7814,10 @@
         "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
         "title": "Handle",
         "description": "A unique username or organization name starting with @, like @my-org.",
-        "examples": ["@my-org", "@username"]
+        "examples": [
+          "@my-org",
+          "@username"
+        ]
       },
       "OwnerResponse": {
         "type": "object",
@@ -7342,7 +7827,9 @@
             "description": "Display name for the owner account."
           }
         },
-        "required": ["displayName"],
+        "required": [
+          "displayName"
+        ],
         "additionalProperties": false,
         "title": "Owner Response",
         "description": "Minimal owner summary for machine clients."
@@ -7353,11 +7840,23 @@
         "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
         "title": "Extension Name",
         "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-        "examples": ["my-skill", "code-review", "prettier"]
+        "examples": [
+          "my-skill",
+          "code-review",
+          "prettier"
+        ]
       },
       "ExtensionType": {
         "type": "string",
-        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
+        "enum": [
+          "skill",
+          "mcp-server",
+          "subagent",
+          "rule",
+          "hook",
+          "knowledge",
+          "pack"
+        ],
         "title": "Extension Type",
         "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
       },
@@ -7366,7 +7865,11 @@
         "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
         "title": "Version",
         "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
+        "examples": [
+          "1.0.0",
+          "2.3.1",
+          "0.1.0-beta.1"
+        ]
       },
       "Repository": {
         "type": "object",
@@ -7399,7 +7902,9 @@
             ]
           }
         },
-        "required": ["url"],
+        "required": [
+          "url"
+        ],
         "additionalProperties": false,
         "title": "Repository",
         "description": "Repository details for an extension manifest."
@@ -7408,7 +7913,12 @@
         "type": "string",
         "title": "License Expression",
         "description": "SPDX license expression, or `UNLICENSED` for proprietary code.",
-        "examples": ["MIT", "Apache-2.0", "MIT OR Apache-2.0", "UNLICENSED"],
+        "examples": [
+          "MIT",
+          "Apache-2.0",
+          "MIT OR Apache-2.0",
+          "UNLICENSED"
+        ],
         "format": "spdx-expression"
       },
       "Author": {
@@ -7465,7 +7975,10 @@
         "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
         "title": "Extension FQN",
         "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+        "examples": [
+          "@acme/skills/code-review",
+          "@my-org/rules/typescript"
+        ]
       },
       "DeprecationReplacement": {
         "anyOf": [
@@ -7474,13 +7987,18 @@
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["available"]
+                "enum": [
+                  "available"
+                ]
               },
               "fqn": {
                 "$ref": "#/components/schemas/ExtensionFqn"
               }
             },
-            "required": ["status", "fqn"],
+            "required": [
+              "status",
+              "fqn"
+            ],
             "additionalProperties": false
           },
           {
@@ -7488,7 +8006,9 @@
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["unavailable"]
+                "enum": [
+                  "unavailable"
+                ]
               },
               "fqn": {
                 "anyOf": [
@@ -7501,7 +8021,9 @@
                 ]
               }
             },
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "additionalProperties": false
           }
         ],
@@ -7517,7 +8039,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["superseded"]
+                "enum": [
+                  "superseded"
+                ]
               },
               "message": {
                 "anyOf": [
@@ -7533,7 +8057,11 @@
                 "$ref": "#/components/schemas/DeprecationReplacement"
               }
             },
-            "required": ["deprecatedAt", "reason", "replacement"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "replacement"
+            ],
             "additionalProperties": false
           },
           {
@@ -7544,7 +8072,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["obsolete"]
+                "enum": [
+                  "obsolete"
+                ]
               },
               "message": {
                 "$ref": "#/components/schemas/DeprecationMessage"
@@ -7560,7 +8090,11 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason", "message"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "message"
+            ],
             "additionalProperties": false
           },
           {
@@ -7571,7 +8105,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["unmaintained"]
+                "enum": [
+                  "unmaintained"
+                ]
               },
               "message": {
                 "anyOf": [
@@ -7594,7 +8130,10 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason"],
+            "required": [
+              "deprecatedAt",
+              "reason"
+            ],
             "additionalProperties": false
           },
           {
@@ -7605,7 +8144,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["other"]
+                "enum": [
+                  "other"
+                ]
               },
               "message": {
                 "$ref": "#/components/schemas/DeprecationMessage"
@@ -7621,7 +8162,11 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason", "message"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "message"
+            ],
             "additionalProperties": false
           }
         ],
@@ -7629,7 +8174,15 @@
       },
       "ExtensionTypePlural": {
         "type": "string",
-        "enum": ["skills", "mcps", "subagents", "rules", "hooks", "knowledge", "packs"],
+        "enum": [
+          "skills",
+          "mcps",
+          "subagents",
+          "rules",
+          "hooks",
+          "knowledge",
+          "packs"
+        ],
         "title": "Extension Type (Plural)",
         "description": "Plural form of the extension type used in URLs and identifiers (e.g. skills, hooks, packs)."
       },
@@ -7638,7 +8191,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["LifecycleBlockedError"]
+            "enum": [
+              "LifecycleBlockedError"
+            ]
           },
           "type": {
             "type": "string"
@@ -7657,14 +8212,28 @@
           },
           "code": {
             "type": "string",
-            "enum": ["lifecycle_blocked"]
+            "enum": [
+              "lifecycle_blocked"
+            ]
           },
           "reason": {
             "type": "string",
-            "enum": ["deleting", "held", "archived"]
+            "enum": [
+              "deleting",
+              "held",
+              "archived"
+            ]
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code", "reason"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "reason"
+        ],
         "additionalProperties": false
       },
       "Bugs": {
@@ -7705,7 +8274,13 @@
         "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
         "title": "Version Range",
         "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+        "examples": [
+          "^1.0.0",
+          "~2.4",
+          ">=1 <3",
+          "1.2.3",
+          "*"
+        ]
       },
       "PackageIdentityPurl": {
         "type": "string",
@@ -7713,7 +8288,11 @@
         "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
         "title": "Package Identity Purl",
         "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
-        "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
+        "examples": [
+          "pkg:npm/react",
+          "pkg:pypi/requests",
+          "pkg:cargo/serde"
+        ]
       },
       "CompanionPackage": {
         "type": "object",
@@ -7738,7 +8317,9 @@
             ]
           }
         },
-        "required": ["purl"],
+        "required": [
+          "purl"
+        ],
         "additionalProperties": false,
         "title": "Companion Package",
         "description": "A companion package purl identity with an optional VERS compatibility range."
@@ -7748,11 +8329,16 @@
         "pattern": "^edel_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "Extension Deletion Operation ID",
         "description": "Identifies a durable owner-requested whole-Extension deletion operation.",
-        "examples": ["edel_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "edel_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "Visibility": {
         "type": "string",
-        "enum": ["public", "private"],
+        "enum": [
+          "public",
+          "private"
+        ],
         "title": "Visibility"
       },
       "VisibilityFingerprint": {
@@ -7761,7 +8347,10 @@
       },
       "ExtensionVisibility": {
         "type": "string",
-        "enum": ["public", "private"],
+        "enum": [
+          "public",
+          "private"
+        ],
         "title": "Extension Visibility",
         "description": "Whole-Extension Registry visibility applied to every published version."
       },
@@ -7773,13 +8362,20 @@
           },
           "source": {
             "type": "string",
-            "enum": ["manifest", "workspace"]
+            "enum": [
+              "manifest",
+              "workspace"
+            ]
           },
           "fingerprint": {
             "$ref": "#/components/schemas/VisibilityFingerprint"
           }
         },
-        "required": ["value", "source", "fingerprint"],
+        "required": [
+          "value",
+          "source",
+          "fingerprint"
+        ],
         "additionalProperties": false
       },
       "PublishVisibility": {
@@ -7792,14 +8388,26 @@
               },
               "disposition": {
                 "type": "string",
-                "enum": ["establish"]
+                "enum": [
+                  "establish"
+                ]
               },
               "source": {
                 "type": "string",
-                "enum": ["manifest", "workspace", "explicit", "account", "platform"]
+                "enum": [
+                  "manifest",
+                  "workspace",
+                  "explicit",
+                  "account",
+                  "platform"
+                ]
               }
             },
-            "required": ["value", "disposition", "source"],
+            "required": [
+              "value",
+              "disposition",
+              "source"
+            ],
             "additionalProperties": false
           },
           {
@@ -7810,14 +8418,22 @@
               },
               "disposition": {
                 "type": "string",
-                "enum": ["preserve"]
+                "enum": [
+                  "preserve"
+                ]
               },
               "source": {
                 "type": "string",
-                "enum": ["existing"]
+                "enum": [
+                  "existing"
+                ]
               }
             },
-            "required": ["value", "disposition", "source"],
+            "required": [
+              "value",
+              "disposition",
+              "source"
+            ],
             "additionalProperties": false
           }
         ],
@@ -7839,12 +8455,20 @@
             "$ref": "#/components/schemas/VisibilityRevision"
           }
         },
-        "required": ["value", "revision"],
+        "required": [
+          "value",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "VisibilityComparison": {
         "type": "string",
-        "enum": ["not-established", "unconfigured", "match", "drift"]
+        "enum": [
+          "not-established",
+          "unconfigured",
+          "match",
+          "drift"
+        ]
       },
       "VisibilityFindingCode": {
         "type": "string",
@@ -7874,13 +8498,20 @@
           },
           "severity": {
             "type": "string",
-            "enum": ["error", "warning"]
+            "enum": [
+              "error",
+              "warning"
+            ]
           },
           "message": {
             "type": "string"
           }
         },
-        "required": ["code", "severity", "message"],
+        "required": [
+          "code",
+          "severity",
+          "message"
+        ],
         "additionalProperties": false
       },
       "VisibilityEvaluation": {
@@ -7939,7 +8570,15 @@
             }
           }
         },
-        "required": ["target", "intent", "request", "resolved", "actual", "comparison", "findings"],
+        "required": [
+          "target",
+          "intent",
+          "request",
+          "resolved",
+          "actual",
+          "comparison",
+          "findings"
+        ],
         "additionalProperties": false
       },
       "VisibilityMutationAuthority": {
@@ -7949,10 +8588,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["operator"]
+                "enum": [
+                  "operator"
+                ]
               }
             },
-            "required": ["kind"],
+            "required": [
+              "kind"
+            ],
             "additionalProperties": false
           },
           {
@@ -7960,17 +8603,26 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["repository"]
+                "enum": [
+                  "repository"
+                ]
               },
               "source": {
                 "type": "string",
-                "enum": ["manifest", "workspace"]
+                "enum": [
+                  "manifest",
+                  "workspace"
+                ]
               },
               "fingerprint": {
                 "$ref": "#/components/schemas/VisibilityFingerprint"
               }
             },
-            "required": ["kind", "source", "fingerprint"],
+            "required": [
+              "kind",
+              "source",
+              "fingerprint"
+            ],
             "additionalProperties": false
           }
         ]
@@ -8002,7 +8654,12 @@
             ]
           }
         },
-        "required": ["target", "visibility", "revision", "authority"],
+        "required": [
+          "target",
+          "visibility",
+          "revision",
+          "authority"
+        ],
         "additionalProperties": false
       },
       "VisibilityMutationResult": {
@@ -8022,13 +8679,23 @@
           },
           "result": {
             "type": "string",
-            "enum": ["already-satisfied", "changed"]
+            "enum": [
+              "already-satisfied",
+              "changed"
+            ]
           },
           "revision": {
             "$ref": "#/components/schemas/VisibilityRevision"
           }
         },
-        "required": ["target", "before", "after", "authority", "result", "revision"],
+        "required": [
+          "target",
+          "before",
+          "after",
+          "authority",
+          "result",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "PreconditionFailedErrorEncoded": {
@@ -8036,7 +8703,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["PreconditionFailedError"]
+            "enum": [
+              "PreconditionFailedError"
+            ]
           },
           "type": {
             "type": "string"
@@ -8066,7 +8735,14 @@
             "$ref": "#/components/schemas/PublishDetails"
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code"
+        ],
         "additionalProperties": false
       },
       "ArchivalRevision": {
@@ -8096,7 +8772,9 @@
                     ]
                   }
                 },
-                "required": ["archivedAt"],
+                "required": [
+                  "archivedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -8108,7 +8786,10 @@
             "$ref": "#/components/schemas/ArchivalRevision"
           }
         },
-        "required": ["archival", "revision"],
+        "required": [
+          "archival",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "PutArchivalBody": {
@@ -8127,7 +8808,9 @@
             ]
           }
         },
-        "required": ["reason"],
+        "required": [
+          "reason"
+        ],
         "additionalProperties": false
       },
       "ArchivalTransition": {
@@ -8155,7 +8838,9 @@
                     ]
                   }
                 },
-                "required": ["archivedAt"],
+                "required": [
+                  "archivedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -8182,7 +8867,9 @@
                     ]
                   }
                 },
-                "required": ["archivedAt"],
+                "required": [
+                  "archivedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -8192,13 +8879,24 @@
           },
           "disposition": {
             "type": "string",
-            "enum": ["created", "edited", "restored", "unchanged"]
+            "enum": [
+              "created",
+              "edited",
+              "restored",
+              "unchanged"
+            ]
           },
           "revision": {
             "$ref": "#/components/schemas/ArchivalRevision"
           }
         },
-        "required": ["target", "before", "after", "disposition", "revision"],
+        "required": [
+          "target",
+          "before",
+          "after",
+          "disposition",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "DeprecationRevision": {
@@ -8223,12 +8921,20 @@
             "$ref": "#/components/schemas/DeprecationRevision"
           }
         },
-        "required": ["deprecation", "revision"],
+        "required": [
+          "deprecation",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "DeprecationReason": {
         "type": "string",
-        "enum": ["superseded", "obsolete", "unmaintained", "other"],
+        "enum": [
+          "superseded",
+          "obsolete",
+          "unmaintained",
+          "other"
+        ],
         "description": "The publisher's structured reason for deprecating an extension."
       },
       "DeprecationReplacementIntent": {
@@ -8238,10 +8944,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["clear"]
+                "enum": [
+                  "clear"
+                ]
               }
             },
-            "required": ["kind"],
+            "required": [
+              "kind"
+            ],
             "additionalProperties": false
           },
           {
@@ -8249,13 +8959,18 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["set"]
+                "enum": [
+                  "set"
+                ]
               },
               "fqn": {
                 "$ref": "#/components/schemas/ExtensionFqn"
               }
             },
-            "required": ["kind", "fqn"],
+            "required": [
+              "kind",
+              "fqn"
+            ],
             "additionalProperties": false
           },
           {
@@ -8263,10 +8978,14 @@
             "properties": {
               "kind": {
                 "type": "string",
-                "enum": ["preserve"]
+                "enum": [
+                  "preserve"
+                ]
               }
             },
-            "required": ["kind"],
+            "required": [
+              "kind"
+            ],
             "additionalProperties": false
           }
         ]
@@ -8293,7 +9012,11 @@
             "$ref": "#/components/schemas/DeprecationReplacementIntent"
           }
         },
-        "required": ["reason", "message", "replacement"],
+        "required": [
+          "reason",
+          "message",
+          "replacement"
+        ],
         "additionalProperties": false
       },
       "DeprecationTransition": {
@@ -8324,13 +9047,24 @@
           },
           "disposition": {
             "type": "string",
-            "enum": ["created", "edited", "restored", "unchanged"]
+            "enum": [
+              "created",
+              "edited",
+              "restored",
+              "unchanged"
+            ]
           },
           "revision": {
             "$ref": "#/components/schemas/DeprecationRevision"
           }
         },
-        "required": ["target", "before", "after", "disposition", "revision"],
+        "required": [
+          "target",
+          "before",
+          "after",
+          "disposition",
+          "revision"
+        ],
         "additionalProperties": false
       },
       "Sha256Hex": {
@@ -8350,7 +9084,11 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           },
@@ -8361,7 +9099,11 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           },
@@ -8372,7 +9114,11 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           },
@@ -8383,12 +9129,18 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           }
         },
-        "required": ["file"],
+        "required": [
+          "file"
+        ],
         "additionalProperties": false,
         "title": "Finding Location",
         "description": "Accessor-relative location of a lint finding."
@@ -8420,7 +9172,9 @@
             ]
           }
         },
-        "required": ["description"],
+        "required": [
+          "description"
+        ],
         "additionalProperties": false
       },
       "PublishLintFinding": {
@@ -8428,14 +9182,21 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["advisory", "autofixable"]
+            "enum": [
+              "advisory",
+              "autofixable"
+            ]
           },
           "ruleId": {
             "type": "string"
           },
           "severity": {
             "type": "string",
-            "enum": ["error", "warning", "info"]
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
           },
           "message": {
             "type": "string"
@@ -8453,7 +9214,14 @@
             }
           }
         },
-        "required": ["kind", "ruleId", "severity", "message", "path", "suggestions"],
+        "required": [
+          "kind",
+          "ruleId",
+          "severity",
+          "message",
+          "path",
+          "suggestions"
+        ],
         "additionalProperties": false,
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
@@ -8466,7 +9234,9 @@
             "format": "uri"
           }
         },
-        "required": ["html"],
+        "required": [
+          "html"
+        ],
         "additionalProperties": false,
         "title": "Extension Links",
         "description": "Hyperlinks for an extension resource. `html` is the canonical web page URL."
@@ -8482,7 +9252,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["ExtensionNameHeldError"]
+            "enum": [
+              "ExtensionNameHeldError"
+            ]
           },
           "type": {
             "type": "string"
@@ -8501,13 +9273,23 @@
           },
           "code": {
             "type": "string",
-            "enum": ["extension_name_held"]
+            "enum": [
+              "extension_name_held"
+            ]
           },
           "reclaimable_at": {
             "$ref": "#/components/schemas/IsoDateTimeString_1"
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code", "reclaimable_at"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "reclaimable_at"
+        ],
         "additionalProperties": false
       },
       "PublishIdentity": {
@@ -8526,7 +9308,12 @@
             "$ref": "#/components/schemas/Version"
           }
         },
-        "required": ["owner", "type", "name", "version"],
+        "required": [
+          "owner",
+          "type",
+          "name",
+          "version"
+        ],
         "additionalProperties": false,
         "title": "Publish Identity",
         "description": "URL-path identity of the extension version under publish."
@@ -8558,7 +9345,9 @@
             ]
           }
         },
-        "required": ["description"],
+        "required": [
+          "description"
+        ],
         "additionalProperties": false
       },
       "PublishLintFinding_1": {
@@ -8566,14 +9355,21 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["advisory", "autofixable"]
+            "enum": [
+              "advisory",
+              "autofixable"
+            ]
           },
           "ruleId": {
             "type": "string"
           },
           "severity": {
             "type": "string",
-            "enum": ["error", "warning", "info"]
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ]
           },
           "message": {
             "type": "string"
@@ -8591,7 +9387,14 @@
             }
           }
         },
-        "required": ["kind", "ruleId", "severity", "message", "path", "suggestions"],
+        "required": [
+          "kind",
+          "ruleId",
+          "severity",
+          "message",
+          "path",
+          "suggestions"
+        ],
         "additionalProperties": false,
         "title": "Publish Lint Finding",
         "description": "One lint finding produced against the publish subject."
@@ -8601,7 +9404,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["ExtensionLintFailedError"]
+            "enum": [
+              "ExtensionLintFailedError"
+            ]
           },
           "type": {
             "type": "string"
@@ -8620,13 +9425,17 @@
           },
           "code": {
             "type": "string",
-            "enum": ["extension_lint_failed"]
+            "enum": [
+              "extension_lint_failed"
+            ]
           },
           "error": {
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["extension_lint_failed"]
+                "enum": [
+                  "extension_lint_failed"
+                ]
               }
             ]
           },
@@ -8662,7 +9471,12 @@
         "properties": {
           "field": {
             "type": "string",
-            "enum": ["owner", "type", "name", "version"]
+            "enum": [
+              "owner",
+              "type",
+              "name",
+              "version"
+            ]
           },
           "urlPath": {
             "anyOf": [
@@ -8685,7 +9499,11 @@
             ]
           }
         },
-        "required": ["field", "urlPath", "content"],
+        "required": [
+          "field",
+          "urlPath",
+          "content"
+        ],
         "additionalProperties": false,
         "title": "Identity Mismatch Entry",
         "description": "Single divergent identity field between URL-path and archive."
@@ -8695,7 +9513,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["ExtensionIdentityMismatchError"]
+            "enum": [
+              "ExtensionIdentityMismatchError"
+            ]
           },
           "type": {
             "type": "string"
@@ -8714,13 +9534,17 @@
           },
           "code": {
             "type": "string",
-            "enum": ["extension_identity_mismatch"]
+            "enum": [
+              "extension_identity_mismatch"
+            ]
           },
           "error": {
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["extension_identity_mismatch"]
+                "enum": [
+                  "extension_identity_mismatch"
+                ]
               }
             ]
           },
@@ -8754,7 +9578,12 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["broken", "security", "accidental", "other"]
+                "enum": [
+                  "broken",
+                  "security",
+                  "accidental",
+                  "other"
+                ]
               },
               {
                 "type": "null"
@@ -8782,13 +9611,20 @@
         "properties": {
           "selection": {
             "type": "string",
-            "enum": ["all-available"]
+            "enum": [
+              "all-available"
+            ]
           },
           "category": {
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["broken", "security", "accidental", "other"]
+                "enum": [
+                  "broken",
+                  "security",
+                  "accidental",
+                  "other"
+                ]
               },
               {
                 "type": "null"
@@ -8807,7 +9643,9 @@
             ]
           }
         },
-        "required": ["selection"],
+        "required": [
+          "selection"
+        ],
         "additionalProperties": false,
         "title": "Yank Available Versions Body",
         "description": "Atomically yanks the snapshot of all currently available versions."
@@ -8820,7 +9658,9 @@
             "description": "Exact full Extension FQN typed by the owner to confirm deletion."
           }
         },
-        "required": ["confirmation"],
+        "required": [
+          "confirmation"
+        ],
         "additionalProperties": false,
         "title": "Delete Extension Body",
         "description": "High-intent confirmation for permanent whole-Extension deletion."
@@ -8830,7 +9670,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["ExtensionDeletionIneligibleError"]
+            "enum": [
+              "ExtensionDeletionIneligibleError"
+            ]
           },
           "type": {
             "type": "string"
@@ -8849,13 +9691,18 @@
           },
           "code": {
             "type": "string",
-            "enum": ["extension_deletion_ineligible"]
+            "enum": [
+              "extension_deletion_ineligible"
+            ]
           },
           "reasons": {
             "type": "array",
             "items": {
               "type": "string",
-              "enum": ["first-version-published-over-24-hours-ago", "other-extensions-depend-on-it"]
+              "enum": [
+                "first-version-published-over-24-hours-ago",
+                "other-extensions-depend-on-it"
+              ]
             }
           },
           "first_published_at": {
@@ -8875,7 +9722,11 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           }
@@ -8904,11 +9755,22 @@
         "pattern": "^@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?$",
         "title": "Handle",
         "description": "A unique username or organization name starting with @, like @my-org.",
-        "examples": ["@my-org", "@username"]
+        "examples": [
+          "@my-org",
+          "@username"
+        ]
       },
       "ExtensionType_1": {
         "type": "string",
-        "enum": ["skill", "mcp-server", "subagent", "rule", "hook", "knowledge", "pack"],
+        "enum": [
+          "skill",
+          "mcp-server",
+          "subagent",
+          "rule",
+          "hook",
+          "knowledge",
+          "pack"
+        ],
         "title": "Extension Type",
         "description": "What kind of extension this is: skill, mcp-server, subagent, rule, hook, knowledge, or pack."
       },
@@ -8918,7 +9780,11 @@
         "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$",
         "title": "Extension Name",
         "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
-        "examples": ["my-skill", "code-review", "prettier"]
+        "examples": [
+          "my-skill",
+          "code-review",
+          "prettier"
+        ]
       },
       "ResolutionMetadataIdentity": {
         "type": "object",
@@ -8933,7 +9799,11 @@
             "$ref": "#/components/schemas/ExtensionName_1"
           }
         },
-        "required": ["owner", "type", "name"],
+        "required": [
+          "owner",
+          "type",
+          "name"
+        ],
         "additionalProperties": false
       },
       "ResolutionMetadataRevision": {
@@ -8952,18 +9822,26 @@
         "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$",
         "title": "Version",
         "description": "A semver version like 1.0.0. Ranges are not allowed here.",
-        "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
+        "examples": [
+          "1.0.0",
+          "2.3.1",
+          "0.1.0-beta.1"
+        ]
       },
       "ResolutionMetadataRequest": {
         "type": "object",
         "properties": {
           "schemaVersion": {
             "type": "number",
-            "enum": [1]
+            "enum": [
+              1
+            ]
           },
           "selectionPolicyVersion": {
             "type": "string",
-            "enum": ["1"]
+            "enum": [
+              "1"
+            ]
           },
           "items": {
             "type": "array",
@@ -9011,7 +9889,10 @@
                               "$ref": "#/components/schemas/ResolutionMetadataRevision"
                             }
                           },
-                          "required": ["token", "revision"],
+                          "required": [
+                            "token",
+                            "revision"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -9021,10 +9902,16 @@
                     },
                     "purpose": {
                       "type": "string",
-                      "enum": ["select"]
+                      "enum": [
+                        "select"
+                      ]
                     }
                   },
-                  "required": ["key", "identity", "purpose"],
+                  "required": [
+                    "key",
+                    "identity",
+                    "purpose"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -9069,7 +9956,10 @@
                               "$ref": "#/components/schemas/ResolutionMetadataRevision"
                             }
                           },
-                          "required": ["token", "revision"],
+                          "required": [
+                            "token",
+                            "revision"
+                          ],
                           "additionalProperties": false
                         },
                         {
@@ -9079,7 +9969,9 @@
                     },
                     "purpose": {
                       "type": "string",
-                      "enum": ["restore-exact"]
+                      "enum": [
+                        "restore-exact"
+                      ]
                     },
                     "accepted": {
                       "type": "object",
@@ -9092,11 +9984,19 @@
                           "minLength": 1
                         }
                       },
-                      "required": ["version", "integrity"],
+                      "required": [
+                        "version",
+                        "integrity"
+                      ],
                       "additionalProperties": false
                     }
                   },
-                  "required": ["key", "identity", "purpose", "accepted"],
+                  "required": [
+                    "key",
+                    "identity",
+                    "purpose",
+                    "accepted"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -9105,7 +10005,11 @@
             "maxItems": 100
           }
         },
-        "required": ["schemaVersion", "selectionPolicyVersion", "items"],
+        "required": [
+          "schemaVersion",
+          "selectionPolicyVersion",
+          "items"
+        ],
         "additionalProperties": false
       },
       "IsoDateTimeString_2": {
@@ -9133,7 +10037,9 @@
             ]
           }
         },
-        "required": ["archivedAt"],
+        "required": [
+          "archivedAt"
+        ],
         "additionalProperties": false,
         "description": "Canonical authorization-safe extension archival state."
       },
@@ -9148,7 +10054,10 @@
         "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge|packs)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
         "title": "Extension FQN",
         "description": "Canonical extension identifier in @owner/<type>s/<name> form.",
-        "examples": ["@acme/skills/code-review", "@my-org/rules/typescript"]
+        "examples": [
+          "@acme/skills/code-review",
+          "@my-org/rules/typescript"
+        ]
       },
       "DeprecationReplacement_1": {
         "anyOf": [
@@ -9157,13 +10066,18 @@
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["available"]
+                "enum": [
+                  "available"
+                ]
               },
               "fqn": {
                 "$ref": "#/components/schemas/ExtensionFqn_1"
               }
             },
-            "required": ["status", "fqn"],
+            "required": [
+              "status",
+              "fqn"
+            ],
             "additionalProperties": false
           },
           {
@@ -9171,7 +10085,9 @@
             "properties": {
               "status": {
                 "type": "string",
-                "enum": ["unavailable"]
+                "enum": [
+                  "unavailable"
+                ]
               },
               "fqn": {
                 "anyOf": [
@@ -9184,7 +10100,9 @@
                 ]
               }
             },
-            "required": ["status"],
+            "required": [
+              "status"
+            ],
             "additionalProperties": false
           }
         ],
@@ -9200,7 +10118,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["superseded"]
+                "enum": [
+                  "superseded"
+                ]
               },
               "message": {
                 "anyOf": [
@@ -9216,7 +10136,11 @@
                 "$ref": "#/components/schemas/DeprecationReplacement_1"
               }
             },
-            "required": ["deprecatedAt", "reason", "replacement"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "replacement"
+            ],
             "additionalProperties": false
           },
           {
@@ -9227,7 +10151,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["obsolete"]
+                "enum": [
+                  "obsolete"
+                ]
               },
               "message": {
                 "$ref": "#/components/schemas/DeprecationMessage_1"
@@ -9243,7 +10169,11 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason", "message"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "message"
+            ],
             "additionalProperties": false
           },
           {
@@ -9254,7 +10184,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["unmaintained"]
+                "enum": [
+                  "unmaintained"
+                ]
               },
               "message": {
                 "anyOf": [
@@ -9277,7 +10209,10 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason"],
+            "required": [
+              "deprecatedAt",
+              "reason"
+            ],
             "additionalProperties": false
           },
           {
@@ -9288,7 +10223,9 @@
               },
               "reason": {
                 "type": "string",
-                "enum": ["other"]
+                "enum": [
+                  "other"
+                ]
               },
               "message": {
                 "$ref": "#/components/schemas/DeprecationMessage_1"
@@ -9304,7 +10241,11 @@
                 ]
               }
             },
-            "required": ["deprecatedAt", "reason", "message"],
+            "required": [
+              "deprecatedAt",
+              "reason",
+              "message"
+            ],
             "additionalProperties": false
           }
         ],
@@ -9314,7 +10255,10 @@
         "anyOf": [
           {
             "type": "string",
-            "examples": ["https://github.com/acme/code-review", "github:acme/code-review"],
+            "examples": [
+              "https://github.com/acme/code-review",
+              "github:acme/code-review"
+            ],
             "format": "uri-reference"
           },
           {
@@ -9326,7 +10270,9 @@
                     "type": "string",
                     "minLength": 1,
                     "description": "Version control system (e.g., `git`).",
-                    "examples": ["git"]
+                    "examples": [
+                      "git"
+                    ]
                   },
                   {
                     "type": "null"
@@ -9339,7 +10285,9 @@
                   {
                     "minLength": 1,
                     "description": "Repository URL.",
-                    "examples": ["https://github.com/acme/code-review"],
+                    "examples": [
+                      "https://github.com/acme/code-review"
+                    ],
                     "format": "uri"
                   }
                 ]
@@ -9350,7 +10298,9 @@
                     "type": "string",
                     "minLength": 1,
                     "description": "Subdirectory within the repository, for monorepo publishers.",
-                    "examples": ["packages/code-review"]
+                    "examples": [
+                      "packages/code-review"
+                    ]
                   },
                   {
                     "type": "null"
@@ -9358,7 +10308,9 @@
                 ]
               }
             },
-            "required": ["url"],
+            "required": [
+              "url"
+            ],
             "additionalProperties": false
           }
         ],
@@ -9369,7 +10321,9 @@
         "anyOf": [
           {
             "type": "string",
-            "examples": ["https://github.com/acme/code-review/issues"],
+            "examples": [
+              "https://github.com/acme/code-review/issues"
+            ],
             "format": "uri"
           },
           {
@@ -9383,7 +10337,9 @@
                       {
                         "minLength": 1,
                         "description": "Issue tracker URL.",
-                        "examples": ["https://github.com/acme/code-review/issues"],
+                        "examples": [
+                          "https://github.com/acme/code-review/issues"
+                        ],
                         "format": "uri"
                       }
                     ]
@@ -9401,7 +10357,9 @@
                       {
                         "minLength": 1,
                         "description": "Contact email for bug reports.",
-                        "examples": ["bugs@acme.dev"],
+                        "examples": [
+                          "bugs@acme.dev"
+                        ],
                         "format": "email"
                       }
                     ]
@@ -9445,7 +10403,9 @@
             ]
           }
         },
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
         "title": "Author",
         "description": "A person credited as a creator or maintainer of this extension."
@@ -9456,7 +10416,13 @@
         "pattern": "^[~^<>=*xXvV0-9A-Za-z+| .-]+$",
         "title": "Version Range",
         "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
-        "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
+        "examples": [
+          "^1.0.0",
+          "~2.4",
+          ">=1 <3",
+          "1.2.3",
+          "*"
+        ]
       },
       "PackageIdentityPurl_1": {
         "type": "string",
@@ -9464,12 +10430,20 @@
         "pattern": "^[Pp][Kk][Gg]:[a-zA-Z][a-zA-Z0-9.+-]*\\/.+$",
         "title": "Package Identity Purl",
         "description": "A Package URL (purl) identity for a companion package. Companion package purls are identities, not pins: omit the purl @version segment and put compatibility constraints in versionRange.",
-        "examples": ["pkg:npm/react", "pkg:pypi/requests", "pkg:cargo/serde"]
+        "examples": [
+          "pkg:npm/react",
+          "pkg:pypi/requests",
+          "pkg:cargo/serde"
+        ]
       },
       "VersRangeEncoded": {
         "type": "string",
         "minLength": 1,
-        "examples": ["vers:npm/>=18.0.0|<19.0.0", "vers:pypi/>=2.31.0", "vers:cargo/>=1.0.0"]
+        "examples": [
+          "vers:npm/>=18.0.0|<19.0.0",
+          "vers:pypi/>=2.31.0",
+          "vers:cargo/>=1.0.0"
+        ]
       },
       "CompanionPackage_1": {
         "type": "object",
@@ -9488,7 +10462,9 @@
             ]
           }
         },
-        "required": ["purl"],
+        "required": [
+          "purl"
+        ],
         "additionalProperties": false,
         "title": "Companion Package",
         "description": "A companion package purl identity with an optional VERS compatibility range."
@@ -9565,7 +10541,11 @@
             ]
           }
         },
-        "required": ["version", "published", "integrity"],
+        "required": [
+          "version",
+          "published",
+          "integrity"
+        ],
         "additionalProperties": false,
         "title": "Version Entry",
         "description": "A single published version of an extension in the registry."
@@ -9579,7 +10559,10 @@
           },
           "visibility": {
             "type": "string",
-            "enum": ["public", "private"]
+            "enum": [
+              "public",
+              "private"
+            ]
           },
           "archival": {
             "anyOf": [
@@ -9700,11 +10683,15 @@
         "properties": {
           "schemaVersion": {
             "type": "number",
-            "enum": [1]
+            "enum": [
+              1
+            ]
           },
           "selectionPolicyVersion": {
             "type": "string",
-            "enum": ["1"]
+            "enum": [
+              "1"
+            ]
           },
           "observedAt": {
             "$ref": "#/components/schemas/IsoDateTimeString_2"
@@ -9721,13 +10708,19 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["metadata"]
+                      "enum": [
+                        "metadata"
+                      ]
                     },
                     "page": {
                       "$ref": "#/components/schemas/ResolutionMetadataPage"
                     }
                   },
-                  "required": ["key", "outcome", "page"],
+                  "required": [
+                    "key",
+                    "outcome",
+                    "page"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -9738,7 +10731,9 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["unchanged"]
+                      "enum": [
+                        "unchanged"
+                      ]
                     },
                     "publisherBindingId": {
                       "type": "string",
@@ -9746,7 +10741,10 @@
                     },
                     "visibility": {
                       "type": "string",
-                      "enum": ["public", "private"]
+                      "enum": [
+                        "public",
+                        "private"
+                      ]
                     },
                     "archival": {
                       "anyOf": [
@@ -9809,10 +10807,15 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["unavailable"]
+                      "enum": [
+                        "unavailable"
+                      ]
                     }
                   },
-                  "required": ["key", "outcome"],
+                  "required": [
+                    "key",
+                    "outcome"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -9823,14 +10826,20 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["binding-conflict"]
+                      "enum": [
+                        "binding-conflict"
+                      ]
                     },
                     "publisherBindingId": {
                       "type": "string",
                       "minLength": 1
                     }
                   },
-                  "required": ["key", "outcome", "publisherBindingId"],
+                  "required": [
+                    "key",
+                    "outcome",
+                    "publisherBindingId"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -9841,14 +10850,23 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["exact-conflict"]
+                      "enum": [
+                        "exact-conflict"
+                      ]
                     },
                     "reason": {
                       "type": "string",
-                      "enum": ["version-unavailable", "integrity-mismatch"]
+                      "enum": [
+                        "version-unavailable",
+                        "integrity-mismatch"
+                      ]
                     }
                   },
-                  "required": ["key", "outcome", "reason"],
+                  "required": [
+                    "key",
+                    "outcome",
+                    "reason"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -9859,13 +10877,19 @@
                     },
                     "outcome": {
                       "type": "string",
-                      "enum": ["restart-required"]
+                      "enum": [
+                        "restart-required"
+                      ]
                     },
                     "revision": {
                       "$ref": "#/components/schemas/ResolutionMetadataRevision"
                     }
                   },
-                  "required": ["key", "outcome", "revision"],
+                  "required": [
+                    "key",
+                    "outcome",
+                    "revision"
+                  ],
                   "additionalProperties": false
                 }
               ]
@@ -9873,7 +10897,12 @@
             "maxItems": 100
           }
         },
-        "required": ["schemaVersion", "selectionPolicyVersion", "observedAt", "results"],
+        "required": [
+          "schemaVersion",
+          "selectionPolicyVersion",
+          "observedAt",
+          "results"
+        ],
         "additionalProperties": false
       },
       "PublicationTarget": {
@@ -9892,7 +10921,12 @@
             "$ref": "#/components/schemas/Version"
           }
         },
-        "required": ["owner", "type", "name", "version"],
+        "required": [
+          "owner",
+          "type",
+          "name",
+          "version"
+        ],
         "additionalProperties": false
       },
       "PublicationVisibilityInput": {
@@ -9919,7 +10953,10 @@
             ]
           }
         },
-        "required": ["intent", "request"],
+        "required": [
+          "intent",
+          "request"
+        ],
         "additionalProperties": false
       },
       "PackDependencyDescriptor": {
@@ -9930,7 +10967,14 @@
           },
           "type": {
             "type": "string",
-            "enum": ["hook", "knowledge", "mcp-server", "rule", "skill", "subagent"]
+            "enum": [
+              "hook",
+              "knowledge",
+              "mcp-server",
+              "rule",
+              "skill",
+              "subagent"
+            ]
           },
           "name": {
             "$ref": "#/components/schemas/ExtensionName"
@@ -9952,7 +10996,10 @@
                     "format": "uri"
                   }
                 },
-                "required": ["type", "url"],
+                "required": [
+                  "type",
+                  "url"
+                ],
                 "additionalProperties": false
               },
               {
@@ -9961,7 +11008,12 @@
             ]
           }
         },
-        "required": ["owner", "type", "name", "range"],
+        "required": [
+          "owner",
+          "type",
+          "name",
+          "range"
+        ],
         "additionalProperties": false
       },
       "PublicationDescriptor": {
@@ -9972,7 +11024,10 @@
           },
           "participation": {
             "type": "string",
-            "enum": ["publish", "verified-existing"]
+            "enum": [
+              "publish",
+              "verified-existing"
+            ]
           },
           "archiveSha256Hex": {
             "anyOf": [
@@ -9999,7 +11054,9 @@
                     }
                   }
                 },
-                "required": ["dependencies"],
+                "required": [
+                  "dependencies"
+                ],
                 "additionalProperties": false
               },
               {
@@ -10008,7 +11065,11 @@
             ]
           }
         },
-        "required": ["target", "participation", "visibility"],
+        "required": [
+          "target",
+          "participation",
+          "visibility"
+        ],
         "additionalProperties": false
       },
       "PreviewPublicationSetRequest": {
@@ -10016,7 +11077,9 @@
         "properties": {
           "contract": {
             "type": "string",
-            "enum": ["publication-set-v2"]
+            "enum": [
+              "publication-set-v2"
+            ]
           },
           "candidates": {
             "type": "array",
@@ -10025,7 +11088,10 @@
             }
           }
         },
-        "required": ["contract", "candidates"],
+        "required": [
+          "contract",
+          "candidates"
+        ],
         "additionalProperties": false
       },
       "VisibilityEvaluationUnavailable": {
@@ -10036,7 +11102,9 @@
           },
           "unavailable": {
             "type": "boolean",
-            "enum": [true]
+            "enum": [
+              true
+            ]
           },
           "findings": {
             "type": "array",
@@ -10045,7 +11113,11 @@
             }
           }
         },
-        "required": ["target", "unavailable", "findings"],
+        "required": [
+          "target",
+          "unavailable",
+          "findings"
+        ],
         "additionalProperties": false
       },
       "PackDependencyFinding": {
@@ -10053,15 +11125,23 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["advisory"]
+            "enum": [
+              "advisory"
+            ]
           },
           "ruleId": {
             "type": "string",
-            "enum": ["pack/dependency-version-resolvable", "pack/dependency-deprecated"]
+            "enum": [
+              "pack/dependency-version-resolvable",
+              "pack/dependency-deprecated"
+            ]
           },
           "severity": {
             "type": "string",
-            "enum": ["error", "warning"]
+            "enum": [
+              "error",
+              "warning"
+            ]
           },
           "reason": {
             "type": "string",
@@ -10082,7 +11162,10 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["public", "private"]
+                "enum": [
+                  "public",
+                  "private"
+                ]
               },
               {
                 "type": "null"
@@ -10093,7 +11176,10 @@
             "anyOf": [
               {
                 "type": "string",
-                "enum": ["active", "unavailable"]
+                "enum": [
+                  "active",
+                  "unavailable"
+                ]
               },
               {
                 "type": "null"
@@ -10115,15 +11201,21 @@
             "properties": {
               "file": {
                 "type": "string",
-                "enum": ["pack.json"]
+                "enum": [
+                  "pack.json"
+                ]
               }
             },
-            "required": ["file"],
+            "required": [
+              "file"
+            ],
             "additionalProperties": false
           },
           "path": {
             "type": "string",
-            "enum": ["./pack.json"]
+            "enum": [
+              "./pack.json"
+            ]
           },
           "message": {
             "type": "string"
@@ -10158,7 +11250,10 @@
             "$ref": "#/components/schemas/Version"
           }
         },
-        "required": ["dependency", "effectiveVersion"],
+        "required": [
+          "dependency",
+          "effectiveVersion"
+        ],
         "additionalProperties": false
       },
       "PreviewPublicationSetResponse": {
@@ -10166,14 +11261,19 @@
         "properties": {
           "contract": {
             "type": "string",
-            "enum": ["publication-set-v2"]
+            "enum": [
+              "publication-set-v2"
+            ]
           },
           "publicationSetDigest": {
             "$ref": "#/components/schemas/Sha256Hex"
           },
           "status": {
             "type": "string",
-            "enum": ["admitted", "blocked"]
+            "enum": [
+              "admitted",
+              "blocked"
+            ]
           },
           "candidates": {
             "type": "array",
@@ -10184,14 +11284,19 @@
                   "properties": {
                     "kind": {
                       "type": "string",
-                      "enum": ["resolved"]
+                      "enum": [
+                        "resolved"
+                      ]
                     },
                     "target": {
                       "$ref": "#/components/schemas/PublicationTarget"
                     },
                     "participation": {
                       "type": "string",
-                      "enum": ["publish", "verified-existing"]
+                      "enum": [
+                        "publish",
+                        "verified-existing"
+                      ]
                     },
                     "descriptorDigest": {
                       "$ref": "#/components/schemas/Sha256Hex"
@@ -10210,7 +11315,13 @@
                       ]
                     }
                   },
-                  "required": ["kind", "target", "participation", "descriptorDigest", "visibility"],
+                  "required": [
+                    "kind",
+                    "target",
+                    "participation",
+                    "descriptorDigest",
+                    "visibility"
+                  ],
                   "additionalProperties": false
                 },
                 {
@@ -10218,21 +11329,28 @@
                   "properties": {
                     "kind": {
                       "type": "string",
-                      "enum": ["unavailable"]
+                      "enum": [
+                        "unavailable"
+                      ]
                     },
                     "target": {
                       "$ref": "#/components/schemas/PublicationTarget"
                     },
                     "participation": {
                       "type": "string",
-                      "enum": ["publish", "verified-existing"]
+                      "enum": [
+                        "publish",
+                        "verified-existing"
+                      ]
                     },
                     "descriptorDigest": {
                       "$ref": "#/components/schemas/Sha256Hex"
                     },
                     "code": {
                       "type": "string",
-                      "enum": ["publish/target-unavailable"]
+                      "enum": [
+                        "publish/target-unavailable"
+                      ]
                     },
                     "visibility": {
                       "$ref": "#/components/schemas/VisibilityEvaluationUnavailable"
@@ -10261,7 +11379,10 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["admitted", "blocked"]
+                  "enum": [
+                    "admitted",
+                    "blocked"
+                  ]
                 },
                 "findings": {
                   "type": "array",
@@ -10276,12 +11397,23 @@
                   }
                 }
               },
-              "required": ["target", "status", "findings", "resolutions"],
+              "required": [
+                "target",
+                "status",
+                "findings",
+                "resolutions"
+              ],
               "additionalProperties": false
             }
           }
         },
-        "required": ["contract", "publicationSetDigest", "status", "candidates", "packs"],
+        "required": [
+          "contract",
+          "publicationSetDigest",
+          "status",
+          "candidates",
+          "packs"
+        ],
         "additionalProperties": false
       },
       "PublishPreviewBatchTooLargeHttpErrorEncoded": {
@@ -10289,7 +11421,9 @@
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["PublishPreviewBatchTooLargeHttpError"]
+            "enum": [
+              "PublishPreviewBatchTooLargeHttpError"
+            ]
           },
           "type": {
             "type": "string"
@@ -10308,19 +11442,34 @@
           },
           "code": {
             "type": "string",
-            "enum": ["publish/preflight-batch-too-large"]
+            "enum": [
+              "publish/preflight-batch-too-large"
+            ]
           },
           "max_items": {
             "type": "number",
-            "enum": [100]
+            "enum": [
+              100
+            ]
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code", "max_items"],
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "max_items"
+        ],
         "additionalProperties": false
       },
       "LibraryVisibility": {
         "type": "string",
-        "enum": ["public", "private"],
+        "enum": [
+          "public",
+          "private"
+        ],
         "title": "Library Visibility"
       },
       "LibraryId": {
@@ -10328,7 +11477,9 @@
         "pattern": "^lib_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "Library ID",
         "description": "Identifies an account-owned curated collection of extension identities in the registry.",
-        "examples": ["lib_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "lib_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "Library": {
         "type": "object",
@@ -10362,7 +11513,15 @@
             "$ref": "#/components/schemas/IsoDateTimeString"
           }
         },
-        "required": ["id", "owner", "title", "description", "visibility", "createdAt", "updatedAt"],
+        "required": [
+          "id",
+          "owner",
+          "title",
+          "description",
+          "visibility",
+          "createdAt",
+          "updatedAt"
+        ],
         "additionalProperties": false,
         "title": "Library"
       },
@@ -10371,7 +11530,9 @@
         "pattern": "^lmem_[0-7][0-9a-hjkmnp-tv-z]{25}$",
         "title": "Library Member ID",
         "description": "Identifies an extension identity membership inside a curated registry library.",
-        "examples": ["lmem_01h455vb4pexka56gq5w2r7cpc"]
+        "examples": [
+          "lmem_01h455vb4pexka56gq5w2r7cpc"
+        ]
       },
       "LibraryMember": {
         "type": "object",
@@ -10416,7 +11577,9 @@
                     ]
                   }
                 },
-                "required": ["archivedAt"],
+                "required": [
+                  "archivedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -10455,7 +11618,11 @@
             "minimum": 0
           }
         },
-        "required": ["library", "members", "accessibleMemberCount"],
+        "required": [
+          "library",
+          "members",
+          "accessibleMemberCount"
+        ],
         "additionalProperties": false,
         "title": "Library Detail"
       },
@@ -10479,10 +11646,18 @@
           },
           "viewerRelative": {
             "type": "boolean",
-            "enum": [true]
+            "enum": [
+              true
+            ]
           }
         },
-        "required": ["members", "total", "limit", "offset", "viewerRelative"],
+        "required": [
+          "members",
+          "total",
+          "limit",
+          "offset",
+          "viewerRelative"
+        ],
         "additionalProperties": false,
         "title": "List Library Members Response"
       },
@@ -10573,7 +11748,9 @@
                     ]
                   }
                 },
-                "required": ["archivedAt"],
+                "required": [
+                  "archivedAt"
+                ],
                 "additionalProperties": false
               },
               {
@@ -10596,7 +11773,10 @@
           },
           "visibility": {
             "type": "string",
-            "enum": ["public", "private"]
+            "enum": [
+              "public",
+              "private"
+            ]
           }
         },
         "required": [
@@ -10644,10 +11824,18 @@
           },
           "total_relation": {
             "type": "string",
-            "enum": ["exact"]
+            "enum": [
+              "exact"
+            ]
           }
         },
-        "required": ["extensions", "has_more", "cursor", "total", "total_relation"],
+        "required": [
+          "extensions",
+          "has_more",
+          "cursor",
+          "total",
+          "total_relation"
+        ],
         "additionalProperties": false,
         "title": "Search Response",
         "description": "A page of extensions matching the search query."
@@ -10665,11 +11853,18 @@
           },
           "label": {
             "type": "string",
-            "enum": ["true_positive", "false_positive"],
+            "enum": [
+              "true_positive",
+              "false_positive"
+            ],
             "description": "`true_positive` when the match was a live AgentXM token, now revoked; otherwise `false_positive`."
           }
         },
-        "required": ["token_hash", "token_type", "label"],
+        "required": [
+          "token_hash",
+          "token_type",
+          "label"
+        ],
         "additionalProperties": false,
         "title": "Secret Scanning Label",
         "description": "What one reported match turned out to be."
@@ -10683,7 +11878,9 @@
         "properties": {
           "_tag": {
             "type": "string",
-            "enum": ["DebugStreamInterrupted"]
+            "enum": [
+              "DebugStreamInterrupted"
+            ]
           },
           "after": {
             "anyOf": [
@@ -10692,12 +11889,19 @@
               },
               {
                 "type": "string",
-                "enum": ["Infinity", "-Infinity", "NaN"]
+                "enum": [
+                  "Infinity",
+                  "-Infinity",
+                  "NaN"
+                ]
               }
             ]
           }
         },
-        "required": ["_tag", "after"],
+        "required": [
+          "_tag",
+          "after"
+        ],
         "additionalProperties": false
       }
     },

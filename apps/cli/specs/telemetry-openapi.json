@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Telemetry Ingest API",
-    "version": "0.5.0",
+    "version": "0.6.0",
     "description": "Telemetry ingest API for product-analytics events and error reports."
   },
   "paths": {
@@ -28,7 +28,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -68,7 +68,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -255,7 +255,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -506,7 +506,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -538,7 +538,7 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
@@ -590,13 +590,13 @@
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/DecodeErrorResponseEncoded"
+                  "$ref": "#/components/schemas/DecodeErrorResponse"
                 }
               }
             }
           }
         },
-        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nUndeclared fields are ignored: the platform's request decoding drops them\nbefore the report is processed. Reports identify a failure kind and operation\nand may carry bounded request evidence, batch outcomes, operation history,\nand AXM-owned source locations verified by the reporting build. They carry\nno messages, raw stacks, arguments, absolute paths, source excerpts,\nvariables, or extension code.",
+        "description": "Receives one bounded, allowlisted failure report from a consent-controlled client invocation.\n\n**Receipt.** A `200` response is a synchronous receipt: the report passed\nvalidation and its forwarding was registered as bounded, best-effort\nbackground work of the receiving invocation. The receipt is not durable\nacceptance, provider ingestion, or issue creation, and the service stores\nnothing. Forwarding may be dropped when a provider fails or the invocation's\nbackground deadline passes; no exactly-once delivery is promised.\n\n**Report identity.** Resubmitting the same report keeps its `eventId`. The\nservice carries that identity into the provider insert and event\nidentities, but provider deduplication is not an end-to-end guarantee.\n\n**Declared fields only.** Only the declared, bounded fields are accepted.\nA report with an undeclared field is refused with `400 invalid_request`,\nand its `errors` entry points at the field. Reports identify a failure kind\nand operation and may carry bounded request evidence, batch outcomes, operation history,\nand AXM-owned source locations verified by the reporting build. They carry\nno messages, raw stacks, arguments, absolute paths, source excerpts,\nvariables, or extension code.",
         "summary": "Receive a client error report",
         "requestBody": {
           "content": {
@@ -613,13 +613,9 @@
   },
   "components": {
     "schemas": {
-      "DecodeErrorResponseEncoded": {
+      "DecodeErrorResponse": {
         "type": "object",
         "properties": {
-          "kind": {
-            "type": "string",
-            "enum": ["DecodeErrorResponse"]
-          },
           "type": {
             "type": "string"
           },
@@ -637,10 +633,31 @@
           },
           "code": {
             "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pointer": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                }
+              },
+              "required": ["pointer", "detail"],
+              "additionalProperties": false
+            }
           }
         },
-        "required": ["kind", "type", "title", "status", "detail", "code"],
-        "additionalProperties": false
+        "required": ["type", "title", "status", "detail", "code", "requestId", "errors"],
+        "additionalProperties": false,
+        "title": "Decode Error Problem Details",
+        "description": "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location."
       },
       "TelemetryErrorReceipt": {
         "type": "object",
@@ -1749,7 +1766,7 @@
         },
         "required": ["eventId", "event", "distinctId", "timestamp", "anonymous", "properties"],
         "additionalProperties": false,
-        "description": "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption. Unknown fields are discarded."
+        "description": "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption."
       },
       "ExtensionName": {
         "type": "string",

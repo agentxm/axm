@@ -35,24 +35,31 @@ export const TelemetryMetaResponse = Schema.Struct({
     "Service metadata and documentation entrypoints exposed by the telemetry root endpoint. Documentation URLs are null when docs are disabled for the environment.",
   identifier: "TelemetryMetaResponse",
 });
-export type DecodeErrorResponseEncoded = {
-  readonly kind: "DecodeErrorResponse";
+export type DecodeErrorResponse = {
   readonly type: string;
   readonly title: string;
   readonly status: number;
   readonly detail: string;
   readonly instance?: string;
   readonly code: string;
+  readonly requestId: string;
+  readonly errors: ReadonlyArray<{ readonly pointer: string; readonly detail: string }>;
 };
-export const DecodeErrorResponseEncoded = Schema.Struct({
-  kind: Schema.Literal("DecodeErrorResponse"),
+export const DecodeErrorResponse = Schema.Struct({
   type: Schema.String,
   title: Schema.String,
   status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
   detail: Schema.String,
   instance: Schema.optionalKey(Schema.String),
   code: Schema.String,
-}).annotate({ identifier: "DecodeErrorResponseEncoded" });
+  requestId: Schema.String,
+  errors: Schema.Array(Schema.Struct({ pointer: Schema.String, detail: Schema.String })),
+}).annotate({
+  title: "Decode Error Problem Details",
+  description:
+    "RFC 9457 Problem Details for a request that failed schema decoding; each `errors` entry points at one offending location.",
+  identifier: "DecodeErrorResponse",
+});
 export type IsoDateTimeString = string;
 export const IsoDateTimeString = Schema.String.annotate({
   title: "ISO Date-Time String",
@@ -933,7 +940,7 @@ export const SkillInstallEvent = Schema.Struct({
   ]),
 }).annotate({
   description:
-    "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption. Unknown fields are discarded.",
+    "One committed usable skill installation. Public coordinates are client assertions, not server-verified adoption.",
   identifier: "SkillInstallEvent",
 });
 export type TelemetryContext = {
@@ -1475,14 +1482,14 @@ export const TelemetryEventsRequest = Schema.Struct({
 // schemas
 export type MetaGet200 = TelemetryMetaResponse;
 export const MetaGet200 = TelemetryMetaResponse;
-export type MetaGet400 = DecodeErrorResponseEncoded;
-export const MetaGet400 = DecodeErrorResponseEncoded;
+export type MetaGet400 = DecodeErrorResponse;
+export const MetaGet400 = DecodeErrorResponse;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
 export const HealthGetShallowHealth200 = Schema.Struct({
   status: Schema.Literals(["pass", "warn", "fail"]),
 });
-export type HealthGetShallowHealth400 = DecodeErrorResponseEncoded;
-export const HealthGetShallowHealth400 = DecodeErrorResponseEncoded;
+export type HealthGetShallowHealth400 = DecodeErrorResponse;
+export const HealthGetShallowHealth400 = DecodeErrorResponse;
 export type HealthGetDeepHealthParams = { readonly "x-health-key"?: string | null };
 export const HealthGetDeepHealthParams = Schema.Struct({
   "x-health-key": Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
@@ -1541,8 +1548,8 @@ export const HealthGetDeepHealth200 = Schema.Struct({
   ),
   output: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
-export type HealthGetDeepHealth400 = DecodeErrorResponseEncoded;
-export const HealthGetDeepHealth400 = DecodeErrorResponseEncoded;
+export type HealthGetDeepHealth400 = DecodeErrorResponse;
+export const HealthGetDeepHealth400 = DecodeErrorResponse;
 export type HealthGetObservabilityVerificationParams = {
   readonly "x-health-key"?: string | null;
   readonly level?: string | null;
@@ -1630,22 +1637,22 @@ export const HealthGetObservabilityVerification200 = Schema.Struct({
     ),
   }),
 });
-export type HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
-export const HealthGetObservabilityVerification400 = DecodeErrorResponseEncoded;
+export type HealthGetObservabilityVerification400 = DecodeErrorResponse;
+export const HealthGetObservabilityVerification400 = DecodeErrorResponse;
 export type EventsIngestRequestJson = TelemetryEventsRequest;
 export const EventsIngestRequestJson = TelemetryEventsRequest;
 export type EventsIngest200 = TelemetryEventsReceipt;
 export const EventsIngest200 = TelemetryEventsReceipt;
-export type EventsIngest400 = DecodeErrorResponseEncoded;
-export const EventsIngest400 = DecodeErrorResponseEncoded;
+export type EventsIngest400 = DecodeErrorResponse;
+export const EventsIngest400 = DecodeErrorResponse;
 export type EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export const EventsIngest413 = TelemetryPayloadTooLargeErrorEncoded;
 export type ErrorsIngestRequestJson = TelemetryErrorReport;
 export const ErrorsIngestRequestJson = TelemetryErrorReport;
 export type ErrorsIngest200 = TelemetryErrorReceipt;
 export const ErrorsIngest200 = TelemetryErrorReceipt;
-export type ErrorsIngest400 = DecodeErrorResponseEncoded;
-export const ErrorsIngest400 = DecodeErrorResponseEncoded;
+export type ErrorsIngest400 = DecodeErrorResponse;
+export const ErrorsIngest400 = DecodeErrorResponse;
 
 export interface OperationConfig {
   /**
@@ -1954,9 +1961,9 @@ export interface TelemetryClient {
    * identities, but provider deduplication is not an end-to-end guarantee.
    *
    * **Declared fields only.** Only the declared, bounded fields are accepted.
-   * Undeclared fields are ignored: the platform's request decoding drops them
-   * before the report is processed. Reports identify a failure kind and operation
-   * and may carry bounded request evidence, batch outcomes, operation history,
+   * A report with an undeclared field is refused with `400 invalid_request`,
+   * and its `errors` entry points at the field. Reports identify a failure kind
+   * and operation and may carry bounded request evidence, batch outcomes, operation history,
    * and AXM-owned source locations verified by the reporting build. They carry
    * no messages, raw stacks, arguments, absolute paths, source excerpts,
    * variables, or extension code.

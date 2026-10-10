@@ -31,6 +31,8 @@ export {
   resolvePackSourceRequest,
   type PackInstallIntent,
   type PackInstallRequirements,
+  type PackSourceRequest,
+  type ParsedPackInstallRequest,
 } from "./lifecycle/install/plan.js";
 export {
   finalizePackUninstallIntent,

@@ -45,6 +45,8 @@ export {
 // Install: acquiring extensions from an explicit source or the bundled skill.
 export {
   InstallExtensions,
+  selectInstallExtensions,
+  planInstallExtensions,
   prepareInstallExtensions,
   previewOrApplyInstallExtensions,
   type InstallDiagnostics,
@@ -52,6 +54,7 @@ export {
   type InstallExtensionsResult,
   type InstallExtensionsFailure,
   type InstallExtensionsRequest,
+  type InstallExtensionsSelection,
   type InstallExtensionSelectors,
   type InstallSubject,
   installSelectorsFor,

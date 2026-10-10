@@ -6,15 +6,29 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
-import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { type InstallExtensionSelectors } from "@agentxm/workspace-features/lifecycle";
+import {
+  installableExtensionTypes,
+  type InstallableExtensionType,
+} from "@agentxm/extension-model/unstable/extensions/installable-types";
+import {
+  type InstallExtensionSelectors,
+  installSelectorsFor,
+} from "@agentxm/workspace-features/lifecycle";
 
 import { agentFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseHookConfiguration } from "../hooks/configuration-input.js";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  canAskUndetectedAgents,
+  chooseUndetectedAgents,
+  observeFirstInstallAgents,
+  undetectedAgentsRefusal,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../../runtime.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import {
   previewCapabilityFlag,
@@ -153,10 +167,36 @@ const executeInstall = (
 ) =>
   validateInstallArgsBeforeWorkspace(args).pipe(
     Effect.flatMap((agents) =>
-      handleInstall(args).pipe(
-        withReleaseAgePosture(ignoreReleaseAge),
-        withWorkspace({ scope, initialSettings: { agents, instructionFiles: false } }),
-      ),
+      Effect.gen(function* () {
+        const install = handleInstall(args).pipe(withReleaseAgePosture(ignoreReleaseAge));
+        const established = (known: typeof agents) =>
+          install.pipe(
+            withWorkspace({ scope, initialSettings: { agents: known, instructionFiles: false } }),
+          );
+        // Named agents settle the question, and the bundled skill has nothing
+        // to select, so neither waits for a selection.
+        if (agents.length > 0 || args.bundled) return yield* established(agents);
+        const observed = yield* observeFirstInstallAgents(scope);
+        if (observed._tag === "Established") return yield* established(agents);
+        if (observed._tag === "Detected") return yield* established(observed.agents);
+        if (!(yield* canAskUndetectedAgents)) {
+          return yield* undetectedAgentsRefusal(
+            !args.all &&
+              installableExtensionTypes.every(
+                (type) => installSelectorsFor(args.selectors, type).length === 0,
+              ),
+          );
+        }
+        // No agents are known and a question can open: select in the
+        // uninitialized scope, then ask, then install for the agents chosen.
+        return yield* handleInstall(args, {
+          scope,
+          agents: chooseUndetectedAgents(observed.detections),
+        }).pipe(
+          withReleaseAgePosture(ignoreReleaseAge),
+          withWorkspace({ scope, allowUninitialized: true }),
+        );
+      }),
     ),
     withRuntime(runtimeName),
   );

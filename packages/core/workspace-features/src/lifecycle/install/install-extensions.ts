@@ -105,7 +105,11 @@ import {
   retainedSelectionSatisfied,
   mergeRetainedSourceRefs,
 } from "./retained-source-components.js";
-import { SourceHostProviders, formatRegistryProbe } from "@agentxm/workspace-kernel/sources";
+import {
+  SourceHostProviders,
+  formatRegistryProbe,
+  type SourceHostProvidersService,
+} from "@agentxm/workspace-kernel/sources";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
   selectInstallRefs,
@@ -361,96 +365,46 @@ const settleSourceInstall = <T extends SourceInstallType>(
     };
   });
 
-const planForType = (
+/**
+ * Settle which of one type's extensions a source install takes: parse the
+ * request, discover what the source offers, and let the person choose. Nothing
+ * here reads which coding agents the workspace configures, so a first install
+ * can make this choice before it knows them.
+ */
+const settleTypeChoice = (
   type: InstallableExtensionType,
   source: string,
   request: InstallExtensionsRequest,
-): Effect.Effect<
-  { readonly plan: Plan<InstallStepRequirements>; readonly diagnostics: InstallDiagnostics },
-  InstallExtensionsFailure | SelectionRefused,
-  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
-> => {
-  const selectors = installSelectorsFor(request.selectors, type);
-  switch (type) {
-    case "skill":
-      return Effect.gen(function* () {
-        const settled = yield* settleSourceInstall("skill", source, selectors, request);
-        const plan = yield* planSkillInstall({
-          skillsToInstall: settled.refs,
-        });
-        const companions = buildCompanionPackagesSection(settled.refs.map(({ ref }) => ref));
+) =>
+  Effect.gen(function* () {
+    const selectors = installSelectorsFor(request.selectors, type);
+    switch (type) {
+      case "skill":
         return {
-          plan: withInstallReleaseAge(plan, settled.releaseAge),
-          diagnostics: {
-            resolutionLines: [
-              ...(settled.resolutionProbes.length > 0
-                ? [`Resolution: ${settled.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
-                : []),
-              `Found ${settled.foundCount} skill${settled.foundCount === 1 ? "" : "s"}`,
-            ],
-            companionPackages: companions === undefined ? [] : companions.items,
-          },
+          type: "skill" as const,
+          settled: yield* settleSourceInstall("skill", source, selectors, request),
         };
-      });
-    case "subagent":
-      return Effect.gen(function* () {
-        const settled = yield* settleSourceInstall("subagent", source, selectors, request);
+      case "subagent":
         return {
-          plan: withInstallReleaseAge(
-            yield* planSubagentInstall({ subagentsToInstall: settled.refs }),
-            settled.releaseAge,
-          ),
-          diagnostics: {
-            resolutionLines: [
-              ...(settled.resolutionProbes.length > 0
-                ? [`Resolution: ${settled.resolutionProbes.map(formatRegistryProbe).join("; ")}`]
-                : []),
-              `Found ${settled.foundCount} subagent${settled.foundCount === 1 ? "" : "s"}`,
-            ],
-            companionPackages: [],
-          },
+          type: "subagent" as const,
+          settled: yield* settleSourceInstall("subagent", source, selectors, request),
         };
-      });
-    case "rule":
-      return Effect.gen(function* () {
-        const settled = yield* settleSourceInstall("rule", source, selectors, request);
+      case "rule":
         return {
-          plan: withInstallReleaseAge(
-            yield* planRuleInstall({ refs: settled.refs }),
-            settled.releaseAge,
-          ),
-          diagnostics: EMPTY_DIAGNOSTICS,
+          type: "rule" as const,
+          settled: yield* settleSourceInstall("rule", source, selectors, request),
         };
-      });
-    case "hook":
-      return Effect.gen(function* () {
-        const settled = yield* settleSourceInstall("hook", source, selectors, request);
+      case "hook":
         return {
-          plan: withInstallReleaseAge(
-            yield* planHookInstall({
-              refs: settled.refs,
-              ...(request.configuration === undefined
-                ? {}
-                : { configuration: request.configuration }),
-            }),
-            settled.releaseAge,
-          ),
-          diagnostics: EMPTY_DIAGNOSTICS,
+          type: "hook" as const,
+          settled: yield* settleSourceInstall("hook", source, selectors, request),
         };
-      });
-    case "knowledge":
-      return Effect.gen(function* () {
-        const settled = yield* settleSourceInstall("knowledge", source, selectors, request);
+      case "knowledge":
         return {
-          plan: withInstallReleaseAge(
-            yield* planKnowledgeInstall({ refs: settled.refs }),
-            settled.releaseAge,
-          ),
-          diagnostics: EMPTY_DIAGNOSTICS,
+          type: "knowledge" as const,
+          settled: yield* settleSourceInstall("knowledge", source, selectors, request),
         };
-      });
-    case "mcp-server":
-      return Effect.gen(function* () {
+      case "mcp-server": {
         const parsed = yield* parseMcpServerInstallRequest({
           source,
           force: false,
@@ -545,36 +499,15 @@ const planForType = (
                 sourceRequest.versionRange,
               )
             : undefined);
-        const selectedRefs = selectedRegistry?.refs.map((entry) => entry.ref) ?? selected;
-        const plans = yield* Effect.forEach(selectedRefs, (selectedRef) =>
-          Effect.gen(function* () {
-            const localName = Option.orElse(parsed.localName, () =>
-              Option.some(selectedRef.server.name),
-            );
-            const selectedParsed = {
-              ...parsed,
-              serverName: Option.some(selectedRef.server.name),
-              localName,
-            };
-            const selectedSourceRequest = {
-              ...sourceRequest,
-              serverName: Option.some(selectedRef.server.name),
-            };
-            const intent = yield* finalizeMcpServerInstallIntent(
-              selectedParsed,
-              selectedSourceRequest,
-              [selectedRef],
-            );
-            return yield* planMcpServerInstall(intent);
-          }),
-        );
         return {
-          plan: withInstallReleaseAge(combineTypePlans(type, plans), selectedRegistry?.releaseAge),
-          diagnostics: EMPTY_DIAGNOSTICS,
+          type: "mcp-server" as const,
+          parsed,
+          sourceRequest,
+          selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
+          releaseAge: selectedRegistry?.releaseAge,
         };
-      });
-    case "pack":
-      return Effect.gen(function* () {
+      }
+      case "pack": {
         const parsed = yield* parsePackInstallRequest({
           source,
           nonInteractive: request.nonInteractive,
@@ -632,10 +565,144 @@ const planForType = (
                 selected.map(extensionRefName),
               )
             : undefined);
-        const selectedRefs = selectedRegistry?.refs.map((entry) => entry.ref) ?? selected;
+        return {
+          type: "pack" as const,
+          parsed,
+          sourceRequest,
+          selected,
+          selectedRefs: selectedRegistry?.refs.map((entry) => entry.ref) ?? selected,
+          releaseAge: selectedRegistry?.releaseAge,
+          releaseAgeEvaluation: selectedRegistry?.evaluation,
+          accepted: acceptedPacks.length > 0,
+        };
+      }
+    }
+  });
+
+/** One type's settled choice, carried from selection to planning. */
+type SettledTypeInstall = Effect.Success<ReturnType<typeof settleTypeChoice>>;
+
+const settleForType: (
+  type: InstallableExtensionType,
+  source: string,
+  request: InstallExtensionsRequest,
+) => Effect.Effect<
+  SettledTypeInstall,
+  InstallExtensionsFailure | SelectionRefused,
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
+> = settleTypeChoice;
+
+/**
+ * Plan one type's settled choice. This is where the configured coding agents
+ * are first read, so it runs only in a workspace that already names them.
+ */
+const planSettledType = (
+  settled: SettledTypeInstall,
+  source: string,
+  request: InstallExtensionsRequest,
+): Effect.Effect<
+  { readonly plan: Plan<InstallStepRequirements>; readonly diagnostics: InstallDiagnostics },
+  InstallExtensionsFailure,
+  PrepareInstallRequirements | BundledAxmSkillAsset
+> => {
+  switch (settled.type) {
+    case "skill":
+      return Effect.gen(function* () {
+        const { refs, foundCount, resolutionProbes, releaseAge } = settled.settled;
+        const plan = yield* planSkillInstall({ skillsToInstall: refs });
+        const companions = buildCompanionPackagesSection(refs.map(({ ref }) => ref));
+        return {
+          plan: withInstallReleaseAge(plan, releaseAge),
+          diagnostics: {
+            resolutionLines: [
+              ...(resolutionProbes.length > 0
+                ? [`Resolution: ${resolutionProbes.map(formatRegistryProbe).join("; ")}`]
+                : []),
+              `Found ${foundCount} skill${foundCount === 1 ? "" : "s"}`,
+            ],
+            companionPackages: companions === undefined ? [] : companions.items,
+          },
+        };
+      });
+    case "subagent":
+      return Effect.gen(function* () {
+        const { refs, foundCount, resolutionProbes, releaseAge } = settled.settled;
+        return {
+          plan: withInstallReleaseAge(
+            yield* planSubagentInstall({ subagentsToInstall: refs }),
+            releaseAge,
+          ),
+          diagnostics: {
+            resolutionLines: [
+              ...(resolutionProbes.length > 0
+                ? [`Resolution: ${resolutionProbes.map(formatRegistryProbe).join("; ")}`]
+                : []),
+              `Found ${foundCount} subagent${foundCount === 1 ? "" : "s"}`,
+            ],
+            companionPackages: [],
+          },
+        };
+      });
+    case "rule":
+      return planRuleInstall({ refs: settled.settled.refs }).pipe(
+        Effect.map((plan) => ({
+          plan: withInstallReleaseAge(plan, settled.settled.releaseAge),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        })),
+      );
+    case "hook":
+      return planHookInstall({
+        refs: settled.settled.refs,
+        ...(request.configuration === undefined ? {} : { configuration: request.configuration }),
+      }).pipe(
+        Effect.map((plan) => ({
+          plan: withInstallReleaseAge(plan, settled.settled.releaseAge),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        })),
+      );
+    case "knowledge":
+      return planKnowledgeInstall({ refs: settled.settled.refs }).pipe(
+        Effect.map((plan) => ({
+          plan: withInstallReleaseAge(plan, settled.settled.releaseAge),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        })),
+      );
+    case "mcp-server":
+      return Effect.gen(function* () {
+        const { parsed, sourceRequest } = settled;
+        const plans = yield* Effect.forEach(settled.selectedRefs, (selectedRef) =>
+          Effect.gen(function* () {
+            const localName = Option.orElse(parsed.localName, () =>
+              Option.some(selectedRef.server.name),
+            );
+            const selectedParsed = {
+              ...parsed,
+              serverName: Option.some(selectedRef.server.name),
+              localName,
+            };
+            const selectedSourceRequest = {
+              ...sourceRequest,
+              serverName: Option.some(selectedRef.server.name),
+            };
+            const intent = yield* finalizeMcpServerInstallIntent(
+              selectedParsed,
+              selectedSourceRequest,
+              [selectedRef],
+            );
+            return yield* planMcpServerInstall(intent);
+          }),
+        );
+        return {
+          plan: withInstallReleaseAge(combineTypePlans(settled.type, plans), settled.releaseAge),
+          diagnostics: EMPTY_DIAGNOSTICS,
+        };
+      });
+    case "pack":
+      return Effect.gen(function* () {
+        const { parsed, sourceRequest } = settled;
         const releaseAgeEvaluation =
-          selectedRegistry?.evaluation ?? (yield* makeConfiguredReleaseAgeEvaluation());
-        const plans = yield* Effect.forEach(selectedRefs, (selectedRef) =>
+          settled.releaseAgeEvaluation ?? (yield* makeConfiguredReleaseAgeEvaluation());
+        const plans = yield* Effect.forEach(settled.selectedRefs, (selectedRef) =>
           Effect.gen(function* () {
             const discovery = { ref: selectedRef, probes: [], sourceLabel: source };
             const intent = finalizePackInstallIntent(parsed, discovery, {
@@ -645,16 +712,14 @@ const planForType = (
             return yield* planPackInstall({
               ...intent,
               packToInstall: intent.packToInstall,
-              ...(acceptedPacks.length > 0
-                ? { dependencyResolver: acceptedPackDependencyResolver() }
-                : {}),
+              ...(settled.accepted ? { dependencyResolver: acceptedPackDependencyResolver() } : {}),
             });
           }),
         );
         return {
-          plan: withInstallReleaseAge(combineTypePlans(type, plans), selectedRegistry?.releaseAge),
+          plan: withInstallReleaseAge(combineTypePlans(settled.type, plans), settled.releaseAge),
           diagnostics: {
-            resolutionLines: selected.flatMap((ref) =>
+            resolutionLines: settled.selected.flatMap((ref) =>
               packDiscoveryDiagnostics(sourceRequest, { ref, probes: [], sourceLabel: source }),
             ),
             companionPackages: [],
@@ -668,20 +733,39 @@ const isNoMatch = (failure: InstallExtensionsFailure): boolean =>
   failure._tag === "ExtensionLifecycleFailed" &&
   (failure.category === "not_found" || failure.category === "usage");
 
+const nothingInstallable = installRefused({
+  category: "not_found",
+  detail: "No installable extensions were found in the source",
+});
+
+// -----------------------------------------------------------------------------
+// select
+// -----------------------------------------------------------------------------
+
+/**
+ * Which extensions an install takes, settled before anything is planned. A
+ * source install carries what each type chose; the bundled skill has nothing
+ * to choose. A locator's selection also carries the source view its types
+ * shared, so planning reads the same captured checkout.
+ */
+export type InstallExtensionsSelection =
+  | { readonly kind: "bundled" }
+  | { readonly kind: "typed"; readonly source: string; readonly settled: SettledTypeInstall }
+  | {
+      readonly kind: "locator";
+      readonly source: string;
+      readonly settled: ReadonlyArray<SettledTypeInstall>;
+      readonly sources: SourceHostProvidersService;
+    };
+
 /**
  * A locator names a place, not a type. Each installable type is offered the
  * source and the ones that find nothing there simply do not contribute; if no
  * type matches, the locator held nothing AXM can install. A refusal the
- * selection itself raised is never "nothing here": it surfaces as is.
+ * selection itself raised is never "nothing here": it surfaces as is. Every
+ * type is asked before any is planned.
  */
-const planLocatorInstall = (
-  source: string,
-  request: InstallExtensionsRequest,
-): Effect.Effect<
-  PlannedInstall,
-  InstallExtensionsFailure,
-  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
-> =>
+const settleLocatorInstall = (source: string, request: InstallExtensionsRequest) =>
   Effect.gen(function* () {
     const explicitlySelectedTypes = installableExtensionTypes.filter(
       (type) => installSelectorsFor(request.selectors, type).length > 0,
@@ -701,138 +785,180 @@ const planLocatorInstall = (
     const attempts = yield* Effect.forEach(
       candidateTypes,
       (type) =>
-        planForType(type, source, request).pipe(
-          Effect.map((planned) => Option.some({ type, ...planned })),
+        settleForType(type, source, request).pipe(
+          Effect.map(Option.some),
           Effect.catch((failure) =>
             failure._tag === "SelectionRefused"
               ? Effect.fail(failure.failure)
               : isNoMatch(failure)
-                ? Effect.succeed(
-                    Option.none<{
-                      readonly type: InstallableExtensionType;
-                      readonly plan: Plan<InstallStepRequirements>;
-                      readonly diagnostics: InstallDiagnostics;
-                    }>(),
-                  )
+                ? Effect.succeed(Option.none<SettledTypeInstall>())
                 : Effect.fail(failure),
           ),
         ),
       { concurrency: 1 },
     ).pipe(Effect.provideService(SourceHostProviders, locatorSources));
-    const matched = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
-
-    if (matched.length === 0) {
-      return yield* installRefused({
-        category: "not_found",
-        detail: "No installable extensions were found in the source",
-      });
-    }
-
-    // Combine type plans before grouping their shared retained package closures.
-    const steps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> = matched.flatMap(
-      ({ plan }) => plan.jobs.flatMap((job) => job.steps),
-    );
-    const riskConditions = matched.flatMap(({ plan }) => plan.riskConditions ?? []);
-    const failureSuggestions = matched.flatMap(({ plan }) => plan.failureSuggestions ?? []);
+    const settled = attempts.flatMap((attempt) => (Option.isSome(attempt) ? [attempt.value] : []));
+    if (settled.length === 0) return yield* nothingInstallable;
     return {
-      types: matched.map(({ type }) => type),
-      plan: matched.reduce<Plan<InstallStepRequirements>>(
-        (result, { plan }) => withInstallReleaseAge(result, plan.releaseAge),
-        {
-          _tag: "Plan",
-          name: request.planName,
-          description: request.planDescription,
-          presentation: operationPresentation({
-            imperative: "install",
-            past: "Installed",
-            gerund: "Installing",
-          }),
-          jobs: [{ concurrency: 1, steps, executionPolicy: "best-effort" }],
-          ...(riskConditions.length === 0 ? {} : { riskConditions }),
-          ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
-        },
-      ),
-      diagnostics: {
-        resolutionLines: matched.flatMap(({ diagnostics }) => diagnostics.resolutionLines),
-        companionPackages: [
-          ...new Set(matched.flatMap(({ diagnostics }) => diagnostics.companionPackages)),
-        ],
-      },
-    } satisfies PlannedInstall;
+      kind: "locator",
+      source,
+      settled,
+      sources: locatorSources,
+    } satisfies InstallExtensionsSelection;
   });
 
-const planRequest = (
+/** Settle what an install takes, asking where the request left it open. */
+export const selectInstallExtensions: (
   request: InstallExtensionsRequest,
+) => Effect.Effect<
+  InstallExtensionsSelection,
+  InstallExtensionsFailure,
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
+> = Effect.fn("InstallExtensions.select")(function* (request: InstallExtensionsRequest) {
+  if (request.subject.kind === "bundled") {
+    return { kind: "bundled" } satisfies InstallExtensionsSelection;
+  }
+
+  const source = request.subject.source;
+  const type = yield* Option.match(request.type, {
+    onSome: (value) => Effect.succeed<InstallableExtensionType | "locator">(value),
+    onNone: () => resolveRootInstallIntent(source).pipe(Effect.map((intent) => intent.type)),
+  });
+
+  const hasMcpOnlyInput =
+    Option.isSome(request.localName) ||
+    request.bind.length > 0 ||
+    request.bindEnv.length > 0 ||
+    request.distributionId !== undefined ||
+    request.nativeOauth === true;
+  const locatorSelectsOnlyMcp =
+    installSelectorsFor(request.selectors, "mcp-server").length > 0 &&
+    installableExtensionTypes.every(
+      (candidate) =>
+        candidate === "mcp-server" ||
+        installSelectorsFor(request.selectors, candidate).length === 0,
+    );
+  if (hasMcpOnlyInput && type !== "mcp-server" && !(type === "locator" && locatorSelectsOnlyMcp)) {
+    return yield* installRefused({
+      category: "usage",
+      detail: "--as and --env are only valid when installing MCP servers",
+      recover: "Select MCP servers with --mcp-server, or use an @owner/mcps/name source",
+    });
+  }
+
+  if (type === "locator") return yield* settleLocatorInstall(source, request);
+
+  const settled = yield* settleForType(type, source, request).pipe(
+    Effect.catchTag("SelectionRefused", (refused) => Effect.fail(refused.failure)),
+  );
+  return { kind: "typed", source, settled } satisfies InstallExtensionsSelection;
+}, withWorkspaceReadView);
+
+// -----------------------------------------------------------------------------
+// plan
+// -----------------------------------------------------------------------------
+
+const planSelection = (
+  request: InstallExtensionsRequest,
+  selection: InstallExtensionsSelection,
 ): Effect.Effect<
   PlannedInstall,
   InstallExtensionsFailure,
-  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
+  PrepareInstallRequirements | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
-    if (request.subject.kind === "bundled") {
-      return {
-        types: ["skill" as const],
-        plan: yield* planBundledAxmSkillInstall,
-        diagnostics: EMPTY_DIAGNOSTICS,
-      } satisfies PlannedInstall;
+    switch (selection.kind) {
+      case "bundled":
+        return {
+          types: ["skill" as const],
+          plan: yield* planBundledAxmSkillInstall,
+          diagnostics: EMPTY_DIAGNOSTICS,
+        } satisfies PlannedInstall;
+      case "typed": {
+        const { plan, diagnostics } = yield* planSettledType(
+          selection.settled,
+          selection.source,
+          request,
+        );
+        return {
+          types: [selection.settled.type],
+          plan,
+          diagnostics,
+        } satisfies PlannedInstall;
+      }
+      case "locator": {
+        const attempts = yield* Effect.forEach(
+          selection.settled,
+          (settled) =>
+            planSettledType(settled, selection.source, request).pipe(
+              Effect.map((planned) => Option.some({ type: settled.type, ...planned })),
+              Effect.catch((failure) =>
+                isNoMatch(failure)
+                  ? Effect.succeed(
+                      Option.none<{
+                        readonly type: InstallableExtensionType;
+                        readonly plan: Plan<InstallStepRequirements>;
+                        readonly diagnostics: InstallDiagnostics;
+                      }>(),
+                    )
+                  : Effect.fail(failure),
+              ),
+            ),
+          { concurrency: 1 },
+        ).pipe(Effect.provideService(SourceHostProviders, selection.sources));
+        const matched = attempts.flatMap((attempt) =>
+          Option.isSome(attempt) ? [attempt.value] : [],
+        );
+        if (matched.length === 0) return yield* nothingInstallable;
+
+        // Combine type plans before grouping their shared retained package closures.
+        const steps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> = matched.flatMap(
+          ({ plan }) => plan.jobs.flatMap((job) => job.steps),
+        );
+        const riskConditions = matched.flatMap(({ plan }) => plan.riskConditions ?? []);
+        const failureSuggestions = matched.flatMap(({ plan }) => plan.failureSuggestions ?? []);
+        return {
+          types: matched.map(({ type }) => type),
+          plan: matched.reduce<Plan<InstallStepRequirements>>(
+            (result, { plan }) => withInstallReleaseAge(result, plan.releaseAge),
+            {
+              _tag: "Plan",
+              name: request.planName,
+              description: request.planDescription,
+              presentation: operationPresentation({
+                imperative: "install",
+                past: "Installed",
+                gerund: "Installing",
+              }),
+              jobs: [{ concurrency: 1, steps, executionPolicy: "best-effort" }],
+              ...(riskConditions.length === 0 ? {} : { riskConditions }),
+              ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
+            },
+          ),
+          diagnostics: {
+            resolutionLines: matched.flatMap(({ diagnostics }) => diagnostics.resolutionLines),
+            companionPackages: [
+              ...new Set(matched.flatMap(({ diagnostics }) => diagnostics.companionPackages)),
+            ],
+          },
+        } satisfies PlannedInstall;
+      }
     }
-
-    const source = request.subject.source;
-    const type = yield* Option.match(request.type, {
-      onSome: (value) => Effect.succeed<InstallableExtensionType | "locator">(value),
-      onNone: () => resolveRootInstallIntent(source).pipe(Effect.map((intent) => intent.type)),
-    });
-
-    const hasMcpOnlyInput =
-      Option.isSome(request.localName) ||
-      request.bind.length > 0 ||
-      request.bindEnv.length > 0 ||
-      request.distributionId !== undefined ||
-      request.nativeOauth === true;
-    const locatorSelectsOnlyMcp =
-      installSelectorsFor(request.selectors, "mcp-server").length > 0 &&
-      installableExtensionTypes.every(
-        (candidate) =>
-          candidate === "mcp-server" ||
-          installSelectorsFor(request.selectors, candidate).length === 0,
-      );
-    if (
-      hasMcpOnlyInput &&
-      type !== "mcp-server" &&
-      !(type === "locator" && locatorSelectsOnlyMcp)
-    ) {
-      return yield* installRefused({
-        category: "usage",
-        detail: "--as and --env are only valid when installing MCP servers",
-        recover: "Select MCP servers with --mcp-server, or use an @owner/mcps/name source",
-      });
-    }
-
-    if (type === "locator") return yield* planLocatorInstall(source, request);
-
-    const { plan, diagnostics } = yield* planForType(type, source, request).pipe(
-      Effect.catchTag("SelectionRefused", (refused) => Effect.fail(refused.failure)),
-    );
-    return {
-      types: [type],
-      plan: { ...plan, name: plan.name },
-      diagnostics,
-    } satisfies PlannedInstall;
   });
 
-// -----------------------------------------------------------------------------
-// prepare
-// -----------------------------------------------------------------------------
-
-/** Settle an install without writing anything. */
-export const prepareInstallExtensions: (
+/** Plan a settled selection into a candidate without writing anything. */
+export const planInstallExtensions: (
   request: InstallExtensionsRequest,
+  selection: InstallExtensionsSelection,
 ) => Effect.Effect<
   InstallExtensionsCandidate,
   InstallExtensionsFailure,
-  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
-> = Effect.fn("InstallExtensions.prepare")(function* (request: InstallExtensionsRequest) {
-  const planned = yield* planRequest(request);
+  PrepareInstallRequirements | BundledAxmSkillAsset
+> = Effect.fn("InstallExtensions.plan")(function* (
+  request: InstallExtensionsRequest,
+  selection: InstallExtensionsSelection,
+) {
+  const planned = yield* planSelection(request, selection);
   const grouped = yield* prepareAcquisitionPlan(planned.plan, false);
   const skillCandidates =
     request.subject.kind === "bundled" ? [] : yield* collectSkillAcquisitions(grouped, true);
@@ -844,6 +970,23 @@ export const prepareInstallExtensions: (
     skillCandidates,
   } satisfies InstallExtensionsCandidate;
 }, withWorkspaceReadView);
+
+// -----------------------------------------------------------------------------
+// prepare
+// -----------------------------------------------------------------------------
+
+/** Settle an install without writing anything: select, then plan. */
+export const prepareInstallExtensions = (
+  request: InstallExtensionsRequest,
+): Effect.Effect<
+  InstallExtensionsCandidate,
+  InstallExtensionsFailure,
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
+> =>
+  selectInstallExtensions(request).pipe(
+    Effect.flatMap((selection) => planInstallExtensions(request, selection)),
+    Effect.withSpan("InstallExtensions.prepare"),
+  );
 
 // -----------------------------------------------------------------------------
 // previewOrApply
@@ -883,6 +1026,8 @@ export const previewOrApplyInstallExtensions = (
 
 /** The install use case: settle a request, then preview or apply it. */
 export const InstallExtensions = {
+  select: selectInstallExtensions,
+  plan: planInstallExtensions,
   prepare: prepareInstallExtensions,
   previewOrApply: previewOrApplyInstallExtensions,
 } as const;

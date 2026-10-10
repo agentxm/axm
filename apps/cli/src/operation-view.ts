@@ -57,6 +57,7 @@ import {
   subjectHeader,
   subjectNoun,
   unitState,
+  PROSE_SEPARATOR,
   unitStateChange,
   type Doc,
   type LedgerColumn,
@@ -73,14 +74,40 @@ import { NO_SCOPED_ROUTES, commandForScope } from "./root/shared/scoped-command.
  * glyph, which a view cannot reach and must not spell, so a cell that carries
  * several facts joins them as prose instead.
  */
-const artifactPaths = (artifact: JobStepArtifact): string =>
+const artifactPaths = (artifact: JobStepArtifact, saidOnce: SaidOnce): string =>
   artifact.targets === undefined || artifact.targets.length === 0
-    ? artifact.path
+    ? saidOnce(artifact.path)
+      ? ""
+      : artifact.path
     : artifact.targets
+        .filter((target) => !saidOnce(target.path))
         .map((target) =>
           target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
         )
         .join(", ");
+
+/** Whether a path is named once for the whole operation rather than on each row. */
+type SaidOnce = (path: string) => boolean;
+
+const onEveryRow: SaidOnce = () => false;
+
+/** The paths a changed artifact wrote to, as its row would name them. */
+const artifactTargetPaths = (artifact: JobStepArtifact): ReadonlyArray<string> =>
+  artifact.targets === undefined || artifact.targets.length === 0
+    ? [artifact.path]
+    : artifact.targets.map((target) => target.path);
+
+/**
+ * Whether a row's path is one of the operation's native locations, which the
+ * line beneath the ledger names together. A row spells a path from the
+ * workspace and a location spells it in full, so the row's is the tail.
+ */
+const nativeLocationPath =
+  (locations: ReadonlyArray<NativeLocationOutcome>): SaidOnce =>
+  (path) =>
+    locations.some(
+      (location) => location.address.path === path || location.address.path.endsWith(`/${path}`),
+    );
 
 /**
  * The detail column: what a reader needs beyond the name, the version, and
@@ -90,11 +117,12 @@ const artifactPaths = (artifact: JobStepArtifact): string =>
 const detailCell = (
   artifact: JobStepArtifact | undefined,
   extra: ReadonlyArray<string | undefined>,
+  saidOnce: SaidOnce = onEveryRow,
 ): string =>
   joined([
     artifact?.fileCount === undefined ? undefined : count(artifact.fileCount, "file"),
     ...extra,
-    artifact === undefined ? undefined : artifactPaths(artifact),
+    artifact === undefined ? undefined : artifactPaths(artifact, saidOnce),
   ]);
 
 /**
@@ -109,6 +137,7 @@ const nativeLocationsDoc = (
   locations: ReadonlyArray<NativeLocationOutcome>,
   detailed: boolean,
   planned: boolean,
+  named: ReadonlyArray<string> = [],
 ): Doc => {
   if (locations.length === 0) return [];
   const physical = new Set(
@@ -122,6 +151,10 @@ const nativeLocationsDoc = (
       tone: "dim",
       text: `${planned ? "Will make available" : "Available"} to ${count(consumers, "configured agent")} in ${count(physical, "location")}.`,
     },
+    // The destinations the rows above would each have repeated, named once.
+    ...(named.length === 0
+      ? []
+      : [{ _tag: "paragraph", tone: "dim", text: named.join(PROSE_SEPARATOR) } as const]),
     ...policies.map(
       (reason) =>
         ({
@@ -413,6 +446,7 @@ const resultRow = (
   detailed: boolean,
   presentation: OperationPresentation,
   dispositionSaidOnce: boolean,
+  saidOnce: SaidOnce = onEveryRow,
 ): LedgerRow => {
   const settlement = settlementOf(unit, mode);
   const name = unit.artifact?.packMembership?.pack ?? unit.label;
@@ -428,9 +462,11 @@ const resultRow = (
             name,
             version,
             artifactChange(settlement.artifact.change),
-            detailCell(settlement.artifact, [
-              unit.disposition === undefined ? undefined : disposition(unit.disposition),
-            ]),
+            detailCell(
+              settlement.artifact,
+              [unit.disposition === undefined ? undefined : disposition(unit.disposition)],
+              saidOnce,
+            ),
           ],
         };
       case "not-tried":
@@ -868,10 +904,24 @@ export const operationDoc = (
     settledAlike !== undefined &&
     resolution.blocking === undefined &&
     resolution.failure?.detail === undefined;
+  const nativeLocations = operationNativeLocations(resolution);
+  // A reader who asked for detail gets every location with its state on a
+  // line of its own, so only the plain view gathers destinations off the rows.
+  const saidOnce = detailed ? onEveryRow : nativeLocationPath(nativeLocations);
+  const destinations = [
+    ...new Set(
+      visible.flatMap((unit) => {
+        const settlement = settlementOf(unit, resolution.mode);
+        return settlement._tag === "changed"
+          ? artifactTargetPaths(settlement.artifact).filter(saidOnce)
+          : [];
+      }),
+    ),
+  ];
   const settled = withoutEmptyVersions(
     ledgerColumns(presentation, "Status"),
     visible.map((unit) =>
-      resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce),
+      resultRow(unit, resolution.mode, detailed, presentation, dispositionSaidOnce, saidOnce),
     ),
   );
   const ledger = foldedLedger(
@@ -900,11 +950,7 @@ export const operationDoc = (
       ...(coverage === undefined ? {} : { scope: coverage.scope, agents: coverage.agents }),
     }),
     ...ledger,
-    ...nativeLocationsDoc(
-      operationNativeLocations(resolution),
-      detailed,
-      resolution.mode === "preview",
-    ),
+    ...nativeLocationsDoc(nativeLocations, detailed, resolution.mode === "preview", destinations),
     ...groupedWarnings(resolution.units, resolution.mode),
     ...untouchedPaths(resolution.units, resolution.mode),
     ...(options.callouts ?? []),

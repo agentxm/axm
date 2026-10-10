@@ -87,6 +87,66 @@ it.each([40, 80, 120, 200])(
   },
 );
 
+describe("native destinations", () => {
+  const location = (path: string) => ({
+    scope: "project" as const,
+    address: { kind: "entry" as const, path },
+    aliases: [path],
+    configuredConsumers: ["claude-code"],
+    potentialReaders: [],
+    policyReasons: [],
+    ownership: "owned" as const,
+    proof: "canonical-source-link" as const,
+    state: "created" as const,
+    availability: [],
+  });
+  const artifact: JobStepArtifact = {
+    path: ".agents/skills/review",
+    scope: "project",
+    change: "created",
+    fileCount: 3,
+    targets: [
+      { path: "axm.json", change: "updated" },
+      { path: ".agents/skills/review", change: "created" },
+      { path: ".claude/skills/review", change: "created" },
+    ],
+    nativeLocations: [
+      location("/workspace/.agents/skills/review"),
+      location("/workspace/.claude/skills/review"),
+    ],
+  };
+  const text = (verbosity: "normal" | "verbose") =>
+    paint(
+      operationDoc(
+        makeOperationResolution({
+          name: "Install skills",
+          description: Option.none(),
+          mode: "apply",
+          atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+          units: [{ id: "review", label: "review", state: "committed", artifact }],
+        }),
+        { verbosity },
+      ),
+      120,
+    ).split("\n");
+
+  it("names them once beneath the ledger, and leaves other paths on their row", () => {
+    const lines = text("normal");
+    expect(lines.find((line) => line.includes("created"))?.trimEnd()).toMatch(
+      /review\s+created\s+3 files, axm\.json$/u,
+    );
+    expect(lines.map((line) => line.trim())).toContain(
+      ".agents/skills/review, .claude/skills/review",
+    );
+  });
+
+  it("keeps them on the row where each location is listed for itself", () => {
+    expect(text("verbose").find((line) => line.includes("3 files"))).toContain(
+      "axm.json, .agents/skills/review, .claude/skills/review",
+    );
+  });
+});
+
 describe("pack membership output", () => {
   const artifact: JobStepArtifact = {
     path: "packs/toolkit/pack.json",

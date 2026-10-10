@@ -21,7 +21,7 @@
      ↑ 2 more
    ◯   CLAUDE.md
      ↓ 1 more
-     recommended · existing
+     AGENTS.md · recommended · existing
 
  ?   Instructions file name
      ❯ docs/AGENTS.md

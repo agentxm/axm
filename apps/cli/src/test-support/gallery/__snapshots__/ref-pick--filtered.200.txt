@@ -3,4 +3,4 @@
  ❯ ◉   code-review                 Reviews a diff before you open a pull request
    ◯ Subagents                     0 of 1 shown
    ◯   reviewer                    A second reader for risky changes
-2 selected · 2 of 6 shown · esc clears the filter
+2 of 6 selected (1 hidden) · 2 shown · ^a all shown · esc clears the filter

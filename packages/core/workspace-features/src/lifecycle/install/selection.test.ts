@@ -281,14 +281,62 @@ describe("install source selection", () => {
         Effect.provideService(InstallSelectionInteraction, {
           select: (candidates) => {
             expect(candidates).toEqual([
-              { type: "skill", name: "inspect-patch", description: Option.some("Reads a patch") },
-              { type: "skill", name: "draft-release", description: Option.none() },
+              {
+                type: "skill",
+                name: "inspect-patch",
+                description: Option.some("Reads a patch"),
+                group: Option.none(),
+              },
+              {
+                type: "skill",
+                name: "draft-release",
+                description: Option.none(),
+                group: Option.none(),
+              },
             ]);
             return Effect.succeed([candidates[1]].filter((value) => value !== undefined));
           },
         }),
       );
       expect(selected).toEqual([offered[1]]);
+    }),
+  );
+
+  it.effect.each([
+    {
+      label: "groups skills by the folders a source sorts them into",
+      paths: ["skills/engineering/tdd", "skills/productivity/handoff"],
+      groups: [Option.some("engineering"), Option.some("productivity")],
+    },
+    {
+      label: "leaves skills that share one folder ungrouped",
+      paths: ["skills/tdd", "skills/handoff"],
+      groups: [Option.none(), Option.none()],
+    },
+    {
+      label: "leaves skills ungrouped when one sits at the source's root",
+      paths: ["tdd", "skills/productivity/handoff"],
+      groups: [Option.none(), Option.none()],
+    },
+  ])("$label", ({ paths, groups }) =>
+    Effect.gen(function* () {
+      const offered = paths.map((sourceRelativePath) => ({
+        ...skill(sourceRelativePath.split("/").at(-1) ?? "", Option.none()),
+        sourceRelativePath,
+      }));
+      yield* selectInstallRefs(offered, {
+        type: "skill",
+        selectors: [],
+        all: false,
+        nonInteractive: false,
+      }).pipe(
+        Effect.provideService(InstallSelectionInteraction, {
+          select: (candidates) => {
+            expect(candidates.map((candidate) => candidate.group)).toEqual(groups);
+            return Effect.succeed([]);
+          },
+        }),
+      );
     }),
   );
 

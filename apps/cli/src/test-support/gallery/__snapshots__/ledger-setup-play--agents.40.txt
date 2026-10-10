@@ -12,5 +12,5 @@ Setting up AXM in ~/code/storefront
    ◯ Amp
    ◯ Antigravity
      ↓ 59 more
-     skills: .adal/skills
-2 selected · space · ^a all · enter
+     AdaL · skills: .adal/skills
+2 of 67 selected · space · ^a · enter

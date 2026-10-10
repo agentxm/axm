@@ -34,6 +34,8 @@ const CHIP_GAP = 3;
 const FILTER_GAP = 2;
 /** What an empty filter shows, inviting a person to narrow the list. */
 const FILTER_INVITATION = "type to filter";
+/** The fewest cells an option's details are worth showing in beside its title. */
+const DETAILS_MIN_WIDTH = 24;
 /** A key whose name is at least this long is a word, such as `space`, and reads alone. */
 const NAMED_KEY_LENGTH = 3;
 
@@ -218,9 +220,10 @@ const detailsStart = (title: Text, style: ResolvedStyle, start: number): number 
 /**
  * One option on one line: the caret in the gutter where it stands, its mark
  * when the question takes several, the title, and — when the list shows
- * details at all — its details dim at the value column. The option the caret
- * stands on is tinted, mark and title together. A title too long for the line
- * shortens in the middle.
+ * details at all — its details dim at the value column, shortened at their
+ * end to what the line leaves them. The option the caret stands on is tinted,
+ * mark and title together. A title too long for the line shortens in the
+ * middle.
  */
 const paintOption = (
   option: PromptOption,
@@ -235,8 +238,20 @@ const paintOption = (
   const line = `${lead.caret}${lead.mark.length === 0 ? "" : paintSpans([{ text: lead.mark }], style, tone)}${paintValue(title, style, tone)}`;
   const details = optionDetails(option, style);
   if (!withDetails || details.length === 0) return line;
-  const gap = detailsStart(title, style, start) - start - displayWidth(plain(title));
-  return `${line}${spaces(gap)}${paintSpans(details, style, "dim")}`;
+  const detailsAt = detailsStart(title, style, start);
+  const gap = detailsAt - start - displayWidth(plain(title));
+  const shown =
+    style.width === "unbounded" || detailsAt + spansWidth(details) <= style.width
+      ? details
+      : spansOf(
+          truncateText(
+            plain(details),
+            Math.max(1, style.width - detailsAt),
+            "end",
+            style.glyphs.ellipsis,
+          ),
+        );
+  return `${line}${spaces(gap)}${paintSpans(shown, style, "dim")}`;
 };
 
 /** The dim line that names how many options a list leaves out on one side. */
@@ -260,8 +275,8 @@ const keyText = (key: PromptKey, style: ResolvedStyle, worded: boolean): string 
 
 /**
  * The line beneath a list. The whole hint when it fits; then without the
- * arrows, and with named keys such as `space` standing alone; then its status
- * alone.
+ * arrows, and with named keys such as `space` standing alone; then with every
+ * key standing alone; then its status alone.
  */
 const paintHint = (
   hint: PromptHint,
@@ -275,28 +290,39 @@ const paintHint = (
       .filter((key) => key.key !== "arrows")
       .map((key) => keyText(key, style, key.key.length < NAMED_KEY_LENGTH)),
   ];
+  const bare = [
+    ...hint.status,
+    ...hint.keys.filter((key) => key.key !== "arrows").map((key) => keyText(key, style, false)),
+  ];
   const joined = (parts: ReadonlyArray<string>): string => parts.join(style.glyphs.separator);
   const fitting =
-    [full, short].find((parts) => fits(style.width, `${spaces(indent)}${joined(parts)}`)) ??
+    [full, short, bare].find((parts) => fits(style.width, `${spaces(indent)}${joined(parts)}`)) ??
     hint.status;
   return paintPrefixed(joined(fitting), style, { indent, first: "", tone: "dim" });
 };
 
 /**
  * What the caret's option means, on the one line a list keeps for it when its
- * options are too long to carry their details beside their titles. The line
- * shortens at its end, so the list stays exactly as tall as it looks.
+ * options are too long to carry their details whole beside their titles. The
+ * line names the option first while it has room to, because the caret may
+ * stand far above it, and shortens at its end, so the list stays exactly as
+ * tall as it looks. Where the caret's own details already show whole beside
+ * its title the line stays, empty, rather than say them twice or let the list
+ * change height as the caret moves.
  */
 const paintCurrentDetails = (
   options: ReadonlyArray<PromptOption>,
   style: ResolvedStyle,
   indent: number,
+  shownWhole: (option: PromptOption) => boolean,
 ): ReadonlyArray<string> => {
   const current = options.find((option) => option.current === true);
   const details = current === undefined ? [] : optionDetails(current, style);
-  if (details.length === 0) return [];
+  if (current === undefined || details.length === 0) return [];
+  if (shownWhole(current)) return [""];
   const start = indent + GUTTER_WIDTH;
-  const text = plain(details);
+  const named = `${plain(current.title)}${style.glyphs.separator}${plain(details)}`;
+  const text = fits(style.width, `${spaces(start)}${named}`) ? named : plain(details);
   const line =
     style.width === "unbounded"
       ? text
@@ -308,10 +334,12 @@ const paintCurrentDetails = (
  * A question and what answers it: its question line, a dim note beneath it,
  * and — for a question whose answers need reading — the options that fit,
  * with a line naming how many it left out above and below, and the hint
- * beneath the list. Options show their details only when every option's fit
- * whole: a list whose details come and go row by row would read as options
- * that have none, so a narrow list drops them all before it touches a title
- * and names the caret's own beneath the list instead.
+ * beneath the list. Options show their details whole where every option's
+ * fit, and shortened where every option's keep enough of the line to be worth
+ * reading: a list whose details come and go row by row would read as options
+ * that have none, so a narrow list drops them all before it touches a title.
+ * A list that could not show every option's details whole names the caret's
+ * own beneath the list.
  */
 export const paintPrompt = (
   node: PromptNode,
@@ -320,19 +348,30 @@ export const paintPrompt = (
 ): ReadonlyArray<string> => {
   const contentStart = indent + GUTTER_WIDTH;
   const listed = node.options ?? [];
-  const withDetails = [...listed, ...(node.spare === undefined ? [] : [node.spare])].every(
-    (option) => {
-      const start = optionLead(option, style, indent).width;
-      const title = optionTitle(option, style, start);
-      return (
-        style.width === "unbounded" ||
-        detailsStart(title, style, start) + spansWidth(optionDetails(option, style)) <= style.width
-      );
-    },
-  );
+  const offered = [...listed, ...(node.spare === undefined ? [] : [node.spare])];
+  /** The cells an option's details would take, and those its line leaves them. */
+  const detailsRoom = (option: PromptOption): { readonly need: number; readonly room: number } => {
+    const start = optionLead(option, style, indent).width;
+    const title = optionTitle(option, style, start);
+    return {
+      need: spansWidth(optionDetails(option, style)),
+      room:
+        style.width === "unbounded"
+          ? Number.POSITIVE_INFINITY
+          : style.width - detailsStart(title, style, start),
+    };
+  };
+  const whole = offered.every((option) => {
+    const { need, room } = detailsRoom(option);
+    return need === 0 || need <= room;
+  });
+  const withDetails = offered.every((option) => {
+    const { need, room } = detailsRoom(option);
+    return need === 0 || need <= room || room >= DETAILS_MIN_WIDTH;
+  });
   // The line kept for the caret's details goes to the next option when no
   // option needs it.
-  const options = withDetails && node.spare !== undefined ? [...listed, node.spare] : listed;
+  const options = whole && node.spare !== undefined ? [...listed, node.spare] : listed;
   const more = (node.more ?? 0) - (options.length - listed.length);
   return [
     ...paintQuestion(node, style, indent),
@@ -346,7 +385,12 @@ export const paintPrompt = (
       paintOption(option, style, indent, withDetails),
     ]),
     ...(more <= 0 ? [] : paintSkipped(style.glyphs.arrows.down, more, style, indent)),
-    ...(withDetails ? [] : paintCurrentDetails(options, style, indent)),
+    ...(whole
+      ? []
+      : paintCurrentDetails(options, style, indent, (option) => {
+          const { need, room } = detailsRoom(option);
+          return withDetails && need <= room;
+        })),
     ...(node.hint === undefined ? [] : paintHint(node.hint, style, indent)),
   ];
 };

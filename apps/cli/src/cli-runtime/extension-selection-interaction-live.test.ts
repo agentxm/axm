@@ -27,6 +27,7 @@ const candidate = (name: string): InstallSelectionCandidate => ({
   type: "skill",
   name,
   description: Option.some(`Description for ${name}`),
+  group: Option.none(),
 });
 
 const first = candidate("inspect-patch");
@@ -57,7 +58,29 @@ describe("InstallSelectionLive", () => {
             "Name the skills with --skill, take them all with --all, or rerun without --json.",
         },
       ]);
-      expect(test.state.script.asks[0]).toMatchObject({ _tag: "Pick", min: 1 });
+      expect(test.state.script.asks[0]).toMatchObject({
+        _tag: "Pick",
+        min: 1,
+        note: "2 skills",
+        verb: "install",
+      });
+    }).pipe(Effect.provide(test.layer));
+  });
+
+  it.effect("lists candidates under the source's own headings and counts both", () => {
+    const test = harness();
+    test.state.script.answers.push({ _tag: "Pick", titles: ["draft-release"] });
+    return Effect.gen(function* () {
+      const interaction = yield* InstallSelectionInteraction;
+      yield* interaction.select([
+        { ...first, group: Option.some("engineering") },
+        { ...second, group: Option.some("productivity") },
+      ]);
+
+      expect(test.state.script.asks[0]).toMatchObject({
+        note: "2 skills in 2 groups",
+        options: [{ group: "engineering" }, { group: "productivity" }],
+      });
     }).pipe(Effect.provide(test.layer));
   });
 
@@ -151,7 +174,12 @@ describe("InstallSelectionLive", () => {
     return Effect.gen(function* () {
       const interaction = yield* InstallSelectionInteraction;
       yield* interaction.select([
-        { type: "mcp-server", name: "filesystem", description: Option.none() },
+        {
+          type: "mcp-server",
+          name: "filesystem",
+          description: Option.none(),
+          group: Option.none(),
+        },
       ]);
       expect(test.state.script.guards).toEqual([
         {

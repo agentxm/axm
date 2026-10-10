@@ -41,6 +41,39 @@ const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> =>
       ? ref.subagent.description
       : Option.none();
 
+/**
+ * The folder a source keeps a skill's own folder in. A source that sorts its
+ * skills into folders has said how it would have them read.
+ */
+const extensionRefFolder = (ref: ExtensionRef): Option.Option<string> => {
+  if (ref.type !== "skill") return Option.none();
+  const path =
+    ref.refType === "git-hosted" || ref.refType === "http"
+      ? ref.sourcePath
+      : ref.refType === "local"
+        ? ref.sourceRelativePath
+        : undefined;
+  const folder = path
+    ?.split("/")
+    .filter((segment) => segment.length > 0 && segment !== ".")
+    .at(-2);
+  return folder === undefined ? Option.none() : Option.some(folder);
+};
+
+/**
+ * The heading each ref is offered under: its folder, when every ref has one
+ * and they do not all share it. One heading over everything says nothing.
+ */
+const extensionRefGroups = (
+  refs: ReadonlyArray<ExtensionRef>,
+): ReadonlyArray<Option.Option<string>> => {
+  const folders = refs.map(extensionRefFolder);
+  const distinct = new Set(folders.flatMap((folder) => Option.toArray(folder)));
+  return folders.every(Option.isSome) && distinct.size > 1
+    ? folders
+    : refs.map(() => Option.none());
+};
+
 /** The flag that names one of this type's extensions on an install command. */
 const selectorFlag = (type: InstallableExtensionType): string =>
   type === "mcp-server" ? "--mcp-server" : `--${type}`;
@@ -108,10 +141,12 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
     }
 
     const interaction = yield* InstallSelectionInteraction;
-    const candidates = refs.map((ref) => ({
+    const groups = extensionRefGroups(refs);
+    const candidates = refs.map((ref, index) => ({
       type: request.type,
       name: extensionRefName(ref),
       description: extensionRefDescription(ref),
+      group: groups[index] ?? Option.none(),
     }));
     const selected = yield* interaction.select(candidates);
     const names = selected.map(({ name }) => name);

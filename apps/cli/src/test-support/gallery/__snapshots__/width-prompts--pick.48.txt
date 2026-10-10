@@ -4,4 +4,4 @@
    ◯ Muse Code          skills: .agents/skills
    ◯ MiMo Code          skills: .mimocode/skills
      ↓ 63 more
-2 selected · space · ^a all · enter
+2 of 67 selected · space · ^a all · enter

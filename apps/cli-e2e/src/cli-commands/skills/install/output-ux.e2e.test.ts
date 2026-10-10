@@ -75,8 +75,7 @@ describe("axm skills install output UX", () => {
       expect(result.exitCode).toBe(0);
       const output = getOutput(result);
       const verdict = "Installed 1 skill";
-      const unitRow =
-        "skills/my-skill               -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+      const unitRow = "skills/my-skill               created   1 file";
       expect(output).toContain(verdict);
       expect(output).toContain(unitRow);
       // The verdict settles the ledger, so it follows the rows it rests on.

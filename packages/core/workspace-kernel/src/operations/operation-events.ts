@@ -37,18 +37,20 @@ import * as Stream from "effect/Stream";
 import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 
 import { BlockingClassSchema } from "./plan.js";
-import { OperationErrorCategorySchema, StepFailure } from "./errors.js";
+import { ErrorCodeSchema, StepFailure } from "./errors.js";
 import { OperationPhaseSchema, UnitStateSchema, type UnitState } from "./operation-resolution.js";
 
 // -----------------------------------------------------------------------------
 // Event schema
 // -----------------------------------------------------------------------------
 
-export const OperationModeSchema = Schema.Literals(["preview", "apply"] as const).annotate({
-  identifier: "OperationMode",
-  title: "Operation Mode",
-  description: "Whether the operation previews or applies its plan.",
-});
+export const OperationModeSchema = Schema.Literals(["query", "preview", "apply"] as const).annotate(
+  {
+    identifier: "OperationMode",
+    title: "Operation Mode",
+    description: "Whether the operation reads state, previews a transition, or applies it.",
+  },
+);
 export type OperationMode = typeof OperationModeSchema.Type;
 
 /**
@@ -141,7 +143,7 @@ export const UnitProgressEventSchema = Schema.TaggedStruct("UnitProgress", {
  * for the result document.
  */
 export const UnitFailureSchema = Schema.Struct({
-  category: OperationErrorCategorySchema,
+  category: ErrorCodeSchema,
   detail: Schema.String,
 }).annotate({ identifier: "UnitFailure" });
 

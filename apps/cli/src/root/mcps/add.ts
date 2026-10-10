@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -84,48 +85,52 @@ const handleMcpsAddBody = Effect.fn("Mcps.add")(function* (args: McpsAddArgs) {
 });
 
 const addConfig = {
-  name: Argument.String("name").pipe(Argument.withDescription("Inline MCP server name")),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Add to project (default) or user-level configuration"),
-  ),
+  name: Argument.String("name").pipe(withParameterDescription("Name of the MCP server to add")),
+  scope: scopeFlag,
   connection: Flag.String("connection").pipe(
     Flag.optional,
-    Flag.withDescription("Canonical typed connection as JSON; values remain literal"),
+    withParameterDescription(
+      "JSON connection object with env and template values; excludes per-field connection flags",
+    ),
   ),
   transport: Flag.Literals("transport", ["stdio", "streamable-http", "sse"]).pipe(
     Flag.optional,
-    Flag.withDescription("Explicit transport; required for SSE"),
+    withParameterDescription(
+      "Connection transport, inferred from --command or --url; required when the URL serves SSE",
+    ),
   ),
   arg: Flag.String("arg").pipe(
     Flag.atLeast(0),
-    Flag.withDescription("One literal process argument; repeat in invocation order"),
+    withParameterDescription("One literal process argument; repeat in invocation order"),
   ),
   cwd: Flag.String("cwd").pipe(
     Flag.optional,
-    Flag.withDescription("Working directory; relative paths use the selected scope root"),
+    withParameterDescription("Working directory; relative paths use the selected scope root"),
   ),
   headerEnv: Flag.String("header-env").pipe(
     Flag.atLeast(0),
-    Flag.withDescription("Native environment header binding Name=ENV_NAME"),
+    withParameterDescription("Native environment header binding NAME=ENV_NAME"),
   ),
   nativeOauth: Flag.Boolean("native-oauth").pipe(
-    Flag.withDefault(false),
-    Flag.withDescription("Authentication is owned by the native host"),
+    withParameterDefault(false),
+    withParameterDescription("Use the native MCP host's OAuth; excludes an Authorization header"),
   ),
   command: Flag.optional(Flag.String("command")).pipe(
-    Flag.withDescription('Single literal executable, such as "npx"'),
+    withParameterDescription("Single literal executable, such as npx"),
   ),
-  url: Flag.optional(Flag.String("url")).pipe(Flag.withDescription("Inline remote MCP server URL")),
+  url: Flag.optional(Flag.String("url")).pipe(
+    withParameterDescription("Inline remote MCP server URL"),
+  ),
   env: Flag.String("env").pipe(
-    Flag.withDescription("Environment variable name or KEY=VALUE; repeatable"),
+    withParameterDescription("Host environment reference NAME, or literal KEY=VALUE"),
     Flag.atLeast(0),
   ),
   header: Flag.String("header").pipe(
-    Flag.withDescription("Remote header as Name:Value; repeatable"),
+    withParameterDescription("Remote header as NAME=VALUE"),
     Flag.atLeast(0),
   ),
   force: acceptWarningsFlag,
-  preview: previewCapabilityFlag("Show what would change without applying"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const addCommand = Command.make("add", addConfig, ({ scope, ...args }) =>

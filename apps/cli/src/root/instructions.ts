@@ -1,3 +1,5 @@
+import { LearnMore, formatLearnMore } from "../formatter.js";
+import { withParameterDefault, withParameterDescription } from "../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import { withArgvTracking } from "../cli-runtime/index.js";
@@ -15,6 +17,7 @@ import {
   previewCapabilityFlag,
   previewableCapabilities,
   readOnlyCapabilities,
+  groupCapabilities,
   withCommandCapabilities,
 } from "./shared/command-capabilities.js";
 import { withLiveOperation, withOperationLifecycle } from "../operation-lifecycle.js";
@@ -45,7 +48,11 @@ const InstructionsColumns = [
 
 export const handleInstructionsStatus = Effect.fn("Instructions.inspect")(function* () {
   const status = yield* withLiveOperation(
-    { command: "instructions", name: "Inspect instruction-file management", mode: "preview" },
+    {
+      command: "instructions.status",
+      name: "Inspect instruction-file management",
+      mode: "query",
+    },
     ManageInstructions.status().pipe(Effect.mapError(failureToAppError)),
   );
 
@@ -133,43 +140,39 @@ const runInstructions = (
   });
 
 const instructionsStatusConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Inspect project (default) or user-level configuration"),
-  ),
+  scope: scopeFlag,
 } as const;
 
 const instructionsEnableConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Enable project (default) or user-level configuration"),
-  ),
+  scope: scopeFlag,
   fileName: Flag.String("file").pipe(
-    Flag.withDescription("Source-of-truth instruction file"),
-    Flag.withDefault("AGENTS.md"),
+    withParameterDescription("Source-of-truth instruction file"),
+    withParameterDefault("AGENTS.md"),
   ),
   gitignore: Flag.Boolean("gitignore").pipe(
-    Flag.withDescription("Manage propagated alias files in .gitignore"),
-    Flag.withDefault(true),
+    withParameterDescription(
+      "Manage propagated alias files in .gitignore; disable with --no-gitignore",
+    ),
+    withParameterDefault(true),
   ),
-  preview: previewCapabilityFlag("Show what would change without enabling"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 const instructionsDisableConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Disable project (default) or user-level configuration"),
-  ),
-  preview: previewCapabilityFlag("Show what would change without disabling"),
+  scope: scopeFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 const instructionsAdoptConfig = {
   region: Argument.Literals("region", ["rules", "knowledge"]).pipe(
-    Argument.withDescription("Exact managed region to adopt"),
+    withParameterDescription("Managed region to adopt"),
   ),
   fileName: Flag.String("file").pipe(
-    Flag.withDefault("AGENTS.md"),
-    Flag.withDescription("Exact instruction file containing the region"),
+    withParameterDefault("AGENTS.md"),
+    withParameterDescription("Exact instruction file containing the region"),
   ),
   scope: scopeFlag,
-  preview: previewCapabilityFlag("Preview explicit ownership adoption without changing files"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 const instructionsAdoptCommand = Command.make(
@@ -248,22 +251,37 @@ const instructionsDisableCommand = Command.make(
   ]),
 );
 
-export const instructionsCommand = Command.make(
-  "instructions",
-  instructionsStatusConfig,
-  ({ scope }) => handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("instructions")),
+const instructionsStatusCommand = Command.make("status", instructionsStatusConfig, ({ scope }) =>
+  handleInstructionsStatus().pipe(withWorkspace(scope), withRuntime("instructions status")),
 ).pipe(
   withArgvTracking(instructionsStatusConfig),
   withCommandCapabilities(readOnlyCapabilities()),
+  Command.withDescription("Inspect workspace instruction-file management"),
+  Command.withExamples([
+    { command: "axm instructions status", description: "Inspect instruction files" },
+    {
+      command: "axm instructions enable --preview",
+      description: "Preview instruction-file management",
+    },
+  ]),
+);
+
+export const instructionsCommand = Command.make("instructions").pipe(
+  withCommandCapabilities(groupCapabilities),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([["axm help instructions", "Read the instructions guide"]]),
+  ),
   Command.withDescription("Inspect and manage workspace instruction files"),
   Command.withExamples([
-    { command: "axm instructions", description: "Inspect instruction files" },
+    { command: "axm instructions status", description: "Inspect instruction-file management" },
     {
-      command: "axm sync --preview",
-      description: "Preview instruction-file reconciliation",
+      command: "axm instructions enable --preview",
+      description: "Preview instruction-file management",
     },
   ]),
   Command.withSubcommands([
+    instructionsStatusCommand,
     instructionsEnableCommand,
     instructionsDisableCommand,
     instructionsAdoptCommand,

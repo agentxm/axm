@@ -1,4 +1,4 @@
-/** Native Hook package contract. @experimental */
+/** Native Hook extension contract. @experimental */
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { HookBlockOutcomeSchema, HookModifyOperationSchema } from "../agent-capabilities/schema.js";

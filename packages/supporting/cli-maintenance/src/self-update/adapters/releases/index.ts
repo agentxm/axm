@@ -34,7 +34,7 @@ const latestReleaseError = (error: LatestReleaseError): UpgradeFailed => {
       });
     case "timeout":
       return new UpgradeFailed({
-        category: "network",
+        category: "timeout",
         detail: "AXM distribution release discovery timed out",
         suggestions: [{ description: "Check your network connection and try again." }],
       });

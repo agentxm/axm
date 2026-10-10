@@ -84,10 +84,10 @@ describe("Local inventory before setup", () => {
   const perType = [
     { label: "skills list", read: () => listSkills({}) },
     { label: "subagents list", read: () => listSubagents({}) },
-    { label: "rules list", read: () => listRules() },
-    { label: "hooks list", read: () => listHooks() },
-    { label: "packs list", read: () => listPacks() },
-    { label: "mcps list", read: () => listMcpServers() },
+    { label: "rules list", read: () => listRules({}) },
+    { label: "hooks list", read: () => listHooks({}) },
+    { label: "packs list", read: () => listPacks({}) },
+    { label: "mcps list", read: () => listMcpServers({}) },
   ];
   for (const row of perType)
     it.effect(row.label, () => {

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/hooks/test/executes-declared-fixtures",
   title: "Explicit fixture execution produces bounded, attributable evidence",
   statement:
-    "When a person explicitly tests a Hook package, AXM shall execute only selected declared fixtures with bounded input, output, and duration; compare declared exit codes and output; omit raw process output from receipts; and record fixture evidence separately from native host invocation. Unknown fixture selection and invalid native JSON shall be refused before executing that fixture.",
+    "When a person explicitly tests a Hook extension, AXM shall execute only selected declared fixtures with bounded input, output, and duration; compare declared exit codes and output; omit raw process output from receipts; and record fixture evidence separately from native host invocation. Unknown fixture selection and invalid native JSON shall be refused before executing that fixture.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "safe-repetition"],

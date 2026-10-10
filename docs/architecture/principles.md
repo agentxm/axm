@@ -111,8 +111,12 @@ blocker, not an invitation to take ownership.
 
 Local edits to an installed external extension do not make that extension
 workspace-authored, but ordinary reconciliation also does not erase those
-edits. AXM does not adopt unowned file artifacts. Manual preservation,
-relocation, or removal owns recovery from an unowned collision.
+edits. AXM does not adopt unowned file artifacts. Explicit `mcps adopt` records
+selected, losslessly representable native MCP entries as inline declarations;
+`mcps import <name> <extension>` converts one named native MCP server into a
+project-workspace package. Neither operation stamps native entries with ownership
+metadata. Otherwise, manual preservation, relocation, or removal owns recovery
+from an unowned collision.
 
 Authority to change a unit is not authority to decide its contents. Where one
 owned unit carries the realization of several extensions, its required content
@@ -162,15 +166,15 @@ command intent.
 ## Keep overrides rare and honest
 
 Routine behavior deserves an explicit mode such as `--preview`, `--reinstall`,
-or `--ignore-release-age`. The binding force boundary is the executable
+or `--ignore-release-age`. The binding override boundary is the executable
 specification `cli/force-bypasses-only-named-policies` in the
-[specification catalog](../../specifications/catalog.md): `--force` bypasses
-only an explicitly named forceable policy and never a hard invariant.
+[specification catalog](../../specifications/catalog.md): a named override bypasses
+only its explicitly named policy and never a hard invariant.
 
 `--yes` approves in advance the one documented confirmation a command
 declares, and only the commands that declare one expose it. It does not
 broaden permission, never satisfies a named policy override or an
-interactive-only trust condition, and `--force` does not imply it.
+interactive-only trust condition, and an override flag does not imply it.
 
 ## Specify the promises of each feature
 

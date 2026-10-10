@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/view/reports-archival-and-effective-lifecycle-state",
   title: "View reports archival and the effective lifecycle state",
   statement:
-    "When viewing an archived extension, AXM shall report its archival timestamp and optional reason, retain independent deprecation guidance, and identify archived as the effective lifecycle state in human and machine-readable data.",
+    "When viewing an archived extension, AXM shall report its archival timestamp and optional message, retain independent deprecation guidance, and identify archived as the effective lifecycle state in human and machine-readable data.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -44,7 +44,7 @@ describe("Extension archival details", () => {
         visibility: "public",
         archival: {
           archivedAt: "2026-09-19T00:00:00.000Z",
-          reason: "No longer maintained",
+          message: "No longer maintained",
         },
         deprecation: {
           deprecatedAt: "2026-09-18T00:00:00.000Z",
@@ -73,7 +73,7 @@ describe("Extension archival details", () => {
       expect(result.document.lifecycleState).toBe("archived");
       const archival = result.document.archival;
       if (archival === null) throw new Error("Expected archival state");
-      expect(archival.reason).toBe("No longer maintained");
+      expect(archival.message).toBe("No longer maintained");
       expect(DateTime.formatIso(archival.archivedAt)).toBe("2026-09-19T00:00:00.000Z");
       expect(result.document.deprecation?.message).toBe("Move to the replacement.");
     }).pipe(

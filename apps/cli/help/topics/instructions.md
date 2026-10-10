@@ -5,7 +5,7 @@ canonical source, such as `AGENTS.md`, available through the filenames required
 by configured coding agents. It is useful independently of whether the
 workspace installs Rule extensions.
 
-Use bare `axm instructions` to inspect the effective configuration and target
+Use `axm instructions status` to inspect the effective configuration and target
 health. Use `axm instructions enable` and `axm instructions disable` to change
 the capability. There is no `status` subcommand and no command under `axm
 rules`.
@@ -38,7 +38,7 @@ shape. Correct unsupported settings directly before continuing.
 
 All commands accept `--scope project` (default) or `--scope user`:
 
-- `axm instructions` — show the source, target, mechanism, health, and
+- `axm instructions status` — show the source, target, mechanism, health, and
   ownership for each configured agent and propagation root, followed by any
   AXM-owned alias the current configuration no longer needs.
 - `axm instructions enable [--file AGENTS.md]
@@ -127,7 +127,7 @@ reconciling setting. Use `axm sync --preview` to inspect reconciliation, then
 Ownership is inspected, not remembered. A symlink that resolves to the canonical
 source or an `axm:file v=1` marker proves an alias is AXM's; the banner prose is
 guidance rather than an ownership signal. Anything else at a target path is an
-unowned collision: `axm instructions` reports it as `unowned`, `axm lint` names
+unowned collision: `axm instructions status` reports it as `unowned`, `axm lint` names
 it, and no reconciliation modifies it. An AXM-owned alias left behind by a
 removed propagation root, a removed agent, or a changed canonical filename is
 `stale`: `axm sync` removes it before rewriting the `.gitignore` block, and

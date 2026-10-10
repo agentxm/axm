@@ -359,7 +359,7 @@ const selectNativeMcpCandidate = (
       new AuthoringFailed({
         category: "usage",
         detail:
-          "This MCP command cannot be represented losslessly as a managed package; import it inline without --as",
+          "This MCP command cannot be represented losslessly as a managed package; adopt it inline with axm mcps adopt --name <name>",
       }),
     );
   }

@@ -23,7 +23,7 @@ describe("Sharing an existing source", () => {
         ["remote", "add", "origin", pathToFileURL(source).href],
       ])
         execFileSync("git", args, { cwd: source, stdio: "ignore" });
-      const result = await fixture.run(["share", source, "--json", "--non-interactive"]);
+      const result = await fixture.run(["-C", source, "share", "--json", "--non-interactive"]);
       expect(result.exitCode, result.stdout + result.stderr).toBe(0);
       const output: unknown = JSON.parse(result.stdout);
       expect(output).toMatchObject({

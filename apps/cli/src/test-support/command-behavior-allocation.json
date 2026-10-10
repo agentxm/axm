@@ -117,7 +117,7 @@
     "directory": {
       "rawHelp": {
         "aliases": ["-C"],
-        "type": "directory",
+        "type": "path",
         "required": false
       },
       "bindings": [
@@ -143,19 +143,9 @@
     "source-defaults": {
       "topic": "Ambiguous source spelling and default-provider selection"
     },
-    "workspace-install-selection": {
-      "topic": "Omitted-source installation: eligibility, disabled entries, reinstall applicability and selector combinations"
-    },
     "view-implicit-type": {
       "topic": "Implicit type selection for bare local names",
       "nearestSpecification": "cli/view/explicit-type-selects-the-local-identity"
-    },
-    "query-text-refusal": {
-      "topic": "CLI refusal and error category for malformed textual query expressions; shared search/query allocation"
-    },
-    "query-explanation": {
-      "topic": "Explanation content and ordering rationale",
-      "nearestSpecification": "cli/knowledge/concepts/query/bounds-concept-evidence"
     },
     "browser-login": {
       "topic": "Browser-login selection, fallback, denial and timeout policy"
@@ -173,7 +163,7 @@
     },
     "captured-invalid-corpus": {
       "topic": "Health of a captured but invalid Knowledge corpus",
-      "nearestSpecification": "cli/knowledge/concepts/status/reports-current-corpus-health"
+      "nearestSpecification": "cli/knowledge/concepts/capabilities/reports-current-corpus-identity"
     },
     "scope-collisions": {
       "topic": "Cross-workspace Knowledge collision diagnostics, including unreadable or undecodable other-scope metadata"
@@ -191,18 +181,8 @@
       "topic": "Whether already-installed activation resolves sources",
       "nearestSpecification": "source-resolution/minimum-release-age-withholds-unaged-releases"
     },
-    "dirty-reinstall": {
-      "topic": "Recovery for dirty installed content on reinstall",
-      "nearestSpecification": "cli/install/reinstall-is-idempotent"
-    },
     "typed-install-inputs": {
       "topic": "Locator acceptance per fixed type, including bare MCP and Pack references"
-    },
-    "typed-update-name-selection": {
-      "topic": "Update name/glob grammar, source/name filter composition, enabled-only eligibility and unmatched selection"
-    },
-    "typed-update-source-selection": {
-      "topic": "Update selector local-name/source matching order, disabled eligibility and unmatched selection"
     },
     "mcp-update-selection": {
       "topic": "MCP source/name filter composition, constraint-insensitive source matching and unmatched selection"
@@ -238,29 +218,9 @@
       "topic": "Publication glob grammar, explicit-selector/filter combinations and unmatched-selector diagnostics",
       "nearestSpecification": "cli/publication-selects-matching-authored-extensions"
     },
-    "publish-registry-selection": {
-      "topic": "Publication target when both Registry flags are supplied or neither is supplied",
-      "nearestSpecification": "cli/publication-uses-explicit-registry-target"
-    },
-    "publish-url-selection": {
-      "topic": "Publication URL schemes and normalization beyond declared transports, target-refusal diagnostics and combined name/URL precedence",
-      "nearestSpecification": "cli/publication-uses-explicit-registry-target"
-    },
     "help-topics": {
       "topic": "Single-word topic/command collision priority",
       "nearestSpecification": "cli/help/returns-requested-topic-or-command"
-    },
-    "lint-path-selection": {
-      "topic": "Lint user-scope path precedence and Git-index selection from a non-root directory",
-      "nearestSpecification": "cli/lint/observes-selected-filesystem-view"
-    },
-    "lint-scope-selection": {
-      "topic": "User workspace selection and explicit lint path precedence",
-      "nearestSpecification": "cli/lint/observes-selected-filesystem-view"
-    },
-    "lint-fix-index": {
-      "topic": "Lint --fix admission with Git-index mode",
-      "nearestSpecification": "cli/lint/observes-selected-filesystem-view"
     },
     "inline-mcp-transport": {
       "topic": "Inline MCP transport exclusivity, command quoting, URL schemes and per-agent projection support"
@@ -286,21 +246,18 @@
     "fork-existing-declaration": {
       "topic": "Fork collisions with an already configured declaration"
     },
-    "fork-from-selection": {
-      "topic": "Positive --from selection and unmatched source-filter policy"
+    "fork-package-selection": {
+      "topic": "Positive --package selection and unmatched source-filter policy"
     },
     "import-existing-declaration": {
       "topic": "Native import collisions with an already configured declaration"
     },
-    "mcp-import-scope": {
-      "topic": "Project/user scope of inline native MCP adoption"
-    },
     "mcp-import-package": {
-      "topic": "MCP conversion transports/fields beyond represented HTTP, absent or ambiguous candidates, credential/input-reference preservation and existing-content replacement",
+      "topic": "MCP conversion transports/fields beyond represented HTTP, credential/input-reference preservation and existing-content replacement",
       "nearestSpecification": "cli/mcps/import/creates-authored-package-from-native-server"
     },
     "same-version-preview": {
-      "topic": "Authored version preview when an explicit set requests the existing version"
+      "topic": "Authored version preview when an exact value requests the existing version"
     },
     "agent-add-selection": {
       "topic": "Agent-add duplicate IDs, mixed existing/new IDs, unknown IDs and omitted selection"
@@ -370,8 +327,7 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -451,7 +407,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -518,8 +476,7 @@
           "name": "id",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -622,7 +579,9 @@
           "rawHelp": {
             "type": "string",
             "required": true,
-            "variadic": true
+            "variadic": {
+              "min": 1
+            }
           }
         }
       ],
@@ -691,8 +650,7 @@
           "name": "id",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -715,14 +673,6 @@
             "type": "string",
             "required": true
           }
-        },
-        {
-          "name": "output",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          }
         }
       ],
       "arguments": [
@@ -730,17 +680,24 @@
           "name": "id",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
+          }
+        },
+        {
+          "name": "destination",
+          "rawHelp": {
+            "type": "string",
+            "required": true
           }
         }
       ],
       "relatedRequirements": [
-        "system/reliability/failure-diagnostics-can-be-reviewed-and-exported"
+        "system/reliability/failure-diagnostics-can-be-reviewed-and-exported",
+        "cli/diagnostics/export-names-its-destination"
       ],
       "parameterBindings": [
         {
-          "parameters": ["argument:id", "flag:review-sha256", "flag:output"],
+          "parameters": ["argument:id", "flag:review-sha256", "argument:destination"],
           "requirements": ["system/reliability/failure-diagnostics-can-be-reviewed-and-exported"]
         }
       ]
@@ -777,16 +734,14 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -860,7 +815,23 @@
     "archive": {
       "flags": [
         {
-          "name": "reason",
+          "name": "message",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "clear-message",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -873,17 +844,25 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
-          "parameters": ["argument:extension", "flag:reason"],
+          "parameters": ["argument:extension", "flag:message"],
           "requirements": ["cli/archive/archives-at-the-observed-revision"],
-          "when": "An extension FQN and optional public reason select a conditional archival write."
+          "when": "An extension FQN and optional public message select a conditional archival write."
+        },
+        {
+          "parameters": ["flag:clear-message"],
+          "requirements": ["cli/archive/archives-at-the-observed-revision"]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
@@ -928,6 +907,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -935,12 +922,11 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -984,36 +970,29 @@
             "cli/deprecate/rejects-conflicting-or-empty-guidance"
           ],
           "when": "Editing guidance conditional on its observed Registry revision."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
     "discover": {
-      "flags": [
-        {
-          "name": "path",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [],
-      "relatedRequirements": ["cli/discover/identifies-local-only-recommendations"],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:path"],
-          "requirements": [
-            "cli/discover/reports-companions-for-detected-dependencies",
-            "cli/relative-paths-start-in-selected-directory"
-          ]
-        }
-      ]
+      "relatedRequirements": [
+        "cli/discover/identifies-local-only-recommendations",
+        "cli/share/selection-is-explicit",
+        "cli/commands-use-selected-directory",
+        "cli/discover/reports-companions-for-detected-dependencies"
+      ],
+      "parameterBindings": []
     },
     "fork": {
       "flags": [
         {
-          "name": "from",
+          "name": "package",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -1042,16 +1021,14 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -1085,13 +1062,13 @@
           "openTopics": ["fork-existing-declaration"]
         },
         {
-          "parameters": ["flag:from"],
+          "parameters": ["flag:package"],
           "requirements": [
             "cli/fork/creates-distinct-workspace-package",
             "cli/fork/refuses-ambiguous-or-conflicting-packages"
           ],
-          "when": "--from filters the source candidates.",
-          "openTopics": ["fork-from-selection"]
+          "when": "--package filters the source candidates.",
+          "openTopics": ["fork-package-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -1120,11 +1097,14 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {}
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": [
+        "cli/help/topics-identify-content-kind",
+        "cli/help/unknown-paths-offer-contextual-recovery"
+      ],
       "parameterBindings": [
         {
           "parameters": ["argument:topic-or-command"],
@@ -1172,14 +1152,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -1187,8 +1159,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -1202,15 +1173,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When hooks disable runs in preview mode against an enabled hooks package."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -1263,8 +1225,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -1314,7 +1275,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -1334,7 +1295,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -1351,14 +1312,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -1387,12 +1340,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -1402,13 +1354,6 @@
           "parameters": ["flag:hook", "flag:all"],
           "requirements": ["cli/install-forms-express-same-intent"],
           "when": "A source contains one or more hook packages."
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -1440,17 +1385,6 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
@@ -1460,6 +1394,10 @@
         {
           "parameters": ["flag:configuration"],
           "requirements": ["extensions/hooks/resolve-typed-consumer-configuration"]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -1472,6 +1410,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [],
@@ -1483,6 +1433,13 @@
             "cli/installed-state-stays-in-selected-scope",
             "cli/inventories-can-run-before-setup",
             "cli/type-lists-report-local-state"
+          ]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-list-agent-filters-match-any-selected-agent"
           ]
         }
       ]
@@ -1536,6 +1493,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "description",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -1543,12 +1508,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -1585,6 +1549,10 @@
         {
           "parameters": ["flag:protocol"],
           "requirements": ["cli/hooks/new/creates-inactive-workspace-content"]
+        },
+        {
+          "parameters": ["flag:description"],
+          "requirements": ["cli/new/creation-inputs-are-consistent"]
         }
       ]
     },
@@ -1595,7 +1563,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -1603,19 +1571,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -1661,7 +1621,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -1695,14 +1657,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -1748,6 +1703,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -1755,8 +1722,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -1780,6 +1746,13 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -1807,8 +1780,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -1848,18 +1820,6 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -1874,28 +1834,45 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "name",
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": false
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-name-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -1912,9 +1889,12 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-source-selection"]
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -1933,7 +1913,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -1942,14 +1922,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -1977,7 +1949,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -1989,7 +1961,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2001,7 +1973,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2013,7 +1985,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2025,7 +1997,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2033,11 +2005,11 @@
           }
         },
         {
-          "name": "mcp",
+          "name": "mcp-server",
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2049,59 +2021,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
             "repeatable": true
-          }
-        },
-        {
-          "name": "bind",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "bind-env",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "distribution",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "native-oauth",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "as",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
           }
         }
       ],
@@ -2110,21 +2034,21 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
       "relatedRequirements": [
         "cli/install/apply-realizes-the-previewed-closure",
-        "cli/install/inline-mcp-configuration-is-skipped",
         "cli/install/machine-result-is-schema-backed",
         "cli/install/materializes-canonical-content",
         "cli/install/preserves-unrelated-and-unowned-state",
         "cli/install/realizes-for-every-configured-agent",
         "cli/install/records-accepted-resolution",
         "cli/install/reinstall-is-idempotent",
-        "cli/install-forms-express-same-intent"
+        "cli/install-forms-express-same-intent",
+        "cli/install/requires-explicit-source",
+        "cli/install/mcp-inputs-belong-to-typed-route"
       ],
       "conditionalLinks": [
         {
@@ -2159,27 +2083,12 @@
             "flag:rule",
             "flag:hook",
             "flag:knowledge",
-            "flag:mcp",
+            "flag:mcp-server",
             "flag:pack",
             "flag:all"
           ],
           "requirements": ["cli/install-forms-express-same-intent"],
           "when": "A source is supplied and selection is explicit or interactive."
-        },
-        {
-          "parameters": ["flag:as"],
-          "requirements": [
-            "cli/mcps/install/local-connection-names-share-source-resolution",
-            "cli/mcps/install/local-name-requests-are-validated-before-any-change"
-          ],
-          "when": "Exactly one MCP server is selected."
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -2196,59 +2105,23 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A supplied source resolves to a non-Skill type, or locator discovery dispatches another type."
-        },
-        {
-          "parameters": ["flag:bind", "flag:bind-env"],
-          "requirements": ["cli/mcps/selected-distribution-inputs-follow-registry-semantics"]
-        },
-        {
-          "parameters": ["flag:distribution"],
-          "requirements": ["cli/mcps/source-distribution-selection-is-stable"]
-        },
-        {
-          "parameters": ["flag:native-oauth"],
-          "requirements": ["cli/mcps/credentials-remain-host-owned"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
     "instructions": {
-      "flags": [
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [],
-      "relatedRequirements": [
-        "cli/installed-state-stays-in-selected-scope",
-        "cli/instructions/status-reports-without-changing-state"
-      ],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:scope"],
-          "requirements": ["cli/installed-state-stays-in-selected-scope"],
-          "when": "Selecting the workspace for coding-agent membership/detection or instruction-file management, including when no extensions are installed."
-        }
-      ]
+      "relatedRequirements": ["cli/groups-show-help-without-executing"],
+      "parameterBindings": []
     },
     "instructions adopt": {
       "flags": [
@@ -2282,8 +2155,7 @@
           "name": "region",
           "rawHelp": {
             "type": "choice",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -2449,8 +2321,7 @@
           "name": "reference",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -2491,7 +2362,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2503,7 +2374,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2515,7 +2386,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2527,7 +2398,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2539,7 +2410,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -2603,14 +2474,6 @@
           }
         },
         {
-          "name": "explain",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -2624,8 +2487,7 @@
           "name": "expression",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -2637,18 +2499,27 @@
       "parameterBindings": [
         {
           "parameters": ["argument:expression"],
-          "requirements": ["cli/knowledge/concepts/query/enumerates-selected-document-kinds"],
+          "requirements": [
+            "cli/knowledge/concepts/query/matches-lexical-query",
+            "cli/knowledge/concepts/query/rejects-invalid-query"
+          ],
           "when": "The expression argument is omitted."
         },
         {
           "parameters": ["argument:expression"],
-          "requirements": ["cli/knowledge/concepts/query/combines-typed-filters"]
+          "requirements": [
+            "cli/knowledge/concepts/query/matches-lexical-query",
+            "cli/knowledge/concepts/query/rejects-invalid-query"
+          ]
         },
         {
           "parameters": ["argument:expression"],
           "when": "The expression argument is supplied.",
-          "openTopics": ["query-text-refusal"],
-          "details": ["Shared query grammar and CLI refusal have separate authority."]
+          "details": ["Shared query grammar and CLI refusal have separate authority."],
+          "requirements": [
+            "cli/knowledge/concepts/query/matches-lexical-query",
+            "cli/knowledge/concepts/query/rejects-invalid-query"
+          ]
         },
         {
           "parameters": ["flag:field"],
@@ -2706,11 +2577,6 @@
             "cli/knowledge/concepts/query/bounds-concept-evidence"
           ],
           "details": ["Page result limits and per-result passage bounds have separate owners."]
-        },
-        {
-          "parameters": ["flag:explain"],
-          "openTopics": ["query-explanation"],
-          "details": ["Ranking strategy names and numerical weights remain implementation details."]
         }
       ]
     },
@@ -2746,8 +2612,7 @@
           "name": "reference",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -2777,7 +2642,7 @@
           "requirements": [
             "cli/knowledge/concepts/related/enforces-published-depth-bounds",
             "cli/knowledge/concepts/related/traverses-authored-links",
-            "cli/knowledge/concepts/status/publishes-discovery-capabilities"
+            "cli/knowledge/concepts/capabilities/publishes-discovery-capabilities"
           ]
         },
         {
@@ -2815,8 +2680,7 @@
           "name": "input",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -2852,74 +2716,7 @@
         }
       ]
     },
-    "knowledge concepts search": {
-      "flags": [
-        {
-          "name": "limit",
-          "rawHelp": {
-            "aliases": [],
-            "type": "integer",
-            "required": false
-          }
-        },
-        {
-          "name": "cursor",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        }
-      ],
-      "arguments": [
-        {
-          "name": "query",
-          "rawHelp": {
-            "type": "string",
-            "required": true,
-            "variadic": false
-          }
-        }
-      ],
-      "relatedRequirements": [
-        "cli/invalid-workspace-state-gates-operations",
-        "cli/knowledge/concepts/refuses-changing-corpus",
-        "cli/knowledge/concepts/renders-authored-text-safely"
-      ],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:limit"],
-          "requirements": ["cli/knowledge/concepts/enforces-published-result-limits"]
-        },
-        {
-          "parameters": ["flag:cursor"],
-          "requirements": ["cli/knowledge/concepts/cursors-bind-query-and-corpus"]
-        },
-        {
-          "parameters": ["flag:scope"],
-          "requirements": [
-            "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
-            "cli/installed-state-stays-in-selected-scope"
-          ]
-        },
-        {
-          "parameters": ["argument:query"],
-          "requirements": [
-            "cli/knowledge/concepts/search/matches-lexical-query",
-            "cli/knowledge/concepts/search/rejects-invalid-query"
-          ]
-        }
-      ]
-    },
-    "knowledge concepts status": {
+    "knowledge concepts capabilities": {
       "flags": [
         {
           "name": "scope",
@@ -2933,7 +2730,7 @@
       "arguments": [],
       "relatedRequirements": [
         "cli/invalid-workspace-state-gates-operations",
-        "cli/knowledge/concepts/status/publishes-discovery-capabilities"
+        "cli/knowledge/concepts/capabilities/publishes-discovery-capabilities"
       ],
       "parameterBindings": [
         {
@@ -2941,7 +2738,7 @@
           "requirements": [
             "cli/installed-state-stays-in-selected-scope",
             "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
-            "cli/knowledge/concepts/status/reports-current-corpus-health"
+            "cli/knowledge/concepts/capabilities/reports-current-corpus-identity"
           ],
           "openTopics": ["captured-invalid-corpus"],
           "details": [
@@ -2971,14 +2768,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -2986,8 +2775,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -3013,15 +2801,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When knowledge disable runs in preview mode against an enabled Knowledge bundle."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -3065,8 +2844,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -3119,7 +2897,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -3139,7 +2917,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -3148,14 +2926,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -3184,12 +2954,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -3198,11 +2967,6 @@
         {
           "parameters": ["flag:knowledge", "flag:all"],
           "requirements": ["cli/install-forms-express-same-intent"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches the reinstall policy."
         },
         {
           "parameters": ["flag:preview"],
@@ -3234,16 +2998,15 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -3268,11 +3031,10 @@
       ],
       "arguments": [
         {
-          "name": "bundle",
+          "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -3293,7 +3055,7 @@
           "when": "--path is supplied; the selected package is authored content."
         },
         {
-          "parameters": ["argument:bundle"],
+          "parameters": ["argument:name"],
           "requirements": ["cli/knowledge/lint/reports-validation-without-mutation"],
           "when": "--path is omitted; installed Knowledge is selected."
         },
@@ -3319,6 +3081,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [],
@@ -3331,6 +3105,13 @@
             "cli/inventories-can-run-before-setup",
             "cli/knowledge/list/reports-bundle-inspection",
             "cli/knowledge/list/explains-instruction-entry-inclusion"
+          ]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-list-agent-filters-match-any-selected-agent"
           ]
         }
       ]
@@ -3367,12 +3148,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -3406,7 +3186,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -3414,19 +3194,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -3472,7 +3244,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -3506,14 +3280,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -3559,6 +3326,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -3566,8 +3345,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -3591,6 +3369,13 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -3618,8 +3403,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -3659,18 +3443,6 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -3685,28 +3457,45 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "name",
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": false
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-name-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -3723,9 +3512,12 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-source-selection"]
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -3756,21 +3548,28 @@
           }
         },
         {
-          "name": "view",
+          "name": "staged",
           "rawHelp": {
             "aliases": [],
-            "type": "choice",
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
             "required": false
           }
         }
       ],
       "arguments": [
         {
-          "name": "path",
+          "name": "workspace",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -3787,23 +3586,25 @@
         "cli/lint/undeclared-official-skill-is-informational",
         "cli/lint/reports-installed-but-not-configured",
         "cli/lint/reports-undeclared-authored-packages",
-        "cli/lint/reports-unrecognized-install-root-entries"
+        "cli/lint/reports-unrecognized-install-root-entries",
+        "cli/lint/selects-explicit-workspace-root",
+        "cli/lint/preview-is-pure"
       ],
       "parameterBindings": [
         {
-          "parameters": ["argument:path"],
+          "parameters": ["argument:workspace"],
           "requirements": [
             "cli/relative-paths-start-in-selected-directory",
             "cli/lint/observes-selected-filesystem-view"
           ],
           "when": "Relative-path anchoring applies to a relative path. Selected-view purity applies without --fix; Git-index path selection concerns the selected project repository.",
-          "openTopics": ["lint-path-selection"]
+          "openTopics": []
         },
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/lint/observes-selected-filesystem-view"],
           "when": "The selected-view purity association applies without --fix.",
-          "openTopics": ["lint-scope-selection"]
+          "openTopics": []
         },
         {
           "parameters": ["flag:strict"],
@@ -3813,20 +3614,28 @@
           "parameters": ["flag:fix"],
           "requirements": ["cli/lint/fix-repairs-only-determined-state"],
           "when": "Working-tree view.",
-          "openTopics": ["lint-fix-index"]
+          "openTopics": []
         },
         {
-          "parameters": ["flag:view"],
+          "parameters": ["flag:staged"],
           "requirements": [
             "cli/lint/observes-selected-filesystem-view",
             "cli/lint/git-index-requires-a-resolved-index"
           ],
-          "when": "Selected-view purity applies without --fix; Git-index admission applies when --view git-index is selected."
+          "when": "Selected-view purity applies without --fix; Git-index admission applies when --staged is selected."
         },
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/lint/git-index-requires-a-resolved-index"],
-          "when": "--view git-index is selected, including the refusal of user scope."
+          "when": "--staged is selected, including the refusal of user scope."
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/lint/preview-is-pure"]
+        },
+        {
+          "parameters": ["argument:workspace", "flag:scope", "flag:staged"],
+          "requirements": ["cli/lint/selects-explicit-workspace-root"]
         }
       ]
     },
@@ -3946,6 +3755,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -3983,14 +3800,32 @@
             "cli/login/ended-wait-preserves-authorization",
             "cli/login/rejects-inconsistent-flow-options"
           ]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
         }
       ]
     },
     "logout": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [],
       "relatedRequirements": ["cli/logout/erases-selected-registry-credentials"],
-      "parameterBindings": []
+      "parameterBindings": [
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
+        }
+      ]
     },
     "mcps": {
       "flags": [],
@@ -4029,7 +3864,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4049,7 +3884,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4085,7 +3920,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4097,7 +3932,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4126,12 +3961,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/mcps/header-values-use-equals"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -4192,14 +4026,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -4207,8 +4033,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -4222,15 +4047,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When mcps disable runs in preview mode against an enabled MCP server."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -4286,8 +4102,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -4336,22 +4151,10 @@
     "mcps import": {
       "flags": [
         {
-          "name": "name",
+          "name": "enable",
           "rawHelp": {
             "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
+            "type": "boolean",
             "required": false
           }
         },
@@ -4362,41 +4165,33 @@
             "type": "boolean",
             "required": false
           }
-        },
+        }
+      ],
+      "arguments": [
         {
-          "name": "as",
+          "name": "name",
           "rawHelp": {
-            "aliases": [],
             "type": "string",
-            "required": false
+            "required": true
           }
         },
         {
-          "name": "enable",
+          "name": "extension",
           "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
+            "type": "string",
+            "required": true
           }
         }
       ],
-      "arguments": [],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/mcps/adoption-and-import-are-distinct"],
       "parameterBindings": [
         {
-          "parameters": ["flag:scope"],
-          "requirements": [
-            "cli/mcps/import/adoption-reaches-every-configured-agent",
-            "cli/installed-state-stays-in-selected-scope"
-          ],
-          "when": "--as is absent: native configuration becomes an inline workspace entry.",
-          "openTopics": ["mcp-import-scope"],
-          "details": ["The authored-package conversion mode has separate scope admission."]
+          "parameters": ["argument:name"],
+          "requirements": ["cli/mcps/adoption-and-import-are-distinct"],
+          "openTopics": ["mcp-import-package"]
         },
         {
-          "parameters": ["flag:as"],
-          "when": "--as package conversion is requested; the creation outcome applies to one unmanaged native HTTP server with optional non-secret literal headers.",
-          "openTopics": ["mcp-import-package"],
+          "parameters": ["argument:extension"],
           "requirements": [
             "cli/mcps/import/creates-authored-package-from-native-server",
             "cli/creation-uses-configured-workspace-ownership",
@@ -4409,17 +4204,7 @@
         },
         {
           "parameters": ["flag:preview"],
-          "requirements": ["cli/mcps/import/preview-is-pure"],
-          "when": "An eligible unmanaged native server is previewed for inline adoption or --as package conversion."
-        },
-        {
-          "parameters": ["flag:scope"],
-          "requirements": ["cli/authoring-uses-project-workspace"],
-          "when": "--as package conversion is requested."
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/mcps/import/selected-batch-is-atomic"]
+          "requirements": ["cli/mcps/import/creates-authored-package-from-native-server"]
         }
       ]
     },
@@ -4430,7 +4215,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4446,11 +4231,11 @@
           }
         },
         {
-          "name": "mcp",
+          "name": "mcp-server",
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4459,14 +4244,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -4486,7 +4263,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4498,7 +4275,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4543,27 +4320,19 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
         },
         {
-          "parameters": ["flag:mcp", "flag:all"],
+          "parameters": ["flag:mcp-server", "flag:all"],
           "requirements": ["cli/install-forms-express-same-intent"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -4603,11 +4372,6 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:bind", "flag:bind-env"],
           "requirements": ["cli/mcps/selected-distribution-inputs-follow-registry-semantics"]
         },
@@ -4625,6 +4389,10 @@
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -4636,6 +4404,18 @@
             "aliases": [],
             "type": "choice",
             "required": false
+          }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
           }
         }
       ],
@@ -4649,6 +4429,13 @@
             "cli/inventories-can-run-before-setup",
             "cli/mcps/list/local-name-source-and-resolution-are-distinct",
             "cli/mcps/list/human-inventory-separates-local-name-and-source"
+          ]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-list-agent-filters-match-any-selected-agent"
           ]
         }
       ]
@@ -4685,12 +4472,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -4724,7 +4510,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -4732,19 +4518,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -4790,7 +4568,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -4824,14 +4604,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -4883,7 +4656,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -4896,8 +4669,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -4952,8 +4724,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5002,22 +4773,91 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
-          "name": "refresh",
+          "name": "preview",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:source"],
+          "requirements": [
+            "cli/mcps/update/shared-source-update-is-closure-wide",
+            "cli/update/advances-resolution-within-intent"
+          ],
+          "openTopics": ["mcp-update-selection"]
+        },
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/update/preview-is-pure"],
+          "when": "When mcps update runs in preview mode against an installed MCP server whose source publishes a newer eligible version."
+        },
+        {
+          "parameters": ["flag:ignore-release-age"],
+          "requirements": [
+            "cli/policy-overrides-reach-every-blocked-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "The actual operation reaches the minimum-release-age gate.",
+          "openTopics": ["activation-source-resolution"]
+        },
+        {
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        }
+      ]
+    },
+    "migrate": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
             "required": false
           }
         },
@@ -5038,75 +4878,12 @@
           }
         }
       ],
-      "arguments": [],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:source"],
-          "requirements": [
-            "cli/mcps/update/shared-source-update-is-closure-wide",
-            "cli/update/advances-resolution-within-intent"
-          ],
-          "openTopics": ["mcp-update-selection"]
-        },
-        {
-          "parameters": ["flag:scope"],
-          "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": [
-            "cli/update/advances-resolution-within-intent",
-            "cli/mcps/update/shared-source-update-is-closure-wide"
-          ],
-          "openTopics": ["typed-update-name-selection"]
-        },
-        {
-          "parameters": ["flag:refresh"],
-          "requirements": ["cli/force-bypasses-only-named-policies"]
-        },
-        {
-          "parameters": ["flag:preview"],
-          "requirements": ["cli/update/preview-is-pure"],
-          "when": "When mcps update runs in preview mode against an installed MCP server whose source publishes a newer eligible version."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
-        }
-      ]
-    },
-    "migrate": {
-      "flags": [
-        {
-          "name": "scope",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        },
-        {
-          "name": "dry-run",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        }
-      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5117,13 +4894,22 @@
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
         },
         {
-          "parameters": ["flag:dry-run"],
+          "parameters": ["flag:preview"],
           "requirements": ["cli/migrate/acts-on-deprecation"],
           "when": "The migration is previewed without changing workspace state."
         },
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/migrate/acts-on-deprecation"]
+        },
+        {
+          "parameters": ["flag:ignore-release-age"],
+          "requirements": [
+            "cli/policy-overrides-reach-every-blocked-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "The actual operation reaches the minimum-release-age gate.",
+          "openTopics": ["activation-source-resolution"]
         }
       ]
     },
@@ -5149,16 +4935,14 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5202,14 +4986,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -5217,8 +4993,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5244,15 +5019,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When packs disable runs in preview mode against an enabled pack."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -5294,8 +5060,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5346,7 +5111,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -5366,7 +5131,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -5375,14 +5140,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -5411,12 +5168,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -5425,13 +5181,6 @@
         {
           "parameters": ["flag:pack", "flag:all"],
           "requirements": ["cli/install-forms-express-same-intent"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -5463,16 +5212,15 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -5485,6 +5233,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [],
@@ -5496,6 +5256,13 @@
             "cli/installed-state-stays-in-selected-scope",
             "cli/inventories-can-run-before-setup",
             "cli/type-lists-report-local-state"
+          ]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-list-agent-filters-match-any-selected-agent"
           ]
         }
       ]
@@ -5517,6 +5284,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "description",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -5524,12 +5299,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -5548,6 +5322,10 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/packs/new/preview-is-pure"],
           "when": "A valid creation request is supplied."
+        },
+        {
+          "parameters": ["flag:description"],
+          "requirements": ["cli/new/creation-inputs-are-consistent"]
         }
       ]
     },
@@ -5558,7 +5336,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -5566,19 +5344,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -5632,7 +5402,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -5666,14 +5438,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -5731,16 +5496,14 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5776,15 +5539,26 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
         {
-          "name": "extension",
+          "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5800,12 +5574,19 @@
           "openTopics": ["show-before-setup"]
         },
         {
-          "parameters": ["argument:extension"],
+          "parameters": ["argument:name"],
           "requirements": [
             "cli/packs/show/reports-authored-membership-and-observed-state",
             "cli/packs/show/rejects-mismatched-and-unavailable-packs"
           ],
           "openTopics": ["pack-member-version"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -5833,8 +5614,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5885,8 +5665,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -5939,12 +5718,41 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
-      "arguments": [],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": false,
+            "variadic": {
+              "min": 0
+            }
+          }
+        }
+      ],
       "relatedRequirements": [
         "cli/update/advances-resolution-within-intent",
-        "cli/update/refuses-undesired-extensions"
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
       ],
       "parameterBindings": [
         {
@@ -5964,13 +5772,21 @@
           ],
           "when": "The actual operation reaches the minimum-release-age gate.",
           "openTopics": ["activation-source-resolution"]
+        },
+        {
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
     "publish": {
       "flags": [
         {
-          "name": "from",
+          "name": "path",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -5986,11 +5802,11 @@
           }
         },
         {
-          "name": "include-file",
+          "name": "include-path",
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -5998,11 +5814,11 @@
           }
         },
         {
-          "name": "exclude-file",
+          "name": "exclude-path",
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -6014,7 +5830,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -6022,7 +5838,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           }
         },
         {
@@ -6030,19 +5846,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -6096,7 +5904,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -6117,17 +5927,17 @@
       "parameterBindings": [
         {
           "parameters": [
-            "flag:from",
+            "flag:path",
             "flag:package-version",
-            "flag:include-file",
-            "flag:exclude-file",
+            "flag:include-path",
+            "flag:exclude-path",
             "argument:extension"
           ],
           "requirements": [
             "cli/publish/existing-directory-uses-a-separate-envelope",
             "cli/publish/existing-directory-needs-no-workspace-setup"
           ],
-          "when": "--from and --package-version select an existing directory with exactly one explicit skill FQN. Ordered --include-file and --exclude-file rules select source paths before the envelope is added."
+          "when": "--path and --package-version select an existing directory with exactly one explicit skill FQN. Ordered --include-path and --exclude-path rules select source paths before the envelope is added."
         },
         {
           "parameters": ["argument:extension"],
@@ -6135,37 +5945,30 @@
             "cli/publication-selects-matching-authored-extensions",
             "cli/publish/requires-established-authorship"
           ],
-          "when": "--from is absent. Explicit-selector and argument-free filtered publication are separate modes.",
+          "when": "--path is absent. Explicit-selector and argument-free filtered publication are separate modes.",
           "openTopics": ["publish-selector-combinations"]
         },
         {
           "parameters": ["flag:owner"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "--from is absent. No positional selectors are supplied."
+          "when": "--path is absent. No positional selectors are supplied."
         },
         {
           "parameters": ["flag:type"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "--from is absent. Root publication has no positional selectors."
+          "when": "--path is absent. Root publication has no positional selectors."
         },
         {
           "parameters": ["flag:exclude"],
           "requirements": ["cli/publication-selects-matching-authored-extensions"],
-          "when": "--from is absent. No positional selectors are supplied.",
+          "when": "--path is absent. No positional selectors are supplied.",
           "details": [
             "Extension selection differs from manifest publication include/exclude file selection."
           ]
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -6203,7 +6006,7 @@
         {
           "parameters": ["flag:include-dependencies"],
           "requirements": ["cli/publish/dependency-inclusion-adds-only-authored-pack-members"],
-          "when": "--from is absent. Root or Pack publication selects a Pack."
+          "when": "--path is absent. Root or Pack publication selects a Pack."
         }
       ]
     },
@@ -6230,14 +6033,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -6245,8 +6040,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -6260,15 +6054,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When rules disable runs in preview mode against an enabled rule."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -6321,8 +6106,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -6372,7 +6156,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -6392,7 +6176,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -6401,14 +6185,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -6437,12 +6213,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -6451,13 +6226,6 @@
         {
           "parameters": ["flag:rule", "flag:all"],
           "requirements": ["cli/install-forms-express-same-intent"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -6489,22 +6257,15 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -6517,6 +6278,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [],
@@ -6528,6 +6301,13 @@
             "cli/installed-state-stays-in-selected-scope",
             "cli/inventories-can-run-before-setup",
             "cli/type-lists-report-local-state"
+          ]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-list-agent-filters-match-any-selected-agent"
           ]
         }
       ]
@@ -6557,6 +6337,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "description",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -6564,12 +6352,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -6593,6 +6380,10 @@
           "parameters": ["flag:title"],
           "requirements": ["cli/rules/new/creates-enabled-workspace-content"],
           "openTopics": ["rules-default-title"]
+        },
+        {
+          "parameters": ["flag:description"],
+          "requirements": ["cli/new/creation-inputs-are-consistent"]
         }
       ]
     },
@@ -6603,7 +6394,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -6611,19 +6402,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -6669,7 +6452,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -6703,14 +6488,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -6756,6 +6534,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -6763,8 +6553,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -6788,6 +6577,13 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -6815,8 +6611,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -6856,18 +6651,6 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -6882,28 +6665,45 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "name",
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": false
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-name-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -6920,9 +6720,12 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-source-selection"]
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -6941,7 +6744,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -6996,260 +6799,27 @@
     "share": {
       "flags": [
         {
-          "name": "bazel",
+          "name": "ecosystem",
           "rawHelp": {
             "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "cargo",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "cocoapods",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "composer",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "conan",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "conda",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "cpan",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "cran",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "docker",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "gem",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "golang",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "hackage",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "hex",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "huggingface",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "jsr",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "julia",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "luarocks",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "maven",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "mojo",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "npm",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "nuget",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "opam",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "pub",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "pypi",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "swift",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "zig",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
+            "type": "choice",
             "required": false
           }
         }
       ],
-      "arguments": [
-        {
-          "name": "directory",
-          "rawHelp": {
-            "type": "string",
-            "required": false,
-            "variadic": false
-          }
-        }
+      "arguments": [],
+      "relatedRequirements": [
+        "cli/share-prints-live-install-command",
+        "cli/share/selection-is-explicit",
+        "cli/commands-use-selected-directory"
       ],
-      "relatedRequirements": ["cli/share-prints-live-install-command"],
       "parameterBindings": [
         {
-          "parameters": [
-            "flag:bazel",
-            "flag:cargo",
-            "flag:cocoapods",
-            "flag:composer",
-            "flag:conan",
-            "flag:conda",
-            "flag:cpan",
-            "flag:cran",
-            "flag:docker",
-            "flag:gem",
-            "flag:golang",
-            "flag:hackage",
-            "flag:hex",
-            "flag:huggingface",
-            "flag:jsr",
-            "flag:julia",
-            "flag:luarocks",
-            "flag:maven",
-            "flag:mojo",
-            "flag:npm",
-            "flag:nuget",
-            "flag:opam",
-            "flag:pub",
-            "flag:pypi",
-            "flag:swift",
-            "flag:zig"
-          ],
-          "requirements": ["cli/share-prints-live-install-command"]
-        },
-        {
-          "parameters": ["argument:directory"],
-          "requirements": ["cli/share-prints-live-install-command"]
+          "parameters": ["flag:ecosystem"],
+          "requirements": [
+            "cli/share/selection-is-explicit",
+            "cli/share-prints-live-install-command"
+          ]
         }
       ]
     },
@@ -7276,14 +6846,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -7291,8 +6853,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -7306,15 +6867,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When skills disable runs in preview mode against an enabled skill."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -7367,8 +6919,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -7435,16 +6986,14 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -7499,7 +7048,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -7519,7 +7068,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -7528,14 +7077,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -7572,12 +7113,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -7600,13 +7140,6 @@
           "details": [
             "Explicit all selects every discovered skill without a selection prompt; omission of both selectors and combination with --skill remain unresolved."
           ]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -7647,16 +7180,15 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -7675,7 +7207,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -7723,6 +7255,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "description",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -7730,12 +7270,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -7754,6 +7293,10 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/skills/new/preview-is-pure"],
           "when": "A valid creation request is supplied."
+        },
+        {
+          "parameters": ["flag:description"],
+          "requirements": ["cli/new/creation-inputs-are-consistent"]
         }
       ]
     },
@@ -7764,7 +7307,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -7772,19 +7315,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -7830,7 +7365,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -7864,14 +7401,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -7917,6 +7447,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -7924,8 +7466,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -7949,6 +7490,13 @@
           "when": "Configured-extension fields apply to configured entries; missing-entry refusal applies when configured, installed and detected entries are absent.",
           "openTopics": ["show-human-fields"],
           "details": ["Local inventory/configuration names are not Registry source locators."]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -7976,8 +7524,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8017,18 +7564,6 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -8043,28 +7578,45 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "name",
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": false
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-name-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -8081,9 +7633,12 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-source-selection"]
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -8110,14 +7665,6 @@
             "type": "boolean",
             "required": false
           }
-        },
-        {
-          "name": "ignore-release-age",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
         }
       ],
       "arguments": [
@@ -8125,8 +7672,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8140,15 +7686,6 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/disable/preview-is-pure"],
           "when": "When subagents disable runs in preview mode against an enabled subagent."
-        },
-        {
-          "parameters": ["flag:ignore-release-age"],
-          "requirements": [
-            "cli/policy-overrides-reach-every-blocked-command",
-            "cli/force-bypasses-only-named-policies"
-          ],
-          "when": "The actual operation reaches the minimum-release-age gate.",
-          "openTopics": ["activation-source-resolution"]
         },
         {
           "parameters": ["argument:name"],
@@ -8201,8 +7738,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8277,16 +7813,14 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8345,7 +7879,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -8365,7 +7899,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -8374,14 +7908,6 @@
         },
         {
           "name": "all",
-          "rawHelp": {
-            "aliases": [],
-            "type": "boolean",
-            "required": false
-          }
-        },
-        {
-          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -8410,12 +7936,11 @@
           "name": "source",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/install/requires-explicit-source"],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
@@ -8432,13 +7957,6 @@
           "requirements": ["cli/install/records-direct-intent"],
           "when": "An explicit source is supplied and no more-specific name selector is active.",
           "openTopics": ["install-all-selection"]
-        },
-        {
-          "parameters": ["flag:reinstall"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "A sourced install reaches a policy that would otherwise leave already-installed content alone.",
-          "openTopics": ["dirty-reinstall"],
-          "details": ["Explicit reinstall and ordinary repeat-install idempotency are distinct."]
         },
         {
           "parameters": ["flag:preview"],
@@ -8470,16 +7988,15 @@
           ]
         },
         {
-          "parameters": ["argument:source"],
-          "when": "source omitted",
-          "openTopics": ["workspace-install-selection"]
-        },
-        {
           "parameters": ["flag:agent"],
           "requirements": ["cli/agent-selection-is-membership-or-filter"],
           "details": [
             "Configures workspace destinations on the first source installation; does not filter one extension."
           ]
+        },
+        {
+          "parameters": ["argument:source"],
+          "requirements": ["cli/install/requires-explicit-source"]
         }
       ]
     },
@@ -8498,7 +8015,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -8546,6 +8063,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "description",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -8553,12 +8078,11 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/new/creation-inputs-are-consistent"],
       "parameterBindings": [
         {
           "parameters": ["argument:name"],
@@ -8577,6 +8101,10 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/subagents/new/preview-is-pure"],
           "when": "A valid creation request is supplied."
+        },
+        {
+          "parameters": ["flag:description"],
+          "requirements": ["cli/new/creation-inputs-are-consistent"]
         }
       ]
     },
@@ -8587,7 +8115,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -8595,19 +8123,11 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
-          }
-        },
-        {
-          "name": "registry",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
             "required": false
           }
         },
         {
-          "name": "registry-url",
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -8653,7 +8173,9 @@
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": true
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
@@ -8687,14 +8209,7 @@
         },
         {
           "parameters": ["flag:registry"],
-          "when": "--registry is supplied and --registry-url is absent.",
-          "openTopics": ["publish-registry-selection"],
-          "requirements": ["cli/publication-uses-explicit-registry-target"]
-        },
-        {
-          "parameters": ["flag:registry-url"],
-          "when": "--registry-url is supplied and --registry is absent.",
-          "openTopics": ["publish-url-selection"],
+          "when": "A configured Registry name or absolute HTTP(S) URL is supplied.",
           "requirements": ["cli/publication-uses-explicit-registry-target"]
         },
         {
@@ -8748,6 +8263,18 @@
             "type": "choice",
             "required": false
           }
+        },
+        {
+          "name": "agent",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
         }
       ],
       "arguments": [
@@ -8755,8 +8282,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8784,6 +8310,13 @@
         {
           "parameters": ["flag:render"],
           "requirements": ["cli/subagents/show/renders-selected-runtime-without-mutation"]
+        },
+        {
+          "parameters": ["flag:agent"],
+          "requirements": [
+            "cli/agent-selection-is-membership-or-filter",
+            "cli/type-shows-filter-agent-outcomes"
+          ]
         }
       ]
     },
@@ -8811,8 +8344,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -8852,18 +8384,6 @@
           }
         },
         {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
-          },
-          "occurrences": {
-            "minimumOccurrences": 0,
-            "repeatable": true
-          }
-        },
-        {
           "name": "preview",
           "rawHelp": {
             "aliases": [],
@@ -8878,28 +8398,45 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "source",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "name",
           "rawHelp": {
             "type": "string",
             "required": false,
-            "variadic": false
+            "variadic": {
+              "min": 0
+            }
           }
         }
       ],
-      "relatedRequirements": ["cli/update/refuses-undesired-extensions"],
+      "relatedRequirements": [
+        "cli/update/refuses-undesired-extensions",
+        "cli/update/typed-selectors-are-unambiguous",
+        "cli/update/reinstall-reacquires-accepted-content"
+      ],
       "parameterBindings": [
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:name"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-name-selection"]
         },
         {
           "parameters": ["flag:preview"],
@@ -8916,9 +8453,12 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:source"],
-          "requirements": ["cli/update/advances-resolution-within-intent"],
-          "openTopics": ["typed-update-source-selection"]
+          "parameters": ["argument:name", "flag:source"],
+          "requirements": ["cli/update/typed-selectors-are-unambiguous"]
+        },
+        {
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -8970,8 +8510,7 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -9042,49 +8581,19 @@
       ]
     },
     "token": {
-      "flags": [
-        {
-          "name": "output",
-          "rawHelp": {
-            "aliases": [],
-            "type": "choice",
-            "required": false
-          }
-        }
-      ],
+      "flags": [],
       "arguments": [],
-      "relatedRequirements": [
-        "cli/credentials-follow-explicit-source-precedence",
-        "cli/disabled-credential-persistence-requires-explicit-token",
-        "cli/token/returns-effective-token"
-      ],
-      "parameterBindings": [
-        {
-          "parameters": ["flag:output"],
-          "requirements": [
-            "cli/token/returns-effective-token",
-            "cli/token/credential-output-requires-explicit-mode",
-            "cli/token/create/revokes-undelivered-token"
-          ]
-        }
-      ]
+      "relatedRequirements": ["cli/groups-show-help-without-executing"],
+      "parameterBindings": []
     },
     "token create": {
       "flags": [
         {
-          "name": "output",
+          "name": "plain",
           "rawHelp": {
             "aliases": [],
-            "type": "choice",
+            "type": "boolean",
             "required": false
-          }
-        },
-        {
-          "name": "name",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": true
           }
         },
         {
@@ -9100,7 +8609,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -9112,7 +8621,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -9126,9 +8635,25 @@
             "type": "choice",
             "required": true
           }
+        },
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
         }
       ],
-      "arguments": [],
+      "arguments": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "type": "string",
+            "required": true
+          }
+        }
+      ],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
         "cli/token/create/reports-uncertain-issuance"
@@ -9145,7 +8670,7 @@
       ],
       "parameterBindings": [
         {
-          "parameters": ["flag:output"],
+          "parameters": ["flag:plain"],
           "requirements": [
             "cli/token/create/raw-output-writes-only-new-token",
             "cli/token/create/revokes-undelivered-token",
@@ -9153,18 +8678,47 @@
           ]
         },
         {
-          "parameters": ["flag:name", "flag:owner", "flag:extension", "flag:permission"],
+          "parameters": ["argument:name", "flag:owner", "flag:extension", "flag:permission"],
           "requirements": ["cli/token/create/submits-requested-authority"]
         },
         {
           "parameters": ["flag:expires"],
           "requirements": ["cli/token/create/submits-requested-authority"],
           "openTopics": ["token-lifetime"]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
         }
       ]
     },
     "token list": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "limit",
+          "rawHelp": {
+            "aliases": [],
+            "type": "integer",
+            "required": false
+          }
+        },
+        {
+          "name": "cursor",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
@@ -9180,17 +8734,34 @@
           "when": "Resolving the effective credential."
         }
       ],
-      "parameterBindings": []
+      "parameterBindings": [
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
+        },
+        {
+          "parameters": ["flag:limit", "flag:cursor"],
+          "requirements": ["cli/token/list/reports-token-inventory"]
+        }
+      ]
     },
     "token revoke": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "id",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -9212,49 +8783,79 @@
           "details": [
             "The token identifier is neither an authentication credential nor a Registry/workspace selector."
           ]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
         }
       ]
     },
     "unarchive": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/unarchive/restores-at-the-observed-revision"],
           "when": "An extension FQN selects a conditional archival removal."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
     "undeprecate": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/undeprecate/removes-guidance-at-the-observed-revision"],
           "when": "An extension-level FQN is supplied; no local guidance edits are requested.",
           "details": ["Registry lifecycle policy remains external."]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
@@ -9279,11 +8880,10 @@
       ],
       "arguments": [
         {
-          "name": "extension[@version]",
+          "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -9299,32 +8899,41 @@
           "when": "When uninstall runs in preview mode against a desired extension."
         },
         {
-          "parameters": ["argument:extension[@version]"],
+          "parameters": ["argument:extension"],
           "requirements": [
             "cli/uninstall/removes-direct-route-and-recomputes-reachability",
             "cli/uninstall/is-idempotent",
             "cli/uninstall/refuses-undesired-target",
             "cli/uninstall/preserves-unrelated-and-unowned-state",
             "extension-identity/references-are-a-name-with-an-optional-constraint",
-            "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable"
+            "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable",
+            "cli/uninstall/rejects-versioned-root-targets"
           ],
           "openTopics": ["root-uninstall-selection"]
         }
       ]
     },
     "unyank": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -9333,6 +8942,11 @@
           "details": [
             "Registry restoration behavior and FQN grammar retain their separate authorities."
           ]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
@@ -9347,7 +8961,7 @@
           }
         },
         {
-          "name": "refresh",
+          "name": "reinstall",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -9373,11 +8987,10 @@
       ],
       "arguments": [
         {
-          "name": "extension[@version]",
+          "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -9386,10 +8999,6 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
-        },
-        {
-          "parameters": ["flag:refresh"],
-          "requirements": ["cli/force-bypasses-only-named-policies"]
         },
         {
           "parameters": ["flag:preview"],
@@ -9406,7 +9015,7 @@
           "openTopics": ["activation-source-resolution"]
         },
         {
-          "parameters": ["argument:extension[@version]"],
+          "parameters": ["argument:extension"],
           "requirements": [
             "extension-identity/references-are-a-name-with-an-optional-constraint",
             "cli/update/advances-resolution-within-intent",
@@ -9416,9 +9025,8 @@
           "openTopics": ["root-update-selection"]
         },
         {
-          "parameters": ["flag:refresh"],
-          "requirements": ["cli/force-bypasses-only-named-policies"],
-          "when": "extension[@version] is supplied"
+          "parameters": ["flag:reinstall"],
+          "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
         }
       ]
     },
@@ -9446,8 +9054,7 @@
           "name": "version",
           "rawHelp": {
             "type": "string",
-            "required": false,
-            "variadic": false
+            "required": false
           }
         }
       ],
@@ -9510,28 +9117,21 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "bump",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
-          }
-        },
-        {
-          "name": "version",
-          "rawHelp": {
-            "type": "string",
-            "required": false,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": ["cli/version/machine-result-identifies-manifest-change"],
+      "relatedRequirements": [
+        "cli/version/machine-result-identifies-manifest-change",
+        "cli/version/accepts-rule-or-exact-version"
+      ],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -9552,26 +9152,10 @@
           ]
         },
         {
-          "parameters": ["argument:version"],
-          "requirements": [
-            "cli/version/changes-only-the-authored-manifest-version",
-            "cli/version/refuses-invalid-or-unowned-targets"
-          ],
-          "when": "bump=set and an exact-version argument is supplied.",
-          "details": [
-            "Authored versions and AXM self-upgrade exact-version policies have different authorities."
-          ]
-        },
-        {
           "parameters": ["flag:preview"],
           "requirements": ["cli/version/preview-is-pure"],
           "when": "A version change is needed on a matching workspace-authored package.",
           "openTopics": ["same-version-preview"]
-        },
-        {
-          "parameters": ["argument:bump", "argument:version"],
-          "when": "The target is a matching configured workspace-authored package; set lacks an exact version, or another supported bump has an extra version.",
-          "requirements": ["cli/version/argument-errors-offer-runnable-recovery"]
         }
       ]
     },
@@ -9599,16 +9183,14 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "field",
           "rawHelp": {
-            "type": "string",
-            "required": false,
-            "variadic": false
+            "type": "choice",
+            "required": false
           }
         }
       ],
@@ -9662,47 +9244,67 @@
       "parameterBindings": []
     },
     "visibility reconcile": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
           "requirements": ["cli/visibility/reconcile/applies-declared-repository-intent"],
           "when": "Status and reconcile require project workspace intent; explicit set uses Registry state."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
     "visibility set": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "visibility",
           "rawHelp": {
             "type": "choice",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -9713,18 +9315,31 @@
           "parameters": ["argument:visibility"],
           "requirements": ["cli/visibility/set/uses-explicit-intent-and-observed-revision"],
           "when": "Status and reconcile require project workspace intent; explicit set uses Registry state."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
     "visibility status": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -9736,11 +9351,25 @@
             "cli/visibility/status/reports-repository-intent-and-registry-evaluation"
           ],
           "when": "Status and reconcile require project workspace intent; explicit set uses Registry state."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
     "whoami": {
-      "flags": [],
+      "flags": [
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
       "arguments": [],
       "relatedRequirements": [
         "cli/credentials-follow-explicit-source-precedence",
@@ -9757,7 +9386,12 @@
           "when": "Resolving the effective credential."
         }
       ],
-      "parameterBindings": []
+      "parameterBindings": [
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
+        }
+      ]
     },
     "yank": {
       "flags": [
@@ -9778,7 +9412,15 @@
           }
         },
         {
-          "name": "notice",
+          "name": "message",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        },
+        {
+          "name": "registry",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -9791,12 +9433,11 @@
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/registry-mutations-share-transition-contract"],
       "parameterBindings": [
         {
           "parameters": ["argument:extension"],
@@ -9814,9 +9455,14 @@
           "when": "An exact version is selected, or all-version mode uses an unversioned extension identity."
         },
         {
-          "parameters": ["flag:notice"],
+          "parameters": ["flag:message"],
           "requirements": ["cli/yank/submits-the-requested-version-selection"],
           "when": "An exact version is selected, or all-version mode uses an unversioned extension identity."
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/settings-select-default-registry"],
+          "when": "The invocation selects a configured Registry name or absolute HTTP(S) URL."
         }
       ]
     },
@@ -9827,7 +9473,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -9863,7 +9509,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "choice",
-            "required": true
+            "required": false
           },
           "occurrences": {
             "minimumOccurrences": 0,
@@ -9919,7 +9565,7 @@
           }
         },
         {
-          "name": "config",
+          "name": "file",
           "rawHelp": {
             "aliases": [],
             "type": "string",
@@ -9931,7 +9577,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -9945,30 +9591,28 @@
       ],
       "arguments": [
         {
-          "name": "source",
+          "name": "directory",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "extension",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
-      "relatedRequirements": [],
+      "relatedRequirements": ["cli/hooks/import-file-is-unambiguous"],
       "parameterBindings": [
         {
           "parameters": [
-            "argument:source",
+            "argument:directory",
             "argument:extension",
             "flag:protocol",
-            "flag:config",
+            "flag:file",
             "flag:resource"
           ],
           "requirements": ["cli/hooks/import/preserves-native-source"]
@@ -10003,16 +9647,14 @@
           "name": "directory",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         },
         {
           "name": "destination",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -10060,8 +9702,7 @@
           "name": "name",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -10096,7 +9737,7 @@
           "rawHelp": {
             "aliases": [],
             "type": "string",
-            "required": true
+            "required": false
           }
         },
         {
@@ -10113,8 +9754,7 @@
           "name": "directory",
           "rawHelp": {
             "type": "string",
-            "required": true,
-            "variadic": false
+            "required": true
           }
         }
       ],
@@ -10127,6 +9767,268 @@
         {
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        }
+      ]
+    },
+    "token show": {
+      "flags": [
+        {
+          "name": "plain",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "registry",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [],
+      "relatedRequirements": [
+        "cli/credentials-follow-explicit-source-precedence",
+        "cli/disabled-credential-persistence-requires-explicit-token",
+        "cli/token/returns-effective-token"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:plain"],
+          "requirements": [
+            "cli/token/returns-effective-token",
+            "cli/token/credential-output-requires-explicit-mode",
+            "cli/token/create/revokes-undelivered-token"
+          ]
+        },
+        {
+          "parameters": ["flag:registry"],
+          "requirements": ["cli/credentials-stay-with-their-registry"]
+        }
+      ]
+    },
+    "instructions status": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [],
+      "relatedRequirements": [
+        "cli/installed-state-stays-in-selected-scope",
+        "cli/instructions/status-reports-without-changing-state"
+      ],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"],
+          "when": "Selecting the workspace for coding-agent membership/detection or instruction-file management, including when no extensions are installed."
+        }
+      ]
+    },
+    "enable": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true
+          }
+        }
+      ],
+      "relatedRequirements": ["cli/root-activation-accepts-unversioned-fqns"],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/enable/preview-is-pure"],
+          "when": "When skills enable runs in preview mode against a disabled skill."
+        },
+        {
+          "parameters": ["flag:ignore-release-age"],
+          "requirements": [
+            "cli/policy-overrides-reach-every-blocked-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "The actual operation reaches the minimum-release-age gate.",
+          "openTopics": ["activation-source-resolution"]
+        },
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/activation-follows-desired-state"],
+          "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/root-activation-accepts-unversioned-fqns"],
+          "details": [
+            "The root route requires an unversioned FQN and routes to the same activation use case as the typed form."
+          ]
+        }
+      ],
+      "conditionalLinks": [
+        {
+          "requirement": "cli/policy-overrides-reach-every-blocked-command",
+          "when": "The request carries --ignore-release-age and reaches the named age policy.",
+          "openTopics": ["activation-source-resolution"]
+        },
+        {
+          "requirement": "cli/force-bypasses-only-named-policies",
+          "when": "The request carries --ignore-release-age and reaches the named age policy.",
+          "openTopics": ["activation-source-resolution"]
+        }
+      ]
+    },
+    "disable": {
+      "flags": [
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [
+        {
+          "name": "extension",
+          "rawHelp": {
+            "type": "string",
+            "required": true
+          }
+        }
+      ],
+      "relatedRequirements": ["cli/root-activation-accepts-unversioned-fqns"],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope"],
+          "requirements": ["cli/installed-state-stays-in-selected-scope"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/disable/preview-is-pure"],
+          "when": "When skills disable runs in preview mode against an enabled skill."
+        },
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/activation-follows-desired-state"],
+          "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["argument:extension"],
+          "requirements": ["cli/root-activation-accepts-unversioned-fqns"],
+          "details": [
+            "The root route requires an unversioned FQN and routes to the same activation use case as the typed form."
+          ]
+        }
+      ],
+      "conditionalLinks": [
+        {
+          "requirement": "cli/policy-overrides-reach-every-blocked-command",
+          "when": "The request carries --ignore-release-age and reaches the named age policy.",
+          "openTopics": ["activation-source-resolution"]
+        },
+        {
+          "requirement": "cli/force-bypasses-only-named-policies",
+          "when": "The request carries --ignore-release-age and reaches the named age policy.",
+          "openTopics": ["activation-source-resolution"]
+        }
+      ]
+    },
+    "mcps adopt": {
+      "flags": [
+        {
+          "name": "name",
+          "rawHelp": {
+            "aliases": [],
+            "type": "string",
+            "required": false
+          },
+          "occurrences": {
+            "minimumOccurrences": 0,
+            "repeatable": true
+          }
+        },
+        {
+          "name": "scope",
+          "rawHelp": {
+            "aliases": [],
+            "type": "choice",
+            "required": false
+          }
+        },
+        {
+          "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        }
+      ],
+      "arguments": [],
+      "relatedRequirements": [],
+      "parameterBindings": [
+        {
+          "parameters": ["flag:scope"],
+          "requirements": [
+            "cli/mcps/adopt/adoption-reaches-every-configured-agent",
+            "cli/installed-state-stays-in-selected-scope"
+          ]
+        },
+        {
+          "parameters": ["flag:name"],
+          "requirements": ["cli/mcps/adopt/selected-batch-is-atomic"]
+        },
+        {
+          "parameters": ["flag:preview"],
+          "requirements": ["cli/mcps/adopt/preview-is-pure"]
         }
       ]
     }

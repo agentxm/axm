@@ -13,7 +13,7 @@ import { DateTimeUtcSchema } from "../date-time.js";
 
 export const ArchivalViewSchema = Schema.Struct({
   archivedAt: DateTimeUtcSchema,
-  reason: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(500))),
+  message: Schema.optional(Schema.String.check(Schema.isMinLength(1), Schema.isMaxLength(500))),
 }).annotate({
   identifier: "ArchivalView",
   description: "Canonical authorization-safe extension archival state.",

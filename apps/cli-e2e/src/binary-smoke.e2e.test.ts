@@ -184,7 +184,7 @@ describe("compiled binary smoke", () => {
     const result = await runBinary(["knowledge", "concepts", "--help"]);
 
     expect(result.exitCode, getOutput(result)).toBe(0);
-    for (const command of ["resolve", "search", "query", "get", "related", "status"]) {
+    for (const command of ["resolve", "query", "get", "related", "capabilities"]) {
       expect(getOutput(result)).toContain(command);
     }
   });
@@ -234,7 +234,7 @@ describe("compiled binary smoke", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runBinary(["knowledge", "install", "--non-interactive"], {
+      const install = await runBinary(["sync", "--scope", "project", "--non-interactive"], {
         cwd: temp.path,
         env: environment,
       });
@@ -307,7 +307,7 @@ describe("compiled binary smoke", () => {
     const temp = createTempDir();
 
     try {
-      const result = await runBinary(["token", "--output", "token"], {
+      const result = await runBinary(["token", "show", "--plain"], {
         env: {
           AXM_TOKEN: "",
           AXM_TOKEN_FILE: "",
@@ -339,7 +339,7 @@ describe("compiled binary smoke", () => {
         cwd: temp.path,
       });
 
-      expect(result.exitCode).toBe(10);
+      expect(result.exitCode).toBe(2);
       expect(getOutput(result)).toContain("Workspace settings not found");
       expect(getOutput(result)).toContain("axm setup");
     } finally {

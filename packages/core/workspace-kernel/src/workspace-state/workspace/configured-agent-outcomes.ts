@@ -8,7 +8,11 @@ export type ConfiguredAgentLifecycleState = "projected" | "current";
 type ConfiguredAgentPolicy =
   | { readonly kind: "per-agent" }
   | { readonly kind: "workspace-capability" }
-  | { readonly kind: "not-applicable"; readonly reasonCode: string; readonly reason: string };
+  | {
+      readonly kind: "not-applicable";
+      readonly reasonCode: ConfiguredAgentOutcome["reasonCode"];
+      readonly reason: string;
+    };
 
 /**
  * Exhaustive policy for interpreting configured agents for every extension
@@ -32,7 +36,7 @@ const unsupportedOutcome = (args: {
   readonly type: ExtensionType;
   readonly name: string;
   readonly agentId: string;
-  readonly reasonCode: string;
+  readonly reasonCode: ConfiguredAgentOutcome["reasonCode"];
   readonly reason: string;
 }): ConfiguredAgentOutcome => ({
   extensionType: args.type,

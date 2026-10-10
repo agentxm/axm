@@ -102,6 +102,8 @@ export {
 } from "./screen.js";
 export {
   MachineEventSchema,
+  ErrorEventCodeSchema,
+  ErrorEventSchema,
   ProgressEventSchema,
   encodeMachineEvent,
   errorEvent,
@@ -110,6 +112,7 @@ export {
   progressEvent,
   suggestionEvent,
   type ErrorEvent,
+  type ErrorEventCode,
   type LogEvent,
   type MachineEvent,
   type ProgressEvent,

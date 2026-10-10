@@ -51,16 +51,22 @@ export const skillsCommand = Command.make("skills").pipe(
     { command: "axm skills list", description: "See what skills are installed" },
   ]),
   Command.withSubcommands([
-    installCommand,
-    uninstallCommand,
-    listCommand,
-    showCommand,
-    updateCommand,
-    newCommand,
-    importCommand,
-    handoffCommand,
-    enableCommand,
-    disableCommand,
-    publishCommand,
+    {
+      group: "MANAGE SKILLS",
+      commands: [
+        installCommand,
+        updateCommand,
+        uninstallCommand,
+        listCommand,
+        showCommand,
+        enableCommand,
+        disableCommand,
+        handoffCommand,
+      ],
+    },
+    {
+      group: "AUTHOR SKILLS",
+      commands: [newCommand, importCommand, publishCommand],
+    },
   ]),
 );

@@ -440,6 +440,24 @@ describe("toPlanResolutionResult", () => {
     expect(result.interruption).toEqual({ signal: "SIGINT", disposition: "retained" });
   });
 
+  it("an interruption before work uses untouched in the frozen document", () => {
+    const result = toPlanResolutionResult(
+      resolution({
+        interruption: { signal: "SIGINT", disposition: "untouched" },
+      }),
+    );
+    expect(Schema.decodeUnknownSync(PlanResolutionResultSchema)(result).interruption).toEqual({
+      signal: "SIGINT",
+      disposition: "untouched",
+    });
+    expect(() =>
+      Schema.decodeUnknownSync(PlanResolutionResultSchema)({
+        ...result,
+        interruption: { signal: "SIGINT", disposition: "none" },
+      }),
+    ).toThrow();
+  });
+
   it("failure carries code and message, with causes only under verbose", () => {
     const value = resolution({
       units: [unit("a", "failed")],

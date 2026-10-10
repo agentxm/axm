@@ -9,7 +9,7 @@ import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js
 
 const SkillListColumns = [
   { header: "Name", priority: "required", value: (row: SkillListRow) => row.name },
-  { header: "State", value: (row: SkillListRow) => inventoryLifecycle(row) },
+  { header: "Management", value: (row: SkillListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: SkillListRow) => inventoryActivation(row) },
   { header: "Type", priority: "optional", value: (row: SkillListRow) => row.sourceType },
   {
@@ -41,7 +41,7 @@ const SkillListColumns = [
       row.duplicateDiscoveries
         ?.map(
           (duplicate) =>
-            `${duplicate.agentId} can discover this Skill in ${duplicate.nativeUnitKeys.length} populated locations; native selection is unverified`,
+            `${duplicate.agentId} can discover this Skill in ${duplicate.nativeUnits.length} populated locations; native selection is unverified`,
         )
         .join("; ") || "native selection unverified",
   },
@@ -56,7 +56,6 @@ const { handler, command } = makePerTypeListCommand({
   type: "skill",
   ...inventoryList("skill", (agents) => listSkills({ agents })),
   columns: SkillListColumns,
-  agentFilter: true,
 });
 
 export const handleList = handler;

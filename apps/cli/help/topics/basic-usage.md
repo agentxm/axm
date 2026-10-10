@@ -4,7 +4,7 @@ AXM is the agent extension manager for coding agents and AI assistants.
 
 <!-- axm:generated:extension-type-list -->
 
-AXM manages skills, MCP servers, subagents, rules, hooks, knowledge bundles, and packs.
+AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bundles, and packs.
 
 <!-- /axm:generated -->
 
@@ -148,7 +148,7 @@ publishing them first.
 ```bash
 axm mcps add linear --command npx --arg=-y --arg=linear-mcp-server --env LINEAR_API_KEY
 axm mcps add sentry --transport sse --url https://mcp.sentry.dev/sse --native-oauth
-axm mcps import
+axm mcps adopt
 axm sync
 ```
 

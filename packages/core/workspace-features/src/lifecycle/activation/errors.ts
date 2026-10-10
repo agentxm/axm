@@ -21,7 +21,7 @@ import type { WorkspaceTransitionAcquireFailure } from "@agentxm/workspace-kerne
  * apply could not acquire. Step failures travel inside the resolution rather
  * than being raised, so the operator still sees what each closure settled.
  */
-export type SetActivationExecutionFailure =
+export type ActivationExecutionFailure =
   | ApprovalRecoveryMissing
   | CandidateFingerprintFailed
   | LockfileValidationError

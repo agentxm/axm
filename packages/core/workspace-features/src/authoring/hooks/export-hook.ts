@@ -74,7 +74,7 @@ export const prepareExportHook = Effect.fn("Hook.prepareExport")(function* (requ
   yield* checkDestination;
   const contentHash = yield* computePackageContentHash(source);
   const { manifest } = yield* readExtensionManifest(source, "hook");
-  if (manifest.type !== "hook") return yield* failed("Native export requires a Hook package.");
+  if (manifest.type !== "hook") return yield* failed("Native export requires a Hook extension.");
   const implementation = manifest.implementations.find(
     (item) => item.id === request.implementation,
   );

@@ -16,7 +16,7 @@ import {
 } from "./command.js";
 
 const target = "@acme/skills/review";
-const archived = { archivedAt: "2026-09-19T00:00:00.000Z", reason: "No longer maintained" };
+const archived = { archivedAt: "2026-09-19T00:00:00.000Z", message: "No longer maintained" };
 const deprecated = {
   deprecatedAt: "2026-09-19T00:00:00.000Z",
   reason: "superseded",
@@ -66,7 +66,11 @@ describe("Registry lifecycle human output", () => {
           return Effect.gen(function* () {
             switch (action) {
               case "archive":
-                yield* handleArchive({ ref: target, reason: Option.some(archived.reason) });
+                yield* handleArchive({
+                  ref: target,
+                  message: Option.some(archived.message),
+                  clearMessage: false,
+                });
                 break;
               case "unarchive":
                 yield* handleUnarchive(target);
@@ -89,7 +93,7 @@ describe("Registry lifecycle human output", () => {
             expect(stdout).toContain(target);
             expect(stdout).toContain("revision-after-write");
             expect(stdout).toContain(removing ? "to active" : "State: active to");
-            if (action === "archive") expect(stdout).toContain(archived.reason);
+            if (action === "archive") expect(stdout).toContain(archived.message);
             if (action === "deprecate") {
               expect(stdout).toContain(deprecated.message);
               expect(stdout).toContain(deprecated.replacement.fqn);
@@ -115,8 +119,15 @@ describe("Registry lifecycle human output", () => {
               version: "1.0.0",
               yankedAt: action === "yank" ? "2026-09-19T00:00:00.000Z" : null,
               yankCategory: null,
-              yankNotice: null,
+              yankMessage: null,
               links: { html: "https://registry.example.com/@acme/skills/review" },
+              before: {
+                yankedAt: action === "yank" ? null : "2026-09-19T00:00:00.000Z",
+                yankCategory: null,
+                yankMessage: null,
+              },
+              disposition: "changed",
+              revision: "revision-after-write",
             }),
           ),
         ),
@@ -130,7 +141,7 @@ describe("Registry lifecycle human output", () => {
             ref,
             allVersions: false,
             category: Option.none(),
-            notice: Option.none(),
+            message: Option.none(),
           });
         else yield* handleUnyank(ref);
         const stdout = streams.lines("stdout").join("\n");

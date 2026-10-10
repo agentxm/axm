@@ -41,7 +41,10 @@ describe("rules list", () => {
               type: "rule",
               name: "commit-style",
               enabled: true,
-              source: "@acme/rules/commit-style",
+              source: expect.objectContaining({
+                kind: "registry",
+                locator: "@acme/rules/commit-style",
+              }),
               locked: false,
             },
           ],

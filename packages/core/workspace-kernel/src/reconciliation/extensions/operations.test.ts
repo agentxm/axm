@@ -357,7 +357,7 @@ describe("buildInstallOperation", () => {
       const name = extensionName("review");
       const archival = {
         archivedAt: DateTime.makeUnsafe("2026-09-19T00:00:00.000Z"),
-        reason: "No longer maintained",
+        message: "No longer maintained",
       };
       const deprecation = {
         deprecatedAt: DateTime.makeUnsafe("2026-09-18T00:00:00.000Z"),

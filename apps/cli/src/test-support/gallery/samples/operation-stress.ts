@@ -118,7 +118,7 @@ const integrityMismatch = (name: string): StepFailure =>
     suggestions: [
       {
         description: "Resolve the source again, then update",
-        cmd: `axm update ${name} --refresh`,
+        cmd: `axm update ${name} --reinstall`,
       },
     ],
   });

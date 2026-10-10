@@ -1,8 +1,12 @@
-import { Argument, Command, Flag } from "effect/cli";
+import { withParameterDescription } from "../../cli-parameters.js";
+import * as Effect from "effect/Effect";
+import { Argument, Command } from "effect/cli";
+import { resolveRootUninstallIntent } from "@agentxm/workspace-features/lifecycle";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { failureToAppError } from "../../app-error/conversions.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
@@ -12,20 +16,22 @@ import {
 import { handleUninstall } from "./handler.js";
 
 const uninstallConfig = {
-  source: Argument.String("extension[@version]").pipe(
-    Argument.withDescription("Registry FQN (@owner/<plural-type>/<name>[@version])"),
+  source: Argument.String("extension").pipe(
+    withParameterDescription("Unversioned extension FQN in @owner/<plural-type>/<name> form"),
   ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Uninstall from project (default) or user-level configuration"),
-  ),
-  preview: previewCapabilityFlag("Show what would be removed without making changes"),
+  scope: scopeFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
   ({ source, scope, preview }) =>
-    handleUninstall({ source, preview }).pipe(withWorkspace(scope), withRuntime("uninstall")),
+    resolveRootUninstallIntent(source).pipe(
+      Effect.mapError(failureToAppError),
+      Effect.flatMap(() => handleUninstall({ source, preview }).pipe(withWorkspace(scope))),
+      withRuntime("uninstall"),
+    ),
 ).pipe(
   withArgvTracking(uninstallConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
@@ -36,8 +42,8 @@ export const uninstallCommand = Command.make(
       description: "Remove an installed skill by fully qualified registry name",
     },
     {
-      command: "axm uninstall @acme/hooks/session-audit@^1.2.0 --preview",
-      description: "Preview uninstalling a hook; version is ignored for uninstall routing",
+      command: "axm uninstall --preview @acme/hooks/session-audit",
+      description: "Preview uninstalling a hook extension",
     },
     {
       command: "axm uninstall @acme/packs/frontend-tools --json",

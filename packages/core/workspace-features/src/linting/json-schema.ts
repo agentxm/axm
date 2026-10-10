@@ -73,7 +73,7 @@ const LintJsonSummarySchema = Schema.Struct({
 });
 
 export const LintInputSchema = Schema.Union([
-  Schema.Struct({ view: Schema.Literal("workspace") }),
+  Schema.Struct({ view: Schema.Literal("filesystem") }),
   Schema.Struct({
     view: Schema.Literal("git-index"),
     fingerprint: Schema.String.check(Schema.isPattern(/^sha256:[0-9a-f]{64}$/u)),
@@ -98,6 +98,17 @@ export const LintJsonDocumentSchema = Schema.Struct({
   axmSkillCompatibility: Schema.optionalKey(AxmSkillCompatibilityReportSchema),
   findings: Schema.Array(LintJsonFindingSchema),
   repaired: Schema.Array(LintJsonFindingSchema),
+  normalization: Schema.optionalKey(
+    Schema.Struct({
+      mode: Schema.Literal("preview"),
+      changes: Schema.Array(
+        Schema.Struct({
+          path: Schema.String,
+          change: Schema.Literals(["created", "updated", "removed"]),
+        }),
+      ),
+    }),
+  ),
   summary: LintJsonSummarySchema,
   driftBanner: Schema.Array(Schema.String),
 }).annotate({

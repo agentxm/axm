@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/token/returns-effective-token",
   title: "Token output exposes the effective credential on request",
   statement:
-    "When a credential is available and raw token output is requested or stdout is an interactive terminal, axm token shall write that credential alone, followed by one newline, to stdout and nothing else there.",
+    "When a credential is available and raw token output is requested or stdout is an interactive terminal, axm token show shall write that credential alone, followed by one newline, to stdout and nothing else there.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -25,7 +25,7 @@ describe("Explicit token output", () => {
     it.effect(mode, () => {
       const context = makeTokenSpecContext({ interactive: mode === "interactive terminal" });
       return Effect.gen(function* () {
-        yield* handleToken(mode === "interactive terminal" ? {} : { output: "token" });
+        yield* handleToken(mode === "interactive terminal" ? {} : { plain: true });
 
         expect(context.state.credentials).toEqual([`${SESSION_ACCESS_TOKEN}\n`]);
         expect(context.state.results).toEqual([]);

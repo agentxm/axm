@@ -5,7 +5,6 @@ import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -102,7 +101,7 @@ describe("Local human inventories", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false });
         const rendered = JSON.stringify(rendererState.docs);
         expect(rendered).toContain("review");
         expect(rendered).not.toContain("Assessment");

@@ -119,7 +119,7 @@ describe("Knowledge instruction inclusion", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const { rows: items } = yield* ListKnowledge.query();
+            const { rows: items } = yield* ListKnowledge.query({});
             expect(items.find((item) => item.name === "platform")?.instructionEntry).toEqual({
               included: row.included,
               reason: row.reason,

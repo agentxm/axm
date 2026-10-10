@@ -63,8 +63,11 @@ const restoredVersionResponse = () =>
     version: "1.2.3",
     yankedAt: null,
     yankCategory: null,
-    yankNotice: null,
+    yankMessage: null,
     links: { html: "https://agentxm.ai/@acme/skills/review/1.2.3" },
+    before: { yankedAt: null, yankCategory: null, yankMessage: null },
+    disposition: "changed",
+    revision: "acknowledged-version-revision",
   });
 
 describe("Exact restoration", () => {
@@ -79,7 +82,7 @@ describe("Exact restoration", () => {
       expect(world.requests[0]?.url.pathname).toBe(`${registryTargetPath}/1.2.3/yank`);
       expect(transition).toMatchObject({
         action: "unyank",
-        target: registryVersion,
+        fqn: registryTarget,
         version: "1.2.3",
         disposition: "changed",
         restorable: false,

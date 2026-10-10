@@ -49,13 +49,13 @@ describe("passive MCP inspection", () => {
               agents: ["codex"],
             });
             expect(result.mcp?.runtime).toBe("not-checked");
-            expect(result.agents).toHaveLength(1);
-            expect(result.agents[0]).toMatchObject({
-              agent: "codex",
+            expect(result.agentOutcomes).toHaveLength(1);
+            expect(result.agentOutcomes[0]).toMatchObject({
+              agentId: "codex",
               runtime: "not-checked",
               readiness: "blocked",
             });
-            expect(result.agents[0]?.manualActions?.length).toBeGreaterThan(0);
+            expect(result.agentOutcomes[0]?.manualActions?.length).toBeGreaterThan(0);
             expect(fixture.snapshot()).toEqual(before);
             expect(fixture.requests).toEqual([]);
             expect(fetch).not.toHaveBeenCalled();

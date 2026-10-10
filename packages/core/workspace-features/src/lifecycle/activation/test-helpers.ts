@@ -20,11 +20,17 @@ import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/tes
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import {
-  SetActivation,
+  EnableExtension,
+  DisableExtension,
   type ActivationUnchanged,
-  type SetActivationCandidate,
-  type SetActivationRequest,
+  type ActivationCandidate,
 } from "./set-activation.js";
+
+interface ActivationRequest {
+  readonly type: ExtensionType;
+  readonly name: string;
+  readonly enabled: boolean;
+}
 
 /** Where an authored extension of each type lives, and how it is declared. */
 const LAYOUT = {
@@ -175,11 +181,13 @@ export const workspaceWithAuthoredExtension = (args: {
 export const workspaceWithoutExtensions = (): LifecycleFixture =>
   makeLifecycleFixture({ settings: { owner: "@acme", agents: ["claude-code"] } });
 
-const run = (request: SetActivationRequest, mode: "apply" | "preview") =>
+const run = (request: ActivationRequest, mode: "apply" | "preview") =>
   Effect.gen(function* () {
-    const candidate = yield* SetActivation.prepare(request);
+    const candidate = yield* request.enabled
+      ? EnableExtension.prepare(request)
+      : DisableExtension.prepare(request);
     if (candidate._tag === "Unchanged") return candidate;
-    const resolution = yield* SetActivation.previewOrApply(
+    const resolution = yield* DisableExtension.previewOrApply(
       candidate,
       mode === "apply" ? preapprovedPlanExecution : previewPlanExecution,
     );
@@ -191,15 +199,15 @@ const run = (request: SetActivationRequest, mode: "apply" | "preview") =>
     };
   });
 
-export const previewActivation = (request: SetActivationRequest) => run(request, "preview");
+export const previewActivation = (request: ActivationRequest) => run(request, "preview");
 
-export const applyActivation = (request: SetActivationRequest) => run(request, "apply");
+export const applyActivation = (request: ActivationRequest) => run(request, "apply");
 
 export type ActivationRunOutcome =
   | ActivationUnchanged
   | {
       readonly _tag: "Resolved";
-      readonly candidate: SetActivationCandidate;
-      readonly resolution: Effect.Success<ReturnType<typeof SetActivation.previewOrApply>>;
+      readonly candidate: ActivationCandidate;
+      readonly resolution: Effect.Success<ReturnType<typeof DisableExtension.previewOrApply>>;
       readonly outcome: ReturnType<typeof deriveOperationOutcome>;
     };

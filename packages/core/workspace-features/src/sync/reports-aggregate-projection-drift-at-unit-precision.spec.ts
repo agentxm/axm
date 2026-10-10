@@ -168,7 +168,7 @@ describe("Aggregate projection drift diagnostics", () => {
       { name: "one contributor", request: syncRequest({ target: Option.some(aggregate.alpha) }) },
       {
         name: "the contributors' type",
-        request: syncRequest({ type: Option.some(aggregate.type) }),
+        request: syncRequest({ types: [aggregate.type] }),
       },
     ];
     for (const selection of selections) {

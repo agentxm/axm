@@ -36,7 +36,7 @@ describe("root help view", () => {
         commands: [{ name: "mcps", alias: "mcps", shortDescription: "MCP servers" }],
       },
       {
-        group: "GETTING STARTED",
+        group: "START HERE",
         commands: [
           { name: "help", shortDescription: "Help" },
           { name: "setup", shortDescription: "Set up" },
@@ -177,13 +177,13 @@ describe("root help view", () => {
 describe("command help view", () => {
   const commandDoc = makeHelpDoc({
     description: "Install extensions from Registry, Git, or path sources",
-    usage: "axm install [<source>] [flags]",
+    usage: "axm install [flags] [source]",
     args: [
       {
         name: "source",
         type: "string",
         required: false,
-        variadic: false,
+        aliases: [],
         description: "Registry FQN, Git locator, or path locator",
       },
     ],
@@ -222,9 +222,9 @@ describe("command help view", () => {
     expect(output).toMatch(
       /^DESCRIPTION\n\s+Install extensions from Registry, Git, or path sources/u,
     );
-    expect(output).toMatch(/USAGE\n\s+axm install \[<source>\] \[flags\]/u);
+    expect(output).toMatch(/USAGE\n\s+axm install \[flags\] \[source\]/u);
     expect(output).toMatch(
-      /ARGUMENTS\n\s+\[<source>\]\s+Registry FQN, Git locator, or path locator \(optional\)/u,
+      /ARGUMENTS\n\s+\[<source>\]\s+Registry FQN, Git locator, or path locator/u,
     );
     expect(output).toMatch(/FLAGS\n\s+--agent, -a\s+Restrict the operation/u);
     expect(output).toMatch(/GLOBAL FLAGS\n\s+--verbose\n\s+--json/u);

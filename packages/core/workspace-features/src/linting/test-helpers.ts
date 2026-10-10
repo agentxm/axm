@@ -63,7 +63,7 @@ export const projectSelection = (fixture: LintWorkspaceFixture, fix = false) => 
   workspaceRoot: fixture.root,
   userHome: fixture.root,
   scope: "project" as const,
-  input: { view: "workspace" as const },
+  input: { view: "filesystem" as const },
   nativeView: { kind: "workspace" as const },
   fix,
 });

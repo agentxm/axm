@@ -9,7 +9,7 @@ import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 
 import { AddInlineMcpServer, type AddInlineMcpServerRequest } from "./add-inline-mcp-server.js";
-import { ImportMcpServers } from "../mcp-import/import-mcp-servers.js";
+import { AdoptMcpServers } from "../mcp-adoption/adopt-mcp-servers.js";
 
 const execution = (mode: "apply" | "preview") =>
   mode === "apply" ? preapprovedPlanExecution : previewPlanExecution;
@@ -22,9 +22,9 @@ export const runInlineMcpAdd = (request: AddInlineMcpServerRequest, mode: "apply
     return { candidate, resolution, outcome: deriveOperationOutcome(resolution) };
   });
 
-export const runMcpImport = (mode: "apply" | "preview") =>
+export const runMcpAdoption = (mode: "apply" | "preview") =>
   Effect.gen(function* () {
-    const candidate = yield* ImportMcpServers.prepare();
-    const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution(mode));
+    const candidate = yield* AdoptMcpServers.prepare();
+    const resolution = yield* AdoptMcpServers.previewOrApply(candidate, execution(mode));
     return { candidate, resolution, outcome: deriveOperationOutcome(resolution) };
   });

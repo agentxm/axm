@@ -61,20 +61,19 @@ export class PackInspectionRefused extends Schema.TaggedError<PackInspectionRefu
 
 /**
  * A published-metadata read refused: the selected registry is not configured,
- * a bare name matched more than one extension, or nothing matched at all.
+ * a local name omitted its type, or the target or field is unavailable.
  */
 export class PublishedMetadataUnavailable extends Schema.TaggedError<PublishedMetadataUnavailable>()(
   "PublishedMetadataUnavailable",
   {
     reason: Schema.Literals([
       "registry-not-configured",
-      "ambiguous-name",
+      "type-required",
       "unqualified-name",
       "not-found",
       "unknown-field",
       "field-unavailable",
     ]),
     detail: Schema.String,
-    matches: Schema.optional(Schema.Array(Schema.String)),
   },
 ) {}

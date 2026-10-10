@@ -56,16 +56,16 @@ describe("workspace update handler output", () => {
           command: "hooks.update",
           type: Option.some("hook"),
           planName: "Update hooks",
-          planDescription: Option.some("Update configured hooks packages"),
+          planDescription: Option.some("Update configured hook extensions"),
           flags: { preview: false },
         });
 
         const result = expectNoOpPlanResult(ctx.rendererState.results[0]?.data, {
           planName: "Update hooks",
-          message: "No configured hooks.",
+          message: "No configured hook extensions.",
         });
         expect(result).toMatchObject({
-          planDescription: "Update configured hooks packages",
+          planDescription: "Update configured hook extensions",
         });
       }),
     );
@@ -230,7 +230,7 @@ describe("workspace update suggestions", () => {
           onNone: () => ["update"],
           onSome: () => ["skills", "update"],
         }),
-        arguments: [recoverySwitch("--refresh", false)],
+        arguments: [recoverySwitch("--reinstall", false)],
       },
       constraintRefused: false,
       ...over,
@@ -268,7 +268,7 @@ describe("workspace update suggestions", () => {
     expect(suggest({ type: Option.some("skill") }, [failed])).toEqual([
       {
         description: "Try the extension that did not update again",
-        cmd: "axm skills update --name triage",
+        cmd: "axm skills update triage",
       },
     ]);
   });

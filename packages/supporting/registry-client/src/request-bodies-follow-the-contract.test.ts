@@ -156,7 +156,7 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
   it.effect("archival", () =>
     Effect.gen(function* () {
       const body = yield* sentBody(
-        admin(archiveExtension(ref, { revision: "rev_1", reason: "Replaced" })),
+        admin(archiveExtension(ref, { revision: "rev_1", message: "Replaced" })),
       );
       expect(() => strictly(Generated.ExtensionsPutArchivalRequestJson, body)).not.toThrow();
     }),
@@ -184,7 +184,7 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
         admin(
           yankExtensionVersion(
             { ...ref, version: "1.0.0" },
-            { category: "security", notice: "Do not install." },
+            { category: "security", message: "Do not install." },
           ),
         ),
       );

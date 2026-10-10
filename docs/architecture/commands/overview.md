@@ -18,31 +18,37 @@ the CLI easier to predict and invalid workspaces easier to recover.
 
 ## Responsibilities
 
-| Responsibility                 | Commands                                                                                                | Result                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Initialize a workspace         | `setup`                                                                                                 | An uninitialized scope receives explicit starting configuration.                 |
-| Configure coding agents        | `agents add` and `agents remove`                                                                        | The durable target set and affected owned outputs change together.               |
-| Configure instruction files    | `instructions`                                                                                          | Instruction-file management is inspected, enabled, or disabled explicitly.       |
-| Diagnose invariant violations  | [`axm lint`](lint.md)                                                                                   | Facts about invalid extension or workspace state; no state change.               |
-| Realize desired state          | [`axm sync`](sync.md)                                                                                   | Managed installed state and projections agree with desired state.                |
-| Add extension configuration    | [`axm install`](install.md)                                                                             | The extension becomes directly desired and required managed state is realized.   |
-| Change an installed resolution | [`axm update`](update.md)                                                                               | A resolution advances, a constraint changes, or accepted content is reinstalled. |
-| Remove extension configuration | [`axm uninstall`](uninstall.md)                                                                         | Direct reachability is removed; other desired routes remain.                     |
-| Change activation              | `enable` and `disable`                                                                                  | Leaf projections or a Pack dependency route follow the desired activation.       |
-| Change pack membership         | [`axm packs add` and `axm packs remove`](packs.md)                                                      | The authored pack manifest changes.                                              |
-| Inspect extensions             | `list`, `list --outdated`, and `view`                                                                   | Inventory, update availability, or extension information; no state change.       |
-| Discover extensions            | `discover`                                                                                              | Project packages produce recommendations without changing intent.                |
-| Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.      |
-| Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.             |
-| Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                 |
-| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.             |
+| Responsibility                 | Commands                                                                                                | Result                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Initialize a workspace         | `setup`                                                                                                 | An uninitialized scope receives explicit starting configuration.                                                 |
+| Configure coding agents        | `agents add` and `agents remove`                                                                        | The durable target set and affected owned outputs change together.                                               |
+| Configure instruction files    | `instructions`                                                                                          | Instruction-file management is inspected, enabled, or disabled explicitly.                                       |
+| Diagnose invariant violations  | [`axm lint`](lint.md)                                                                                   | Facts about invalid extension or workspace state; bounded offline instruction-alias normalization under `--fix`. |
+| Realize desired state          | [`axm sync`](sync.md)                                                                                   | Managed installed state and projections agree with desired state.                                                |
+| Add extension configuration    | [`axm install`](install.md)                                                                             | The extension becomes directly desired and required managed state is realized.                                   |
+| Change an installed resolution | [`axm update`](update.md)                                                                               | A resolution advances, a constraint changes, or accepted content is reinstalled.                                 |
+| Remove extension configuration | [`axm uninstall`](uninstall.md)                                                                         | Direct reachability is removed; other desired routes remain.                                                     |
+| Change activation              | `enable` and `disable`                                                                                  | Leaf projections or a Pack dependency route follow the desired activation.                                       |
+| Change pack membership         | [`axm packs add` and `axm packs remove`](packs.md)                                                      | The authored pack manifest changes.                                                                              |
+| Inspect extensions             | `list`, `list --outdated`, and `view`                                                                   | Inventory, update availability, or extension information; no state change.                                       |
+| Discover extensions            | `discover`                                                                                              | Project packages produce recommendations without changing intent.                                                |
+| Use type-specific capabilities | Type command groups                                                                                     | Knowledge retrieval, inline MCP configuration, and similar type-owned work.                                      |
+| Author extensions              | [`new`, fork, Skill/Subagent import, adopt, demote, version, and type authoring commands](authoring.md) | Workspace-authored canonical content and explicit authority changes.                                             |
+| Distribute authored extensions | [`publish`](publish.md)                                                                                 | Eligible authored content is validated and sent to the registry.                                                 |
+| Migrate deprecated extensions  | `migrate`                                                                                               | Superseded extensions are replaced or obsolete entries removed from desired state.                               |
+| Share repository installation  | `share`                                                                                                 | Repository install commands or package metadata are printed without changing content.                            |
+| Manage published lifecycle     | `archive` / `unarchive`, `deprecate` / `undeprecate`, `yank` / `unyank`, and `visibility`               | Publisher-controlled Registry availability, guidance, or visibility changes.                                     |
+| Authenticate Registry access   | `login`, `logout`, `whoami`, and `token`                                                                | Registry credentials and access-token records are managed explicitly.                                            |
+| Inspect local operational data | `cache` and `diagnostics`                                                                               | Local caches and sanitized failure evidence are inspected or managed.                                            |
+| Upgrade AXM                    | [`axm upgrade`](upgrade.md)                                                                             | The executable moves to a verified promoted or exact stable release.                                             |
 
 ## Non-responsibilities
 
 No command is a fallback owner for work that lacks a clear home:
 
-- lint does not choose a correction or perform lifecycle and reconciliation
-  work;
+- lint does not choose a correction or perform general lifecycle and
+  reconciliation work; `--fix` is the bounded instruction-alias normalization
+  exception;
 - sync does not edit workspace configuration or advance satisfying resolutions
   (the executable specification
   `cli/sync/preserves-configuration-and-resolutions` owns the obligation);
@@ -54,7 +60,7 @@ No command is a fallback owner for work that lacks a clear home:
 - inspection commands do not mutate the state they report; and
 - upgrade does not discover stability from package-manager publication state;
   and
-- `--force` does not turn a command into a more general operation; the
+- a named override flag does not turn a command into a more general operation; the
   executable specification `cli/force-bypasses-only-named-policies`
   bounds what it may bypass.
 
@@ -75,11 +81,15 @@ change.
 
 ## Root commands and type command groups
 
-Root `install`, `update`, `uninstall`, `list`, `view`, and `publish` are the
+Root `install`, `update`, `uninstall`, `enable`, `disable`, `list`, `view`, and `publish` are the
 normal surface for fully qualified extension names and cross-type work. Type
 command groups expose the same lifecycle behavior and add only capabilities
 unique to that extension type, such as skill installation modes, inline MCP
 configuration, Knowledge concept retrieval, or Pack membership editing.
+
+`view` reads the Registry record by FQN. Each `<type> show` reads one installed
+extension by name, within the extension-inspection responsibility above.
+`token show` and `diagnostics show` read non-extension records.
 
 Cross-type authoring commands own shared conversion, authority, and version
 behavior. Type command groups own type-specific scaffolding and may provide
@@ -114,6 +124,12 @@ The focused command documents own distinctions that are not evident from this
 shared model. Exact flags, inputs, result fields, and supported extension types
 remain executable contracts rather than prose inventory.
 
+Agent identifiers follow their role: the verb's object is positional, workspace
+membership and read-only inspection use repeatable `--agent`, and other
+single-agent roles use a role-named flag. An agent subject never appears both
+as a positional and `--agent`. The [targeting decision](../decisions/agent-targeting-is-workspace-membership.md)
+explains these roles; executable specifications own their route allocation.
+
 ## Planning and interaction
 
 Given the same state, preview must accurately describe what application will
@@ -124,11 +140,12 @@ Every command declares what it can do without applying, which confirmation it
 can approve in advance, and which trust conditions it can meet only
 interactively; a command exposes `--preview` or `--yes` only when that
 declaration gives the flag a purpose. [Interaction](interaction.md) owns the
-contract. The binding force boundary is the executable specification
+contract. The binding override boundary is the executable specification
 `cli/force-bypasses-only-named-policies` in the
 [specification catalog](../../../specifications/catalog.md): it owns which
-explicitly forceable policy `--force` may bypass and whether a command exposes
-the flag at all. Routine exceptional modes receive their own names rather than
+named policy an override may bypass and whether a command exposes
+the flag at all. Override flags include `--reinstall`, `--accept-warnings`, and
+`--ignore-release-age`; there is no bare `--force`. Routine exceptional modes receive their own names rather than
 accumulating narrow override flags.
 
 Global sync applies every ready independent closure. A nonzero result may still
@@ -139,5 +156,6 @@ outcome rather than reducing the request to a misleading all-or-nothing label.
 
 AXM does not need a generic `status`, workspace `prune`, or `repair` workflow.
 Use lint for invariant facts, list for inventory, sync preview for proposed
-reconciliation, and lifecycle commands for configuration changes. Focused
-cache pruning remains a separate housekeeping operation.
+reconciliation, and lifecycle commands for configuration changes. The scoped cache exception has three predicates: `cache status` reports usage,
+`cache verify` checks integrity and removes corrupt archives, and `cache prune`
+applies retention policy. These remain separate cache operations.

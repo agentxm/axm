@@ -7,7 +7,7 @@ import {
   operationPresentation,
   stepFailureRetryCanHelp,
   type JobStepArtifact,
-  type OperationErrorCategory,
+  type ErrorCode,
   type OperationResolution,
   type ResolvedUnit,
 } from "@agentxm/workspace-kernel/operations";
@@ -68,7 +68,7 @@ const artifact = (previousVersion: string): JobStepArtifact => ({
 
 const failedUnit = (
   id: string,
-  category: OperationErrorCategory,
+  category: ErrorCode,
   suggestions?: ReadonlyArray<{ readonly description: string; readonly cmd?: string }>,
 ): ResolvedUnit<unknown> => ({
   id,
@@ -209,15 +209,15 @@ describe("A non-success result names a fitting recovery", () => {
   it("names every failed unit's own recovery, not only the first", () => {
     const resolution = resolutionOf([
       failedUnit("research", "conflict", [
-        { description: "Resolve the source again", cmd: "axm update skills/research --refresh" },
+        { description: "Resolve the source again", cmd: "axm update skills/research --reinstall" },
       ]),
       failedUnit("okf", "conflict", [
-        { description: "Resolve the source again", cmd: "axm update skills/okf --refresh" },
+        { description: "Resolve the source again", cmd: "axm update skills/okf --reinstall" },
       ]),
     ]);
     const painted = nextLines(resolution, []).join("\n");
-    expect(painted).toContain("axm update skills/research --refresh");
-    expect(painted).toContain("axm update skills/okf --refresh");
+    expect(painted).toContain("axm update skills/research --reinstall");
+    expect(painted).toContain("axm update skills/okf --reinstall");
   });
 
   it("prints one scoped copy of a producer recovery in a user workspace, never a duplicate", () => {

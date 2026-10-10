@@ -51,6 +51,7 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  InstructionHealthSchema,
   applyPlannedProjections,
   disableInstructionManagement,
   instructionProjectionEffects,
@@ -103,7 +104,7 @@ const InstructionStatusItemSchema = Schema.Struct({
   sourceFile: Schema.String,
   targetFile: Schema.String,
   mechanism: Schema.String,
-  health: Schema.String,
+  health: InstructionHealthSchema,
   ownership: Schema.String,
   observedForm: Schema.String,
   details: Schema.String,

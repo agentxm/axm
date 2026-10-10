@@ -1044,7 +1044,10 @@ describe("HTTP registry transport", () => {
         throw new Error("Expected structured finalize errors");
       }
       expect(nonOwnerFinalizeError["detail"]).toBe(anonymousFinalizeError["detail"]);
-      expect(hasLoginSuggestion(anonymousFinalizeError)).toBe(true);
+      expect(
+        hasLoginSuggestion(anonymousFinalizeError),
+        JSON.stringify(anonymousFinalizeError),
+      ).toBe(true);
       expect(hasLoginSuggestion(nonOwnerFinalizeError)).toBe(false);
     } finally {
       publisher.cleanup();

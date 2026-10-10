@@ -9,8 +9,64 @@
  */
 
 import * as Schema from "effect/Schema";
+import { NativeUnitReferenceSchema } from "../locations/index.js";
 import { HookEvidenceStatusSchema } from "./hook-evidence.js";
 import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions/common";
+
+export const ConfiguredAgentReasonCodeSchema = Schema.Literals([
+  "supported",
+  "no-configured-agents",
+  "unknown-agent",
+  "native-capability-unavailable",
+  "axm-capability-unavailable",
+  "project-only",
+  "scope-not-modeled",
+  "container-owned",
+  "extension-absent",
+  "extension-disabled",
+  "extension-missing",
+  "projection-missing",
+  "verified-native-unit",
+  "native-projection-not-current",
+  "native-content-conflict",
+  "native-location-unverified",
+  "native-observation-unavailable",
+  "planned-native-unit",
+  "no-applicable-native-unit",
+  "plan-step-blocked",
+  "managed-region-absent",
+  "managed-region-complete",
+  "managed-region-malformed",
+  "managed-region-unsupported-version",
+  "hook-native-writer-unavailable",
+  "hook-native-implementation-unavailable",
+  "hook-native-implementation-ambiguous",
+  "hook-native-conditional",
+  "hook-native",
+  "stale-projection",
+  "mcp-unmanaged",
+  "mcp-unsupported",
+  "mcp-unverified",
+  "mcp-blocked",
+  "subagent-implementation-unavailable",
+  "subagent-native-writer-unavailable",
+  "subagent-native-layout-unavailable",
+  "subagent-portable-instructions-unavailable",
+  "subagent-runtime-reference-unresolved",
+  "subagent-native-proof-unavailable",
+  "subagent-native-render-unavailable",
+  "subagent-placement-disabled",
+  "subagent-placement-misconfigured",
+  "subagent-placement-unsupported",
+  "subagent-placement-unverified",
+  "subagent-native-implementation",
+  "agent-not-configured",
+]).annotate({
+  identifier: "ConfiguredAgentReasonCode",
+  description: "Published reasons for a configured-agent lifecycle outcome.",
+});
+
+export type ConfiguredAgentReasonCode = typeof ConfiguredAgentReasonCodeSchema.Type;
 
 export const ConfiguredAgentOutcomeSchema = Schema.Struct({
   extensionType: ExtensionTypeSchema,
@@ -24,11 +80,11 @@ export const ConfiguredAgentOutcomeSchema = Schema.Struct({
     "blocked",
     "failed",
   ] as const),
-  reasonCode: Schema.String,
+  reasonCode: ConfiguredAgentReasonCodeSchema,
   reason: Schema.String,
   mechanism: Schema.optional(Schema.String),
   path: Schema.optional(Schema.String),
-  nativeUnitKeys: Schema.optional(Schema.Array(Schema.String)),
+  nativeUnits: Schema.optional(Schema.Array(NativeUnitReferenceSchema)),
   hook: Schema.optionalKey(
     Schema.Struct({
       implementationId: Schema.String,

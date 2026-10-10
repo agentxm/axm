@@ -89,7 +89,7 @@ describe("axm (root command)", () => {
 
       expect(result.exitCode).toBe(0);
       expect(output).toContain("# Publishing");
-      expect(normalizedOutput).toContain("publish an existing skill directory with `--from`");
+      expect(normalizedOutput).toContain("publish an existing skill directory with `--path`");
       expect(normalizedOutput).toContain("select extensions authored by the project workspace");
       expect(normalizedOutput).toContain(
         "fails as `not_authored` before AXM constructs an archive",
@@ -107,8 +107,8 @@ describe("axm (root command)", () => {
       expect(document).toMatchObject({
         type: "help",
         description:
-          "Publish project-workspace extensions or an existing skill directory to a registry (archive policy: axm help publish)",
-        usage: "axm publish [flags] [<extension...>]",
+          "Publish project-workspace extensions or an existing skill directory to a registry",
+        usage: "axm publish [flags] [<extension>...]",
       });
       expect(JSON.stringify(document)).not.toContain("--authored");
       expect(JSON.stringify(document)).not.toContain('"name":"all"');
@@ -170,7 +170,7 @@ describe("global text-output policy", () => {
       "--verbose",
       "--debug",
     ]);
-    const auth = await runCli(["token", "--output", "token", "--quiet", "--verbose", "--debug"], {
+    const auth = await runCli(["token", "show", "--plain", "--quiet", "--verbose", "--debug"], {
       env: { AXM_TOKEN: "", AXM_TOKEN_FILE: "" },
     });
 
@@ -271,14 +271,15 @@ describe("application exit-code contract", () => {
 });
 
 describe("axm instructions", () => {
-  it("exposes inspection at root and only enable and disable subcommands", async () => {
+  it("exposes status, enable, disable and adopt subcommands", async () => {
     const help = await runCli(["instructions", "--help"]);
     const output = getOutput(help);
 
     expect(help.exitCode).toBe(0);
     expect(output).toContain("enable");
     expect(output).toContain("disable");
-    expect(output).not.toMatch(/^\s+status\b/mu);
+    expect(output).toMatch(/^\s+status\b/mu);
+    expect(output).toMatch(/^\s+adopt\b/mu);
   });
 
   it("inspects the configured instruction-file state as JSON", async () => {
@@ -290,7 +291,7 @@ describe("axm instructions", () => {
       );
       expect(setup.exitCode).toBe(0);
 
-      const result = await runCli(["instructions", "--json"], { cwd: workspace.path });
+      const result = await runCli(["instructions", "status", "--json"], { cwd: workspace.path });
       const document: unknown = JSON.parse(result.stdout);
 
       expect(result.exitCode).toBe(0);
@@ -309,7 +310,7 @@ describe("axm instructions", () => {
           event: expect.objectContaining({
             _tag: "OperationStarted",
             name: "Inspect instruction-file management",
-            mode: "preview",
+            mode: "query",
           }),
         },
         {
@@ -322,15 +323,15 @@ describe("axm instructions", () => {
     }
   });
 
-  it.each([
-    ["instructions", "status"],
-    ["rules", "instructions"],
-  ])("rejects the removed command path %s %s", async (...args) => {
-    const result = await runCli(args);
+  it.each([["rules", "instructions"]])(
+    "rejects the removed command path %s %s",
+    async (...args) => {
+      const result = await runCli(args);
 
-    expect(result.exitCode).not.toBe(0);
-    expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
-  });
+      expect(result.exitCode).not.toBe(0);
+      expect(getOutput(result)).toMatch(/Unknown (command|subcommand)/u);
+    },
+  );
 });
 
 describe("main CLI help", () => {
@@ -494,7 +495,8 @@ describe("main CLI help", () => {
 
     expect(result.exitCode).toBe(2);
     expect(output).toContain(removedFlag);
-    expect(output).toContain("--name");
+    expect(output).toContain("[<name>...]");
+    expect(output).not.toContain("--name");
   });
 
   it.each([

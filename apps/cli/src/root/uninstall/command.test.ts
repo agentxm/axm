@@ -9,9 +9,9 @@ describe("root uninstall command help", () => {
       const output = yield* captureHelpOutput(["uninstall"]);
 
       expect(output).toContain("Remove an extension from the workspace");
-      expect(output).toContain("Registry FQN (@owner/<plural-type>/<name>[@version])");
+      expect(output).toContain("Unversioned extension FQN in @owner/<plural-type>/<name> form");
       expect(output).toContain("axm uninstall @acme/skills/code-review");
-      expect(output).toContain("version is ignored for uninstall routing");
+      expect(output).toContain("axm uninstall --preview @acme/hooks/session-audit");
     }),
   );
 });

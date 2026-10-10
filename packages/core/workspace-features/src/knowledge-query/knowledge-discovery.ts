@@ -3,8 +3,8 @@
  *
  * Each operation takes a typed request, captures the selected installed
  * corpus once, and returns the typed outcome document automation decodes.
- * Grammar, bounds, conditional-revision semantics, readiness, and the ranking
- * explanation are decided here; the application maps outcomes onto exit codes
+ * Grammar, bounds, conditional-revision semantics and corpus capture
+ * are decided here; the application maps outcomes onto exit codes
  * and rendering.
  *
  * @experimental This API is unstable and may change without notice.
@@ -28,6 +28,7 @@ import type {
   KnowledgeConceptResolveOutput,
 } from "./documents.js";
 import { KnowledgeConceptNotFound, KnowledgeRequestInvalid } from "./errors.js";
+import type { KnowledgeQuery } from "./knowledge-query.js";
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "./knowledge-capabilities.js";
 import { relatedKnowledgeConcepts, resolveKnowledgeConcept } from "./knowledge-graph.js";
 import {
@@ -37,11 +38,8 @@ import {
 } from "./knowledge-index.js";
 import {
   checkTraversalDepth,
-  explainKnowledgeQuery,
   makeKnowledgeQueryRequest,
-  makeKnowledgeSearchRequest,
   type KnowledgeQueryRequest,
-  type KnowledgeSearchRequest,
 } from "./query/request.js";
 
 /** Every discovery operation reports the same two refusals it cannot recover from. */
@@ -79,9 +77,8 @@ const conceptDocument = (
 };
 
 const runPage = Effect.fn("Knowledge.runPage")(function* (args: {
-  readonly query: Parameters<typeof explainKnowledgeQuery>[0];
+  readonly query: KnowledgeQuery;
   readonly bundle?: string;
-  readonly explain: boolean;
 }) {
   const index = yield* KnowledgeIndex;
   const captured = yield* captureInstalledKnowledgeCorpus(
@@ -96,24 +93,15 @@ const runPage = Effect.fn("Knowledge.runPage")(function* (args: {
     query: args.query,
     corpusFingerprint: captured.snapshot.fingerprint,
     ...pageResult.success,
-    ...(args.explain ? { explanation: explainKnowledgeQuery(args.query) } : {}),
   };
   return { outcome: "ready", page } as const;
 });
 
 export const KnowledgeDiscovery = {
   /** Structured query over the installed corpus. */
-  query: Effect.fn("KnowledgeDiscovery.query")(function* (
-    request: KnowledgeQueryRequest & { readonly explain?: boolean },
-  ) {
+  query: Effect.fn("KnowledgeDiscovery.query")(function* (request: KnowledgeQueryRequest) {
     const query = yield* makeKnowledgeQueryRequest(request);
-    return yield* runPage({ query, explain: request.explain === true });
-  }),
-
-  /** Lexical search over the installed corpus. */
-  search: Effect.fn("KnowledgeDiscovery.search")(function* (request: KnowledgeSearchRequest) {
-    const query = yield* makeKnowledgeSearchRequest(request);
-    return yield* runPage({ query, explain: false });
+    return yield* runPage({ query });
   }),
 
   /**
@@ -129,7 +117,8 @@ export const KnowledgeDiscovery = {
     const parsed = parseConceptRef(request.reference);
     if (!Result.isSuccess(parsed)) {
       return yield* new KnowledgeRequestInvalid({
-        detail: "Expected a concept reference in @owner/knowledge/name#concept-id form",
+        detail:
+          "Expected @owner/knowledge/name#concept-id or a canonical HTTPS concept URL such as https://agentxm.ai/@owner/knowledge/name/concepts/concept-id",
       });
     }
     const expected =
@@ -210,7 +199,8 @@ export const KnowledgeDiscovery = {
     const parsed = parseConceptRef(request.reference);
     if (!Result.isSuccess(parsed)) {
       return yield* new KnowledgeRequestInvalid({
-        detail: "Expected a concept reference in @owner/knowledge/name#concept-id form",
+        detail:
+          "Expected @owner/knowledge/name#concept-id or a canonical HTTPS concept URL such as https://agentxm.ai/@owner/knowledge/name/concepts/concept-id",
       });
     }
     const maximumDepth = yield* checkTraversalDepth(request.maximumDepth ?? 1);
@@ -242,4 +232,4 @@ export const KnowledgeDiscovery = {
   }),
 };
 
-export type { KnowledgeQueryRequest, KnowledgeSearchRequest, WorkspaceScope };
+export type { KnowledgeQueryRequest, WorkspaceScope };

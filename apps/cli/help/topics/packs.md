@@ -17,7 +17,7 @@ Run `axm help pack-schema` to print the raw JSON Schema.
 
 Run `axm packs new <name>` to scaffold a managed pack. Use `axm packs add <name> <extension>` and `axm packs remove <name> <extension>` to edit dependencies when possible. `<name>` accepts the configured local name or a unique configured pack FQN; ambiguous FQNs must be replaced with the local name AXM reports.
 
-Use `axm packs show <extension>` to compare desired membership, accepted
+Use `axm packs show <name>` to compare desired membership, accepted
 external resolution, canonical observation, and graph problems. A
 workspace-authored pack manifest is authority immediately; edit it through pack
 authoring commands when possible, then use `axm sync --preview` and `axm sync`

@@ -14,12 +14,12 @@ import {
   ExtensionLifecycleFailed,
   OPERATION_ERROR_CATEGORIES,
   StepFailure,
-  type OperationErrorCategory,
+  type ErrorCode,
 } from "../operations/index.js";
 import { kernelFailureToStepFailure, type KernelFailure } from "./failure-rendering.js";
 import { StepFailureConversion } from "./step-failure-conversion.js";
 
-const isCategory = (value: unknown): value is OperationErrorCategory =>
+const isCategory = (value: unknown): value is ErrorCode =>
   typeof value === "string" &&
   OPERATION_ERROR_CATEGORIES.some((category): boolean => category === value);
 

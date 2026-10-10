@@ -184,7 +184,7 @@ describe("view handler", () => {
           ]);
           if (testCase.machine) {
             expect(ctx.rendererState.results[0]?.data).toMatchObject({
-              handle: "@test/skills/code-review",
+              fqn: "@test/skills/code-review",
               visibility: "public",
             });
           } else {

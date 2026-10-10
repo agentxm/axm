@@ -6,7 +6,6 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 
-import { mcpServerListDocument } from "../type-list/mcp-servers.js";
 import { listMcpServers } from "../type-list/type-lists.js";
 import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
 
@@ -55,8 +54,7 @@ describe("List locally named MCP connections as a machine document", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const { inventory, rows } = yield* listMcpServers();
-          const document = mcpServerListDocument({ inventory, rows });
+          const { document } = yield* listMcpServers({});
           expect(document.count).toBe(2);
           expect(document.items.map((item) => item.localName).sort()).toEqual([
             "personal-context",
@@ -128,8 +126,7 @@ describe("Report every configured agent's outcome for a connection", () => {
       return fixture
         .provide(
           Effect.gen(function* () {
-            const { inventory, rows } = yield* listMcpServers();
-            const document = mcpServerListDocument({ inventory, rows });
+            const { document } = yield* listMcpServers({});
             const item = document.items.find((candidate) => candidate.localName === "demo");
             expect(item).toBeDefined();
             const outcomes = item?.agentOutcomes ?? [];

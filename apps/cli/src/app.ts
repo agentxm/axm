@@ -1,3 +1,4 @@
+import { booleanOptionFromArgv } from "./cli-flags/argv-boolean.js";
 import type { ProcessFailure } from "./cli-runtime/process-outcome.js";
 import {
   TerminalDiagnostics,
@@ -29,8 +30,7 @@ import {
 import { resolveVerbosityFromArgv } from "./cli-flags/index.js";
 import {
   hasExplicitJsonFlag,
-  optionArgs,
-  outputSelectorsFromArgv,
+  hasPlainFlag,
   resolveFormatFromArgv,
   runCliMain,
   processOutcome,
@@ -67,6 +67,7 @@ import { lintCommand } from "./root/lint/command.js";
 import { discoverCommand } from "./root/discover/command.js";
 import { installCommand } from "./root/install/command.js";
 import { listCommand } from "./root/list/command.js";
+import { rootEnableCommand, rootDisableCommand } from "./root/activation-handler.js";
 import { uninstallCommand } from "./root/uninstall/command.js";
 import { migrateCommand } from "./root/migrate/command.js";
 import { syncCommand } from "./root/sync/command.js";
@@ -132,7 +133,7 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
   ]),
   Command.withSubcommands([
     {
-      group: "GETTING STARTED",
+      group: "START HERE",
       commands: [setupCommand, discoverCommand, helpCommand],
     },
     {
@@ -145,6 +146,8 @@ export const rootCommand = Command.make(ROOT_COMMAND).pipe(
         installCommand,
         updateCommand,
         uninstallCommand,
+        rootEnableCommand,
+        rootDisableCommand,
         migrateCommand,
         listCommand,
         viewCommand,
@@ -204,21 +207,16 @@ const usesRetiredAuthCommand = (args: ReadonlyArray<string>): boolean => args[0]
 
 /**
  * Raw credential output is decided before the parser runs, so nothing that
- * would share stdout with the credential — JSON, help, version, or a second
- * output mode — can reach the command.
+ * would share stdout with the credential — JSON, help, or version output — can reach the command.
  */
 const rejectsTokenOutputAtStartup = (args: ReadonlyArray<string>): AppError | undefined => {
-  const selectors = outputSelectorsFromArgv(args);
-  if (!selectors.includes("token")) return undefined;
-  const options = optionArgs(args);
-  const detail =
-    new Set(selectors).size > 1
-      ? "--output accepts one value; choose token or human."
-      : hasExplicitJsonFlag(args)
-        ? "--output token and --json are mutually exclusive."
-        : options.some((arg) => arg === "--help" || arg === "-h" || arg === "--version")
-          ? "--output token cannot be combined with help or version output."
-          : undefined;
+  if (!hasPlainFlag(args)) return undefined;
+  const detail = hasExplicitJsonFlag(args)
+    ? "--plain and --json are mutually exclusive."
+    : Option.getOrElse(booleanOptionFromArgv(args, ["--help", "-h"]), () => false) ||
+        Option.getOrElse(booleanOptionFromArgv(args, ["--version"]), () => false)
+      ? "--plain cannot be combined with help or version output."
+      : undefined;
   return detail === undefined ? undefined : makeAppError({ code: "usage", detail });
 };
 

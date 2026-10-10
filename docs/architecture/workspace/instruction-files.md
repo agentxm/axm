@@ -44,7 +44,7 @@ default and records the canonical `fileName` and `gitignoreAliases` preference.
 The literal `false` disables reconciliation. Re-enabling establishes the
 requested preferences again.
 
-The root `axm instructions` command inspects this surface; `axm instructions
+The `axm instructions status` command inspects this surface; `axm instructions
 enable` and `axm instructions disable` express its activation. The family is
 not subordinate to any extension type, and it has no separate `status` alias.
 Changing instruction-file configuration reconciles the affected owned regions

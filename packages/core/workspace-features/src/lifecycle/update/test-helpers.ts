@@ -30,10 +30,12 @@ import {
 export const targetedUpdateRequest = (args: {
   readonly source: string;
   readonly nonInteractive?: boolean;
+  readonly reinstall?: boolean;
 }): UpdateRequest => ({
   kind: "targeted",
   source: args.source,
   nonInteractive: args.nonInteractive ?? true,
+  reinstall: args.reinstall ?? false,
 });
 
 /** `axm <type> update`: sweep the configured entries, optionally narrowed. */
@@ -44,6 +46,7 @@ export const configuredUpdateRequest = (args: {
   readonly planName?: string;
   readonly planDescription?: string;
   readonly nonInteractive?: boolean;
+  readonly reinstall?: boolean;
 }): UpdateRequest => ({
   kind: "configured",
   type: Option.fromUndefinedOr(args.type),
@@ -59,6 +62,7 @@ export const configuredUpdateRequest = (args: {
   planName: args.planName ?? "Update extensions",
   planDescription: Option.fromUndefinedOr(args.planDescription),
   nonInteractive: args.nonInteractive ?? true,
+  reinstall: args.reinstall ?? false,
 });
 
 /**
@@ -77,7 +81,7 @@ const resolveUpdate = (request: UpdateRequest, execution: PlanExecution) =>
     }
     return {
       _tag: "Resolved",
-      resolution: yield* UpdateExtensions.previewOrApply(candidate, execution),
+      ...(yield* UpdateExtensions.previewOrApply(candidate, execution)),
     } satisfies UpdateOutcome;
   });
 

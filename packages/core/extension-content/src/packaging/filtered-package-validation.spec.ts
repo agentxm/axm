@@ -6,7 +6,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 export const specification = defineSpecification({
   requirement: "extensions/hooks/distribution-preserves-runtime-resources",
-  title: "Distributed Hook packages preserve all runtime resources",
+  title: "Distributed Hook extensions preserve all runtime resources",
   statement:
     "Filtering a Hook archive shall preserve every declared implementation entrypoint and shared asset, including unselected variants. Author-only fixture inputs and expectations may be omitted without preventing installation or native activation.",
   class: "functional",
@@ -92,7 +92,7 @@ const validate = (names: ReadonlyArray<string>) =>
     readEntry: () => Effect.die("Hook closure validation must never read or execute bodies"),
   });
 
-describe("Filtered Hook package closure", () => {
+describe("Filtered Hook extension closure", () => {
   it.effect("accepts every referenced native implementation and asset without executing code", () =>
     validate(files),
   );

@@ -31,7 +31,7 @@ export type HelpFiles = Map<string, HelpDoc>;
 export const formatCommandPath = (path: ReadonlyArray<string>): string =>
   path.length === 0 ? "axm" : `axm ${path.join(" ")}`;
 
-const captureHelpDocForArgs = (
+export const captureHelpDocForArgs = (
   args: ReadonlyArray<string>,
 ): Effect.Effect<HelpDoc, unknown, never> =>
   Effect.gen(function* () {

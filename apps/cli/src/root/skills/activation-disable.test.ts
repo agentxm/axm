@@ -18,7 +18,7 @@ import {
   getAppError,
   makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleActivation, type ActivationRequest } from "../activation-handler.js";
+import { handleDisable, type ActivationRequest } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -56,7 +56,6 @@ const defaultArgs = (
   overrides: Partial<ActivationRequest> = {},
 ): ActivationRequest => ({
   name,
-  enabled: false,
   preview: false,
   ...overrides,
 });
@@ -94,9 +93,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleActivation("skill", defaultArgs("nonexistent")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleDisable("skill", defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -108,9 +105,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleActivation("skill", defaultArgs("nonexistent")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleDisable("skill", defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -126,7 +121,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("my-skill"));
+          yield* handleDisable("skill", defaultArgs("my-skill"));
 
           expect(logs.info.some((m) => m.includes("already disabled"))).toBe(false);
           expect(logs.success.some((m) => m.includes("already disabled"))).toBe(true);
@@ -145,7 +140,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("my-skill"));
+          yield* handleDisable("skill", defaultArgs("my-skill"));
 
           expect(logs.success).toEqual([]);
           const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -182,7 +177,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("my-skill", { preview: true }));
+          yield* handleDisable("skill", defaultArgs("my-skill", { preview: true }));
 
           // Settings should still show enabled (preview = no side effects)
           const settingsContent = fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8");
@@ -267,7 +262,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("code-review"));
+          yield* handleDisable("skill", defaultArgs("code-review"));
 
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
@@ -287,9 +282,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleActivation("skill", defaultArgs("nonexistent")).pipe(
-            Effect.flip,
-          );
+          const error = yield* handleDisable("skill", defaultArgs("nonexistent")).pipe(Effect.flip);
           expect(getAppError(error).detail).toContain("is not installed");
         }),
       );
@@ -310,7 +303,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("my-skill"));
+          yield* handleDisable("skill", defaultArgs("my-skill"));
 
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);
@@ -361,7 +354,7 @@ describe("disable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("skill", defaultArgs("my-skill"));
+          yield* handleDisable("skill", defaultArgs("my-skill"));
 
           expect(logs.success.length).toBeGreaterThan(0);
           expect(logs.success.some((m) => m.includes("Done"))).toBe(false);

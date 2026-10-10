@@ -42,7 +42,7 @@ const create = handleCreateToken({
   owners: [],
   extensions: [],
   permission: "read",
-  output: "token",
+  plain: true,
 });
 
 describe("Undelivered token compensation", () => {
@@ -109,7 +109,7 @@ describe("Undelivered token compensation", () => {
   it.effect("never revokes an existing credential it failed to write", () => {
     const context = makeTokenSpecContext({ failDelivery: true });
     return Effect.gen(function* () {
-      const failure = yield* handleToken({ output: "token" }).pipe(Effect.flip);
+      const failure = yield* handleToken({ plain: true }).pipe(Effect.flip);
 
       expect(getAppError(failure).code).toBe("unavailable");
       expect(context.revocations).toEqual([]);

@@ -315,7 +315,7 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         const otherBefore = snapshotTree(fixture.otherNative);
         const beforeRead = snapshotTree(fixture.selectedNative);
 
-        const disabled = await fixture.run(["instructions"]);
+        const disabled = await fixture.run(["instructions", "status"]);
 
         expect(disabled.exitCode, disabled.stdout + disabled.stderr).toBe(0);
         const disabledJson: unknown = JSON.parse(disabled.stdout);
@@ -339,7 +339,7 @@ describe("Agent membership and instruction files stay in the selected scope", ()
         expect(snapshotTree(fixture.otherNative)).toEqual(otherBefore);
         const enabledBeforeRead = snapshotTree(fixture.selectedNative);
 
-        const inspected = await fixture.run(["instructions"]);
+        const inspected = await fixture.run(["instructions", "status"]);
 
         expect(inspected.exitCode, inspected.stdout + inspected.stderr).toBe(0);
         const inspectedJson: unknown = JSON.parse(inspected.stdout);

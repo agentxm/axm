@@ -78,14 +78,6 @@ export const KnowledgeConceptQueryPageSchema = Schema.Struct({
   count: Schema.Number,
   hasMore: Schema.Boolean,
   cursor: Schema.optional(Schema.String),
-  explanation: Schema.optional(
-    Schema.Struct({
-      strategy: Schema.Literal("lexical"),
-      ordering: Schema.Literals(["relevance", "metadata"]),
-      rankFactors: Schema.Array(Schema.Struct({ field: Schema.String, weight: Schema.Number })),
-      tieBreak: Schema.String,
-    }),
-  ),
 });
 export type KnowledgeConceptQueryPage = typeof KnowledgeConceptQueryPageSchema.Type;
 
@@ -159,14 +151,9 @@ export const KnowledgeConceptRelatedOutputSchema = Schema.Struct({
 });
 export type KnowledgeConceptRelatedOutput = typeof KnowledgeConceptRelatedOutputSchema.Type;
 
-export const KnowledgeConceptStatusOutputSchema = Schema.Struct({
+export const KnowledgeConceptCapabilitiesOutputSchema = Schema.Struct({
   capabilities: KnowledgeDiscoveryCapabilitiesSchema,
-  readiness: Schema.Literals(["ready", "changing", "unavailable"]),
-  health: Schema.Struct({
-    status: Schema.Literals(["healthy", "unhealthy"]),
-    diagnostics: Schema.Array(Schema.String),
-  }),
-  corpusFingerprint: Schema.optional(KnowledgeRevisionSchema),
+  corpusFingerprint: KnowledgeRevisionSchema,
   bundleCount: Schema.Number,
   conceptCount: Schema.Number,
   scopeCollisions: Schema.Struct({
@@ -175,7 +162,8 @@ export const KnowledgeConceptStatusOutputSchema = Schema.Struct({
     bundleNames: Schema.Array(Schema.String),
   }),
 });
-export type KnowledgeConceptStatusOutput = typeof KnowledgeConceptStatusOutputSchema.Type;
+export type KnowledgeConceptCapabilitiesOutput =
+  typeof KnowledgeConceptCapabilitiesOutputSchema.Type;
 
 const KnowledgeLintDiagnosticSchema = Schema.Struct({
   bundle: Schema.String,

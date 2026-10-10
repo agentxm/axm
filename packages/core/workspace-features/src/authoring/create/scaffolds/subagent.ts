@@ -25,6 +25,7 @@ const subagentBody = "Review the assigned work carefully and report evidence-bac
 export const subagentScaffold = (args: {
   readonly name: string;
   readonly owner: Handle;
+  readonly description?: string | undefined;
 }): AuthoredScaffold => {
   const body = `src/${args.name}.md`;
   const manifest: SubagentManifest = {
@@ -33,7 +34,7 @@ export const subagentScaffold = (args: {
     type: "subagent",
     name: decodeExtensionNameSync(args.name),
     version: INITIAL_VERSION,
-    description: "Review assigned work and report evidence-backed findings.",
+    description: args.description ?? "Review assigned work and report evidence-backed findings.",
     core: { instructions: body },
   };
   return {

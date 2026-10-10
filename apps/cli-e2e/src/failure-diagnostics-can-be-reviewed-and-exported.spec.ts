@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "system/reliability/failure-diagnostics-can-be-reviewed-and-exported",
   title: "Terminal failure diagnostics remain locally reviewable with telemetry disabled",
   statement:
-    "A failed invocation shall expose the same Diagnostic ID in its terminal output and bounded local record independently of remote telemetry consent, and AXM shall export that record only to a new local file after the operator supplies the SHA-256 of the exact content they reviewed, without transmitting local messages, stacks or paths. Any remotely eligible source frames shall contain only AXM-owned module names and source-relative locations verified against the reporting build.",
+    "A failed invocation shall expose the same Diagnostic ID in its terminal output and bounded local record independently of remote telemetry consent, and AXM shall export that record only to a new local file after the operator supplies the SHA-256 of the exact content they reviewed, without transmitting local messages, stacks or paths. An existing export destination shall fail with conflict and exit 6, while a review hash mismatch or directory I/O failure shall fail with validation and exit 9. Any remotely eligible source frames shall contain only AXM-owned module names and source-relative locations verified against the reporting build.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
@@ -30,7 +30,6 @@ export const specification = defineSpecification({
 
 const FailureOutput = Schema.Struct({
   ok: Schema.Literal(false),
-  cause: Schema.Array(Schema.Struct({ _tag: Schema.String, message: Schema.String })),
   diagnosticId: Schema.String.check(
     Schema.isPattern(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u),
   ),
@@ -60,9 +59,9 @@ describe("Local failure diagnostics", () => {
         );
         expect(failed.exitCode, failed.stdout + failed.stderr).not.toBe(0);
         if (format === "json") {
-          expect(
-            decodeFailure(failed.stdout).cause.some((entry) => entry._tag === "SettingsParseError"),
-          ).toBe(true);
+          const document: unknown = JSON.parse(failed.stdout);
+          expect(document).not.toHaveProperty("diagnostic");
+          expect(document).not.toHaveProperty("cause");
         }
         const id =
           format === "json"
@@ -78,53 +77,49 @@ describe("Local failure diagnostics", () => {
         expect(reviewed.exitCode, reviewed.stdout + reviewed.stderr).toBe(0);
         const review = decodeReview(reviewed.stdout).result;
         expect(review.diagnosticId).toBe(id);
-        expect(review.record).toMatchObject({ eventId: id });
+        expect(review.record).toMatchObject({
+          eventId: id,
+          causes: expect.arrayContaining([expect.objectContaining({ _tag: "SettingsParseError" })]),
+        });
+        expect(review.record).not.toHaveProperty("contract");
         const output = path.join(fixture.project, "reviewed-diagnostic.json");
         const unreviewed = await fixture.run(
-          [
-            "diagnostics",
-            "export",
-            id,
-            "--review-sha256",
-            "0".repeat(64),
-            "--output",
-            output,
-            "--json",
-          ],
+          ["diagnostics", "export", id, "--review-sha256", "0".repeat(64), output, "--json"],
           env,
         );
-        expect(unreviewed.exitCode).not.toBe(0);
+        expect(unreviewed.exitCode).toBe(9);
+        expect(JSON.parse(unreviewed.stdout)).toMatchObject({ ok: false, code: "validation" });
         expect(fs.existsSync(output)).toBe(false);
-        const exported = await fixture.run(
+        const invalidDirectory = await fixture.run(
           [
             "diagnostics",
             "export",
             id,
             "--review-sha256",
             review.sha256,
-            "--output",
-            output,
+            path.join(fixture.project, "missing", "record.json"),
             "--json",
           ],
+          env,
+        );
+        expect(invalidDirectory.exitCode).toBe(9);
+        expect(JSON.parse(invalidDirectory.stdout)).toMatchObject({
+          ok: false,
+          code: "validation",
+        });
+        const exported = await fixture.run(
+          ["diagnostics", "export", id, "--review-sha256", review.sha256, output, "--json"],
           env,
         );
         expect(exported.exitCode, exported.stdout + exported.stderr).toBe(0);
         expect(fs.readFileSync(output, "utf8")).toBe(`${JSON.stringify(review.record, null, 2)}\n`);
         const retained = fs.readFileSync(output, "utf8");
         const overwrite = await fixture.run(
-          [
-            "diagnostics",
-            "export",
-            id,
-            "--review-sha256",
-            review.sha256,
-            "--output",
-            output,
-            "--json",
-          ],
+          ["diagnostics", "export", id, "--review-sha256", review.sha256, output, "--json"],
           env,
         );
-        expect(overwrite.exitCode).not.toBe(0);
+        expect(overwrite.exitCode).toBe(6);
+        expect(JSON.parse(overwrite.stdout)).toMatchObject({ ok: false, code: "conflict" });
         expect(fs.readFileSync(output, "utf8")).toBe(retained);
       } finally {
         fixture.cleanup();

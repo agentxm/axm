@@ -13,7 +13,7 @@ still means that scope has not expressed a choice.
 
 An unreadable or invalid settings file stops the command without changing
 workspace or user state. Force-like controls such as `--accept-warnings`,
-`--reinstall`, and `--refresh` do not bypass
+and `--reinstall` do not bypass
 this prerequisite. AXM does not rewrite, migrate, or degrade invalid settings;
 repair or restore the reported file directly, then run the command again.
 
@@ -56,7 +56,7 @@ notably, a configured source cannot shadow `agentxm`. Credentials selected for
 the default Registry are never sent to another configured Registry.
 
 `minimumReleaseAge` controls unattended Registry resolution wherever AXM
-selects a release without an explicit version request — bare `axm install`,
+selects a release without an explicit version request — `axm install <source>`,
 `axm sync`, every update command, activation, materialization, and `axm
 demote`. It defaults to `"24h"` so brand-new versions are held until they have
 aged for 24 hours; use `"0s"` to disable the holdback.
@@ -135,7 +135,7 @@ Workspace instruction-file management lives at top-level `instructionFiles`:
 ```
 
 The object enables propagation, `false` explicitly disables it, and absence
-means it has not been configured. Use `axm instructions` to inspect the
+means it has not been configured. Use `axm instructions status` to inspect the
 effective state and `axm instructions enable|disable` to change it.
 
 Knowledge-wide contribution config lives under `knowledgeConfig`.
@@ -253,7 +253,7 @@ file, it preserves the file's key order and untouched formatting.
 Workspace-authored packages are authoritative local sources. AXM protects them
 across their lifecycle:
 
-- **Install and update cannot replace source** — update reports the package unchanged and explicit refresh/constraint flags do not bypass protection.
+- **Install and update cannot replace source** — update reports the package unchanged and explicit reinstall/constraint flags do not bypass protection.
 - **Enable and sync resolve locally** — AXM validates the canonical package and never fetches the same FQN from a registry.
 - **Uninstall removes owned state** — canonical source is deleted when nothing else reaches it; use disable to retain a managed package without activating it.
 - **Editing requires authority** — version and pack membership commands reject non-workspace packages; use `axm adopt <extension>` first.

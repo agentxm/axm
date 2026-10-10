@@ -26,7 +26,11 @@ import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import { detectAgentsForScope } from "@agentxm/workspace-kernel/agent-adapters";
-import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
+import {
+  AGENT_IDS,
+  AGENTS_BY_ID,
+  AgentLifecycleStateSchema,
+} from "@agentxm/extension-model/unstable/agent-capabilities";
 import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -46,6 +50,8 @@ import {
   resolveExecutionCandidate,
 } from "@agentxm/workspace-kernel/planning";
 import {
+  InstructionHealthSchema,
+  type InstructionHealth,
   expectedProjectionNames,
   observeInstructionProjection,
   resolveInstructionsConfig,
@@ -589,12 +595,13 @@ export const previewOrApplyRemoveConfiguredAgents = <CleanupRequirements = never
 const ConfiguredAgentRowSchema = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
+  kind: Schema.Literals(["configurable", "hosted"]),
   configured: Schema.Boolean,
   detected: Schema.Boolean,
-  /** Instruction-projection health for a configured agent; `-` when not configured. */
-  instructions: Schema.String,
+  /** Instruction-projection health, manual management, or no configured membership. */
+  instructions: Schema.NullOr(Schema.Union([InstructionHealthSchema, Schema.Literal("manual")])),
   /** Whether the vendor still maintains the agent: active, deprecated, retired. */
-  lifecycle: Schema.String,
+  lifecycle: AgentLifecycleStateSchema,
 });
 export type ConfiguredAgentRow = typeof ConfiguredAgentRowSchema.Type;
 
@@ -636,7 +643,7 @@ export const listConfiguredAgents = (
       Effect.map((agents) => agents.map((agent) => agent.id)),
     );
     const configuredSet = new Set(configured);
-    const detectedSet = new Set(detected);
+    const detectedSet = new Set<string>(detected);
     const instructionsConfig = yield* settings.instructionsConfig;
     const instructionHealth =
       Option.isSome(instructionsConfig) && instructionsConfig.value !== false
@@ -651,21 +658,24 @@ export const listConfiguredAgents = (
               ({ status }) => new Map(status.items.map((item) => [item.agentId, item.health])),
             ),
           )
-        : new Map<string, string>();
+        : new Map<string, InstructionHealth>();
 
     const baseIds =
-      request.available === true || request.detected === true
-        ? CONFIGURABLE_AGENT_IDS
-        : CONFIGURABLE_AGENT_IDS.filter((id) => configuredSet.has(id) || detectedSet.has(id));
+      request.available === true
+        ? AGENT_IDS
+        : request.detected === true
+          ? CONFIGURABLE_AGENT_IDS
+          : CONFIGURABLE_AGENT_IDS.filter((id) => configuredSet.has(id) || detectedSet.has(id));
 
     const items = baseIds
       .filter((id) => request.detected !== true || detectedSet.has(id))
       .map((id): ConfiguredAgentRow => ({
         id,
-        name: AGENT_DESCRIPTORS[id].name,
+        name: AGENTS_BY_ID[id].name,
+        kind: "installTarget" in AGENTS_BY_ID[id] ? "hosted" : "configurable",
         configured: configuredSet.has(id),
         detected: detectedSet.has(id),
-        instructions: configuredSet.has(id) ? (instructionHealth.get(id) ?? "manual") : "-",
+        instructions: configuredSet.has(id) ? (instructionHealth.get(id) ?? "manual") : null,
         lifecycle: agentLifecycle(id).state,
       }));
 
@@ -673,7 +683,7 @@ export const listConfiguredAgents = (
       items,
       configured,
       detected,
-      available: [...CONFIGURABLE_AGENT_IDS],
+      available: [...AGENT_IDS],
       count: items.length,
     } satisfies ConfiguredAgentInventory;
   });

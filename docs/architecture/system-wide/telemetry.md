@@ -67,7 +67,7 @@ Errors-only and full collection both send failure reports: bounded,
 allowlisted descriptions of the failure that ended an invocation, which the
 telemetry service may use to diagnose AXM defects and for anonymous failure
 analytics. An invocation reports at most one terminal failure, whether it ends
-during startup, configuration, the command, or output. Success, cancellation,
+during bootstrap, configuration, the command, or output. Success, cancellation,
 and a failure the command recovered from report nothing.
 
 A failure report carries only:

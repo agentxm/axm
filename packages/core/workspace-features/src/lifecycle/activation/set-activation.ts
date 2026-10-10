@@ -2,8 +2,8 @@
  * Activation: turning one installed extension on or off without changing
  * what the workspace acquired.
  *
- * All seven extension types share one request, one settled candidate, and one
- * realization, because activation means the same thing for every type: the
+ * All seven extension types share settlement and realization, with separate
+ * enable and disable requests so only enabling needs release-age policy: the
  * desired-state graph records the preference and decides what is active, and
  * the reconciliation recipe realizes what the graph says — materializing what
  * became active through the same steps `axm sync` runs, withdrawing what
@@ -48,7 +48,10 @@ import {
 } from "@agentxm/workspace-kernel/materialization";
 import { relevantPackConstraintProblems } from "@agentxm/extension-kinds/packs";
 import {
-  prepareActivationRealization,
+  prepareEnabledRealization,
+  prepareDisabledRealization,
+  type DesiredStateProposal,
+  type SyncSelection,
   proposeDesiredState,
   realizeActivation,
   type ActivationRealization,
@@ -120,7 +123,7 @@ import {
   WorkspaceTransactionScope,
 } from "@agentxm/workspace-kernel/settlement";
 
-import type { SetActivationExecutionFailure } from "./errors.js";
+import type { ActivationExecutionFailure } from "./errors.js";
 import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 
 // -----------------------------------------------------------------------------
@@ -128,7 +131,15 @@ import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locatio
 // -----------------------------------------------------------------------------
 
 /** Turn one installed extension on or off. */
-export interface SetActivationRequest {
+interface ActivationTarget {
+  readonly type: ExtensionType;
+  readonly name: string;
+}
+
+export type EnableExtensionRequest = ActivationTarget;
+export type DisableExtensionRequest = ActivationTarget;
+
+interface SetActivationRequest {
   readonly type: ExtensionType;
   /** As the operator named it: a bare name or a fully-qualified identifier. */
   readonly name: string;
@@ -145,7 +156,7 @@ export interface ActivationUnchanged {
 }
 
 /** A settled activation change: everything the plan needs, decided. */
-interface ActivationCandidate {
+interface SettledActivation {
   readonly _tag: "SetActivation";
   readonly type: ExtensionType;
   /** The installed name, after resolving a fully-qualified identifier. */
@@ -166,7 +177,7 @@ interface ActivationCandidate {
 }
 
 /** Every failure settling an activation request can surface. */
-export type SetActivationFailure =
+export type ActivationFailure =
   | AcceptedCanonicalRefError
   | ExtensionLifecycleFailed
   | ExtensionManagerFailure
@@ -176,7 +187,7 @@ export type SetActivationFailure =
   | SourceResolutionFailure;
 
 /** Everything settling and resolving an activation needs. */
-export type SetActivationRequirements =
+export type ActivationRequirements =
   | CodingAgentRepository
   | ConfiguredAgentOutcomesProvider
   | HookManager
@@ -198,7 +209,6 @@ export type SetActivationRequirements =
   | LockfileReader
   | SettingsReader
   | SettingsWriter
-  | ReleaseAgePosture
   | ResolvePlanInteraction
   | Scope.Scope
   | SourceHostProviders
@@ -236,7 +246,7 @@ const quotedSubject = (type: ExtensionType, name: string): string => {
     case "rule":
       return `rule "${name}"`;
     case "hook":
-      return `hooks package "${name}"`;
+      return `hook extension "${name}"`;
     case "knowledge":
       return `Knowledge bundle "${name}"`;
     case "pack":
@@ -468,15 +478,24 @@ const conflictFrom = (detail: string) => (cause: SyncPolicyFailure) =>
  * Settle a leaf activation: the graph decides whether the request changes
  * anything, and the recipe decides how the resulting graph is realized.
  */
-const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversionService) =>
+type RealizationPreparer<R> = (args: {
+  readonly proposal: DesiredStateProposal;
+  readonly subjects: ReadonlyArray<DesiredExtensionNode>;
+  readonly selection: SyncSelection;
+  readonly adapter: StepFailureConversionService;
+  readonly retireUnreachable: boolean;
+}) => Effect.Effect<ActivationRealization, SyncPolicyFailure, R>;
+
+const settleLeaf = <R>(
+  request: SetActivationRequest,
+  adapter: StepFailureConversionService,
+  prepareRealization: RealizationPreparer<R>,
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const desiredState = yield* DesiredStateReader;
     const scope = location.scope;
-    const name = yield* resolveInstalledIdentifierNameOrInput({
-      input: request.name,
-      resourceType: request.type,
-    });
+    const name = request.name;
     const current = findNode(yield* desiredState.graph(), request.type, name);
     if (current === undefined) return yield* notHeld(request, name);
     const proposal = yield* proposeDesiredState([
@@ -553,13 +572,12 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
           materialization: Option.none(),
           retirement: Option.none(),
         }
-      : yield* prepareActivationRealization({
+      : yield* prepareRealization({
           proposal,
-          enabled: request.enabled,
           subjects: [subject],
           selection: {
             target: Option.none(),
-            type: Option.none(),
+            types: [],
             subjects: [{ type: request.type, name }],
           },
           adapter,
@@ -599,7 +617,7 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
       refusal,
       warning: Option.none(),
       agentOutcomes,
-    } satisfies ActivationCandidate;
+    } satisfies SettledActivation;
   });
 
 /**
@@ -607,7 +625,11 @@ const settleLeaf = (request: SetActivationRequest, adapter: StepFailureConversio
  * contributes; disabling withdraws the members that lose their last active
  * origin and retires the acquired content nothing reaches any more.
  */
-const settlePack = (request: SetActivationRequest, adapter: StepFailureConversionService) =>
+const settlePack = <R>(
+  request: SetActivationRequest,
+  adapter: StepFailureConversionService,
+  prepareRealization: RealizationPreparer<R>,
+) =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
@@ -687,11 +709,10 @@ const settlePack = (request: SetActivationRequest, adapter: StepFailureConversio
     )
       ? yield* instructionGate()
       : Option.none<ExtensionLifecycleFailed>();
-    const realization = yield* prepareActivationRealization({
+    const realization = yield* prepareRealization({
       proposal,
-      enabled: request.enabled,
       subjects: members,
-      selection: { target: Option.some(identity), type: Option.none() },
+      selection: { target: Option.some(identity), types: [] },
       adapter,
       retireUnreachable: !request.enabled,
     }).pipe(
@@ -735,7 +756,7 @@ const settlePack = (request: SetActivationRequest, adapter: StepFailureConversio
       refusal: Option.none(),
       warning: Option.none(),
       agentOutcomes: [],
-    } satisfies ActivationCandidate;
+    } satisfies SettledActivation;
   });
 
 /**
@@ -746,12 +767,20 @@ const settlePack = (request: SetActivationRequest, adapter: StepFailureConversio
  * of offering to do nothing. A request naming a subject the workspace does
  * not hold fails with the type's own recovery route.
  */
-const settleActivation = (request: SetActivationRequest) =>
+const settleActivation = <R>(
+  request: SetActivationRequest,
+  prepareRealization: RealizationPreparer<R>,
+) =>
   Effect.gen(function* () {
     const adapter = yield* StepFailureConversion;
+    const name = yield* resolveInstalledIdentifierNameOrInput({
+      input: request.name,
+      resourceType: request.type,
+    });
+    const resolved = { ...request, name };
     return request.type === "pack"
-      ? yield* settlePack(request, adapter)
-      : yield* settleLeaf(request, adapter);
+      ? yield* settlePack(resolved, adapter, prepareRealization)
+      : yield* settleLeaf(resolved, adapter, prepareRealization);
   });
 
 // -----------------------------------------------------------------------------
@@ -799,9 +828,7 @@ const validatePackActivation = (candidate: {
  * The step for a settled change: the preference, the projections it moves,
  * and any instruction file they share, inside one transaction.
  */
-const activationStep = (
-  candidate: ActivationCandidate,
-): PlannedJobStep<SetActivationRequirements> => {
+const activationStep = (candidate: SettledActivation): PlannedJobStep<ActivationRequirements> => {
   if (Option.isSome(candidate.blocked)) {
     return {
       key: `${candidate.type}:${candidate.name}`,
@@ -861,9 +888,9 @@ const activationStep = (
  * one workspace transaction, so a projection that cannot be written never
  * leaves the preference recorded.
  */
-const prepareActivationExecution = (candidate: ActivationCandidate) =>
+const prepareActivationExecution = (candidate: SettledActivation) =>
   Effect.gen(function* () {
-    const plan: Plan<SetActivationRequirements> = {
+    const plan: Plan<ActivationRequirements> = {
       _tag: "Plan",
       name: `${candidate.enabled ? "Enable" : "Disable"} ${PLAN_SUBJECT[candidate.type]}`,
       description: Option.some(
@@ -893,34 +920,48 @@ const prepareActivationExecution = (candidate: ActivationCandidate) =>
     return { ...candidate, execution: prepared };
   });
 
-export interface SetActivationCandidate extends ActivationCandidate {
-  readonly execution: ExecutionCandidate<SetActivationRequirements>;
+export interface ActivationCandidate extends SettledActivation {
+  readonly execution: ExecutionCandidate<ActivationRequirements>;
 }
 
-export const prepareSetActivation = (
+const prepareActivation = <R>(
   request: SetActivationRequest,
+  prepareRealization: RealizationPreparer<R>,
 ): Effect.Effect<
-  SetActivationCandidate | ActivationUnchanged,
-  SetActivationFailure | SetActivationExecutionFailure,
-  SetActivationRequirements
+  ActivationCandidate | ActivationUnchanged,
+  ActivationFailure | ActivationExecutionFailure,
+  ActivationRequirements | R
 > =>
   Effect.gen(function* () {
-    const candidate = yield* settleActivation(request);
+    const candidate = yield* settleActivation(request, prepareRealization);
     if (candidate._tag === "Unchanged") return candidate;
     return yield* prepareActivationExecution(candidate);
   });
 
-export const previewOrApplySetActivation = (
-  candidate: SetActivationCandidate,
+const previewOrApplyActivation = (
+  candidate: ActivationCandidate,
   execution: PlanExecution,
-): Effect.Effect<
-  OperationResolution<void>,
-  SetActivationExecutionFailure,
-  SetActivationRequirements
-> => resolveExecutionCandidate(candidate.execution, execution);
+): Effect.Effect<OperationResolution<void>, ActivationExecutionFailure, ActivationRequirements> =>
+  resolveExecutionCandidate(candidate.execution, execution);
 
-/** The activation use case. */
-export const SetActivation = {
-  prepare: prepareSetActivation,
-  previewOrApply: previewOrApplySetActivation,
+export const EnableExtension = {
+  prepare: (
+    request: EnableExtensionRequest,
+  ): Effect.Effect<
+    ActivationCandidate | ActivationUnchanged,
+    ActivationFailure | ActivationExecutionFailure,
+    ActivationRequirements | ReleaseAgePosture
+  > => prepareActivation({ ...request, enabled: true }, prepareEnabledRealization),
+  previewOrApply: previewOrApplyActivation,
+} as const;
+
+export const DisableExtension = {
+  prepare: (
+    request: DisableExtensionRequest,
+  ): Effect.Effect<
+    ActivationCandidate | ActivationUnchanged,
+    ActivationFailure | ActivationExecutionFailure,
+    ActivationRequirements
+  > => prepareActivation({ ...request, enabled: false }, prepareDisabledRealization),
+  previewOrApply: previewOrApplyActivation,
 } as const;

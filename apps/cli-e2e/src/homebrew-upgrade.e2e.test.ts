@@ -99,7 +99,7 @@ esac
         expect(document).toMatchObject({
           ok: true,
           result: {
-            contract: "axm.upgrade-assessment/v1",
+            contract: "upgrade-assessment-v1",
             disposition: "upgraded",
             ownership: {
               method: "homebrew",

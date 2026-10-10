@@ -2,14 +2,13 @@ import * as fs from "node:fs";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { HelpTopicDocument } from "../test-support/machine-documents.js";
 import { makeDirectoryFixture } from "../test-support/directory-harness.js";
 
 export const specification = defineSpecification({
   requirement: "cli/help/schema-topics-return-json",
   title: "Schema topics expose the published JSON schema",
   statement:
-    "When a schema help topic is requested, AXM shall return the published schema as parseable JSON, directly in ordinary output and in the topic content field in machine output.",
+    "When a schema help topic is requested, AXM shall return the published schema as parseable JSON, directly in ordinary output and as a structured schema object in a json-schema topic result in machine output.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
@@ -23,7 +22,14 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const topicDocument = HelpTopicDocument;
+const topicDocument = Schema.Struct({
+  ok: Schema.Literal(true),
+  result: Schema.Struct({
+    topic: Schema.String,
+    kind: Schema.Literal("json-schema"),
+    schema: Schema.Record(Schema.String, Schema.Unknown),
+  }),
+});
 const schemaRoot = new URL("../../../cli/site-content/__generated__/schemas/", import.meta.url);
 const schemas = fs.readdirSync(schemaRoot).filter((name) => name.endsWith(".schema.json"));
 
@@ -38,10 +44,9 @@ describe("Schema help topics", () => {
           const topic = `${schema.slice(0, -".schema.json".length)}-schema`;
           const result = await fixture.run(["help", topic, ...(machine ? ["--json"] : [])]);
           expect(result.exitCode, result.stdout + result.stderr).toBe(0);
-          const content = machine
-            ? Schema.decodeUnknownSync(topicDocument)(JSON.parse(result.stdout)).result.content
-            : result.stdout;
-          const actual: unknown = JSON.parse(content);
+          const actual: unknown = machine
+            ? Schema.decodeUnknownSync(topicDocument)(JSON.parse(result.stdout)).result.schema
+            : JSON.parse(result.stdout);
           const expected: unknown = JSON.parse(
             fs.readFileSync(new URL(schema, schemaRoot), "utf8"),
           );

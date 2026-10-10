@@ -1,3 +1,4 @@
+import { parameterHelpLine } from "../../cli-parameters.js";
 /**
  * The human form of a command-help document.
  *
@@ -66,12 +67,7 @@ const groupLabel = (group: string | undefined): string =>
   group === undefined ? "commands" : group.toUpperCase();
 
 /** Registered group that should render before the other command groups. */
-const LEADING_GROUP = "GETTING STARTED";
-
-/** Display labels for command groups, only where the label differs from the group key. */
-const GROUP_DISPLAY_LABELS: Record<string, string> = {
-  "GETTING STARTED": "START HERE",
-};
+const LEADING_GROUP = "START HERE";
 
 /**
  * Groups rendered as a name list rather than a described table, each mapped
@@ -145,14 +141,14 @@ const compactGroupDoc = (
 ): Doc =>
   names.length === 0
     ? []
-    : section(GROUP_DISPLAY_LABELS[label] ?? label, [
+    : section(label, [
         { _tag: "paragraph", text: namesRow(names, paint) },
         ...(footer === null ? [] : [{ _tag: "paragraph", tone: "dim", text: footer } as const]),
       ]);
 
 const describedGroupDoc = (label: string, commands: ReadonlyArray<JsonSubcommandDoc>): Doc =>
   section(
-    GROUP_DISPLAY_LABELS[label] ?? label,
+    label,
     fieldsNode(
       foldInverseCommands(commands).map((row) => ({
         label: [commandName(row.displayName)],
@@ -209,19 +205,16 @@ const formatFlagName = (flag: JsonFlagDoc): string =>
   ].join(", ");
 
 const formatArgName = (arg: JsonArgDoc): string => {
-  const name = arg.variadic ? `${arg.name}...` : arg.name;
-  return arg.required ? `<${name}>` : `[<${name}>]`;
+  const name = `<${arg.name}>${arg.variadic !== undefined ? "..." : ""}`;
+  return arg.required ? name : `[${name}]`;
 };
 
-const formatArgDescription = (arg: JsonArgDoc): string => {
-  const description = arg.description ?? "";
-  return arg.required ? description : `${description} (optional)`;
-};
+const formatArgDescription = parameterHelpLine;
 
 const flagFields = (flags: ReadonlyArray<JsonFlagDoc>): ReadonlyArray<Field> =>
   flags.map((flag) => ({
     label: [flagName(formatFlagName(flag))],
-    value: flag.description ?? "",
+    value: parameterHelpLine(flag),
   }));
 
 const commandHelpSections = (doc: JsonHelpDoc): Doc =>

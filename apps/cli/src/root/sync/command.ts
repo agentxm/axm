@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -14,21 +15,21 @@ import { handleSync } from "./handler.js";
 
 const syncConfig = {
   target: Argument.String("extension").pipe(
-    Argument.withDescription("Optional extension or pack root to reconcile"),
+    withParameterDescription("Optional extension or pack root to reconcile"),
     Argument.optional,
   ),
   // Pack is a container, not a directly materialized extension. Explicit pack
   // roots expand to their member closure; type-filtered sync dispatches only
   // the non-container types derived from the canonical capability table.
   type: Flag.Literals("type", [...CATALOG_EXTENSION_TYPES]).pipe(
-    Flag.withDescription("Reconcile only one directly materialized extension type"),
-    Flag.optional,
+    withParameterDescription("Restrict to this extension type"),
+    Flag.atLeast(0),
   ),
-  scope: scopeFlag.pipe(Flag.withDescription("Sync project (default) or user-level configuration")),
-  preview: previewCapabilityFlag("Preview the materialization plan without applying it"),
+  scope: scopeFlag,
+  preview: previewCapabilityFlag(),
   failOnChange: Flag.Boolean("fail-on-change").pipe(
-    Flag.withDescription("Exit 1 when preview finds reconciliation work"),
-    Flag.withDefault(false),
+    withParameterDescription("Exit 1 when preview finds reconciliation work"),
+    withParameterDefault(false),
   ),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
@@ -37,7 +38,7 @@ export const syncCommand = Command.make(
   "sync",
   syncConfig,
   ({ target, type, scope, preview, failOnChange, ignoreReleaseAge }) =>
-    handleSync({ target, type, preview, failOnChange }).pipe(
+    handleSync({ target, types: type, preview, failOnChange }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("sync"),

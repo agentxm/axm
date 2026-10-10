@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Registry API",
-    "version": "0.2.0",
+    "version": "0.3.0",
     "description": "Public machine-client API for AgentXM auth, discovery, extension reads, publishing, and user-initiated lifecycle operations."
   },
   "paths": {
@@ -1392,7 +1392,7 @@
                               }
                             ]
                           },
-                          "yankNotice": {
+                          "yankMessage": {
                             "anyOf": [
                               {
                                 "type": "string"
@@ -1444,7 +1444,7 @@
                             "archivedAt": {
                               "$ref": "#/components/schemas/IsoDateTimeString"
                             },
-                            "reason": {
+                            "message": {
                               "anyOf": [
                                 {
                                   "type": "string"
@@ -1975,7 +1975,7 @@
                         }
                       ]
                     },
-                    "yankNotice": {
+                    "yankMessage": {
                       "anyOf": [
                         {
                           "type": "string"
@@ -3884,7 +3884,7 @@
                         }
                       ]
                     },
-                    "yankNotice": {
+                    "yankMessage": {
                       "anyOf": [
                         {
                           "type": "string",
@@ -3897,6 +3897,20 @@
                     },
                     "links": {
                       "$ref": "#/components/schemas/ExtensionLinks"
+                    },
+                    "before": {
+                      "$ref": "#/components/schemas/VersionYankState"
+                    },
+                    "disposition": {
+                      "type": "string",
+                      "enum": [
+                        "changed",
+                        "already-current"
+                      ]
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -3906,8 +3920,11 @@
                     "version",
                     "yankedAt",
                     "yankCategory",
-                    "yankNotice",
-                    "links"
+                    "yankMessage",
+                    "links",
+                    "before",
+                    "disposition",
+                    "revision"
                   ],
                   "additionalProperties": false
                 }
@@ -4067,11 +4084,25 @@
                     "yankCategory": {
                       "type": "null"
                     },
-                    "yankNotice": {
+                    "yankMessage": {
                       "type": "null"
                     },
                     "links": {
                       "$ref": "#/components/schemas/ExtensionLinks"
+                    },
+                    "before": {
+                      "$ref": "#/components/schemas/VersionYankState"
+                    },
+                    "disposition": {
+                      "type": "string",
+                      "enum": [
+                        "changed",
+                        "already-current"
+                      ]
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
@@ -4081,8 +4112,11 @@
                     "version",
                     "yankedAt",
                     "yankCategory",
-                    "yankNotice",
-                    "links"
+                    "yankMessage",
+                    "links",
+                    "before",
+                    "disposition",
+                    "revision"
                   ],
                   "additionalProperties": false
                 }
@@ -4225,12 +4259,39 @@
                       "enum": [
                         false
                       ]
+                    },
+                    "before": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Version"
+                      }
+                    },
+                    "after": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Version"
+                      }
+                    },
+                    "disposition": {
+                      "type": "string",
+                      "enum": [
+                        "changed",
+                        "already-current"
+                      ]
+                    },
+                    "revision": {
+                      "type": "string",
+                      "minLength": 1
                     }
                   },
                   "required": [
                     "selection",
                     "affectedVersions",
-                    "futureVersionsAffected"
+                    "futureVersionsAffected",
+                    "before",
+                    "after",
+                    "disposition",
+                    "revision"
                   ],
                   "additionalProperties": false
                 }
@@ -7049,7 +7110,7 @@
           "archivedAt": {
             "$ref": "#/components/schemas/IsoDateTimeString"
           },
-          "reason": {
+          "message": {
             "anyOf": [
               {
                 "type": "string",
@@ -7263,7 +7324,7 @@
               }
             ]
           },
-          "yankNotice": {
+          "yankMessage": {
             "anyOf": [
               {
                 "type": "string"
@@ -7850,6 +7911,54 @@
         "title": "Authorization Deny Details",
         "description": "Diagnostic details returned when a request is denied due to insufficient authorization."
       },
+      "VersionYankState": {
+        "type": "object",
+        "properties": {
+          "yankedAt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/IsoDateTimeString"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "yankCategory": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "broken",
+                  "security",
+                  "accidental",
+                  "other"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "yankMessage": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "yankedAt",
+          "yankCategory",
+          "yankMessage"
+        ],
+        "additionalProperties": false
+      },
       "ExtensionLinks": {
         "type": "object",
         "properties": {
@@ -7904,7 +8013,7 @@
               }
             ]
           },
-          "notice": {
+          "message": {
             "anyOf": [
               {
                 "type": "string",
@@ -7942,7 +8051,7 @@
               }
             ]
           },
-          "notice": {
+          "message": {
             "anyOf": [
               {
                 "type": "string",
@@ -8642,7 +8751,7 @@
                   "archivedAt": {
                     "$ref": "#/components/schemas/IsoDateTimeString"
                   },
-                  "reason": {
+                  "message": {
                     "anyOf": [
                       {
                         "type": "string"
@@ -8671,7 +8780,7 @@
                   "archivedAt": {
                     "$ref": "#/components/schemas/IsoDateTimeString"
                   },
-                  "reason": {
+                  "message": {
                     "anyOf": [
                       {
                         "type": "string"
@@ -8722,12 +8831,12 @@
       "PutArchivalBody": {
         "type": "object",
         "properties": {
-          "reason": {
+          "message": {
             "anyOf": [
               {
                 "type": "string",
                 "maxLength": 500,
-                "description": "Optional publisher reason for archiving the extension."
+                "description": "Publisher message; omit to preserve it, or use null to clear it."
               },
               {
                 "type": "null"
@@ -8735,9 +8844,6 @@
             ]
           }
         },
-        "required": [
-          "reason"
-        ],
         "additionalProperties": false
       },
       "ArchivalManagementView": {
@@ -8751,7 +8857,7 @@
                   "archivedAt": {
                     "$ref": "#/components/schemas/IsoDateTimeString"
                   },
-                  "reason": {
+                  "message": {
                     "anyOf": [
                       {
                         "type": "string"
@@ -9175,7 +9281,7 @@
                   "archivedAt": {
                     "$ref": "#/components/schemas/IsoDateTimeString"
                   },
-                  "reason": {
+                  "message": {
                     "anyOf": [
                       {
                         "type": "string"

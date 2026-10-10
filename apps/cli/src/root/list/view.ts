@@ -2,7 +2,7 @@ import type { InstallableExtensionType } from "@agentxm/extension-model/unstable
 import type {
   ExtensionListDocument,
   ExtensionListFilter,
-  ExtensionListItem,
+  AssessedExtensionListItem,
 } from "@agentxm/workspace-features/inspection";
 import { formatDeprecationWarning } from "@agentxm/registry-client";
 
@@ -21,12 +21,12 @@ import { extensionTypeText, inventoryLifecycle } from "../inventory-view.js";
 interface ListTableRow {
   readonly extension: string;
   readonly type: InstallableExtensionType;
-  readonly management: ExtensionListItem["management"];
+  readonly management: AssessedExtensionListItem["management"];
   readonly installed: boolean;
   readonly enabled: boolean;
   readonly version: string;
   readonly source: string;
-  readonly state: ExtensionListItem["assessment"]["state"];
+  readonly state: AssessedExtensionListItem["assessment"]["state"];
   readonly guidance: string;
   readonly nativeLocations: string;
   readonly configuredConsumers: string;
@@ -49,10 +49,7 @@ const ExtensionListColumns = [
   {
     header: "Management",
     value: (row: ListTableRow) =>
-      attention(
-        inventoryLifecycle({ lifecycle: row.management, enabled: row.enabled }),
-        row.management === "leftover",
-      ),
+      attention(inventoryLifecycle({ lifecycle: row.management }), row.management === "leftover"),
   },
   {
     header: "Installed",
@@ -82,13 +79,13 @@ const ExtensionListColumns = [
   { header: "Guidance", priority: "optional", value: (row: ListTableRow) => row.guidance },
 ] satisfies ReadonlyArray<ViewColumn<ListTableRow>>;
 
-const guidanceFor = (item: ExtensionListItem): string => {
+const guidanceFor = (item: AssessedExtensionListItem): string => {
   const deprecation = item.assessment.deprecation;
   if (deprecation === undefined) return "-";
   return formatDeprecationWarning(item.ref, deprecation);
 };
 
-const toRow = (item: ExtensionListItem): ListTableRow => ({
+const toRow = (item: AssessedExtensionListItem): ListTableRow => ({
   extension: item.ref,
   type: item.type,
   management: item.management,
@@ -113,7 +110,7 @@ const toRow = (item: ExtensionListItem): ListTableRow => ({
     item.duplicateDiscoveries
       ?.map(
         (duplicate) =>
-          `${duplicate.agentId}: ${String(duplicate.nativeUnitKeys.length)} locations; runtime selection unverified`,
+          `${duplicate.agentId}: ${String(duplicate.nativeUnits.length)} locations; runtime selection unverified`,
       )
       .join("; ") || ABSENT,
 });
@@ -178,7 +175,7 @@ const emptyFilteredInventoryDoc = (
  * mark and a toned cell, and the summary sentence after it.
  */
 export const listDoc = (options: {
-  readonly items: ReadonlyArray<ExtensionListItem>;
+  readonly items: ReadonlyArray<AssessedExtensionListItem>;
   readonly filter: ExtensionListFilter;
   /** How much of the inventory a filtered listing could assess. */
   readonly coverage?: ExtensionListDocument["coverage"];

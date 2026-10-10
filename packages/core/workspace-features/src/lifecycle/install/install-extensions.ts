@@ -1,12 +1,15 @@
-import { nativeUnitKey } from "@agentxm/workspace-kernel/locations";
+import {
+  collectSkillAcquisitions,
+  settledSkillAcquisitions,
+  type InstalledSkill,
+  type SkillAcquisitionCandidate,
+} from "../skill-acquisitions.js";
 /**
  * Installing extensions.
  *
- * One use case behind seventeen command spellings. `axm install` with a
- * registry FQN, `axm <type> install <source>`, `axm install <locator>`, and
- * either form with no source at all are the same decision with different
- * amounts already known: which type, which source, which versions, and which
- * of a source's contents the person wants.
+ * Root and typed installation require an explicit source. Registry identities,
+ * self-describing locators, and paths carry different amounts already known:
+ * which type, which source, which versions, and which contents to select.
  *
  * `prepare` settles all of that and writes nothing. The locator form is the
  * reason it must: a locator can carry several extension types at once, and
@@ -19,18 +22,18 @@ import { nativeUnitKey } from "@agentxm/workspace-kernel/locations";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
-import * as Path from "effect/Path";
 import * as Option from "effect/Option";
+import * as semver from "semver";
+import { isGlobPattern } from "@agentxm/extension-model/unstable/extensions/name-patterns";
+import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 
 import {
   installableExtensionTypes,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
   operationPresentation,
-  type ConfiguredAgentOperation,
   type OperationResolution,
   type Plan,
   type PlanExecution,
@@ -47,27 +50,13 @@ import {
 
 import {
   makeConfiguredReleaseAgeEvaluation,
+  normalizeReleaseAgeRecords,
   acceptedPackDependencyResolver,
   type ExtensionResolutionFailed,
 } from "@agentxm/workspace-kernel/resolution";
 
-import { sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
-import { withPublisherTrust } from "../publisher-binding.js";
-import { withSourceSwitches } from "../source-switch.js";
-import {
-  activeInstructionsConfig,
-  instructionReadinessDetail,
-  instructionReconciliationReadiness,
-  observeInstructions,
-} from "@agentxm/workspace-kernel/projection";
-import {
-  withWorkspaceReadView,
-  acceptedLockedCanonicalPath,
-  acceptedLockedResolutionRef,
-  usableAcceptedCanonical,
-  WorkspaceLocation,
-  AcceptedResolutionWriter,
-} from "@agentxm/workspace-kernel/workspace-state";
+import { prepareAcquisitionPlan } from "../prepare-acquisition-plan.js";
+import { withWorkspaceReadView } from "@agentxm/workspace-kernel/workspace-state";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { planKnowledgeInstall } from "@agentxm/extension-kinds/knowledge";
 import {
@@ -93,13 +82,13 @@ import {
   planSkillInstall,
 } from "@agentxm/extension-kinds/skills";
 import { planSubagentInstall } from "@agentxm/extension-kinds/subagents";
-import { buildConfiguredInstallPlan, type ConfiguredInstallRequirements } from "./configured.js";
 import { acceptedInstallRequestRefs } from "./accepted-request.js";
 import {
   discoverInstallRefs,
   finalizeInstallRefs,
   parseLocatorInstallRequest,
   parseRegistryQualifiedInstallRequest,
+  resolveRegistryInstallRefs,
   type ParsedInstallRequest,
   type SourceInstallRef,
   type SourceInstallType,
@@ -108,19 +97,14 @@ import { resolveRootInstallIntent } from "./root-intent.js";
 import type { InstallExecutionFailure, PrepareInstallRequirements } from "./vocabulary.js";
 import {
   INSTALL_HELD_RELEASE_POLICY,
-  groupRetainedPackageSteps,
-  StepFailureConversion,
-  toStepKey,
   type InstallStepRequirements,
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
 import {
-  findSourceReinstallRefs,
-  pinSourceReinstallRef,
   findRetainedSourceComponents,
   retainedSelectionSatisfied,
   mergeRetainedSourceRefs,
-} from "./accepted-source-reinstall.js";
+} from "./retained-source-components.js";
 import { SourceHostProviders, formatRegistryProbe } from "@agentxm/workspace-kernel/sources";
 import { makeLocatorSourceView } from "./git-discovery.js";
 import {
@@ -134,13 +118,10 @@ import {
 // -----------------------------------------------------------------------------
 
 /**
- * What the request installs: the extensions the workspace already declares,
- * one source a person named, or the official skill the executable carries.
+ * What the request installs: one named source or the official bundled skill.
  */
 export type InstallSubject =
-  | { readonly kind: "configured" }
-  | { readonly kind: "source"; readonly source: string }
-  | { readonly kind: "bundled" };
+  { readonly kind: "source"; readonly source: string } | { readonly kind: "bundled" };
 
 /** Selectors grouped by the type whose source contents they name. */
 export type InstallExtensionSelectors = Partial<
@@ -165,8 +146,6 @@ export interface InstallExtensionsRequest {
   readonly selectors: InstallExtensionSelectors;
   /** Take everything the source offers without asking. */
   readonly all: boolean;
-  /** Re-materialize even when the canonical tree already matches the lockfile. */
-  readonly reinstall: boolean;
   /** The local connection name an MCP install writes under. */
   readonly localName: Option.Option<string>;
   /** `KEY=VALUE` inputs an MCP install supplies. */
@@ -203,19 +182,9 @@ export interface InstallDiagnostics {
  */
 export interface InstallExtensionsCandidate {
   readonly types: ReadonlyArray<InstallableExtensionType>;
-  /** Nothing matched the request; the application renders its own no-op. */
-  readonly empty: boolean;
-  /** Present only when nothing matched: what to tell the person. */
-  readonly emptyMessage: Option.Option<string>;
   readonly diagnostics: InstallDiagnostics;
-  readonly planName: string;
   readonly execution: ExecutionCandidate<InstallStepRequirements | BundledAxmSkillAsset>;
-  readonly skillCandidates: ReadonlyArray<{
-    readonly unitId: string;
-    readonly memberId: string;
-    readonly ref: SkillExtensionRef;
-  }>;
-  readonly installKind: "install" | "reinstall";
+  readonly skillCandidates: ReadonlyArray<SkillAcquisitionCandidate>;
 }
 
 /**
@@ -232,23 +201,35 @@ export type InstallExtensionsFailure =
 
 const EMPTY_DIAGNOSTICS: InstallDiagnostics = { resolutionLines: [], companionPackages: [] };
 
-const emptyPlan = (request: InstallExtensionsRequest): Plan<InstallStepRequirements> => ({
-  _tag: "Plan",
-  name: request.planName,
-  description: request.planDescription,
-  presentation: operationPresentation(
-    { imperative: "install", past: "Installed", gerund: "Installing" },
-    Option.getOrUndefined(request.type),
-  ),
-  jobs: [{ concurrency: 1, steps: [] }],
-});
+const withInstallReleaseAge = <R>(plan: Plan<R>, evidence: Plan<R>["releaseAge"]): Plan<R> =>
+  evidence === undefined
+    ? plan
+    : {
+        ...plan,
+        releaseAge: {
+          evaluatedAt: evidence.evaluatedAt,
+          holdbacks: normalizeReleaseAgeRecords([
+            ...evidence.holdbacks,
+            ...(plan.releaseAge?.holdbacks ?? []),
+          ]),
+          bypasses: normalizeReleaseAgeRecords([
+            ...evidence.bypasses,
+            ...(plan.releaseAge?.bypasses ?? []),
+          ]),
+        },
+      };
+
+const selectsRegistryRelease = (request: Pick<ParsedInstallRequest, "source" | "versionRange">) =>
+  request.source.type === "registry" &&
+  !(
+    Option.isSome(request.versionRange) &&
+    semver.valid(request.versionRange.value) === request.versionRange.value
+  );
 
 interface PlannedInstall {
   readonly types: ReadonlyArray<InstallableExtensionType>;
   readonly plan: Plan<InstallStepRequirements | BundledAxmSkillAsset>;
   readonly diagnostics: InstallDiagnostics;
-  readonly configuredAgentOperations: ReadonlyArray<ConfiguredAgentOperation>;
-  readonly emptyMessage: Option.Option<string>;
 }
 
 const combineTypePlans = (
@@ -259,7 +240,7 @@ const combineTypePlans = (
   if (plans.length === 1 && only !== undefined) return only;
   const riskConditions = plans.flatMap((plan) => plan.riskConditions ?? []);
   const failureSuggestions = plans.flatMap((plan) => plan.failureSuggestions ?? []);
-  return {
+  const combined: Plan<InstallStepRequirements> = {
     _tag: "Plan",
     name: only?.name ?? `Install ${type}`,
     description: only?.description ?? Option.none(),
@@ -276,6 +257,7 @@ const combineTypePlans = (
     ...(riskConditions.length === 0 ? {} : { riskConditions }),
     ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
   };
+  return plans.reduce((result, plan) => withInstallReleaseAge(result, plan.releaseAge), combined);
 };
 
 /**
@@ -317,7 +299,7 @@ const parseSourceInstallRequest = (
   }
 };
 
-/** One source-backed selection and immutable source reinstall decision for five kinds. */
+/** One source-backed selection, retaining accepted identity for repeated requests. */
 const settleSourceInstall = <T extends SourceInstallType>(
   type: T,
   source: string,
@@ -334,46 +316,49 @@ const settleSourceInstall = <T extends SourceInstallType>(
       source: parsed.source,
       names,
       versionRange: parsed.versionRange,
-      force: request.reinstall,
     });
-    const accepted =
-      repeated.length > 0
-        ? repeated
-        : request.reinstall && (parsed.source.type === "git" || parsed.source.type === "http")
-          ? yield* findSourceReinstallRefs(parsed.source, type, names)
-          : [];
+    const accepted = repeated;
     const acceptedRefs = accepted.filter(isRequestedType);
+    const namedRegistry =
+      acceptedRefs.length === 0 &&
+      selectsRegistryRelease(parsed) &&
+      names.length > 0 &&
+      names.every((name) => !isGlobPattern(name))
+        ? yield* resolveRegistryInstallRefs(type, parsed, names)
+        : undefined;
     const discovered =
       acceptedRefs.length > 0
         ? acceptedRefs
-        : yield* discoverInstallRefs(type, parsed, request.reinstall);
+        : namedRegistry !== undefined
+          ? namedRegistry.refs.map((entry) => entry.ref)
+          : yield* discoverInstallRefs(
+              type,
+              selectsRegistryRelease(parsed) ? { ...parsed, versionRange: Option.none() } : parsed,
+            );
     const selected = yield* selectFrom(discovered, {
       type,
       selectors: names,
       all: request.all,
       nonInteractive: request.nonInteractive,
     });
-    const entries = yield* Effect.sync(() => finalizeInstallRefs(parsed, selected)).pipe(
-      Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }),
-    );
-    const refs =
-      request.reinstall && acceptedRefs.length === 0
-        ? yield* Effect.forEach(entries, (entry) =>
-            pinSourceReinstallRef(entry.ref).pipe(
-              Effect.flatMap((pinned) =>
-                isRequestedType(pinned)
-                  ? Effect.succeed({ ...entry, ref: pinned })
-                  : Effect.fail(
-                      installRefused({
-                        category: "internal",
-                        detail: `Accepted source ${type === "knowledge" ? "Knowledge" : type} resolution changed extension type`,
-                      }),
-                    ),
-              ),
-            ),
-          )
-        : entries;
-    return { refs, foundCount: discovered.length, resolutionProbes: parsed.resolutionProbes };
+    const broadRegistry =
+      namedRegistry === undefined && acceptedRefs.length === 0 && selectsRegistryRelease(parsed)
+        ? yield* resolveRegistryInstallRefs(type, parsed, selected.map(extensionRefName))
+        : undefined;
+    const resolved = namedRegistry ?? broadRegistry;
+    const entries = yield* Effect.sync(() =>
+      resolved === undefined
+        ? finalizeInstallRefs(parsed, selected)
+        : resolved.refs.filter((entry) =>
+            selected.some((ref) => extensionRefName(ref) === extensionRefName(entry.ref)),
+          ),
+    ).pipe(Effect.withSpan("InstallExtensions.finalizeIntent", { attributes: { type } }));
+    return {
+      refs: entries,
+      foundCount: discovered.length,
+      resolutionProbes: parsed.resolutionProbes,
+      releaseAge: resolved?.releaseAge,
+    };
   });
 
 const planForType = (
@@ -383,10 +368,7 @@ const planForType = (
 ): Effect.Effect<
   { readonly plan: Plan<InstallStepRequirements>; readonly diagnostics: InstallDiagnostics },
   InstallExtensionsFailure | SelectionRefused,
-  | PrepareInstallRequirements
-  | ConfiguredInstallRequirements
-  | InstallSelectionInteraction
-  | BundledAxmSkillAsset
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
 > => {
   const selectors = installSelectorsFor(request.selectors, type);
   switch (type) {
@@ -395,11 +377,10 @@ const planForType = (
         const settled = yield* settleSourceInstall("skill", source, selectors, request);
         const plan = yield* planSkillInstall({
           skillsToInstall: settled.refs,
-          force: request.reinstall,
         });
         const companions = buildCompanionPackagesSection(settled.refs.map(({ ref }) => ref));
         return {
-          plan,
+          plan: withInstallReleaseAge(plan, settled.releaseAge),
           diagnostics: {
             resolutionLines: [
               ...(settled.resolutionProbes.length > 0
@@ -415,7 +396,10 @@ const planForType = (
       return Effect.gen(function* () {
         const settled = yield* settleSourceInstall("subagent", source, selectors, request);
         return {
-          plan: yield* planSubagentInstall({ subagentsToInstall: settled.refs }),
+          plan: withInstallReleaseAge(
+            yield* planSubagentInstall({ subagentsToInstall: settled.refs }),
+            settled.releaseAge,
+          ),
           diagnostics: {
             resolutionLines: [
               ...(settled.resolutionProbes.length > 0
@@ -431,7 +415,10 @@ const planForType = (
       return Effect.gen(function* () {
         const settled = yield* settleSourceInstall("rule", source, selectors, request);
         return {
-          plan: yield* planRuleInstall({ refs: settled.refs }),
+          plan: withInstallReleaseAge(
+            yield* planRuleInstall({ refs: settled.refs }),
+            settled.releaseAge,
+          ),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -439,12 +426,15 @@ const planForType = (
       return Effect.gen(function* () {
         const settled = yield* settleSourceInstall("hook", source, selectors, request);
         return {
-          plan: yield* planHookInstall({
-            refs: settled.refs,
-            ...(request.configuration === undefined
-              ? {}
-              : { configuration: request.configuration }),
-          }),
+          plan: withInstallReleaseAge(
+            yield* planHookInstall({
+              refs: settled.refs,
+              ...(request.configuration === undefined
+                ? {}
+                : { configuration: request.configuration }),
+            }),
+            settled.releaseAge,
+          ),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -452,7 +442,10 @@ const planForType = (
       return Effect.gen(function* () {
         const settled = yield* settleSourceInstall("knowledge", source, selectors, request);
         return {
-          plan: yield* planKnowledgeInstall({ refs: settled.refs }),
+          plan: withInstallReleaseAge(
+            yield* planKnowledgeInstall({ refs: settled.refs }),
+            settled.releaseAge,
+          ),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -460,6 +453,7 @@ const planForType = (
       return Effect.gen(function* () {
         const parsed = yield* parseMcpServerInstallRequest({
           source,
+          force: false,
           localName: request.localName,
           bind: request.bind,
           bindEnv: request.bindEnv,
@@ -467,7 +461,7 @@ const planForType = (
             ? {}
             : { distributionId: request.distributionId }),
           ...(request.nativeOauth === undefined ? {} : { nativeOauth: request.nativeOauth }),
-          force: request.reinstall,
+
           nonInteractive: request.nonInteractive,
         });
         const sourceRequest = yield* resolveMcpServerSourceRequest(parsed);
@@ -482,28 +476,41 @@ const planForType = (
           source: sourceRequest.source,
           names: selectedNames,
           versionRange: parsed.versionRange,
-          force: request.reinstall,
+
           ...(Option.isSome(parsed.localName) ? { localName: parsed.localName.value } : {}),
         });
-        const accepted =
-          repeated.length > 0
-            ? repeated
-            : request.reinstall && sourceRequest.source.type === "git"
-              ? yield* findSourceReinstallRefs(sourceRequest.source, "mcp-server", selectedNames)
-              : [];
+        const accepted = repeated;
         const acceptedMcpServers = accepted.filter((ref) => ref.type === "mcp-server");
-        const retained = yield* findRetainedSourceComponents(
-          sourceRequest.source,
-          type,
-          request.reinstall,
-        );
+        const namedRegistry =
+          acceptedMcpServers.length === 0 &&
+          selectsRegistryRelease({
+            source: sourceRequest.source,
+            versionRange: parsed.versionRange,
+          }) &&
+          selectedNames.length > 0 &&
+          selectedNames.every((name) => !isGlobPattern(name))
+            ? yield* resolveRegistryInstallRefs(
+                type,
+                {
+                  ...sourceRequest,
+                  versionRange: parsed.versionRange,
+                  names: selectedNames,
+                  resolutionProbes: [],
+                },
+                selectedNames,
+                sourceRequest.versionRange,
+              )
+            : undefined;
+        const retained = yield* findRetainedSourceComponents(sourceRequest.source, type);
         const discovered =
           acceptedMcpServers.length > 0
             ? acceptedMcpServers
-            : (retainedSelectionSatisfied(retained, selectedNames)
-                ? retained
-                : mergeRetainedSourceRefs(retained, yield* discoverMcpServerRefs(sourceRequest))
-              ).filter((ref) => ref.type === "mcp-server");
+            : namedRegistry !== undefined
+              ? namedRegistry.refs.map((entry) => entry.ref)
+              : (retainedSelectionSatisfied(retained, selectedNames)
+                  ? retained
+                  : mergeRetainedSourceRefs(retained, yield* discoverMcpServerRefs(sourceRequest))
+                ).filter((ref) => ref.type === "mcp-server");
         if (discovered.length === 0) {
           yield* finalizeMcpServerInstallIntent(parsed, sourceRequest, discovered);
         }
@@ -519,7 +526,27 @@ const planForType = (
             detail: "--as can only be used when installing one MCP server",
           });
         }
-        const plans = yield* Effect.forEach(selected, (selectedRef) =>
+        const selectedRegistry =
+          namedRegistry ??
+          (acceptedMcpServers.length === 0 &&
+          selectsRegistryRelease({
+            source: sourceRequest.source,
+            versionRange: parsed.versionRange,
+          })
+            ? yield* resolveRegistryInstallRefs(
+                type,
+                {
+                  ...sourceRequest,
+                  versionRange: parsed.versionRange,
+                  names: [],
+                  resolutionProbes: [],
+                },
+                selected.map(extensionRefName),
+                sourceRequest.versionRange,
+              )
+            : undefined);
+        const selectedRefs = selectedRegistry?.refs.map((entry) => entry.ref) ?? selected;
+        const plans = yield* Effect.forEach(selectedRefs, (selectedRef) =>
           Effect.gen(function* () {
             const localName = Option.orElse(parsed.localName, () =>
               Option.some(selectedRef.server.name),
@@ -538,22 +565,11 @@ const planForType = (
               selectedSourceRequest,
               [selectedRef],
             );
-            const configuredName = Option.getOrElse(localName, () => intent.ref.server.name);
-            const ref =
-              request.reinstall && acceptedMcpServers.length === 0
-                ? yield* pinSourceReinstallRef(intent.ref, configuredName)
-                : intent.ref;
-            if (ref.type !== "mcp-server") {
-              return yield* installRefused({
-                category: "internal",
-                detail: "Accepted Git MCP resolution changed extension type",
-              });
-            }
-            return yield* planMcpServerInstall({ ...intent, ref });
+            return yield* planMcpServerInstall(intent);
           }),
         );
         return {
-          plan: combineTypePlans(type, plans),
+          plan: withInstallReleaseAge(combineTypePlans(type, plans), selectedRegistry?.releaseAge),
           diagnostics: EMPTY_DIAGNOSTICS,
         };
       });
@@ -569,33 +585,32 @@ const planForType = (
           source: sourceRequest.source,
           names: selectors.length > 0 ? selectors : Option.toArray(sourceRequest.packName),
           versionRange: parsed.versionRange,
-          force: request.reinstall,
         });
-        const accepted =
-          repeated.length > 0
-            ? repeated
-            : request.reinstall && sourceRequest.source.type === "git"
-              ? yield* findSourceReinstallRefs(
-                  sourceRequest.source,
-                  "pack",
-                  Option.toArray(sourceRequest.packName),
-                )
-              : [];
+        const accepted = repeated;
         const acceptedPacks = accepted.filter((ref) => ref.type === "pack");
         const implicitSelectors = Option.toArray(sourceRequest.packName);
         const effectiveSelectors = selectors.length > 0 ? selectors : implicitSelectors;
-        const retained = yield* findRetainedSourceComponents(
-          sourceRequest.source,
-          type,
-          request.reinstall,
-        );
+        const namedRegistry =
+          acceptedPacks.length === 0 &&
+          selectsRegistryRelease(sourceRequest) &&
+          effectiveSelectors.length > 0 &&
+          effectiveSelectors.every((name) => !isGlobPattern(name))
+            ? yield* resolveRegistryInstallRefs(
+                type,
+                { ...sourceRequest, names: effectiveSelectors, resolutionProbes: [] },
+                effectiveSelectors,
+              )
+            : undefined;
+        const retained = yield* findRetainedSourceComponents(sourceRequest.source, type);
         const discovered =
           acceptedPacks.length > 0
             ? acceptedPacks
-            : (retainedSelectionSatisfied(retained, effectiveSelectors)
-                ? retained
-                : mergeRetainedSourceRefs(retained, yield* discoverPackRefs(sourceRequest))
-              ).filter((ref) => ref.type === "pack");
+            : namedRegistry !== undefined
+              ? namedRegistry.refs.map((entry) => entry.ref)
+              : (retainedSelectionSatisfied(retained, effectiveSelectors)
+                  ? retained
+                  : mergeRetainedSourceRefs(retained, yield* discoverPackRefs(sourceRequest))
+                ).filter((ref) => ref.type === "pack");
         if (discovered.length === 0) {
           return yield* installRefused({
             category: "not_found",
@@ -608,38 +623,36 @@ const planForType = (
           all: request.all,
           nonInteractive: request.nonInteractive,
         });
-        // The named Pack is the requested release; its members are selected
-        // without an explicit version, so the minimum release age decides them.
-        const releaseAgeEvaluation = yield* makeConfiguredReleaseAgeEvaluation();
-        const plans = yield* Effect.forEach(selected, (selectedRef) =>
+        const selectedRegistry =
+          namedRegistry ??
+          (acceptedPacks.length === 0 && selectsRegistryRelease(sourceRequest)
+            ? yield* resolveRegistryInstallRefs(
+                type,
+                { ...sourceRequest, names: [], resolutionProbes: [] },
+                selected.map(extensionRefName),
+              )
+            : undefined);
+        const selectedRefs = selectedRegistry?.refs.map((entry) => entry.ref) ?? selected;
+        const releaseAgeEvaluation =
+          selectedRegistry?.evaluation ?? (yield* makeConfiguredReleaseAgeEvaluation());
+        const plans = yield* Effect.forEach(selectedRefs, (selectedRef) =>
           Effect.gen(function* () {
             const discovery = { ref: selectedRef, probes: [], sourceLabel: source };
             const intent = finalizePackInstallIntent(parsed, discovery, {
               releaseAgeEvaluation,
               heldRelease: INSTALL_HELD_RELEASE_POLICY,
             });
-            const ref =
-              request.reinstall && acceptedPacks.length === 0
-                ? yield* pinSourceReinstallRef(intent.packToInstall)
-                : intent.packToInstall;
-            if (ref.type !== "pack") {
-              return yield* installRefused({
-                category: "internal",
-                detail: "Accepted Git Pack resolution changed extension type",
-              });
-            }
             return yield* planPackInstall({
               ...intent,
-              packToInstall: ref,
+              packToInstall: intent.packToInstall,
               ...(acceptedPacks.length > 0
                 ? { dependencyResolver: acceptedPackDependencyResolver() }
                 : {}),
-              ...(request.reinstall ? { forceCanonical: true } : {}),
             });
           }),
         );
         return {
-          plan: combineTypePlans(type, plans),
+          plan: withInstallReleaseAge(combineTypePlans(type, plans), selectedRegistry?.releaseAge),
           diagnostics: {
             resolutionLines: selected.flatMap((ref) =>
               packDiscoveryDiagnostics(sourceRequest, { ref, probes: [], sourceLabel: source }),
@@ -667,10 +680,7 @@ const planLocatorInstall = (
 ): Effect.Effect<
   PlannedInstall,
   InstallExtensionsFailure,
-  | PrepareInstallRequirements
-  | ConfiguredInstallRequirements
-  | InstallSelectionInteraction
-  | BundledAxmSkillAsset
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
     const explicitlySelectedTypes = installableExtensionTypes.filter(
@@ -681,7 +691,7 @@ const planLocatorInstall = (
         category: "usage",
         detail: "A per-type selector or --all is required when no prompt can open",
         recover:
-          "Repeat --skill, --subagent, --rule, --hook, --knowledge, --mcp, or --pack for selected names, or pass --all",
+          "Repeat --skill, --subagent, --rule, --hook, --knowledge, --mcp-server, or --pack for selected names, or pass --all",
       });
     }
     const candidateTypes =
@@ -722,27 +732,32 @@ const planLocatorInstall = (
     const steps: ReadonlyArray<PlannedJobStep<InstallStepRequirements>> = matched.flatMap(
       ({ plan }) => plan.jobs.flatMap((job) => job.steps),
     );
+    const riskConditions = matched.flatMap(({ plan }) => plan.riskConditions ?? []);
+    const failureSuggestions = matched.flatMap(({ plan }) => plan.failureSuggestions ?? []);
     return {
       types: matched.map(({ type }) => type),
-      plan: {
-        _tag: "Plan",
-        name: request.planName,
-        description: request.planDescription,
-        presentation: operationPresentation({
-          imperative: "install",
-          past: "Installed",
-          gerund: "Installing",
-        }),
-        jobs: [{ concurrency: 1, steps, executionPolicy: "best-effort" }],
-      },
+      plan: matched.reduce<Plan<InstallStepRequirements>>(
+        (result, { plan }) => withInstallReleaseAge(result, plan.releaseAge),
+        {
+          _tag: "Plan",
+          name: request.planName,
+          description: request.planDescription,
+          presentation: operationPresentation({
+            imperative: "install",
+            past: "Installed",
+            gerund: "Installing",
+          }),
+          jobs: [{ concurrency: 1, steps, executionPolicy: "best-effort" }],
+          ...(riskConditions.length === 0 ? {} : { riskConditions }),
+          ...(failureSuggestions.length === 0 ? {} : { failureSuggestions }),
+        },
+      ),
       diagnostics: {
         resolutionLines: matched.flatMap(({ diagnostics }) => diagnostics.resolutionLines),
         companionPackages: [
           ...new Set(matched.flatMap(({ diagnostics }) => diagnostics.companionPackages)),
         ],
       },
-      configuredAgentOperations: [],
-      emptyMessage: Option.none(),
     } satisfies PlannedInstall;
   });
 
@@ -751,10 +766,7 @@ const planRequest = (
 ): Effect.Effect<
   PlannedInstall,
   InstallExtensionsFailure,
-  | PrepareInstallRequirements
-  | ConfiguredInstallRequirements
-  | InstallSelectionInteraction
-  | BundledAxmSkillAsset
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
 > =>
   Effect.gen(function* () {
     if (request.subject.kind === "bundled") {
@@ -762,34 +774,6 @@ const planRequest = (
         types: ["skill" as const],
         plan: yield* planBundledAxmSkillInstall,
         diagnostics: EMPTY_DIAGNOSTICS,
-        configuredAgentOperations: [],
-        emptyMessage: Option.none(),
-      } satisfies PlannedInstall;
-    }
-
-    if (request.subject.kind === "configured") {
-      const result = yield* buildConfiguredInstallPlan({
-        type: request.type,
-        planName: request.planName,
-        planDescription: request.planDescription,
-        nonInteractive: request.nonInteractive,
-        force: request.reinstall,
-      });
-      if (result._tag === "NoConfiguredExtensions") {
-        return {
-          types: Option.toArray(request.type),
-          plan: emptyPlan(request),
-          diagnostics: EMPTY_DIAGNOSTICS,
-          configuredAgentOperations: [],
-          emptyMessage: Option.some(result.message),
-        } satisfies PlannedInstall;
-      }
-      return {
-        types: Option.toArray(request.type),
-        plan: result.plan,
-        diagnostics: EMPTY_DIAGNOSTICS,
-        configuredAgentOperations: result.configuredAgentOperations,
-        emptyMessage: Option.none(),
       } satisfies PlannedInstall;
     }
 
@@ -820,7 +804,7 @@ const planRequest = (
       return yield* installRefused({
         category: "usage",
         detail: "--as and --env are only valid when installing MCP servers",
-        recover: "Select MCP servers with --mcp, or use an @owner/mcps/name source",
+        recover: "Select MCP servers with --mcp-server, or use an @owner/mcps/name source",
       });
     }
 
@@ -833,8 +817,6 @@ const planRequest = (
       types: [type],
       plan: { ...plan, name: plan.name },
       diagnostics,
-      configuredAgentOperations: [],
-      emptyMessage: Option.none(),
     } satisfies PlannedInstall;
   });
 
@@ -848,199 +830,18 @@ export const prepareInstallExtensions: (
 ) => Effect.Effect<
   InstallExtensionsCandidate,
   InstallExtensionsFailure,
-  | PrepareInstallRequirements
-  | ConfiguredInstallRequirements
-  | InstallSelectionInteraction
-  | BundledAxmSkillAsset
+  PrepareInstallRequirements | InstallSelectionInteraction | BundledAxmSkillAsset
 > = Effect.fn("InstallExtensions.prepare")(function* (request: InstallExtensionsRequest) {
   const planned = yield* planRequest(request);
-  // Every acceptance a plan proposes is classified against the accepted
-  // resolution here, so the root, per-type, locator, and configured routes
-  // share one publisher-trust rule instead of restating it five times.
-  const plan = {
-    ...planned.plan,
-    jobs: yield* Effect.forEach(planned.plan.jobs, (job) =>
-      Effect.gen(function* () {
-        const steps = yield* Effect.forEach(job.steps, (step) =>
-          Effect.gen(function* () {
-            if (step.readiness === "error") return step;
-            const refs =
-              step.acquisitionRefs ??
-              (step.sourceBinding === undefined
-                ? []
-                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]);
-            const boundRefs =
-              step.sourceBinding === undefined
-                ? refs
-                : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])];
-            const canonicalPaths = yield* Effect.forEach(boundRefs, (ref) =>
-              acceptedLockedCanonicalPath({
-                type: ref.type,
-                name: ref.type === "mcp-server" ? ref.server.name : ref.name,
-              }).pipe(
-                Effect.map(Option.toArray),
-                Effect.mapError((cause) =>
-                  installRefused({
-                    category: "internal",
-                    detail: `Accepted path for ${ref.name} could not be read`,
-                    cause,
-                  }),
-                ),
-              ),
-            );
-            const acquisitionRefs = yield* Effect.filter(refs, (ref) =>
-              Effect.gen(function* () {
-                if (ref.refType === "workspace") return false;
-                if (request.reinstall) return true;
-                const canonical = yield* usableAcceptedCanonical({
-                  type: ref.type,
-                  name: ref.type === "mcp-server" ? ref.server.name : ref.name,
-                }).pipe(
-                  Effect.mapError((cause) =>
-                    installRefused({
-                      category: "internal",
-                      detail: `Accepted content for ${ref.name} could not be inspected`,
-                      cause,
-                    }),
-                  ),
-                );
-                if (Option.isNone(canonical)) return true;
-                const accepted = yield* acceptedLockedResolutionRef({
-                  type: ref.type,
-                  name: ref.type === "mcp-server" ? ref.server.name : ref.name,
-                }).pipe(
-                  Effect.mapError((cause) =>
-                    installRefused({
-                      category: "internal",
-                      detail: `Accepted resolution for ${ref.name} could not be read`,
-                      cause,
-                    }),
-                  ),
-                );
-                return (
-                  Option.isNone(accepted) ||
-                  sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref)
-                );
-              }),
-            );
-            return {
-              ...step,
-              acquisitionRefs,
-              materialPaths: [...(step.materialPaths ?? []), ...canonicalPaths.flat()],
-            };
-          }),
-        );
-        return { ...job, steps };
-      }),
-    ),
-  };
-  const trusted = yield* withPublisherTrust(plan);
-  const sourceAware = yield* withSourceSwitches(trusted);
-  const touchesInstructionSurface = (
-    step: PlannedJobStep<InstallStepRequirements | BundledAxmSkillAsset>,
-  ) => {
-    const key = step.key ?? "";
-    return [
-      "rule:",
-      "knowledge:",
-      "pack:",
-      "projection:aggregate-units",
-      "projection:rule",
-      "projection:knowledge",
-    ].some((prefix) => key.startsWith(prefix));
-  };
-  const hasSharedWriter = sourceAware.jobs.some((job) => job.steps.some(touchesInstructionSurface));
-  const config = hasSharedWriter ? yield* activeInstructionsConfig() : Option.none();
-  const readiness = Option.isSome(config)
-    ? yield* Effect.gen(function* () {
-        const snapshot = yield* observeInstructions({ config: config.value });
-        const location = yield* WorkspaceLocation;
-        return yield* instructionReconciliationReadiness({
-          snapshot,
-          workspaceRoot: location.baseDir,
-        });
-      })
-    : Option.none();
-  const gated = Option.isSome(readiness)
-    ? {
-        ...sourceAware,
-        jobs: sourceAware.jobs.map((job) => ({
-          ...job,
-          steps: job.steps.map((step) =>
-            touchesInstructionSurface(step)
-              ? {
-                  ...(step.key === undefined ? {} : { key: step.key }),
-                  label: step.label,
-                  readiness: "error" as const,
-                  errorMessage: instructionReadinessDetail(readiness.value),
-                  ...(step.artifact === undefined ? {} : { artifact: step.artifact }),
-                }
-              : step,
-          ),
-        })),
-      }
-    : sourceAware;
-  const acceptedWriter = yield* AcceptedResolutionWriter;
-  const conversion = yield* StepFailureConversion;
-  const location = yield* WorkspaceLocation;
-  const grouped = {
-    ...gated,
-    jobs: yield* Effect.forEach(gated.jobs, (job) =>
-      groupRetainedPackageSteps({
-        steps: job.steps,
-        artifact: { path: location.baseDir, scope: location.scope, change: "created" },
-        message: "Installed retained package components",
-        acceptedResolutions: acceptedWriter.withBatch,
-        toStepFailure: conversion.toStepFailure,
-      }).pipe(Effect.map((steps) => ({ ...job, steps }))),
-    ),
-  };
+  const grouped = yield* prepareAcquisitionPlan(planned.plan, false);
   const skillCandidates =
-    request.subject.kind === "bundled"
-      ? []
-      : (yield* Effect.forEach(
-          grouped.jobs.flatMap((job) => job.steps),
-          (step) =>
-            Effect.gen(function* () {
-              const skills = (step.acquisitionRefs ?? []).filter(
-                (ref): ref is SkillExtensionRef => ref.type === "skill",
-              );
-              return yield* Effect.filter(skills, (ref) =>
-                Effect.gen(function* () {
-                  if (request.reinstall) return true;
-                  // Unknown prior acceptance is insufficient evidence of a new acquisition.
-                  return yield* acceptedLockedResolutionRef({ type: "skill", name: ref.name }).pipe(
-                    Effect.match({
-                      onFailure: () => false,
-                      onSuccess: (accepted) =>
-                        Option.isNone(accepted) ||
-                        sourceRefContentKey(accepted.value) !== sourceRefContentKey(ref),
-                    }),
-                  );
-                }),
-              ).pipe(
-                Effect.map((refs) =>
-                  refs.map((ref) => ({
-                    unitId: step.key ?? step.label,
-                    memberId: toStepKey({ type: "skill", name: ref.skill.name }),
-                    ref,
-                  })),
-                ),
-              );
-            }),
-        )).flat();
-  const execution = yield* prepareExecutionCandidate(grouped, {
-    configuredAgentOperations: planned.configuredAgentOperations,
-  });
+    request.subject.kind === "bundled" ? [] : yield* collectSkillAcquisitions(grouped, true);
+  const execution = yield* prepareExecutionCandidate(grouped);
   return {
     types: planned.types,
-    empty: Option.isSome(planned.emptyMessage),
-    emptyMessage: planned.emptyMessage,
     diagnostics: planned.diagnostics,
-    planName: sourceAware.name,
     execution,
     skillCandidates,
-    installKind: request.reinstall ? "reinstall" : "install",
   } satisfies InstallExtensionsCandidate;
 }, withWorkspaceReadView);
 
@@ -1055,14 +856,6 @@ export const prepareInstallExtensions: (
  */
 export type ResolveInstallExtensionsRequirements =
   PrepareInstallRequirements | BundledAxmSkillAsset;
-
-/** Neutral facts from fresh installation work and verified native output. */
-export interface InstalledSkill {
-  readonly ref: SkillExtensionRef;
-  readonly scope: "project" | "user";
-  readonly installKind: "install" | "reinstall";
-  readonly targetAgents: ReadonlyArray<string>;
-}
 
 export interface InstallExtensionsResult {
   readonly resolution: OperationResolution;
@@ -1080,66 +873,11 @@ export const previewOrApplyInstallExtensions = (
 > =>
   Effect.gen(function* () {
     const resolution = yield* resolveExecutionCandidate(candidate.execution, execution);
-    const installedSkills: InstalledSkill[] = [];
-    const path = yield* Path.Path;
-    const workspace = yield* WorkspaceLocation;
-    if (resolution.mode === "apply" && resolution.interruption === undefined) {
-      const seen = new Map<string, number>();
-      for (const entry of candidate.skillCandidates) {
-        const unit = resolution.units.find(
-          (unit) => unit.id === entry.unitId && unit.state === "committed",
-        );
-        if (unit?.artifact === undefined) continue;
-        const member = unit.artifact.members?.find((member) => member.id === entry.memberId);
-        const artifact =
-          entry.unitId === entry.memberId
-            ? unit.artifact
-            : member?.changed === true
-              ? member.artifact
-              : undefined;
-        if (artifact === undefined || artifact.change === "unchanged") continue;
-        const finalLocations = (artifact.nativeLocations ?? []).map(
-          (location) =>
-            unit.artifact?.nativeLocations?.find(
-              (final) => nativeUnitKey(final) === nativeUnitKey(location),
-            ) ?? location,
-        );
-        const usable = finalLocations.filter(
-          (location) =>
-            location.ownership === "owned" &&
-            ["created", "updated", "unchanged", "retained"].includes(location.state),
-        );
-        if (usable.length === 0) continue;
-        const key = JSON.stringify([sourceRefContentKey(entry.ref), entry.ref.skill.name]);
-        // A planned agent counts only when its exact native target is now usable.
-        // Catalog potential readers do not prove an installation target.
-        const targetAgents = (artifact.targets ?? []).flatMap((target) => {
-          const targetPath = path.resolve(workspace.baseDir, target.path);
-          return usable.some(
-            (location) =>
-              location.address.path === targetPath || location.aliases.includes(targetPath),
-          )
-            ? (target.agentIds ?? [])
-            : [];
-        });
-        const previousIndex = seen.get(key);
-        const previous = previousIndex === undefined ? undefined : installedSkills[previousIndex];
-        if (previous !== undefined && previousIndex !== undefined) {
-          installedSkills[previousIndex] = {
-            ...previous,
-            targetAgents: [...new Set([...previous.targetAgents, ...targetAgents])],
-          };
-        } else {
-          seen.set(key, installedSkills.length);
-          installedSkills.push({
-            ref: entry.ref,
-            scope: artifact.scope,
-            installKind: candidate.installKind,
-            targetAgents: [...new Set(targetAgents)],
-          });
-        }
-      }
-    }
+    const installedSkills = yield* settledSkillAcquisitions(
+      candidate.skillCandidates,
+      resolution,
+      "install",
+    );
     return { resolution, installedSkills };
   });
 

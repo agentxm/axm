@@ -1,3 +1,4 @@
+import { recordSkillInstalls } from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -41,7 +42,7 @@ import { INSPECT_INSTALLED } from "../suggested-actions.js";
 import { handleWorkspaceUpdate } from "./workspace-update-handler.js";
 
 export interface RootUpdateFlags {
-  readonly force: boolean;
+  readonly reinstall: boolean;
   readonly preview: boolean;
 }
 
@@ -144,7 +145,7 @@ const targetedInvocation = (args: RootUpdateHandlerArgs, source: string) =>
     return yield* makePlanInvocation(
       { preview: args.preview },
       makeConfirmationRecovery(args.recoveryCommand ?? ["update"], [
-        recoverySwitch("--refresh", args.force),
+        recoverySwitch("--reinstall", args.reinstall),
         recoverySwitch("--ignore-release-age", posture === "ignore"),
         recoveryPositional(credentialFreeLocatorRecoveryValue(source)),
       ]),
@@ -157,7 +158,11 @@ const reportTargeted = (
   subjectType: UpdateSubjectType,
 ) =>
   Effect.gen(function* () {
-    const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);
+    const { resolution, installedSkills } = yield* UpdateExtensions.previewOrApply(
+      candidate,
+      execution,
+    );
+    yield* recordSkillInstalls(installedSkills);
     const context = candidate.targetedContext;
     const reported = withRecovery(resolution, context);
     yield* setCommandSemanticProperties(
@@ -185,7 +190,7 @@ export const handleUpdate = (args: RootUpdateHandlerArgs) =>
         type: Option.none(),
         planName: "Update configured extensions",
         planDescription: Option.some("Update configured workspace extensions"),
-        flags: { force: args.force, preview: args.preview },
+        flags: { reinstall: args.reinstall, preview: args.preview },
       }),
     onSome: (source) =>
       withOperationLifecycle(
@@ -214,6 +219,7 @@ const handleTargetedUpdateBody = Effect.fn("Update.handleTargeted")(function* (
 ) {
   const candidate = yield* UpdateExtensions.prepare({
     kind: "targeted",
+    reinstall: args.reinstall,
     source,
     nonInteractive: false,
   });

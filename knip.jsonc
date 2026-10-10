@@ -56,6 +56,9 @@
     "packages/core/extension-model": {
       "entry": ["src/**/*.type-test.ts"],
     },
+    "packages/core/workspace-features": {
+      "entry": ["src/**/*.type-test.ts"],
+    },
     "packages/core/workspace-kernel": {
       "entry": ["src/**/*.type-test.ts"],
     },

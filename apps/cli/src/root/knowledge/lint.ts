@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -8,6 +9,9 @@ import {
   lintKnowledge,
 } from "@agentxm/workspace-features/knowledge-query";
 
+import { ExecutionDirectory, resolveExecutionPath } from "../../execution-directory.js";
+import * as Path from "effect/Path";
+import { makeAppError } from "../../app-error/index.js";
 import { ExitCode } from "../../app-error/index.js";
 import { emitResult, errorDoc, headlineDoc, successDoc } from "../../screen/index.js";
 import { processOutcome, withArgvTracking } from "../../cli-runtime/index.js";
@@ -21,8 +25,14 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
   name?: string,
   packagePath?: string,
 ) {
+  if (name !== undefined && packagePath !== undefined) {
+    return yield* makeAppError({
+      code: "usage",
+      detail: "Choose an installed bundle name or --path",
+    });
+  }
   const result = yield* withLiveOperation(
-    { command: "knowledge.lint", name: "Validate knowledge bundles", mode: "preview" },
+    { command: "knowledge.lint", name: "Validate knowledge bundles", mode: "query" },
     Effect.catchTags(
       lintKnowledge({
         ...(name === undefined ? {} : { bundle: name }),
@@ -69,22 +79,36 @@ export const handleKnowledgeLint = Effect.fn("Knowledge.lint")(function* (
 });
 
 const lintConfig = {
-  bundle: Argument.String("bundle").pipe(
-    Argument.withDescription("Optional installed bundle name"),
+  bundle: Argument.String("name").pipe(
+    withParameterDescription("Installed bundle name; omit to validate all installed bundles"),
     Argument.optional,
   ),
   path: Flag.String("path").pipe(
-    Flag.withDescription("Validate a locally authored Knowledge package directory"),
+    withParameterDescription(
+      "Validate an authored knowledge package directory instead of installed bundles",
+    ),
     Flag.optional,
   ),
   ...scopeConfig,
 } as const;
 
 export const lintCommand = Command.make("lint", lintConfig, ({ bundle, path, scope }) =>
-  handleKnowledgeLint(Option.getOrUndefined(bundle), Option.getOrUndefined(path)).pipe(
-    withWorkspace(scope),
-    withRuntime("knowledge lint"),
-  ),
+  Effect.gen(function* () {
+    if (Option.isSome(bundle) && Option.isSome(path)) {
+      return yield* makeAppError({
+        code: "usage",
+        detail: "Choose an installed bundle name or --path",
+      });
+    }
+    const directory = yield* ExecutionDirectory;
+    const paths = yield* Path.Path;
+    return yield* handleKnowledgeLint(
+      Option.getOrUndefined(bundle),
+      Option.getOrUndefined(
+        Option.map(path, (value) => resolveExecutionPath(paths, directory, value)),
+      ),
+    ).pipe(withWorkspace(scope));
+  }).pipe(withRuntime("knowledge lint")),
 ).pipe(
   withArgvTracking(lintConfig),
   withCommandCapabilities(readOnlyCapabilities()),

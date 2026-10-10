@@ -71,10 +71,10 @@ export const remapLintSummaryPaths = (
 /**
  * Resolve the workspace root for a lint run.
  *
- * - `--scope=project` (default): use the optional `<path>` argument if
+ * - `--scope=project` (default): use the optional `<workspace>` argument if
  *   provided, otherwise the caller-supplied `cwd`.
  * - `--scope=user`: use the resolved user home; the read model locates its
- *   `.axm/workspace/` workspace. Ignores `<path>`.
+ *   `.axm/workspace/` workspace. Admission rejects an explicit `<workspace>`.
  *
  * XDG layout: v1 honors `AXM_USER_HOME` as an override; full
  * `XDG_DATA_HOME`/`XDG_CONFIG_HOME` integration is deferred to a follow-up

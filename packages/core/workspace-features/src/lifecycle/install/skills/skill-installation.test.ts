@@ -37,7 +37,7 @@ import { planSkillInstallationStep } from "@agentxm/extension-kinds/skills";
 const NAME = "code-review";
 const canonical = `agent_extensions/_local/project/vendor/${NAME}/src`;
 
-/** `axm skills update --name code-review`: the configured sweep narrowed to one skill. */
+/** `axm skills update code-review`: the configured sweep narrowed to one skill. */
 const prepareUpdate = () =>
   Effect.gen(function* () {
     const candidate = yield* UpdateExtensions.prepare(
@@ -260,12 +260,17 @@ describe("skill installation application", () => {
             workspace.writeFile(`vendor/${NAME}/src/SKILL.md`, changed);
             const before = workspace.snapshot();
             const candidate = yield* prepareUpdate();
-            const preview = yield* UpdateExtensions.previewOrApply(candidate, previewPlanExecution);
+            const preview = yield* UpdateExtensions.previewOrApply(
+              candidate,
+              previewPlanExecution,
+            ).pipe(Effect.map((result) => result.resolution));
             expect(deriveOperationOutcome(preview)).toBe("previewed");
             expect(workspace.snapshot()).toEqual(before);
 
             const result = artifact(
-              yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution),
+              yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution).pipe(
+                Effect.map((result) => result.resolution),
+              ),
             );
             expect(result.change).toBe("updated");
             expect(result.agents).toEqual(["claude-code"]);
@@ -302,23 +307,25 @@ describe("skill installation application", () => {
             const failed = yield* UpdateExtensions.previewOrApply(
               candidate,
               preapprovedPlanExecution,
-            ).pipe(
-              Effect.provideService(AcceptedResolutionWriter, {
-                ...writer,
-                setAccepted: () =>
-                  Effect.gen(function* () {
-                    attempted = true;
-                    expect(workspace.readFile(`${canonical}/SKILL.md`)).toContain(
-                      "Uncommitted policy.",
-                    );
-                    return yield* new LockfileWriteError({
-                      path: path.join(workspace.root, "axm-lock.yaml"),
-                      step: "write-temp",
-                      cause: "injected accepted-resolution failure",
-                    });
-                  }),
-              }),
-            );
+            )
+              .pipe(Effect.map((result) => result.resolution))
+              .pipe(
+                Effect.provideService(AcceptedResolutionWriter, {
+                  ...writer,
+                  setAccepted: () =>
+                    Effect.gen(function* () {
+                      attempted = true;
+                      expect(workspace.readFile(`${canonical}/SKILL.md`)).toContain(
+                        "Uncommitted policy.",
+                      );
+                      return yield* new LockfileWriteError({
+                        path: path.join(workspace.root, "axm-lock.yaml"),
+                        step: "write-temp",
+                        cause: "injected accepted-resolution failure",
+                      });
+                    }),
+                }),
+              );
             expect(attempted).toBe(true);
             expect(deriveOperationOutcome(failed)).toBe("failed");
             expect(workspace.snapshot()).toEqual(before);

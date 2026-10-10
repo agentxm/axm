@@ -1,7 +1,6 @@
 import * as Effect from "effect/Effect";
 import {
   listMcpServers,
-  mcpServerListDocument,
   McpServerListQueryResultSchema,
   type McpServerListRow,
 } from "@agentxm/workspace-features/inspection";
@@ -13,7 +12,7 @@ import { makePerTypeListCommand } from "../shared/list-command.js";
 const McpServerListColumns = [
   { header: "Local name", priority: "required", value: (row: McpServerListRow) => row.localName },
   { header: "Source", value: (row: McpServerListRow) => row.source },
-  { header: "State", value: (row: McpServerListRow) => inventoryLifecycle(row) },
+  { header: "Management", value: (row: McpServerListRow) => inventoryLifecycle(row) },
   { header: "Version", priority: "optional", value: (row: McpServerListRow) => row.version },
   { header: "Transport", value: (row: McpServerListRow) => row.transport },
   { header: "Status", value: (row: McpServerListRow) => row.status },
@@ -26,16 +25,15 @@ const McpServerListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "mcp-server",
-  query: () =>
-    Effect.map(listMcpServers(), ({ inventory, rows }) => ({
-      document: mcpServerListDocument({ inventory, rows }),
+  query: (agents) =>
+    Effect.map(listMcpServers({ agents }), ({ document, rows }) => ({
+      document,
       rows,
     })),
   schema: McpServerListQueryResultSchema,
   columns: McpServerListColumns,
   summary: (document) =>
     inventorySummary(document, EXTENSION_TYPE_PRESENTATION["mcp-server"].noun.singular),
-  agentFilter: false,
 });
 
 export const handleList = handler;

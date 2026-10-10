@@ -7,9 +7,10 @@ import { NAMED_OVERRIDE_POLICIES } from "./index.js";
 import { collectHelpFiles } from "../test-support/command-tree-test-helpers.js";
 import { getAppError } from "../test-support/test-helpers.js";
 import { handleInstall } from "../root/install/handler.js";
+import { handleUpdate } from "../root/update/handler.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
+import { makeSpecWorkspace } from "../test-support/install-harness.js";
 import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 export const specification = defineSpecification({
@@ -29,49 +30,6 @@ export const specification = defineSpecification({
 
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 
-const canonicalSkillDocument = "agent_extensions/_local/project/vendor/code-review/src/SKILL.md";
-const projectedSkillDocument = ".claude/skills/code-review/SKILL.md";
-
-/**
- * The two command forms that expose `--reinstall` for a sourced install. Both
- * name the same policy — installed content is reused rather than re-acquired —
- * so both must bypass it when the flag is given.
- */
-const reinstallForms = [
-  {
-    form: "root install",
-    install: (source: string, force: boolean) =>
-      handleInstall({
-        type: Option.none(),
-        source: Option.some(source),
-        selectors: {},
-        all: true,
-        force,
-        preview: false,
-        bind: [],
-        bindEnv: [],
-        localName: Option.none(),
-        bundled: false,
-      }),
-  },
-  {
-    form: "skills install",
-    install: (source: string, force: boolean) =>
-      handleInstall({
-        type: Option.some("skill"),
-        source: Option.some(source),
-        selectors: { skill: [] },
-        all: true,
-        force,
-        preview: false,
-        bind: [],
-        bindEnv: [],
-        localName: Option.none(),
-        bundled: false,
-      }),
-  },
-] as const;
-
 /** A workspace whose configured Registry skill was published moments ago. */
 const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
   const registry = makeFileRegistry();
@@ -88,10 +46,10 @@ const heldReleaseWorkspace = (cleanups: Array<() => void>) => {
   return workspace;
 };
 
-const configuredInstall = (workspace: SpecWorkspace, flags: { readonly force: boolean }) =>
+const explicitInstall = (workspace: SpecWorkspace, source: string) =>
   handleInstall({
     type: Option.none(),
-    source: Option.none(),
+    source: Option.some(source),
     selectors: {},
     all: false,
     preview: false,
@@ -99,11 +57,9 @@ const configuredInstall = (workspace: SpecWorkspace, flags: { readonly force: bo
     bindEnv: [],
     localName: Option.none(),
     bundled: false,
-    ...flags,
   }).pipe(Effect.provide(workspace.layer));
 
 const expectNothingInstalled = (workspace: SpecWorkspace, name: string): void => {
-  expect(workspace.rendererState.results).toEqual([]);
   expect(workspace.readLockfileText()).not.toContain(name);
   expect(workspace.snapshotTree("agent_extensions")).toEqual([]);
   expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
@@ -148,42 +104,16 @@ describe("Override flags", () => {
     }),
   );
 
-  it.effect.each(reinstallForms)(
-    "$form --reinstall re-realizes revised source content only when the flag is given",
-    ({ install }) =>
-      Effect.gen(function* () {
-        const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
-        cleanups.push(workspace.cleanup);
-        const source = writeLocalSkillPackage(workspace.root, {
-          name: "code-review",
-          body: "First guidance.",
-        });
-        yield* install(source, false).pipe(Effect.provide(workspace.layer));
-        expect(workspace.readFile(canonicalSkillDocument)).toContain("First guidance.");
-        writeLocalSkillPackage(workspace.root, { name: "code-review", body: "Revised guidance." });
-
-        yield* install(source, false).pipe(Effect.provide(workspace.layer));
-        expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
-          result: { outcome: "no-op" },
-        });
-        expect(workspace.readFile(canonicalSkillDocument)).toContain("First guidance.");
-        expect(workspace.readFile(projectedSkillDocument)).toContain("First guidance.");
-
-        yield* install(source, true).pipe(Effect.provide(workspace.layer));
-        expect(workspace.readFile(canonicalSkillDocument)).toContain("Revised guidance.");
-        expect(workspace.readFile(projectedSkillDocument)).toContain("Revised guidance.");
-      }),
-  );
-
   it.effect("--reinstall does not lift the minimum release age it does not name", () =>
     Effect.gen(function* () {
       const workspace = heldReleaseWorkspace(cleanups);
 
-      const failure = yield* configuredInstall(workspace, { force: true }).pipe(Effect.flip);
-
-      const error = getAppError(failure);
-      expect(error.title).toBe("Release held by minimum release age");
-      expect(error.detail).toContain("@acme/skills/fresh@1.0.0");
+      yield* handleUpdate({ source: Option.none(), reinstall: true, preview: false }).pipe(
+        Effect.provide(workspace.layer),
+      );
+      expect(workspace.rendererState.results.at(-1)?.data).toMatchObject({
+        result: { holdbacks: [expect.objectContaining({ target: "@acme/skills/fresh" })] },
+      });
       expectNothingInstalled(workspace, "fresh");
     }),
   );
@@ -204,7 +134,9 @@ describe("Override flags", () => {
       });
       cleanups.push(workspace.cleanup);
 
-      const failure = yield* configuredInstall(workspace, { force: false }).pipe(Effect.flip);
+      const failure = yield* explicitInstall(workspace, "@acme/skills/stable@^2.0.0").pipe(
+        Effect.flip,
+      );
 
       const error = getAppError(failure);
       expect(error.title).toBe("No compatible version");

@@ -296,8 +296,10 @@ describe("subagents list.handler", () => {
             {
               name: "subagent-one",
               enabled: true,
-              classification: { kind: "lifecycle", lifecycle: "configured" },
-              agents: ["claude-code"],
+              management: "configured",
+              agentOutcomes: expect.arrayContaining([
+                expect.objectContaining({ agentId: "claude-code" }),
+              ]),
             },
           ],
         });

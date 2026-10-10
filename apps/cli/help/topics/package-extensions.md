@@ -58,7 +58,7 @@ A recommendation can target any extension type: skill, MCP server, subagent, rul
 
 ## Emit metadata from a tagged checkout
 
-`axm share --npm` prints the install command and a package-native metadata snippet for every distributable authored extension at the tag currently checked out. Replace `--npm` with any ecosystem name in the table below. The command refuses an untagged checkout, multiple ecosystem flags, or an extension without a qualified manifest identity. It writes nothing.
+`axm share --ecosystem npm` prints the install command and a package-native metadata snippet for every distributable authored extension at the tag currently checked out. Use any ecosystem name in the table below as the `--ecosystem` value. The command refuses an untagged checkout, invalid or repeated ecosystem choices, or an extension without a qualified manifest identity. It writes nothing.
 
 ## Official extensions
 

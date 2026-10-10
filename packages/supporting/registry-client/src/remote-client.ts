@@ -269,9 +269,9 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
         ? null
         : {
             archivedAt: response.archival.archivedAt,
-            ...(response.archival.reason === undefined || response.archival.reason === null
+            ...(response.archival.message === undefined || response.archival.message === null
               ? {}
-              : { reason: response.archival.reason }),
+              : { message: response.archival.message }),
           },
     deprecation:
       response.deprecation === null ? null : normalizeIndexDeprecation(response.deprecation),
@@ -286,7 +286,7 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
           : decodeCompanionPackages(v.packages),
       yankedAt: v.yankedAt ?? undefined,
       yankCategory: v.yankCategory ?? undefined,
-      yankNotice: v.yankNotice ?? undefined,
+      yankMessage: v.yankMessage ?? undefined,
     })),
   });
 

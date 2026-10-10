@@ -1,4 +1,7 @@
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
+import { parseArgsStringToArgv } from "string-argv";
+import { parseInvocation } from "./test-support/parser-probe.js";
 import { describe, expect, it } from "@effect/vitest";
 import type { Command } from "effect/cli";
 
@@ -7,6 +10,7 @@ import {
   collectCommandPaths,
   formatCommandPath,
 } from "./test-support/command-tree-test-helpers.js";
+import { toJsonHelpDoc } from "./cli-runtime/index.js";
 import { rootCommand } from "./app.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -15,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/command-help-is-complete",
   title: "Every supported command describes its invocation and purpose",
   statement:
-    "Every supported command shall present help identifying its invocation and purpose, the rendered help tree shall list exactly the supported command paths, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.",
+    "Every supported command shall present help identifying its invocation and purpose, the rendered help tree shall list exactly the supported command paths, every authored parameter shall have a description of at most 88 characters excluding generated facts, every authored example shall parse against the registered command grammar with concrete arguments, and a help request shall reply without reading or changing project or user workspace state, even when that state is malformed.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access"],
@@ -61,7 +65,44 @@ describe("Command help completeness", () => {
           formatCommandPath(command.path),
         );
         expect(doc.description.trim().length, formatCommandPath(command.path)).toBeGreaterThan(0);
+        const machine = toJsonHelpDoc(doc);
+        for (const parameter of [
+          ...machine.flags,
+          ...(machine.args ?? []),
+          ...(machine.globalFlags ?? []),
+        ]) {
+          // Effect owns its built-in help/version descriptions.
+          if (
+            parameter.name === "help" ||
+            (parameter.name === "version" && parameter.type === "boolean")
+          )
+            continue;
+          const description = parameter.description ?? "";
+          expect(description, `${machine.usage}: ${parameter.name}`).not.toMatch(/\brepeatable\b/u);
+          expect(description.trim().length, `${machine.usage}: ${parameter.name}`).toBeGreaterThan(
+            0,
+          );
+          expect(description.length, `${machine.usage}: ${parameter.name}`).toBeLessThanOrEqual(88);
+        }
       }
+    }),
+  );
+
+  it.effect("every authored example parses without executing its command", () =>
+    Effect.gen(function* () {
+      const invalidExamples: Array<string> = [];
+      for (const command of registeredCommands()) {
+        const doc = yield* captureHelpDoc(command.path);
+        for (const example of doc.examples ?? []) {
+          expect(example.command, formatCommandPath(command.path)).not.toMatch(/<[^>]+>|\[--/u);
+          const [executable, ...args] = parseArgsStringToArgv(example.command);
+          expect(executable).toBe("axm");
+          const outcome = yield* parseInvocation(args).pipe(Effect.result);
+          if (Result.isFailure(outcome))
+            invalidExamples.push(`${example.command}: ${JSON.stringify(outcome.failure)}`);
+        }
+      }
+      expect(invalidExamples).toEqual([]);
     }),
   );
 

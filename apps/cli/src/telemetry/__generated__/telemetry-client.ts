@@ -1282,7 +1282,7 @@ export const TelemetryErrorReport = Schema.Struct({
   phase: Schema.Literals(["bootstrap", "configuration", "command", "output"]).annotate({
     title: "Failure Phase",
     description:
-      "The invocation phase that settled with the failure: startup, workspace configuration, command execution, or output writing.",
+      "The invocation phase that settled with the failure: bootstrap, workspace configuration, command execution, or output writing.",
   }),
   failure: Schema.Struct({
     kind: Schema.String.annotate({

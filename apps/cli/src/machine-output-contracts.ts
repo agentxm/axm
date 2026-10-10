@@ -56,9 +56,9 @@ const helpFamily = {
   liveness: "immediate",
   livenessCoverage: ["apps/cli/src/formatter.test.ts"],
   schemaNames: ["JsonHelpDocSchema"],
-  requiredEnvelopeKeys: ["type", "name", "usage"],
-  requiredTopLevelKeys: ["type", "name", "usage"],
-  optionalTopLevelKeys: ["summary", "arguments", "flags", "subcommands", "examples", "learnMore"],
+  requiredEnvelopeKeys: ["type", "description", "usage", "flags"],
+  requiredTopLevelKeys: ["type", "description", "usage", "flags"],
+  optionalTopLevelKeys: ["globalFlags", "args", "subcommands", "examples", "learnMore"],
   scenarios: ["group invoked without a subcommand", "explicit --help on every command path"],
   rationale: "Effect CLI owns built-in help rendering before a command handler runs.",
   centralizedCoverage: [
@@ -364,7 +364,7 @@ const credentialExportFamily = (
     optionalTopLevelKeys: ["suggestions"],
     scenarios: ["--json refused as usage before any credential effect"],
     rationale:
-      "No JSON success document may carry a secret; `--output token` is the explicit export channel.",
+      "No JSON success document may carry a secret; `--plain` is the explicit export channel.",
     centralizedCoverage: ["apps/cli/src/machine-output-contracts.test.ts"],
     commandCoverage: [
       "apps/cli/src/root/auth/token.test.ts",
@@ -406,7 +406,17 @@ const whoamiFamily = defineResultFamily({
     },
   ],
   schemaNames: ["WhoamiDocumentSchema"],
-  requiredTopLevelKeys: ["data"],
+  requiredTopLevelKeys: [
+    "user",
+    "registry",
+    "credentialType",
+    "authority",
+    "permissions",
+    "resourceRestrictions",
+    "expiresAt",
+    "approvedAt",
+    "trustedPublisher",
+  ],
   scenarios: ["authenticated", "auth failure"],
   rationale: "Identity inspection is a read query.",
   commandCoverage: ["apps/cli/src/root/auth/whoami.test.ts"],
@@ -480,17 +490,9 @@ const inventoryFamily = defineResultFamily({
       scenarios: ["empty inventory"],
     },
   ],
-  schemaNames: ["ExtensionInventorySchema"],
-  requiredTopLevelKeys: [
-    "items",
-    "count",
-    "configuredCount",
-    "implicitCount",
-    "installedCount",
-    "leftoverCount",
-    "undeclaredCount",
-    "unmanagedCount",
-  ],
+  schemaNames: ["ExtensionInventoryDocumentSchema"],
+  requiredTopLevelKeys: ["filter", "items", "count", "totalCount", "managementCounts"],
+  optionalTopLevelKeys: ["nativeLocationCounts"],
   scenarios: ["extensions present", "empty inventory", "mixed managed state"],
   rationale: "Per-type list commands share the workspace inventory query contract.",
   commandCoverage: ["apps/cli/src/root/list-empty-output.test.ts", "per-type list tests"],
@@ -506,7 +508,7 @@ const extensionShowFamily = defineResultFamily({
     },
   ],
   schemaNames: ["ExtensionShowResultSchema"],
-  requiredTopLevelKeys: ["item", "agents"],
+  requiredTopLevelKeys: ["item", "agentOutcomes"],
   scenarios: ["extension found", "not found"],
   rationale: "Per-type show commands share the extension detail query contract.",
   commandCoverage: ["apps/cli/src/root/shared/extension-show.test.ts"],
@@ -532,7 +534,7 @@ const subagentShowFamily: MachineOutputFamily = {
   requiredTopLevelKeys: [],
   optionalTopLevelKeys: [
     "item",
-    "agents",
+    "agentOutcomes",
     "name",
     "fqn",
     "type",
@@ -565,19 +567,36 @@ const registryTransitionFamily = defineResultFamily({
     "contract",
     "action",
     "registry",
-    "target",
+    "fqn",
+    "before",
+    "after",
+    "revision",
     "disposition",
     "restorable",
     "message",
   ],
   optionalTopLevelKeys: ["version", "affectedVersions"],
-  scenarios: ["yanked", "unyanked", "already current"],
-  rationale: "Version retirement is an authoritative, non-restorable Registry transition.",
-  commandCoverage: ["apps/cli/src/root/lifecycle/command.test.ts"],
+  scenarios: [
+    "yanked",
+    "unyanked",
+    "deprecated",
+    "archived",
+    "visibility changed",
+    "already current",
+  ],
+  rationale:
+    "All published-extension Registry mutations report an acknowledged, non-restorable transition with action-specific before/after state and revision.",
+  commandCoverage: [
+    "apps/cli/src/root/lifecycle/registry-mutations-share-transition-contract.spec.ts",
+  ],
   humanCoverage: [
     {
       file: "apps/cli/src/root/lifecycle/command.test.ts",
-      scenarios: ["remote disposition", "target"],
+      scenarios: ["remote disposition", "fqn", "guidance", "revision"],
+    },
+    {
+      file: "apps/cli/src/root/visibility/handler.test.ts",
+      scenarios: ["changed", "already satisfied", "revision"],
     },
   ],
 });
@@ -591,6 +610,7 @@ const packShowFamily = defineResultFamily({
   schemaNames: ["PackShowResultSchema"],
   requiredTopLevelKeys: [
     "pack",
+    "agentOutcomes",
     "sourceAuthority",
     "canonicalPath",
     "manifestVersion",
@@ -611,12 +631,23 @@ const helpTopicFamily = defineResultFamily({
   ],
   schemaNames: ["HelpIndexResultSchema", "HelpTopicResultSchema"],
   requiredTopLevelKeys: [],
-  optionalTopLevelKeys: ["usage", "topics", "topic", "content"],
-  scenarios: ["topic index", "topic page", "schema topic", "unknown topic"],
-  rationale: "The help command returns raw topic data; built-in --help remains formatter-owned.",
+  optionalTopLevelKeys: ["usage", "topics", "topic", "kind", "content", "schema"],
+  scenarios: [
+    "topic index",
+    "topic page",
+    "schema topic",
+    "unknown topic",
+    "command path → formatter-help document (no envelope)",
+  ],
+  rationale:
+    "Topic results discriminate Markdown text from structured JSON Schema objects; command paths delegate to the same formatter-owned document as --help, without an envelope.",
   humanOutputKind: "orientation",
   liveness: "immediate",
-  commandCoverage: ["apps/cli/src/root/help/command.test.ts"],
+  commandCoverage: [
+    "apps/cli/src/root/help/command.test.ts",
+    "apps/cli/src/help-command-conformance.test.ts",
+    "apps/cli/src/root/help/topics-identify-content-kind.spec.ts",
+  ],
 });
 
 const knowledgeLintFamily = defineResultFamily({
@@ -642,7 +673,8 @@ const knowledgeListFamily = defineResultFamily({
     { file: "apps/cli/src/root/knowledge/json-output.test.ts", scenarios: ["bundle inventory"] },
   ],
   schemaNames: ["KnowledgeListQueryResultSchema"],
-  requiredTopLevelKeys: ["items", "count"],
+  requiredTopLevelKeys: ["filter", "items", "count", "totalCount", "managementCounts"],
+  optionalTopLevelKeys: ["nativeLocationCounts"],
   scenarios: ["bundles present", "empty"],
   rationale: "Knowledge bundle listing is a read query.",
   commandCoverage: ["apps/cli/src/root/knowledge/json-output.test.ts"],
@@ -687,7 +719,6 @@ const knowledgeConceptQueryFamily = defineResultFamily({
     "count",
     "hasMore",
     "cursor",
-    "explanation",
     "outcome",
     "reason",
   ],
@@ -750,8 +781,8 @@ const knowledgeConceptRelatedFamily = defineResultFamily({
   ],
 });
 
-const knowledgeConceptStatusFamily = defineResultFamily({
-  id: "knowledge-concept-status",
+const knowledgeConceptCapabilitiesFamily = defineResultFamily({
+  id: "knowledge-concept-capabilities",
   liveness: "progress",
   humanCoverage: [
     {
@@ -759,16 +790,14 @@ const knowledgeConceptStatusFamily = defineResultFamily({
       scenarios: ["human discovery result on stdout", "inspection liveness"],
     },
   ],
-  schemaNames: ["KnowledgeConceptStatusOutputSchema"],
+  schemaNames: ["KnowledgeConceptCapabilitiesOutputSchema"],
   requiredTopLevelKeys: [
     "capabilities",
-    "readiness",
-    "health",
+    "corpusFingerprint",
     "bundleCount",
     "conceptCount",
     "scopeCollisions",
   ],
-  optionalTopLevelKeys: ["corpusFingerprint"],
   scenarios: [
     "selected corpus",
     "empty corpus",
@@ -776,7 +805,8 @@ const knowledgeConceptStatusFamily = defineResultFamily({
     "unavailable corpus after capture failure",
     "cross-scope collisions not determined",
   ],
-  rationale: "Discovery status exposes the canonical capabilities and selected corpus identity.",
+  rationale:
+    "Discovery capabilities expose the canonical capabilities and selected corpus identity.",
   commandCoverage: ["apps/cli/src/root/knowledge/json-output.test.ts"],
 });
 
@@ -807,7 +837,8 @@ const extensionListFamily = defineResultFamily({
     },
   ],
   schemaNames: ["ExtensionListDocumentSchema"],
-  requiredTopLevelKeys: ["filter", "items", "count", "totalCount"],
+  requiredTopLevelKeys: ["filter", "items", "count", "totalCount", "managementCounts"],
+  optionalTopLevelKeys: ["nativeLocationCounts", "coverage"],
   scenarios: ["local inventory", "updates available", "deprecated", "incomplete coverage"],
   rationale: "Root list is a local inventory query with optional remote filters.",
   commandCoverage: ["apps/cli/src/root/list/command.test.ts"],
@@ -896,7 +927,21 @@ const viewFamily = defineResultFamily({
   ],
   schemaNames: ["ViewDocumentSchema", "ViewFieldValueSchema"],
   requiredTopLevelKeys: [],
-  optionalTopLevelKeys: ["data", "value"],
+  optionalTopLevelKeys: [
+    "fqn",
+    "owner",
+    "type",
+    "name",
+    "description",
+    "latest",
+    "versions",
+    "install",
+    "visibility",
+    "lifecycleState",
+    "archival",
+    "deprecation",
+    "hook",
+  ],
   scenarios: ["full document", "scalar field", "versions field", "not found"],
   rationale: "Registry view returns either the full extension document or one selected field.",
   commandCoverage: ["apps/cli/src/root/view/handler.test.ts"],
@@ -921,84 +966,25 @@ const visibilityEvaluationFamily = defineResultFamily({
   ],
 });
 
-const visibilityMutationFamily = defineResultFamily({
-  id: "visibility-mutation",
-  liveness: "progress",
-  humanCoverage: [
-    {
-      file: "apps/cli/src/root/visibility/handler.test.ts",
-      scenarios: ["changed", "already satisfied", "revision"],
-    },
-  ],
-  schemaNames: ["VisibilityMutationResultSchema"],
-  requiredTopLevelKeys: ["target", "before", "after", "authority", "result", "revision"],
-  scenarios: ["changed", "already satisfied", "stale revision"],
-  rationale:
-    "Visibility administration reports the conditional whole-Extension mutation and resulting revision.",
-  humanOutputKind: "mutation",
-  commandCoverage: [
-    "packages/core/workspace-features/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts",
-    "packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts",
-  ],
-});
-
-const lifecycleTransitionFamily = defineResultFamily({
-  id: "lifecycle-transition",
-  liveness: "progress",
-  humanCoverage: [
-    {
-      file: "apps/cli/src/root/lifecycle/command.test.ts",
-      scenarios: ["deprecated", "restored", "revision"],
-    },
-  ],
-  schemaNames: ["LifecycleTransitionOutputSchema"],
-  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
-  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
-  rationale:
-    "Deprecation administration reports the authoritative conditional Registry transition without a local workspace artifact.",
-  humanOutputKind: "mutation",
-  commandCoverage: [
-    "packages/core/workspace-features/src/publishing/deprecation/updates-guidance-at-the-observed-revision.spec.ts",
-    "packages/core/workspace-features/src/publishing/deprecation/removes-guidance-at-the-observed-revision.spec.ts",
-  ],
-});
-
-const archivalTransitionFamily = defineResultFamily({
-  id: "archival-transition",
-  liveness: "progress",
-  humanCoverage: [
-    {
-      file: "apps/cli/src/root/lifecycle/command.test.ts",
-      scenarios: ["archived", "restored", "revision"],
-    },
-  ],
-  schemaNames: ["ArchivalTransitionOutputSchema"],
-  requiredTopLevelKeys: ["target", "before", "after", "disposition", "revision"],
-  scenarios: ["created", "edited", "restored", "unchanged", "stale revision"],
-  rationale:
-    "Archival administration reports the authoritative conditional Registry transition without a local workspace artifact.",
-  humanOutputKind: "mutation",
-  commandCoverage: [
-    "packages/core/workspace-features/src/publishing/archival/archives-at-the-observed-revision.spec.ts",
-    "packages/core/workspace-features/src/publishing/archival/unarchives-at-the-observed-revision.spec.ts",
-  ],
-});
-
 const formatterPaths = [
   "axm",
   "axm agents",
   "axm cache",
   "axm diagnostics",
   "axm hooks",
+  "axm instructions",
   "axm knowledge",
   "axm mcps",
   "axm packs",
   "axm rules",
   "axm skills",
   "axm subagents",
+  "axm token",
 ] as const;
 
 const planPaths = [
+  "axm enable",
+  "axm disable",
   "axm adopt",
   "axm agents add",
   "axm agents remove",
@@ -1021,6 +1007,7 @@ const planPaths = [
   "axm knowledge uninstall",
   "axm knowledge update",
   "axm mcps add",
+  "axm mcps adopt",
   "axm mcps disable",
   "axm mcps enable",
   "axm mcps import",
@@ -1091,15 +1078,22 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(helpFamily, ["axm knowledge concepts"]),
   ...rowsFor(planFamily, planPaths),
   ...rowsFor(hookTestFamily, ["axm hooks test"]),
-  ...rowsFor(registryTransitionFamily, ["axm yank", "axm unyank"]),
-  ...rowsFor(lifecycleTransitionFamily, ["axm deprecate", "axm undeprecate"]),
-  ...rowsFor(archivalTransitionFamily, ["axm archive", "axm unarchive"]),
+  ...rowsFor(registryTransitionFamily, [
+    "axm yank",
+    "axm unyank",
+    "axm deprecate",
+    "axm undeprecate",
+    "axm archive",
+    "axm unarchive",
+    "axm visibility set",
+    "axm visibility reconcile",
+  ]),
   ...rowsFor(publishFamily, publishPaths),
   ...rowsFor(agentsListFamily, ["axm agents list"]),
   ...rowsFor(agentCapabilitiesFamily, ["axm agents capabilities"]),
   ...rowsFor(loginFamily, ["axm login"]),
   ...rowsFor(logoutFamily, ["axm logout"]),
-  ...rowsFor(credentialExportFamily("token-read", "query", "immediate"), ["axm token"]),
+  ...rowsFor(credentialExportFamily("token-read", "query", "immediate"), ["axm token show"]),
   ...rowsFor(credentialExportFamily("token-create", "mutation", "progress"), ["axm token create"]),
   ...rowsFor(tokenListFamily, ["axm token list"]),
   ...rowsFor(tokenRevokeFamily, ["axm token revoke"]),
@@ -1131,22 +1125,18 @@ export const MACHINE_OUTPUT_CONTRACT_ROWS: ReadonlyArray<MachineOutputContractRo
   ...rowsFor(knowledgeLintFamily, ["axm knowledge lint"]),
   ...rowsFor(knowledgeListFamily, ["axm knowledge list"]),
   ...rowsFor(knowledgeConceptResolveFamily, ["axm knowledge concepts resolve"]),
-  ...rowsFor(knowledgeConceptQueryFamily, [
-    "axm knowledge concepts search",
-    "axm knowledge concepts query",
-  ]),
+  ...rowsFor(knowledgeConceptQueryFamily, ["axm knowledge concepts query"]),
   ...rowsFor(knowledgeConceptGetFamily, ["axm knowledge concepts get"]),
   ...rowsFor(knowledgeConceptRelatedFamily, ["axm knowledge concepts related"]),
-  ...rowsFor(knowledgeConceptStatusFamily, ["axm knowledge concepts status"]),
+  ...rowsFor(knowledgeConceptCapabilitiesFamily, ["axm knowledge concepts capabilities"]),
   ...rowsFor(lintFamily, ["axm lint"]),
   ...rowsFor(extensionListFamily, ["axm list"]),
-  ...rowsFor(instructionsFamily, ["axm instructions"]),
+  ...rowsFor(instructionsFamily, ["axm instructions status"]),
   ...rowsFor(setupFamily, ["axm setup"]),
   ...rowsFor(shareFamily, ["axm share"]),
   ...rowsFor(upgradeFamily, ["axm upgrade"]),
   ...rowsFor(viewFamily, ["axm view"]),
   ...rowsFor(visibilityEvaluationFamily, ["axm visibility status"]),
-  ...rowsFor(visibilityMutationFamily, ["axm visibility set", "axm visibility reconcile"]),
 ];
 
 export const FORMATTER_VERSION_CONTRACT = {

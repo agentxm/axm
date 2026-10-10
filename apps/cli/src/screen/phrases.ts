@@ -258,7 +258,7 @@ export const systemWaitHint = (value: BlockingClass): string | undefined =>
 
 export const interruptionPhrase = (
   signal: "SIGINT" | "SIGTERM",
-  disposition: "none" | UnitDisposition,
+  disposition: UnitDisposition,
 ): string => {
   const prefix = signal === "SIGINT" ? "Interrupted" : "Terminated";
   switch (disposition) {
@@ -267,7 +267,6 @@ export const interruptionPhrase = (
     case "retained":
       return `${prefix} - partial work retained`;
     case "untouched":
-    case "none":
       return `${prefix} - no changes applied`;
     case "unknown":
       return `${prefix} - settlement unknown`;

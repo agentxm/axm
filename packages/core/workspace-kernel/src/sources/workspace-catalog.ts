@@ -20,7 +20,7 @@ import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { OperationErrorCategory } from "../operations/index.js";
+import type { ErrorCode } from "../operations/index.js";
 
 /**
  * A package registry the workspace has configured.
@@ -34,7 +34,7 @@ export type ConfiguredSourceHost = RegistrySourceHost;
  * category — without re-rendering it.
  */
 export class WorkspaceCatalogUnavailable extends Data.TaggedError("WorkspaceCatalogUnavailable")<{
-  readonly category: OperationErrorCategory;
+  readonly category: ErrorCode;
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause?: unknown;

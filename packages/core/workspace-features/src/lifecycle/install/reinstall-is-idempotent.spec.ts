@@ -1,6 +1,7 @@
 import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as nodePath from "node:path";
 import * as fs from "node:fs";
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -26,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/reinstall-is-idempotent",
   title: "Installing an already desired extension at the same constraint is a successful no-op",
   statement:
-    "When a person reinstalls an extension the workspace already desires at the same constraint — whatever its type, and whether it was requested directly or as a member of a Pack — the install shall succeed with a no-op outcome in which every unit is unchanged, and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.",
+    "When a person repeats an explicit install of an extension the workspace already desires at the same constraint — whatever its type, and whether it was requested directly or as a member of a Pack — the install shall succeed with a no-op outcome in which every unit is unchanged, and shall not change settings, the lockfile, canonical content, or agent projections; when the installed files differ from the accepted content, the repeated install shall restore the accepted content without changing the accepted resolution.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
@@ -97,8 +98,8 @@ describe("Repeat installs are safe", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect.each(["root", "skill", "pack", "explicit"] as const)(
-    "configured %s install replays a warm accepted closure without source operations",
+  it.effect.each(["root", "skill", "pack"] as const)(
+    "explicit %s install replays a warm accepted closure without source operations",
     (route) => {
       const world = makeInstallWorld();
       cleanups.push(world.cleanup);
@@ -133,15 +134,16 @@ describe("Repeat installs are safe", () => {
             const sources = yield* SourceHostProviders;
             const unexpected = () =>
               Effect.die(
-                new Error("A warm configured install must not consult or acquire from sources"),
+                new Error("A warm explicit install must not consult or acquire from sources"),
               );
             const repeated = yield* applyInstall(
               installRequest({
-                ...(route === "root" ? {} : { type: route === "explicit" ? "pack" : route }),
-                subject:
-                  route === "explicit"
-                    ? { kind: "source", source: "@acme/packs/repeat@^1.0.0" }
-                    : { kind: "configured" },
+                ...(route === "root" ? {} : { type: route }),
+                subject: {
+                  kind: "source",
+                  source:
+                    route === "skill" ? "@acme/skills/member@^1.0.0" : "@acme/packs/repeat@^1.0.0",
+                },
               }),
             ).pipe(
               Effect.provideService(SourceHostProviders, {
@@ -161,7 +163,7 @@ describe("Repeat installs are safe", () => {
   );
 
   it.effect.each(["missing-pack", "missing-member", "changed-pack"] as const)(
-    "configured install restores the exact accepted closure when %s despite newer releases",
+    "explicit install restores the exact accepted closure when %s despite newer releases",
     (state) => {
       const world = makeInstallWorld();
       cleanups.push(world.cleanup);
@@ -203,7 +205,7 @@ describe("Repeat installs are safe", () => {
             }
             const sources = yield* SourceHostProviders;
             const repeated = yield* applyInstall(
-              installRequest({ subject: { kind: "configured" } }),
+              installRequest({ subject: { kind: "source", source: "@acme/packs/repeat@^1.0.0" } }),
             ).pipe(
               Effect.provideService(SourceHostProviders, {
                 ...sources,
@@ -220,7 +222,7 @@ describe("Repeat installs are safe", () => {
     },
   );
 
-  it.effect("configured install uses the accepted local copy after the source disappears", () => {
+  it.effect("explicit install uses the accepted local copy after the source disappears", () => {
     const world = makeInstallWorld();
     cleanups.push(world.cleanup);
     const source = nodePath.dirname(
@@ -234,7 +236,9 @@ describe("Repeat installs are safe", () => {
           );
           const before = durableState(world);
           fs.rmSync(source, { recursive: true });
-          const repeated = yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          const repeated = yield* applyInstall(
+            installRequest({ subject: { kind: "source", source } }),
+          );
           expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
           expect(durableState(world)).toEqual(before);
         }),
@@ -243,7 +247,7 @@ describe("Repeat installs are safe", () => {
   });
 
   it.effect.each(["root", "skill"] as const)(
-    "configured %s install preserves an accepted Git commit after its branch advances",
+    "explicit %s install preserves an accepted Git commit after its branch advances",
     (route) =>
       Effect.gen(function* () {
         const world = makeInstallWorld();
@@ -257,6 +261,7 @@ describe("Repeat installs are safe", () => {
                 installRequest({
                   type: "skill",
                   subject: { kind: "source", source: repository.url },
+                  names: ["repeat"],
                 }),
               );
               const before = durableState(world);
@@ -267,15 +272,27 @@ describe("Repeat installs are safe", () => {
               const repeated = yield* applyInstall(
                 installRequest({
                   ...(route === "root" ? {} : { type: route }),
-                  subject: { kind: "configured" },
+                  subject: { kind: "source", source: repository.url },
+                  names: ["repeat"],
                 }),
               ).pipe(
                 Effect.provideService(SourceHostProviders, {
                   ...sources,
-                  find: unexpected,
+                  find: (source, options) =>
+                    source.type === "local" &&
+                    source.path.startsWith(`${world.workspace.root}/agent_extensions/`)
+                      ? sources.find(source, options)
+                      : unexpected(),
                   fetch: unexpected,
                   resolveNamedRegistry: unexpected,
-                  acquireForTransition: unexpected,
+                  acquireForTransition: (ref) =>
+                    ref.refType === "git-hosted" &&
+                    ref.gitCommitSha === repository.acceptedCommit &&
+                    fromFileLocation(ref.location).startsWith(
+                      `${world.workspace.root}/agent_extensions/`,
+                    )
+                      ? sources.acquireForTransition(ref)
+                      : unexpected(),
                 }),
               );
               expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
@@ -286,7 +303,7 @@ describe("Repeat installs are safe", () => {
       }),
   );
 
-  it.effect("configured install preserves accepted local content after its source changes", () => {
+  it.effect("explicit install preserves accepted local content after its source changes", () => {
     const world = makeInstallWorld();
     cleanups.push(world.cleanup);
     const source = writeLocalSkillPackage(world.workspace.root, { name: "repeat" });
@@ -298,7 +315,9 @@ describe("Repeat installs are safe", () => {
           );
           const before = durableState(world);
           fs.appendFileSync(nodePath.join(source, "src", "SKILL.md"), "\nNew source content.\n");
-          const repeated = yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          const repeated = yield* applyInstall(
+            installRequest({ subject: { kind: "source", source } }),
+          );
           expect(deriveOperationOutcome(repeated), JSON.stringify(repeated)).toBe("no-op");
           expect(durableState(world)).toEqual(before);
         }),

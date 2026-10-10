@@ -1,3 +1,4 @@
+import { axmBooleanEnabled } from "@agentxm/host-primitives";
 /**
  * Trusted publishing: the credential a GitHub Actions job presents without a
  * stored secret.
@@ -58,7 +59,7 @@ export const githubActionsIdentity: Effect.Effect<
   RegistryAccessFailed
 > = Effect.gen(function* () {
   const optOut = yield* envOption("AXM_TRUSTED_PUBLISHING");
-  if (Option.contains(optOut, "0")) return Option.none();
+  if (!axmBooleanEnabled(Option.getOrUndefined(optOut), true)) return Option.none();
   const requestUrl = nonEmpty(yield* envOption("ACTIONS_ID_TOKEN_REQUEST_URL"));
   const requestToken = nonEmpty(yield* envOption("ACTIONS_ID_TOKEN_REQUEST_TOKEN"));
   return Option.isSome(requestUrl) && Option.isSome(requestToken)

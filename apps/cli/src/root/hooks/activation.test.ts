@@ -15,7 +15,7 @@ import {
   expectNoOpPlanResult,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleActivation } from "../activation-handler.js";
+import { handleDisable, handleEnable } from "../activation-handler.js";
 import { handleHooksNew } from "./new.js";
 
 const hookEntry = (enabled: boolean) => ({
@@ -60,13 +60,12 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("hook", {
-          enabled: true,
+        yield* handleEnable("hook", {
           name: "workspace-baseline",
           preview: false,
         });
 
-        expect(logs.success).toEqual(['hooks package "workspace-baseline" is already enabled']);
+        expect(logs.success).toEqual(['hook extension "workspace-baseline" is already enabled']);
       }),
     );
   });
@@ -79,16 +78,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("hook", {
-          enabled: true,
+        yield* handleEnable("hook", {
           name: "workspace-baseline",
           preview: false,
         });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Enable hooks package",
-          message: 'hooks package "workspace-baseline" is already enabled',
+          planName: "Enable hook extension",
+          message: 'hook extension "workspace-baseline" is already enabled',
         });
       }),
     );
@@ -102,16 +100,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("hook", {
-          enabled: false,
+        yield* handleDisable("hook", {
           name: "workspace-baseline",
           preview: false,
         });
 
         expect(logs.success).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Disable hooks package",
-          message: 'hooks package "workspace-baseline" is already disabled',
+          planName: "Disable hook extension",
+          message: 'hook extension "workspace-baseline" is already disabled',
         });
       }),
     );
@@ -125,16 +122,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("hook", {
-          enabled: false,
+        yield* handleDisable("hook", {
           name: "missing",
           preview: false,
         });
 
         expect(logs.warn).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Disable hooks package",
-          message: 'hooks package "missing" is not configured',
+          planName: "Disable hook extension",
+          message: 'hook extension "missing" is not configured',
         });
       }),
     );
@@ -148,16 +144,15 @@ describe("hooks enable/disable no-op output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("hook", {
-          enabled: true,
+        yield* handleEnable("hook", {
           name: "missing",
           preview: false,
         });
 
         expect(logs.warn).toEqual([]);
         expectNoOpPlanResult(rendererState.results[0]?.data, {
-          planName: "Enable hooks package",
-          message: 'hooks package "missing" is not configured',
+          planName: "Enable hook extension",
+          message: 'hook extension "missing" is not configured',
         });
       }),
     );
@@ -177,18 +172,16 @@ describe("hooks enable/disable no-op output", () => {
           matcher: Option.some("Bash"),
           preview: false,
         });
-        yield* handleActivation("hook", {
-          enabled: false,
+        yield* handleDisable("hook", {
           name: "workspace-baseline",
           preview: false,
         });
-        yield* handleActivation("hook", {
-          enabled: true,
+        yield* handleEnable("hook", {
           name: "workspace-baseline",
           preview: false,
         });
 
-        expect(logs.success).toContain("Enabled 1 hook");
+        expect(logs.success).toContain("Enabled 1 hook extension");
         const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf-8"));
         expect(settings.hooks["workspace-baseline"]).toBe("workspace");
         expect(fs.existsSync(path.join(tempDir, "hooks", "workspace-baseline"))).toBe(true);

@@ -21,7 +21,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-kernel/projection";
-import { handleActivation, type ActivationRequest } from "../activation-handler.js";
+import { handleEnable, type ActivationRequest } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -56,7 +56,6 @@ const defaultArgs = (
   overrides: Partial<ActivationRequest> = {},
 ): ActivationRequest => ({
   name,
-  enabled: true,
   preview: false,
   ...overrides,
 });
@@ -113,7 +112,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          const error = yield* handleActivation("subagent", defaultArgs("nonexistent")).pipe(
+          const error = yield* handleEnable("subagent", defaultArgs("nonexistent")).pipe(
             Effect.flip,
           );
           expect(getAppError(error).detail).toContain("is not installed");
@@ -130,7 +129,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("subagent", defaultArgs("my-agent"));
+          yield* handleEnable("subagent", defaultArgs("my-agent"));
 
           expect(logs.info.some((m) => m.includes("already enabled"))).toBe(false);
           expect(logs.success.some((m) => m.includes("already enabled"))).toBe(true);
@@ -148,7 +147,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("subagent", defaultArgs("my-agent"));
+          yield* handleEnable("subagent", defaultArgs("my-agent"));
 
           expect(logs.success).toEqual([]);
           const result = expectNoOpPlanResult(rendererState.results[0]?.data, {
@@ -179,7 +178,7 @@ describe("subagents enable.handler", () => {
 
       return provide(
         Effect.gen(function* () {
-          yield* handleActivation("subagent", defaultArgs("my-agent"));
+          yield* handleEnable("subagent", defaultArgs("my-agent"));
 
           // Apply mode renders no planned block; the refusal is the terminal
           // failed-outcome block, whose verdict follows its ledger.

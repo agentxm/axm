@@ -65,7 +65,7 @@ describe("hooks test output", () => {
         });
         return Effect.gen(function* () {
           yield* handleHookTest({ directory: "hooks/audit", configuration: "{}", fixture: [] });
-          expect(startedUnits(context.rendererState)).toEqual(["declared hook fixtures"]);
+          expect(startedUnits(context.rendererState)).toEqual(["declared hook extension fixtures"]);
           expect(context.rendererState.results).toHaveLength(1);
           expect(context.rendererState.results[0]?.data).toMatchObject({
             passed,
@@ -90,7 +90,9 @@ describe("hooks test output", () => {
         return Effect.gen(function* () {
           yield* handleHookTest({ directory: "hooks/audit", configuration: "{}", fixture: [] });
           const stdout = streams.lines("stdout").join("\n");
-          expect(stdout).toContain(passed ? "Hook fixtures passed" : "Hook fixtures failed");
+          expect(stdout).toContain(
+            passed ? "Hook extension fixtures passed" : "Hook extension fixtures failed",
+          );
           expect(stdout).toContain("native host invocation was not observed");
           expect(stdout).not.toContain("private-output-marker");
         }).pipe(Effect.provide(context.fullLayer));

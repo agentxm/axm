@@ -106,7 +106,7 @@ export interface SettingsReaderService {
    * {@link registryBaseUrl}. The one decision every publish, lifecycle,
    * inspection, and authentication request addresses a Registry through.
    */
-  readonly registryTarget: (name: Option.Option<string>) => Read<RegistryTargetSelection>;
+  readonly registryTarget: (nameOrUrl: Option.Option<string>) => Read<RegistryTargetSelection>;
   /** Owner: project settings, then user-scope settings, then none. */
   readonly owner: Read<Option.Option<Handle>>;
   /** Repository publication default for this exact workspace scope. */
@@ -203,8 +203,23 @@ export const makeSettingsReader = (
     registryTarget: (requested) =>
       Effect.gen(function* () {
         const name = Option.isSome(requested) ? requested.value : yield* defaultRegistry;
+        if (Option.isSome(requested) && URL.canParse(name)) {
+          const location = new URL(name);
+          const permitted =
+            (location.protocol === "https:" || location.protocol === "http:") &&
+            location.username === "" &&
+            location.password === "" &&
+            location.search === "" &&
+            location.hash === "";
+          return {
+            name,
+            url: permitted ? Option.some(registryBaseUrl(location)) : Option.none(),
+          } satisfies RegistryTargetSelection;
+        }
         const sources = yield* configuredSources;
-        const source = sources.find((candidate) => candidate.name === name);
+        const source = sources.find(
+          (candidate) => candidate.name === name && candidate.type === "registry",
+        );
         return {
           name,
           url: source === undefined ? Option.none() : Option.some(registryBaseUrl(source.location)),

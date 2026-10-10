@@ -1,3 +1,4 @@
+import { booleanOptionFromArgv } from "./cli-flags/argv-boolean.js";
 import type { OutputWriteFailed } from "./screen/streams.js";
 /**
  * Startup update check integration.
@@ -24,7 +25,7 @@ import type { AvailableUpdate } from "@agentxm/cli-maintenance/self-update/domai
 
 import { isAgentSession } from "./cli-flags/index.js";
 import { Screen } from "./screen/index.js";
-import { ciEnabled } from "@agentxm/host-primitives";
+import { axmBooleanEnabled, ciEnabled } from "@agentxm/host-primitives";
 
 // -----------------------------------------------------------------------------
 // Skip detection from argv
@@ -48,9 +49,10 @@ export const resolveNonInteractiveFromArgv = (
   args: ReadonlyArray<string>,
   environment: { readonly ci: string | undefined; readonly stdinIsTTY: boolean | undefined },
 ): boolean =>
-  args.includes("--non-interactive") ||
-  ciEnabled(environment.ci) ||
-  environment.stdinIsTTY !== true;
+  Option.getOrElse(
+    booleanOptionFromArgv(args, ["--non-interactive"]),
+    () => ciEnabled(environment.ci) || environment.stdinIsTTY !== true,
+  );
 
 export interface UpdateCheckContextInputs {
   readonly args: ReadonlyArray<string>;
@@ -70,9 +72,8 @@ export interface UpdateCheckContextInputs {
  * command.
  */
 const environmentSignals = Effect.all({
-  noUpdateCheckEnv: Effect.map(
-    Config.option(Config.String("AXM_NO_UPDATE_CHECK")),
-    (value) => Option.getOrUndefined(value) === "1",
+  noUpdateCheckEnv: Effect.map(Config.option(Config.String("AXM_NO_UPDATE_CHECK")), (value) =>
+    axmBooleanEnabled(Option.getOrUndefined(value)),
   ),
   isAgentSession,
 }).pipe(Effect.catch(() => Effect.succeed({ noUpdateCheckEnv: true, isAgentSession: false })));

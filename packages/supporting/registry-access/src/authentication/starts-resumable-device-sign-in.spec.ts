@@ -11,6 +11,7 @@ import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   authRegistry,
   deviceLoginRequest,
+  resumeLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
 } from "./test-support/test-helpers.js";
@@ -19,7 +20,7 @@ export const specification = defineSpecification({
   requirement: "cli/login/starts-resumable-device-sign-in",
   title: "Unattended device sign-in returns the human action",
   statement:
-    "When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser.",
+    "When device sign-in starts unattended, AXM shall retain the pending authorization and return its verification URL, user code, expiry, and resume command without waiting for approval or opening a browser. A pending sign-in for another Registry shall preserve that request and offer a recovery selecting its Registry through --registry.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -33,6 +34,36 @@ export const specification = defineSpecification({
 });
 
 describe("Unattended device sign-in", () => {
+  for (const wait of [false, true]) {
+    it.effect(
+      `a Registry mismatch offers the original Registry recovery (wait=${String(wait)})`,
+      () => {
+        const ports = makeAuthPorts({ presenter: machineOutputPresenter });
+        return Effect.gen(function* () {
+          yield* login(deviceLoginRequest(), authRegistry);
+          const before = yield* (yield* PendingDeviceLoginStore).load();
+          const failure = yield* Effect.flip(
+            login(
+              wait ? resumeLoginRequest() : deviceLoginRequest(),
+              "https://other-registry.example.test",
+            ),
+          );
+          expect(failure._tag).toBe("RegistryAccessFailed");
+          if (failure._tag !== "RegistryAccessFailed") return;
+          expect(failure.suggestions).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                cmd: `axm login --registry ${authRegistry} --device-code --wait-for-human 300 --json`,
+              }),
+            ]),
+          );
+          expect(yield* (yield* PendingDeviceLoginStore).load()).toEqual(before);
+          expect(ports.polledCodes).toEqual([]);
+        }).pipe(Effect.provide(ports.layer));
+      },
+    );
+  }
+
   it.effect("returns the action without credentials or polling", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {

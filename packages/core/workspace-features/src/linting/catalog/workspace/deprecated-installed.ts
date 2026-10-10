@@ -30,7 +30,7 @@ export const deprecatedInstalledRule: AdvisoryRule<WorkspaceRuleContext> = {
                   ? `Replacement unavailable; inspect: axm view ${fqn}.`
                   : deprecation.reason === "unmaintained" || deprecation.reason === "other"
                     ? `Choose a successor manually; inspect: axm view ${fqn}.`
-                    : `Preview: axm migrate ${fqn} --dry-run. Apply: axm migrate ${fqn}.`;
+                    : `Preview: axm migrate ${fqn} --preview. Apply: axm migrate ${fqn}.`;
             return {
               kind: "advisory",
               ruleId: RULE_ID,

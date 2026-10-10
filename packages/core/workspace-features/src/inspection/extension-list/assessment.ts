@@ -56,7 +56,7 @@ export interface ExtensionAssessment {
   readonly deprecation?: DeprecationView;
 }
 
-export interface ExtensionListItem {
+export interface AssessedExtensionListItem {
   readonly ref: string;
   readonly type: InstallableExtensionType;
   readonly name: string;
@@ -85,15 +85,15 @@ const isGitAcceptedEntry = (entry: AcceptedEntry): entry is GitAcceptedEntry =>
   entry.source.type === "git";
 
 export const collectExtensionListItems = Effect.fn("Workspace.collectExtensionListItems")(
-  function* (type?: InstallableExtensionType) {
+  function* (types: ReadonlyArray<InstallableExtensionType> = []) {
     const lockfile = yield* LockfileReader;
     const records = yield* WorkspaceRecords;
-    const inventory = yield* records.getInventory(type === undefined ? {} : { type });
+    const inventory = yield* records.getInventory({ types });
     const acceptedByRow = yield* Effect.forEach(inventory.items, (row) =>
       lockfile.acceptedEntry(row.type, row.name).pipe(Effect.map(Option.getOrUndefined)),
     );
 
-    return inventory.items.map((row, index): ExtensionListItem => {
+    return inventory.items.map((row, index): AssessedExtensionListItem => {
       const locked = acceptedByRow[index];
       const configuredSource = row.source;
       const lockedSource =
@@ -150,7 +150,7 @@ const decodeInstalledVersion = (value: string, ref: string) =>
   );
 
 const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(function* (
-  item: ExtensionListItem,
+  item: AssessedExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
   record: RegistryAcceptedEntry,
   graph: DesiredStateGraph,
@@ -210,7 +210,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
 });
 
 const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
-  item: ExtensionListItem,
+  item: AssessedExtensionListItem,
   record: GitAcceptedEntry,
 ) {
   const providers = yield* SourceHostProviders;
@@ -257,7 +257,7 @@ const gitAssessment = Effect.fn("Workspace.gitExtensionAssessment")(function* (
 });
 
 const assessItem = (
-  item: ExtensionListItem,
+  item: AssessedExtensionListItem,
   filter: Exclude<ExtensionListFilter, "all">,
   record: AcceptedEntry | undefined,
   graph: DesiredStateGraph,
@@ -293,7 +293,7 @@ const assessItem = (
   });
 
 export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionListItems")(function* (
-  items: ReadonlyArray<ExtensionListItem>,
+  items: ReadonlyArray<AssessedExtensionListItem>,
   filter: Exclude<ExtensionListFilter, "all">,
 ) {
   const lockfile = yield* LockfileReader;
@@ -305,7 +305,7 @@ export const assessExtensionListItems = Effect.fn("Workspace.assessExtensionList
         Effect.flatMap((accepted) =>
           assessItem(item, filter, Option.getOrUndefined(accepted), graph),
         ),
-        Effect.map((assessment): ExtensionListItem => ({ ...item, assessment })),
+        Effect.map((assessment): AssessedExtensionListItem => ({ ...item, assessment })),
       );
     },
     { concurrency: 6 },

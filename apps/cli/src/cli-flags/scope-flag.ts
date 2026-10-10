@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../cli-parameters.js";
 import { Flag } from "effect/cli";
 import {
   DEFAULT_WORKSPACE_SCOPE,
@@ -5,6 +6,6 @@ import {
 } from "@agentxm/extension-model/unstable/workspace-scope";
 
 export const scopeFlag = Flag.Literals("scope", WORKSPACE_SCOPES).pipe(
-  Flag.withDescription("Configuration scope: project (default) or user"),
-  Flag.withDefault(DEFAULT_WORKSPACE_SCOPE),
+  withParameterDescription("Workspace scope"),
+  withParameterDefault(DEFAULT_WORKSPACE_SCOPE),
 );

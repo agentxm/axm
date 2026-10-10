@@ -17,7 +17,7 @@ import * as Data from "effect/Data";
 import { ConfigError } from "effect/Config";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { isRegistryClientFailure, type RegistryClientFailure } from "@agentxm/registry-client";
-import type { OperationErrorCategory } from "../operations/index.js";
+import type { ErrorCode } from "../operations/index.js";
 import { AxmSkillGateUnavailable } from "./axm-skill-gate.js";
 import { WorkspaceCatalogUnavailable } from "./workspace-catalog.js";
 
@@ -144,9 +144,7 @@ export const isSourceResolutionFailure = (error: unknown): error is SourceResolu
  * on it instead of sniffing the rendered envelope, so a failure never reads
  * as one category on a plan path and another on a direct path.
  */
-export const sourceResolutionFailureCategory = (
-  error: SourceResolutionFailure,
-): OperationErrorCategory => {
+export const sourceResolutionFailureCategory = (error: SourceResolutionFailure): ErrorCode => {
   switch (error._tag) {
     case "ConfigError":
       return error.cause._tag === "SourceError" ? "unavailable" : "validation";

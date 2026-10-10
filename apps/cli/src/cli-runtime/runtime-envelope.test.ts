@@ -220,12 +220,12 @@ describe("writeDefect", () => {
         code: "internal",
         title: "Internal Error",
         detail: "boom",
-        cause: [{ _tag: "Error", message: "boom" }],
         suggestions: [{ url: "https://github.com/agentxm/axm/issues" }],
       });
 
-      // The live stream a handled internal error writes: its recovery, then
-      // the schema-conformant ErrorEvent; full detail lives in the envelope.
+      expect(stdoutDoc).not.toHaveProperty("cause");
+
+      // Defect details stay opt-in; the stream carries recovery and the error event.
       const events = stderrWrites.map((line) => JSON.parse(line.trim()) as unknown);
       expect(events).toEqual([
         {

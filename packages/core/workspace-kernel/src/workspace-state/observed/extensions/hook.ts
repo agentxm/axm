@@ -128,7 +128,7 @@ const resolvedFromLockfile = (lockfile: Lockfile): ResolvedHooks => {
 // ---------------------------------------------------------------------------
 
 /**
- * Hook scanners. Hook packages materialize only in canonical package roots,
+ * Hook scanners. Hook extensions materialize only in canonical package roots,
  * so the canonical scanner is the sole input; agent-side managed hook groups are
  * renderings of an installed hook rather than independent materializations.
  */

@@ -127,10 +127,9 @@ const heldNewerRelease = (
     const { registry, workspace } = makeUnagedWorkspace(cleanups, posture, [{ version: "1.0.0" }]);
     yield* handleInstall({
       type: Option.none(),
-      source: Option.none(),
+      source: Option.some(FQN),
       selectors: {},
       all: false,
-      force: false,
       preview: false,
       bind: [],
       bindEnv: [],
@@ -181,10 +180,9 @@ const blockedForms: ReadonlyArray<{
     run: (workspace) =>
       handleInstall({
         type: Option.none(),
-        source: Option.none(),
+        source: Option.some(FQN),
         selectors: {},
         all: false,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],
@@ -196,7 +194,7 @@ const blockedForms: ReadonlyArray<{
     form: "root update",
     fixture: heldNewerRelease,
     run: (workspace) =>
-      handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
+      handleUpdate({ source: Option.none(), reinstall: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -211,10 +209,9 @@ const blockedForms: ReadonlyArray<{
     run: (workspace) =>
       handleInstall({
         type: Option.some("skill"),
-        source: Option.none(),
+        source: Option.some(FQN),
         selectors: { skill: [] },
         all: false,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],

@@ -1,6 +1,9 @@
+import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
+import { withParameterDescription } from "../../cli-parameters.js";
+import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   decodeExtensionNameSync,
@@ -45,24 +48,18 @@ export const handleMcpServersNew = (args: McpServersNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.String("name").pipe(Argument.withDescription("Name of the MCP server")),
-  description: Flag.String("description").pipe(
-    Flag.withDescription("Description for the MCP server"),
-    Flag.withDefault(""),
+  name: Argument.String("name").pipe(
+    withParameterDescription("Name of the MCP server to create, without owner"),
   ),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription(
-      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
-    ),
-    Flag.optional,
-  ),
+  description: descriptionFlag,
+  owner: creationOwnerFlag,
   preview: previewCapabilityFlag(),
 } as const;
 
 export const newCommand = Command.make("new", newConfig, ({ name, description, owner, preview }) =>
   handleMcpServersNew({
     name: decodeExtensionNameSync(name),
-    description,
+    description: Option.getOrElse(description, () => ""),
     owner,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("mcps new")),

@@ -9,15 +9,14 @@ import { commandHelpDoc } from "../../root/help/command-help-view.js";
  */
 export const helpCommand = commandHelpDoc({
   type: "help",
-  description:
-    "Install extensions from Registry, Git, or path sources, or reinstall configured sources",
-  usage: "axm install [flags] [<source>]",
+  description: "Install extensions from a Registry, Git, or path source",
+  usage: "axm install [flags] <source>",
   args: [
     {
       name: "source",
       type: "string",
-      required: false,
-      variadic: false,
+      required: true,
+      aliases: [],
       description:
         "Registry FQN (@owner/<plural-type>/<name>[@version]), self-describing Git locator, or path locator",
     },
@@ -28,8 +27,9 @@ export const helpCommand = commandHelpDoc({
       aliases: [],
       type: "choice",
       required: false,
-      description:
-        "Install to project (default) or user-level configuration (choices: project, user)",
+      description: "Workspace scope",
+      choices: [{ value: "project" }, { value: "user" }],
+      default: "project",
     },
     {
       name: "all",
@@ -37,6 +37,7 @@ export const helpCommand = commandHelpDoc({
       type: "boolean",
       required: false,
       description: "Install every matching extension without prompting",
+      default: false,
     },
     {
       name: "ignore-release-age",
@@ -45,13 +46,6 @@ export const helpCommand = commandHelpDoc({
       required: false,
       description:
         "Take a release younger than the configured minimum release age, for this run only",
-    },
-    {
-      name: "env",
-      aliases: ["e"],
-      type: "string",
-      required: false,
-      description: "Provide an MCP input value as KEY=VALUE; repeatable",
     },
   ],
   globalFlags: [
@@ -65,17 +59,20 @@ export const helpCommand = commandHelpDoc({
     {
       name: "directory",
       aliases: ["C"],
-      type: "directory",
+      type: "path",
       required: false,
       description:
         "Run as if AXM was started in this directory (relative paths resolve from there)",
     },
   ],
   examples: [
-    { command: "axm install", description: "Reinstall all configured extensions" },
     {
       command: "axm install @acme/skills/code-review",
       description: "Install a skill by registry FQN",
+    },
+    {
+      command: "axm install --all github:acme/agent-extensions",
+      description: "Install every extension from a Git source",
     },
   ],
   learnMore: formatLearnMore([

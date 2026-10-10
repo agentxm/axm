@@ -8,10 +8,7 @@ import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
 
 export const executionBinding = {
-  requirements: [
-    "cli/projection-currency-follows-state-authority",
-    "cli/install/reinstall-is-idempotent",
-  ],
+  requirements: ["cli/projection-currency-follows-state-authority"],
   boundary: "process",
   rationale:
     "Runs a real Markdown formatter between projection and the packaged CLI, then proves both lint views, preview, sync, and reinstall preserve the formatted bytes.",
@@ -146,7 +143,7 @@ describe("generated projection currency at the process boundary", () => {
       );
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
 
-      const indexLint = await runCli(["lint", "--view", "git-index", "--strict", "--json"], {
+      const indexLint = await runCli(["lint", "--staged", "--strict", "--json"], {
         cwd: temp.path,
         env,
       });
@@ -174,10 +171,13 @@ describe("generated projection currency at the process boundary", () => {
       expect(JSON.parse(sync.stdout)).toMatchObject({ result: { outcome: "no-op" } });
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
 
-      const reinstall = await runCli(["rules", "install", "--json", "--non-interactive"], {
-        cwd: temp.path,
-        env,
-      });
+      const reinstall = await runCli(
+        ["rules", "update", "--reinstall", "--json", "--non-interactive"],
+        {
+          cwd: temp.path,
+          env,
+        },
+      );
       expect(reinstall.exitCode, `${reinstall.stderr}\n${reinstall.stdout}`).toBe(0);
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(formatted);
     } finally {

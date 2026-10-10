@@ -312,6 +312,8 @@ export {
   type NativeRegionSource,
 } from "./native-managed-region.js";
 
+export { InstructionHealthSchema } from "./instructions/instruction-status.js";
+
 export type {
   InstructionMechanism,
   InstructionHealth,

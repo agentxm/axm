@@ -1,3 +1,9 @@
+import { ownerHandleFlag } from "../../cli-flags/owner-handle.js";
+import {
+  withParameterDefault,
+  withParameterDescription,
+  withParameterRange,
+} from "../../cli-parameters.js";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -20,7 +26,7 @@ import {
   type CreateTokenRequest,
   type TokenPermissionLevel,
 } from "@agentxm/registry-access/authentication";
-import { jsonFlag } from "../../cli-flags/index.js";
+import { jsonFlag, registryFlag } from "../../cli-flags/index.js";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import {
   emitResult,
@@ -33,12 +39,15 @@ import {
 } from "../../screen/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { publicRecoveryValue, recoveryOption } from "@agentxm/workspace-kernel/operations";
+import { retrySuggestion } from "../shared/confirmation-recovery.js";
 import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { makeAppError } from "../../app-error/index.js";
 import {
   directWriteCapabilities,
+  groupCapabilities,
   readOnlyCapabilities,
   withCommandCapabilities,
 } from "../shared/command-capabilities.js";
@@ -120,21 +129,21 @@ export interface CreateTokenHandlerArgs {
   readonly owners: readonly string[];
   readonly extensions: readonly string[];
   readonly permission: TokenPermissionLevel;
-  readonly output?: "token" | "human";
+  readonly plain?: boolean;
 }
 
 export interface TokenHandlerArgs {
-  readonly output?: "token" | "human";
+  readonly plain?: boolean;
 }
 
-const outputFlag = Flag.Literals("output", ["token", "human"]).pipe(
-  Flag.withDescription(
-    'Credential destination: "token" writes only the token to stdout; "human" shows the interactive one-time view',
+const plainFlag = Flag.Boolean("plain").pipe(
+  withParameterDescription(
+    "Write only the secret to stdout; required when stdout is not a terminal",
   ),
-  Flag.optional,
+  withParameterDefault(false),
 );
 
-const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
+const resolveCredentialOutput = (requested: boolean | undefined) =>
   Effect.gen(function* () {
     const screen = yield* Screen;
     const facts = yield* screen.facts;
@@ -145,17 +154,14 @@ const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
       return yield* makeAppError({
         code: "usage",
         detail:
-          "Token credentials cannot be returned as JSON. Use --output token to write only the token to stdout.",
+          "Token credentials cannot be returned as JSON. Use --plain to write only the token to stdout.",
       });
     }
-    if (requested === "token") return requested;
+    if (requested === true) return "token" as const;
     if (nonInteractive || !facts.stdoutIsTTY) {
       return yield* makeAppError({
         code: "usage",
-        detail:
-          requested === "human"
-            ? "--output human requires an interactive terminal. Use --output token to write only the token to stdout."
-            : "Non-interactive token access requires an explicit output mode. Use --output token.",
+        detail: "Non-interactive token access requires --plain to write only the secret to stdout.",
       });
     }
     return "human" as const;
@@ -163,7 +169,7 @@ const resolveCredentialOutput = (requested: "token" | "human" | undefined) =>
 
 export const handleToken = Effect.fn("AuthToken.handle")(
   function* (args: TokenHandlerArgs) {
-    yield* resolveCredentialOutput(args.output);
+    yield* resolveCredentialOutput(args.plain);
     const registry = yield* selectedRegistry;
     const screen = yield* Screen;
 
@@ -206,7 +212,7 @@ const reportCleanup = (
         text:
           outcome === "revoked"
             ? `Revoked token ${tokenId} because it was not delivered to stdout.`
-            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: AXM_REGISTRY_URL=${registryUrl} axm token revoke ${tokenId}`,
+            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: axm token revoke ${tokenId} --registry ${registryUrl}`,
       },
     ])
     .pipe(Effect.catchCause(() => Effect.void));
@@ -271,7 +277,7 @@ const createAndDeliverToken = <E, R>(
 export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
     const screen = yield* Screen;
-    const credentialOutput = yield* resolveCredentialOutput(args.output);
+    const credentialOutput = yield* resolveCredentialOutput(args.plain);
     const registry = yield* selectedRegistry;
     const request: CreateTokenRequest = {
       name: args.name,
@@ -326,13 +332,29 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
 );
 
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(
-  function* () {
+  function* (page: { readonly limit?: number; readonly cursor?: string }) {
     const registry = yield* selectedRegistry;
-
+    const limit = page.limit ?? 50;
     const result = yield* withLiveOperation(
-      { command: "auth.token.list", name: "List registry tokens", mode: "preview" },
-      listTokens(registry.url),
+      { command: "auth.token.list", name: "List registry tokens", mode: "query" },
+      listTokens(registry.url, {
+        limit,
+        ...(page.cursor === undefined ? {} : { cursor: page.cursor }),
+      }),
     );
+    const continuation =
+      result.hasMore && result.cursor !== null
+        ? [
+            retrySuggestion("List the next page of tokens", {
+              command: ["token", "list"],
+              arguments: [
+                recoveryOption("--registry", publicRecoveryValue(registry.url)),
+                recoveryOption("--limit", publicRecoveryValue(String(limit))),
+                recoveryOption("--cursor", publicRecoveryValue(result.cursor)),
+              ],
+            }),
+          ]
+        : [];
 
     yield* emitResult(
       {
@@ -359,12 +381,15 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
           expiresAt: DateTime.formatIso(item.expiresAt),
           lastUsedAt: item.lastUsedAt === null ? "never" : DateTime.formatIso(item.lastUsedAt),
         }));
-        return inventoryDoc({
-          rows,
-          columns: TokenListColumns,
-          summary: count(rows.length, "token"),
-          empty: "No tokens found",
-        });
+        return [
+          ...inventoryDoc({
+            rows,
+            columns: TokenListColumns,
+            summary: count(rows.length, "token"),
+            empty: "No tokens found",
+          }),
+          ...(continuation.length === 0 ? [] : [{ _tag: "next", actions: continuation } as const]),
+        ];
       },
     );
   },
@@ -398,68 +423,81 @@ export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   Effect.asVoid,
 );
 
-const tokenConfig = { output: outputFlag } as const;
+const tokenConfig = { plain: plainFlag, registry: registryFlag } as const;
 
 const createTokenConfig = {
-  output: outputFlag,
-  name: Flag.String("name").pipe(Flag.withDescription("Human-readable token name")),
-  expires: Flag.String("expires").pipe(
-    Flag.withDescription(
-      "Token lifetime: 7d, 30d, 1y, or an ISO timestamp. At most 90d for a publish or admin token, 1y for a read token.",
-    ),
-    Flag.withDefault("30d"),
+  registry: registryFlag,
+  plain: plainFlag,
+  name: Argument.String("name").pipe(
+    withParameterDescription("Name for the new token, shown by axm token list"),
   ),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription('Owner selector; repeatable. Use "all" for full surface.'),
+  expires: Flag.String("expires").pipe(
+    withParameterDescription(
+      "Token lifetime, such as 7d, 30d, 1y, or an ISO timestamp; subject to permission limits",
+    ),
+    withParameterDefault("30d"),
+  ),
+  owner: ownerHandleFlag.pipe(
+    withParameterDescription(
+      "Grant access to this owner's extensions; omit with --extension for full reach",
+    ),
     Flag.atLeast(0),
   ),
   extension: Flag.String("extension").pipe(
-    Flag.withDescription("Extension selector in @handle/<type>/<name> form; repeatable"),
+    withParameterDescription("Extension selector in @handle/<type>/<name> form"),
     Flag.atLeast(0),
   ),
   permission: Flag.Literals("permission", TOKEN_PERMISSION_LEVELS).pipe(
-    Flag.withDescription(
-      "What the token may do: read, publish, or admin. A token can do less than you, never more.",
-    ),
+    withParameterDescription("Maximum permission for this token, within your account's authority"),
   ),
 } as const;
 
 const createTokenCommand = Command.make(
   "create",
   createTokenConfig,
-  ({ name, expires, owner, extension, permission, output }) =>
+  ({ name, expires, owner, extension, permission, plain, registry }) =>
     handleCreateToken({
       name,
       expires,
       owners: owner,
       extensions: extension,
       permission,
-      ...Option.match(output, {
-        onNone: () => ({}),
-        onSome: (value) => ({ output: value }),
-      }),
-    }).pipe(withRuntime("auth token create")),
+      plain,
+    }).pipe(withRuntime("auth token create", { registry })),
 ).pipe(
   withArgvTracking(createTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
   Command.withDescription("Create a granular access token"),
   Command.withExamples([
     {
-      command: "axm token create --name ci --owner @foo --permission publish",
+      command: "axm token create ci --owner @foo --permission publish",
       description: "Create a publish token scoped to @foo and show it once",
     },
     {
-      command:
-        "axm token create --name ci --extension @foo/skills/review --permission publish --output token",
+      command: "axm token create ci --extension @foo/skills/review --permission publish --plain",
       description: "Write only the new token to stdout for a pipe",
     },
   ]),
 );
 
-const listTokenConfig = {} as const;
+const listTokenConfig = {
+  registry: registryFlag,
+  limit: Flag.Int("limit").pipe(
+    withParameterRange(1, 100),
+    withParameterDefault(50),
+    withParameterDescription("Tokens per page"),
+  ),
+  cursor: Flag.String("cursor").pipe(
+    withParameterDescription("Continue from the cursor returned by the previous page"),
+    Flag.optional,
+  ),
+} as const;
 
-const listTokenCommand = Command.make("list", listTokenConfig, () =>
-  handleListTokens().pipe(withRuntime("auth token list")),
+const listTokenCommand = Command.make("list", listTokenConfig, ({ registry, limit, cursor }) =>
+  handleListTokens({
+    limit,
+    ...Option.match(cursor, { onNone: () => ({}), onSome: (cursor) => ({ cursor }) }),
+  }).pipe(withRuntime("auth token list", { registry })),
 ).pipe(
   withArgvTracking(listTokenConfig),
   withCommandCapabilities(readOnlyCapabilities()),
@@ -470,11 +508,12 @@ const listTokenCommand = Command.make("list", listTokenConfig, () =>
 );
 
 const revokeTokenConfig = {
-  id: Argument.String("id").pipe(Argument.withDescription("Token id to revoke")),
+  registry: registryFlag,
+  id: Argument.String("id").pipe(withParameterDescription("Token ID to revoke")),
 } as const;
 
-const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
-  handleRevokeToken(id).pipe(withRuntime("auth token revoke")),
+const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id, registry }) =>
+  handleRevokeToken(id).pipe(withRuntime("auth token revoke", { registry })),
 ).pipe(
   withArgvTracking(revokeTokenConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),
@@ -484,23 +523,32 @@ const revokeTokenCommand = Command.make("revoke", revokeTokenConfig, ({ id }) =>
   ]),
 );
 
-export const tokenCommand = Command.make("token", tokenConfig, ({ output }) =>
-  handleToken(
-    Option.match(output, {
-      onNone: () => ({}),
-      onSome: (value) => ({ output: value }),
-    }),
-  ).pipe(withRuntime("auth token")),
+const showTokenCommand = Command.make("show", tokenConfig, ({ plain, registry }) =>
+  handleToken({ plain }).pipe(withRuntime("auth token show", { registry })),
 ).pipe(
   withArgvTracking(tokenConfig),
   withCommandCapabilities(readOnlyCapabilities()),
-  Command.withSubcommands([createTokenCommand, listTokenCommand, revokeTokenCommand]),
-  Command.withDescription("Output current auth token to stdout"),
+  Command.withDescription("Show the effective authentication token"),
   Command.withExamples([
-    { command: "axm token", description: "Show your auth token in a terminal" },
+    { command: "axm token show", description: "Show your auth token in a terminal" },
     {
-      command: "axm token --output token",
-      description: "Write only your auth token to stdout for another tool",
+      command: "axm token show --plain",
+      description: "Write only your auth token for another tool",
     },
+  ]),
+);
+
+export const tokenCommand = Command.make("token").pipe(
+  withCommandCapabilities(groupCapabilities),
+  Command.withDescription("Show and manage Registry authentication tokens"),
+  Command.withExamples([
+    { command: "axm token show", description: "Show your effective authentication token" },
+    { command: "axm token list", description: "List your granular access tokens" },
+  ]),
+  Command.withSubcommands([
+    showTokenCommand,
+    createTokenCommand,
+    listTokenCommand,
+    revokeTokenCommand,
   ]),
 );

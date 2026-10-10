@@ -1,10 +1,9 @@
+import { ParameterSchema, toParameterReference } from "./cli-parameters.js";
 import * as JsonSchema from "effect/JsonSchema";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type * as CliCommand from "effect/cli/Command";
 import type * as GlobalFlag from "effect/cli/GlobalFlag";
 import * as Param from "effect/cli/Param";
-import * as Primitive from "effect/cli/Primitive";
 
 interface ConfigReference {
   readonly arguments: ReadonlyArray<Param.AnyArgument>;
@@ -16,35 +15,6 @@ interface RuntimeCommand extends CliCommand.Command.Any {
   readonly globalFlags?: ReadonlyArray<GlobalFlag.GlobalFlag<unknown>>;
 }
 
-interface WalkedParam {
-  readonly single: Param.Single<Param.ParamKind, unknown>;
-  readonly optional: boolean;
-  readonly variadic?: {
-    readonly min?: number;
-    readonly max?: number;
-  };
-}
-
-export const CliReferenceChoiceSchema = Schema.Struct({
-  value: Schema.String,
-});
-
-export const CliReferenceVariadicSchema = Schema.Struct({
-  min: Schema.optionalKey(Schema.Int),
-  max: Schema.optionalKey(Schema.Int),
-});
-
-export const CliReferenceParameterSchema = Schema.Struct({
-  name: Schema.String,
-  aliases: Schema.Array(Schema.String),
-  type: Schema.String,
-  required: Schema.Boolean,
-  description: Schema.optionalKey(Schema.String),
-  valueName: Schema.optionalKey(Schema.String),
-  variadic: Schema.optionalKey(CliReferenceVariadicSchema),
-  choices: Schema.optionalKey(Schema.Array(CliReferenceChoiceSchema)),
-});
-
 export const CliReferenceExampleSchema = Schema.Struct({
   command: Schema.String,
   description: Schema.optionalKey(Schema.String),
@@ -54,9 +24,9 @@ export interface CliCommandReference {
   readonly name: string;
   readonly aliases: ReadonlyArray<string>;
   readonly description: string;
-  readonly arguments: ReadonlyArray<typeof CliReferenceParameterSchema.Type>;
-  readonly options: ReadonlyArray<typeof CliReferenceParameterSchema.Type>;
-  readonly globalOptions: ReadonlyArray<typeof CliReferenceParameterSchema.Type>;
+  readonly arguments: ReadonlyArray<typeof ParameterSchema.Type>;
+  readonly options: ReadonlyArray<typeof ParameterSchema.Type>;
+  readonly globalOptions: ReadonlyArray<typeof ParameterSchema.Type>;
   readonly examples: ReadonlyArray<typeof CliReferenceExampleSchema.Type>;
   readonly subcommands: ReadonlyArray<CliCommandReference>;
 }
@@ -65,9 +35,9 @@ export const CliCommandReferenceSchema: Schema.Codec<CliCommandReference> = Sche
   name: Schema.String,
   aliases: Schema.Array(Schema.String),
   description: Schema.String,
-  arguments: Schema.Array(CliReferenceParameterSchema),
-  options: Schema.Array(CliReferenceParameterSchema),
-  globalOptions: Schema.Array(CliReferenceParameterSchema),
+  arguments: Schema.Array(ParameterSchema),
+  options: Schema.Array(ParameterSchema),
+  globalOptions: Schema.Array(ParameterSchema),
   examples: Schema.Array(CliReferenceExampleSchema),
   subcommands: Schema.Array(Schema.suspend(() => CliCommandReferenceSchema)),
 }).annotate({ identifier: "CliCommandReference" });
@@ -79,11 +49,6 @@ export const CliReferenceDocumentSchema = Schema.Struct({
 });
 
 export type CliReferenceDocument = typeof CliReferenceDocumentSchema.Type;
-
-const optionToUndefined = <A>(value: Option.Option<A>): A | undefined =>
-  Option.getOrUndefined(value);
-
-const decodeChoiceKeys = Schema.decodeUnknownOption(Schema.Array(Schema.String));
 
 const hasRuntimeConfig = (command: CliCommand.Command.Any): command is RuntimeCommand => {
   if (!("config" in command)) return false;
@@ -101,90 +66,9 @@ export const getRuntimeCommand = (command: CliCommand.Command.Any): RuntimeComma
   return command;
 };
 
-const isSingleParam = (param: Param.Any): param is Param.Single<Param.ParamKind, unknown> =>
-  param._tag === "Single" &&
-  "name" in param &&
-  typeof param.name === "string" &&
-  "aliases" in param &&
-  Array.isArray(param.aliases) &&
-  "primitiveType" in param;
-
-const isMappedParam = (
-  param: Param.Any,
-): param is
-  | Param.Map<Param.ParamKind, unknown, unknown>
-  | Param.Transform<Param.ParamKind, unknown, unknown> =>
-  (param._tag === "Map" || param._tag === "Transform") && "param" in param;
-
-const isOptionalParam = (param: Param.Any): param is Param.Optional<Param.ParamKind, unknown> =>
-  param._tag === "Optional" && "param" in param;
-
-const isVariadicParam = (param: Param.Any): param is Param.Variadic<Param.ParamKind, unknown> =>
-  param._tag === "Variadic" && "param" in param && "min" in param && "max" in param;
-
-const walkParam = (param: Param.Any): WalkedParam => {
-  if (isSingleParam(param)) return { single: param, optional: false };
-  if (isMappedParam(param)) return walkParam(param.param);
-  if (isOptionalParam(param)) {
-    const walked = walkParam(param.param);
-    return { ...walked, optional: true };
-  }
-  if (isVariadicParam(param)) {
-    const walked = walkParam(param.param);
-    const min = optionToUndefined(param.min);
-    const max = optionToUndefined(param.max);
-    return {
-      ...walked,
-      variadic: {
-        ...(min === undefined ? {} : { min }),
-        ...(max === undefined ? {} : { max }),
-      },
-    };
-  }
-  throw new Error(`Unsupported CLI parameter node: ${param._tag}`);
-};
-
-/** The registered names of a command's own flags, as its help renders them. */
+/** The registered names of a command's own flags. */
 export const commandFlagNames = (command: CliCommand.Command.Any): ReadonlyArray<string> =>
-  getRuntimeCommand(command).config.flags.map((flag) => walkParam(flag).single.name);
-
-const getChoiceKeys = (
-  primitive: Primitive.Primitive<unknown>,
-): ReadonlyArray<string> | undefined => {
-  if (primitive._tag !== "Choice" || !("choiceKeys" in primitive)) return undefined;
-  return Option.getOrUndefined(decodeChoiceKeys(primitive.choiceKeys));
-};
-
-const isRequired = (walked: WalkedParam): boolean => {
-  if (
-    walked.single.kind === "flag" &&
-    Primitive.getTypeName(walked.single.primitiveType) === "boolean"
-  ) {
-    return false;
-  }
-  if (walked.optional) return false;
-  return walked.variadic === undefined ? true : (walked.variadic.min ?? 0) > 0;
-};
-
-const formatAlias = (alias: string): string => (alias.length === 1 ? `-${alias}` : `--${alias}`);
-
-const toParameterReference = (param: Param.Any): typeof CliReferenceParameterSchema.Type => {
-  const walked = walkParam(param);
-  const single = walked.single;
-  const description = optionToUndefined(single.description);
-  const valueName = single.typeName;
-  const choices = getChoiceKeys(single.primitiveType)?.map((value) => ({ value }));
-  return {
-    name: single.name,
-    aliases: single.aliases.map(formatAlias),
-    type: Primitive.getTypeName(single.primitiveType),
-    required: isRequired(walked),
-    ...(description === undefined ? {} : { description }),
-    ...(valueName === undefined ? {} : { valueName }),
-    ...(walked.variadic === undefined ? {} : { variadic: walked.variadic }),
-    ...(choices === undefined ? {} : { choices }),
-  };
-};
+  getRuntimeCommand(command).config.flags.map((flag) => toParameterReference(flag).name);
 
 const buildCommandReference = (command: CliCommand.Command.Any): CliCommandReference => {
   const runtimeCommand = getRuntimeCommand(command);

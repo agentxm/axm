@@ -11,9 +11,9 @@ import {
 
 export const specification = defineSpecification({
   requirement: "extensions/hooks/declare-unambiguous-native-implementations",
-  title: "Hook packages declare explicit native implementations with complete file references",
+  title: "Hook extensions declare explicit native implementations with complete file references",
   statement:
-    "A Hook package shall identify native implementations and bindings uniquely, preserve exact native events and combined decision requirements, reference only declared configuration and safe package files, and select an implementation only when target constraints identify it unambiguously while reporting unknown host facts as conditions.",
+    "A Hook extension shall identify native implementations and bindings uniquely, preserve exact native events and combined decision requirements, reference only declared configuration and safe package files, and select an implementation only when target constraints identify it unambiguously while reporting unknown host facts as conditions.",
   class: "functional",
   role: "interface",
   goals: ["agent-interoperability", "trustworthy-distribution"],
@@ -45,7 +45,7 @@ const accepts = (value: unknown) =>
     Schema.decodeUnknownResult(HookManifestSchema)(value, { onExcessProperty: "error" }),
   );
 
-describe("Native Hook package contracts", () => {
+describe("Native Hook extension contracts", () => {
   it("preserves the native event, matcher, and combined requirements without translation", () => {
     const parsed = decode(base);
     expect(parsed.implementations[0].bindings[0]).toEqual(binding);

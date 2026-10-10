@@ -86,31 +86,46 @@ export interface ActivationRealization {
  * members nothing else reaches are retired; disabling a leaf keeps its
  * canonical content and accepted resolution, so nothing is retired.
  */
-export const prepareActivationRealization = (args: {
+interface ActivationRealizationInput {
   readonly proposal: DesiredStateProposal;
-  readonly enabled: boolean;
   readonly subjects: ReadonlyArray<DesiredExtensionNode>;
-  /** Selects the subjects within the proposed graph for materialization. */
-  readonly selection: SyncSelection;
   readonly adapter: StepFailureConversionService;
-  readonly retireUnreachable: boolean;
-}) =>
+}
+
+/** Enabling collects acquisition and materialization under the release-age policy. */
+export const prepareEnabledRealization = (
+  args: ActivationRealizationInput & {
+    readonly selection: SyncSelection;
+  },
+) =>
   Effect.gen(function* () {
-    const materialization = args.enabled
-      ? Option.some(
-          yield* collectMaterializeSteps({
-            desiredState: args.proposal.after,
-            settings: args.proposal.settings,
-            selection: args.selection,
-            requireSubagentSupport: true,
-            adapter: args.adapter,
-          }),
-        )
-      : Option.none<CollectedMaterializeSteps>();
+    const materialization = yield* collectMaterializeSteps({
+      desiredState: args.proposal.after,
+      settings: args.proposal.settings,
+      selection: args.selection,
+      requireSubagentSupport: true,
+      adapter: args.adapter,
+    });
+    return {
+      proposal: args.proposal,
+      enabled: true,
+      subjects: args.subjects,
+      hookWithdrawals: [],
+      nativeWithdrawals: [],
+      materialization: Option.some(materialization),
+      retirement: Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>(),
+    } satisfies ActivationRealization;
+  });
+
+/** Disabling withdraws existing outputs and may retire unreachable accepted content. */
+export const prepareDisabledRealization = (
+  args: ActivationRealizationInput & {
+    readonly retireUnreachable: boolean;
+  },
+) =>
+  Effect.gen(function* () {
     const hookNames = new Set(
-      args.enabled
-        ? []
-        : args.subjects.filter((node) => node.type === "hook").map((node) => node.name),
+      args.subjects.filter((node) => node.type === "hook").map((node) => node.name),
     );
     const hookWithdrawals =
       hookNames.size === 0
@@ -119,55 +134,52 @@ export const prepareActivationRealization = (args: {
             hookNames.has(name),
           );
     const nativeWithdrawals: NativeLocationOutcome[] = [];
-    if (!args.enabled) {
-      const location = yield* WorkspaceLocation;
-      const agentIds = yield* (yield* SettingsReader).configuredAgents;
-      for (const node of args.subjects.filter((node) => node.type === "mcp-server")) {
-        const outcomes = yield* removeMcpServerFromAgents(agentIds, {
-          workspaceRoot: location.baseDir,
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          scope: location.scope,
-          serverName: node.name,
-          disableOnly: true,
-          dryRun: true,
+    const location = yield* WorkspaceLocation;
+    const agentIds = yield* (yield* SettingsReader).configuredAgents;
+    for (const node of args.subjects.filter((node) => node.type === "mcp-server")) {
+      const outcomes = yield* removeMcpServerFromAgents(agentIds, {
+        workspaceRoot: location.baseDir,
+        nativeDirectoryInputs: location.nativeDirectoryInputs,
+        scope: location.scope,
+        serverName: node.name,
+        disableOnly: true,
+        dryRun: true,
+      });
+      const failed = outcomes.filter((outcome) => outcome._tag === "failed");
+      if (failed.length > 0)
+        return yield* new WorkspaceSyncFailed({
+          category: "conflict",
+          detail: failed.map((outcome) => outcome.reason).join("; "),
         });
-        const failed = outcomes.filter((outcome) => outcome._tag === "failed");
-        if (failed.length > 0)
-          return yield* new WorkspaceSyncFailed({
-            category: "conflict",
-            detail: failed.map((outcome) => outcome.reason).join("; "),
-          });
-        nativeWithdrawals.push(
-          ...outcomes.flatMap((outcome) =>
-            (outcome.targets ?? []).flatMap((target) =>
-              target.nativeLocation === undefined ? [] : [target.nativeLocation],
-            ),
+      nativeWithdrawals.push(
+        ...outcomes.flatMap((outcome) =>
+          (outcome.targets ?? []).flatMap((target) =>
+            target.nativeLocation === undefined ? [] : [target.nativeLocation],
           ),
-        );
-      }
-      if (hookWithdrawals.length > 0) {
-        const plans = yield* (yield* HookManager).projectionPlans({
-          desiredGraph: args.proposal.after,
-          hookWithdrawals,
-        });
-        const observed = yield* observeProjectionPlans(plans);
-        nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
-      }
+        ),
+      );
     }
-    const retirement =
-      !args.enabled && args.retireUnreachable
-        ? yield* collectUnreachableRetirement(args.adapter, {
-            resultingGraph: args.proposal.after,
-            subjects: args.subjects,
-          })
-        : Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
+    if (hookWithdrawals.length > 0) {
+      const plans = yield* (yield* HookManager).projectionPlans({
+        desiredGraph: args.proposal.after,
+        hookWithdrawals,
+      });
+      const observed = yield* observeProjectionPlans(plans);
+      nativeWithdrawals.push(...observed.flatMap((unit) => unit.nativeLocations ?? []));
+    }
+    const retirement = args.retireUnreachable
+      ? yield* collectUnreachableRetirement(args.adapter, {
+          resultingGraph: args.proposal.after,
+          subjects: args.subjects,
+        })
+      : Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     return {
       proposal: args.proposal,
-      enabled: args.enabled,
+      enabled: false,
       subjects: args.subjects,
       hookWithdrawals,
       nativeWithdrawals: combineNativeLocationOutcomes(nativeWithdrawals),
-      materialization,
+      materialization: Option.none<CollectedMaterializeSteps>(),
       retirement,
     } satisfies ActivationRealization;
   });

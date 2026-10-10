@@ -103,7 +103,7 @@ not require rerunning a mutating command.
 
 ## Machine result
 
-Machine mode emits one `axm.upgrade-assessment/v1` result. It records the
+Machine mode emits one `upgrade-assessment-v1` result. It records the
 requested intent, platform, detected ownership, canonical selection,
 installer-availability state, target, mutation, verification, recovery,
 commands, and supporting details. Its disposition distinguishes successful,

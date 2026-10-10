@@ -47,7 +47,7 @@ const noCredentials = {
 };
 
 const types: ReadonlyArray<readonly [SourceInstallType, string]> = [
-  ["hook", "No hooks packages found in source"],
+  ["hook", "No hook extensions found in source"],
   ["rule", "No rules found in source"],
   ["knowledge", "No knowledge bundles found in source"],
   ["skill", "No skills found in source"],

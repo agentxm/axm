@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/apply-realizes-the-previewed-closure",
   title: "An unchanged install request applies the plan shown in its preview",
   statement:
-    "When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards; if material workspace state changes after preparation, apply shall reject the stale candidate without overwriting the intervening change, including warm no-op and forced installs.",
+    "When an install preview is followed by an apply of the same request against an unchanged workspace, the install shall realize exactly the closure the preview described, committing the same plan candidate and the same units, and the described extension shall be present in the workspace afterwards; if material workspace state changes after preparation, apply shall reject the stale candidate without overwriting the intervening change, including warm no-op installs.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "extension-adoption"],
@@ -78,7 +78,7 @@ describe("Install apply realizes the previewed closure", () => {
     },
   );
 
-  it.effect.each([false, true])("rejects a stale warm install with reinstall=%s", (reinstall) => {
+  it.effect("rejects a stale warm explicit install", () => {
     const { workspace, cleanup } = makeInstallWorld();
     cleanups.push(cleanup);
     const source = writeLocalSkillPackage(workspace.root, { name: "code-review" });
@@ -90,8 +90,7 @@ describe("Install apply realizes the previewed closure", () => {
           );
           const candidate = yield* InstallExtensions.prepare(
             installRequest({
-              subject: { kind: "configured" },
-              reinstall,
+              subject: { kind: "source", source },
             }),
           );
           const beforePreview = workspace.snapshot();

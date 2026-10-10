@@ -57,7 +57,7 @@ export const specification = defineSpecification({
   requirement: "system/reliability/telemetry-reports-terminal-failures-once",
   title: "An opted-in invocation reports at most one terminal failure",
   statement:
-    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering startup, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.",
+    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering bootstrap, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
@@ -346,7 +346,7 @@ describe("Terminal failure reporting", () => {
     }),
   );
 
-  it.effect("a usage error before any command runs is reported once, in the startup phase", () =>
+  it.effect("a usage error before any command runs is reported once, in the bootstrap phase", () =>
     Effect.gen(function* () {
       const reports = yield* reportsOf(
         runCommand(["install", "--no-such-flag"], true).pipe(

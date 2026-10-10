@@ -205,13 +205,9 @@ describe("hook configured-agent outcomes", () => {
       const shown: unknown = JSON.parse(show.stdout);
       expect(shown).toMatchObject({
         result: {
-          agents: [
-            { agent: "claude-code", status: "current", reason: expect.stringContaining("native") },
-            {
-              agent: "cursor",
-              status: "current",
-              reason: expect.stringContaining("native"),
-            },
+          agentOutcomes: [
+            { agentId: "claude-code", outcome: "current", mechanism: "native" },
+            { agentId: "cursor", outcome: "current", mechanism: "native" },
           ],
         },
       });
@@ -270,6 +266,7 @@ describe("hook configured-agent outcomes", () => {
             "enforce",
             ...flags,
             "--json",
+            "--verbose",
             "--non-interactive",
           ],
           { cwd: temp.path },

@@ -187,7 +187,7 @@ describe("Install realizes the extension for configured agents", () => {
                   outcome: "projected",
                   reasonCode: "planned-native-unit",
                 });
-                expect(outcome?.nativeUnitKeys).toHaveLength(1);
+                expect(outcome?.nativeUnits).toHaveLength(1);
                 const applied = yield* applyInstall(request);
                 expect(deriveOperationOutcome(applied)).toBe("applied");
                 expect(fs.lstatSync(path.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
@@ -263,7 +263,7 @@ describe("Install realizes the extension for configured agents", () => {
                     outcome.agentId === "claude-code",
                 );
               expect(planned).toMatchObject({ outcome: "projected" });
-              expect(planned?.nativeUnitKeys?.length).toBeGreaterThan(0);
+              expect(planned?.nativeUnits?.length).toBeGreaterThan(0);
             }
             if (applied._tag === "Failure") {
               expect(applied.failure).toMatchObject({

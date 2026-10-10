@@ -3,6 +3,7 @@ import { Command } from "effect/cli";
 import { LearnMore, formatLearnMore } from "../../formatter.js";
 import { groupCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { makeExtensionShowCommand } from "../shared/extension-show.js";
+import { adoptCommand } from "./adopt.js";
 import { addCommand } from "./add.js";
 import { makeActivationCommands } from "../activation-handler.js";
 import { importCommand } from "./import.js";
@@ -46,16 +47,23 @@ export const mcpsCommand = Command.make("mcps").pipe(
     },
   ]),
   Command.withSubcommands([
-    addCommand,
-    importCommand,
-    installCommand,
-    uninstallCommand,
-    showCommand,
-    listCommand,
-    enableCommand,
-    disableCommand,
-    updateCommand,
-    newCommand,
-    publishCommand,
+    {
+      group: "MANAGE MCPS",
+      commands: [
+        installCommand,
+        updateCommand,
+        uninstallCommand,
+        listCommand,
+        showCommand,
+        enableCommand,
+        disableCommand,
+        addCommand,
+        adoptCommand,
+      ],
+    },
+    {
+      group: "AUTHOR MCPS",
+      commands: [newCommand, importCommand, publishCommand],
+    },
   ]),
 );

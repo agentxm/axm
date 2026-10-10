@@ -63,10 +63,10 @@ import {
   ConfiguredAgentOutcomeSchema,
   operationNativeLocations,
   settledUnitNativeLocations,
+  ErrorCodeSchema,
 } from "@agentxm/workspace-kernel/operations";
 import { operationExitCode, operationOk } from "./operation-exit-code.js";
 import {
-  AppErrorCodeSchema,
   ExitCode,
   appErrorCodeForExit,
   defaultTitleFor,
@@ -228,7 +228,7 @@ const StepArtifactSchema = Schema.Struct({
 type StepArtifact = typeof StepArtifactSchema.Type;
 
 const OperationFailureSchema = Schema.Struct({
-  code: AppErrorCodeSchema,
+  code: ErrorCodeSchema,
   title: Schema.optional(Schema.String),
   message: Schema.String,
   problem: Schema.optional(FailureProblemSchema),
@@ -246,7 +246,7 @@ const OperationBlockSchema = Schema.Struct({
   subject: Schema.String,
   phase: OperationPhaseSchema,
   detail: Schema.String,
-  causeCode: Schema.optional(AppErrorCodeSchema),
+  causeCode: Schema.optional(ErrorCodeSchema),
   reference: Schema.optional(Schema.String),
   escape: Schema.optional(SuggestedActionSchema),
 }).annotate({
@@ -317,7 +317,7 @@ const OperationAtomicitySchema = Schema.Struct({
 
 const OperationInterruptionSchema = Schema.Struct({
   signal: Schema.Literals(["SIGINT", "SIGTERM"] as const),
-  disposition: Schema.Literals(["restored", "retained", "unknown", "none"] as const),
+  disposition: UnitDispositionSchema,
 }).annotate({
   identifier: "OperationInterruption",
   title: "Operation Interruption",
@@ -466,9 +466,9 @@ export const PlanResolutionResultSchema = Schema.Struct({
   holdbacks: Schema.optional(Schema.Array(ReleaseAgeRecordSchema)),
   releaseAgeBypassCount: Schema.optional(Schema.Number),
   releaseAgeBypasses: Schema.optional(Schema.Array(ReleaseAgeRecordSchema)),
-  imports: Schema.optional(
+  adoptions: Schema.optional(
     Schema.Struct({
-      imported: Schema.Number,
+      adopted: Schema.Number,
       skipped: Schema.Number,
       conflicting: Schema.Number,
     }),
@@ -503,8 +503,8 @@ export interface PlanResolutionResultOptions {
   readonly verbose?: boolean;
   readonly debug?: boolean;
   readonly message?: string;
-  readonly imports?: {
-    readonly imported: number;
+  readonly adoptions?: {
+    readonly adopted: number;
     readonly skipped: number;
     readonly conflicting: number;
   };
@@ -796,7 +796,7 @@ export const toPlanResolutionResult = (
           },
         }),
     ...releaseAgeResultFields(resolution),
-    ...(options.imports === undefined ? {} : { imports: options.imports }),
+    ...(options.adoptions === undefined ? {} : { adoptions: options.adoptions }),
     ...(resolution.preconditions === undefined ? {} : { preconditions: resolution.preconditions }),
     ...(resolution.riskConditions === undefined
       ? {}
@@ -1007,8 +1007,8 @@ export interface EmitOperationResolutionOptions {
   readonly suggestions?: OperationSuggestions;
   /** Overrides the derived human headline and is carried in the document. */
   readonly message?: string;
-  readonly imports?: {
-    readonly imported: number;
+  readonly adoptions?: {
+    readonly adopted: number;
     readonly skipped: number;
     readonly conflicting: number;
   };
@@ -1101,7 +1101,7 @@ export const emitOperationResolution = (
       verbose: verbosity.isAtLeast("verbose"),
       debug: verbosity.level === "debug",
       ...(options?.message === undefined ? {} : { message: options.message }),
-      ...(options?.imports === undefined ? {} : { imports: options.imports }),
+      ...(options?.adoptions === undefined ? {} : { adoptions: options.adoptions }),
       ...(options?.targetedUpdate === undefined ? {} : { targetedUpdate: options.targetedUpdate }),
     });
 
@@ -1182,9 +1182,7 @@ export const emitOperationResolution = (
       {
         ...(suggestions === undefined ? {} : { suggestions }),
         ok,
-        ...(Option.isSome(diagnostic)
-          ? { diagnosticId: diagnostic.value.eventId, diagnostic: diagnostic.value.failure }
-          : {}),
+        ...(Option.isSome(diagnostic) ? { diagnosticId: diagnostic.value.eventId } : {}),
       },
     );
     return { outcome, exitCode };
@@ -1203,6 +1201,9 @@ export const emitNoOpOutcome = (args: {
 }) =>
   Effect.gen(function* () {
     const { mode } = yield* OperationLifecycle;
+    if (mode === "query") {
+      return yield* Effect.die(new Error("A query cannot emit a mutation plan result"));
+    }
     return yield* emitOperationResolution(
       makeOperationResolution({
         name: args.planName,

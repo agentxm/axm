@@ -23,7 +23,7 @@ describe("root authentication commands", () => {
     },
     {
       args: ["token", "--help"],
-      expected: "Output current auth token to stdout",
+      expected: "Show and manage Registry authentication tokens",
     },
   ])("exposes the root command: $args", async ({ args, expected }) => {
     const result = await runCli(args);
@@ -62,7 +62,7 @@ describe("root authentication commands", () => {
     it("token with AXM_TOKEN works without AXM workspace settings", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["token", "--output", "token"], {
+        const result = await runCli(["token", "show", "--plain"], {
           cwd: temp.path,
           env: { AXM_TOKEN: "outside-workspace-token" },
         });

@@ -91,7 +91,7 @@ because the failure message directs the reader to it.
 
 ## JSON result
 
-`axm upgrade --json` emits one `axm.upgrade-assessment/v1` document under
+`axm upgrade --json` emits one `upgrade-assessment-v1` document under
 `result`. Important fields are:
 
 | Field                   | Meaning                                                                                                                                                                                                                                                                      |
@@ -127,8 +127,8 @@ each executable or workspace boundary:
 
 - `upgrade-cli`: run `axm upgrade`, then `axm lint`.
 - `update-registry-skill`: preview with
-  `axm skills update --name axm --preview`, apply with
-  `axm skills update --name axm`, then run `axm lint`. If Registry resolution
+  `axm skills update axm --preview`, apply with
+  `axm skills update axm`, then run `axm lint`. If Registry resolution
   reports that no compatible release is eligible, follow its bundled recovery
   command instead.
 - `install-bundled-skill`: preview with
@@ -142,7 +142,7 @@ each executable or workspace boundary:
 
 Declining, previewing, interrupting, or failing a workspace recovery leaves the
 committed workspace unchanged. Bundled recovery also refuses to overwrite a
-workspace-authored official skill, even with `--force`.
+workspace-authored official skill, even with `--reinstall`.
 
 Operational attention outcomes carry a failed or blocked plan step, report
 `ok: false`, and exit 1. Release lookup, network, validation, and unexpected

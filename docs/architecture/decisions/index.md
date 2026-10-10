@@ -36,6 +36,9 @@ specifications, never in these records.
 - [CLI output view model and terminal ownership](cli-output-view-model-and-terminal-ownership.md) —
   human output crosses the application boundary as a typed document painted by
   one terminal owner while machine output remains schema-backed
+- [CLI vocabulary and machine contracts](cli-vocabulary-and-machine-contracts.md) —
+  shared language follows input roles and state ownership, with common parameter
+  metadata, published schema families, and explicit exceptions
 - [CLI live-event contract](cli-live-event-contract.md) — long-running
   operations publish one schema-backed lifecycle event stream that the live
   frame, the machine event writer, and telemetry consume independently

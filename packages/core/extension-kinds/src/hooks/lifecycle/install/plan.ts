@@ -1,5 +1,5 @@
 /**
- * Installing hooks packages.
+ * Installing hook extensions.
  *
  * A hook becomes observable through each agent's own hook configuration, so
  * its planned artifact is the set of configured-agent outcomes, and an agent
@@ -122,7 +122,7 @@ export const planHookInstall: (
   )
     return yield* installRefused({
       category: "validation",
-      detail: "Hook configuration requires exactly one selected Hook package.",
+      detail: "Hook configuration requires exactly one selected Hook extension.",
     });
   const hookConfigurations =
     intent.configuration === undefined || configuredRef === undefined
@@ -325,7 +325,7 @@ export const planHookInstall: (
   return {
     _tag: "Plan",
     name: "Install hooks",
-    description: Option.some("Install hooks package"),
+    description: Option.some("Install hook extension"),
     presentation: operationPresentation(
       { imperative: "install", past: "Installed", gerund: "Installing" },
       "hook",

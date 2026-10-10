@@ -23,7 +23,7 @@ import {
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import { UpgradeAssessmentResultSchema } from "@agentxm/cli-maintenance/self-update/adapters/cli";
 import { PublishResultSchema } from "@agentxm/workspace-features/publishing";
-import { KnowledgeConceptStatusOutputSchema } from "@agentxm/workspace-features/knowledge-query";
+import { KnowledgeConceptCapabilitiesOutputSchema } from "@agentxm/workspace-features/knowledge-query";
 import { ExtensionInventorySchema } from "@agentxm/workspace-kernel/workspace-state";
 
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
@@ -162,7 +162,7 @@ export const observeContextPopulations = () => {
   const block = plan.blocking.schema.members[0].fields;
   const publicationItem = PublishResultSchema.fields.execution.fields.outcomes.value.fields;
   const upgrade = UpgradeAssessmentResultSchema.fields;
-  const knowledge = KnowledgeConceptStatusOutputSchema.fields;
+  const knowledge = KnowledgeConceptCapabilitiesOutputSchema.fields;
   // These two domains have primitive schemas, not Schema.Literals declarations.
   // The exact primitive shape supplies the finite Boolean/null population.
   if (
@@ -210,8 +210,6 @@ export const observeContextPopulations = () => {
     "upgrade-outcome": upgrade.outcome.literals,
     "upgrade-disposition": upgrade.disposition.literals,
     "upgrade-availability": upgrade.installerAvailability.fields.state.literals,
-    "knowledge-readiness": knowledge.readiness.literals,
-    "knowledge-health": knowledge.health.fields.status.literals,
     "knowledge-collisions": knowledge.scopeCollisions.fields.state.literals,
   } satisfies Readonly<Record<string, ReadonlyArray<ContextMember>>>;
 };

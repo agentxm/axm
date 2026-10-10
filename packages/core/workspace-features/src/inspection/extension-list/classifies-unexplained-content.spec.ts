@@ -115,7 +115,7 @@ describe("Unexplained content classification", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const all = yield* ListExtensions.query({ type: "skill", filter: "all" });
+          const all = yield* ListExtensions.query({ types: ["skill"], filter: "all" });
           expect(all.document.items).toEqual([
             expect.objectContaining({ name: "stale", management: "leftover" }),
           ]);

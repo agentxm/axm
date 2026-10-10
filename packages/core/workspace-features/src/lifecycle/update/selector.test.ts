@@ -34,7 +34,6 @@ describe("configured update selection", () => {
               resourceType: "skill",
               source: Option.some("@acme/skills/x"),
               nameFilters: [],
-              sourceMayMatchName: false,
             });
             expect(selection).toEqual({ _tag: "Names", names: ["x"] });
           }),
@@ -63,9 +62,35 @@ describe("configured update selection", () => {
             resourceType: "skill",
             source: Option.some("other:@acme/skills/x"),
             nameFilters: [],
-            sourceMayMatchName: false,
           });
           expect(selection._tag).toBe("NoMatch");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+  it.effect("never interprets --source as an installed-name filter", () => {
+    const workspace = makeLifecycleFixture({
+      settings: {
+        agents: [],
+        skills: { review: { source: "@acme/skills/different", enabled: true } },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const bySource = yield* resolveConfiguredUpdateSelection({
+            resourceType: "skill",
+            source: Option.some("review"),
+            nameFilters: [],
+          });
+          expect(bySource._tag).toBe("NoMatch");
+          const byName = yield* resolveConfiguredUpdateSelection({
+            resourceType: "skill",
+            source: Option.none(),
+            nameFilters: ["review"],
+          });
+          expect(byName).toEqual({ _tag: "Names", names: ["review"] });
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

@@ -164,12 +164,15 @@ export const revokeToken = Effect.fn("Tokens.revoke")(function* (
   return { tokenId };
 });
 
-export const listTokens = Effect.fn("Tokens.list")(function* (registryUrl: string) {
+export const listTokens = Effect.fn("Tokens.list")(function* (
+  registryUrl: string,
+  page?: { readonly limit?: number; readonly cursor?: string },
+) {
   const authClient = yield* AuthClient;
   const presenter = yield* AuthLoginPresenter;
   yield* requireSignedIn(registryUrl);
   return yield* presenter.withProgress({ _tag: "ListingRegistryTokens" }, () =>
-    authClient.listTokens(),
+    authClient.listTokens(page),
   );
 });
 

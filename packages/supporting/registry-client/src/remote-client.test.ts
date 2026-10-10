@@ -1205,7 +1205,7 @@ describe("getExtensionPackage", () => {
                 ...version,
                 yankedAt: "2025-02-02T00:00:00Z",
                 yankCategory: "security",
-                yankNotice: "Do not use for new installs",
+                yankMessage: "Do not use for new installs",
               }
             : version,
         ),

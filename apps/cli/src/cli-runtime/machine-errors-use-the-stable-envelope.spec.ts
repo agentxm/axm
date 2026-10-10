@@ -9,7 +9,10 @@ import { afterEach } from "vitest";
 
 import { JsonErrorEnvelopeSchema, classifyError } from "./index.js";
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
-import { PlanResolutionDocumentSchema } from "../operation-output.js";
+import { PlanResolutionDocumentSchema, emitOperationResolution } from "../operation-output.js";
+import { makeOperationResolution, StepFailure } from "@agentxm/workspace-kernel/operations";
+import { withOperationLifecycle } from "../operation-lifecycle.js";
+import { TerminalDiagnostics, makeTerminalDiagnostics } from "./terminal-diagnostics.js";
 import { handleDemote } from "../root/demote/command.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleList } from "../root/list/command.js";
@@ -23,7 +26,7 @@ export const specification = defineSpecification({
   requirement: "cli/machine-errors-use-the-stable-envelope",
   title: "A failed machine invocation still emits the stable error envelope",
   statement:
-    "When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names, keeping every diagnostic line on standard error as a structured event; when it stops as approval required, it shall write exactly one schema-valid result document that names the block and its recovery.",
+    "When a machine-output invocation fails, it shall exit non-zero and write exactly one schema-valid error document to standard output that carries any structured problem the failure names and only an optional Diagnostic ID for retained support evidence, without an internal diagnostic object. A cause chain shall appear only with verbose or debug diagnostics, with stack entries limited to debug and message fields carrying explicit diagnostic messages rather than serialized arbitrary fields. Operation-failure envelopes shall preserve the same boundary, keeping every diagnostic line on standard error as a structured event; when it stops as approval required, it shall write exactly one schema-valid result document that names the block and its recovery.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -71,7 +74,6 @@ describe("Machine error envelope", () => {
           source: Option.some(row.source(workspace.root)),
           selectors: {},
           all: true,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],
@@ -84,6 +86,7 @@ describe("Machine error envelope", () => {
         expect(classified.exitCode).toBeGreaterThan(0);
         expect(classified.stdout).toBeDefined();
         const parsed: unknown = JSON.parse(classified.stdout ?? "");
+        expect(parsed).not.toHaveProperty("diagnostic");
         const envelope = yield* decodeEnvelope(parsed);
         expect(envelope.ok).toBe(false);
         expect(envelope.code.length).toBeGreaterThan(0);
@@ -113,6 +116,66 @@ describe("Machine error envelope", () => {
       expect(stderrLines).toHaveLength(1);
       expect(JSON.parse(stderrLines[0] ?? "")).toMatchObject({ type: "error", code: "usage" });
     }),
+  );
+
+  it.effect(
+    "an operation failure exposes its diagnostic ID while retaining internal evidence locally",
+    () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({ screen: { kind: "machine" }, flags: { json: true } });
+        cleanups.push(workspace.cleanup);
+        const diagnosticId = "00000000-0000-4000-8000-000000000002";
+        const diagnostics = yield* makeTerminalDiagnostics({
+          eventIdFactory: () => diagnosticId,
+          write: () => Effect.void,
+        });
+        const diagnostic = {
+          kind: "registry.transport",
+          operation: "registry.index",
+          request: {
+            service: "registry",
+            requestId: "00000000-0000-4000-8000-000000000003",
+            status: 503,
+          },
+        } as const;
+        const failure = new StepFailure({
+          category: "network",
+          detail: "Registry unavailable",
+          diagnostic,
+        });
+        const resolution = makeOperationResolution({
+          name: "Install extensions",
+          description: Option.none(),
+          mode: "apply",
+          atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+          failure,
+          units: [
+            {
+              id: "skill:review",
+              label: "review",
+              state: "failed",
+              disposition: "restored",
+              error: failure,
+            },
+          ],
+        });
+        yield* withOperationLifecycle(
+          { command: "install", mode: "apply", planName: resolution.name },
+          emitOperationResolution(resolution),
+        ).pipe(
+          Effect.provideService(TerminalDiagnostics, diagnostics),
+          Effect.provide(workspace.layer),
+        );
+        const streams = workspace.streams;
+        if (streams === undefined) throw new Error("Expected recording output streams");
+        const emitted: unknown = JSON.parse(streams.lines("stdout").join("\n"));
+        expect(emitted).toMatchObject({ ok: false, diagnosticId, result: { outcome: "failed" } });
+        expect(emitted).not.toHaveProperty("diagnostic");
+        const record = yield* diagnostics.current;
+        if (Option.isNone(record)) throw new Error("Expected retained support evidence");
+        expect(record.value.eventId).toBe(diagnosticId);
+        expect(record.value.failure).toMatchObject(diagnostic);
+      }),
   );
 
   it.effect(
@@ -164,13 +227,14 @@ describe("Machine error envelope", () => {
         fs.writeFileSync(lockPath, `lockfileVersion: ${row.observedVersion}\nskills: {}\n`);
 
         const failure = yield* workspace
-          .provide(handleList({ type: Option.none(), outdated: false, deprecated: false }))
+          .provide(handleList({ types: [], outdated: false, deprecated: false }))
           .pipe(Effect.flip);
         const classified = classifyError(failure, "json");
 
         expect(classified.exitCode).toBe(9);
         expect(classified.stdout).toBeDefined();
         const parsed: unknown = JSON.parse(classified.stdout ?? "");
+        expect(parsed).not.toHaveProperty("diagnostic");
         const envelope = yield* decodeEnvelope(parsed);
         expect(envelope).toMatchObject({
           ok: false,

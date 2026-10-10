@@ -81,7 +81,7 @@ describe("Windows workspace mutation contract", () => {
       fs.writeFileSync(settingsPath, validSettings);
       const statusBefore = git(["status", "--porcelain=v2", "-z"]);
       const indexBefore = git(["ls-files", "--stage", "-z"]);
-      const result = await runCli(["lint", "--view", "git-index", "--json"], {
+      const result = await runCli(["lint", "--staged", "--json"], {
         cwd: path.join(workspace.path, ".claude"),
         env,
       });
@@ -261,7 +261,7 @@ describe("Windows workspace mutation contract", () => {
       fs.rmSync(blockedProjectionRoot, { recursive: true, force: true });
       fs.writeFileSync(blockedProjectionRoot, "injected projection failure\n");
       const failedUpdate = await runCli(
-        ["skills", "update", "--name", "my-skill", "--json", "--non-interactive"],
+        ["skills", "update", "my-skill", "--json", "--non-interactive"],
         { cwd: workspace.path, env },
       );
       expect(failedUpdate.exitCode).not.toBe(0);
@@ -272,7 +272,7 @@ describe("Windows workspace mutation contract", () => {
       fs.rmSync(blockedProjectionRoot, { force: true });
       fs.mkdirSync(blockedProjectionRoot, { recursive: true });
       expectSuccess(
-        await runCli(["skills", "update", "--name", "my-skill", "--json", "--non-interactive"], {
+        await runCli(["skills", "update", "my-skill", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),
@@ -352,7 +352,7 @@ describe("Windows workspace mutation contract", () => {
       );
       expect(fs.existsSync(instructionTarget)).toBe(true);
       const instructionStatus = expectSuccess(
-        await runCli(["instructions", "--json", "--non-interactive"], {
+        await runCli(["instructions", "status", "--json", "--non-interactive"], {
           cwd: workspace.path,
           env,
         }),

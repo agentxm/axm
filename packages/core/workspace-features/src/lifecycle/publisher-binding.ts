@@ -19,6 +19,7 @@ import {
   classifyPublisherBindingTransition,
   describePublisherBindingTransition,
   publisherTransitionWarning,
+  registryBindingProposal,
   type PublisherBindingTransition,
 } from "@agentxm/workspace-kernel/resolution";
 import type { Plan, PlanRiskCondition, PlannedJobStep } from "@agentxm/workspace-kernel/operations";
@@ -99,16 +100,24 @@ export const withPublisherTrust = <R, O>(
   | Path.Path
 > =>
   Effect.gen(function* () {
-    const proposals = plan.jobs.flatMap((job) =>
-      job.steps.flatMap((step) => (step.registryBinding === undefined ? [] : [step])),
-    );
+    const bindings = (step: PlannedJobStep<R, O>) => [
+      ...(step.registryBinding === undefined ? [] : [step.registryBinding]),
+      ...(step.sourceBinding === undefined
+        ? []
+        : [step.sourceBinding.ref, ...(step.sourceBinding.members ?? [])]
+      )
+        .concat(step.acquisitionRefs ?? [])
+        .flatMap((ref) => {
+          const binding = registryBindingProposal(ref);
+          return binding === undefined ? [] : [binding];
+        }),
+    ];
+    const proposals = plan.jobs.flatMap((job) => job.steps.flatMap(bindings));
     if (proposals.length === 0) return plan;
 
     const unreadable: Array<string> = [];
     const transitionsByKey = new Map<string, PublisherBindingTransition>();
-    for (const step of proposals) {
-      const proposed = step.registryBinding;
-      if (proposed === undefined) continue;
+    for (const proposed of proposals) {
       const accepted = yield* acceptedResolutionRef({
         type: proposed.extensionType,
         name: proposed.target,
@@ -132,12 +141,14 @@ export const withPublisherTrust = <R, O>(
       jobs: plan.jobs.map((job) => ({
         ...job,
         steps: job.steps.map((step) => {
-          const binding = step.registryBinding;
-          const transition =
-            binding === undefined
-              ? undefined
-              : transitionsByKey.get(`${binding.extensionType}:${binding.target}`);
-          return transition === undefined ? step : stepWithTransitionWarning(step, transition);
+          const transitions = new Map(
+            bindings(step).flatMap((binding) => {
+              const key = `${binding.extensionType}:${binding.target}`;
+              const transition = transitionsByKey.get(key);
+              return transition === undefined ? [] : [[key, transition] as const];
+            }),
+          );
+          return [...transitions.values()].reduce(stepWithTransitionWarning, step);
         }),
       })),
     };

@@ -75,7 +75,7 @@ describe("structured output (--json)", () => {
   it("token --json is refused without a secret in any document", async () => {
     const temp = createTempDir();
     try {
-      const result = await runCli(["token", "--json"], {
+      const result = await runCli(["token", "show", "--json"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "test-json-token" },
       });
@@ -98,7 +98,7 @@ describe("structured output (--json)", () => {
     expect(machineDocumentKind(document)).toBe("help-document-v1");
     expect(document).toMatchObject({
       type: "help",
-      usage: "axm <subcommand> [flags]",
+      usage: "axm <command> [flags]",
     });
   });
 
@@ -200,7 +200,7 @@ describe("structured output (--json)", () => {
   it("works with --non-interactive and --json", async () => {
     const temp = createTempDir();
     try {
-      const result = await runCli(["token", "--non-interactive", "--json"], {
+      const result = await runCli(["token", "show", "--non-interactive", "--json"], {
         cwd: temp.path,
         env: { AXM_TOKEN: "ci-json-token" },
       });

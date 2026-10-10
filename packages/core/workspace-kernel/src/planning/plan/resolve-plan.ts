@@ -102,7 +102,12 @@ import {
   workspaceStateReadFailureToStepFailure,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
-import { nativeUnitKey, type NativeLocationOutcome } from "../../locations/index.js";
+import {
+  nativeUnitKey,
+  nativeUnitReference,
+  combineNativeLocationOutcomes,
+  type NativeLocationOutcome,
+} from "../../locations/index.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   FootprintRecorder,
@@ -334,7 +339,7 @@ const outcomesFor = (
               obstruction?.reason ??
               current?.reason ??
               "Native ownership could not be verified before planning the projection.",
-            nativeUnitKeys: units.map(nativeUnitKey),
+            nativeUnits: units.map(nativeUnitReference),
           };
         return {
           ...planned,
@@ -346,11 +351,11 @@ const outcomesFor = (
                   "The owner has established a native realization for this agent; runtime selection remains unverified.",
               }
             : {}),
-          nativeUnitKeys: [
-            ...new Set(
-              [...nativePlan, ...verified, ...units.filter(writesUnit)].map(nativeUnitKey),
-            ),
-          ].sort(),
+          nativeUnits: combineNativeLocationOutcomes([
+            ...nativePlan,
+            ...verified,
+            ...units.filter(writesUnit),
+          ]).map(nativeUnitReference),
         };
       });
     }),

@@ -14,6 +14,7 @@ import {
   WorkspaceRecords,
   resolveConfiguredExtensionObservations,
   type ExtensionTarget,
+  type DesiredStateGraph,
 } from "../workspace-state/index.js";
 import {
   captureNativeRetentionWitnesses,
@@ -27,13 +28,14 @@ import { WorkspaceSyncFailed } from "./errors.js";
 const observeNativeOutputs = (
   subjects?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
   configuredAgents?: ReadonlyArray<string>,
+  desiredGraph?: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
     const provider = yield* ConfiguredAgentOutcomesProvider;
     const settings = yield* SettingsReader;
     const location = yield* WorkspaceLocation;
     const records = yield* WorkspaceRecords;
-    const graph = yield* (yield* DesiredStateReader).graph();
+    const graph = desiredGraph ?? (yield* (yield* DesiredStateReader).graph());
     const agentIds = configuredAgents ?? (yield* settings.configuredAgents);
     const nodes = graph.nodes.filter(
       (node) =>
@@ -47,6 +49,7 @@ const observeNativeOutputs = (
       const rows = yield* records.rows(type);
       const names = new Set(nodes.filter((node) => node.type === type).map((node) => node.name));
       const observations = yield* resolveConfiguredExtensionObservations(provider, {
+        ...(desiredGraph === undefined ? {} : { desiredGraph }),
         type,
         state: "current",
         scope: location.scope,
@@ -162,6 +165,7 @@ export const validateNativeOutputPostconditions = (
   expected: ReadonlyArray<NativeLocationOutcome> = [],
   retained: ReadonlyArray<NativeRetentionWitness> = [],
   subjects?: ReadonlyArray<Pick<ExtensionTarget, "type" | "name">>,
+  desiredGraph?: DesiredStateGraph,
 ) =>
   Effect.gen(function* () {
     if (retained.length > 0) {
@@ -184,7 +188,7 @@ export const validateNativeOutputPostconditions = (
         (unit.configuredConsumers.length > 0 || unit.policyReasons.length > 0),
     );
     if (required.length === 0) return;
-    const observed = yield* observeNativeOutputs(subjects);
+    const observed = yield* observeNativeOutputs(subjects, undefined, desiredGraph);
     if (required.some((unit) => unit.policyReasons.includes("instruction-propagation"))) {
       const settings = yield* SettingsReader;
       const location = yield* WorkspaceLocation;

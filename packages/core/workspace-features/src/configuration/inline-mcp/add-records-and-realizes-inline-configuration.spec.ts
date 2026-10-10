@@ -76,7 +76,7 @@ const inlineAddRows: ReadonlyArray<InlineAddRow> = [
   {
     label: "a remote server with repeated header inputs",
     url: "https://example.test/mcp",
-    headers: ["X-Workspace:review-team"],
+    headers: ["X-Workspace=review-team"],
     headerEnv: ["Authorization=CONTEXT_TOKEN"],
     authored: {
       transport: "streamable-http",

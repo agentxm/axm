@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
@@ -14,6 +15,8 @@ import {
 import { resolveUserHome } from "@agentxm/workspace-kernel/workspace-state";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
+import { previewFlag } from "../../cli-flags/index.js";
+import { makeAppError } from "../../app-error/index.js";
 import {
   withCommandCapabilities,
   type CommandCapabilities,
@@ -24,30 +27,27 @@ import { handleLint } from "./handler.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 
 const lintConfig = {
-  path: Argument.String("path").pipe(
-    Argument.withDescription(
-      "Workspace directory to lint (defaults to the current working directory).",
+  path: Argument.String("workspace").pipe(
+    withParameterDescription(
+      "Exact workspace root to lint; omit to select from the working directory",
     ),
     Argument.optional,
   ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription(
-      "Scope of the lint run: project (default) or user (lints the .axm/workspace workspace under the selected home).",
-    ),
-  ),
+  scope: scopeFlag,
   strict: Flag.Boolean("strict").pipe(
-    Flag.withDescription("Treat warnings as failing for exit code."),
-    Flag.withDefault(false),
+    withParameterDescription("Treat warnings as failing for exit code."),
+    withParameterDefault(false),
   ),
   fix: Flag.Boolean("fix").pipe(
-    Flag.withDescription(
-      "Apply repairs whose desired state is already determined, then report what remains.",
-    ),
-    Flag.withDefault(false),
+    withParameterDescription("Normalize local instruction aliases, then report remaining findings"),
+    withParameterDefault(false),
   ),
-  view: Flag.Literals("view", ["workspace", "git-index"] as const).pipe(
-    Flag.withDescription("Filesystem view to lint: workspace (default) or the complete Git index."),
-    Flag.withDefault("workspace"),
+  preview: previewFlag,
+  staged: Flag.Boolean("staged").pipe(
+    withParameterDescription(
+      "Check the complete workspace from the Git index, including unchanged files",
+    ),
+    withParameterDefault(false),
   ),
 } as const;
 
@@ -57,9 +57,13 @@ export interface RunLintCommandArgs {
   readonly strict: boolean;
   readonly fix: boolean;
   readonly view: LintView;
+  readonly preview: boolean;
 }
 
 export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLintCommandArgs) {
+  if (args.preview && !args.fix) {
+    return yield* makeAppError({ code: "usage", detail: "--preview requires --fix" });
+  }
   const executionDirectory = yield* ExecutionDirectory;
   const path = yield* Path.Path;
   const userHome = yield* resolveUserHome();
@@ -79,6 +83,7 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
   return yield* handleLint({
     selection,
     strict: args.strict,
+    preview: args.preview,
   }).pipe(
     // Lint reports a scope without settings as a finding rather than refusing to run.
     withWorkspace({
@@ -93,7 +98,7 @@ export const runLintCommand = Effect.fn("Lint.command")(function* (args: RunLint
 
 /** Lint reports facts by default; `--fix` switches it into repairing determined workspace state. */
 const lintCapabilities: CommandCapabilities = {
-  preview: false,
+  preview: true,
   preapproval: null,
   trust: [],
   inputs: "explicit",
@@ -101,8 +106,18 @@ const lintCapabilities: CommandCapabilities = {
   modes: [{ flag: "--fix", effect: "workspace" }],
 };
 
-export const lintCommand = Command.make("lint", lintConfig, ({ path, scope, strict, fix, view }) =>
-  runLintCommand({ path, scope, strict, fix, view }).pipe(withRuntime("lint")),
+export const lintCommand = Command.make(
+  "lint",
+  lintConfig,
+  ({ path, scope, strict, fix, staged, preview }) =>
+    runLintCommand({
+      path,
+      scope,
+      strict,
+      fix,
+      preview,
+      view: staged ? "git-index" : "filesystem",
+    }).pipe(withRuntime("lint")),
 ).pipe(
   withArgvTracking(lintConfig),
   withCommandCapabilities(lintCapabilities),
@@ -123,10 +138,14 @@ export const lintCommand = Command.make("lint", lintConfig, ({ path, scope, stri
     },
     {
       command: "axm lint --fix",
-      description: "Restore determined state, such as missing agent instruction files",
+      description: "Normalize managed instruction aliases",
     },
     {
-      command: "axm lint --view git-index",
+      command: "axm lint --fix --preview",
+      description: "Preview instruction-alias normalization without applying it",
+    },
+    {
+      command: "axm lint --staged",
       description: "Lint the complete workspace represented by the Git index",
     },
     {

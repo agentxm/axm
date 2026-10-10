@@ -77,7 +77,7 @@ describe("Deprecated installed workspace findings", () => {
                 workspaceRoot: world.workspace.root,
                 userHome: world.workspace.root,
                 scope: "project",
-                input: { view: "workspace" },
+                input: { view: "filesystem" },
                 nativeView: { kind: "workspace" },
                 fix: false,
               },
@@ -88,7 +88,7 @@ describe("Deprecated installed workspace findings", () => {
             );
             expect(findings).toHaveLength(2);
             expect(findings.map((finding) => finding.message)).toContainEqual(
-              expect.stringContaining("axm migrate @acme/skills/old --dry-run"),
+              expect.stringContaining("axm migrate @acme/skills/old --preview"),
             );
             expect(findings.map((finding) => finding.message)).toContainEqual(
               expect.stringContaining("axm view @acme/skills/other"),

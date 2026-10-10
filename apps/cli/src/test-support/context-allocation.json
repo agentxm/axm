@@ -107,8 +107,8 @@
       "symbol": "BlockingClassSchema"
     },
     "operation-error": {
-      "path": "apps/cli/src/app-error/app-error.ts",
-      "symbol": "AppErrorCodeSchema",
+      "path": "packages/core/workspace-kernel/src/operations/errors.ts",
+      "symbol": "ErrorCodeSchema",
       "projection": "CLI machine error-category vocabulary; operation-to-exit-code agreement retains its separate published-reference owner"
     },
     "machine-document": {
@@ -145,19 +145,9 @@
       "symbol": "UpgradeAssessmentResultSchema",
       "projection": "installerAvailability.state"
     },
-    "knowledge-readiness": {
-      "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
-      "symbol": "KnowledgeConceptStatusOutputSchema",
-      "projection": "readiness"
-    },
-    "knowledge-health": {
-      "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
-      "symbol": "KnowledgeConceptStatusOutputSchema",
-      "projection": "health.status"
-    },
     "knowledge-collisions": {
       "path": "packages/core/workspace-features/src/knowledge-query/documents.ts",
-      "symbol": "KnowledgeConceptStatusOutputSchema",
+      "symbol": "KnowledgeConceptCapabilitiesOutputSchema",
       "projection": "scopeCollisions.state"
     }
   },
@@ -292,8 +282,7 @@
         "cli/publication-uses-explicit-registry-target",
         "cli/credentials-stay-with-their-registry"
       ],
-      "when": "The effective default Registry governs unqualified resolution and authentication; explicit publication targets and credential-origin isolation remain separate conditional choices.",
-      "openTopics": ["command:publish-registry-selection", "command:publish-url-selection"]
+      "when": "Settings select the default Registry; an explicit --registry selects a configured name or HTTP(S) URL before authentication and transport composition. Credentials remain scoped to the selected Registry origin."
     },
     "scope": {
       "requirements": ["cli/installed-state-stays-in-selected-scope"],
@@ -324,7 +313,7 @@
       "when": "Application-resource relocation with nonempty AXM_USER_HOME; OS keychain is a separate host service, and Registry origins remain isolated."
     },
     "scope-collision": {
-      "requirements": ["cli/knowledge/concepts/status/reports-current-corpus-health"],
+      "requirements": ["cli/knowledge/concepts/capabilities/reports-current-corpus-identity"],
       "when": "Only declared checked scope; do not infer a full cross-scope collision scan.",
       "openTopics": ["command:scope-collisions"]
     },
@@ -538,14 +527,6 @@
       ],
       "when": "Self-upgrade assessment with ownership/availability/verification and recovery; does not inherit plan-family outcome semantics.",
       "interface": "upgrade-outcome"
-    },
-    "knowledge-health": {
-      "requirements": [
-        "cli/knowledge/concepts/status/reports-current-corpus-health",
-        "cli/knowledge/concepts/refuses-changing-corpus"
-      ],
-      "when": "Stable read/validation failure is unavailable; changing means actual capture instability. Empty readable corpus is ready.",
-      "interface": "knowledge-readiness"
     },
     "auth-flow": {
       "requirements": [
@@ -1205,26 +1186,6 @@
         }
       ],
       "population": "upgrade-availability"
-    },
-    "Knowledge-corpus-readiness": {
-      "family": "outcome-variants",
-      "groups": [
-        {
-          "members": ["ready", "changing", "unavailable"],
-          "bindings": ["knowledge-health"]
-        }
-      ],
-      "population": "knowledge-readiness"
-    },
-    "Knowledge-corpus-health": {
-      "family": "outcome-variants",
-      "groups": [
-        {
-          "members": ["healthy", "unhealthy"],
-          "bindings": ["knowledge-health"]
-        }
-      ],
-      "population": "knowledge-health"
     },
     "Knowledge-collision-assessment": {
       "family": "outcome-variants",

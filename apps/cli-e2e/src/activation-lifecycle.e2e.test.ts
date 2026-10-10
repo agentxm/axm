@@ -96,12 +96,12 @@ const outcomeIdentities = (outcomes: ReadonlyArray<Readonly<Record<string, unkno
 const showStatuses = (stdout: string): Readonly<Record<string, unknown>> => {
   const document: unknown = JSON.parse(stdout);
   if (!isRecord(document) || !isRecord(document["result"])) return {};
-  const agents = document["result"]["agents"];
+  const agents = document["result"]["agentOutcomes"];
   if (!Array.isArray(agents)) return {};
   return Object.fromEntries(
     agents.flatMap((agent) =>
-      isRecord(agent) && typeof agent["agent"] === "string"
-        ? [[agent["agent"], agent["status"]]]
+      isRecord(agent) && typeof agent["agentId"] === "string"
+        ? [[agent["agentId"], agent["outcome"]]]
         : [],
     ),
   );
@@ -223,12 +223,19 @@ const runLifecycleMutation = async (
     if (projected["outcome"] === "projected") {
       // A plan describes future work; only the applied readback verifies it.
       expect(projected["reasonCode"]).not.toBe("verified-native-unit");
-      const keys = projected["nativeUnitKeys"];
+      const keys = projected["nativeUnits"];
       if (Array.isArray(keys) && keys.length > 0)
-        expect(current?.["nativeUnitKeys"]).toEqual(expect.arrayContaining(keys));
+        expect(current?.["nativeUnits"]).toEqual(expect.arrayContaining(keys));
       if (projected["extensionType"] === "skill") {
-        expect(keys).toEqual(expect.arrayContaining([expect.any(String)]));
-        expect(current?.["nativeUnitKeys"]).toEqual(keys);
+        expect(keys).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              scope: "project",
+              address: expect.objectContaining({ kind: "entry", path: expect.any(String) }),
+            }),
+          ]),
+        );
+        expect(current?.["nativeUnits"]).toEqual(keys);
       }
     } else {
       expect(current?.["reasonCode"]).toBe(projected["reasonCode"]);
@@ -294,7 +301,7 @@ describe("extension activation lifecycle", () => {
 
       for (const row of EXTENSION_TYPE_MATRIX) {
         const name = extensionName(row.plural);
-        const selection = row.updateSelection === "name-filter" ? ["--name", name] : [];
+        const selection = row.updateSelection === "name-filter" ? [name] : [];
         await runLifecycleMutation(temp.path, [row.plural, "update", ...selection]);
         await expectCleanWorkspace(temp.path, `${row.type} updated`);
       }
@@ -498,11 +505,11 @@ describe("extension activation lifecycle", () => {
       });
       const before = snapshotTree(shared.path);
       const sharedPreview = await runCli(
-        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--preview", "--json", "--verbose", "--non-interactive"],
         { cwd: shared.path },
       );
       const sharedApply = await runCli(
-        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--json", "--verbose", "--non-interactive"],
         { cwd: shared.path },
       );
       expect(sharedPreview.exitCode).not.toBe(0);
@@ -520,13 +527,13 @@ describe("extension activation lifecycle", () => {
       writeSymbolicMcpPackage(shared.path);
       const symbolicBefore = snapshotTree(shared.path);
       const symbolicPreview = await runCli(
-        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--preview", "--json", "--verbose", "--non-interactive"],
         { cwd: shared.path },
       );
       expect(symbolicPreview.exitCode, symbolicPreview.stdout + symbolicPreview.stderr).toBe(0);
       expect(snapshotTree(shared.path)).toEqual(symbolicBefore);
       const symbolicApplied = await runCli(
-        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--json", "--verbose", "--non-interactive"],
         { cwd: shared.path },
       );
       expect(symbolicApplied.exitCode, symbolicApplied.stdout + symbolicApplied.stderr).toBe(0);
@@ -540,7 +547,7 @@ describe("extension activation lifecycle", () => {
         mcpServers: { mailer: mcpEntry },
       });
       const independentPreview = await runCli(
-        ["mcps", "enable", "mailer", "--preview", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--preview", "--json", "--verbose", "--non-interactive"],
         { cwd: independent.path },
       );
       expect(
@@ -552,7 +559,7 @@ describe("extension activation lifecycle", () => {
         { agentId: "codex", outcome: "projected" },
       ]);
       const independentApply = await runCli(
-        ["mcps", "enable", "mailer", "--json", "--non-interactive"],
+        ["mcps", "enable", "mailer", "--json", "--verbose", "--non-interactive"],
         { cwd: independent.path },
       );
       expect(independentApply.exitCode, independentApply.stdout + independentApply.stderr).toBe(0);

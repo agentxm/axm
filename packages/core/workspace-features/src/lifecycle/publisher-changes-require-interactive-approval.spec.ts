@@ -112,13 +112,15 @@ const resolveUpdate = (request: UpdateRequest, execution: PlanExecution) =>
     if (candidate.outcome === "nothing-configured") {
       throw new Error(`Expected an operation to resolve: ${candidate.message}`);
     }
-    return yield* UpdateExtensions.previewOrApply(candidate, execution);
+    return yield* UpdateExtensions.previewOrApply(candidate, execution).pipe(
+      Effect.map((result) => result.resolution),
+    );
   });
 
 /**
  * Every route that can accept a Registry binding for an already-accepted
  * extension. They differ in how the subject is named, not in what accepting
- * it means, so the rule is shown once over all four.
+ * it means, so the rule is shown once over every accepting route.
  */
 const affectedRoutes: ReadonlyArray<{
   readonly route: string;
@@ -143,13 +145,17 @@ const affectedRoutes: ReadonlyArray<{
       workspace.provide(resolveUpdate(targetedUpdateRequest({ source: FQN }), execution)),
   },
   {
-    route: "install --reinstall of the configured entry",
+    route: "targeted update --reinstall",
     run: (workspace, execution) =>
       workspace.provide(
-        resolveInstall(
-          installRequest({ subject: { kind: "source", source: FQN }, reinstall: true }),
-          execution,
-        ),
+        resolveUpdate(targetedUpdateRequest({ source: FQN, reinstall: true }), execution),
+      ),
+  },
+  {
+    route: "configured skills update --reinstall",
+    run: (workspace, execution) =>
+      workspace.provide(
+        resolveUpdate(configuredUpdateRequest({ type: "skill", reinstall: true }), execution),
       ),
   },
   {
@@ -169,6 +175,49 @@ describe("Publisher changes", () => {
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
+
+  it.effect.each(["configured", "targeted"] as const)(
+    "%s Pack reinstall checks the current publisher of an accepted member",
+    (route) =>
+      Effect.gen(function* () {
+        const registry = makeFileRegistry();
+        cleanups.push(registry.cleanup);
+        registry.writeSkill(SKILL, [FIRST]);
+        registry.writePack("toolkit", [
+          {
+            version: "1.0.0",
+            dependencies: { [FQN]: "^1.0.0" },
+          },
+        ]);
+        const workspace = makeLifecycleFixture({
+          sources: "live",
+          settings: { owner: "@acme", agents: ["claude-code"], sources: [registry.source] },
+        });
+        cleanups.push(workspace.cleanup);
+        yield* workspace.provide(
+          resolveInstall(
+            installRequest({
+              type: "pack",
+              subject: { kind: "source", source: "@acme/packs/toolkit" },
+            }),
+            interactiveOnlyApply,
+          ),
+        );
+        republishUnderBinding(registry, "skills", SKILL, REPUBLISHED_BINDING);
+        const before = workspace.snapshot();
+        const request =
+          route === "configured"
+            ? configuredUpdateRequest({ type: "pack", reinstall: true })
+            : targetedUpdateRequest({ source: "@acme/packs/toolkit", reinstall: true });
+        const preview = yield* workspace.provide(resolveUpdate(request, previewPlanExecution));
+        expect(preview.riskConditions).toEqual(expect.arrayContaining([publisherCondition]));
+        expect(workspace.snapshot()).toEqual(before);
+        const applied = yield* workspace.provide(resolveUpdate(request, interactiveOnlyApply));
+        expect(deriveOperationOutcome(applied)).toBe("blocked");
+        expect(applied.blocking?.class).toBe("approval-required");
+        expect(workspace.snapshot()).toEqual(before);
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   /**
    * A workspace that accepted the skill under one publisher binding, after

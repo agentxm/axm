@@ -25,7 +25,7 @@ describe("resolveInterruption", () => {
       declared: "closure-atomic",
       applied: "closure-atomic",
     });
-    expect(preview.interruption).toEqual({ signal: "SIGINT", disposition: "none" });
+    expect(preview.interruption).toEqual({ signal: "SIGINT", disposition: "untouched" });
     expect(preview.units).toEqual([]);
     expect(deriveOperationOutcome(preview)).toBe("interrupted");
 
@@ -57,7 +57,7 @@ describe("resolveInterruption", () => {
       declared: "non-rollbackable",
       applied: "closure-atomic",
     });
-    expect(resolution.interruption?.disposition).toBe("none");
+    expect(resolution.interruption?.disposition).toBe("untouched");
   });
 
   // The journal records per-unit started and resolved facts. A unit whose run
@@ -218,7 +218,7 @@ describe("resolveInterruption", () => {
       [],
     );
     expect(resolution.units).toEqual([{ id: "skill:one", label: "one", state: "ready" }]);
-    expect(resolution.interruption).toEqual({ signal: "SIGINT", disposition: "none" });
+    expect(resolution.interruption).toEqual({ signal: "SIGINT", disposition: "untouched" });
     expect(resolution.atomicity.applied).toBe("closure-atomic");
   });
 });

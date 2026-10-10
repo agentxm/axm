@@ -1,3 +1,4 @@
+import { axmBooleanEnabled } from "@agentxm/host-primitives";
 import { CanonicalNativePathLive } from "@agentxm/workspace-kernel/locations/live";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { resolveNativeReferent } from "@agentxm/workspace-kernel/locations";
@@ -46,12 +47,8 @@ import {
 import {
   Verbosity,
   type VerbosityLevel,
-  isEnabledEnvRequest,
-  nonInteractiveFlag,
-  jsonFlag,
   verboseFlag,
   debugFlag,
-  quietFlag,
   directoryFlag,
 } from "./cli-flags/index.js";
 
@@ -130,14 +127,7 @@ import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommen
 
 export { verboseFlag, debugFlag };
 
-export const axmGlobalFlags = [
-  nonInteractiveFlag,
-  verboseFlag,
-  debugFlag,
-  quietFlag,
-  jsonFlag,
-  directoryFlag,
-] as const;
+export { axmGlobalFlags } from "./cli-flags/index.js";
 
 // -- Runtime layers --
 const LATEST_RELEASE_URL = "https://releases.axm.sh/latest.txt";
@@ -336,8 +326,6 @@ const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
   debug: Option.fromUndefinedOr(process.env["AXM_DEBUG"]),
 });
 
-const isPreviewRequest = (value: string | undefined): boolean => value === "1" || value === "true";
-
 /**
  * The operator's telemetry consent and preview request for this process,
  * resolved once at the process entry from the environment (the process
@@ -351,7 +339,7 @@ export const resolveProcessTelemetryOptions = (
     disableTelemetry: environment["DISABLE_TELEMETRY"],
     telemetry: environment["AXM_TELEMETRY"],
   }),
-  preview: isPreviewRequest(environment["AXM_TELEMETRY_PREVIEW"]),
+  preview: axmBooleanEnabled(environment["AXM_TELEMETRY_PREVIEW"]),
   detectCaller: detectCallerAgent(environment),
   client: { name: "cli", version: loadVersion() },
 });
@@ -361,7 +349,10 @@ export const resolveProcessTelemetryOptions = (
  * to: the settings-selected default, read through the workspace's one target
  * owner before any command's own workspace boundary is reached.
  */
-export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
+export const resolveDefaultRegistryTarget = (
+  projectRoot: AbsolutePath,
+  requested: Option.Option<string> = Option.none(),
+) => {
   const stateLayer = Layer.provide(
     coreWorkspaceLayer({
       scope: "project",
@@ -374,12 +365,16 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
   return Effect.scoped(
     Effect.gen(function* () {
       const settings = yield* SettingsReader;
-      const selection = yield* settings.registryTarget(Option.none());
+      const selection = yield* settings.registryTarget(requested);
       if (Option.isNone(selection.url)) {
         return yield* makeAppError({
           code: "usage",
-          detail: `Default registry source "${selection.name}" is not configured.`,
-          recover: `Add a Registry source named "${selection.name}" or change defaultRegistry in axm.json.`,
+          detail: Option.isSome(requested)
+            ? "--registry must name a configured Registry source or an HTTP(S) URL without credentials, a query, or a fragment."
+            : `Default registry source "${selection.name}" is not configured.`,
+          recover: Option.isSome(requested)
+            ? "Check --registry syntax with axm help sources."
+            : `Add a Registry source named "${selection.name}" or change defaultRegistry in axm.json.`,
         });
       }
       return { name: selection.name, url: selection.url.value } satisfies RegistryTarget;
@@ -387,8 +382,8 @@ export const resolveDefaultRegistryTarget = (projectRoot: AbsolutePath) => {
   ).pipe(
     Effect.matchEffect({
       onFailure: (cause) =>
-        cause instanceof AppError
-          ? Effect.fail(cause)
+        cause instanceof AppError || Option.isSome(requested)
+          ? Effect.fail(failureToAppError(cause))
           : // Settings validity belongs to the command's workspace boundary,
             // where its canonical path-aware diagnostic is preserved. Runtime
             // bootstrap only needs a safe transport default until that boundary
@@ -450,7 +445,7 @@ export const setupProjectionLayer = (workspace: Omit<WorkspaceStateOptions, "bui
   );
 
 const envToBool = (opt: Option.Option<string>): boolean =>
-  isEnabledEnvRequest(Option.getOrUndefined(opt));
+  axmBooleanEnabled(Option.getOrUndefined(opt));
 
 const resolveRuntimeConfig = () => {
   const envConfig = readRuntimeEnvConfig();
@@ -561,7 +556,7 @@ export const withReleaseAgePosture =
     Effect.provideService(program, ReleaseAgePosture, ignoreReleaseAge ? "ignore" : "enforce");
 
 export const withRuntime =
-  (command?: string) =>
+  (command?: string, options?: { readonly registry?: Option.Option<string> }) =>
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
     Effect.gen(function* () {
       const directory = yield* directoryFlag;
@@ -589,7 +584,10 @@ export const withRuntime =
       yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
       const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
       const config = resolveRuntimeConfig();
-      const defaultRegistry = yield* resolveDefaultRegistryTarget(executionDirectory.path);
+      const defaultRegistry = yield* resolveDefaultRegistryTarget(
+        executionDirectory.path,
+        options?.registry,
+      );
       const format = yield* resolveCliFormat;
       // Only the recovery a refusal names depends on this, so a configuration
       // source that cannot be read leaves the Registry's own recovery rather
@@ -658,3 +656,11 @@ export {
   MachineOutputDocumentSchema,
   detectMachineOutputDocumentKind,
 } from "./cli-runtime/index.js";
+export { MachineEventSchema, type MachineEvent } from "./screen/machine-events.js";
+
+export {
+  ConfiguredAgentOutcomeSchema,
+  ConfiguredAgentReasonCodeSchema,
+  type ConfiguredAgentOutcome,
+  type ConfiguredAgentReasonCode,
+} from "@agentxm/workspace-kernel/operations";

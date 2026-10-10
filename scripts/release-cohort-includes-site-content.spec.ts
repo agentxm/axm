@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   requirement: "system/process/release-cohort-includes-site-content",
   title: "Release cohort includes public site content",
   statement:
-    "Each stable release shall publish the four installer documents, the generated agent catalog and CLI reference, and ten generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.",
+    "Each stable release shall publish the four installer documents, the generated agent catalog and CLI reference, and eleven generated JSON Schemas as immutable GitHub Release assets from the exact release commit, in addition to the five native binaries and their binaries-only SHA256SUMS manifest, and shall reject any undeclared release asset.",
   class: "process",
   role: "supporting",
   goals: ["trustworthy-distribution", "dependable-change-process"],
@@ -42,7 +42,7 @@ export const specification = defineSpecification({
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 describe("Release site-content cohort", () => {
-  it.effect("stages exactly sixteen content assets from the release checkout", () =>
+  it.effect("stages exactly seventeen content assets from the release checkout", () =>
     Effect.acquireUseRelease(
       Effect.sync(() => mkdtempSync(join(tmpdir(), "axm-release-site-content-"))),
       (directory) =>
@@ -59,12 +59,12 @@ describe("Release site-content cohort", () => {
             .join("\n");
           writeFileSync(join(directory, CHECKSUM_MANIFEST), `${checksums}\n`, "utf8");
 
-          expect(EXPECTED_CONTENT_ASSETS).toHaveLength(16);
-          expect(EXPECTED_RELEASE_ASSETS).toHaveLength(22);
+          expect(EXPECTED_CONTENT_ASSETS).toHaveLength(17);
+          expect(EXPECTED_RELEASE_ASSETS).toHaveLength(23);
           expect(validateReleaseAssets(directory)).toEqual({
-            assetCount: 22,
+            assetCount: 23,
             binaryCount: 5,
-            contentCount: 16,
+            contentCount: 17,
           });
           expect(readFileSync(join(directory, CHECKSUM_MANIFEST), "utf8")).not.toContain(
             "schema.json",

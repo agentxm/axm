@@ -196,8 +196,31 @@ export interface PublishWorldOptions {
 export const makePublishWorld = (options: PublishWorldOptions = {}) => {
   const root = fs.realpathSync(fs.mkdtempSync(nodePath.join(os.tmpdir(), "axm-publish-")));
   fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
+  const target = makePublishTarget(root);
+  const registry = "publication";
   const writeSettings = (settings: Readonly<Record<string, unknown>>): void => {
-    fs.writeFileSync(nodePath.join(root, "axm.json"), JSON.stringify(settings, null, 2));
+    // Local destinations are configured sources, selected by name like production.
+    const sources = Array.isArray(settings["sources"]) ? settings["sources"] : [];
+    fs.writeFileSync(
+      nodePath.join(root, "axm.json"),
+      JSON.stringify(
+        {
+          ...settings,
+          sources: [
+            ...sources.filter(
+              (source: unknown) =>
+                typeof source !== "object" ||
+                source === null ||
+                !("name" in source) ||
+                source.name !== registry,
+            ),
+            { name: registry, type: "registry", location: target.url },
+          ],
+        },
+        null,
+        2,
+      ),
+    );
   };
   const readSettings = (): Readonly<Record<string, unknown>> => {
     const parsed: unknown = JSON.parse(fs.readFileSync(nodePath.join(root, "axm.json"), "utf8"));
@@ -213,7 +236,6 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     JSON.stringify({ lockfileVersion: 11, packages: {}, skills: {} }),
   );
 
-  const target = makePublishTarget(root);
   const writes: Array<FileSystemWriteEvent> = [];
   const transport =
     options.httpClient === undefined
@@ -276,6 +298,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     root,
     /** The `file://` Registry a publish uploads into. */
     target,
+    registry,
     readSettings,
     writeSettings,
     /**
@@ -328,9 +351,9 @@ export type PublishWorld = ReturnType<typeof makePublishWorld>;
 
 /** The request every publish route builds, with this world's Registry as target. */
 export const requestFor = (
-  world: Pick<PublishWorld, "target">,
+  world: Pick<PublishWorld, "registry">,
   overrides: Partial<PublishRequest> = {},
-): PublishRequest => publishRequest(world.target.url, overrides);
+): PublishRequest => publishRequest(world.registry, overrides);
 
 /**
  * The execution one request asks for: a preview, or an apply whose

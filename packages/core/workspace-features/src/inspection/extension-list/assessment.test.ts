@@ -17,7 +17,7 @@ import {
   SourceHostProviders,
   type SourceHostProvidersService,
 } from "@agentxm/workspace-kernel/sources";
-import { assessExtensionListItems, type ExtensionListItem } from "./assessment.js";
+import { assessExtensionListItems, type AssessedExtensionListItem } from "./assessment.js";
 import {
   WorkspaceReadTest,
   type WorkspaceReadTestFacts,
@@ -101,7 +101,7 @@ describe("extension list assessment", () => {
         cloneUrl: () => Option.none(),
         origin: () => "https://github.com/acme/extensions",
       };
-      const item: ExtensionListItem = {
+      const item: AssessedExtensionListItem = {
         ref: "skills/review",
         type: "skill",
         name: "review",
@@ -134,7 +134,7 @@ describe("extension list assessment", () => {
         cloneUrl: () => Option.none(),
         origin: () => "https://github.com/acme/extensions",
       };
-      const item: ExtensionListItem = {
+      const item: AssessedExtensionListItem = {
         ref: "skills/review",
         type: "skill",
         name: "review",

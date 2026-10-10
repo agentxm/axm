@@ -58,7 +58,7 @@ Every extension that did not settle: effects were restored.
 Next
      axm update   Try the extensions that did not update again
      https://status.example.com/registry
-     axm update @acme/packs/field-notes --refresh
+     axm update @acme/packs/field-notes --reinstall
      Resolve the source again, then update
-     axm update @acme-enterprise/knowledge/effect-v4 --refresh
+     axm update @acme-enterprise/knowledge/effect-v4 --reinstall
      Resolve the source again, then update

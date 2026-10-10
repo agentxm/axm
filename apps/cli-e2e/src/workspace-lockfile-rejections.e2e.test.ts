@@ -211,7 +211,7 @@ describe("workspace lockfile rejection diagnostics", () => {
       fs.writeFileSync(lockPath, 'lockfileVersion: "six"\nskills: {}\n');
       const before = snapshotTree(workspace.path);
 
-      const result = await runCli(["knowledge", "concepts", "search", "architecture", "--json"], {
+      const result = await runCli(["knowledge", "concepts", "query", "architecture", "--json"], {
         cwd: workspace.path,
         env,
       });

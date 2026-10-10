@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as path from "node:path";
+import { FIXTURE_PUBLISHED_AT } from "@agentxm/registry-client/testing";
 /**
  * The held-release policy each operation declares, applied by the one Pack
  * graph selection they share.
@@ -83,21 +86,89 @@ describe("Held Pack members follow the operation's declared policy", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
-  it.effect("a configured install refuses the Pack it has no accepted graph to preserve", () => {
-    const { workspace } = world({ packs: { [PACK]: PACK_FQN } });
-    return workspace
-      .provide(
-        Effect.gen(function* () {
-          const resolution = yield* previewInstall(
-            installRequest({ subject: { kind: "configured" } }),
+  for (const route of ["typed", "root"] as const)
+    it.effect(
+      `${route} source install preserves release-age evidence across selected packs`,
+      () => {
+        const created = makeInstallWorld({ settings: { minimumReleaseAge: "1d" } });
+        cleanups.push(created.cleanup);
+        created.registry.writeSkill(MEMBER, [
+          { version: "1.1.0", body: "Young guidance.", published: new Date().toISOString() },
+          { version: "1.0.0", body: "Mature guidance.", published: FIXTURE_PUBLISHED_AT },
+        ]);
+        const source = path.join(created.workspace.root, "vendor");
+        for (const name of ["first", "second"]) {
+          const directory = path.join(source, name);
+          fs.mkdirSync(directory, { recursive: true });
+          fs.writeFileSync(
+            path.join(directory, "pack.json"),
+            JSON.stringify({
+              owner: "@acme",
+              type: "pack",
+              name,
+              version: "1.0.0",
+              description: "Release-age evidence fixture",
+              dependencies: {
+                [MEMBER_FQN]: {
+                  source: { type: "registry", url: created.registry.source.location },
+                  versionRange: "^1.0.0",
+                },
+              },
+            }),
           );
+        }
+        return created.workspace
+          .provide(
+            Effect.gen(function* () {
+              const before = created.workspace.snapshot();
+              const resolution = yield* previewInstall(
+                installRequest({
+                  ...(route === "typed" ? { type: "pack" as const } : {}),
+                  subject: { kind: "source", source },
+                }),
+              );
+              expect(deriveOperationOutcome(resolution)).toBe("previewed");
+              expect(resolution.releaseAge?.holdbacks).toEqual(
+                expect.arrayContaining([
+                  expect.objectContaining({
+                    target: MEMBER_FQN,
+                    candidateVersion: "1.1.0",
+                    selectedVersion: "1.0.0",
+                    dependencyPath: ["@acme/packs/first", MEMBER_FQN],
+                  }),
+                  expect.objectContaining({
+                    target: MEMBER_FQN,
+                    candidateVersion: "1.1.0",
+                    selectedVersion: "1.0.0",
+                    dependencyPath: ["@acme/packs/second", MEMBER_FQN],
+                  }),
+                ]),
+              );
+              expect(created.workspace.snapshot()).toEqual(before);
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
 
-          expect(deriveOperationOutcome(resolution)).toBe("blocked");
-          expect(resolution.releaseAge?.holdbacks).toEqual([heldMemberRecord]);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer));
-  });
+  it.effect(
+    "an explicit repeated Pack install refuses the Pack it has no accepted graph to preserve",
+    () => {
+      const { workspace } = world({ packs: { [PACK]: PACK_FQN } });
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const resolution = yield* previewInstall(
+              installRequest({ type: "pack", subject: { kind: "source", source: PACK_FQN } }),
+            );
+
+            expect(deriveOperationOutcome(resolution)).toBe("blocked");
+            expect(resolution.releaseAge?.holdbacks).toEqual([heldMemberRecord]);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("a workspace-wide update leaves the Pack unchanged and continues", () => {
     const { workspace } = world({ packs: { [PACK]: PACK_FQN } });
@@ -144,9 +215,9 @@ describe("An unreadable minimum release age refuses every path", () => {
 
   const paths = [
     {
-      path: "a configured install",
+      path: "an explicit skill install",
       settings: { skills: { [MEMBER]: MEMBER_FQN } },
-      request: installRequest({ subject: { kind: "configured" } }),
+      request: installRequest({ type: "skill", subject: { kind: "source", source: MEMBER_FQN } }),
     },
     {
       path: "a targeted Pack install",

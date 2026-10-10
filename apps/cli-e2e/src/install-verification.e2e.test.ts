@@ -308,7 +308,7 @@ const verifyUpgradeModes = async (binaryPath: string, env: Readonly<Record<strin
   const jsonDocument = parseJsonObject(jsonResult.stdout);
   expect(jsonDocument["ok"]).toBe(true);
   const currentResult = expectJsonObject(jsonDocument["result"]);
-  expect(currentResult["contract"]).toBe("axm.upgrade-assessment/v1");
+  expect(currentResult["contract"]).toBe("upgrade-assessment-v1");
   expect(currentResult["disposition"]).toBe("already-current");
   expect(expectJsonObject(currentResult["ownership"])["method"]).toBe("script");
   expect(currentResult["outcome"]).toBe("no-op");

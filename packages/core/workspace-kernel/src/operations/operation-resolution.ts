@@ -17,7 +17,7 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { WorkspaceRecoveryEntry } from "../settlement/index.js";
 
-import type { OperationErrorCategory, StepFailure } from "./errors.js";
+import type { ErrorCode, StepFailure } from "./errors.js";
 import type { ReleaseAgeOperationEvidence } from "./evidence.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import type {
@@ -143,7 +143,7 @@ export interface OperationBlock {
    * Cause class carried for blocking classes whose exit is not pinned by the
    * class alone (`precondition-unmet`, `external-blocked`).
    */
-  readonly causeCode?: OperationErrorCategory;
+  readonly causeCode?: ErrorCode;
   /** Machine-readable reference to what blocked the subject. */
   readonly reference?: string;
   readonly escape?: SuggestedAction;
@@ -183,9 +183,9 @@ export interface OperationInterruption {
    * Durable-state disposition of attempted work at the stopping point:
    * `restored` when the closure rolled it back, `retained` when settled
    * commits stand, `unknown` when a started unit's settlement was not
-   * observed, and `none` when nothing was attempted.
+   * observed, and `untouched` when nothing was attempted.
    */
-  readonly disposition: "restored" | "retained" | "unknown" | "none";
+  readonly disposition: UnitDisposition;
 }
 
 /** One observed durable change or restoration. */

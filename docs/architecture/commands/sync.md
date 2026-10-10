@@ -58,7 +58,7 @@ choose between conflicting explicit choices.
 
 Present byte drift in acquired canonical content is preserved during ordinary
 sync but is not valid projection input. The affected semantic mutation closure
-blocks until explicit `reinstall`, `update`, or `fork` establishes valid
+blocks until explicit `axm update --reinstall`, `axm update`, or `axm fork` establishes valid
 authority again.
 
 Sync realizes configured agents, instruction-file behavior, and inline MCP
@@ -143,7 +143,7 @@ runs only when graph construction is complete.
 
 Before writing, application acquires the workspace OS lock and revalidates all
 material authoritative inputs and target preimages. A stale plan writes
-nothing, and `--force` cannot bypass the check.
+nothing, and a named override flag cannot bypass the check.
 
 Settings, authoritative lock state, canonical content, and owned outputs in one
 closure commit together. A handled application failure restores the closure's

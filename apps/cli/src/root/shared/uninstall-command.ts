@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 /**
  * The command shell every `axm uninstall` route shares.
  *
@@ -11,7 +12,7 @@
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   UninstallExtensions,
@@ -155,12 +156,10 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
   const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
   const config = {
     name: Argument.String("name").pipe(
-      Argument.withDescription(`Name or glob of the ${noun.singular} to uninstall`),
+      withParameterDescription(`Name or glob of the ${noun.singular} to uninstall`),
     ),
-    scope: scopeFlag.pipe(
-      Flag.withDescription("Uninstall from project (default) or user-level configuration"),
-    ),
-    preview: previewCapabilityFlag("Show what would be removed without making changes"),
+    scope: scopeFlag,
+    preview: previewCapabilityFlag(),
   } as const;
   return Command.make("uninstall", config, ({ name, scope, preview }) =>
     runUninstallCommand({
@@ -175,13 +174,13 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
     withCommandCapabilities(previewableCapabilities("workspace")),
     Command.withDescription(
       type === "mcp-server" || type === "hook"
-        ? `Uninstall a ${noun.singular} and explicitly withdraw its selected native registrations`
-        : `Uninstall a ${noun.singular}`,
+        ? `Uninstall ${noun.article} ${noun.singular} and explicitly withdraw its selected native registrations`
+        : `Uninstall ${noun.article} ${noun.singular}`,
     ),
     Command.withExamples([
       {
         command: `axm ${route} uninstall ${exampleName}`,
-        description: `Remove a ${noun.singular} you no longer need`,
+        description: `Remove ${noun.article} ${noun.singular} you no longer need`,
       },
       {
         command: `axm ${route} uninstall ${exampleName} --preview`,

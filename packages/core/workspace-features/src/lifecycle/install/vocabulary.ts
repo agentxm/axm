@@ -1,8 +1,17 @@
+import type {
+  SkillManager,
+  SubagentManager,
+  RuleManager,
+  HookManager,
+  KnowledgeManager,
+  McpServerManager,
+  PackManager,
+} from "@agentxm/workspace-kernel/materialization";
+import type { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 /**
  * The vocabulary every install route shares.
  *
- * Root install, the seven per-type installs, and the configured-entry sweep
- * are one use case with the type either fixed by the command or detected from
+ * Root install and the seven per-type installs are one use case with the type either fixed by the command or detected from
  * what the source offers. They therefore share one requirement set for
  * preparing the install and one failure vocabulary for resolving it; only the
  * grammar that produced the request differs.
@@ -58,6 +67,14 @@ export type InstallExecutionFailure =
  * records into, and the interaction that presents and confirms it.
  */
 export type PrepareInstallRequirements =
+  | SkillManager
+  | SubagentManager
+  | RuleManager
+  | HookManager
+  | KnowledgeManager
+  | McpServerManager
+  | PackManager
+  | ReleaseAgePosture
   | InstallStepRequirements
   | ResolveInstallRequirements
   | ConfiguredAgentOutcomesProvider

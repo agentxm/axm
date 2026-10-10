@@ -1,6 +1,7 @@
-import { Argument, Command, Flag } from "effect/cli";
+import { withParameterDescription } from "../../cli-parameters.js";
+import { Argument, Command } from "effect/cli";
 
-import { ignoreReleaseAgeFlag, refreshFlag } from "../../cli-flags/index.js";
+import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
@@ -13,25 +14,23 @@ import {
 import { handleUpdate } from "./handler.js";
 
 const updateConfig = {
-  source: Argument.String("extension[@version]").pipe(
-    Argument.withDescription(
-      "Installed extension FQN; optional @version constrains Registry sources only",
+  source: Argument.String("extension").pipe(
+    withParameterDescription(
+      "Installed extension FQN; optional @version constrains registry sources only",
     ),
     Argument.optional,
   ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Update in project (default) or user-level configuration"),
-  ),
-  force: refreshFlag,
-  preview: previewCapabilityFlag("Show what would be updated without making changes"),
+  scope: scopeFlag,
+  reinstall: reinstallFlag,
+  preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, force, preview, ignoreReleaseAge }) =>
-    handleUpdate({ source, force, preview }).pipe(
+  ({ source, scope, reinstall, preview, ignoreReleaseAge }) =>
+    handleUpdate({ source, reinstall, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
       withWorkspace(scope),
       withRuntime("update"),
@@ -52,7 +51,7 @@ export const updateCommand = Command.make(
     },
     {
       command: "axm update @acme/hooks/session-audit@^1.2.0",
-      description: "Update a Registry extension within a version constraint",
+      description: "Update a registry extension within a version constraint",
     },
     {
       command: "axm update @acme/skills/code-review --ignore-release-age",

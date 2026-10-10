@@ -7,7 +7,7 @@ https://axm.sh | https://agentxm.ai
 USAGE
      axm <command> [flags]
 
-START HERE
+GETTING STARTED
      setup                         Set up AXM in the current project
      help                          Show topic or command help
 

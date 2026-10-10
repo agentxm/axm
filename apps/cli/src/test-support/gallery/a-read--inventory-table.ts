@@ -1,13 +1,13 @@
-import type { ExtensionListItem } from "@agentxm/workspace-features/inspection";
+import type { AssessedExtensionListItem } from "@agentxm/workspace-features/inspection";
 
 import type { Doc } from "../../screen/doc.js";
 import { listDoc } from "../../root/list/view.js";
 
 const item = (
   ref: string,
-  type: ExtensionListItem["type"],
-  facts: Partial<ExtensionListItem> = {},
-): ExtensionListItem => ({
+  type: AssessedExtensionListItem["type"],
+  facts: Partial<AssessedExtensionListItem> = {},
+): AssessedExtensionListItem => ({
   ref,
   type,
   name: ref.split("/").at(-1) ?? ref,

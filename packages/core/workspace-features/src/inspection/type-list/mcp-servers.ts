@@ -17,15 +17,16 @@ import type {
   DesiredMcpServerInspection,
 } from "@agentxm/workspace-kernel/projection";
 import {
-  ExtensionInventoryRowSchema,
-  type ExtensionInventory,
   type McpServerEntry,
   type McpServerLockEntry,
-  desiredMcpSourceKey,
-  formatDesiredIdentity,
   type DesiredNodeIdentity,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+import {
+  ExtensionListItemSchema,
+  ExtensionInventoryDocumentFields,
+  type ExtensionInventoryDocument,
+} from "../inventory-document.js";
 import type { TypeListRow } from "./type-list-row.js";
 
 /** The desired-state facts an MCP row reads: where it comes from and under which identity. */
@@ -34,16 +35,6 @@ export interface DesiredMcpServerNode {
   readonly identity: DesiredNodeIdentity;
   readonly authority?: string | undefined;
 }
-
-const McpServerSourceSchema = Schema.Union([
-  Schema.Struct({ kind: Schema.Literal("inline") }),
-  Schema.Struct({
-    kind: Schema.Literal("registry"),
-    locator: Schema.String,
-    identity: Schema.String,
-  }),
-  Schema.Struct({ kind: Schema.Literal("unmanaged") }),
-]);
 
 const McpServerResolutionSchema = Schema.NullOr(
   Schema.Struct({
@@ -54,32 +45,25 @@ const McpServerResolutionSchema = Schema.NullOr(
 );
 
 export const McpServerListQueryResultSchema = Schema.Struct({
+  ...ExtensionInventoryDocumentFields,
   items: Schema.Array(
     Schema.Struct({
-      ...ExtensionInventoryRowSchema.fields,
+      ...ExtensionListItemSchema.fields,
       localName: Schema.String,
-      source: McpServerSourceSchema,
       resolution: McpServerResolutionSchema,
+      transport: Schema.String,
+      status: Schema.String,
     }),
   ),
-  count: Schema.Number,
-  configuredCount: Schema.Number,
-  implicitCount: Schema.Number,
-  installedCount: Schema.Number,
-  leftoverCount: Schema.Number,
-  undeclaredCount: Schema.Number,
-  unmanagedCount: Schema.Number,
 });
 export type McpServerListQueryResult = typeof McpServerListQueryResultSchema.Type;
 
-export type McpServerMachineSource = typeof McpServerSourceSchema.Type;
 export type McpServerResolution = typeof McpServerResolutionSchema.Type;
 
 export interface McpServerListRow extends TypeListRow {
   /** The workspace-local connection name; not the published identity. */
   readonly localName: string;
   readonly source: string;
-  readonly machineSource: McpServerMachineSource;
   readonly resolution: McpServerResolution;
   readonly version: string;
   readonly transport: "config" | "auto";
@@ -125,19 +109,6 @@ export const mcpServerListRows = (args: {
         : configuredEntry?.kind === "sourced"
           ? configuredEntry.source
           : (desiredNode?.source ?? "unmanaged"),
-    machineSource:
-      configuredEntry?.kind === "inline"
-        ? { kind: "inline" }
-        : desiredNode !== undefined && desiredNode.authority !== "inline"
-          ? {
-              kind: "registry",
-              locator:
-                configuredEntry?.source ??
-                desiredNode.source ??
-                formatDesiredIdentity(desiredNode.identity),
-              identity: desiredMcpSourceKey(desiredNode.identity),
-            }
-          : { kind: "unmanaged" },
     resolution:
       registryResolution === undefined
         ? null
@@ -164,19 +135,20 @@ export const mcpServerListRows = (args: {
 
 /** The machine document `axm mcps list` emits. */
 export const mcpServerListDocument = (args: {
-  readonly inventory: ExtensionInventory;
+  readonly document: ExtensionInventoryDocument;
   readonly rows: ReadonlyArray<McpServerListRow>;
 }): McpServerListQueryResult => {
   const byName = new Map(args.rows.map((row) => [row.localName, row]));
   return {
-    ...args.inventory,
-    items: args.inventory.items.map((item) => {
+    ...args.document,
+    items: args.document.items.map((item) => {
       const derived = byName.get(item.name);
       return {
         ...item,
         localName: item.name,
-        source: derived?.machineSource ?? ({ kind: "unmanaged" } as const),
         resolution: derived?.resolution ?? null,
+        transport: derived?.transport ?? "auto",
+        status: derived?.status ?? "unverified",
       };
     }),
   };

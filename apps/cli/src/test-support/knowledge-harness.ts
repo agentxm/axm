@@ -16,7 +16,6 @@ export const knowledgeQueryOptions = {
   metadata: [],
   lifecycle: [],
   tags: [],
-  explain: false,
 };
 export const knowledgeDocument = (
   body: string,

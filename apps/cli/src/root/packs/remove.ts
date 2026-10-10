@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command } from "effect/cli";
 
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -25,12 +26,12 @@ export const handlePacksRemove = (args: PacksRemoveHandlerArgs) =>
 
 const removeConfig = {
   pack: Argument.String("name").pipe(
-    Argument.withDescription("Configured pack name or unique configured pack FQN"),
+    withParameterDescription("Configured pack name or unique configured pack FQN"),
   ),
   extension: Argument.String("extension").pipe(
-    Argument.withDescription("Extension name or glob pattern"),
+    withParameterDescription("Declared dependency FQN or glob over FQNs"),
   ),
-  preview: previewCapabilityFlag("Show what would change in the manifest without modifying it"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const removeCommand = Command.make("remove", removeConfig, ({ pack, extension, preview }) =>

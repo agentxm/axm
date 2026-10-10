@@ -74,7 +74,7 @@ const InstallerAvailabilityStateSchema = Schema.Literals([
 ] as const);
 
 export const UpgradeAssessmentResultSchema = Schema.Struct({
-  contract: Schema.Literal("axm.upgrade-assessment/v1"),
+  contract: Schema.Literal("upgrade-assessment-v1"),
   outcome: Schema.Literals(["previewed", "applied", "no-op", "failed", "indeterminate"] as const),
   disposition: UpgradeDispositionSchema,
   message: Schema.String,
@@ -370,7 +370,7 @@ export const toUpgradeAssessment = (input: UpgradeSettlement): UpgradeAssessment
   const availability = input.availability;
   const details = [...input.result.details, ...previewDetails(input.previewIntent)];
   return {
-    contract: "axm.upgrade-assessment/v1",
+    contract: "upgrade-assessment-v1",
     outcome: assessmentOutcome(input.result),
     disposition: resultDisposition(input.result, availability),
     message: resultMessage(input.result, availability),

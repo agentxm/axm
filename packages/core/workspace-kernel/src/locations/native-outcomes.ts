@@ -23,9 +23,20 @@ export const OwnershipUnitAddressSchema = Schema.Union([
 });
 export type OwnershipUnitAddress = typeof OwnershipUnitAddressSchema.Type;
 
-export const NativeLocationOutcomeSchema = Schema.Struct({
+export const NativeUnitReferenceSchema = Schema.Struct({
   scope: Schema.Literals(["project", "user"]),
   address: OwnershipUnitAddressSchema,
+}).annotate({ identifier: "NativeUnitReference" });
+export type NativeUnitReference = typeof NativeUnitReferenceSchema.Type;
+
+/** Public linkage to one native unit; map-key encodings stay internal. */
+export const nativeUnitReference = (unit: NativeUnitReference): NativeUnitReference => ({
+  scope: unit.scope,
+  address: unit.address,
+});
+
+export const NativeLocationOutcomeSchema = Schema.Struct({
+  ...NativeUnitReferenceSchema.fields,
   aliases: Schema.Array(Schema.String),
   configuredConsumers: Schema.Array(Schema.String),
   potentialReaders: Schema.Array(Schema.String),

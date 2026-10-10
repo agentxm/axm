@@ -105,7 +105,7 @@ export const writeLocalRulePackage = (root: string, fixture: LocalPackageFixture
   return packageRoot;
 };
 
-/** A local hooks package: `hook.json` plus `src/hook.sh`. */
+/** A local hook extension: `hook.json` plus `src/hook.sh`. */
 export const writeLocalHookPackage = (root: string, fixture: LocalPackageFixture): string => {
   const description = fixture.description ?? `The ${fixture.name} hook.`;
   const packageRoot = preparePackageRoot(root, fixture, "hook.json", {

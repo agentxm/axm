@@ -32,6 +32,8 @@ export interface LintViewInput {
   readonly findings: ReadonlyArray<LintHumanFinding>;
   /** What `--fix` repaired. */
   readonly repaired: ReadonlyArray<LintHumanFinding>;
+  readonly normalization?:
+    ReadonlyArray<{ readonly path: string; readonly change: string }> | undefined;
   readonly counts: FindingCounts;
   /** Rules the registry still blocks publish on although local configuration weakens them. */
   readonly driftBanner: ReadonlyArray<string>;
@@ -235,6 +237,23 @@ export const lintDoc = (input: LintViewInput): Doc => {
   const rows = [...input.repaired.map(fixedRow), ...remaining.rows];
   const fixable = input.findings.filter((finding) => finding.fixable).length;
 
+  const normalization: Doc =
+    input.normalization === undefined
+      ? []
+      : [
+          {
+            _tag: "headline",
+            tone: "info",
+            text: `Would normalize ${count(input.normalization.length, "instruction alias")}`,
+          },
+          ...(quiet
+            ? []
+            : input.normalization.map((change): DocNode => ({
+                _tag: "paragraph",
+                text: `${change.change}: ${change.path}`,
+              }))),
+        ];
+
   if (rows.length === 0) {
     const verdict: DocNode = {
       _tag: "headline",
@@ -242,7 +261,9 @@ export const lintDoc = (input: LintViewInput): Doc => {
       text: input.driftBanner.length === 0 ? "No findings" : "No other findings",
       aside: factParts([scopePhrase(input.scope)]),
     };
-    return quiet ? [verdict] : [...driftCallout(input.driftBanner), verdict];
+    return quiet
+      ? [...normalization, verdict]
+      : [...normalization, ...driftCallout(input.driftBanner), verdict];
   }
 
   const aside = factParts([
@@ -259,10 +280,11 @@ export const lintDoc = (input: LintViewInput): Doc => {
         text: severityCounts(input.counts),
         ...(aside.length === 0 ? {} : { aside }),
       };
-  if (quiet) return [verdict];
+  if (quiet) return [...normalization, verdict];
 
   const drift = driftCallout(input.driftBanner);
   return [
+    ...normalization,
     {
       _tag: "headline",
       tone: "neutral",

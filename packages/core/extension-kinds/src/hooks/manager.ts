@@ -1,6 +1,9 @@
 import { resolveHookImplementation } from "@agentxm/extension-model/unstable/hooks/resolution";
 import { platform } from "node:os";
-import { retireCanonicalDirectory } from "@agentxm/workspace-kernel/acquisition";
+import {
+  sourceRefContentKey,
+  retireCanonicalDirectory,
+} from "@agentxm/workspace-kernel/acquisition";
 import {
   type HookManagerService,
   acceptedResolutionFor,
@@ -39,6 +42,7 @@ import {
   validatePathSafety,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
+  usableAcceptedCanonical,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -292,7 +296,7 @@ export const HookManagerLive = Layer.effect(
 
     // Serialize re-materialization of the same package within a process: sync
     // renders every agent target concurrently, and each render pass materializes
-    // the same hook packages, so without this the remove+copy steps race on one
+    // the same hook extensions, so without this the remove+copy steps race on one
     // package dir.
     const materializePackage = (
       ref: HookExtensionRef,
@@ -342,7 +346,7 @@ export const HookManagerLive = Layer.effect(
           nativeInsertionEligible,
           copyFailure: {
             code: "validation",
-            detail: (target) => `Failed to copy hook package files to ${target}`,
+            detail: (target) => `Failed to copy hook extension files to ${target}`,
           },
         });
       });
@@ -380,14 +384,14 @@ export const HookManagerLive = Layer.effect(
               Effect.mapError(
                 (cause) =>
                   new HookDefinitionInvalid({
-                    detail: `Cannot inspect Hook package file: ${entry}`,
+                    detail: `Cannot inspect Hook extension file: ${entry}`,
                     cause,
                   }),
               ),
             );
             if (!exists)
               return yield* new HookDefinitionInvalid({
-                detail: `Hook package file does not exist: ${entry}`,
+                detail: `Hook extension file does not exist: ${entry}`,
               });
             const canonicalRoot = yield* fs.realPath(packageRoot);
             const canonicalFile = yield* fs.realPath(absolute);
@@ -395,7 +399,7 @@ export const HookManagerLive = Layer.effect(
             const stat = yield* fs.stat(canonicalFile);
             if (stat.type !== "File")
               return yield* new HookDefinitionInvalid({
-                detail: `Hook package resource is not a file: ${entry}`,
+                detail: `Hook extension resource is not a file: ${entry}`,
               });
           }),
         { discard: true },
@@ -463,12 +467,30 @@ export const HookManagerLive = Layer.effect(
       readonly root: string;
     }
 
+    const rootForRef = (ref: HookExtensionRef) =>
+      Effect.gen(function* () {
+        if (ref.refType !== "registry") return fromFileLocation(ref.location);
+        const canonical = yield* usableAcceptedCanonical({
+          type: "hook",
+          name: ref.hook.name,
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new HookDefinitionInvalid({
+                detail: `Accepted hook extension ${ref.hook.name} could not be inspected`,
+                cause,
+              }),
+          ),
+        );
+        if (
+          Option.isSome(canonical) &&
+          sourceRefContentKey(canonical.value.ref) === sourceRefContentKey(ref)
+        )
+          return canonical.value.observation.path;
+        return (yield* sources.fetch(ref)).directory;
+      });
     const readManifestForRef = (ref: HookExtensionRef) =>
-      ref.refType === "registry"
-        ? Effect.scoped(
-            sources.fetch(ref).pipe(Effect.flatMap(({ directory }) => readManifest(directory))),
-          )
-        : readManifest(fromFileLocation(ref.location));
+      Effect.scoped(rootForRef(ref).pipe(Effect.flatMap(readManifest)));
 
     const evaluateConfiguredOutcomes = (args: {
       readonly configuredAgents: ReadonlyArray<string>;
@@ -891,10 +913,7 @@ export const HookManagerLive = Layer.effect(
           (ref) =>
             Effect.scoped(
               Effect.gen(function* () {
-                const root =
-                  ref.refType === "registry"
-                    ? (yield* sources.fetch(ref)).directory
-                    : fromFileLocation(ref.location);
+                const root = yield* rootForRef(ref);
                 const manifest = yield* readManifest(root);
                 yield* validatePackageFiles(root, manifest);
                 const canonicalPath = computeExtensionPathsForLayout(

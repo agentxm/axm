@@ -1,11 +1,21 @@
+import * as Schema from "effect/Schema";
+
 /**
  * How AXM realizes an instruction target. `none` marks a configured agent
  * with no projectable convention, so nothing is written or inspected for it.
  */
 export type InstructionMechanism = "native" | "symlink" | "copy" | "adapter" | "none";
 
-export type InstructionHealth =
-  "ok" | "missing-source" | "missing-target" | "drift" | "broken-link" | "unsupported" | "stale";
+export const InstructionHealthSchema = Schema.Literals([
+  "ok",
+  "missing-source",
+  "missing-target",
+  "drift",
+  "broken-link",
+  "unsupported",
+  "stale",
+]).annotate({ identifier: "InstructionHealth" });
+export type InstructionHealth = typeof InstructionHealthSchema.Type;
 
 /**
  * Ownership of whatever occupies an instruction target path, proven by

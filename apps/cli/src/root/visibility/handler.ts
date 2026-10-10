@@ -15,9 +15,13 @@ import {
 } from "../../screen/index.js";
 import {
   VisibilityEvaluationSchema,
-  VisibilityMutationResultSchema,
+  type VisibilityMutationResult,
 } from "@agentxm/registry-protocol/unstable/publish";
-import { ManagePublishedVisibility } from "@agentxm/workspace-features/publishing";
+import {
+  ManagePublishedVisibility,
+  RegistryTransitionSchema,
+  registryTransition,
+} from "@agentxm/workspace-features/publishing";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -51,23 +55,43 @@ const emitEvaluation = (evaluation: typeof VisibilityEvaluationSchema.Type) =>
     ]);
   });
 
-const emitMutation = (result: typeof VisibilityMutationResultSchema.Type) =>
+const emitMutation = (
+  action: "visibility-set" | "visibility-reconcile",
+  registry: string,
+  result: VisibilityMutationResult,
+) =>
   Effect.gen(function* () {
-    yield* emitResult(result, VisibilityMutationResultSchema, () => [
-      ...successDoc(
-        result.result === "already-satisfied"
-          ? `${result.target} is already ${result.after}.`
-          : `Changed ${result.target} from ${result.before} to ${result.after}.`,
-      ),
-      ...paragraphDoc(`Revision: ${result.revision}`),
-    ]);
+    yield* emitResult(
+      registryTransition({
+        action,
+        registry,
+        fqn: result.target,
+        before: result.before,
+        after: result.after,
+        disposition: result.result === "already-satisfied" ? "already-current" : "changed",
+        revision: result.revision,
+        message:
+          result.result === "already-satisfied"
+            ? `${result.target} is already ${result.after}.`
+            : `Changed ${result.target} from ${result.before} to ${result.after}.`,
+      }),
+      RegistryTransitionSchema,
+      () => [
+        ...successDoc(
+          result.result === "already-satisfied"
+            ? `${result.target} is already ${result.after}.`
+            : `Changed ${result.target} from ${result.before} to ${result.after}.`,
+        ),
+        ...paragraphDoc(`Revision: ${result.revision}`),
+      ],
+    );
   });
 
 export const handleVisibilityStatus = Effect.fn("Visibility.status")(
   function* (target: string) {
     yield* emitEvaluation(
       yield* withLiveOperation(
-        { command: "visibility.status", name: `Inspect visibility of ${target}`, mode: "preview" },
+        { command: "visibility.status", name: `Inspect visibility of ${target}`, mode: "query" },
         ManagePublishedVisibility.status(target),
       ),
     );
@@ -85,7 +109,7 @@ export const handleVisibilitySet = Effect.fn("Visibility.set")(
         visibility,
       }),
     );
-    yield* emitMutation(written.mutation);
+    yield* emitMutation("visibility-set", written.registry, written.mutation);
   },
   Effect.mapError(failureToAppError),
   Effect.asVoid,
@@ -99,7 +123,7 @@ export const handleVisibilityReconcile = Effect.fn("Visibility.reconcile")(
         target,
       }),
     );
-    yield* emitMutation(written.mutation);
+    yield* emitMutation("visibility-reconcile", written.registry, written.mutation);
   },
   Effect.mapError(failureToAppError),
   Effect.asVoid,

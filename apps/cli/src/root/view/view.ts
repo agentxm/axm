@@ -82,7 +82,7 @@ const nextAction = (data: ViewDocument): SuggestedAction => {
     deprecation.reason === "obsolete" ||
     (deprecation.reason === "superseded" && deprecation.replacement.status === "available")
   ) {
-    return { description: "Preview migration", cmd: `axm migrate ${data.handle} --dry-run` };
+    return { description: "Preview migration", cmd: `axm migrate ${data.fqn} --preview` };
   }
   return deprecation.reason === "superseded"
     ? { description: "The replacement is unavailable; axm migrate cannot proceed yet" }
@@ -133,7 +133,7 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
     {
       _tag: "headline",
       tone: "neutral",
-      text: [{ text: data.handle, bold: true }],
+      text: [{ text: data.fqn, bold: true }],
       aside: identityAside(data),
     },
     ...(data.description === undefined || data.description.length === 0
@@ -146,9 +146,9 @@ export const viewPageDoc = (data: ViewDocument): Doc => {
             _tag: "callout",
             tone: "warn",
             title: archivedOn(archival),
-            ...(archival.reason === undefined
+            ...(archival.message === undefined
               ? {}
-              : { children: [{ _tag: "paragraph", text: archival.reason } as const] }),
+              : { children: [{ _tag: "paragraph", text: archival.message } as const] }),
           } as const,
         ]),
     ...(deprecation === null

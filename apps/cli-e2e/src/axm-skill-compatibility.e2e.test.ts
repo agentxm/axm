@@ -123,12 +123,15 @@ describe("AXM skill compatibility lifecycle", () => {
       fs.writeFileSync(skillPath, removeCompatibilityRange(fs.readFileSync(skillPath, "utf8")));
       git(temp.path, ["add", "."]);
       git(temp.path, ["commit", "--quiet", "-m", "fixture"]);
-      const lintJson = async (view: "workspace" | "git-index"): Promise<LintDocument> => {
-        const run = await runCli(["lint", "--view", view, "--json"], { cwd: temp.path, env });
+      const lintJson = async (view: "filesystem" | "git-index"): Promise<LintDocument> => {
+        const run = await runCli(
+          ["lint", ...(view === "git-index" ? ["--staged"] : []), "--json"],
+          { cwd: temp.path, env },
+        );
         return JSON.parse(run.stdout);
       };
 
-      const broken = await lintJson("workspace");
+      const broken = await lintJson("filesystem");
       const [finding, ...others] = compatibilityFindings(broken);
       expect(others).toEqual([]);
       expect(path.resolve(temp.path, finding?.displayRoot ?? "", finding?.path ?? "")).toBe(
@@ -156,7 +159,7 @@ describe("AXM skill compatibility lifecycle", () => {
         env,
       });
       expect(apply.exitCode, `${apply.stderr}\n${apply.stdout}`).toBe(0);
-      const repaired = await lintJson("workspace");
+      const repaired = await lintJson("filesystem");
       expect(repaired.result.axmSkillCompatibility?.status).toBe("compatible");
       expect(compatibilityFindings(repaired)).toEqual([]);
       expect(fs.existsSync(path.join(temp.path, "agent_extensions", "agentxm"))).toBe(true);
@@ -224,7 +227,7 @@ describe("AXM skill compatibility lifecycle", () => {
       });
       expect(live.exitCode, `${live.stderr}\n${live.stdout}`).toBe(0);
 
-      const staged = await runCli(["lint", "--view", "git-index", "--strict", "--json"], {
+      const staged = await runCli(["lint", "--staged", "--strict", "--json"], {
         cwd: temp.path,
         env,
       });

@@ -58,7 +58,7 @@ describe("Anonymous public view", () => {
         field: Option.none(),
       });
       expect(result.outcome).toBe("document");
-      expect(result.document).toMatchObject({ handle, visibility: "public" });
+      expect(result.document).toMatchObject({ fqn: handle, visibility: "public" });
       expect(registry.requests).toHaveLength(1);
       expect(registry.requests[0]).toMatchObject({
         method: "GET",

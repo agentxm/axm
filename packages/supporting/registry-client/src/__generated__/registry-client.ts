@@ -892,16 +892,18 @@ export const ArchivalRevision = Schema.String.annotate({
     identifier: "ArchivalRevision",
   }),
 );
-export type PutArchivalBody = { readonly reason: string | null };
+export type PutArchivalBody = { readonly message?: string | null };
 export const PutArchivalBody = Schema.Struct({
-  reason: Schema.Union([
-    Schema.String.annotate({
-      description: "Optional publisher reason for archiving the extension.",
-    }).check(
-      Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
-    ),
-    Schema.Null,
-  ]),
+  message: Schema.optionalKey(
+    Schema.Union([
+      Schema.String.annotate({
+        description: "Publisher message; omit to preserve it, or use null to clear it.",
+      }).check(
+        Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
+      ),
+      Schema.Null,
+    ]),
+  ),
 }).annotate({ identifier: "PutArchivalBody" });
 export type DeprecationRevision = string;
 export const DeprecationRevision = Schema.String.annotate({
@@ -924,13 +926,13 @@ export const DeprecationReason = Schema.Literals([
 });
 export type YankVersionBody = {
   readonly category?: "broken" | "security" | "accidental" | "other" | null;
-  readonly notice?: string | null;
+  readonly message?: string | null;
 };
 export const YankVersionBody = Schema.Struct({
   category: Schema.optionalKey(
     Schema.Union([Schema.Literals(["broken", "security", "accidental", "other"]), Schema.Null]),
   ),
-  notice: Schema.optionalKey(
+  message: Schema.optionalKey(
     Schema.Union([
       Schema.String.check(
         Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
@@ -946,14 +948,14 @@ export const YankVersionBody = Schema.Struct({
 export type YankAvailableVersionsBody = {
   readonly selection: "all-available";
   readonly category?: "broken" | "security" | "accidental" | "other" | null;
-  readonly notice?: string | null;
+  readonly message?: string | null;
 };
 export const YankAvailableVersionsBody = Schema.Struct({
   selection: Schema.Literal("all-available"),
   category: Schema.optionalKey(
     Schema.Union([Schema.Literals(["broken", "security", "accidental", "other"]), Schema.Null]),
   ),
-  notice: Schema.optionalKey(
+  message: Schema.optionalKey(
     Schema.Union([
       Schema.String.check(
         Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
@@ -1267,13 +1269,31 @@ export const ExtensionNameHeldErrorEncoded = Schema.Struct({
   code: Schema.Literal("extension_name_held"),
   reclaimableAt: IsoDateTimeString,
 }).annotate({ identifier: "ExtensionNameHeldErrorEncoded" });
+export type VersionYankState = {
+  readonly yankedAt: IsoDateTimeString | null;
+  readonly yankCategory: "broken" | "security" | "accidental" | "other" | null;
+  readonly yankMessage: string | null;
+};
+export const VersionYankState = Schema.Struct({
+  yankedAt: Schema.Union([IsoDateTimeString, Schema.Null]),
+  yankCategory: Schema.Union([
+    Schema.Literals(["broken", "security", "accidental", "other"]),
+    Schema.Null,
+  ]),
+  yankMessage: Schema.Union([
+    Schema.String.check(
+      Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
+    ),
+    Schema.Null,
+  ]),
+}).annotate({ identifier: "VersionYankState" });
 export type ArchivalView = {
   readonly archivedAt: IsoDateTimeString;
-  readonly reason?: string | null;
+  readonly message?: string | null;
 };
 export const ArchivalView = Schema.Struct({
   archivedAt: IsoDateTimeString,
-  reason: Schema.optionalKey(
+  message: Schema.optionalKey(
     Schema.Union([
       Schema.String.check(
         Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
@@ -1661,7 +1681,7 @@ export const VisibilityFinding = Schema.Struct({
 export type ArchivalManagementView = {
   readonly archival: {
     readonly archivedAt: IsoDateTimeString;
-    readonly reason?: string | null;
+    readonly message?: string | null;
   } | null;
   readonly revision: ArchivalRevision;
 };
@@ -1669,7 +1689,7 @@ export const ArchivalManagementView = Schema.Struct({
   archival: Schema.Union([
     Schema.Struct({
       archivedAt: IsoDateTimeString,
-      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
     Schema.Null,
   ]),
@@ -1679,11 +1699,11 @@ export type ArchivalTransition = {
   readonly target: ExtensionFqn;
   readonly before: {
     readonly archivedAt: IsoDateTimeString;
-    readonly reason?: string | null;
+    readonly message?: string | null;
   } | null;
   readonly after: {
     readonly archivedAt: IsoDateTimeString;
-    readonly reason?: string | null;
+    readonly message?: string | null;
   } | null;
   readonly disposition: "created" | "edited" | "restored" | "unchanged";
   readonly revision: ArchivalRevision;
@@ -1693,14 +1713,14 @@ export const ArchivalTransition = Schema.Struct({
   before: Schema.Union([
     Schema.Struct({
       archivedAt: IsoDateTimeString,
-      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
     Schema.Null,
   ]),
   after: Schema.Union([
     Schema.Struct({
       archivedAt: IsoDateTimeString,
-      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
     Schema.Null,
   ]),
@@ -2090,7 +2110,7 @@ export type VersionEntry = {
   readonly integrity: string;
   readonly yankedAt?: IsoDateTimeString | null;
   readonly yankCategory?: string | null;
-  readonly yankNotice?: string | null;
+  readonly yankMessage?: string | null;
 };
 export const VersionEntry = Schema.Struct({
   version: Version,
@@ -2122,7 +2142,7 @@ export const VersionEntry = Schema.Struct({
   integrity: Schema.String,
   yankedAt: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   yankCategory: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  yankNotice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  yankMessage: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 }).annotate({
   title: "Version Entry",
   description: "A single published version of an extension in the registry.",
@@ -2155,7 +2175,7 @@ export type ExtensionSummary = {
   readonly deprecation: DeprecationView | null;
   readonly archival: {
     readonly archivedAt: IsoDateTimeString;
-    readonly reason?: string | null;
+    readonly message?: string | null;
   } | null;
 };
 export const ExtensionSummary = Schema.Struct({
@@ -2174,7 +2194,7 @@ export const ExtensionSummary = Schema.Struct({
   archival: Schema.Union([
     Schema.Struct({
       archivedAt: IsoDateTimeString,
-      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
     Schema.Null,
   ]),
@@ -2834,13 +2854,13 @@ export type ExtensionsGet200 = {
     readonly packages?: ReadonlyArray<CompanionPackage> | null;
     readonly yankedAt?: IsoDateTimeString | null;
     readonly yankCategory?: string | null;
-    readonly yankNotice?: string | null;
+    readonly yankMessage?: string | null;
   }>;
   readonly visibility?: "public" | "private" | null;
   readonly deprecation: DeprecationView | null;
   readonly archival: {
     readonly archivedAt: IsoDateTimeString;
-    readonly reason?: string | null;
+    readonly message?: string | null;
   } | null;
 };
 export const ExtensionsGet200 = Schema.Struct({
@@ -2864,7 +2884,7 @@ export const ExtensionsGet200 = Schema.Struct({
       packages: Schema.optionalKey(Schema.Union([Schema.Array(CompanionPackage), Schema.Null])),
       yankedAt: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
       yankCategory: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-      yankNotice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      yankMessage: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
   ),
   visibility: Schema.optionalKey(
@@ -2877,7 +2897,7 @@ export const ExtensionsGet200 = Schema.Struct({
   archival: Schema.Union([
     Schema.Struct({
       archivedAt: IsoDateTimeString,
-      reason: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+      message: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
     }),
     Schema.Null,
   ]),
@@ -2939,7 +2959,7 @@ export type ExtensionsGetVersion200 = {
   readonly metadata?: { readonly [x: string]: Schema.Json } | null;
   readonly yankedAt?: IsoDateTimeString | null;
   readonly yankCategory?: string | null;
-  readonly yankNotice?: string | null;
+  readonly yankMessage?: string | null;
 };
 export const ExtensionsGetVersion200 = Schema.Struct({
   name: ExtensionName,
@@ -2970,7 +2990,7 @@ export const ExtensionsGetVersion200 = Schema.Struct({
   ),
   yankedAt: Schema.optionalKey(Schema.Union([IsoDateTimeString, Schema.Null])),
   yankCategory: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
-  yankNotice: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
+  yankMessage: Schema.optionalKey(Schema.Union([Schema.String, Schema.Null])),
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponse;
 export const ExtensionsGetVersion400 = DecodeErrorResponse;
@@ -3245,8 +3265,11 @@ export type ExtensionsYankVersion200 = {
   readonly version: Version;
   readonly yankedAt: IsoDateTimeString | null;
   readonly yankCategory: "broken" | "security" | "accidental" | "other" | null;
-  readonly yankNotice: string | null;
+  readonly yankMessage: string | null;
   readonly links: ExtensionLinks;
+  readonly before: VersionYankState;
+  readonly disposition: "changed" | "already-current";
+  readonly revision: string;
 };
 export const ExtensionsYankVersion200 = Schema.Struct({
   owner: Handle,
@@ -3258,13 +3281,18 @@ export const ExtensionsYankVersion200 = Schema.Struct({
     Schema.Literals(["broken", "security", "accidental", "other"]),
     Schema.Null,
   ]),
-  yankNotice: Schema.Union([
+  yankMessage: Schema.Union([
     Schema.String.check(
       Schema.isMaxCodePoints(500).annotate({ expected: "a string with at most 500 code points" }),
     ),
     Schema.Null,
   ]),
   links: ExtensionLinks,
+  before: VersionYankState,
+  disposition: Schema.Literals(["changed", "already-current"]),
+  revision: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
@@ -3287,8 +3315,11 @@ export type ExtensionsUnyankVersion200 = {
   readonly version: Version;
   readonly yankedAt: null;
   readonly yankCategory: null;
-  readonly yankNotice: null;
+  readonly yankMessage: null;
   readonly links: ExtensionLinks;
+  readonly before: VersionYankState;
+  readonly disposition: "changed" | "already-current";
+  readonly revision: string;
 };
 export const ExtensionsUnyankVersion200 = Schema.Struct({
   owner: Handle,
@@ -3297,8 +3328,13 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
   version: Version,
   yankedAt: Schema.Null,
   yankCategory: Schema.Null,
-  yankNotice: Schema.Null,
+  yankMessage: Schema.Null,
   links: ExtensionLinks,
+  before: VersionYankState,
+  disposition: Schema.Literals(["changed", "already-current"]),
+  revision: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponse;
@@ -3320,11 +3356,21 @@ export type ExtensionsYankAvailableVersions200 = {
   readonly selection: "all-available";
   readonly affectedVersions: ReadonlyArray<Version>;
   readonly futureVersionsAffected: false;
+  readonly before: ReadonlyArray<Version>;
+  readonly after: ReadonlyArray<Version>;
+  readonly disposition: "changed" | "already-current";
+  readonly revision: string;
 };
 export const ExtensionsYankAvailableVersions200 = Schema.Struct({
   selection: Schema.Literal("all-available"),
   affectedVersions: Schema.Array(Version),
   futureVersionsAffected: Schema.Literal(false),
+  before: Schema.Array(Version),
+  after: Schema.Array(Version),
+  disposition: Schema.Literals(["changed", "already-current"]),
+  revision: Schema.String.check(
+    Schema.isMinLength(1).annotate({ expected: "a value with a length of at least 1" }),
+  ),
 });
 export type ExtensionsYankAvailableVersions400 = DecodeErrorResponse;
 export const ExtensionsYankAvailableVersions400 = DecodeErrorResponse;

@@ -14,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/installed-skills-follow-settlement",
   title: "Install observations follow committed fresh skill acquisitions",
   statement:
-    "An explicit skill install shall expose one neutral observation per freshly acquired skill only after committed settlement with usable native output; preview, unchanged reapplication, repair, rollback, cancellation, and bootstrap shall expose none, and deliberate fresh reinstall shall be marked separately.",
+    "An explicit skill install shall expose one neutral observation per freshly acquired skill only after committed settlement with usable native output; preview, unchanged reapplication, repair, rollback, cancellation, and bootstrap shall expose none.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption"],
@@ -30,7 +30,7 @@ describe("Settled skill acquisitions", () => {
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
   it.effect(
-    "observes fresh install and deliberate reinstall, excluding preview, no-op, and native repair",
+    "observes fresh install, excluding preview, no-op, and native repair",
     () => {
       const { workspace, cleanup } = makeInstallWorld({ installedExecutables: ["claude"] });
       cleanups.push(cleanup);
@@ -54,39 +54,18 @@ describe("Settled skill acquisitions", () => {
               installKind: "install",
               targetAgents: ["claude-code"],
             });
-            const configured = installRequest({ type: "skill", subject: { kind: "configured" } });
-            const warm = yield* InstallExtensions.prepare(configured);
+            const warm = yield* InstallExtensions.prepare(request);
             expect(
               (yield* InstallExtensions.previewOrApply(warm, preapprovedPlanExecution))
                 .installedSkills,
             ).toEqual([]);
             const fs = yield* FileSystem.FileSystem;
             yield* fs.remove(`${workspace.root}/.claude/skills/review`, { recursive: true });
-            const repair = yield* InstallExtensions.prepare(configured);
+            const repair = yield* InstallExtensions.prepare(request);
             expect(
               (yield* InstallExtensions.previewOrApply(repair, preapprovedPlanExecution))
                 .installedSkills,
             ).toEqual([]);
-            const forced = yield* InstallExtensions.prepare({ ...configured, reinstall: true });
-            const reinstalled = yield* InstallExtensions.previewOrApply(
-              forced,
-              preapprovedPlanExecution,
-            );
-            expect(reinstalled.installedSkills).toEqual([]);
-            yield* fs.writeFileString(
-              `${workspace.root}/.claude/skills/review/SKILL.md`,
-              "---\nname: review\ndescription: Damaged retained skill.\n---\nUnaccepted content.\n",
-            );
-            const changed = yield* InstallExtensions.prepare({ ...request, reinstall: true });
-            const freshlyReinstalled = yield* InstallExtensions.previewOrApply(
-              changed,
-              preapprovedPlanExecution,
-            );
-            expect(
-              yield* fs.readFileString(`${workspace.root}/.claude/skills/review/SKILL.md`),
-            ).toBe(yield* fs.readFileString(`${source}/src/SKILL.md`));
-            expect(freshlyReinstalled.installedSkills).toHaveLength(1);
-            expect(freshlyReinstalled.installedSkills[0]?.installKind).toBe("reinstall");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

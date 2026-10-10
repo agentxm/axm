@@ -7,7 +7,10 @@ import {
   decodeHandleSync,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
-import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  decodeVersionSync,
+  decodeVersionRangeSync,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { prepareSkillInstallation, type SkillInstallationFacts } from "./installation.js";
 
 it.effect(
@@ -57,11 +60,16 @@ it.effect(
           ),
       };
 
-      const prepared = yield* prepareSkillInstallation(facts, { ref });
+      const prepared = yield* prepareSkillInstallation(facts, {
+        ref,
+        versionRange: Option.some(decodeVersionRangeSync("1.2.0")),
+      });
       expect(prepared.warnings).toEqual([
         "@example/skills/review@1.2.0 was published less than 24h ago — installing it because you requested this version explicitly",
         "Skipping unknown configured agents: unknown-recipient",
       ]);
+      const resolved = yield* prepareSkillInstallation(facts, { ref, versionRange: Option.none() });
+      expect(resolved.warnings).toEqual(["Skipping unknown configured agents: unknown-recipient"]);
       yield* Ref.set(content, Option.some({ fileCount: 3 }));
       // The recipe classifies the change; the presenter reports the targets
       // as they stood before the install around it.

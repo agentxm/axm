@@ -38,9 +38,11 @@ import {
   SettingsReader,
   usableAcceptedCanonicalFrom,
   WorkspaceLocation,
+  WorkspaceRecords,
   desiredPackageKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+import { ShowAgentOutcomeSchema, filterShowAgentOutcomes } from "../show/agent-outcomes.js";
 import { PackInspectionRefused } from "../errors.js";
 
 const PackMemberSchema = Schema.Struct({
@@ -60,6 +62,7 @@ export const PackShowResultSchema = Schema.Struct({
   acceptedResolution: Schema.String,
   canonicalStatus: Schema.String,
   desiredDependencies: Schema.Array(PackMemberSchema),
+  agentOutcomes: Schema.Array(ShowAgentOutcomeSchema),
   problems: Schema.Array(Schema.String),
 });
 export type PackShowResult = typeof PackShowResultSchema.Type;
@@ -70,6 +73,7 @@ const configuredSource = (entry: string | { readonly source: string }): string =
 export interface ShowPackRequest {
   /** A configured pack name, or a fully qualified pack identity. */
   readonly target: string;
+  readonly agents?: ReadonlyArray<string>;
 }
 
 export const ShowPack = {
@@ -228,7 +232,17 @@ export const ShowPack = {
         }),
       { concurrency: 1 },
     );
+    const records = yield* WorkspaceRecords;
+    const inventory = yield* records.getExtensionInventory("pack", {});
+    const outcomes = inventory.items.find((item) => item.name === name)?.agentOutcomes ?? [];
     return {
+      agentOutcomes: filterShowAgentOutcomes({
+        outcomes,
+        requested: request.agents ?? [],
+        configured: yield* settings.configuredAgents,
+        type: "pack",
+        name,
+      }),
       scope: location.scope,
       pack: packFqn,
       sourceAuthority,

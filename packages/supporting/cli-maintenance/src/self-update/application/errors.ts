@@ -15,6 +15,7 @@ const UpgradeFailureCategory = Schema.Literals([
   "unavailable",
   "internal",
   "network",
+  "timeout",
 ]);
 
 const CarriedSuggestedActionSchema = Schema.Struct({

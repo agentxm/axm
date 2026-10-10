@@ -1,3 +1,4 @@
+import { booleanOptionFromArgv } from "../cli-flags/argv-boolean.js";
 import * as Option from "effect/Option";
 import type { OutputFormat } from "./output-mode.js";
 
@@ -8,19 +9,12 @@ export const optionArgs = (args: ReadonlyArray<string>): ReadonlyArray<string> =
 };
 
 export const hasExplicitJsonFlag = (args: ReadonlyArray<string>): boolean => {
-  const options = optionArgs(args);
-  return options.includes("--json") || options.includes("-j");
+  return Option.getOrElse(booleanOptionFromArgv(args, ["--json", "-j"]), () => false);
 };
 
-/** Every `--output` value, in both `--output value` and `--output=value` forms. */
-export const outputSelectorsFromArgv = (args: ReadonlyArray<string>): ReadonlyArray<string> =>
-  optionArgs(args).flatMap((arg, index, options) =>
-    arg.startsWith("--output=")
-      ? [arg.slice("--output=".length)]
-      : arg === "--output" && options[index + 1] !== undefined
-        ? [options[index + 1] ?? ""]
-        : [],
-  );
+/** Explicit credential export reserves stdout before parsing. */
+export const hasPlainFlag = (args: ReadonlyArray<string>): boolean =>
+  Option.getOrElse(booleanOptionFromArgv(args, ["--plain"]), () => false);
 
 /**
  * Resolve output format from raw argv BEFORE Effect runs.
@@ -32,7 +26,7 @@ export const outputSelectorsFromArgv = (args: ReadonlyArray<string>): ReadonlyAr
 export const resolveFormatFromArgv = (args: ReadonlyArray<string>): OutputFormat => {
   // Raw credential output owns stdout even when the rest of argv is invalid,
   // so its diagnostics take the text route to stderr whatever else is asked.
-  if (outputSelectorsFromArgv(args).includes("token")) return "text";
+  if (hasPlainFlag(args)) return "text";
   return hasExplicitJsonFlag(args) ? "json" : "text";
 };
 

@@ -1,3 +1,5 @@
+import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Argument, Command, Flag } from "effect/cli";
@@ -12,16 +14,14 @@ import { handleUpgrade } from "./handler.js";
 
 const upgradeConfig = {
   version: Argument.String("version").pipe(
-    Argument.withDescription("Exact stable version; omit to use the latest production release"),
+    withParameterDescription("Exact stable version; omit to use the latest production release"),
     Argument.optional,
   ),
   reinstall: Flag.Boolean("reinstall").pipe(
-    Flag.withDescription("Reinstall an equal version; never permits a downgrade"),
-    Flag.withDefault(false),
+    withParameterDescription("Reinstall an equal version; never permits a downgrade"),
+    withParameterDefault(false),
   ),
-  preview: previewCapabilityFlag(
-    "Report the resolved install method, target, and command without running it",
-  ),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const upgradeCommand = Command.make(
@@ -39,6 +39,7 @@ export const upgradeCommand = Command.make(
 ).pipe(
   withArgvTracking(upgradeConfig),
   withCommandCapabilities(previewableCapabilities("installation")),
+  Command.annotate(LearnMore, formatLearnMore([["axm help upgrade", "Read the upgrade guide"]])),
   Command.withDescription("Update axm to the promoted stable or an exact version"),
   Command.withExamples([
     { command: "axm upgrade", description: "Download and install the latest version" },

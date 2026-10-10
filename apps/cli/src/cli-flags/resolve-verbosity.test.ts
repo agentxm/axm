@@ -44,8 +44,8 @@ describe("resolveVerbosityFromArgv", () => {
     expect(resolveVerbosityFromArgv(["--debug", "--quiet"])).toBe("quiet");
   });
 
-  it("scans flags after -- (they are in raw argv)", () => {
-    expect(resolveVerbosityFromArgv(["--", "--verbose"])).toBe("verbose");
+  it("ignores flags after the option terminator", () => {
+    expect(resolveVerbosityFromArgv(["--", "--verbose"])).toBe("normal");
   });
 
   it("ignores non-verbosity flags", () => {

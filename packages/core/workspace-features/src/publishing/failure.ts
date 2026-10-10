@@ -20,7 +20,7 @@ import {
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import { ConfigError } from "effect/Config";
 import { kernelFailureToStepFailure } from "@agentxm/workspace-kernel/reconciliation";
-import type { OperationErrorCategory, StepFailure } from "@agentxm/workspace-kernel/operations";
+import type { ErrorCode, StepFailure } from "@agentxm/workspace-kernel/operations";
 
 import { PublishFailed } from "./errors.js";
 import { isPublishFamilyFailure, publishFailureToStepFailure } from "./step-failure.js";
@@ -34,7 +34,7 @@ export const isPublishFailure = (error: unknown): error is PublishFailure =>
 /** Error classes the publish document reports beside the category. */
 export type PublishCauseClass = "internal" | "user" | "external";
 
-const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<OperationErrorCategory, PublishCauseClass>> = {
+const CAUSE_CLASS_BY_CATEGORY: Readonly<Record<ErrorCode, PublishCauseClass>> = {
   issues: "user",
   usage: "user",
   not_found: "user",
@@ -143,7 +143,7 @@ export const aggregatePublishFailure = (
   const steps = failures.map(renderPublishFailure);
   const [firstStep] = steps;
   const allRetryable = failures.length > 0 && failures.every(isRetryablePublishFailure);
-  const category: OperationErrorCategory =
+  const category: ErrorCode =
     first !== undefined &&
     firstStep !== undefined &&
     (allRetryable || steps.every((step) => step.category === firstStep.category))

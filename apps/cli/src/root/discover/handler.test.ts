@@ -5,7 +5,6 @@ import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 
 import {
   RegistryClientFactory,
@@ -109,7 +108,7 @@ const runHandler = (
   options?: { readonly machine?: boolean },
 ) => {
   const context = makeCliTestContext(options?.machine === true ? { machine: true } : {});
-  const program = handleDiscover({ path: Option.none() }).pipe(
+  const program = handleDiscover().pipe(
     Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(project.root) }),
     // The stub comes last: it replaces the base layer's live Registry client
     // factory for this handler run.

@@ -6,7 +6,7 @@ describe("repository Git hooks", () => {
     const content = readFileSync("scripts/check-staged.sh", "utf8");
 
     expect(content).toContain(
-      "pnpm --config.verify-deps-before-run=error axm:local lint --view git-index --strict",
+      "pnpm --config.verify-deps-before-run=error axm:local lint --staged --strict",
     );
     expect(content).not.toMatch(/^axm lint/m);
   });

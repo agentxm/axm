@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
@@ -8,7 +9,7 @@ import {
 } from "@agentxm/workspace-features/authoring";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
-  AGENT_IDS,
+  CONFIGURABLE_AGENT_IDS,
   type AgentId,
 } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import {
@@ -85,12 +86,12 @@ const handleImportBody = Effect.fn("Import.handle")(function* (args: ImportHandl
 
 const config = {
   source: Argument.String("source").pipe(
-    Argument.withDescription("Local or Git native extension source"),
+    withParameterDescription("Local or Git native extension source"),
   ),
-  target: Argument.String("extension").pipe(Argument.withDescription("New managed target FQN")),
+  target: Argument.String("extension").pipe(withParameterDescription("New managed target FQN")),
   enable: Flag.Boolean("enable").pipe(
-    Flag.withDescription("Enable and materialize a newly imported extension"),
-    Flag.withDefault(false),
+    withParameterDescription("Enable and materialize a newly imported extension"),
+    withParameterDefault(false),
   ),
   preview: previewCapabilityFlag(),
 } as const;
@@ -125,9 +126,9 @@ const makeNativeImportCommand = (type: NativeImportRouteType) => {
 export const skillsImportCommand = makeNativeImportCommand("skill");
 const subagentConfig = {
   ...config,
-  sourceAgent: Flag.Literals("source-agent", AGENT_IDS).pipe(
-    Flag.withDescription(
-      "Runtime whose native definition is being imported; required for ambiguous sources",
+  sourceAgent: Flag.Literals("source-agent", CONFIGURABLE_AGENT_IDS).pipe(
+    withParameterDescription(
+      "Runtime of the native definition; required when the source is ambiguous",
     ),
     Flag.optional,
   ),

@@ -61,7 +61,7 @@ describe("withOperationLifecycle", () => {
     Effect.gen(function* () {
       const renderer = TestRenderer.make();
       const seen = yield* withLiveOperation(
-        { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
+        { command: "cache.status", name: "Inspect archive cache", mode: "query" },
         Effect.map(Effect.serviceOption(OperationLifecycle), (service) => service._tag === "Some"),
       ).pipe(Effect.provide(renderer.layer));
       expect(seen).toBe(true);
@@ -70,6 +70,7 @@ describe("withOperationLifecycle", () => {
         "OperationSettled",
       ]);
       expect(renderer.state.events.at(-1)).toMatchObject({ outcome: "completed" });
+      expect(renderer.state.events[0]).toMatchObject({ mode: "query" });
     }),
   );
 

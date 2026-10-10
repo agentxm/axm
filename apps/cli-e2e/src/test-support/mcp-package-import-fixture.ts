@@ -75,7 +75,7 @@ export const makeMcpPackageImportProcessFixture = () => {
         fixture.selected,
         "mcps",
         "import",
-        "--as",
+        "native-context",
         target,
         ...options,
         "--non-interactive",

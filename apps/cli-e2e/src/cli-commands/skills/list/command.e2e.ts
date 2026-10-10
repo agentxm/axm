@@ -45,16 +45,21 @@ describe("axm skills list", () => {
         ok: true,
         result: {
           count: 1,
-          configuredCount: 0,
-          implicitCount: 0,
-          installedCount: 1,
-          leftoverCount: 0,
-          undeclaredCount: 0,
-          unmanagedCount: 1,
+          filter: "all",
+          totalCount: 1,
+          managementCounts: {
+            configured: 0,
+            implicit: 0,
+            leftover: 0,
+            undeclared: 0,
+            unmanaged: 1,
+          },
           items: [
             {
               name: "native-only",
-              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+              management: "unmanaged",
+              installed: true,
+              scope: "user",
             },
           ],
         },

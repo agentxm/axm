@@ -18,7 +18,7 @@ describe("Knowledge query contract", () => {
     const enumeration = makeKnowledgeQuery("user", []);
 
     expect(search).toMatchObject({
-      version: "axm-knowledge-query-v1",
+      contract: "knowledge-query-v1",
       scope: "project",
       ordering: "relevance",
       resultLimit: 25,

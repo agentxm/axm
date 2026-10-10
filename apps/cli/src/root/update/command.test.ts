@@ -11,9 +11,9 @@ describe("root update command help", () => {
       expect(output).toContain(
         "Advance accepted resolutions within each source's selection intent",
       );
-      expect(output).toContain("[<extension[@version]>]");
+      expect(output).toContain("[<extension>]");
       expect(output).toContain("Installed extension FQN; optional @version");
-      expect(output).toContain("constrains Registry sources only");
+      expect(output).toContain("constrains registry sources only");
       expect(output).toContain("axm update");
       expect(output).toContain("axm update @acme/skills/code-review");
       expect(output).toContain("regardless of source family");

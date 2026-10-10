@@ -2,6 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -13,7 +14,7 @@ export const specification = defineSpecification({
   requirement: "cli/view/explicit-type-selects-the-local-identity",
   title: "An explicit type selects the local name's configured identity",
   statement:
-    "When metadata is requested for an installed extension by local name with an explicit type, AXM shall use the Registry identity the workspace configured for that name and type, in preference to a same-named entry of another type and to any accepted resolution recorded for another owner.",
+    "When metadata is requested for an installed extension by local name with an explicit type, AXM shall use the Registry identity the workspace configured for that name and type, and shall reject a local name without --type before probing any workspace identity or Registry. An explicit type takes preference over a same-named entry of another type and to any accepted resolution recorded for another owner.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
@@ -24,9 +25,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "Without an explicit type, the current local-name fallback searches only skills and subagents. Whether bare-name lookup should search every non-container type is undecided; this requirement covers the explicit type selector.",
-  ],
+  openQuestions: [],
 });
 
 /** A published index for whichever extension the request asked about. */
@@ -61,6 +60,33 @@ const configuredBothTypes = {
 };
 
 describe("Typed local-name lookup", () => {
+  it.effect(
+    "refuses an untyped local name even when exactly one installed identity matches",
+    () => {
+      const fixture = makeInspectionFixture({
+        settings: { skills: { review: "@acme/skills/review" } },
+        respond: () => ({ body: {} }),
+      });
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const result = yield* Effect.result(
+              resolveViewHandle({ handle: "review", type: Option.none() }),
+            );
+            expect(Result.isFailure(result)).toBe(true);
+            if (Result.isFailure(result)) {
+              expect(result.failure).toMatchObject({
+                _tag: "PublishedMetadataUnavailable",
+                reason: "type-required",
+              });
+            }
+            expect(fixture.requests).toEqual([]);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+    },
+  );
+
   for (const row of [
     { type: "skill", plural: "skills" },
     { type: "knowledge", plural: "knowledge" },
@@ -92,7 +118,7 @@ describe("Typed local-name lookup", () => {
             expect(result.outcome).toBe("document");
             if (result.outcome === "document")
               expect(result.document).toMatchObject({
-                handle: `@acme/${row.plural}/review`,
+                fqn: `@acme/${row.plural}/review`,
                 type: row.type,
                 name: "review",
               });
@@ -150,7 +176,7 @@ describe("Typed local-name lookup", () => {
           });
           if (result.outcome === "document")
             expect(result.document).toMatchObject({
-              handle: "@acme/skills/review",
+              fqn: "@acme/skills/review",
               type: "skill",
               name: "review",
             });

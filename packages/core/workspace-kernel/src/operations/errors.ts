@@ -2,14 +2,9 @@
  * Error category vocabulary and the rendered failure shape for serialized
  * plan and step data.
  *
- * The categories are the same strings as the CLI's `AppErrorCode` so machine
- * output stays byte-identical across the package boundary; the conversion
- * boundary beside the CLI error vocabulary asserts the parity at compile
- * time. The kernel owns the vocabulary and the rendered failure because
- * plans, journals, and machine output serialize them, and because a failure
- * must read the same whether it surfaces directly at a command boundary or
- * settles a plan step. The application owns only exit codes and the envelope
- * it prints.
+ * The kernel owns the single ErrorCode vocabulary used by plan categories,
+ * step failures and CLI envelope codes. The application owns process exit
+ * codes and the envelope it prints.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -41,13 +36,15 @@ export const OPERATION_ERROR_CATEGORIES = [
   "timeout",
 ] as const;
 
-export const OperationErrorCategorySchema = Schema.Literals(OPERATION_ERROR_CATEGORIES).annotate({
-  identifier: "OperationErrorCategory",
+export const ErrorCodeSchema = Schema.Literals(OPERATION_ERROR_CATEGORIES).annotate({
+  identifier: "ErrorCode",
+  title: "Error Code",
+  description: "Error category shared by plan failures and CLI envelopes.",
 });
 
-export type OperationErrorCategory = (typeof OPERATION_ERROR_CATEGORIES)[number];
+export type ErrorCode = (typeof OPERATION_ERROR_CATEGORIES)[number];
 
-const DefaultDetailByCategory: Readonly<Record<OperationErrorCategory, string>> = {
+const DefaultDetailByCategory: Readonly<Record<ErrorCode, string>> = {
   auth: "Credentials were rejected, are invalid, or expired.",
   forbidden: "You do not have permission to perform this operation.",
   not_found: "The requested resource was not found.",
@@ -67,7 +64,7 @@ const DefaultDetailByCategory: Readonly<Record<OperationErrorCategory, string>> 
 };
 
 /** The sentence a failure reads when its producer supplied none. */
-export const defaultFailureDetail = (category: OperationErrorCategory): string =>
+export const defaultFailureDetail = (category: ErrorCode): string =>
   DefaultDetailByCategory[category];
 
 /**
@@ -216,7 +213,7 @@ export type FailureAction = typeof FailureActionSchema.Type;
  * `cause` carries the typed feature error or raw cause for diagnostic chains.
  */
 export class StepFailure extends Schema.TaggedError<StepFailure>()("StepFailure", {
-  category: OperationErrorCategorySchema,
+  category: ErrorCodeSchema,
   diagnostic: Schema.optional(FailureDiagnosticSchema),
   title: Schema.optional(Schema.String),
   detail: Schema.String,
@@ -236,7 +233,7 @@ export class StepFailure extends Schema.TaggedError<StepFailure>()("StepFailure"
  * retryability: the `external` class of the shared vocabulary less `quota`,
  * which a retry does not refill.
  */
-const RETRYABLE_BY_DEFAULT: ReadonlySet<OperationErrorCategory> = new Set([
+const RETRYABLE_BY_DEFAULT: ReadonlySet<ErrorCode> = new Set([
   "network",
   "rate_limit",
   "timeout",
@@ -260,7 +257,7 @@ export const stepFailureRetryCanHelp = (
  */
 export const makeStepFailure = (args: {
   readonly diagnostic?: FailureDiagnostic | undefined;
-  readonly category: OperationErrorCategory;
+  readonly category: ErrorCode;
   readonly title?: string | undefined;
   readonly detail?: string | undefined;
   readonly problem?: FailureProblem | undefined;
@@ -365,7 +362,7 @@ export class ApprovalRecoveryMissing extends Schema.TaggedError<ApprovalRecovery
 export class PlanInteractionFailed extends Schema.TaggedError<PlanInteractionFailed>()(
   "PlanInteractionFailed",
   {
-    category: OperationErrorCategorySchema,
+    category: ErrorCodeSchema,
     detail: Schema.String,
     suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),

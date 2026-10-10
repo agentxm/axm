@@ -58,14 +58,14 @@ const cases: ReadonlyArray<{
     compatibilityPresent: true,
     reasonCode: "cli-version-incompatible",
     recoveryAction: "update-registry-skill",
-    nextAction: "axm skills update --name axm --preview",
+    nextAction: "axm skills update axm --preview",
   },
   {
     state: "official-registry-beside-compatible-copy",
     compatibilityPresent: true,
     reasonCode: "cli-version-incompatible",
     recoveryAction: "update-registry-skill",
-    nextAction: "axm skills update --name axm --preview",
+    nextAction: "axm skills update axm --preview",
   },
   {
     state: "official-registry-compatible-beside-stale-copy",

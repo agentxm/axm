@@ -205,7 +205,7 @@ a literal credential, never echo it in a response, quote, command, finding, or
 report; refer to it only as “the supplied credential.”
 
 Validated effective MCP declarations authorize full replacement of their exact
-named native entries without an adoption or ownership approval. Hook declarations
+named native entries without an adoption or ownership approval. Hook extension declarations
 select direct runtime invocations under the exact canonical package root; never
 select by event, array index or a broad substring. Use preview to review the
 selected scope, agents, entry replacements and retained state; do not inject
@@ -214,7 +214,7 @@ retain native registrations and do not establish stopped execution. Explicit
 disable/uninstall selects configured-agent registrations before discarding
 intent; after intent is gone, cleanup requires exact native-file selection.
 Retained executable references block canonical package deletion. Verify selected
-agents' projection capability and actual connection or Hook invocation separately.
+agents' projection capability and actual connection or native hook invocation separately.
 
 For other artifact types, an unowned-file collision reported by AXM blocks the affected closure. Preserve
 the artifact and require explicit ownership resolution before apply; do not
@@ -250,7 +250,7 @@ workspace state. Diagnosis is a local read and authorizes no repair.
    Never authenticate for these. Report an offline request, unreachable source,
    or timeout as skipped, not failed.
    For a directly installed deprecated extension, report its reason and any
-   disclosed replacement. Suggest `axm migrate <fqn> --dry-run` for `obsolete`
+   disclosed replacement. Suggest `axm migrate <fqn> --preview` for `obsolete`
    or `superseded` with an available replacement; apply `axm migrate <fqn>`
    only when repair was selected. For `superseded` with an unavailable or
    concealed replacement, explain why migration cannot proceed. For

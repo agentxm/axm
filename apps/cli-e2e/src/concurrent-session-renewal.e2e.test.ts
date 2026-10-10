@@ -84,7 +84,7 @@ describe("Concurrent session renewal across processes", () => {
         expect(result.exitCode, `${result.stderr}\n${result.stdout}`).toBe(0);
         expect(JSON.parse(result.stdout)).toMatchObject({
           ok: true,
-          result: { data: { user: "@test", credentialType: "session" } },
+          result: { user: "@test", credentialType: "session" },
         });
       }
       // One grant, for the stored token: nobody presented a spent one, so

@@ -1,3 +1,4 @@
+import { applySync } from "../../testing/sync-fixture.js";
 import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import * as fs from "node:fs";
@@ -243,7 +244,7 @@ describe("Demoting workspace authorship", () => {
         registry.writePack("tools", [
           { version: "1.0.0", dependencies: { [`@acme/skills/${REVIEW}`]: "^1.0.0" } },
         ]);
-        yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+        yield* applySync();
         registry.writeSkill(REVIEW, [
           { version: "1.0.0", body: "First." },
           { version: "1.1.0", body: "Accepted." },

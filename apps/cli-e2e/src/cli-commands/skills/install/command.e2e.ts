@@ -505,7 +505,7 @@ describe("axm skills install", () => {
       }
     });
 
-    it("overwrites existing skill with --reinstall", async () => {
+    it("reacquires an accepted skill through update --reinstall", async () => {
       const temp = createTempDir();
       try {
         await runCli(
@@ -520,11 +520,10 @@ describe("axm skills install", () => {
           cwd: temp.path,
         });
 
-        // Second install with --reinstall should succeed
-        const result = await runCli(
-          ["skills", "install", SKILLS_REPO_FIXTURE, "--skill", "my-skill", "--reinstall"],
-          { cwd: temp.path },
-        );
+        // Reacquire the accepted selection through the update route.
+        const result = await runCli(["skills", "update", "--reinstall", "my-skill"], {
+          cwd: temp.path,
+        });
 
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
         expect(getOutput(result)).toContain("1 skill already current");
@@ -544,7 +543,7 @@ describe("axm skills install", () => {
       expect(result.stdout).not.toContain("--yes");
       expect(result.stdout).toContain("--skill");
       expect(result.stdout).toContain("--scope");
-      expect(result.stdout).toContain("--reinstall");
+      expect(result.stdout).not.toContain("--reinstall");
       expect(result.stdout).toContain("--preview");
       // Verify removed flags are not in help output
       expect(result.stdout).not.toContain("--list");
@@ -629,7 +628,7 @@ describe("axm skills install", () => {
         const originalContent = fs.readFileSync(skillMdPath, "utf-8");
         fs.writeFileSync(skillMdPath, `${originalContent}\n# Modified locally`);
 
-        // Run preview with reinstall - should show repair due to hash mismatch
+        // An explicit local source repairs its requested skill during ordinary install.
         const result = await runCli(
           [
             "skills",
@@ -639,7 +638,6 @@ describe("axm skills install", () => {
             "my-skill",
             "--preview",
             "--non-interactive",
-            "--reinstall",
           ],
           { cwd: temp.path },
         );

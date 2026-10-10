@@ -18,20 +18,30 @@ import {
 } from "@agentxm/registry-client";
 
 import { parseExtensionReference } from "./retirement.js";
+import { PublishFailed } from "../errors.js";
 
 export const archive = Effect.fn("ArchivePublishedExtension.archive")(function* (input: {
   readonly ref: string;
-  readonly reason: Option.Option<string>;
+  readonly message: Option.Option<string>;
+  readonly clearMessage: boolean;
 }) {
+  if (Option.isSome(input.message) && input.clearMessage) {
+    return yield* new PublishFailed({
+      category: "usage",
+      detail: "--message and --clear-message cannot be combined",
+    });
+  }
   const registryUrl = yield* RegistryUrl;
   const ref = yield* parseExtensionReference(input.ref);
   const current = yield* getExtensionArchival(ref);
-  const suppliedReason = Option.getOrUndefined(input.reason)?.trim();
+  const message = input.clearMessage
+    ? Option.some(null)
+    : Option.map(input.message, (value) => value.trim() || null);
   return {
     registry: registryUrl,
     transition: yield* archiveExtension(ref, {
       revision: current.revision,
-      reason: suppliedReason === undefined || suppliedReason.length === 0 ? null : suppliedReason,
+      ...(Option.isNone(message) ? {} : { message: message.value }),
     }),
   };
 });

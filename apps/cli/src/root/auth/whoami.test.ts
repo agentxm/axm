@@ -143,12 +143,12 @@ describe("auth whoami handler", () => {
         yield* handleWhoami();
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          data: {
-            user: ALICE,
-            registry: REGISTRY_URL,
-          },
+          user: ALICE,
+          registry: REGISTRY_URL,
         });
         expectNoPlanEnvelope(rendererState.results[0]?.data);
+        expect(rendererState.results[0]?.data).not.toHaveProperty("data");
+        expect(rendererState.events[0]).toMatchObject({ _tag: "OperationStarted", mode: "query" });
         expect(rendererState.logs).toHaveLength(0);
       }),
     );

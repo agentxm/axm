@@ -1,0 +1,31 @@
+import * as Effect from "effect/Effect";
+import {
+  type InstallStepRequirements,
+  toTypedLabel,
+} from "@agentxm/workspace-kernel/reconciliation";
+import * as Option from "effect/Option";
+
+import type { JobStepResult, Plan } from "@agentxm/workspace-kernel/operations";
+
+export const inlineMcpNotApplicablePlan = (name: string): Plan<InstallStepRequirements> => ({
+  _tag: "Plan",
+  name: "Skip inline MCP server update",
+  description: Option.some(`${name} is authored directly in workspace configuration`),
+  jobs: [
+    {
+      concurrency: 1,
+      steps: [
+        {
+          key: `not-applicable:mcp-server:${name}`,
+          readiness: "ready",
+          label: toTypedLabel("mcp-server", name),
+          run: Effect.succeed({
+            result: "success",
+            disposition: "skipped",
+            message: `${name} is inline workspace configuration; run axm sync to reconcile it`,
+          } satisfies JobStepResult),
+        },
+      ],
+    },
+  ],
+});

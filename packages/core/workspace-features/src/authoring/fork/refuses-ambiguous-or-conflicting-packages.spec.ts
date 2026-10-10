@@ -98,7 +98,7 @@ describe("Fork refusal", () => {
       expect(failure).toMatchObject({
         _tag: "AuthoringFailed",
         category: "validation",
-        detail: "The source contains multiple AXM packages; select one with --from <FQN>",
+        detail: "The source contains multiple AXM packages; select one with --package <FQN>",
       });
 
       // The named package resolves the ambiguity rather than the person

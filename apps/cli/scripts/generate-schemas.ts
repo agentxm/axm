@@ -29,6 +29,8 @@ import { AgentExtensionsMetadataSchema } from "@agentxm/extension-model/unstable
 import { allLintCatalogRuleIds } from "@agentxm/extension-content/lint";
 import { LockfileSchema, SettingsSchema } from "@agentxm/workspace-kernel/workspace-state";
 
+import { makeMachineOutputSchema } from "../src/machine-output-schemas.js";
+
 const CLI_ROOT = path.join(import.meta.dirname, "..");
 const SITE_CONTENT_SCHEMAS_DIR = path.join(CLI_ROOT, "site-content/__generated__/schemas");
 
@@ -218,4 +220,16 @@ for (const { name, schema, outputDir } of schemas) {
   count++;
 }
 
+const machineOutputPath = path.join(SITE_CONTENT_SCHEMAS_DIR, "machine-output.schema.json");
+const machineOutputConfig = (await resolvePrettierConfig(machineOutputPath)) ?? {};
+fs.writeFileSync(
+  machineOutputPath,
+  await formatWithPrettier(JSON.stringify(makeMachineOutputSchema()), {
+    ...machineOutputConfig,
+    filepath: machineOutputPath,
+    parser: "json",
+  }),
+);
+count++;
+console.log(`Generated: ${path.relative(CLI_ROOT, machineOutputPath)}`);
 console.log(`\nGenerated ${count} JSON schemas`);

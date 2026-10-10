@@ -1,3 +1,7 @@
+import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
+import { HOOK_PROTOCOLS } from "./protocols.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
+import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
@@ -21,17 +25,6 @@ import {
 import { runCreateExtensionCommand } from "../shared/create-extension-command.js";
 
 const HOOK_RUNTIMES = ["bash", "node", "python"] as const satisfies readonly HookRuntime[];
-const HOOK_PROTOCOLS = [
-  "claude-code",
-  "codex",
-  "cursor",
-  "gemini-cli",
-  "qwen-code",
-  "qoder",
-  "codebuddy",
-  "augment",
-  "devin",
-] as const satisfies readonly HookImplementation["protocol"][];
 
 export interface HooksNewHandlerArgs {
   readonly name: ExtensionName;
@@ -40,6 +33,7 @@ export interface HooksNewHandlerArgs {
   readonly protocol: HookImplementation["protocol"];
   readonly event: string;
   readonly matcher: Option.Option<string>;
+  readonly description?: Option.Option<string>;
   readonly preview: boolean;
 }
 
@@ -55,6 +49,7 @@ export const handleHooksNew = (args: HooksNewHandlerArgs) =>
       protocol: args.protocol,
       event: args.event,
       matcher: args.matcher,
+      description: args.description ?? Option.none(),
     },
     suggestions: (candidate) => [
       { description: `Edit \`${candidate.entryPath}\` to implement the hook` },
@@ -62,36 +57,34 @@ export const handleHooksNew = (args: HooksNewHandlerArgs) =>
   });
 
 const newConfig = {
-  name: Argument.String("name").pipe(Argument.withDescription("Name of the hook (without owner)")),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription(
-      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
-    ),
-    Flag.optional,
+  name: Argument.String("name").pipe(
+    withParameterDescription("Name of the hook extension to create, without owner"),
   ),
+  owner: creationOwnerFlag,
   runtime: Flag.Literals("runtime", HOOK_RUNTIMES).pipe(
-    Flag.withDescription("Interpreter family for the entrypoint"),
-    Flag.withDefault("node" as const),
+    withParameterDescription("Interpreter family for the entrypoint"),
+    withParameterDefault("node" as const),
   ),
   protocol: Flag.Literals("protocol", HOOK_PROTOCOLS).pipe(
-    Flag.withDescription("Native host protocol implemented by this example"),
-    Flag.withDefault("claude-code" as const),
+    withParameterDescription("Native host protocol implemented by this example"),
+    withParameterDefault("claude-code" as const),
   ),
   event: Flag.String("event").pipe(
-    Flag.withDescription("Exact native event name, such as SessionStart or sessionStart"),
-    Flag.withDefault("SessionStart"),
+    withParameterDescription("Exact native event name, such as SessionStart or sessionStart"),
+    withParameterDefault("SessionStart"),
   ),
   matcher: Flag.String("matcher").pipe(
-    Flag.withDescription("Native matcher supported by the selected protocol and event"),
+    withParameterDescription("Native matcher supported by the selected protocol and event"),
     Flag.optional,
   ),
-  preview: previewCapabilityFlag("Show what files would be created without creating them"),
+  description: descriptionFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const newCommand = Command.make(
   "new",
   newConfig,
-  ({ name, owner, runtime, protocol, event, matcher, preview }) =>
+  ({ name, owner, runtime, protocol, event, matcher, description, preview }) =>
     handleHooksNew({
       name: decodeExtensionNameSync(name),
       owner,
@@ -99,16 +92,17 @@ export const newCommand = Command.make(
       protocol,
       event,
       matcher,
+      description,
       preview,
     }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("hooks new")),
 ).pipe(
   withArgvTracking(newConfig),
   withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription(
-    "Create an inactive project-workspace native hook with executable example fixtures",
+    "Create an inactive hook extension with example fixtures in the project-workspace",
   ),
   Command.withExamples([
-    { command: "axm hooks new tool-audit", description: "Scaffold a new hook" },
+    { command: "axm hooks new tool-audit", description: "Scaffold a new hook extension" },
     {
       command: "axm hooks new tool-audit --protocol claude-code --event PostToolUse --matcher Bash",
       description: "Bind to a specific event and tool matcher",

@@ -1,7 +1,13 @@
 import { redactRegistryValue } from "@agentxm/registry-client";
 import * as Schema from "effect/Schema";
 
-import { OperationEventSchema, type OperationEvent } from "@agentxm/workspace-kernel/operations";
+import {
+  OperationEventSchema,
+  ErrorCodeSchema,
+  OPERATION_ERROR_CATEGORIES,
+  type ErrorCode,
+  type OperationEvent,
+} from "@agentxm/workspace-kernel/operations";
 
 /**
  * One lifecycle event of a running operation, written to stderr as it
@@ -22,13 +28,26 @@ export const LogEventSchema = Schema.Struct({
 }).annotate({ identifier: "LogEvent" });
 export type LogEvent = typeof LogEventSchema.Type;
 
-export const ErrorEventSchema = Schema.Struct({
-  type: Schema.Literal("error"),
-  code: Schema.String,
-  message: Schema.String,
-  reason: Schema.optional(Schema.String),
-  signal: Schema.optional(Schema.Literals(["SIGINT", "SIGTERM"] as const)),
-}).annotate({ identifier: "ErrorEvent" });
+export const ErrorEventCodeSchema = Schema.Literals([
+  ...OPERATION_ERROR_CATEGORIES,
+  "interrupted",
+]).annotate({ identifier: "ErrorEventCode" });
+export type ErrorEventCode = typeof ErrorEventCodeSchema.Type;
+
+export const ErrorEventSchema = Schema.Union([
+  Schema.Struct({
+    type: Schema.Literal("error"),
+    code: ErrorCodeSchema,
+    message: Schema.String,
+    signal: Schema.optional(Schema.Never),
+  }),
+  Schema.Struct({
+    type: Schema.Literal("error"),
+    code: Schema.Literal("interrupted"),
+    message: Schema.String,
+    signal: Schema.Literals(["SIGINT", "SIGTERM"]),
+  }),
+]).annotate({ identifier: "ErrorEvent" });
 export type ErrorEvent = typeof ErrorEventSchema.Type;
 
 export const SuggestionEventSchema = Schema.Struct({
@@ -68,10 +87,17 @@ export const logEvent = (level: LogEvent["level"], message: string): LogEvent =>
 });
 
 export const errorEvent = (
-  code: string,
-  message: string,
-  detail?: Pick<ErrorEvent, "reason" | "signal">,
-): ErrorEvent => ({ type: "error", code, message, ...detail });
+  ...args:
+    | readonly [code: ErrorCode, message: string]
+    | readonly [
+        code: "interrupted",
+        message: string,
+        detail: { readonly signal: "SIGINT" | "SIGTERM" },
+      ]
+): ErrorEvent =>
+  args[0] === "interrupted"
+    ? { type: "error", code: args[0], message: args[1], signal: args[2].signal }
+    : { type: "error", code: args[0], message: args[1] };
 
 export const suggestionEvent = (suggestion: {
   readonly description: string;

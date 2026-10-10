@@ -1,13 +1,14 @@
+import type { ErrorCode } from "@agentxm/workspace-kernel/operations";
 import type { PublishResult } from "@agentxm/workspace-features/publishing";
 import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
-import type { AppErrorCode } from "../../app-error/index.js";
+
 import type { CommandSettlementFailure } from "../../cli-runtime/telemetry.js";
 import type { TelemetryFailureReport } from "../../telemetry/payloads.js";
 
 /** Every distinct failed mechanism survives; labels and extension content stay local. */
 export const publishResultFailure = (
   result: PublishResult,
-  fallbackCode: AppErrorCode,
+  fallbackCode: ErrorCode,
 ): CommandSettlementFailure => {
   const root = result.execution.failure;
   const failures = [

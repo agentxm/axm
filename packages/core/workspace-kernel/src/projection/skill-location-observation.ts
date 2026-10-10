@@ -6,7 +6,7 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import {
   copiedDirectoryIsCurrent,
-  nativeUnitKey,
+  nativeUnitReference,
   readCopiedDirectory,
   captureNativeLocationSet,
   type NativeLocationOutcome,
@@ -201,7 +201,7 @@ export const observeConfiguredSkillLocations = (request: ConfiguredAgentOutcomes
               : units.length === 0
                 ? "Native Skill availability is unverified: no concrete applicable location could be resolved for this agent and scope."
                 : "A required native Skill entry is missing.",
-          nativeUnitKeys: units.map(nativeUnitKey),
+          nativeUnits: units.map(nativeUnitReference),
         };
       });
       results.set(row.name, { agentOutcomes, nativeLocations });

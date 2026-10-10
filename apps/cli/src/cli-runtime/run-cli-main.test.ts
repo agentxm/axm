@@ -73,6 +73,31 @@ describe("runCliMain", () => {
     });
   });
 
+  it.each([
+    { flags: [], cause: false, stack: false },
+    { flags: ["--verbose"], cause: true, stack: false },
+    { flags: ["--debug"], cause: true, stack: true },
+    { flags: ["--debug", "--verbose", "--quiet"], cause: false, stack: false },
+  ])("honors diagnostic flags on bootstrap failure: $flags", async (row) => {
+    const error = makeAppError({
+      code: "internal",
+      detail: "Bootstrap failed",
+      cause: new Error("underlying failure"),
+    });
+    await expect(
+      runCliMain(() => Effect.fail(error), { args: ["list", "--json", ...row.flags] }),
+    ).rejects.toMatchObject({ code: ExitCode.Internal });
+    const document: unknown = JSON.parse(stdoutWrites.join(""));
+    if (row.cause) {
+      expect(document).toHaveProperty("cause", [
+        expect.objectContaining({ _tag: "Error", message: "underlying failure" }),
+      ]);
+    } else {
+      expect(document).not.toHaveProperty("cause");
+    }
+    expect(stdoutWrites.join("").includes('"stack"')).toBe(row.stack);
+  });
+
   it("renders bootstrap failures through an interactive Screen", async () => {
     await expect(
       runCliMain(() => Effect.fail(makeAppError({ code: "conflict", detail: "Already exists" })), {

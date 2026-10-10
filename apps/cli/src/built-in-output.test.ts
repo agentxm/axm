@@ -51,15 +51,16 @@ describe("built-in output", () => {
     }).pipe(Effect.provide(humanScreenLayer(streams)));
   });
 
-  it.effect("narrates help and then the usage error on stderr", () => {
+  it.effect("narrates help on stderr and leaves the error to the process failure boundary", () => {
     const streams = makeRecordingStreams({ stdoutIsTTY: true, stderrIsTTY: false });
     return Effect.gen(function* () {
       yield* presentBuiltInOutput(helpDocument, { helpRequest: usageError, format: "text" });
 
       expect(streams.lines("stdout")).toEqual([]);
       const stderr = streams.lines("stderr").join("\n");
-      expect(stderr.indexOf("USAGE")).toBeLessThan(stderr.indexOf("Usage Error"));
-      expect(stderr).toContain("Unrecognized flag: --bogus");
+      expect(stderr).toContain("USAGE");
+      expect(stderr).not.toContain("Usage Error");
+      expect(stderr).not.toContain("Unrecognized flag: --bogus");
       expect(stderr).not.toContain(ESCAPE);
     }).pipe(Effect.provide(humanScreenLayer(streams)));
   });

@@ -36,7 +36,11 @@ import {
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { inspectDesiredMcpServer } from "@agentxm/workspace-kernel/projection";
-import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operations";
+import {
+  ShowAgentOutcomeSchema,
+  filterShowAgentOutcomes,
+  type ShowAgentOutcome,
+} from "./agent-outcomes.js";
 import {
   DesiredStateReader,
   LockfileReader,
@@ -49,29 +53,8 @@ import {
 import { ExtensionNotInstalled } from "../errors.js";
 
 /**
- * Per-agent placement row. `mcp-server` fills every field from its live config
- * inspection; the other per-agent types report the agents the read model
- * observed. Workspace-placement types emit an empty array.
- */
-const ShowAgentSchema = Schema.Struct({
-  agent: Schema.String,
-  status: Schema.String,
-  reasonCode: Schema.String,
-  path: Schema.optionalKey(Schema.String),
-  fields: Schema.Array(Schema.String),
-  warnings: Schema.Array(Schema.String),
-  reason: Schema.optionalKey(Schema.String),
-  configuration: Schema.optionalKey(Schema.Literals(["valid", "blocked", "unverified"])),
-  projection: Schema.optionalKey(Schema.String),
-  readiness: Schema.optionalKey(Schema.Literals(["blocked", "unverified"])),
-  runtime: Schema.optionalKey(Schema.Literal("not-checked")),
-  manualActions: Schema.optionalKey(Schema.Array(Schema.String)),
-  hook: ConfiguredAgentOutcomeSchema.fields.hook,
-});
-
-/**
  * Installed-state detail for one extension. Identical field set for every
- * installable type — the per-type variation lives in the sibling `agents` array,
+ * installable type — the per-type variation lives in the sibling `agentOutcomes` array,
  * never in `item`.
  */
 const ShowItemSchema = Schema.Struct({
@@ -123,15 +106,13 @@ const McpFactsSchema = Schema.Struct({
 
 export const ExtensionShowResultSchema = Schema.Struct({
   item: ShowItemSchema,
-  agents: Schema.Array(ShowAgentSchema),
+  agentOutcomes: Schema.Array(ShowAgentOutcomeSchema),
   mcp: Schema.optionalKey(McpFactsSchema),
 });
 export type ExtensionShowResult = typeof ExtensionShowResultSchema.Type;
 
 /** Field order of `item`, pinned so every `<type> show` stays uniform. */
 export const EXTENSION_SHOW_ITEM_FIELDS = Object.keys(ShowItemSchema.fields);
-
-type ShowAgent = typeof ShowAgentSchema.Type;
 
 /**
  * The version a physically present extension declares, read from its own
@@ -229,19 +210,7 @@ export const ShowExtension = {
           })
         : null;
 
-    let agents: ReadonlyArray<ShowAgent> = (inventoryRow?.agentOutcomes ?? []).map((outcome) => ({
-      agent: outcome.agentId,
-      status: outcome.outcome,
-      reasonCode: outcome.reasonCode,
-      ...(outcome.path === undefined ? {} : { path: outcome.path }),
-      fields: [],
-      warnings: [],
-      ...(outcome.hook === undefined ? {} : { hook: outcome.hook }),
-      reason:
-        outcome.mechanism === undefined
-          ? outcome.reason
-          : `${outcome.mechanism}: ${outcome.reason}`,
-    }));
+    let agentOutcomes: ReadonlyArray<ShowAgentOutcome> = inventoryRow?.agentOutcomes ?? [];
 
     let mcp: typeof McpFactsSchema.Type | undefined;
     if (request.type === "mcp-server") {
@@ -344,13 +313,10 @@ export const ShowExtension = {
           entry: (yield* settings.entries("mcp-server"))[request.name],
           canonicalPaths: inventoryRow?.paths ?? [],
         });
-        agents = outcomes.map((outcome, index) => {
+        agentOutcomes = outcomes.map((outcome, index) => {
           const inspection = inspections[index];
           return {
-            agent: outcome.agentId,
-            status: outcome.outcome,
-            reasonCode: outcome.reasonCode,
-            ...(outcome.path === undefined ? {} : { path: outcome.path }),
+            ...outcome,
             fields: [...(inspection?.fields ?? [])],
             warnings: [...(inspection?.warnings ?? [])],
             reason: outcome.reason,
@@ -374,9 +340,11 @@ export const ShowExtension = {
         });
       }
       if (desiredNode !== undefined && (!desiredNode.enabled || enabled === false)) {
-        agents = (yield* settings.configuredAgents).map((agent) => ({
-          agent,
-          status: "not-applicable" as const,
+        agentOutcomes = (yield* settings.configuredAgents).map((agentId) => ({
+          extensionType: request.type,
+          name: request.name,
+          agentId,
+          outcome: "not-applicable" as const,
           reasonCode: "extension-disabled",
           fields: [],
           warnings: [],
@@ -392,30 +360,6 @@ export const ShowExtension = {
       }
     }
 
-    if (request.type === "mcp-server") {
-      for (const agent of request.agents ?? []) {
-        if (!agents.some((row) => row.agent === agent))
-          agents = [
-            ...agents,
-            {
-              agent,
-              status: "not-applicable",
-              reasonCode: "agent-not-configured",
-              fields: [],
-              warnings: [],
-              reason: "This agent is not configured in the selected scope.",
-              configuration: "unverified",
-              projection: "not-configured",
-              readiness: "blocked",
-              runtime: "not-checked",
-              manualActions: [
-                "Configure the agent in this scope before projecting the connection.",
-              ],
-            },
-          ];
-      }
-    }
-
     return {
       item: {
         type: request.type,
@@ -428,10 +372,13 @@ export const ShowExtension = {
         locked: lockEntry !== undefined,
       },
       ...(mcp === undefined ? {} : { mcp }),
-      agents:
-        request.agents === undefined || request.agents.length === 0
-          ? agents
-          : agents.filter((agent) => request.agents?.includes(agent.agent)),
+      agentOutcomes: filterShowAgentOutcomes({
+        outcomes: agentOutcomes,
+        requested: request.agents ?? [],
+        configured: yield* settings.configuredAgents,
+        type: request.type,
+        name: request.name,
+      }),
     } satisfies ExtensionShowResult;
   }, withInspectionReadView),
 };

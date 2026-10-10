@@ -36,7 +36,7 @@ export const specification = defineSpecification({
 describe("Selected plugin MCP connections", () => {
   it.effect.each(
     (["local", "git-root", "git-nested"] as const).flatMap((transport) =>
-      (["restore", "reinstall", "source-reinstall", "update"] as const).map((journey) => ({
+      (["restore", "reinstall", "selected-reinstall", "update"] as const).map((journey) => ({
         transport,
         journey,
       })),
@@ -172,7 +172,7 @@ describe("Selected plugin MCP connections", () => {
               yield* fs.remove(canonical.value, { recursive: true });
               const syncResult = yield* applySync({
                 target: Option.none(),
-                type: Option.some("mcp-server"),
+                types: ["mcp-server"],
               });
               expect(syncResult._tag).toBe("Resolved");
               if (syncResult._tag === "Resolved")
@@ -181,24 +181,20 @@ describe("Selected plugin MCP connections", () => {
                 ).toEqual([]);
               expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
               expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(mcp);
-            } else if (journey === "reinstall" || journey === "source-reinstall") {
-              const reinstalled = yield* applyInstall(
-                journey === "source-reinstall"
-                  ? installRequest({
-                      type: "mcp-server",
-                      subject: { kind: "source", source: installSource },
-                      names: [selector("context")],
-                      all: false,
-                      localName: "work-context",
-                      reinstall: true,
-                    })
-                  : installRequest({
-                      type: "mcp-server",
-                      subject: { kind: "configured" },
-                      reinstall: true,
-                    }),
+            } else if (journey === "reinstall" || journey === "selected-reinstall") {
+              const reinstalled = yield* applyUpdate(
+                configuredUpdateRequest({
+                  type: "mcp-server",
+                  reinstall: true,
+                  ...(journey === "selected-reinstall" ? { nameFilters: ["work-context"] } : {}),
+                }),
               );
-              expect(reinstalled.units.filter((unit) => unit.state === "failed")).toEqual([]);
+              expect(reinstalled._tag).toBe("Resolved");
+              if (reinstalled._tag !== "Resolved")
+                throw new Error("Expected a reinstall operation");
+              expect(
+                reinstalled.resolution.units.filter((unit) => unit.state === "failed"),
+              ).toEqual([]);
               expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
               expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(mcp);
             } else {
@@ -214,12 +210,15 @@ describe("Selected plugin MCP connections", () => {
               );
               expect(updatedResult._tag).toBe("Resolved");
               if (updatedResult._tag === "Resolved")
+                expect(updatedResult.resolution.blocking).toBeUndefined();
+              if (updatedResult._tag === "Resolved")
                 expect(
                   updatedResult.resolution.units.filter((unit) => unit.state === "failed"),
                 ).toEqual([]);
-              expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(
-                updated,
-              );
+              expect(
+                yield* fs.readFileString(path.join(canonical.value, "mcp.json")),
+                JSON.stringify(updatedResult),
+              ).toBe(updated);
               expect(JSON.parse(world.workspace.readFile(".mcp.json"))).toMatchObject({
                 mcpServers: {
                   "work-context": { url: "https://updated.test/sse", type: "http" },

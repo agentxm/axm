@@ -8,9 +8,9 @@ import { makeConfigurationFixture } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/hooks/configure/preview-is-pure",
-  title: "Hook configuration preview validates values without writing or executing code",
+  title: "Hook extension configuration preview validates values without writing or executing code",
   statement:
-    "When Hook configuration is previewed, AXM shall validate the proposed consumer values and report the planned configuration without changing settings, accepted resolutions, package content, native configuration, or verification receipts and without executing package code; invalid values shall be refused without mutation.",
+    "When Hook extension configuration is previewed, AXM shall validate the proposed consumer values and report the planned configuration without changing settings, accepted resolutions, package content, native configuration, or verification receipts and without executing package code; invalid values shall be refused without mutation.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-describe("Hook configuration preview", () => {
+describe("Hook extension configuration preview", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();

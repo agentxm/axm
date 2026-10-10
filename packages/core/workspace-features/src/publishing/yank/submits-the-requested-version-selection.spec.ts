@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   requirement: "cli/yank/submits-the-requested-version-selection",
   title: "Yank submits the explicit version selection and publisher guidance",
   statement:
-    "The yank command shall require an exact version unless all available versions are explicitly selected, submit only that selection with the supplied category and notice, and report the acknowledged selection without claiming that future versions were yanked.",
+    "The yank command shall require an exact version unless all available versions are explicitly selected, submit only that selection with the supplied category and message, and report the acknowledged selection without claiming that future versions were yanked.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
@@ -63,8 +63,11 @@ const yankedVersionResponse = () =>
     version: "1.2.3",
     yankedAt: "2026-07-29T00:00:00.000Z",
     yankCategory: "security",
-    yankNotice: "Unsafe release.",
+    yankMessage: "Unsafe release.",
     links: { html: "https://agentxm.ai/@acme/skills/review/1.2.3" },
+    before: { yankedAt: null, yankCategory: null, yankMessage: null },
+    disposition: "changed",
+    revision: "acknowledged-version-revision",
   });
 
 describe("Yank selection", () => {
@@ -78,7 +81,7 @@ describe("Yank selection", () => {
             ref: registryVersion,
             allVersions: false,
             category: "security",
-            notice: "Unsafe release.",
+            message: "Unsafe release.",
           }),
         ),
       );
@@ -86,12 +89,12 @@ describe("Yank selection", () => {
       expect(world.requests).toHaveLength(1);
       expect(world.requests[0]).toMatchObject({
         method: "POST",
-        body: { category: "security", notice: "Unsafe release." },
+        body: { category: "security", message: "Unsafe release." },
       });
       expect(world.requests[0]?.url.pathname).toBe(`${registryTargetPath}/1.2.3/yank`);
       expect(transition).toMatchObject({
         action: "yank",
-        target: registryVersion,
+        fqn: registryTarget,
         version: "1.2.3",
         disposition: "changed",
         // A Registry write is not restorable; the outcome never claims it is.
@@ -108,6 +111,10 @@ describe("Yank selection", () => {
           selection: "all-available",
           affectedVersions: ["1.0.0", "1.2.3"],
           futureVersionsAffected: false,
+          before: ["1.0.0", "1.2.3"],
+          after: [],
+          disposition: "changed",
+          revision: "acknowledged-collection-revision",
         }),
       );
 
@@ -121,7 +128,12 @@ describe("Yank selection", () => {
         method: "POST",
         body: { selection: "all-available" },
       });
-      expect(transition.affectedVersions).toEqual(["1.0.0", "1.2.3"]);
+      expect(transition).toMatchObject({
+        affectedVersions: ["1.0.0", "1.2.3"],
+        before: ["1.0.0", "1.2.3"],
+        after: [],
+        revision: "acknowledged-collection-revision",
+      });
       expect(transition.message).toContain("2 available versions");
       expect(transition.message).toContain("Future versions are unaffected");
     }),

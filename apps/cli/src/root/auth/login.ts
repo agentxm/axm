@@ -1,3 +1,5 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
+import { registryFlag } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -5,7 +7,8 @@ import { Command, Flag } from "effect/cli";
 
 import { login, selectedRegistry } from "@agentxm/registry-access/authentication";
 import { emitResult, Screen, successDoc } from "../../screen/index.js";
-import { jsonFlag, waitForHumanOption } from "../../cli-flags/index.js";
+import { jsonFlag } from "../../cli-flags/index.js";
+import { waitForHumanOption } from "./wait-for-human.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import {
   preapprovalCapabilityFlag,
@@ -44,7 +47,7 @@ const LoginNoOpSuggestions = [
 const loginCapabilities = {
   preview: false,
   preapproval: {
-    purpose: "Start a new sign-in without prompting when a valid session already exists",
+    purpose: "starting a new sign-in when a valid session already exists",
   },
   trust: [],
   inputs: "explicit-or-documented-defaults",
@@ -106,22 +109,25 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
 );
 
 const loginConfig = {
+  registry: registryFlag,
   yes: preapprovalCapabilityFlag(loginCapabilities),
   deviceCode: Flag.Boolean("device-code").pipe(
-    Flag.withDescription("Sign in with a code; recommended for SSH and headless environments"),
-    Flag.withDefault(false),
+    withParameterDescription("Sign in with a code; recommended for SSH and headless environments"),
+    withParameterDefault(false),
   ),
   waitForHuman: waitForHumanOption,
   restart: Flag.Boolean("restart").pipe(
-    Flag.withDescription("Replace an existing pending sign-in intentionally"),
-    Flag.withDefault(false),
+    withParameterDescription(
+      "Replace an existing pending device sign-in intentionally; only with --device-code",
+    ),
+    withParameterDefault(false),
   ),
 } as const;
 
 export const loginCommand = Command.make(
   "login",
   loginConfig,
-  ({ yes, deviceCode, waitForHuman, restart }) =>
+  ({ yes, deviceCode, waitForHuman, restart, registry }) =>
     handleLogin({
       yes,
       deviceCode,
@@ -130,7 +136,7 @@ export const loginCommand = Command.make(
         onNone: () => ({}),
         onSome: (waitForHumanSeconds) => ({ waitForHumanSeconds }),
       }),
-    }).pipe(withRuntime("auth login")),
+    }).pipe(withRuntime("auth login", { registry })),
 ).pipe(
   withArgvTracking(loginConfig),
   withCommandCapabilities(loginCapabilities),

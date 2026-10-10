@@ -12,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/shared-pack-member-index-is-coalesced",
   title: "Configured packs share one member index read and materialization",
   statement:
-    "When two configured Packs depend on the same Registry member and require resolution, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition; a repeated install shall reuse their satisfying accepted choices without resolving them again.",
+    "When two configured Packs depend on the same Registry member and require resolution, AXM shall resolve both Pack indexes in one batch, read the shared member's metadata once during planning, retain both Packs' constraints, and acquire the selected member archive once for the workspace transition; a repeated sync shall reuse their satisfying accepted choices without resolving them again.",
   class: "functional",
   role: "supporting",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -69,7 +69,7 @@ const authorPack = async (workspace: string, name: string) => {
 };
 
 describe("Shared configured Pack member", () => {
-  it.each(["sync", "install", "update"])(
+  it.each(["sync", "update"])(
     "%s reads one member index and downloads one selected archive",
     async (command) => {
       const publisher = createTempDir();
@@ -184,7 +184,7 @@ describe("Shared configured Pack member", () => {
           `/skills/shared/${sharedPublication.version}/archive`,
         );
 
-        if (command === "install") {
+        if (command === "sync") {
           const lockPath = path.join(consumer.path, "axm-lock.yaml");
           const acceptedLock = fs.readFileSync(lockPath, "utf8");
           const acceptedSettings = fs.readFileSync(settingsPath, "utf8");
@@ -199,7 +199,7 @@ describe("Shared configured Pack member", () => {
             `${major}.${minor}.${patch + 2}`,
           );
           const beforeWarm = registry.requests.length;
-          const warm = await runCli(["install", "--json"], {
+          const warm = await runCli(["sync", "--json"], {
             cwd: consumer.path,
             env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
           });
@@ -211,7 +211,7 @@ describe("Shared configured Pack member", () => {
           fs.rmSync(sharedRoot, { recursive: true });
           fs.rmSync(path.join(acquiredRoot, "packs", "first-pack"), { recursive: true });
           const beforeRestoreMetadata = registry.metadataRequests.length;
-          const restored = await runCli(["install", "--json"], {
+          const restored = await runCli(["sync", "--json"], {
             cwd: consumer.path,
             env: { ...env, HOME: consumerHome.path, AXM_USER_HOME: consumerHome.path },
           });

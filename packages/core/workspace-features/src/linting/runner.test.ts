@@ -31,7 +31,7 @@ describe("lint fact rendering", () => {
         exitCategory: "errors",
         driftBanner: [],
       },
-      input: { view: "workspace" },
+      input: { view: "filesystem" },
     });
     expect(document.findings[0]).toMatchObject({
       subject: "axm.json",
@@ -66,7 +66,7 @@ describe("lint fact rendering", () => {
         exitCategory: "clean",
         driftBanner: [],
       },
-      input: { view: "workspace" },
+      input: { view: "filesystem" },
       axmSkillCompatibility: compatibility,
     });
 

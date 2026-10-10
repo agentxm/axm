@@ -1,3 +1,4 @@
+import type { ErrorCode } from "@agentxm/workspace-kernel/operations";
 /**
  * The only shapes telemetry puts on the wire. Each payload is built from an
  * allowlist of bounded facts and encoded with the published contract schema,
@@ -7,7 +8,7 @@
 import * as Option from "effect/Option";
 
 import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
-import type { AppErrorCode } from "../app-error/index.js";
+
 import { logEvent } from "../screen/machine-events.js";
 import type * as GeneratedTelemetryClient from "./__generated__/telemetry-client.js";
 
@@ -31,7 +32,7 @@ export interface TelemetryFailureReport extends FailureDiagnostic {
   readonly phase: TelemetryFailurePhase;
   /** Stable identifier from the caller's enumerated failure set. */
   readonly kind: string;
-  readonly category: AppErrorCode;
+  readonly category: ErrorCode;
   readonly errorClass: TelemetryErrorClass;
   /** False for a defect. */
   readonly handled: boolean;

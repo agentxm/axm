@@ -45,7 +45,10 @@ export const makeEnvironmentProcessFixture = () => {
 };
 
 export const withEnvironmentRegistry = async <A>(
-  respond: (requestPath: string) => {
+  respond: (
+    requestPath: string,
+    request: http.IncomingMessage,
+  ) => {
     readonly body: string | Buffer;
     readonly contentType?: string;
     readonly status?: number;
@@ -56,7 +59,7 @@ export const withEnvironmentRegistry = async <A>(
   const server = http.createServer((request, response) => {
     const requestPath = decodeURI(request.url ?? "/");
     requests.push(requestPath);
-    const result = respond(requestPath);
+    const result = respond(requestPath, request);
     response.writeHead(result.status ?? 200, {
       "content-type": result.contentType ?? "application/json",
     });

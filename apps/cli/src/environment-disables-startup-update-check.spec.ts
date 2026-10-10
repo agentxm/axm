@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/environment-disables-startup-update-check",
   title: "The environment can disable the startup update check",
   statement:
-    "When AXM_NO_UPDATE_CHECK is 1, AXM shall omit the informational startup update notification and its release requests regardless of output or interaction mode, while allowing an explicitly invoked command to perform its required network operations.",
+    "When AXM_NO_UPDATE_CHECK is 1 or true, AXM shall omit the informational startup update notification and its release requests regardless of output or interaction mode, while allowing an explicitly invoked command to perform its required network operations.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "safe-repetition"],
@@ -30,7 +30,7 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [
-    "Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is not 1? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.",
+    "Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is neither 1 nor true? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.",
     "Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?",
   ],
   limitations: [
@@ -45,12 +45,12 @@ export const specification = defineSpecification({
 
 const temporaryHome = () => fs.mkdtempSync(path.join(os.tmpdir(), "axm-startup-env-"));
 
-const servicesFor = (home: string, disabled: boolean, http: HttpClient.HttpClient) => {
+const servicesFor = (home: string, value: string, http: HttpClient.HttpClient) => {
   const platform = Layer.mergeAll(
     NodeServices.layer,
     ConfigProvider.layer(
       ConfigProvider.fromEnv({
-        env: { AXM_USER_HOME: home, AXM_NO_UPDATE_CHECK: disabled ? "1" : "0" },
+        env: { AXM_USER_HOME: home, AXM_NO_UPDATE_CHECK: value },
       }),
     ),
   );
@@ -65,14 +65,15 @@ const servicesFor = (home: string, disabled: boolean, http: HttpClient.HttpClien
 };
 
 describe("Startup update suppression", () => {
-  for (const disabled of [true, false])
+  for (const value of ["1", "true", "0", "false"])
     for (const json of [false, true])
       for (const nonInteractive of [false, true])
         for (const tty of [false, true])
           for (const agent of [false, true]) {
+            const disabled = value === "1" || value === "true";
             if (!disabled && (json || nonInteractive || !tty || agent)) continue;
             it.effect(
-              `disabled=${disabled}, JSON=${json}, unattended=${nonInteractive}, TTY=${tty}, agent=${agent}`,
+              `AXM_NO_UPDATE_CHECK=${value}, JSON=${json}, unattended=${nonInteractive}, TTY=${tty}, agent=${agent}`,
               () => {
                 const home = temporaryHome();
                 const requests: string[] = [];
@@ -112,7 +113,7 @@ describe("Startup update suppression", () => {
                   expect(requests).toEqual(["https://command.example.test/required-operation"]);
                   expect(snapshotDirectory(home)).toEqual(before);
                 }).pipe(
-                  Effect.provide(servicesFor(home, disabled, http)),
+                  Effect.provide(servicesFor(home, value, http)),
                   Effect.ensuring(
                     Effect.sync(() => fs.rmSync(home, { recursive: true, force: true })),
                   ),
@@ -143,7 +144,7 @@ describe("Startup update suppression", () => {
           isStderrTTY: true,
           isAgentSession: false,
         },
-      }).pipe(Effect.provide(servicesFor(home, false, http)));
+      }).pipe(Effect.provide(servicesFor(home, "0", http)));
       expect(requests).toEqual(["https://releases.axm.sh/latest.txt"]);
     }).pipe(Effect.ensuring(Effect.sync(() => fs.rmSync(home, { recursive: true, force: true }))));
   });

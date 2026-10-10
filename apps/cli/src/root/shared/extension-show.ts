@@ -1,7 +1,8 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { agentFlag } from "../../cli-flags/agent-flag.js";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   ABSENT,
@@ -64,7 +65,7 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
   readonly agents?: ReadonlyArray<string>;
 }) {
   const result = yield* withLiveOperation(
-    { command: "extension.show", name: "Inspect extension", mode: "preview" },
+    { command: "extension.show", name: "Inspect extension", mode: "query" },
     Effect.catchTag(ShowExtension.query(args), "ExtensionNotInstalled", (failure) =>
       Effect.fail(extensionNotInstalledToAppError(failure)),
     ),
@@ -119,30 +120,25 @@ export const handleExtensionShow = Effect.fn("ExtensionShow.handle")(function* (
             ],
           ),
         ]),
-    ...(result.agents.length > 0
+    ...(result.agentOutcomes.length > 0
       ? tableDoc(
-          result.agents.map((agent) => ({
-            agent: agent.agent,
-            status: agent.status,
+          result.agentOutcomes.map((agent) => ({
+            agent: agent.agentId,
+            status: agent.outcome,
             path: agent.path ?? "",
             detail: `${agent.runtime === undefined ? "" : `readiness=${agent.readiness}; runtime=${agent.runtime}; `}${agent.reasonCode}: ${
-              agent.reason ??
-              (agent.fields.length > 0
-                ? agent.fields.join(", ")
-                : agent.warnings.length > 0
-                  ? agent.warnings.join("; ")
-                  : "no additional detail")
+              agent.mechanism === undefined ? agent.reason : `${agent.mechanism}: ${agent.reason}`
             }${agent.manualActions === undefined ? "" : `; ${agent.manualActions.join(" ")}`}`,
           })),
           agentColumns,
           { caption: "Agent placements" },
         )
       : []),
-    ...result.agents.flatMap((agent) => {
+    ...result.agentOutcomes.flatMap((agent) => {
       const hook = agent.hook;
       if (hook === undefined) return [];
       return [
-        ...headlineDoc("neutral", `${agent.agent}: ${hook.implementationId}`),
+        ...headlineDoc("neutral", `${agent.agentId}: ${hook.implementationId}`),
         ...fieldsDoc(
           {
             protocol: hook.protocol,
@@ -216,26 +212,20 @@ export const makeExtensionShowCommand = (args: {
 }) => {
   const label = extensionTypeSentenceLabels[args.type];
   const showConfig = {
-    name: Argument.String("name").pipe(Argument.withDescription(`Name of the ${label} to inspect`)),
-    scope: scopeFlag.pipe(
-      Flag.withDescription("Inspect project (default) or user-level configuration"),
+    name: Argument.String("name").pipe(withParameterDescription(`Name of the ${label} to show`)),
+    scope: scopeFlag,
+    agent: agentFlag.pipe(
+      withParameterDescription(
+        "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+      ),
     ),
   } as const;
-
-  const command =
-    args.type === "mcp-server"
-      ? Command.make("show", { ...showConfig, agent: agentFlag }, ({ name, scope, agent }) =>
-          handleExtensionShow({ type: args.type, name, agents: agent }).pipe(
-            withWorkspace({ scope, allowUninitialized: true }),
-            withRuntime(`${args.group} show`),
-          ),
-        ).pipe(withArgvTracking({ ...showConfig, agent: agentFlag }))
-      : Command.make("show", showConfig, ({ name, scope }) =>
-          handleExtensionShow({ type: args.type, name }).pipe(
-            withWorkspace({ scope, allowUninitialized: true }),
-            withRuntime(`${args.group} show`),
-          ),
-        ).pipe(withArgvTracking(showConfig));
+  const command = Command.make("show", showConfig, ({ name, scope, agent }) =>
+    handleExtensionShow({ type: args.type, name, agents: agent }).pipe(
+      withWorkspace({ scope, allowUninitialized: true }),
+      withRuntime(`${args.group} show`),
+    ),
+  ).pipe(withArgvTracking(showConfig));
   return command.pipe(
     withCommandCapabilities(readOnlyCapabilities()),
     Command.withDescription(`Inspect one installed ${label}`),

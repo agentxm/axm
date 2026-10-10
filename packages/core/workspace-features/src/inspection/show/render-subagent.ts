@@ -17,6 +17,7 @@ import {
   WorkspaceLocation,
 } from "@agentxm/workspace-kernel/workspace-state";
 
+import { ConfiguredAgentReasonCodeSchema } from "@agentxm/workspace-kernel/operations";
 import { WorkspaceInspectionFailed } from "../errors.js";
 import { ShowExtension } from "./show-extension.js";
 
@@ -33,7 +34,7 @@ export const SubagentRenderResultSchema = Schema.Struct({
   status: Schema.Literals(["rendered", "unsupported"]),
   mode: Schema.optionalKey(Schema.Literals(["portable", "customized", "native"])),
   nativeName: Schema.optionalKey(Schema.String),
-  reasonCode: Schema.optionalKey(Schema.String),
+  reasonCode: Schema.optionalKey(ConfiguredAgentReasonCodeSchema),
   reason: Schema.optionalKey(Schema.String),
   sourceDependencies: Schema.Array(Schema.String),
   artifacts: Schema.Array(Schema.Struct({ path: Schema.String, content: Schema.String })),

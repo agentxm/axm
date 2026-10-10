@@ -7,6 +7,15 @@ import { resolveFormat, resolveFormatFromArgv } from "./resolve-format.js";
 // ---------------------------------------------------------------------------
 
 describe("resolveFormatFromArgv", () => {
+  it.each(["true", "yes", "on", "1", "y"])("recognizes true Boolean form %s", (value) => {
+    expect(resolveFormatFromArgv([`--json=${value}`])).toBe("json");
+    expect(resolveFormatFromArgv(["--json", value])).toBe("json");
+    expect(resolveFormatFromArgv([`--plain=${value}`, "--json"])).toBe("text");
+  });
+  it.each(["false", "no", "off", "0", "n"])("recognizes false Boolean form %s", (value) => {
+    expect(resolveFormatFromArgv([`--json=${value}`])).toBe("text");
+    expect(resolveFormatFromArgv([`--plain=${value}`, "--json"])).toBe("json");
+  });
   it("returns explicit --json", () => {
     expect(resolveFormatFromArgv(["--json"])).toBe("json");
   });
@@ -24,13 +33,17 @@ describe("resolveFormatFromArgv", () => {
   });
 
   it("keeps diagnostics off stdout when raw token output is requested with --json", () => {
-    expect(resolveFormatFromArgv(["token", "--output", "token", "--json"])).toBe("text");
-    expect(resolveFormatFromArgv(["token", "--output=token", "-j"])).toBe("text");
+    expect(resolveFormatFromArgv(["token", "show", "--plain", "--json"])).toBe("text");
+    expect(resolveFormatFromArgv(["token", "show", "--plain", "-j"])).toBe("text");
+  });
+
+  it("does not reserve credential output for a diagnostic destination named token", () => {
+    expect(resolveFormatFromArgv(["diagnostics", "export", "id", "token", "--json"])).toBe("json");
   });
 
   it("reads no options after --", () => {
     expect(resolveFormatFromArgv(["run", "--", "--json"])).toBe("text");
-    expect(resolveFormatFromArgv(["run", "--json", "--", "--output", "token"])).toBe("json");
+    expect(resolveFormatFromArgv(["run", "--json", "--", "--plain"])).toBe("json");
   });
 });
 

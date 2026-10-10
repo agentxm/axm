@@ -72,7 +72,10 @@ describe("Uninstall a directly desired extension", () => {
         .provide(
           Effect.gen(function* () {
             const configured = yield* applyInstall(
-              installRequest({ subject: { kind: "configured" } }),
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: "@acme/packs/toolkit" },
+              }),
             );
             expect(deriveOperationOutcome(configured), JSON.stringify(configured)).toBe("applied");
             yield* applyInstall(

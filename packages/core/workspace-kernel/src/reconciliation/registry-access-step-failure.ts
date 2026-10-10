@@ -17,17 +17,13 @@ import {
   type RegistryAccessFailure,
 } from "@agentxm/registry-access/authentication";
 
-import {
-  makeStepFailure,
-  type OperationErrorCategory,
-  type StepFailure,
-} from "../operations/index.js";
+import { makeStepFailure, type ErrorCode, type StepFailure } from "../operations/index.js";
 import { resolutionFailureToStepFailure } from "../planning/index.js";
 
 // The registry-access category vocabulary and the kernel's must stay the
 // same strings; divergence is a compile error here, at the renderer that
 // carries them over.
-REGISTRY_ACCESS_ERROR_CATEGORIES satisfies ReadonlyArray<OperationErrorCategory>;
+REGISTRY_ACCESS_ERROR_CATEGORIES satisfies ReadonlyArray<ErrorCode>;
 
 const TOKEN_SETTINGS_URL = "https://agentxm.ai/u/settings/tokens";
 

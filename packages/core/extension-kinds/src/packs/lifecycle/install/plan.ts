@@ -988,6 +988,7 @@ export const planPackInstall: (
           )
         : buildPackMemberStep({
             ref,
+            force: intent.forceCanonical === true,
             authorizeDistributionSelection: true,
             nativeInsertionEligible:
               desiredReachability(graph, targetFromRef(ref)).decision === "not-reached",
@@ -1004,7 +1005,8 @@ export const planPackInstall: (
 
   const acquisitionRefs = yield* Effect.forEach(refs, (ref) =>
     Effect.gen(function* () {
-      if (ref.type === "pack" || ref.refType === "workspace") return ref;
+      if (intent.forceCanonical === true || ref.type === "pack" || ref.refType === "workspace")
+        return ref;
       const canonical = yield* usableAcceptedCanonical({
         type: ref.type,
         name: targetFromRef(ref).name,

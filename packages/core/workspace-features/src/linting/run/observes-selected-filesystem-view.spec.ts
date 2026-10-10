@@ -39,7 +39,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/observes-selected-filesystem-view",
   title: "Lint observes only the selected filesystem view",
   statement:
-    "When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the working tree for workspace — including which official AXM skill package that view's settings and lock state select, report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.",
+    "When lint runs without --fix, it shall evaluate only the selected view — the staged content and its index fingerprint for git-index, the live filesystem for filesystem — including which official AXM skill package that view's settings and lock state select, report diagnostic locations against the selected workspace rather than any snapshot of it, and leave the Git index unchanged.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "machine-automation"],
@@ -50,9 +50,7 @@ export const specification = defineSpecification({
   derivedFrom: ["cli/lint/reports-facts-without-mutation"],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "How should an explicit lint path select a nested workspace inside a Git index, and how should user scope combine with a supplied path? Current root-selection precedence remains an implementation observation.",
-  ],
+  openQuestions: [],
 });
 
 const git = (root: string, args: ReadonlyArray<string>): string =>
@@ -86,7 +84,7 @@ const addDeclaredSkill = (settingsText: string): string => {
 
 const lintView = (
   workspace: { readonly root: string; readonly cliVersion: string },
-  view: "workspace" | "git-index",
+  view: "filesystem" | "git-index",
 ) =>
   Effect.gen(function* () {
     const selection = yield* admitLintRequest({
@@ -484,7 +482,7 @@ describe("Selected lint filesystem view", () => {
       const displayedRoot = nodePath.resolve(workspace.root, stagedFinding.displayRoot);
       expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(canonicalRoot);
 
-      const live = yield* lintView(workspace, "workspace");
+      const live = yield* lintView(workspace, "filesystem");
 
       expect(live.document.axmSkillCompatibility).toMatchObject({
         status: "compatible",
@@ -517,7 +515,7 @@ describe("Selected lint filesystem view", () => {
     const statusBefore = git(workspace.root, ["status", "--porcelain=v2", "-z"]);
     const indexBefore = git(workspace.root, ["ls-files", "--stage", "-z"]);
 
-    const lint = (view: "workspace" | "git-index") => lintView(workspace, view);
+    const lint = (view: "filesystem" | "git-index") => lintView(workspace, view);
 
     return Effect.gen(function* () {
       const staged = yield* lint("git-index");
@@ -547,10 +545,10 @@ describe("Selected lint filesystem view", () => {
       expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(lockPath);
       expect(nodePath.resolve(displayedRoot, stagedFinding.subject)).toBe(lockPath);
 
-      const live = yield* lint("workspace");
+      const live = yield* lint("filesystem");
 
       expect(live.outcome).toBe("success");
-      expect(live.document.input).toEqual({ view: "workspace" });
+      expect(live.document.input).toEqual({ view: "filesystem" });
       expect(live.document.findings).toEqual([]);
 
       expect(git(workspace.root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);

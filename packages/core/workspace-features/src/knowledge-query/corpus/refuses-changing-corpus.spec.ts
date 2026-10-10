@@ -66,7 +66,7 @@ describe("Changing Knowledge source", () => {
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
   });
 
-  it.effect("search", () => {
+  it.effect("query with text", () => {
     const workspace = makeKnowledgeFixtureWorkspace({
       bundles: [
         { name: "platform", documents: { "session.md": knowledgeDocument("# Session\\n") } },
@@ -76,7 +76,7 @@ describe("Changing Knowledge source", () => {
       .provide(
         Effect.gen(function* () {
           const result = yield* withChangingKnowledgeReads(
-            KnowledgeDiscovery.search({ scope: "project", expression: "session" }),
+            KnowledgeDiscovery.query({ scope: "project", expression: "session" }),
           );
           expect(result.outcome).toBe("corpus-changing");
         }),

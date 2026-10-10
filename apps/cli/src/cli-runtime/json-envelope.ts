@@ -3,16 +3,14 @@ import { HumanHandoffActionSchema } from "@agentxm/registry-protocol/unstable/hu
 import * as Schema from "effect/Schema";
 
 import {
-  FailureDiagnosticSchema,
-  type FailureDiagnostic,
   FailureMetadataSchema,
   FailureProblemSchema,
   type FailureMetadata,
+  ErrorCodeSchema,
+  type ErrorCode,
 } from "@agentxm/workspace-kernel/operations";
 import {
-  AppErrorCodeSchema,
   type AppError,
-  type AppErrorCode,
   effectiveSuggestionsFor,
   redactAppErrorMetadata,
   redactSuggestedAction,
@@ -32,8 +30,7 @@ import {
 export const JsonErrorEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
   diagnosticId: Schema.optional(Schema.String),
-  diagnostic: Schema.optional(FailureDiagnosticSchema),
-  code: AppErrorCodeSchema,
+  code: ErrorCodeSchema,
   title: Schema.String,
   detail: Schema.String,
   problem: Schema.optional(FailureProblemSchema),
@@ -78,7 +75,6 @@ export type JsonSuccessEnvelope = typeof JsonSuccessEnvelopeSchema.Type;
 export const JsonOperationFailureEnvelopeSchema = Schema.Struct({
   ok: Schema.Literal(false),
   diagnosticId: Schema.optional(Schema.String),
-  diagnostic: Schema.optional(FailureDiagnosticSchema),
   result: Schema.Unknown,
   summary: Schema.optional(Schema.String),
   suggestions: Schema.optional(Schema.Array(SuggestedActionSchema)),
@@ -114,31 +110,10 @@ const normalizeResult = (payload: unknown): unknown => {
   return payload === undefined ? {} : payload;
 };
 
-/** Settlement records are wider than the diagnostic output contract. */
-const diagnosticFields = (diagnostic: FailureDiagnostic): FailureDiagnostic => ({
-  kind: diagnostic.kind,
-  operation: diagnostic.operation,
-  ...(diagnostic.request === undefined
-    ? {}
-    : {
-        request: {
-          service: diagnostic.request.service,
-          ...(diagnostic.request.requestId === undefined
-            ? {}
-            : { requestId: diagnostic.request.requestId }),
-          ...(diagnostic.request.status === undefined ? {} : { status: diagnostic.request.status }),
-          ...(diagnostic.request.attemptCount === undefined
-            ? {}
-            : { attemptCount: diagnostic.request.attemptCount }),
-        },
-      }),
-});
-
 export const makeJsonSuccessEnvelope = (args?: {
   readonly payload?: unknown;
   readonly ok?: boolean;
   readonly diagnosticId?: string;
-  readonly diagnostic?: FailureDiagnostic;
   readonly summary?: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
 }): JsonSuccessEnvelope | JsonOperationFailureEnvelope => ({
@@ -147,9 +122,6 @@ export const makeJsonSuccessEnvelope = (args?: {
   ...(args?.ok === false && args.diagnosticId !== undefined
     ? { diagnosticId: args.diagnosticId }
     : {}),
-  ...(args?.ok === false && args.diagnostic !== undefined
-    ? { diagnostic: diagnosticFields(args.diagnostic) }
-    : {}),
   ...(args?.summary !== undefined ? { summary: redactRegistryText(args.summary) } : {}),
   ...(args?.suggestions !== undefined && args.suggestions.length > 0
     ? { suggestions: args.suggestions.map((suggestion) => redactSuggestedAction(suggestion)) }
@@ -157,9 +129,8 @@ export const makeJsonSuccessEnvelope = (args?: {
 });
 
 export const makeJsonErrorEnvelope = (args: {
-  readonly code: AppErrorCode;
+  readonly code: ErrorCode;
   readonly diagnosticId?: string;
-  readonly diagnostic?: FailureDiagnostic;
   readonly title: string;
   readonly detail: string;
   readonly cause?: ReadonlyArray<SerializedErrorCause>;
@@ -176,7 +147,6 @@ export const makeJsonErrorEnvelope = (args: {
     ok: false,
     code: args.code,
     ...(args.diagnosticId === undefined ? {} : { diagnosticId: args.diagnosticId }),
-    ...(args.diagnostic === undefined ? {} : { diagnostic: diagnosticFields(args.diagnostic) }),
     title: redactRegistryText(args.title, { secrets }),
     detail: redactRegistryText(args.detail, { secrets }),
     ...(args.problem !== undefined ? { problem: args.problem } : {}),
@@ -210,20 +180,23 @@ export const makeJsonErrorEnvelope = (args: {
 
 export const makeJsonErrorEnvelopeFromAppError = (
   error: AppError,
-  options: { readonly debug?: boolean } = {},
+  options: { readonly verbose?: boolean; readonly debug?: boolean } = {},
 ): JsonErrorEnvelope =>
   (() => {
     const secrets = collectSensitiveStrings(error.metadata);
     return makeJsonErrorEnvelope({
       code: error.code,
       ...(error.diagnosticId === undefined ? {} : { diagnosticId: error.diagnosticId }),
-      ...(error.diagnostic === undefined ? {} : { diagnostic: error.diagnostic }),
       title: error.title,
       detail: error.detail,
-      cause: serializeErrorCauseChain(error.cause, {
-        ...(options.debug === undefined ? {} : { debug: options.debug }),
-        secrets,
-      }),
+      ...(options.verbose === true || options.debug === true
+        ? {
+            cause: serializeErrorCauseChain(error.cause, {
+              debug: options.debug === true,
+              secrets,
+            }),
+          }
+        : {}),
       ...(error.metadata !== undefined ? { metadata: error.metadata } : {}),
       ...(error.status !== undefined ? { status: error.status } : {}),
       ...(error.retryable !== undefined ? { retryable: error.retryable } : {}),

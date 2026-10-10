@@ -42,9 +42,9 @@ export const parseInlineMcpHeaders = (
       [references, true],
     ] as const) {
       for (const item of items) {
-        const separator = item.indexOf(symbolic ? "=" : ":");
+        const separator = item.indexOf("=");
         if (separator <= 0)
-          return yield* refused("Headers require Name:Literal or --header-env Name=ENV_NAME");
+          return yield* refused("Headers require NAME=VALUE or --header-env NAME=ENV_NAME");
         const name = item.slice(0, separator).trim();
         if (names.has(name.toLowerCase()))
           return yield* refused("Header names must be unique ignoring case");
@@ -92,7 +92,9 @@ export const makeInlineMcpDefinition = (
         Object.keys(env).length > 0 ||
         Object.keys(headers).length > 0)
     )
-      return yield* refused("Use --connection alone for invocation fields");
+      return yield* refused(
+        "--connection excludes --transport --command --url --arg --cwd --env --header --header-env",
+      );
     if (args.command !== undefined && args.url !== undefined)
       return yield* refused("Choose a command or a URL");
     if (args.command !== undefined && Object.keys(headers).length > 0)

@@ -39,21 +39,27 @@ export const knowledgeCommand = Command.make("knowledge").pipe(
   Command.withExamples([
     { command: "axm knowledge list", description: "List installed knowledge bundles" },
     {
-      command: 'axm knowledge concepts search "authentication"',
+      command: 'axm knowledge concepts query "authentication"',
       description: "Search installed knowledge concepts",
     },
   ]),
   Command.withSubcommands([
-    newCommand,
-    installCommand,
-    updateCommand,
-    uninstallCommand,
-    listCommand,
-    showCommand,
-    conceptsCommand,
-    lintCommand,
-    enableCommand,
-    disableCommand,
-    publishCommand,
+    {
+      group: "MANAGE KNOWLEDGE",
+      commands: [
+        installCommand,
+        updateCommand,
+        uninstallCommand,
+        listCommand,
+        showCommand,
+        enableCommand,
+        disableCommand,
+        conceptsCommand,
+      ],
+    },
+    {
+      group: "AUTHOR KNOWLEDGE",
+      commands: [newCommand, lintCommand, publishCommand],
+    },
   ]),
 );

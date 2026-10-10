@@ -1,3 +1,5 @@
+import { HOOK_PROTOCOLS } from "./protocols.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 import {
@@ -23,10 +25,10 @@ import {
 import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirmation-recovery.js";
 
 export const handleHookImport = (args: {
-  readonly source: string;
+  readonly directory: string;
   readonly target: string;
   readonly protocol: ImportNativeHookRequest["protocol"];
-  readonly config: string;
+  readonly file: string;
   readonly resource: ReadonlyArray<string>;
   readonly preview: boolean;
 }) =>
@@ -39,10 +41,10 @@ export const handleHookImport = (args: {
     Effect.gen(function* () {
       const candidate = yield* ImportNativeExtension.prepare({
         type: "hook",
-        source: args.source,
+        source: args.directory,
         target: args.target,
         protocol: args.protocol,
-        configPath: args.config,
+        configPath: args.file,
         resources: args.resource,
         enable: false,
       }).pipe(Effect.mapError(failureToAppError));
@@ -51,10 +53,10 @@ export const handleHookImport = (args: {
         makeConfirmationRecovery(
           ["hooks", "import"],
           [
-            recoveryPositional(publicRecoveryValue(args.source)),
+            recoveryPositional(publicRecoveryValue(args.directory)),
             recoveryPositional(publicRecoveryValue(args.target)),
             recoveryOption("--protocol", publicRecoveryValue(args.protocol)),
-            recoveryOption("--config", publicRecoveryValue(args.config)),
+            recoveryOption("--file", publicRecoveryValue(args.file)),
             ...args.resource.map((resource) =>
               recoveryOption("--resource", publicRecoveryValue(resource)),
             ),
@@ -69,28 +71,22 @@ export const handleHookImport = (args: {
   );
 
 const config = {
-  source: Argument.String("source").pipe(Argument.withDescription("Local native bundle directory")),
-  target: Argument.String("extension").pipe(Argument.withDescription("New managed Hook FQN")),
-  protocol: Flag.Literals("protocol", [
-    "claude-code",
-    "codex",
-    "cursor",
-    "gemini-cli",
-    "qwen-code",
-    "qoder",
-    "codebuddy",
-    "augment",
-    "devin",
-  ] as const).pipe(Flag.withDescription("Native protocol of the source definitions")),
-  config: Flag.String("config").pipe(
-    Flag.withDefault("hooks.json"),
-    Flag.withDescription("JSON file relative to the bundle directory"),
+  directory: Argument.String("directory").pipe(withParameterDescription("Native bundle directory")),
+  target: Argument.String("extension").pipe(
+    withParameterDescription("New managed hook extension FQN"),
+  ),
+  protocol: Flag.Literals("protocol", HOOK_PROTOCOLS).pipe(
+    withParameterDescription("Native protocol of the source definitions"),
+  ),
+  file: Flag.String("file").pipe(
+    withParameterDefault("hooks.json"),
+    withParameterDescription("JSON file relative to <directory>"),
   ),
   resource: Flag.String("resource").pipe(
     Flag.atLeast(0),
-    Flag.withDescription("Additional package-relative resource file; repeatable"),
+    withParameterDescription("Additional package-relative resource file"),
   ),
-  preview: previewCapabilityFlag("Validate and preview import without creating a package"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const importCommand = Command.make("import", config, (args) =>
@@ -99,11 +95,12 @@ export const importCommand = Command.make("import", config, (args) =>
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("authored-source")),
   Command.withDescription(
-    "Import a native command bundle as an inactive Hook; original registrations remain",
+    "Import a native command bundle as an inactive hook extension; original registrations remain",
   ),
+  Command.withShortDescription("Import hooks and retain original registrations"),
   Command.withExamples([
     {
-      command: "axm hooks import ./native-hooks @me/hooks/audit --protocol claude-code --preview",
+      command: "axm hooks import --protocol claude-code --preview ./native-hooks @me/hooks/audit",
       description: "Preview a nonexecuting native bundle import",
     },
   ]),

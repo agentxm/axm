@@ -45,13 +45,13 @@ export const extensionLifecycleWarnings = (
   const extensionRef = `${index.owner}/${toExtensionTypePlural(index.type)}/${index.name}`;
   if (index.archival !== null) {
     warnings.push(
-      index.archival.reason === undefined
+      index.archival.message === undefined
         ? `${extensionRef} is archived; historical releases remain available`
-        : `${extensionRef} is archived: ${index.archival.reason}`,
+        : `${extensionRef} is archived: ${index.archival.message}`,
     );
   }
   if (version.yankedAt !== undefined) {
-    const context = [version.yankCategory, version.yankNotice].filter(
+    const context = [version.yankCategory, version.yankMessage].filter(
       (value): value is string => value !== undefined,
     );
     warnings.push(

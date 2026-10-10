@@ -275,7 +275,7 @@ describe("axm packs new", () => {
         `${JSON.stringify({ ...manifest, description: "Unreviewed change" }, null, 2)}\n`,
       );
 
-      const install = await runCli(["install", "--reinstall"], { cwd: temp.path });
+      const install = await runCli(["update", "--reinstall"], { cwd: temp.path });
 
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
       expect(JSON.parse(fs.readFileSync(manifestPath, "utf8")).description).toBe(

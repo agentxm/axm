@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   requirement: "cli/credentials-follow-explicit-source-precedence",
   title: "Explicit token sources take precedence over saved sessions",
   statement:
-    "For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity, and a GitHub Actions identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is not 0.",
+    "For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity, and a GitHub Actions identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is neither 0 nor false.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -58,6 +58,7 @@ const sources = [
   "file",
   "github-actions",
   "github-actions-opted-out",
+  "github-actions-false",
   "github-actions-incomplete",
   "saved",
   "empty-file",
@@ -69,6 +70,7 @@ const expected: Record<(typeof sources)[number], string> = {
   file: "fixture-file-token",
   "github-actions": "fixture-workload-token",
   "github-actions-opted-out": "fixture-stored-access",
+  "github-actions-false": "fixture-stored-access",
   "github-actions-incomplete": "fixture-stored-access",
   saved: "fixture-stored-access",
   "empty-file": "",
@@ -95,6 +97,8 @@ const environmentFor = (
       return githubActions;
     case "github-actions-opted-out":
       return { ...githubActions, AXM_TRUSTED_PUBLISHING: "0" };
+    case "github-actions-false":
+      return { ...githubActions, AXM_TRUSTED_PUBLISHING: "false" };
     case "github-actions-incomplete":
       return { ACTIONS_ID_TOKEN_REQUEST_URL: githubActions.ACTIONS_ID_TOKEN_REQUEST_URL };
     case "saved":

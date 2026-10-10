@@ -1,3 +1,4 @@
+import { type ErrorCode } from "@agentxm/workspace-kernel/operations";
 import {
   collectSensitiveStrings,
   redactRegistryText,
@@ -12,12 +13,7 @@ import {
   type Field,
   type Text,
 } from "../screen/index.js";
-import {
-  type AppError,
-  type AppErrorCode,
-  effectiveSuggestionsFor,
-  exitCodeFor,
-} from "./app-error.js";
+import { type AppError, effectiveSuggestionsFor, exitCodeFor } from "./app-error.js";
 import { serializeErrorCauseChain } from "./cause-chain.js";
 import { redactSuggestedAction } from "./secret-redaction.js";
 
@@ -115,7 +111,7 @@ const formatCause = (
  * The dim aside every problem title carries at the value column: the stable
  * code a script matches on and the process exit code it will see.
  */
-const problemAside = (code: AppErrorCode): string => `${code}, ${exitPhrase(exitCodeFor(code))}`;
+const problemAside = (code: ErrorCode): string => `${code}, ${exitPhrase(exitCodeFor(code))}`;
 
 /** The reason, with how many attempts it took when a retry policy ran out. */
 const reasonText = (error: AppError, secrets: ReadonlyArray<string>): Text => {

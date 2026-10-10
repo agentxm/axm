@@ -11,7 +11,7 @@ import * as Schema from "effect/Schema";
 import {
   FailureSuggestedActionSchema,
   FailureDiagnosticSchema,
-  OperationErrorCategorySchema,
+  ErrorCodeSchema,
 } from "@agentxm/workspace-kernel/operations";
 
 /**
@@ -21,7 +21,7 @@ import {
  * `suggestions`, and `cause` carry over verbatim.
  */
 export class PublishFailed extends Schema.TaggedError<PublishFailed>()("PublishFailed", {
-  category: OperationErrorCategorySchema,
+  category: ErrorCodeSchema,
   diagnostic: Schema.optional(FailureDiagnosticSchema),
   detail: Schema.String,
   recover: Schema.optional(Schema.String),

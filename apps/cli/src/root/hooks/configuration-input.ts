@@ -18,7 +18,7 @@ export const parseHookConfiguration = (input: string) =>
       makeAppError({
         code: "usage",
         detail:
-          "Hook configuration accepts a JSON object of strings, numbers, booleans, or symbolic {env: NAME} references",
+          "Hook extension configuration accepts a JSON object of strings, numbers, booleans, or symbolic {env: NAME} references",
       }),
     ),
   );

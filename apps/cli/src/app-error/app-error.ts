@@ -1,6 +1,5 @@
 import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
 import * as Data from "effect/Data";
-import * as Schema from "effect/Schema";
 
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
@@ -10,11 +9,13 @@ import {
   type FailureMetadata,
   type FailureProblem,
   type FailureSuggestedAction,
+  OPERATION_ERROR_CATEGORIES,
+  type ErrorCode,
 } from "@agentxm/workspace-kernel/operations";
 
 /**
  * Named exit codes for the CLI. `Success` is the only exit code without an
- * `AppErrorCode` counterpart; the rest map 1:1 with `AppErrorCode` via
+ * `ErrorCode` counterpart; the rest map 1:1 with `ErrorCode` via
  * `exitCodeFor`.
  *
  * Reserved ranges:
@@ -33,42 +34,42 @@ import {
  * including the signal codes; the help topic at
  * `apps/cli/help/topics/exit-codes.md` is pinned to it by
  * `cli/exit-codes-match-published-reference`. Each member here names only the
- * `AppErrorCode` it pairs with.
+ * `ErrorCode` it pairs with.
  */
 export const ExitCode = {
-  /** Pairs with no `AppErrorCode`. */
+  /** Pairs with no `ErrorCode`. */
   Success: 0,
-  /** Pairs with `AppErrorCode` `issues`. */
+  /** Pairs with `ErrorCode` `issues`. */
   Issues: 1,
-  /** Pairs with `AppErrorCode` `usage`. */
+  /** Pairs with `ErrorCode` `usage`. */
   Usage: 2,
-  /** Pairs with `AppErrorCode` `not_found`. */
+  /** Pairs with `ErrorCode` `not_found`. */
   NotFound: 3,
-  /** Pairs with `AppErrorCode` `auth`. */
+  /** Pairs with `ErrorCode` `auth`. */
   Auth: 4,
-  /** Pairs with `AppErrorCode` `forbidden`. */
+  /** Pairs with `ErrorCode` `forbidden`. */
   Forbidden: 5,
-  /** Pairs with `AppErrorCode` `conflict`. */
+  /** Pairs with `ErrorCode` `conflict`. */
   Conflict: 6,
-  /** Pairs with `AppErrorCode` `rate_limit`. */
+  /** Pairs with `ErrorCode` `rate_limit`. */
   RateLimit: 7,
-  /** Pairs with `AppErrorCode` `network`. */
+  /** Pairs with `ErrorCode` `network`. */
   Network: 8,
-  /** Pairs with `AppErrorCode` `validation`. */
+  /** Pairs with `ErrorCode` `validation`. */
   Validation: 9,
-  /** Pairs with `AppErrorCode` `internal`. */
+  /** Pairs with `ErrorCode` `internal`. */
   Internal: 10,
-  /** Pairs with `AppErrorCode` `unavailable`. */
+  /** Pairs with `ErrorCode` `unavailable`. */
   Unavailable: 11,
-  /** Pairs with `AppErrorCode` `quota`. */
+  /** Pairs with `ErrorCode` `quota`. */
   Quota: 12,
-  /** Pairs with `AppErrorCode` `auth_required`. */
+  /** Pairs with `ErrorCode` `auth_required`. */
   AuthRequired: 13,
-  /** Pairs with `AppErrorCode` `auth_expired`. */
+  /** Pairs with `ErrorCode` `auth_expired`. */
   AuthExpired: 14,
-  /** Pairs with `AppErrorCode` `auth_denied`. */
+  /** Pairs with `ErrorCode` `auth_denied`. */
   AuthDenied: 15,
-  /** Pairs with `AppErrorCode` `timeout`. */
+  /** Pairs with `ErrorCode` `timeout`. */
   Timeout: 16,
 } as const;
 
@@ -83,12 +84,12 @@ export const ExitCodeDefinitions = [
   {
     code: ExitCode.Issues,
     meaning:
-      'Command ran successfully but reported problems requiring attention (e.g., `axm lint` findings, doctor-style checks). Not lint-only — any "ran but found problems" outcome belongs here.',
+      'Ran, but reported problems requiring attention: lint findings, a preview whose --fail-on-change found divergence, or a partial outcome. Any "ran but found problems" outcome belongs here.',
   },
   {
     code: ExitCode.Usage,
     meaning:
-      "Invalid invocation, confirmable approval required when no prompt can open, or a named policy override is required. Fix the invocation or use the reported recovery action.",
+      "Invalid invocation, approval-required, or override-required. Fix the invocation or use the reported recovery action.",
   },
   { code: ExitCode.NotFound, meaning: "Resource doesn't exist or isn't visible." },
   {
@@ -102,12 +103,12 @@ export const ExitCodeDefinitions = [
   {
     code: ExitCode.Conflict,
     meaning:
-      "Conflicts with current state, including a stale execution candidate (already exists, version mismatch, concurrent update). Reconcile and retry.",
+      "Conflicts with current state: stale-candidate, resource-conflict, policy-excluded, or dependency-cycle (including existing resources, version mismatches, and concurrent updates). Reconcile and retry.",
   },
   { code: ExitCode.RateLimit, meaning: "Rate limited. Retry after a backoff." },
   {
     code: ExitCode.Network,
-    meaning: "Couldn't reach the remote service (DNS, TCP, TLS, timeout). Usually retryable.",
+    meaning: "Couldn't reach the remote service (DNS, TCP, TLS). Usually retryable.",
   },
   {
     code: ExitCode.Validation,
@@ -140,7 +141,8 @@ export const ExitCodeDefinitions = [
   },
   {
     code: ExitCode.Timeout,
-    meaning: "A bounded operation did not complete before its caller-selected deadline.",
+    meaning:
+      "A bounded operation did not complete before its deadline, including a caller-selected wait.",
   },
   {
     code: 130,
@@ -152,69 +154,9 @@ export const ExitCodeDefinitions = [
   },
 ] as const;
 
-/** `ExitCode` names that carry an `AppErrorCode`. Every exit code except `Success`. */
-type ErrorExitName = Exclude<keyof typeof ExitCode, "Success">;
-
-/**
- * Single source for the snake-case `AppErrorCode` strings (the values emitted
- * in `--json` output). Keys are `ExitCode` names.
- *
- * `satisfies Record<ErrorExitName, string>` enforces 1:1 with `ExitCode` minus
- * `Success` — adding an `ExitCode` without an entry here (or removing one)
- * won't compile.
- */
-const AppErrorCodeByExitName = {
-  Issues: "issues",
-  Usage: "usage",
-  NotFound: "not_found",
-  Auth: "auth",
-  Forbidden: "forbidden",
-  Conflict: "conflict",
-  RateLimit: "rate_limit",
-  Network: "network",
-  Validation: "validation",
-  Internal: "internal",
-  Unavailable: "unavailable",
-  Quota: "quota",
-  AuthRequired: "auth_required",
-  AuthExpired: "auth_expired",
-  AuthDenied: "auth_denied",
-  Timeout: "timeout",
-} as const satisfies Record<ErrorExitName, string>;
-
-export type AppErrorCode = (typeof AppErrorCodeByExitName)[ErrorExitName];
 export type AppErrorClass = "internal" | "user" | "external";
 
-/**
- * Tuple of every `AppErrorCode`. Listed via member reads so the tuple type is
- * preserved for `Schema.Literals` without a cast.
- */
-export const AppErrorCodes = [
-  AppErrorCodeByExitName.Issues,
-  AppErrorCodeByExitName.Usage,
-  AppErrorCodeByExitName.NotFound,
-  AppErrorCodeByExitName.Auth,
-  AppErrorCodeByExitName.Forbidden,
-  AppErrorCodeByExitName.Conflict,
-  AppErrorCodeByExitName.RateLimit,
-  AppErrorCodeByExitName.Network,
-  AppErrorCodeByExitName.Validation,
-  AppErrorCodeByExitName.Internal,
-  AppErrorCodeByExitName.Unavailable,
-  AppErrorCodeByExitName.Quota,
-  AppErrorCodeByExitName.AuthRequired,
-  AppErrorCodeByExitName.AuthExpired,
-  AppErrorCodeByExitName.AuthDenied,
-  AppErrorCodeByExitName.Timeout,
-] as const;
-
-export const AppErrorCodeSchema = Schema.Literals(AppErrorCodes).annotate({
-  identifier: "AppErrorCode",
-  title: "AppError Code",
-  description: "Error category. Sets the exit code and the `code` field in JSON output.",
-});
-
-const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
+const ExitCodeByAppErrorCode: Readonly<Record<ErrorCode, ExitCode>> = {
   issues: ExitCode.Issues,
   usage: ExitCode.Usage,
   not_found: ExitCode.NotFound,
@@ -233,19 +175,19 @@ const ExitCodeByAppErrorCode: Readonly<Record<AppErrorCode, ExitCode>> = {
   timeout: ExitCode.Timeout,
 };
 
-export const exitCodeFor = (code: AppErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
+export const exitCodeFor = (code: ErrorCode): ExitCode => ExitCodeByAppErrorCode[code];
 
 /**
- * The `AppErrorCode` a non-zero application exit code pairs with, read from
+ * The `ErrorCode` a non-zero application exit code pairs with, read from
  * the same 1:1 table; `undefined` for success and the signal codes.
  */
-export const appErrorCodeForExit = (exitCode: number): AppErrorCode | undefined =>
-  AppErrorCodes.find((code) => ExitCodeByAppErrorCode[code] === exitCode);
+export const appErrorCodeForExit = (exitCode: number): ErrorCode | undefined =>
+  OPERATION_ERROR_CATEGORIES.find((code) => ExitCodeByAppErrorCode[code] === exitCode);
 
 /** The pending action a failure hands to a person, as the kernel renders it. */
 export type AppErrorAction = FailureAction;
 
-const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
+const DefaultTitleByAppErrorCode: Readonly<Record<ErrorCode, string>> = {
   auth: "Unauthorized",
   forbidden: "Forbidden",
   not_found: "Not Found",
@@ -264,7 +206,7 @@ const DefaultTitleByAppErrorCode: Readonly<Record<AppErrorCode, string>> = {
   timeout: "Timed Out",
 };
 
-export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByAppErrorCode[code];
+export const defaultTitleFor = (code: ErrorCode): string => DefaultTitleByAppErrorCode[code];
 
 /**
  * Baseline suggested next actions per error category, used when a caller
@@ -272,7 +214,7 @@ export const defaultTitleFor = (code: AppErrorCode): string => DefaultTitleByApp
  * generic follow-up map to an empty list.
  */
 const DefaultSuggestionsByAppErrorCode: Readonly<
-  Record<AppErrorCode, ReadonlyArray<SuggestedAction>>
+  Record<ErrorCode, ReadonlyArray<SuggestedAction>>
 > = {
   internal: [
     {
@@ -299,10 +241,10 @@ const DefaultSuggestionsByAppErrorCode: Readonly<
 };
 
 /** Baseline suggested next actions for an error category. */
-const defaultSuggestionsFor = (code: AppErrorCode): ReadonlyArray<SuggestedAction> =>
+const defaultSuggestionsFor = (code: ErrorCode): ReadonlyArray<SuggestedAction> =>
   DefaultSuggestionsByAppErrorCode[code];
 
-const AppErrorClassByAppErrorCode: Readonly<Record<AppErrorCode, AppErrorClass>> = {
+const AppErrorClassByAppErrorCode: Readonly<Record<ErrorCode, AppErrorClass>> = {
   internal: "internal",
   network: "external",
   unavailable: "external",
@@ -321,7 +263,7 @@ const AppErrorClassByAppErrorCode: Readonly<Record<AppErrorCode, AppErrorClass>>
   timeout: "external",
 };
 
-export const errorClassForAppErrorCode = (code: AppErrorCode): AppErrorClass =>
+export const errorClassForAppErrorCode = (code: ErrorCode): AppErrorClass =>
   AppErrorClassByAppErrorCode[code];
 
 /**
@@ -336,7 +278,7 @@ export const effectiveSuggestionsFor = (error: AppError): ReadonlyArray<Suggeste
     : defaultSuggestionsFor(error.code);
 
 export class AppError extends Data.TaggedError("AppError")<{
-  readonly code: AppErrorCode;
+  readonly code: ErrorCode;
   readonly diagnostic?: FailureDiagnostic;
   readonly diagnosticId?: string;
   readonly title: string;
@@ -353,7 +295,7 @@ export class AppError extends Data.TaggedError("AppError")<{
 }> {}
 
 export const makeAppError = (args: {
-  readonly code: AppErrorCode;
+  readonly code: ErrorCode;
   readonly diagnostic?: FailureDiagnostic;
   readonly diagnosticId?: string;
   readonly title?: string;

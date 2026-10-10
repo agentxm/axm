@@ -13,7 +13,7 @@ const kindOf = (input: unknown): string | undefined =>
 
 describe("machine-output document contract", () => {
   it("publishes a stable contract identifier", () => {
-    expect(MACHINE_OUTPUT_CONTRACT_ID).toBe("axm.machine-output/result-envelope-v1");
+    expect(MACHINE_OUTPUT_CONTRACT_ID).toBe("result-envelope-v1");
   });
 
   it.each([

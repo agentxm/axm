@@ -8,12 +8,12 @@ import {
   type Tint,
   type ViewColumn,
 } from "../screen/index.js";
-import type { SourcedListRow } from "@agentxm/workspace-features/inspection";
-import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
 import type {
-  ExtensionInventory,
-  ExtensionInventoryLifecycle,
-} from "@agentxm/workspace-kernel/workspace-state";
+  ExtensionInventoryDocument,
+  SourcedListRow,
+} from "@agentxm/workspace-features/inspection";
+import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
+import type { ExtensionInventoryLifecycle } from "@agentxm/workspace-kernel/workspace-state";
 
 /**
  * Each extension type's tint, so a reader tells types apart down an inventory
@@ -43,7 +43,7 @@ interface InventoryRowFacts {
   readonly enabled: boolean | null;
 }
 
-export const inventoryLifecycle = (row: InventoryRowFacts): string => {
+export const inventoryLifecycle = (row: Pick<InventoryRowFacts, "lifecycle">): string => {
   switch (row.lifecycle) {
     case "configured":
       return "managed by this workspace";
@@ -69,7 +69,7 @@ export const inventoryAgentOutcomes = (outcomes: ReadonlyArray<ConfiguredAgentOu
 /** Shared sourced-row presentation for Hooks and Rules. */
 export const sourcedListColumns = [
   { header: "Name", priority: "required", value: (row: SourcedListRow) => row.name },
-  { header: "State", value: (row: SourcedListRow) => inventoryLifecycle(row) },
+  { header: "Management", value: (row: SourcedListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: SourcedListRow) => inventoryActivation(row) },
   { header: "Source", value: (row: SourcedListRow) => row.source },
   {
@@ -85,16 +85,11 @@ export const sourcedListColumns = [
 ] satisfies ReadonlyArray<ViewColumn<SourcedListRow>>;
 
 type InventoryCounts = Pick<
-  ExtensionInventory,
-  | "count"
-  | "configuredCount"
-  | "implicitCount"
-  | "installedCount"
-  | "leftoverCount"
-  | "undeclaredCount"
-  | "unmanagedCount"
-  | "nativeLocationCounts"
-> & { readonly items: ReadonlyArray<unknown> };
+  ExtensionInventoryDocument,
+  "count" | "managementCounts" | "nativeLocationCounts"
+> & {
+  readonly items: ReadonlyArray<{ readonly installed: boolean }>;
+};
 
 export const inventorySummary = (inventory: InventoryCounts, label: string): string => {
   const native = inventory.nativeLocationCounts;
@@ -109,22 +104,24 @@ export const inventorySummary = (inventory: InventoryCounts, label: string): str
             ? []
             : [`${native.unverifiedExtensions} extensions have unverified native locations`]),
         ]),
-    inventory.configuredCount === 0
+    inventory.managementCounts.configured === 0
       ? undefined
-      : `${String(inventory.configuredCount)} managed by this workspace`,
-    inventory.implicitCount === 0
+      : `${String(inventory.managementCounts.configured)} managed by this workspace`,
+    inventory.managementCounts.implicit === 0
       ? undefined
-      : `${String(inventory.implicitCount)} included by packs`,
-    inventory.installedCount === 0 ? undefined : `${String(inventory.installedCount)} installed`,
-    inventory.leftoverCount === 0
+      : `${String(inventory.managementCounts.implicit)} included by packs`,
+    inventory.items.filter((item) => item.installed).length === 0
       ? undefined
-      : `${String(inventory.leftoverCount)} installed but no longer selected`,
-    inventory.undeclaredCount === 0
+      : `${String(inventory.items.filter((item) => item.installed).length)} installed`,
+    inventory.managementCounts.leftover === 0
       ? undefined
-      : `${String(inventory.undeclaredCount)} authored here but not added`,
-    inventory.unmanagedCount === 0
+      : `${String(inventory.managementCounts.leftover)} installed but no longer selected`,
+    inventory.managementCounts.undeclared === 0
       ? undefined
-      : `${String(inventory.unmanagedCount)} found outside AXM`,
+      : `${String(inventory.managementCounts.undeclared)} authored here but not added`,
+    inventory.managementCounts.unmanaged === 0
+      ? undefined
+      : `${String(inventory.managementCounts.unmanaged)} found outside AXM`,
   ].filter((part): part is string => part !== undefined);
   const headline = count(inventory.count, label);
   return parts.length === 0 ? headline : `${headline}: ${parts.join(", ")}`;

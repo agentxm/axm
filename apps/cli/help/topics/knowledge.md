@@ -238,15 +238,15 @@ authoritative, and reconciles the table without advancing versions. Use
   counts.
 - `axm knowledge concepts resolve <input>` — resolve an exact compact or HTTPS
   reference; add `--fuzzy` to request bounded ID and title candidates.
-- `axm knowledge concepts search "<query>"` — run the concise lexical grammar.
 - `axm knowledge concepts query [expression]` — combine text, field, metadata,
   lifecycle, and preserved-frontmatter filters.
 - `axm knowledge concepts get <reference>` — read one exact concept with source,
   projection, bundle, and corpus revision identity.
 - `axm knowledge concepts related <reference>` — traverse authored links and
   derived backlinks to a maximum depth of three.
-- `axm knowledge concepts status` — report the versioned capabilities contract
-  and selected corpus fingerprint.
+- `axm knowledge concepts capabilities` — report the versioned capabilities contract
+  and the captured corpus fingerprint, counts, and scope collision evidence.
+  Changing or unavailable source capture fails with an actionable diagnostic.
 
 Search uses a locale-independent, Unicode-normalized lexical grammar:
 
@@ -283,20 +283,20 @@ expiry conflict.
 `--lifecycle` uses `=` or `!=`. Property names are RFC 6901 JSON Pointers into
 preserved frontmatter. `--kind index` or `--kind log` deliberately includes
 reserved documents, while `--status deprecated` deliberately includes
-deprecated concepts. An unconstrained query enumerates ordinary,
+deprecated concepts. An unconstrained query enumerates concept,
 non-deprecated concepts in stable bundle-and-concept order.
 
 The versioned query contract advertises these searchable fields: `bundle`,
 `conceptId`, `title`, `description`, `tag`, `type`, `body`, `resource`,
 `status`, `staleAfter`, `generated`, `verified`, and `trust`. Its complete
 operator set is `term`, `phrase`, `literal`, `equals`, `not-equals`, and
-`contains`. `concepts status --json` is the machine-readable source for the
+`contains`. `concepts capabilities --json` is the machine-readable source for the
 same contract and its current bounds.
 
 ```bash
-axm knowledge concepts search "session"
-axm knowledge concepts search '"source of truth"'
-axm knowledge concepts query session --tag auth --status stable --explain
+axm knowledge concepts query "session"
+axm knowledge concepts query '"source of truth"'
+axm knowledge concepts query session --tag auth --status stable
 axm knowledge concepts query --metadata 'tag~=auth' --property '/audience=agents'
 axm knowledge concepts get '@acme/knowledge/platform#auth/session-management'
 axm knowledge concepts related '@acme/knowledge/platform#auth/session-management' --depth 2

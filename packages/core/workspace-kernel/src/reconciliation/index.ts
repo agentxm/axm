@@ -99,7 +99,8 @@ export {
   type DesiredStateProposal,
 } from "./proposed-state.js";
 export {
-  prepareActivationRealization,
+  prepareEnabledRealization,
+  prepareDisabledRealization,
   realizeActivation,
   type ActivationRealization,
   type ActivationRealized,

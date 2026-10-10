@@ -11,7 +11,6 @@ import { handleKnowledgeConceptGet } from "./get.js";
 import { handleKnowledgeConceptQuery } from "./query.js";
 import { handleKnowledgeConceptRelated } from "./related.js";
 import { handleKnowledgeConceptResolve } from "./resolve.js";
-import { handleKnowledgeConceptSearch } from "./search.js";
 
 export const specification = defineSpecification({
   requirement: "cli/knowledge/concepts/renders-authored-text-safely",
@@ -38,7 +37,6 @@ describe("Safe human Knowledge output", () => {
       name: "get raw",
       run: () => handleKnowledgeConceptGet("@acme/knowledge/platform#session", { raw: true }),
     },
-    { name: "search", run: () => handleKnowledgeConceptSearch("session", "project") },
     { name: "query", run: () => handleKnowledgeConceptQuery("project", knowledgeQueryOptions) },
     { name: "related", run: () => handleKnowledgeConceptRelated("@acme/knowledge/platform#root") },
   ];

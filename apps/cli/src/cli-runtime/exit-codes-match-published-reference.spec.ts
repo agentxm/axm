@@ -1,3 +1,6 @@
+import { BlockingClassSchema } from "@agentxm/workspace-kernel/operations";
+import { operationExitCode } from "../operation-exit-code.js";
+import { HELP_TOPICS } from "../__generated__/help-topics.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -7,7 +10,7 @@ import { afterEach } from "vitest";
 
 import { makeOperationResolution } from "@agentxm/workspace-kernel/operations";
 
-import { ExitCodeDefinitions } from "../app-error/index.js";
+import { ExitCodeDefinitions, appErrorCodeForExit } from "../app-error/index.js";
 import { resolutionExitCode } from "../operation-exit-code.js";
 import { HelpTopicResultSchema, handleHelpPath } from "../root/help/command.js";
 import { OperationExitLive, classifyError, getOperationExitCode } from "./index.js";
@@ -24,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "cli/exit-codes-match-published-reference",
   title: "The published exit-code reference matches the runtime exit codes",
   statement:
-    "The served exit-codes help topic shall list exactly the exit codes and meanings the command line returns at runtime, with no missing, extra, or differing rows, and an invocation the parser rejects, an apply stopped as approval required, or an operation terminated by a signal shall exit with the code whose published meaning names that outcome.",
+    "The served exit-codes help topic shall list exactly the exit codes, their shared JSON error codes (blank for success and signals), and meanings the command line returns at runtime, with no missing, extra, or differing rows, machine-output help shall list all eleven blocking classes in schema order with their fixed exit or carried-cause mapping and identify human-required and external-blocked as live-wait classes, and an invocation the parser rejects, an apply stopped as approval required, or an operation terminated by a signal shall exit with the code whose published meaning names that outcome.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "knowledge-access"],
@@ -41,14 +44,18 @@ const parseExitCodeRows = (
   topic: string,
 ): ReadonlyArray<{
   readonly code: number;
+  readonly jsonCode: string;
   readonly meaning: string;
 }> =>
   topic.split("\n").flatMap((line) => {
-    const match = /^\|\s*(\d+)\s*\|\s*(.*?)\s*\|$/u.exec(line);
+    const match = /^\|\s*(\d+)\s*\|\s*(.*?)\s*\|\s*(.*?)\s*\|$/u.exec(line);
     if (match === null) return [];
     const code = Number(match[1]);
-    const meaning = match[2];
-    return Number.isInteger(code) && meaning !== undefined ? [{ code, meaning }] : [];
+    const jsonCode = match[2];
+    const meaning = match[3];
+    return Number.isInteger(code) && jsonCode !== undefined && meaning !== undefined
+      ? [{ code, jsonCode, meaning }]
+      : [];
   });
 
 /** The published row whose meaning covers bad invocations and blocked approvals. */
@@ -59,6 +66,32 @@ const signalRow = (signal: "SIGINT" | "SIGTERM") =>
   ExitCodeDefinitions.find((row) => row.meaning.includes(signal));
 
 describe("Published exit-code reference", () => {
+  it("publishes every blocking class and its terminal exit mapping", () => {
+    const section =
+      HELP_TOPICS["machine-output"].split("## Blocking classes")[1]?.split("## Consumption")[0] ??
+      "";
+    const classes = section.split("\n").flatMap((line) => {
+      const match = /^\|\s*`([^`]+)`\s*\|\s*([^|]+)\|$/u.exec(line);
+      return match?.[1] === undefined || match[2] === undefined
+        ? []
+        : [{ name: match[1], exit: match[2].trim() }];
+    });
+    expect(classes.map((row) => row.name)).toEqual(BlockingClassSchema.literals);
+    for (const name of BlockingClassSchema.literals) {
+      const row = classes.find((entry) => entry.name === name);
+      if (name === "human-required" || name === "external-blocked") {
+        expect(row?.exit).toBe("Waiting only; no terminal exit");
+      } else if (row?.exit === "cause") {
+        expect(operationExitCode({ blocking: { class: name, causeCode: "auth" } }, "blocked")).toBe(
+          4,
+        );
+        expect(operationExitCode({ blocking: { class: name } }, "blocked")).toBe(1);
+      } else {
+        expect(row?.exit).toBe(String(operationExitCode({ blocking: { class: name } }, "blocked")));
+      }
+    }
+  });
+
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) {
@@ -84,7 +117,7 @@ describe("Published exit-code reference", () => {
     "an apply stopped as approval required exits with the published approval-required code",
     () =>
       Effect.gen(function* () {
-        expect(usageRow?.meaning).toContain("approval required");
+        expect(usageRow?.meaning).toContain("approval-required");
         const workspace = makeSpecWorkspace({
           machine: true,
           flags: { json: true },
@@ -139,7 +172,15 @@ describe("Published exit-code reference", () => {
 
       const topic = yield* decodeTopic(renderer.state.results[0]?.data);
       expect(topic.topic).toBe("exit-codes");
-      expect(parseExitCodeRows(topic.content)).toEqual(ExitCodeDefinitions);
+      if (topic.kind !== "markdown")
+        return yield* Effect.die("Exit-code reference must be Markdown");
+      expect(topic.content).toMatch(/\| Code\s*\| JSON code\s*\| Meaning\s*\|/u);
+      expect(parseExitCodeRows(topic.content)).toEqual(
+        ExitCodeDefinitions.map((row) => ({
+          ...row,
+          jsonCode: appErrorCodeForExit(row.code) ?? "",
+        })),
+      );
     }),
   );
 });

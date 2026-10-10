@@ -7,6 +7,7 @@ import * as nodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
@@ -97,14 +98,31 @@ describe("Git-index lint admissibility", () => {
     const before = workingTree(root);
 
     return Effect.gen(function* () {
-      const failure = yield* admitGitIndex({ path: root, userHome: root });
+      const hostFs = yield* FileSystem.FileSystem;
+      // A shared temporary parent can contain another session's .git marker.
+      // This scenario owns the absence of Git ancestors, not the host's /tmp.
+      const isolatedFs: FileSystem.FileSystem = {
+        ...hostFs,
+        exists: (target) =>
+          nodePath.basename(target) === ".git" ? Effect.succeed(false) : hostFs.exists(target),
+      };
+      const failure = yield* Effect.flip(
+        admitLintRequest({
+          path: root,
+          userHome: root,
+          cwd: root,
+          scope: "project",
+          view: "git-index",
+          fix: false,
+        }).pipe(Effect.provideService(FileSystem.FileSystem, isolatedFs)),
+      );
 
       expect(failure).toBeInstanceOf(LintStagingFailed);
       expect(failure.category).toBe("validation");
       expect(failure.title).toBe("Git index unavailable");
       expect(failure.detail).toContain("requires a Git repository");
       expect(workingTree(root)).toEqual(before);
-    });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
   });
 
   it.effect(
@@ -135,7 +153,7 @@ describe("Git-index lint admissibility", () => {
 
         expect(failure).toBeInstanceOf(LintStagingFailed);
         expect(failure.detail).toContain("unmerged entries");
-        expect(failure.detail).toContain("--view git-index");
+        expect(failure.detail).toContain("--staged");
         expect(workingTree(root)).toEqual(filesBefore);
         expect(git(root, ["status", "--porcelain=v2", "-z"])).toBe(statusBefore);
         expect(git(root, ["ls-files", "--stage", "-z"])).toBe(stagesBefore);
@@ -162,9 +180,9 @@ describe("Git-index lint admissibility", () => {
         const failure = yield* admitGitIndex({ path: root, userHome: home, scope: "user" });
 
         expect(failure).toBeInstanceOf(LintStagingFailed);
-        expect(failure.category).toBe("validation");
+        expect(failure.category).toBe("usage");
         expect(failure.detail).toContain("--scope user");
-        expect(failure.detail).toContain("--view git-index");
+        expect(failure.detail).toContain("--staged");
         expect(workingTree(root)).toEqual(before);
         expect(workingTree(home)).toEqual(beforeHome);
         expect(git(root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
@@ -187,9 +205,9 @@ describe("Git-index lint admissibility", () => {
       const failure = yield* admitGitIndex({ path: root, userHome: root, fix: true });
 
       expect(failure).toBeInstanceOf(LintStagingFailed);
-      expect(failure.category).toBe("validation");
+      expect(failure.category).toBe("usage");
       expect(failure.detail).toContain("--fix");
-      expect(failure.detail).toContain("--view git-index");
+      expect(failure.detail).toContain("--staged");
       expect(workingTree(root)).toEqual(before);
       expect(git(root, ["ls-files", "--stage", "-z"])).toBe(indexBefore);
     });

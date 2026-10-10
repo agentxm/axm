@@ -226,7 +226,7 @@ export interface RegistryKnowledgeVersion {
 export interface FileRegistry {
   /** Absolute Registry root directory. */
   readonly root: string;
-  /** `file://` URL, usable as a settings source location or `--registry-url`. */
+  /** `file://` URL, usable as a configured settings source location. */
   readonly url: string;
   /** The settings `sources` entry that names this Registry. */
   readonly source: {

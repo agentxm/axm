@@ -1,8 +1,8 @@
 /**
  * Resolving what a `<type> update` selector names.
  *
- * A person narrows a configured sweep two ways: a positional that may be an
- * installed name or a source, and repeated `--name` filters that may be exact
+ * A person narrows a configured sweep with `--source` and repeated
+ * positional names that may be exact
  * names or globs. Deciding which configured entries those name is update's
  * own question — it re-reads the configured entries, re-resolves their
  * declared sources, and compares origins — so it is settled here, beside the
@@ -40,8 +40,8 @@ import {
 import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-patterns";
 import type { WorkspaceUpdatableType } from "./configured.js";
 
-/** The flag spelling reported when a `--name` filter matches nothing. */
-export const UPDATE_NAME_FILTER_FLAG = "--name";
+/** The selector spelling reported when names match nothing. */
+const UPDATE_NAME_FILTER_LABEL = "name";
 
 /** Every type a selector can narrow: whatever a configured sweep can cover. */
 export type ConfiguredUpdateSelectorType = WorkspaceUpdatableType;
@@ -49,12 +49,10 @@ export type ConfiguredUpdateSelectorType = WorkspaceUpdatableType;
 /** What one `<type> update` invocation asked for, before it is resolved. */
 export interface ConfiguredUpdateSelector {
   readonly resourceType: ConfiguredUpdateSelectorType;
-  /** The positional selector, which may name an installed extension or a source. */
+  /** An exact source locator, never an installed-name selector. */
   readonly source: Option.Option<string>;
-  /** Repeated `--name` filters; exact names or globs over installed names. */
+  /** Repeated positional names; exact names or globs over installed names. */
   readonly nameFilters: ReadonlyArray<string>;
-  /** False where the positional is a source spelling only (MCP connections). */
-  readonly sourceMayMatchName?: boolean;
 }
 
 /** What a selector resolved to. */
@@ -101,19 +99,8 @@ const sourceMatchesEntrySource = (sourceValue: string, entrySource: string | und
     return sources.origin(entrySourceResult.success) === sources.origin(sourceArgResult.success);
   });
 
-const filterBySource = (
-  entries: ReadonlyArray<SelectedEntry>,
-  sourceValue: string,
-  sourceMayMatchName: boolean,
-) =>
+const filterBySource = (entries: ReadonlyArray<SelectedEntry>, sourceValue: string) =>
   Effect.gen(function* () {
-    const nameMatchedEntries = sourceMayMatchName
-      ? entries.filter(([name]) => name === sourceValue)
-      : [];
-    if (nameMatchedEntries.length > 0) {
-      return nameMatchedEntries;
-    }
-
     const sourceMatches = yield* Effect.forEach(
       entries,
       (entry) =>
@@ -176,19 +163,14 @@ export const resolveConfiguredUpdateSelection = Effect.fn("UpdateExtensions.reso
     );
 
     const sourceValue = Option.getOrUndefined(selector.source);
-    const sourceMayMatchName = selector.sourceMayMatchName ?? true;
     const sourceFiltered =
-      sourceValue === undefined
-        ? entries
-        : yield* filterBySource(entries, sourceValue, sourceMayMatchName);
+      sourceValue === undefined ? entries : yield* filterBySource(entries, sourceValue);
 
     if (sourceValue !== undefined && sourceFiltered.length === 0) {
       const label = extensionTypeSentenceLabels[selector.resourceType];
       return {
         _tag: "NoMatch",
-        message: `No installed ${label} matched "${sourceValue}"${
-          sourceMayMatchName ? " as a name or source" : " as a source"
-        }.`,
+        message: `No installed ${label} matched "${sourceValue}" as a source.`,
       } satisfies ConfiguredUpdateSelection;
     }
 
@@ -202,7 +184,7 @@ export const resolveConfiguredUpdateSelection = Effect.fn("UpdateExtensions.reso
         extensionTypePluralSentenceLabels[toExtensionTypePlural(selector.resourceType)];
       return {
         _tag: "NoMatch",
-        message: `No installed ${pluralLabel} match the ${UPDATE_NAME_FILTER_FLAG} filter.`,
+        message: `No installed ${pluralLabel} match the ${UPDATE_NAME_FILTER_LABEL} filter.`,
       } satisfies ConfiguredUpdateSelection;
     }
 

@@ -35,15 +35,14 @@ import {
 import { handleRootPublish, type RootPublishHandlerArgs } from "./command.js";
 
 const args = (
-  registryUrl: string,
+  registry: string,
   overrides?: Partial<RootPublishHandlerArgs>,
 ): RootPublishHandlerArgs => ({
   selectors: ["@acme/skills/review"],
   owners: [],
   types: [],
   excludes: [],
-  registry: Option.none(),
-  registryUrl: Option.some(registryUrl),
+  registry: Option.some(registry),
   backfill: false,
   acceptWarnings: false,
   preview: true,
@@ -88,7 +87,12 @@ describe("publish source-state comparison scheduling", () => {
     registryUrl = pathToFileURL(registryRoot).href;
     fs.writeFileSync(
       path.join(tempDir, "axm.json"),
-      JSON.stringify({ owner: "@acme", agents: [], skills: { review: "workspace" } }),
+      JSON.stringify({
+        sources: [{ name: "publication", type: "registry", location: registryUrl }],
+        owner: "@acme",
+        agents: [],
+        skills: { review: "workspace" },
+      }),
     );
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
@@ -139,11 +143,11 @@ describe("publish source-state comparison scheduling", () => {
     );
 
     return Effect.gen(function* () {
-      yield* published.provide(handleRootPublish(args(registryUrl, { preview: false })));
+      yield* published.provide(handleRootPublish(args("publication", { preview: false })));
 
       // Local content that differs from the published version is not compared.
       fs.appendFileSync(path.join(tempDir, "skills", "review", "src", "SKILL.md"), "\nEdited.\n");
-      yield* skipping.provide(handleRootPublish(args(registryUrl)));
+      yield* skipping.provide(handleRootPublish(args("publication")));
 
       expect(comparisonCount).toBe(0);
       const result = expectPublishResult(at(skipping.rendererState.results, 0).data, {
@@ -177,7 +181,7 @@ describe("publish source-state comparison scheduling", () => {
 
       return Effect.gen(function* () {
         const exit = yield* context
-          .provide(handleRootPublish(args(registryUrl, { preview: false, acceptWarnings: true })))
+          .provide(handleRootPublish(args("publication", { preview: false, acceptWarnings: true })))
           .pipe(Effect.exit);
 
         expect(Exit.isSuccess(exit)).toBe(true);

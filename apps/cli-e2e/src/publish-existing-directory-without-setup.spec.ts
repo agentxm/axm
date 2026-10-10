@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { startHttpRegistry } from "./e2e/http-registry-server.js";
 import { makeEnvironmentProcessFixture } from "./test-support/environment-process-fixture.js";
 
 export const specification = defineSpecification({
@@ -27,6 +27,7 @@ describe("Publishing an existing directory", () => {
   it("previews, publishes, and installs without converting the creator source", async () => {
     const creator = makeEnvironmentProcessFixture();
     const consumer = makeEnvironmentProcessFixture();
+    const registry = await startHttpRegistry();
     try {
       const body =
         "---\r\nname: Upstream Display\r\nallowed-tools: [Read, Bash]\r\n---\r\n# Review\r\n";
@@ -36,31 +37,30 @@ describe("Publishing an existing directory", () => {
       fs.writeFileSync(path.join(creator.invoking, "notes.txt"), "workspace only\n");
       fs.writeFileSync(path.join(creator.invoking, "run.sh"), "#!/bin/sh\necho review\n");
       fs.chmodSync(path.join(creator.invoking, "run.sh"), 0o755);
-      const registry = path.join(creator.root, "registry");
-      fs.mkdirSync(registry);
-      const location = pathToFileURL(registry).href;
+      const location = registry.url;
+      const credentials = { AXM_TOKEN: "e2e-test-token" };
       const command = [
         "publish",
-        "@acme/skills/review",
-        "--from",
+        "@test/skills/review",
+        "--path",
         ".",
         "--package-version",
         "1.0.0",
-        "--include-file",
+        "--include-path",
         "**",
-        "--exclude-file",
+        "--exclude-path",
         "/notes.txt",
-        "--exclude-file",
+        "--exclude-path",
         "/.gitignore",
-        "--registry-url",
+        "--registry",
         location,
         "--json",
         "--non-interactive",
       ];
-      const preview = await creator.run([...command, "--preview"]);
+      const preview = await creator.run([...command, "--preview"], credentials);
       expect(preview.exitCode, preview.stdout + preview.stderr).toBe(0);
-      expect(fs.readdirSync(registry)).toEqual([]);
-      const published = await creator.run(command);
+      expect(registry.publishes).toEqual([]);
+      const published = await creator.run(command, credentials);
       expect(published.exitCode, published.stdout + published.stderr).toBe(0);
       for (const root of [
         creator.invoking,
@@ -86,7 +86,7 @@ describe("Publishing an existing directory", () => {
       });
       const installed = await consumer.run([
         "install",
-        "@acme/skills/review@1.0.0",
+        "@test/skills/review@1.0.0",
         "--json",
         "--non-interactive",
       ]);
@@ -100,6 +100,7 @@ describe("Publishing an existing directory", () => {
       expect(fs.existsSync(path.join(native, "notes.txt"))).toBe(false);
       expect(fs.existsSync(path.join(native, ".gitignore"))).toBe(false);
     } finally {
+      await registry.close();
       consumer.cleanup();
       creator.cleanup();
     }

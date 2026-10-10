@@ -157,7 +157,7 @@ describe("InstallSelectionLive", () => {
         {
           message: "Select MCP servers to install",
           guidance:
-            "Name the MCP servers with --mcp, take them all with --all, or rerun without --json.",
+            "Name the MCP servers with --mcp-server, take them all with --all, or rerun without --json.",
         },
       ]);
     }).pipe(Effect.provide(test.layer));

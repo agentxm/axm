@@ -15,7 +15,7 @@ import * as Effect from "effect/Effect";
 import { instructionChangeLocations } from "./native-outcomes.js";
 import {
   combineNativeLocationOutcomes,
-  nativeUnitKey,
+  nativeUnitReference,
   type NativeLocationOutcome,
 } from "../../locations/index.js";
 import type { ConfiguredAgentOutcome } from "../../operations/index.js";
@@ -499,7 +499,7 @@ export const plannedInstructionContributorObservation = (args: {
             outcome: "not-applicable",
             reasonCode: "no-applicable-native-unit",
             reason: "The prepared projection has no applicable native unit for this agent.",
-            nativeUnitKeys: [],
+            nativeUnits: [],
           };
     return {
       ...outcome,
@@ -507,7 +507,7 @@ export const plannedInstructionContributorObservation = (args: {
       reasonCode: "planned-native-unit",
       reason:
         "The owner has validated the proposed native realization; runtime selection remains unverified.",
-      nativeUnitKeys: units.map(nativeUnitKey),
+      nativeUnits: units.map(nativeUnitReference),
     };
   });
   return { nativeLocations, agentOutcomes };

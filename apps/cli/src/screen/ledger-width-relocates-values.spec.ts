@@ -105,7 +105,7 @@ describe("Width relocates a ledger value", () => {
 
   it("shows a value a person copies whole, on a line of its own", () => {
     const command =
-      "axm update @acme-enterprise/knowledge/effect-v4 --refresh --ignore-release-age";
+      "axm update @acme-enterprise/knowledge/effect-v4 --reinstall --ignore-release-age";
     const withCommand: Doc = [
       {
         _tag: "ledger",

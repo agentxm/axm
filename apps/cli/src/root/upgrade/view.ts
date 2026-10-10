@@ -1,6 +1,6 @@
 /**
  * The human view of an upgrade assessment. Every fact it shows is read from
- * the typed `axm.upgrade-assessment/v1` result; the wording is the CLI's.
+ * the typed `upgrade-assessment-v1` result; the wording is the CLI's.
  */
 
 import type { VerbosityLevel } from "../../cli-flags/index.js";

@@ -559,7 +559,7 @@ describe("Marketplace package installation", () => {
             if (journey === "restore") {
               fs.rmSync(packageRoot, { recursive: true });
               yield* world.workspace.provide(
-                applySync({ target: Option.none(), type: Option.some("skill") }),
+                applySync({ target: Option.none(), types: ["skill"] }),
               );
               expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
             } else {
@@ -814,7 +814,7 @@ describe("Shared package failure atomicity", () => {
               const preview = yield* UpdateExtensions.previewOrApply(
                 candidate,
                 previewPlanExecution,
-              );
+              ).pipe(Effect.map((result) => result.resolution));
               expect(preview.blocking).toBeUndefined();
               expect(world.workspace.snapshot()).toEqual(before);
               if (failure === "stale") {
@@ -826,7 +826,7 @@ describe("Shared package failure atomicity", () => {
                 const result = yield* UpdateExtensions.previewOrApply(
                   candidate,
                   preapprovedPlanExecution,
-                );
+                ).pipe(Effect.map((result) => result.resolution));
                 expect(result.blocking?.class).toBe("stale-candidate");
                 expect(world.workspace.snapshot()).toEqual(changed);
                 return;
@@ -836,22 +836,35 @@ describe("Shared package failure atomicity", () => {
               const result = yield* UpdateExtensions.previewOrApply(
                 candidate,
                 preapprovedPlanExecution,
-              ).pipe(
-                Effect.provideService(SourceHostProviders, {
-                  ...sources,
-                  acquireForTransition: (ref) =>
-                    failure === "acquisition"
-                      ? Ref.set(injected, true).pipe(
-                          Effect.andThen(
-                            Effect.fail(
-                              new SourceNetworkFailure({ detail: "Injected acquisition failure" }),
+              )
+                .pipe(Effect.map((result) => result.resolution))
+                .pipe(
+                  Effect.provideService(SourceHostProviders, {
+                    ...sources,
+                    acquireForTransition: (ref) =>
+                      failure === "acquisition"
+                        ? Ref.set(injected, true).pipe(
+                            Effect.andThen(
+                              Effect.fail(
+                                new SourceNetworkFailure({
+                                  detail: "Injected acquisition failure",
+                                }),
+                              ),
                             ),
-                          ),
-                        )
-                      : sources.acquireForTransition(ref),
-                }),
-              );
-              expect(yield* Ref.get(injected)).toBe(true);
+                          )
+                        : sources.acquireForTransition(ref),
+                  }),
+                );
+              expect(
+                yield* Ref.get(injected),
+                JSON.stringify(
+                  result.units.map(({ state, disposition, error }) => ({
+                    state,
+                    disposition,
+                    error,
+                  })),
+                ),
+              ).toBe(true);
               expect(
                 result.units.some((unit) => unit.state === "failed"),
                 JSON.stringify(result),

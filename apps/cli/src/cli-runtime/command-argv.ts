@@ -1,3 +1,4 @@
+import { withParameterRecords } from "../cli-parameters.js";
 import * as ServiceMap from "effect/Context";
 import { Command } from "effect/cli";
 
@@ -48,7 +49,7 @@ export const withArgvTracking =
     Command.provideSync(CommandArgv, (input: Input) => ({
       value: input,
       paramKinds: extractParamKinds(config),
-    }))(self);
+    }))(self).pipe(withParameterRecords(config));
 
 // ---------------------------------------------------------------------------
 // Serialization

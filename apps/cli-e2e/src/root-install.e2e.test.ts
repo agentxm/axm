@@ -103,9 +103,6 @@ interface JsonCommandResult {
 const settingsKeyForSurface = (surface: InstallSurface): SettingsKey =>
   surface === "mcps" ? "mcpServers" : surface;
 
-const hasAggregateProjection = (surface: InstallSurface): boolean =>
-  surface === "rules" || surface === "hooks" || surface === "knowledge" || surface === "packs";
-
 const registryFqn = (surface: InstallSurface, name: string) => `${OWNER}/${surface}/${name}`;
 
 const extensionDirForSurface = (workspacePath: string, surface: InstallSurface, name: string) =>
@@ -874,7 +871,7 @@ describe("axm install", () => {
 
       const settingsBefore = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
       const lockBefore = fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8");
-      const preview = await runJsonCommand(workspace.path, ["migrate"], [source, "--dry-run"]);
+      const preview = await runJsonCommand(workspace.path, ["migrate"], [source, "--preview"]);
       expect(preview.stdout.result.outcome).toBe("previewed");
       expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(settingsBefore);
       expect(fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
@@ -896,7 +893,7 @@ describe("axm install", () => {
   });
 
   it.each(installCases)(
-    "C-01: installs all configured $label entries for no-arg $plural install",
+    "requires an explicit source for $plural install and preserves configured state",
     async (row) => {
       const surface = row.plural;
       const publishToRegistry = publisherFor(row);
@@ -924,24 +921,16 @@ describe("axm install", () => {
           ),
         });
 
-        const result = await runJsonCommand(workspace.path, [surface, "install"]);
-
-        const expectedTotal = hasAggregateProjection(surface) ? 3 : 2;
-        // These Packs have no members; their aggregate projection is already current.
-        const expectedCommitted = surface === "packs" ? 2 : expectedTotal;
-        expect(result.stdout.result.outcome).toBe("applied");
-        expect(result.stdout.result.counts.committed).toBe(expectedCommitted);
-        expect(result.stdout.result.counts.total).toBe(expectedTotal);
-        expect(result.stdout.result.counts.unchanged).toBe(expectedTotal - expectedCommitted);
+        const before = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
+        const result = await runCli([surface, "install", "--json", "--non-interactive"], {
+          cwd: workspace.path,
+        });
+        expect(result.exitCode).toBe(2);
+        expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "usage" });
+        expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(before);
         for (const name of names) {
-          expect(
-            result.stdout.result.units.some(
-              (unit) => unit.state === "committed" && unit.label.includes(name),
-            ),
-            `committed unit reported for ${name}`,
-          ).toBe(true);
+          expect(fs.existsSync(extensionDirForSurface(workspace.path, surface, name))).toBe(false);
         }
-        expectConfiguredEntriesInstalled(workspace.path, surface, names);
       } finally {
         registryDir.cleanup();
         workspace.cleanup();
@@ -949,73 +938,25 @@ describe("axm install", () => {
     },
   );
 
-  it("installs configured extensions across types for no-arg root install", async () => {
-    const registryDir = createTempDir("axm-registry-");
+  it("requires an explicit source for root install and preserves configured state", async () => {
     const workspace = createTempDir();
-
     try {
-      await publishSkillToRegistry(registryDir.path, "workspace-skill");
-      await publishSubagentToRegistry(registryDir.path, "workspace-subagent");
-      await publishMcpServerToRegistry(registryDir.path, "workspace-mcp");
-      await publishScaffoldedToRegistry("rules")(registryDir.path, "workspace-rule");
-      await publishMcpServerToRegistry(registryDir.path, "pack-mcp");
-      await publishPackToRegistry(registryDir.path, "workspace-pack", {
-        dependencies: {
-          [registryFqn("skills", "workspace-skill")]: "*",
-          [registryFqn("mcps", "pack-mcp")]: "*",
-        },
-      });
-
-      await initWorkspace(workspace.path, registryDir.path);
-      configureWorkspaceEntries(workspace.path, {
-        skills: { "workspace-skill": registryFqn("skills", "workspace-skill") },
-        subagents: { "workspace-subagent": registryFqn("subagents", "workspace-subagent") },
-        mcpServers: { "workspace-mcp": { source: registryFqn("mcps", "workspace-mcp") } },
-        rules: { "workspace-rule": registryFqn("rules", "workspace-rule") },
-        packs: { "workspace-pack": registryFqn("packs", "workspace-pack") },
-      });
-
-      const result = await runJsonCommand(workspace.path, ["install"]);
-      const labels = result.stdout.result.units.map((unit) => unit.label);
-
-      expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.counts.committed).toBe(5);
-      expect(labels.filter((label) => label.includes("workspace-skill"))).toHaveLength(1);
-      expect(result.stdout.result.units).toContainEqual(
-        expect.objectContaining({
-          artifact: expect.objectContaining({
-            nativeLocations: expect.arrayContaining([
-              expect.objectContaining({
-                address: {
-                  kind: "key-path",
-                  path: path.join(workspace.path, ".mcp.json"),
-                  keys: ["mcpServers", "pack-mcp"],
-                },
-                state: "created",
-              }),
-            ]),
-          }),
+      fs.writeFileSync(
+        path.join(workspace.path, "axm.json"),
+        JSON.stringify({
+          agents: [],
+          skills: { review: "@test/skills/review" },
         }),
       );
-
-      expectConfiguredEntriesInstalled(workspace.path, "skills", ["workspace-skill"]);
-      expectConfiguredEntriesInstalled(workspace.path, "subagents", ["workspace-subagent"]);
-      expectConfiguredEntriesInstalled(workspace.path, "mcps", ["workspace-mcp"]);
-      expectConfiguredEntriesInstalled(workspace.path, "rules", ["workspace-rule"]);
-      expectConfiguredEntriesInstalled(workspace.path, "packs", ["workspace-pack"]);
-
-      const settings = readSettings(workspace.path);
-      const lockfile = readLockfile(workspace.path);
-      expect(settings.mcpServers?.["pack-mcp"]).toMatchObject({
-        distribution: { kind: "package" },
+      const before = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
+      const result = await runCli(["install", "--json", "--non-interactive"], {
+        cwd: workspace.path,
       });
-      expect(settings.mcpServers?.["pack-mcp"]).not.toHaveProperty("source");
-      expect(Object.values(lockfile.mcpServers ?? {})).toContainEqual(
-        expect.objectContaining({ identity: expect.objectContaining({ name: "pack-mcp" }) }),
-      );
-      expect(fs.existsSync(extensionDirForSurface(workspace.path, "mcps", "pack-mcp"))).toBe(true);
+      expect(result.exitCode).toBe(2);
+      expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "usage" });
+      expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(before);
+      expect(fs.existsSync(path.join(workspace.path, "axm-lock.yaml"))).toBe(false);
     } finally {
-      registryDir.cleanup();
       workspace.cleanup();
     }
   });
@@ -1051,7 +992,7 @@ describe("axm install", () => {
     }
   });
 
-  it("keeps same-name configured installs across extension types", async () => {
+  it("keeps same-name explicit installs across extension types", async () => {
     const registryDir = createTempDir("axm-registry-");
     const workspace = createTempDir();
 
@@ -1065,11 +1006,14 @@ describe("axm install", () => {
         rules: { "shared-name": registryFqn("rules", "shared-name") },
       });
 
-      const result = await runJsonCommand(workspace.path, ["install"]);
-
-      expect(result.stdout.result.outcome).toBe("applied");
-      expect(result.stdout.result.counts.committed).toBe(3);
-      expect(result.stdout.result.counts.total).toBe(3);
+      for (const surface of ["skills", "rules"] as const) {
+        const result = await runJsonCommand(
+          workspace.path,
+          ["install"],
+          [registryFqn(surface, "shared-name")],
+        );
+        expect(result.stdout.result.outcome).toBe("applied");
+      }
       expectConfiguredEntriesInstalled(workspace.path, "skills", ["shared-name"]);
       expectConfiguredEntriesInstalled(workspace.path, "rules", ["shared-name"]);
     } finally {

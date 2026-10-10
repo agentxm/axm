@@ -34,7 +34,7 @@ export const specification = defineSpecification({
 });
 
 describe("Conditional extension unarchive", () => {
-  const before = { archivedAt: "2026-09-19T00:00:00.000Z", reason: "No longer maintained" };
+  const before = { archivedAt: "2026-09-19T00:00:00.000Z", message: "No longer maintained" };
   const transition = {
     target: registryTarget,
     before,

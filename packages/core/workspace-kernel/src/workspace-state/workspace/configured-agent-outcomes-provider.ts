@@ -14,9 +14,10 @@ import * as ServiceMap from "effect/Context";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
-import type { ConfiguredAgentOutcome, OperationErrorCategory } from "../../operations/index.js";
+import type { ConfiguredAgentOutcome, ErrorCode } from "../../operations/index.js";
 import type { NativeLocationOutcome } from "../../locations/index.js";
 import type { DesiredStateReaderService } from "./desired-state-reader.js";
+import type { DesiredStateGraph } from "./desired-state-graph.js";
 import type { LockfileReaderService } from "./lockfile-reader.js";
 import type { SettingsReaderService } from "./settings-reader.js";
 import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js";
@@ -29,7 +30,7 @@ import { configuredAgentLifecycleOutcomes } from "./configured-agent-outcomes.js
 export class ConfiguredAgentOutcomesUnavailable extends Data.TaggedError(
   "ConfiguredAgentOutcomesUnavailable",
 )<{
-  readonly category: OperationErrorCategory;
+  readonly category: ErrorCode;
   readonly detail: string;
   readonly suggestions?: ReadonlyArray<SuggestedAction>;
   readonly cause?: unknown;
@@ -67,6 +68,8 @@ export interface WorkspaceReadViewReaders {
 }
 
 export interface ConfiguredAgentOutcomesRequest {
+  /** Complete prepared graph when observing a closure before independent closures settle. */
+  readonly desiredGraph?: DesiredStateGraph;
   /** Stable phase readers, supplied before the native observer composes its owners. */
   readonly readers?: WorkspaceReadViewReaders;
   readonly type: ExtensionType;

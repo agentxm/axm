@@ -222,7 +222,7 @@ describe("axm skills update", () => {
         changeSkillSource(source, "another-skill");
 
         // Update only my-skill
-        const result = await runCli(["skills", "update", "--name", "my-skill"], {
+        const result = await runCli(["skills", "update", "my-skill"], {
           cwd: temp.path,
         });
 

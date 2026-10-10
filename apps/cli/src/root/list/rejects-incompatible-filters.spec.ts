@@ -1,6 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import * as Result from "effect/Result";
 import { makeReadSpecWorkspace } from "../../test-support/read-harness.js";
@@ -27,7 +26,7 @@ describe("List filter validation", () => {
     return workspace.withRegistry(
       Effect.gen(function* () {
         const result = yield* Effect.result(
-          handleList({ type: Option.none(), outdated: true, deprecated: true }),
+          handleList({ types: [], outdated: true, deprecated: true }),
         );
         expect(Result.isFailure(result) && result.failure).toMatchObject({ code: "usage" });
         expect(workspace.requests).toEqual([]);

@@ -33,13 +33,13 @@ connections in their root `mcp.json`. Select the upstream connection name and
 optionally give it a local alias:
 
 ```sh
-axm mcps install ./plugin --mcp context --as work-context --agent claude-code
+axm mcps install ./plugin --mcp-server context --as work-context --agent claude-code
 ```
 
 Use `--preview` first. On first install, repeat `--agent` for each destination;
 existing workspaces retain their configured agents. No Registry account or AXM
 manifest is required. For duplicate names in a repository, select
-`--mcp plugins/review#context` with the exact package path.
+`--mcp-server plugins/review#context` with the exact package path.
 
 AXM retains the complete package unchanged and activates only selected
 connections. Several aliases share the accepted package snapshot; updating one
@@ -95,14 +95,14 @@ which holds the actual transports:
 
 ## Installing and managing
 
-All commands live under `axm mcps` and accept `--scope project` (default) or
-`--scope user`.
+Installed-state commands accept `--scope project` (default) or `--scope user`.
+Package creation and conversion use the project workspace.
 
 - `axm mcps install @owner/mcps/<name>` — install a Registry MCP server.
   Use `--as <local-name>` for another connection to the same package. Select
   one distribution with `--distribution <id>` when the manifest offers several;
-  inspect candidates with `mcps show`. A single candidate can be selected
-  automatically by install. Sync never makes a new selection.
+  a single candidate can be selected automatically by install. Sync never
+  makes a new selection.
 - Bind selected inputs with `--bind environment/REGION=west` for literals or
   `--bind-env environment/API_TOKEN=API_TOKEN` for host environment references.
   Input locations are distinct; use the input identifiers reported by
@@ -114,16 +114,23 @@ All commands live under `axm mcps` and accept `--scope project` (default) or
   selected scope root (project root or user home); omission retains the host default.
 - `axm mcps add service --url https://example.com/mcp --native-oauth` — declare
   Streamable HTTP with native authentication. SSE requires `--transport sse`;
-  the URL suffix never selects transport. Use `--header-env Name=ENV_NAME`
-  for symbolic headers, or `--connection` for canonical connection JSON.
-- `axm mcps import --preview` — inspect native entries, fingerprints,
+  the URL suffix never selects transport. Use `--header NAME=VALUE` for literal
+  headers or `--header-env NAME=ENV_NAME` for symbolic headers. Both split on
+  the first `=`. `--connection` accepts a JSON object with literal, environment-reference, or
+  template values. It excludes `--transport`, `--command`, `--url`, `--arg`,
+  `--cwd`, `--env`, `--header`, and `--header-env`. `--native-oauth` can
+  compose with either connection form, but excludes an Authorization header.
+- `axm mcps adopt --preview` — inspect native entries, fingerprints,
   desired declarations, configured readers, planned writes and blockers.
   Apply records the entire selected batch atomically without stamping native entries. Any selected blocker
   refuses the batch; repeat `--name <entry>` to select an explicit subset.
   Unsupported native fields and literal credentials remain untouched.
-  `--as` explicitly converts an entry into an authored package.
+- `axm mcps import <name> <extension>` — convert one named native MCP server
+  into a project-workspace package, disabled unless `--enable` is supplied.
+  The selected name must resolve to exactly one losslessly representable
+  server. `--preview` describes the conversion without changing any files.
 - `axm mcps update` — advance configured servers to an eligible Registry resolution or
-  the current selected Git/local source. Use `--name <local-name-or-glob>` to select connections,
+  the current selected Git/local source. Pass local names or globs to select connections,
   or `--source @owner/mcps/<name>` to select an exact source. Every selected
   connection that shares a source advances together.
 - `axm mcps list` — show local connection names, sources, accepted resolutions,

@@ -17,7 +17,7 @@ import type { Severity } from "./rule.js";
 export type LintCatalogGroup = ExtensionType | "workspace";
 
 /** Filesystem identity against which a rule can execute. */
-export type LintCatalogView = "workspace" | "git-index";
+export type LintCatalogView = "filesystem" | "git-index";
 
 /** Stable configuration and execution metadata for one lint rule. */
 export interface LintCatalogRuleMetadata {
@@ -28,8 +28,8 @@ export interface LintCatalogRuleMetadata {
   readonly views: ReadonlyArray<LintCatalogView>;
 }
 
-const bothViews = Object.freeze(["workspace", "git-index"] as const);
-const workspaceView = Object.freeze(["workspace"] as const);
+const bothViews = Object.freeze(["filesystem", "git-index"] as const);
+const filesystemView = Object.freeze(["filesystem"] as const);
 
 const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMetadata>>(
   entries: Entries,
@@ -45,8 +45,10 @@ const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMe
     if (entry.views.length === 0 || new Set(entry.views).size !== entry.views.length) {
       throw new Error(`Lint rule '${entry.id}' must declare a non-empty, unique view list`);
     }
-    if (entry.views.includes("git-index") && !entry.views.includes("workspace")) {
-      throw new Error(`Git-index lint rule '${entry.id}' must also run against the workspace view`);
+    if (entry.views.includes("git-index") && !entry.views.includes("filesystem")) {
+      throw new Error(
+        `Git-index lint rule '${entry.id}' must also run against the filesystem view`,
+      );
     }
     ids.add(entry.id);
   }
@@ -58,7 +60,7 @@ const defineLintCatalog = <const Entries extends ReadonlyArray<LintCatalogRuleMe
  *
  * Order is the public reporting order: extension catalogs first, then
  * workspace rules. A rule listed for `git-index` must also be listed for the
- * live `workspace` view.
+ * live `filesystem` view.
  */
 export const lintCatalogRuleMetadata = defineLintCatalog([
   { id: "skill/skill-md-present", defaultSeverity: "error", group: "skill", views: bothViews },
@@ -520,13 +522,13 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     id: "workspace/agents-detected-declared",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/agents-projections-stale",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/instructions-source-present",
@@ -538,19 +540,19 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     id: "workspace/instructions-target-current",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/instructions-target-unowned",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/instructions-target-stale",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/instructions-agent-supported",
@@ -568,61 +570,61 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     id: "workspace/projection-ownership-valid",
     defaultSeverity: "error",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/projection-contributors-rendered",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/managed-file-unowned",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/installed-but-not-configured",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/deprecated-installed",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/authored-package-declared",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/install-root-entries-recognized",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/project-outputs-not-shadowed",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/user-outputs-have-settings",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/agent-content-has-settings",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/skills-declarations-valid",
@@ -670,7 +672,7 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     id: "workspace/mcps-agent-drift",
     defaultSeverity: "warning",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/skills-lockfile-aligned",
@@ -688,7 +690,7 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     id: "workspace/skills-artifacts-correct",
     defaultSeverity: "error",
     group: "workspace",
-    views: workspaceView,
+    views: filesystemView,
   },
   {
     id: "workspace/packs-dependencies-resolved",

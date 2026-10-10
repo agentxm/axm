@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/list/reports-the-cross-type-inventory",
   title: "List reports the current inventory across extension types",
   statement:
-    "When listing extensions, AXM shall report the current local inventory across all extension types or only the explicitly selected type, including configured extensions that are disabled or missing.",
+    "When listing extensions, AXM shall report the current local inventory across all extension types or the union of explicitly selected types without duplicates, including configured extensions that are disabled or missing.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -57,7 +57,7 @@ describe("Cross-type local inventory", () => {
                 }),
               ]),
             );
-            const skills = yield* ListExtensions.query({ type: "skill", filter: "all" });
+            const skills = yield* ListExtensions.query({ types: ["skill"], filter: "all" });
             expect(skills.document).toMatchObject({
               count: 1,
               items: [{ type: "skill", name: "review" }],
@@ -102,6 +102,15 @@ describe("Cross-type local inventory", () => {
           expect(all.document.items.map((item) => item.type).sort()).toEqual(
             expected.map((item) => item.type).sort(),
           );
+          const selectedTypes = yield* ListExtensions.query({
+            types: ["skill", "hook", "skill"],
+            filter: "all",
+          });
+          expect(selectedTypes.document.count).toBe(2);
+          expect(selectedTypes.document.items.map((item) => item.type).sort()).toEqual([
+            "hook",
+            "skill",
+          ]);
           for (const row of expected) {
             expect(all.document.items.find((item) => item.type === row.type)).toMatchObject({
               ...row,
@@ -109,7 +118,7 @@ describe("Cross-type local inventory", () => {
               management: "configured",
               installed: false,
             });
-            const selected = yield* ListExtensions.query({ type: row.type, filter: "all" });
+            const selected = yield* ListExtensions.query({ types: [row.type], filter: "all" });
             expect(selected.document.count).toBe(1);
             expect(selected.document.items).toEqual([
               expect.objectContaining({

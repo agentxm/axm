@@ -36,7 +36,7 @@ import {
   expectRecord,
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleActivation } from "../activation-handler.js";
+import { handleDisable, handleEnable } from "../activation-handler.js";
 import { buildAggregateProjectionStep } from "@agentxm/workspace-kernel/reconciliation";
 import { WorkspaceFailureConversionLive } from "../../app-error/failure-catalog.js";
 
@@ -233,9 +233,8 @@ describe("packs activation", () => {
       const { provide, rendererState } = makeLayers();
 
       yield* provide(
-        handleActivation("pack", {
+        handleDisable("pack", {
           name: "toolkit",
-          enabled: false,
           preview: true,
         }),
       );
@@ -257,9 +256,8 @@ describe("packs activation", () => {
       const first = makeLayers();
 
       yield* first.provide(
-        handleActivation("pack", {
+        handleDisable("pack", {
           name: "toolkit",
-          enabled: false,
           preview: false,
         }),
       );
@@ -273,9 +271,8 @@ describe("packs activation", () => {
 
       const second = makeLayers();
       yield* second.provide(
-        handleActivation("pack", {
+        handleDisable("pack", {
           name: "toolkit",
-          enabled: false,
           preview: false,
         }),
       );
@@ -286,9 +283,8 @@ describe("packs activation", () => {
 
       const third = makeLayers();
       yield* third.provide(
-        handleActivation("pack", {
+        handleEnable("pack", {
           name: "toolkit",
-          enabled: true,
           preview: false,
         }),
       );
@@ -304,9 +300,8 @@ describe("packs activation", () => {
       const disable = makeLayers();
 
       yield* disable.provide(
-        handleActivation("pack", {
+        handleDisable("pack", {
           name: "toolkit",
-          enabled: false,
           preview: false,
         }),
       );

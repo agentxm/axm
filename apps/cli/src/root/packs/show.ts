@@ -1,6 +1,7 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   emitResult,
@@ -16,12 +17,15 @@ import {
   type PackShowResult,
 } from "@agentxm/workspace-features/inspection";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { agentFlag } from "../../cli-flags/agent-flag.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { packInspectionRefusedToAppError } from "../inspection-errors.js";
 
-type ShowRow = Omit<PackShowResult, "desiredDependencies"> & { readonly desiredCount: number };
+type ShowRow = Omit<PackShowResult, "desiredDependencies" | "agentOutcomes"> & {
+  readonly desiredCount: number;
+};
 
 const showFields: ReadonlyArray<ViewField<ShowRow>> = [
   { label: "Scope", value: (row) => row.scope },
@@ -44,10 +48,13 @@ const memberColumns: ReadonlyArray<ViewColumn<PackShowResult["desiredDependencie
   { header: "Reachability", value: (row) => row.reachability ?? "not established" },
 ];
 
-export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: string) {
+export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (
+  target: string,
+  agents: ReadonlyArray<string> = [],
+) {
   const result = yield* withLiveOperation(
-    { command: "packs.show", name: "Inspect pack", mode: "preview" },
-    Effect.catchTag(ShowPack.query({ target }), "PackInspectionRefused", (failure) =>
+    { command: "packs.show", name: "Inspect pack", mode: "query" },
+    Effect.catchTag(ShowPack.query({ target, agents }), "PackInspectionRefused", (failure) =>
       Effect.fail(packInspectionRefusedToAppError(failure)),
     ),
   );
@@ -68,18 +75,28 @@ export const handlePacksShow = Effect.fn("PacksShow.handle")(function* (target: 
       showFields,
     ),
     ...tableDoc(result.desiredDependencies, memberColumns),
+    ...tableDoc(result.agentOutcomes, [
+      { header: "Agent", value: (row) => row.agentId },
+      { header: "Status", value: (row) => row.outcome },
+      { header: "Detail", value: (row) => row.reason },
+    ]),
   ]);
 });
 
 const showConfig = {
-  target: Argument.String("extension").pipe(
-    Argument.withDescription("Configured pack name or fully qualified identity"),
+  target: Argument.String("name").pipe(
+    withParameterDescription("Configured pack name or unique configured pack FQN"),
   ),
-  scope: scopeFlag.pipe(Flag.withDescription("Inspect project (default) or user-level pack state")),
+  scope: scopeFlag,
+  agent: agentFlag.pipe(
+    withParameterDescription(
+      "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+    ),
+  ),
 } as const;
 
-export const showCommand = Command.make("show", showConfig, ({ target, scope }) =>
-  handlePacksShow(target).pipe(withWorkspace(scope), withRuntime("packs show")),
+export const showCommand = Command.make("show", showConfig, ({ target, scope, agent }) =>
+  handlePacksShow(target, agent).pipe(withWorkspace(scope), withRuntime("packs show")),
 ).pipe(
   withArgvTracking(showConfig),
   withCommandCapabilities(readOnlyCapabilities()),

@@ -1,32 +1,6 @@
-import { AuthClientTest, DeviceLoginInteractionTest } from "@agentxm/registry-access/testing";
-/**
- * Publish fixtures for CLI specifications.
- *
- * Builds on `makeSpecWorkspace`: workspace-authored extension sources, a
- * file-based target registry whose uploads are directly observable on disk,
- * and the auth interaction layers the publish handler requires. The spec
- * workspace's default HttpClient fails every request, so a passing publish
- * specification is simultaneously evidence that the exercised path never
- * touched the network.
- */
-
+/** Workspace-authored publication fixtures shared by CLI tests. */
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
-
-import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
-import * as Effect from "effect/Effect";
-
-import {
-  GitDirectoryComparison,
-  type GitDirectoryComparisonService,
-} from "@agentxm/workspace-kernel/sources";
-import { type handleRootPublish } from "../root/publish/command.js";
-
-import type { makeSpecWorkspace } from "./install-harness.js";
-
-export type RootPublishArgs = Parameters<typeof handleRootPublish>[0];
 
 export interface AuthoredSkillFixture {
   readonly name: string;
@@ -276,70 +250,6 @@ export const writeAuthoredPack = (workspaceRoot: string, fixture: AuthoredPackFi
     )}\n`,
   );
 };
-
-export interface FileRegistry {
-  /** `file://` URL for `--registry-url`. */
-  readonly url: string;
-  /** Every file the registry holds, relative to its root, sorted. */
-  readonly storedFiles: () => readonly string[];
-}
-
-/**
- * Creates an empty file-based registry inside the workspace. Every upload a
- * publish performs lands as a file below the registry root, so an empty
- * `storedFiles()` after a command proves nothing was distributed.
- */
-export const makeFileRegistry = (workspaceRoot: string): FileRegistry => {
-  const registryRoot = path.join(workspaceRoot, "registry");
-  fs.mkdirSync(registryRoot, { recursive: true });
-  const walk = (directory: string): string[] =>
-    fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
-      const entryPath = path.join(directory, entry.name);
-      return entry.isDirectory()
-        ? walk(entryPath)
-        : [path.relative(registryRoot, entryPath).split(path.sep).join("/")];
-    });
-  return {
-    url: pathToFileURL(registryRoot).href,
-    storedFiles: () => walk(registryRoot).sort(),
-  };
-};
-
-/**
- * The publish handler statically requires the auth client and device-login
- * interaction even for a local registry target; provide inert test layers on
- * top of the spec workspace layer.
- */
-export const makePublishLayer = (
-  workspace: Pick<ReturnType<typeof makeSpecWorkspace>, "layer">,
-  compare: GitDirectoryComparisonService["compare"] = () => Effect.succeed(Option.none()),
-) =>
-  Layer.mergeAll(
-    workspace.layer,
-    AuthClientTest(),
-    DeviceLoginInteractionTest().layer,
-    Layer.succeed(GitDirectoryComparison, { compare }),
-  );
-
-/** Root publish handler args with non-interactive defaults for specifications. */
-export const publishArgs = (
-  registryUrl: string,
-  overrides?: Partial<RootPublishArgs>,
-): RootPublishArgs => ({
-  selectors: [],
-  owners: [],
-  types: [],
-  excludes: [],
-  registry: Option.none(),
-  registryUrl: Option.some(registryUrl),
-  backfill: false,
-  acceptWarnings: false,
-  preview: true,
-  scope: "project",
-  visibility: Option.none(),
-  includeDependencies: false,
-  ...overrides,
-});
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

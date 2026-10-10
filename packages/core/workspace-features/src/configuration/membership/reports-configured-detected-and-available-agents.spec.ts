@@ -6,7 +6,7 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach } from "vitest";
 
-import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agents/types";
+import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities";
 
 import { listConfiguredAgents } from "./configure-agents.js";
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/agents/list/reports-configured-detected-and-available-agents",
   title: "Agent inventory distinguishes configuration from detection",
   statement:
-    "When a person lists coding agents, AXM shall distinguish configured membership from detected installations, identify their catalog lifecycle, show their union by default, and restrict the results to detected agents or include every configurable agent when the respective selection is requested.",
+    "When a person lists coding agents, AXM shall distinguish configured membership from detected installations, identify their catalog lifecycle using the published lifecycle vocabulary, report instruction health from the shared instruction-status vocabulary or manual management for configured agents and null for unconfigured agents, show their union by default, and restrict the results to detected agents or include every catalog agent and distinguish configurable from hosted agents when the respective selection is requested.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -62,17 +62,30 @@ describe("Agent inventory selection", () => {
                 ? ["claude-code", "cursor"]
                 : selection === "detected"
                   ? ["cursor"]
-                  : [...CONFIGURABLE_AGENT_IDS];
+                  : [...AGENT_IDS];
             expect(inventory.items.map((item) => item.id).sort()).toEqual(expected.sort());
             expect(inventory.count).toBe(expected.length);
+            if (selection === "available") {
+              expect(inventory.items.find((item) => item.id === "chatgpt")).toMatchObject({
+                kind: "hosted",
+                configured: false,
+                detected: false,
+                instructions: null,
+              });
+              expect(inventory.items.find((item) => item.id === "codex")).toMatchObject({
+                kind: "configurable",
+              });
+            }
             expect(inventory.items.find((item) => item.id === "cursor")).toMatchObject({
               configured: false,
               detected: true,
+              instructions: null,
             });
             if (selection !== "detected")
               expect(inventory.items.find((item) => item.id === "claude-code")).toMatchObject({
                 configured: true,
                 detected: false,
+                instructions: "manual",
               });
             expect(fixture.snapshot()).toEqual(before);
           }),

@@ -3,14 +3,23 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { makeInspectionFixture } from "./testing.js";
-import { listSkills, listSubagents, type TypeListRow } from "./index.js";
+import { AUTHORING_TYPES, makeAuthoredExtensionFixture, makeInspectionFixture } from "./testing.js";
+import {
+  ListKnowledge,
+  listMcpServers,
+  listRules,
+  listHooks,
+  listPacks,
+  listSkills,
+  listSubagents,
+  type TypeListRow,
+} from "./index.js";
 
 export const specification = defineSpecification({
   requirement: "cli/type-list-agent-filters-match-any-selected-agent",
   title: "Agent filters match any selected agent",
   statement:
-    "When filtering skill or subagent inventories by agents, AXM shall include entries observed by any selected agent and exclude entries observed by none of them.",
+    "When filtering any typed inventory by agents, AXM shall include entries observed by or configured for any selected agent and exclude entries associated with none of them.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -60,6 +69,50 @@ describe("Agent-selected inventories", () => {
             const none = yield* read(["not-an-observed-agent"]);
             expect(none.rows).toEqual([]);
             expect(none.inventory.count).toBe(0);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+    });
+});
+
+describe("Every typed inventory filters configured consumers", () => {
+  for (const type of AUTHORING_TYPES)
+    it.effect(type, () => {
+      const fixture = makeAuthoredExtensionFixture(type);
+      const read = (agents: ReadonlyArray<string>) => {
+        switch (type) {
+          case "skill":
+            return listSkills({ agents });
+          case "subagent":
+            return listSubagents({ agents });
+          case "rule":
+            return listRules({ agents });
+          case "hook":
+            return listHooks({ agents });
+          case "pack":
+            return listPacks({ agents });
+          case "mcp-server":
+            return listMcpServers({ agents });
+          case "knowledge":
+            return ListKnowledge.query({ agents });
+        }
+      };
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            const before = fixture.snapshot();
+            expect((yield* read([])).rows.map((row) => row.name)).toEqual(["example"]);
+            expect((yield* read(["claude-code"])).rows.map((row) => row.name)).toEqual(["example"]);
+            expect((yield* read(["codex", "claude-code"])).rows.map((row) => row.name)).toEqual([
+              "example",
+            ]);
+            const excluded = yield* read(["codex"]);
+            expect(excluded.rows).toEqual([]);
+            expect(
+              "inventory" in excluded ? excluded.inventory.count : excluded.document.count,
+            ).toBe(0);
+            expect(fixture.requests).toEqual([]);
+            expect(fixture.snapshot()).toEqual(before);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));

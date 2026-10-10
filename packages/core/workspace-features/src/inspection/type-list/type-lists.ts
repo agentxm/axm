@@ -38,9 +38,10 @@ import {
 import {
   mcpServerListRows,
   type McpServerListRow,
-  type McpServerMachineSource,
   type McpServerResolution,
 } from "./mcp-servers.js";
+import { buildInventoryDocument, type ExtensionInventoryDocument } from "../inventory-document.js";
+import { mcpServerListDocument, type McpServerListQueryResult } from "./mcp-servers.js";
 import type { TypeListRow } from "./type-list-row.js";
 
 export interface SkillListRow extends TypeListRow {
@@ -59,11 +60,19 @@ export interface PackListRow extends TypeListRow {
   readonly source: string;
 }
 
-export interface TypeListResult<Row> {
+export interface TypeListResult<Row, Document = ExtensionInventoryDocument> {
+  readonly document: Document;
   /** The inventory document, with each row carrying the derived facts. */
   readonly inventory: ExtensionInventory;
   readonly rows: ReadonlyArray<Row>;
 }
+
+const withListDocument = Effect.fn("Inspection.withListDocument")(function* <Row>(result: {
+  readonly inventory: ExtensionInventory;
+  readonly rows: ReadonlyArray<Row>;
+}) {
+  return { ...result, document: yield* buildInventoryDocument(result.inventory) };
+});
 
 type InventoryRowAugmentation = Partial<
   Pick<
@@ -114,12 +123,12 @@ export const listSkills = Effect.fn("Inspection.listSkills")(function* (request:
     ...baseRow(row),
     sourceType: locked[row.name]?.source.type ?? "detected",
   }));
-  return {
+  return yield* withListDocument({
     inventory: augment(inventory, (row) => ({
       sourceType: locked[row.name]?.source.type ?? "detected",
     })),
     rows,
-  } satisfies TypeListResult<SkillListRow>;
+  });
 }, withInspectionReadView);
 
 /** Subagents: an empty agent list means every configured agent receives it. */
@@ -127,17 +136,14 @@ export const listSubagents = Effect.fn("Inspection.listSubagents")(function* (re
   readonly agents?: ReadonlyArray<string>;
 }) {
   const inventory = yield* inventoryFor("subagent", request.agents ?? []);
-  return {
-    inventory,
-    rows: inventory.items.map(baseRow),
-  } satisfies TypeListResult<TypeListRow>;
+  return yield* withListDocument({ inventory, rows: inventory.items.map(baseRow) });
 }, withInspectionReadView);
 
 const sourcedRows = (
   inventory: ExtensionInventory,
   configured: Readonly<Record<string, { readonly source?: string | undefined } | undefined>>,
   locked: Readonly<Record<string, unknown>>,
-): TypeListResult<SourcedListRow> => {
+) => {
   const rows = inventory.items.map((row): SourcedListRow => ({
     ...baseRow(row),
     source: configured[row.name]?.source ?? row.origins.join(", "),
@@ -156,33 +162,39 @@ const sourcedRows = (
   };
 };
 
-export const listRules = Effect.fn("Inspection.listRules")(function* () {
+export const listRules = Effect.fn("Inspection.listRules")(function* (request: {
+  readonly agents?: ReadonlyArray<string>;
+}) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("rule", []);
+  const inventory = yield* inventoryFor("rule", request.agents ?? []);
   const configured = yield* settings.entries("rule");
   const locked = yield* lockfile.entries("rule");
-  return sourcedRows(inventory, configured, locked);
+  return yield* withListDocument(sourcedRows(inventory, configured, locked));
 }, withInspectionReadView);
 
 /** Hooks consume the resolved per-agent outcomes carried by inventory rows. */
-export const listHooks = Effect.fn("Inspection.listHooks")(function* () {
+export const listHooks = Effect.fn("Inspection.listHooks")(function* (request: {
+  readonly agents?: ReadonlyArray<string>;
+}) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("hook", []);
+  const inventory = yield* inventoryFor("hook", request.agents ?? []);
   const configured = yield* settings.entries("hook");
   const locked = yield* lockfile.entries("hook");
-  return sourcedRows(inventory, configured, locked);
+  return yield* withListDocument(sourcedRows(inventory, configured, locked));
 }, withInspectionReadView);
 
 /**
  * Packs: the owner comes from the accepted entry, then the source-qualified
  * registry locator, then the fully qualified name a workspace locator carries.
  */
-export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
+export const listPacks = Effect.fn("Inspection.listPacks")(function* (request: {
+  readonly agents?: ReadonlyArray<string>;
+}) {
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
-  const inventory = yield* inventoryFor("pack", []);
+  const inventory = yield* inventoryFor("pack", request.agents ?? []);
   const configured = yield* settings.entries("pack");
   const packs = yield* lockfile.entries("pack");
   const rows = inventory.items.map((row): PackListRow => {
@@ -200,7 +212,7 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
     };
   });
   const byName = new Map(rows.map((row) => [row.name, row]));
-  return {
+  return yield* withListDocument({
     inventory: augment(inventory, (row) => {
       const derived = byName.get(row.name);
       return {
@@ -210,7 +222,7 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
       };
     }),
     rows,
-  } satisfies TypeListResult<PackListRow>;
+  });
 }, withInspectionReadView);
 
 /** MCP servers: the inventory join plus the projection's per-agent drift facts. */
@@ -218,8 +230,10 @@ export const listPacks = Effect.fn("Inspection.listPacks")(function* () {
 // configuration, so its failures include the projection family. Naming that
 // family here keeps the published signature referring to the package this one
 // depends on rather than expanding into the vocabulary it aggregates.
-export const listMcpServers: () => Effect.Effect<
-  TypeListResult<McpServerListRow>,
+export const listMcpServers: (request: {
+  readonly agents?: ReadonlyArray<string>;
+}) => Effect.Effect<
+  TypeListResult<McpServerListRow, McpServerListQueryResult>,
   WorkspaceStateReadFailure | McpInspectionError,
   | FileSystem.FileSystem
   | Path.Path
@@ -228,12 +242,14 @@ export const listMcpServers: () => Effect.Effect<
   | SettingsReader
   | DesiredStateReader
   | WorkspaceLocation
-> = Effect.fn("Inspection.listMcpServers")(function* () {
+> = Effect.fn("Inspection.listMcpServers")(function* (request: {
+  readonly agents?: ReadonlyArray<string>;
+}) {
   const location = yield* WorkspaceLocation;
   const settings = yield* SettingsReader;
   const lockfile = yield* LockfileReader;
   const desiredState = yield* DesiredStateReader;
-  const inventory = yield* inventoryFor("mcp-server", []);
+  const inventory = yield* inventoryFor("mcp-server", request.agents ?? []);
   const configured = yield* settings.entries("mcp-server");
   const configuredAgents = yield* settings.configuredAgents;
   const graph = yield* desiredState.graph();
@@ -272,18 +288,17 @@ export const listMcpServers: () => Effect.Effect<
     { concurrency: 16 },
   );
   const byName = new Map(rows.map((row) => [row.name, row]));
-  return {
-    inventory: augment(inventory, (row) => {
-      const derived = byName.get(row.name);
-      return {
-        version: derived?.version ?? "n/a",
-        transport: derived?.transport ?? "auto",
-        status: derived?.status ?? "n/a",
-        agentOutcomes: derived?.agentOutcomes ?? row.agentOutcomes,
-      };
-    }),
-    rows,
-  } satisfies TypeListResult<McpServerListRow>;
+  const augmented = augment(inventory, (row) => {
+    const derived = byName.get(row.name);
+    return {
+      version: derived?.version ?? "n/a",
+      transport: derived?.transport ?? "auto",
+      status: derived?.status ?? "n/a",
+      agentOutcomes: derived?.agentOutcomes ?? row.agentOutcomes,
+    };
+  });
+  const document = yield* buildInventoryDocument(augmented);
+  return { inventory: augmented, rows, document: mcpServerListDocument({ document, rows }) };
 }, withInspectionReadView);
 
-export type { McpServerListRow, McpServerMachineSource, McpServerResolution };
+export type { McpServerListRow, McpServerResolution };

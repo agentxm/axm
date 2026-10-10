@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../cli-parameters.js";
 /**
  * The shared enable/disable command factory and handler for every installable
  * extension type. Each route settles activation through the lifecycle feature,
@@ -12,9 +13,19 @@
  */
 
 import * as Effect from "effect/Effect";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
-import { SetActivation, type SetActivationRequest } from "@agentxm/workspace-features/lifecycle";
+import {
+  resolveRootActivationIntent,
+  EnableExtension,
+  DisableExtension,
+  type EnableExtensionRequest,
+  type ActivationCandidate,
+  type ActivationUnchanged,
+  type ActivationFailure,
+  type ActivationExecutionFailure,
+} from "@agentxm/workspace-features/lifecycle";
+import { ExtensionFqnSchema } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
@@ -36,11 +47,11 @@ import { withOperationLifecycle } from "../operation-lifecycle.js";
 
 export interface ActivationRequest {
   readonly name: string;
-  readonly enabled: boolean;
   readonly preview: boolean;
 }
 
-interface ActivationCommandArgs extends SetActivationRequest {
+interface ActivationCommandArgs extends EnableExtensionRequest {
+  readonly enabled: boolean;
   readonly preview: boolean;
 }
 
@@ -50,13 +61,23 @@ interface ActivationCommandPresentation {
   /** The command path an approval-recovery hint reprints. */
   readonly commandPath: ReadonlyArray<string>;
   readonly planName: string;
+  readonly recoveryTarget?: string;
   /** What a settled change offers after the type's inspection command. */
   readonly suggestions: ReadonlyArray<SuggestedAction>;
 }
 
-const handleSetActivation = (
+type ActivationPreparer<R> = (
+  request: EnableExtensionRequest,
+) => Effect.Effect<
+  ActivationCandidate | ActivationUnchanged,
+  ActivationFailure | ActivationExecutionFailure,
+  R
+>;
+
+const handleSetActivation = <R>(
   args: ActivationCommandArgs,
   presentation: ActivationCommandPresentation,
+  prepare: ActivationPreparer<R>,
 ) =>
   withOperationLifecycle(
     {
@@ -65,27 +86,42 @@ const handleSetActivation = (
       planName: presentation.planName,
       productActivity: { activity: "configure", activationEligible: args.enabled },
     },
-    handleSetActivationBody(args, presentation),
+    handleSetActivationBody(args, presentation, prepare),
   );
 
-export const handleActivation = (type: InstallableExtensionType, request: ActivationRequest) => {
+const typedPresentation = (
+  type: InstallableExtensionType,
+  request: ActivationRequest,
+  enabled: boolean,
+): ActivationCommandPresentation => {
   const { route, noun } = EXTENSION_TYPE_PRESENTATION[type];
-  const verb = request.enabled ? "enable" : "disable";
-  return handleSetActivation(
-    { type, ...request },
-    {
-      command: `${route}.${verb}`,
-      commandPath: [route, verb],
-      planName: `${request.enabled ? "Enable" : "Disable"} ${noun.singular}`,
-      suggestions: [
-        {
-          description: "Undo",
-          cmd: `axm ${route} ${request.enabled ? "disable" : "enable"} ${request.name}`,
-        },
-      ],
-    },
-  );
+  const verb = enabled ? "enable" : "disable";
+  return {
+    command: `${route}.${verb}`,
+    commandPath: [route, verb],
+    planName: `${enabled ? "Enable" : "Disable"} ${noun.singular}`,
+    suggestions: [
+      {
+        description: "Undo",
+        cmd: `axm ${route} ${enabled ? "disable" : "enable"} ${request.name}`,
+      },
+    ],
+  };
 };
+
+export const handleEnable = (type: InstallableExtensionType, request: ActivationRequest) =>
+  handleSetActivation(
+    { type, ...request, enabled: true },
+    typedPresentation(type, request, true),
+    EnableExtension.prepare,
+  );
+
+export const handleDisable = (type: InstallableExtensionType, request: ActivationRequest) =>
+  handleSetActivation(
+    { type, ...request, enabled: false },
+    typedPresentation(type, request, false),
+    DisableExtension.prepare,
+  );
 
 const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean) => {
   const { route, noun, exampleName } = EXTENSION_TYPE_PRESENTATION[type];
@@ -93,47 +129,131 @@ const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean)
   const verbTitle = enabled ? "Enable" : "Disable";
   const config = {
     name: Argument.String("name").pipe(
-      Argument.withDescription(`Name of the ${noun.singular} to ${verb}`),
+      withParameterDescription(`Name or FQN of the ${noun.singular} to ${verb}`),
     ),
-    scope: scopeFlag.pipe(
-      Flag.withDescription(`${verbTitle} in project (default) or user-level configuration`),
-    ),
-    preview: previewCapabilityFlag(
-      `Show what would change without ${enabled ? "enabling" : "disabling"}`,
-    ),
-    ignoreReleaseAge: ignoreReleaseAgeFlag,
+    scope: scopeFlag,
+    preview: previewCapabilityFlag(),
   } as const;
-  return Command.make(verb, config, ({ name, scope, preview, ignoreReleaseAge }) =>
-    handleActivation(type, { name, enabled, preview }).pipe(
-      withReleaseAgePosture(ignoreReleaseAge),
-      withWorkspace(scope),
-      withRuntime(`${route} ${verb}`),
-    ),
-  ).pipe(
-    withArgvTracking(config),
-    withCommandCapabilities(previewableCapabilities("workspace")),
-    Command.withDescription(
-      enabled
-        ? `Enable a previously disabled ${noun.singular}`
-        : `Disable a ${noun.singular} without uninstalling it`,
-    ),
-    Command.withExamples([
-      {
-        command: `axm ${route} ${verb} ${exampleName}`,
-        description: `${verbTitle} a ${noun.singular}`,
-      },
-      {
-        command: `axm ${route} ${verb} ${exampleName} --preview`,
-        description: `Preview ${verb} effects`,
-      },
-    ]),
-  );
+  const describe = <Name extends string, Input, ContextInput, E, R>(
+    command: Command.Command<Name, Input, ContextInput, E, R>,
+  ) =>
+    command.pipe(
+      withCommandCapabilities(previewableCapabilities("workspace")),
+      Command.withDescription(
+        enabled
+          ? `Enable a previously disabled ${noun.singular}`
+          : `Disable ${noun.article} ${noun.singular} without uninstalling it`,
+      ),
+      Command.withExamples([
+        {
+          command: `axm ${route} ${verb} ${exampleName}`,
+          description: `${verbTitle} ${noun.article} ${noun.singular}`,
+        },
+        {
+          command: `axm ${route} ${verb} ${exampleName} --preview`,
+          description: `Preview ${verb} effects`,
+        },
+      ]),
+    );
+  return enabled
+    ? (() => {
+        const enableConfig = { ...config, ignoreReleaseAge: ignoreReleaseAgeFlag };
+        return Command.make("enable", enableConfig, ({ name, scope, preview, ignoreReleaseAge }) =>
+          handleEnable(type, { name, preview }).pipe(
+            withReleaseAgePosture(ignoreReleaseAge),
+            withWorkspace(scope),
+            withRuntime(`${route} enable`),
+          ),
+        ).pipe(withArgvTracking(enableConfig), describe);
+      })()
+    : Command.make("disable", config, ({ name, scope, preview }) =>
+        handleDisable(type, { name, preview }).pipe(
+          withWorkspace(scope),
+          withRuntime(`${route} disable`),
+        ),
+      ).pipe(withArgvTracking(config), describe);
 };
 
 export const makeActivationCommands = (type: InstallableExtensionType) => ({
   enableCommand: makeActivationCommand(type, true),
   disableCommand: makeActivationCommand(type, false),
 });
+
+const makeRootActivationCommand = (enabled: boolean) => {
+  const verb = enabled ? "enable" : "disable";
+  const title = enabled ? "Enable" : "Disable";
+  const config = {
+    extension: Argument.String("extension").pipe(
+      Argument.withSchema(ExtensionFqnSchema),
+      withParameterDescription("Extension FQN in @owner/<plural-type>/<name> form"),
+    ),
+    scope: scopeFlag,
+    preview: previewCapabilityFlag(),
+  } as const;
+  const runRoot = <R>(extension: string, preview: boolean, prepare: ActivationPreparer<R>) =>
+    resolveRootActivationIntent(extension).pipe(
+      Effect.mapError(failureToAppError),
+      Effect.flatMap(({ type, fqn }) =>
+        handleSetActivation(
+          { type, name: fqn, enabled, preview },
+          {
+            command: verb,
+            commandPath: [verb],
+            recoveryTarget: fqn,
+            planName: `${title} ${EXTENSION_TYPE_PRESENTATION[type].noun.singular}`,
+            suggestions: [
+              { description: "Undo", cmd: `axm ${enabled ? "disable" : "enable"} ${fqn}` },
+            ],
+          },
+          prepare,
+        ),
+      ),
+    );
+  const describe = <Name extends string, Input, ContextInput, E, R>(
+    command: Command.Command<Name, Input, ContextInput, E, R>,
+  ) =>
+    command.pipe(
+      withCommandCapabilities(previewableCapabilities("workspace")),
+      Command.withDescription(
+        enabled
+          ? "Enable a previously disabled extension"
+          : "Disable an extension without uninstalling it",
+      ),
+      Command.withExamples([
+        {
+          command: `axm ${verb} @acme/skills/code-review`,
+          description: `${title} an extension by FQN`,
+        },
+        {
+          command: `axm ${verb} --preview @acme/hooks/session-audit`,
+          description: `Preview ${verb} effects`,
+        },
+      ]),
+    );
+  return enabled
+    ? (() => {
+        const enableConfig = { ...config, ignoreReleaseAge: ignoreReleaseAgeFlag };
+        return Command.make(
+          "enable",
+          enableConfig,
+          ({ extension, scope, preview, ignoreReleaseAge }) =>
+            runRoot(extension, preview, EnableExtension.prepare).pipe(
+              withReleaseAgePosture(ignoreReleaseAge),
+              withWorkspace(scope),
+              withRuntime("enable"),
+            ),
+        ).pipe(withArgvTracking(enableConfig), describe);
+      })()
+    : Command.make("disable", config, ({ extension, scope, preview }) =>
+        runRoot(extension, preview, DisableExtension.prepare).pipe(
+          withWorkspace(scope),
+          withRuntime("disable"),
+        ),
+      ).pipe(withArgvTracking(config), describe);
+};
+
+export const rootEnableCommand = makeRootActivationCommand(true);
+export const rootDisableCommand = makeRootActivationCommand(false);
 
 /**
  * A refusal that found no such subject is answered with the command that
@@ -159,37 +279,38 @@ const withInspection = (error: AppError, inspect: SuggestedAction): AppError =>
       })
     : error;
 
-const handleSetActivationBody = Effect.fn("SetActivation.handle")(function* (
+const handleSetActivationBody = <R>(
   args: ActivationCommandArgs,
   presentation: ActivationCommandPresentation,
-) {
-  const { inspect } = EXTENSION_TYPE_PRESENTATION[args.type];
-  const candidate = yield* SetActivation.prepare({
-    type: args.type,
-    name: args.name,
-    enabled: args.enabled,
-  }).pipe(Effect.mapError((failure) => withInspection(failureToAppError(failure), inspect)));
+  prepare: ActivationPreparer<R>,
+) =>
+  Effect.gen(function* () {
+    const { inspect } = EXTENSION_TYPE_PRESENTATION[args.type];
+    const candidate = yield* prepare({
+      type: args.type,
+      name: args.name,
+    }).pipe(Effect.mapError((failure) => withInspection(failureToAppError(failure), inspect)));
 
-  if (candidate._tag === "Unchanged") {
-    yield* emitNoOpOutcome({
-      planName: presentation.planName,
-      planDescription: `${args.enabled ? "Enable" : "Disable"} ${candidate.name}`,
-      message: candidate.message,
-      suggestions: [inspect],
+    if (candidate._tag === "Unchanged") {
+      yield* emitNoOpOutcome({
+        planName: presentation.planName,
+        planDescription: `${args.enabled ? "Enable" : "Disable"} ${candidate.name}`,
+        message: candidate.message,
+        suggestions: [inspect],
+      });
+      return;
+    }
+
+    const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
+      args,
+      presentation.commandPath,
+      [presentation.recoveryTarget ?? candidate.name],
+    );
+    const resolution = yield* DisableExtension.previewOrApply(candidate, execution).pipe(
+      Effect.mapError(failureToAppError),
+    );
+    yield* emitOperationResolution(resolution, {
+      recovery,
+      suggestions: [inspect, ...presentation.suggestions],
     });
-    return;
-  }
-
-  const { execution, recovery } = yield* makePublicPositionalPlanInvocation(
-    args,
-    presentation.commandPath,
-    [candidate.name],
-  );
-  const resolution = yield* SetActivation.previewOrApply(candidate, execution).pipe(
-    Effect.mapError(failureToAppError),
-  );
-  yield* emitOperationResolution(resolution, {
-    recovery,
-    suggestions: [inspect, ...presentation.suggestions],
   });
-});

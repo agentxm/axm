@@ -55,14 +55,14 @@ it.effect("reuses the native inventory observation for detailed MCP query result
     .provide(
       Effect.gen(function* () {
         reads = 0;
-        yield* ListExtensions.query({ filter: "all", type: "mcp-server" });
+        yield* ListExtensions.query({ filter: "all", types: ["mcp-server"] });
         const inventoryReads = reads;
         expect(inventoryReads).toBeGreaterThan(0);
         reads = 0;
         yield* ShowExtension.query({ type: "mcp-server", name: "context" });
         expect(reads).toBe(inventoryReads);
         reads = 0;
-        yield* listMcpServers();
+        yield* listMcpServers({});
         expect(reads).toBe(inventoryReads);
       }),
     )

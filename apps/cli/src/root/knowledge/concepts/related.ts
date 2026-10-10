@@ -1,3 +1,8 @@
+import {
+  withParameterDefault,
+  withParameterDescription,
+  withParameterRange,
+} from "../../../cli-parameters.js";
 import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -44,7 +49,7 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
     {
       command: "knowledge.concepts.related",
       name: "Inspect related knowledge concepts",
-      mode: "preview",
+      mode: "query",
     },
     Effect.catchTags(
       KnowledgeDiscovery.related({ reference, maximumDepth, includeIndexBacklinks }),
@@ -72,15 +77,19 @@ export const handleKnowledgeConceptRelated = Effect.fn("Knowledge.concepts.relat
 
 const relatedConfig = {
   reference: Argument.String("reference").pipe(
-    Argument.withDescription("Concept reference: @owner/knowledge/name#concept-id"),
+    withParameterDescription(
+      "Reference: @owner/knowledge/name#concept-id or canonical HTTPS concept URL",
+    ),
   ),
   depth: Flag.Int("depth").pipe(
-    Flag.withDescription("Maximum traversal depth (1-3; default 1)"),
-    Flag.optional,
+    withParameterDescription("Maximum traversal depth"),
+    withParameterRange(1, 3),
+    withParameterDefault(1),
+    Flag.map(Option.some),
   ),
   includeIndexBacklinks: Flag.Boolean("include-index-backlinks").pipe(
-    Flag.withDescription("Include backlinks authored by reserved index documents"),
-    Flag.withDefault(false),
+    withParameterDescription("Include backlinks authored by reserved index documents"),
+    withParameterDefault(false),
   ),
   ...scopeConfig,
 } as const;

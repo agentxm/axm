@@ -45,7 +45,9 @@ describe("classifyError — ShowHelp", () => {
     const result = classifyError(showHelp, "text");
 
     expect(result.exitCode).toBe(ExitCode.Usage);
-    expect(result.stderr).toBeUndefined();
+    expect(result.stderr).toHaveLength(1);
+    expect(result.stderr?.[0]).toContain("nonexistent");
+    expect(result.stderrDoc).toBeDefined();
     expect(result.stdout).toBeUndefined();
   });
 
@@ -238,7 +240,6 @@ describe("classifyError — generic errors", () => {
       code: "internal",
       title: "Internal Error",
       detail: "boom",
-      cause: [{ _tag: "Error", message: "boom" }],
     });
     expect(stderrEvents(result.stderr)).toContainEqual({
       type: "error",
@@ -303,7 +304,7 @@ describe("handleError — integration", () => {
 });
 
 describe("classifyError — extension-sources typed failures", () => {
-  it("preserves the producer diagnostic and cause in its JSON envelope", () => {
+  it("preserves the producer cause while keeping internal diagnostics out of its JSON envelope", () => {
     const typed = classifyError(
       new SourceNotResolvable({
         category: "not_found",
@@ -318,10 +319,10 @@ describe("classifyError — extension-sources typed failures", () => {
       ok: false,
       code: "not_found",
       detail: "No skills matched the given pattern",
-      diagnostic: { kind: "source-not-resolvable", operation: "workspace.operation" },
       suggestions: [{ description: "Inspect installed skills.", cmd: "axm skills list" }],
-      cause: [{ _tag: "SourceNotResolvable", message: "No skills matched the given pattern" }],
     });
+    expect(document).not.toHaveProperty("diagnostic");
+    expect(document).not.toHaveProperty("cause");
     expect(stderrEvents(typed.stderr)).toEqual([
       { type: "suggestion", description: "Inspect installed skills.", cmd: "axm skills list" },
       { type: "error", code: "not_found", message: "No skills matched the given pattern" },

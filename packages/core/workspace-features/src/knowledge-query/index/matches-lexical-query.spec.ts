@@ -7,7 +7,7 @@ import { KnowledgeDiscovery } from "../knowledge-discovery.js";
 import { knowledgeDocument, makeKnowledgeFixtureWorkspace } from "../testing.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/knowledge/concepts/search/matches-lexical-query",
+  requirement: "cli/knowledge/concepts/query/matches-lexical-query",
   title: "Search matches the requested lexical expression",
   statement:
     "When searching installed Knowledge, AXM shall match all normalized whole-token terms across searchable fields, contiguous phrases within one field, and exact literals within one field.",
@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
   methods: ["example"],
   derivedFrom: ["apps/cli/help/topics/knowledge.md", "apps/cli-e2e/src/knowledge.e2e.test.ts"],
-  supersedes: [],
+  supersedes: ["cli/knowledge/concepts/search/matches-lexical-query"],
   assumptions: [],
   openQuestions: [],
 });
@@ -50,7 +50,7 @@ describe("Lexical Knowledge search", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const result = yield* KnowledgeDiscovery.search({
+            const result = yield* KnowledgeDiscovery.query({
               scope: "project",
               expression: example.input,
             });

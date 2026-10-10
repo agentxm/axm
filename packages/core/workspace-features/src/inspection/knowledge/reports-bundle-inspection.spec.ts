@@ -42,7 +42,7 @@ describe("Knowledge bundle inventory", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const first = yield* ListKnowledge.query();
+          const first = yield* ListKnowledge.query({});
           // Inspection counts the valid index and guide; the malformed document
           // is diagnosed. Concept-query defaults exclude index documents; this
           // inventory counts everything inspection found.
@@ -59,7 +59,7 @@ describe("Knowledge bundle inventory", () => {
             "index.md",
             '---\nokf_version: "0.2"\n---\n# Platform\n\n[Guide](guide.md)\n[Repaired](broken.md)\n[Added](added.md)\n',
           );
-          const repaired = yield* ListKnowledge.query();
+          const repaired = yield* ListKnowledge.query({});
           expect(repaired.document).toMatchObject({
             count: 1,
             items: [{ name: "platform", concepts: 4, diagnostics: 0 }],

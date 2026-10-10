@@ -12,6 +12,8 @@ import {
 import type { ManagedFileProvenance } from "../managed-file-banner.js";
 import { managedSubagentRenderInput } from "./managed-render.js";
 
+import type { ConfiguredAgentReasonCode } from "../../operations/index.js";
+
 export type SubagentImplementationMode = "portable" | "customized" | "native";
 
 export type CompiledSubagentImplementation =
@@ -27,7 +29,7 @@ export type CompiledSubagentImplementation =
   | {
       readonly _tag: "Unsupported";
       readonly mode?: SubagentImplementationMode;
-      readonly reasonCode: string;
+      readonly reasonCode: ConfiguredAgentReasonCode;
       readonly reason: string;
       readonly sourceDependencies: ReadonlyArray<string>;
     };
@@ -102,7 +104,10 @@ export const compileSubagentImplementation = (args: {
       sourceDependencies: selected.sourceDependencies,
     };
   const mode = selected.kind === "core" ? "portable" : selected.kind;
-  const unsupported = (reasonCode: string, reason: string): CompiledSubagentImplementation => ({
+  const unsupported = (
+    reasonCode: ConfiguredAgentReasonCode,
+    reason: string,
+  ): CompiledSubagentImplementation => ({
     _tag: "Unsupported",
     mode,
     reasonCode,

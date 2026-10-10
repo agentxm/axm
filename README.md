@@ -97,14 +97,14 @@ axm install @acme/skills/code-review
 
 <!-- axm:generated:extension-types-table -->
 
-| Type            | What it is                                                                   | Governing standard                                                                                          |
-| --------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| **Skills**      | Package reusable agent skills with SKILL.md metadata and instructions.       | [Agent Skills](https://agentskills.io)                                                                      |
-| **MCP Servers** | Configure Model Context Protocol servers for agents.                         | [Model Context Protocol](https://modelcontextprotocol.io)                                                   |
-| **Subagents**   | Install specialized agent profiles into an agent's native subagent system.   | —                                                                                                           |
-| **Rules**       | Sync instruction files and distribute rule extensions that inject into them. | [AGENTS.md](https://agents.md)                                                                              |
-| **Hooks**       | Install lifecycle hook extensions into an agent's native hook system.        | —                                                                                                           |
-| **Knowledge**   | Package portable Open Knowledge Format concept bundles.                      | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
+| Type                | What it is                                                                   | Governing standard                                                                                          |
+| ------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| **Skills**          | Package reusable agent skills with SKILL.md metadata and instructions.       | [Agent Skills](https://agentskills.io)                                                                      |
+| **MCP Servers**     | Configure Model Context Protocol servers for agents.                         | [Model Context Protocol](https://modelcontextprotocol.io)                                                   |
+| **Subagents**       | Install specialized agent profiles into an agent's native subagent system.   | —                                                                                                           |
+| **Rules**           | Sync instruction files and distribute rule extensions that inject into them. | [AGENTS.md](https://agents.md)                                                                              |
+| **Hook extensions** | Install lifecycle hook extensions into an agent's native hook system.        | —                                                                                                           |
+| **Knowledge**       | Package portable Open Knowledge Format concept bundles.                      | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
 
 <!-- /axm:generated -->
 
@@ -153,7 +153,7 @@ Top-level commands work across every extension type and infer the target from
 your input:
 
 ```bash
-axm install                          # Sync extensions from axm.json
+axm sync                             # Realize extensions declared by axm.json
 axm install @acme/skills/code-review # Install a single extension
 axm update                           # Pull latest versions
 axm list                             # Inventory extensions across all types

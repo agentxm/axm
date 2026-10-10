@@ -4,14 +4,14 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { reportKnowledgeCorpusStatus } from "../corpus/corpus-status.js";
+import { reportKnowledgeDiscoveryCapabilities } from "../corpus/corpus-capabilities.js";
 import { KnowledgeDiscoveryCapabilitiesSchema } from "../knowledge-capabilities.js";
 import { KnowledgeDiscovery } from "../knowledge-discovery.js";
 import { knowledgeDocument, makeKnowledgeFixtureWorkspace } from "../testing.js";
 
 export const specification = defineSpecification({
-  requirement: "cli/knowledge/concepts/status/publishes-discovery-capabilities",
-  title: "Discovery status describes the supported query contract",
+  requirement: "cli/knowledge/concepts/capabilities/publishes-discovery-capabilities",
+  title: "Discovery capabilities describe the supported query contract",
   statement:
     "When reporting Knowledge discovery capabilities, AXM shall identify its query grammar, supported operations and fields, output contract, cursor validity, and output limits consistently with the discovery commands.",
   class: "functional",
@@ -22,7 +22,7 @@ export const specification = defineSpecification({
     "packages/core/workspace-features/src/knowledge-query/knowledge-capabilities.ts",
     "apps/cli/help/topics/knowledge.md",
   ],
-  supersedes: [],
+  supersedes: ["cli/knowledge/concepts/status/publishes-discovery-capabilities"],
   assumptions: [],
   openQuestions: [],
 });
@@ -45,14 +45,15 @@ describe("Discoverable query contract", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const status = yield* reportKnowledgeCorpusStatus();
+          const captured = yield* reportKnowledgeDiscoveryCapabilities();
+          if (captured.outcome !== "ready") throw new Error("Expected a captured corpus");
           const capabilities = Schema.decodeUnknownSync(KnowledgeDiscoveryCapabilitiesSchema)(
-            status.capabilities,
+            captured.document.capabilities,
           );
           expect(capabilities).toMatchObject({
-            version: "axm-knowledge-discovery-capabilities-v1",
-            queryContractVersion: "axm-knowledge-query-v1",
-            operations: ["resolve", "search", "query", "get", "related", "status"],
+            contract: "knowledge-discovery-capabilities-v1",
+            queryContract: "knowledge-query-v1",
+            operations: ["resolve", "query", "get", "related", "capabilities"],
             strategies: ["lexical"],
             operators: ["term", "phrase", "literal", "equals", "not-equals", "contains"],
             extensionProperties: {
@@ -60,7 +61,7 @@ describe("Discoverable query contract", () => {
               source: "preserved-frontmatter",
             },
             output: {
-              envelope: "axm.machine-output/result-envelope-v1",
+              envelope: "result-envelope-v1",
               resultLevel: "concept",
               paginationKeys: ["items", "count", "hasMore", "cursor"],
             },

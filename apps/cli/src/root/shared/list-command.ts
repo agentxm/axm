@@ -1,14 +1,15 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 /** Shared list command shell; each type supplies its own rows and document. */
 
 import * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
-import { Command, Flag } from "effect/cli";
+import { Command } from "effect/cli";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
-  ExtensionInventorySchema,
-  type ExtensionInventory,
-} from "@agentxm/workspace-kernel/workspace-state";
+  ExtensionInventoryDocumentSchema,
+  type ExtensionInventoryDocument,
+} from "@agentxm/workspace-features/inspection";
 import type { TypeListResult } from "@agentxm/workspace-features/inspection";
 
 import { agentFlag } from "../../cli-flags/index.js";
@@ -33,7 +34,6 @@ interface ListDefinition<Row, S extends Schema.Top, E extends ExpectedCliError, 
   readonly schema: S;
   readonly columns: ReadonlyArray<ViewColumn<Row>>;
   readonly summary: (document: Schema.Schema.Type<S>, rows: ReadonlyArray<Row>) => string;
-  readonly agentFilter: boolean;
 }
 
 export const inventoryList = <Row, E, R>(
@@ -41,9 +41,9 @@ export const inventoryList = <Row, E, R>(
   list: (agents: ReadonlyArray<string>) => Effect.Effect<TypeListResult<Row>, E, R>,
 ) => ({
   query: (agents: ReadonlyArray<string>) =>
-    Effect.map(list(agents), ({ inventory, rows }) => ({ document: inventory, rows })),
-  schema: ExtensionInventorySchema,
-  summary: (inventory: ExtensionInventory) =>
+    Effect.map(list(agents), ({ document, rows }) => ({ document, rows })),
+  schema: ExtensionInventoryDocumentSchema,
+  summary: (inventory: ExtensionInventoryDocument) =>
     inventorySummary(inventory, EXTENSION_TYPE_PRESENTATION[type].noun.singular),
 });
 
@@ -55,7 +55,7 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
     args: { readonly agents: ReadonlyArray<string> } = { agents: [] },
   ) {
     const { document, rows } = yield* withLiveOperation(
-      { command: `${route}.list`, name: `Inspect ${noun.plural}`, mode: "preview" },
+      { command: `${route}.list`, name: `Inspect ${noun.plural}`, mode: "query" },
       definition.query(args.agents),
     );
     yield* emitResult(document, definition.schema, () =>
@@ -64,51 +64,29 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
         columns: definition.columns,
         summary: definition.summary(document, rows),
         empty:
-          definition.agentFilter && args.agents.length > 0
+          args.agents.length > 0
             ? `No ${noun.plural} matched the selected agent filter.`
             : `No ${noun.plural} found`,
       }),
     );
   });
-  const scope = scopeFlag.pipe(
-    Flag.withDescription(`List ${noun.plural} from project (default) or user-level configuration`),
-  );
-  const description = `List detected ${noun.plural} and their lifecycle classification`;
+  const scope = scopeFlag;
+  const description = `List detected ${noun.plural} and how AXM manages them`;
   const examples = [
     { command: `axm ${route} list`, description: `Inventory detected ${noun.plural}` },
     { command: `axm ${route} list --scope user`, description: `Check user-level ${noun.plural}` },
   ];
 
-  if (definition.agentFilter) {
-    const config = {
-      scope,
-      agent: agentFlag.pipe(
-        Flag.withDescription(`Show only ${noun.plural} detected for specific agents`),
+  const config = {
+    scope,
+    agent: agentFlag.pipe(
+      withParameterDescription(
+        `Show only ${noun.plural} observed by or configured for any of these coding agents`,
       ),
-    } as const;
-    const command = Command.make("list", config, ({ scope, agent }) =>
-      handler({ agents: agent }).pipe(
-        withWorkspace({ scope, allowUninitialized: true }),
-        withRuntime(`${route} list`),
-      ),
-    ).pipe(
-      withArgvTracking(config),
-      withCommandCapabilities(readOnlyCapabilities()),
-      Command.withDescription(description),
-      Command.withExamples([
-        ...examples,
-        {
-          command: `axm ${route} list --agent claude-code`,
-          description: `See ${noun.plural} for a specific agent`,
-        },
-      ]),
-    );
-    return { handler, command };
-  }
-
-  const config = { scope } as const;
-  const command = Command.make("list", config, ({ scope }) =>
-    handler({ agents: [] }).pipe(
+    ),
+  } as const;
+  const command = Command.make("list", config, ({ scope, agent }) =>
+    handler({ agents: agent }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime(`${route} list`),
     ),
@@ -116,7 +94,13 @@ export const makePerTypeListCommand = <Row, S extends Schema.Top, E extends Expe
     withArgvTracking(config),
     withCommandCapabilities(readOnlyCapabilities()),
     Command.withDescription(description),
-    Command.withExamples(examples),
+    Command.withExamples([
+      ...examples,
+      {
+        command: `axm ${route} list --agent claude-code`,
+        description: `See ${noun.plural} for a specific agent`,
+      },
+    ]),
   );
   return { handler, command };
 };

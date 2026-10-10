@@ -14,21 +14,15 @@
 
 import {
   InstallSelectionUnavailable,
-  OPERATION_ERROR_CATEGORIES,
   type StepFailure,
 } from "@agentxm/workspace-kernel/operations";
 
-import { AppError, makeAppError, type AppErrorCode } from "./app-error.js";
+import { AppError, makeAppError } from "./app-error.js";
 import {
   isWorkspaceFailure,
   workspaceFailureToStepFailure,
   type WorkspaceFailure,
 } from "./failure-catalog.js";
-
-// The kernel's serialized category vocabulary and the CLI's AppErrorCode must
-// stay the same strings; divergence is a compile error here, at the boundary
-// that owns the mapping.
-OPERATION_ERROR_CATEGORIES satisfies ReadonlyArray<AppErrorCode>;
 
 /**
  * Project a rendered failure into the CLI-facing `AppError` envelope: the

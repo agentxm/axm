@@ -30,10 +30,10 @@ const makeVersionEntry = (overrides?: Partial<VersionEntry>): VersionEntry => ({
 });
 
 describe("extensionLifecycleWarnings", () => {
-  it("reports archival once before an exact-version yank notice", () => {
+  it("reports archival once before an exact-version yank message", () => {
     const version = makeVersionEntry({
       yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
-      yankNotice: "Security issue",
+      yankMessage: "Security issue",
     });
 
     expect(
@@ -45,7 +45,7 @@ describe("extensionLifecycleWarnings", () => {
           publisherBindingId: "hbnd_test",
           archival: {
             archivedAt: DateTime.makeUnsafe("2025-03-01T00:00:00Z"),
-            reason: "No longer maintained",
+            message: "No longer maintained",
           },
           deprecation: null,
           versions: [version],

@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { TestHook } from "@agentxm/workspace-features/authoring";
@@ -21,9 +22,9 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
 }) {
   const configuration = yield* parseHookConfiguration(args.configuration);
   const result = yield* withLiveOperation(
-    { command: "hooks.test", name: "Test hook fixtures", mode: "apply" },
+    { command: "hooks.test", name: "Test hook extension fixtures", mode: "apply" },
     observeUnit(
-      { id: "fixtures", label: "declared hook fixtures" },
+      { id: "fixtures", label: "declared hook extension fixtures" },
       TestHook.run({
         directory: args.directory,
         configuration,
@@ -37,7 +38,7 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
     () => [
       ...headlineDoc(
         result.passed ? "ok" : "error",
-        result.passed ? "Hook fixtures passed" : "Hook fixtures failed",
+        result.passed ? "Hook extension fixtures passed" : "Hook extension fixtures failed",
       ),
       ...tableDoc(
         result.fixtures,
@@ -56,15 +57,19 @@ export const handleHookTest = Effect.fn("Hooks.test")(function* (args: {
 });
 const config = {
   directory: Argument.String("directory").pipe(
-    Argument.withDescription("Hook package directory containing hook.json; executes package code"),
+    withParameterDescription(
+      "Hook extension directory containing hook.json; executes package code",
+    ),
   ),
   configuration: Flag.String("configuration").pipe(
-    Flag.withDefault("{}"),
-    Flag.withDescription("Typed consumer values as JSON; use {env: NAME} for secrets"),
+    withParameterDefault("{}"),
+    withParameterDescription(
+      "Test consumer values as a JSON object; {env: NAME} references a secret",
+    ),
   ),
   fixture: Flag.String("fixture").pipe(
     Flag.atLeast(0),
-    Flag.withDescription("Run only named fixtures; repeatable"),
+    withParameterDescription("Run only named fixtures"),
   ),
   scope: scopeFlag,
 } as const;
@@ -79,6 +84,7 @@ export const testCommand = Command.make("test", config, (args) =>
   Command.withDescription(
     "Execute declared fixtures and record evidence; execution is not sandboxed",
   ),
+  Command.withShortDescription("Run hook extension fixtures without a sandbox"),
   Command.withExamples([
     {
       command: "axm hooks test hooks/tool-audit",

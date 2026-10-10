@@ -1,5 +1,8 @@
+import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
+import { withParameterDescription } from "../../cli-parameters.js";
+import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   KNOWLEDGE_MANIFEST_FILENAME,
@@ -50,19 +53,11 @@ export const handleKnowledgeNew = (args: KnowledgeNewHandlerArgs) =>
 
 const newConfig = {
   name: Argument.String("name").pipe(
-    Argument.withDescription("Name of the knowledge bundle (without owner)"),
+    withParameterDescription("Name of the knowledge bundle to create, without owner"),
   ),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription(
-      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
-    ),
-    Flag.optional,
-  ),
-  description: Flag.String("description").pipe(
-    Flag.withDescription("Concise bundle-level discovery summary"),
-    Flag.optional,
-  ),
-  preview: previewCapabilityFlag("Show what would be created without writing files"),
+  owner: creationOwnerFlag,
+  description: descriptionFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>

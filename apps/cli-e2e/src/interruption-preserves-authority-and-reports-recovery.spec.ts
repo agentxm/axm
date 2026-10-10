@@ -106,7 +106,7 @@ describe("An interrupted workspace change", () => {
         result: {
           contract: "plan-result-v4",
           outcome: "interrupted",
-          interruption: { signal: "SIGINT", disposition: "none" },
+          interruption: { signal: "SIGINT", disposition: "untouched" },
         },
       });
       expect(readSettings(workspace.path)).toEqual(before);
@@ -148,7 +148,7 @@ describe("An interrupted workspace change", () => {
         result: {
           contract: "plan-result-v4",
           outcome: "interrupted",
-          interruption: { signal: "SIGTERM", disposition: "none" },
+          interruption: { signal: "SIGTERM", disposition: "untouched" },
         },
       });
       expect(fs.existsSync(path.join(workspace.path, ".agents", "skills", "alpha"))).toBe(false);

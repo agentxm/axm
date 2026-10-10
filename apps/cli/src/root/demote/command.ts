@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/cli";
 
@@ -30,8 +31,7 @@ import { withOperationLifecycle } from "../../operation-lifecycle.js";
 const demoteCapabilities = {
   preview: true,
   preapproval: {
-    purpose:
-      "Approve replacing workspace source authority with the externally sourced package in advance",
+    purpose: "replacing workspace source authority with an external package",
   },
   trust: [],
   inputs: "explicit",
@@ -78,10 +78,12 @@ const handleDemoteBody = Effect.fn("Demote.handle")(function* (args: DemoteHandl
 
 const config = {
   fqn: Argument.String("extension").pipe(
-    Argument.withDescription("Workspace extension FQN (@owner/<plural-type>/name)"),
+    withParameterDescription("Extension FQN in @owner/<plural-type>/<name> form"),
   ),
   source: Argument.String("source").pipe(
-    Argument.withDescription("Replacement registry, git, or local source"),
+    withParameterDescription(
+      "Registry FQN, Git locator, or path that replaces workspace authorship",
+    ),
   ),
   yes: preapprovalCapabilityFlag(demoteCapabilities),
   preview: previewCapabilityFlag(),
@@ -104,7 +106,7 @@ export const demoteCommand = Command.make(
   Command.withShortDescription("Give up project authorship of a package"),
   Command.withExamples([
     {
-      command: "axm demote @acme/skills/code-review @acme/skills/code-review",
+      command: "axm demote @acme/skills/code-review @upstream/skills/code-review",
       description: "Return a workspace skill to registry management",
     },
   ]),

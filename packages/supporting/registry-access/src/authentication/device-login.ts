@@ -275,7 +275,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
           suggestions: [
             {
               description: "Finish the pending sign-in before starting another.",
-              cmd: `AXM_REGISTRY_URL=${existing.value.registryUrl} axm login --device-code --wait-for-human 300 --json`,
+              cmd: `axm login --registry ${existing.value.registryUrl} --device-code --wait-for-human 300 --json`,
             },
             {
               description: "Replace the pending sign-in intentionally.",
@@ -342,7 +342,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
         suggestions: [
           {
             description: "Resume with the registry that started the sign-in.",
-            cmd: `AXM_REGISTRY_URL=${pending.registryUrl} axm login --device-code --wait-for-human 300 --json`,
+            cmd: `axm login --registry ${pending.registryUrl} --device-code --wait-for-human 300 --json`,
           },
         ],
       });

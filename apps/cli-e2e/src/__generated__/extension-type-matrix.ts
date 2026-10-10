@@ -100,8 +100,8 @@ export const EXTENSION_TYPE_MATRIX = [
   {
     type: "hook",
     plural: "hooks",
-    label: "Hook",
-    sentenceLabel: "hook",
+    label: "Hook extension",
+    sentenceLabel: "hook extension",
     placement: "per-agent",
     installInputs: false,
     workspaceCapability: null,

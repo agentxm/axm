@@ -1,7 +1,7 @@
 /**
- * Uninstalling a hooks package.
+ * Uninstalling a hook extension.
  *
- * A hooks package whose canonical content is kept on disk is reported as
+ * A hook extension whose canonical content is kept on disk is reported as
  * retained, from the settlement the removal returns rather than from the
  * sentence it printed.
  *
@@ -63,7 +63,7 @@ const hookUninstallArtifactTargets = (
   ];
 };
 
-/** Settle whether this hooks package has anything to remove. */
+/** Settle whether this hook extension has anything to remove. */
 export const parseHookUninstallRequest: (
   selector: string,
 ) => Effect.Effect<
@@ -139,7 +139,7 @@ export const planHookUninstall: (
   return {
     _tag: "Plan",
     name: "Uninstall hooks",
-    description: Option.some("Uninstall hooks package"),
+    description: Option.some("Uninstall hook extension"),
     jobs: [{ concurrency: 1, steps }],
   } satisfies Plan<InstallStepRequirements>;
 });

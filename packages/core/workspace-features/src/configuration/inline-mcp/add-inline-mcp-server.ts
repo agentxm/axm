@@ -83,7 +83,7 @@ export interface AddInlineMcpServerRequest {
   readonly url?: string;
   /** `NAME` or `NAME=VALUE` inputs; a bare name becomes an environment reference. */
   readonly env: ReadonlyArray<string>;
-  /** `Name:Value` headers for a remote server. */
+  /** `NAME=VALUE` headers for a remote server. */
   readonly headers: ReadonlyArray<string>;
 }
 

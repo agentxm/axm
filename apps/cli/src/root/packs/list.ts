@@ -5,7 +5,7 @@ import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js
 
 const PackListColumns = [
   { header: "Name", priority: "required", value: (row: PackListRow) => row.name },
-  { header: "State", value: (row: PackListRow) => inventoryLifecycle(row) },
+  { header: "Management", value: (row: PackListRow) => inventoryLifecycle(row) },
   { header: "Owner", value: (row: PackListRow) => row.owner },
   { header: "Version", value: (row: PackListRow) => row.version },
   { header: "Source", value: (row: PackListRow) => row.source },
@@ -18,9 +18,8 @@ const PackListColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "pack",
-  ...inventoryList("pack", () => listPacks()),
+  ...inventoryList("pack", (agents) => listPacks({ agents })),
   columns: PackListColumns,
-  agentFilter: false,
 });
 
 export const handleList = handler;

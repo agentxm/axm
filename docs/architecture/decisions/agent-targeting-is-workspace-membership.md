@@ -1,7 +1,7 @@
 ---
 type: Decision
 status: stable
-description: Agent selection chooses the workspace's configured agents or filters a listing; an extension applies to every configured agent that can represent it, never to a per-entry subset.
+description: Agent selection chooses the workspace's configured agents or filters inspection; an extension applies to every configured agent that can represent it, never to a per-entry subset.
 depends-on:
   - ../workspace/agents.md
   - ../extensions/targeting.md
@@ -13,12 +13,14 @@ depends-on:
 
 ## Decision
 
-AXM offers agent selection in exactly two forms: choosing the workspace's
-configured agents (`setup`, `agents add`, `agents remove`) and filtering a
-listing (`skills list`, `subagents list`). Both validate the identifier against
-the supported agent catalog before any work begins. No command accepts an agent
-selection that narrows one extension, and no settings entry carries its own
-agent subset.
+Agent identifiers have three command roles. The verb's agent object is
+positional. Workspace membership and read-only inspection use repeatable
+`--agent`. A distinct single-agent role uses a role-named flag, such as a render
+target or native import source. A positional agent object is never duplicated
+by `--agent`. Executable specifications own which routes expose each role.
+
+Workspace membership is the only durable target selection. No command selects
+a subset for one extension, and no settings entry carries its own agent subset.
 
 Whether an extension applies to an agent is derived at reconciliation time and
 never configured per entry:
@@ -51,8 +53,10 @@ preservation of unowned native entries covers the residual need.
 
 ## Consequences
 
-- `--agent` remains only on `setup`, `skills list`, and `subagents list`, and
-  an unsupported identifier is rejected when the command line is parsed.
+- Membership and inspection are distinct from other single-agent roles. The
+  membership catalog contains configurable agents; render targets may also
+  include hosted agents. Native import sources remain configurable agents.
+  Inspection filters do not alter workspace membership or projection.
 - MCP settings entries no longer accept `agents`. A settings document carrying
   the key fails validation and gates every operation; there is no migration or
   dual read.
@@ -75,7 +79,7 @@ preservation of unowned native entries covers the residual need.
 The executable specifications `cli/agent-selection-is-membership-or-filter`,
 `settings-contract/agent-membership-is-the-only-agent-selection`,
 `cli/mcps/projects-to-every-configured-agent`,
-`cli/mcps/import/adoption-reaches-every-configured-agent`,
+`cli/mcps/adopt/adoption-reaches-every-configured-agent`,
 `cli/skills/new/scaffolds-for-every-configured-agent`, and
 `cli/subagents/new/scaffolds-for-every-configured-agent` own these behaviors;
 this record explains the choice.

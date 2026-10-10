@@ -193,7 +193,7 @@ repeated install; restoring missing bytes may require network access.
 ## Unsupported lockfile versions
 
 AXM reads only lockfile v11. Every ordinary workspace-loading command checks a
-present lockfile before command-specific work, and `--force` does not bypass
+present lockfile before command-specific work, and override flags do not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.
 
@@ -211,8 +211,8 @@ error suggests:
 3. Apply the previewed workspace changes: `axm sync`.
 
 A workspace containing only workspace-authored content may correctly finish
-without a lockfile. `axm install` with no arguments plans the same configured
-sweep as `axm sync`; recovery needs no other command.
+without a lockfile. `axm install <source>` adds an explicitly selected source;
+`axm sync` realizes the configured workspace.
 
 This is new resolution, not migration. External versions may differ from the
 backup. Each re-accepted extension is selected within its effective constraint:
@@ -313,7 +313,7 @@ would commit:
 
 ```bash
 axm lint
-axm lint --view git-index
+axm lint --staged
 ```
 
 If workspace lint fails while Git-index lint passes, the staged package bytes

@@ -1,7 +1,8 @@
 import {
   NativeLocationOutcomeSchema,
   combineNativeLocationOutcomes,
-  nativeUnitKey,
+  nativeUnitReference,
+  NativeUnitReferenceSchema,
   type NativeLocationOutcome,
 } from "../../../locations/index.js";
 import * as Schema from "effect/Schema";
@@ -24,7 +25,10 @@ export const ExtensionInventoryRowSchema = Schema.Struct({
   nativeLocations: Schema.optionalKey(Schema.Array(NativeLocationOutcomeSchema)),
   duplicateDiscoveries: Schema.optionalKey(
     Schema.Array(
-      Schema.Struct({ agentId: Schema.String, nativeUnitKeys: Schema.Array(Schema.String) }),
+      Schema.Struct({
+        agentId: Schema.String,
+        nativeUnits: Schema.Array(NativeUnitReferenceSchema),
+      }),
     ),
   ),
   version: Schema.optionalKey(Schema.String),
@@ -131,7 +135,7 @@ export const projectExtensionInventory = (
                   );
                   return units.length < 2
                     ? []
-                    : [{ agentId, nativeUnitKeys: units.map(nativeUnitKey) }];
+                    : [{ agentId, nativeUnits: units.map(nativeUnitReference) }];
                 }),
               }),
         };

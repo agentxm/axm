@@ -73,8 +73,6 @@ const CLAUDE_SKILL_READERS = [
   "zenflow",
 ];
 
-const CURSOR_SKILL_READERS = ["crush", "cursor", "firebender"];
-
 // -----------------------------------------------------------------------------
 // Tests
 // -----------------------------------------------------------------------------
@@ -188,7 +186,13 @@ describe("list.handler", () => {
           availability: [{ agentId: "cursor", state: "unverified" }],
         })),
         duplicateDiscoveries: [
-          { agentId: "cursor", nativeUnitKeys: ["claude-entry", "cursor-entry"] },
+          {
+            agentId: "cursor",
+            nativeUnits: [".claude/skills/review", ".cursor/skills/review"].map((entry) => ({
+              scope: "project",
+              address: { kind: "entry", path: entry },
+            })),
+          },
         ],
       },
     ]);
@@ -273,7 +277,14 @@ describe("list.handler", () => {
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
-          items: [expect.objectContaining({ name: "skill-claude", agents: CLAUDE_SKILL_READERS })],
+          items: [
+            expect.objectContaining({
+              name: "skill-claude",
+              installed: true,
+              management: "unmanaged",
+              agentOutcomes: [],
+            }),
+          ],
         });
       }),
     );
@@ -358,17 +369,15 @@ describe("list.handler", () => {
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 2,
-          installedCount: 2,
+          managementCounts: { unmanaged: 2 },
           items: [
             {
               name: "skill-one",
-              agents: CLAUDE_SKILL_READERS,
-              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+              management: "unmanaged",
             },
             {
               name: "skill-two",
-              agents: CURSOR_SKILL_READERS,
-              classification: { kind: "lifecycle", lifecycle: "unmanaged" },
+              management: "unmanaged",
             },
           ],
         });

@@ -53,7 +53,6 @@ describe("satisfied install execution", () => {
     "drifted-content",
     "missing-projection",
     "changed-constraint",
-    "force",
   ] as const)("%s installs skip only work proven unnecessary", (state) => {
     const world = makeInstallWorld();
     world.registry.writeSkill("review", [{ version: "1.0.0", body: "Review carefully." }]);
@@ -84,11 +83,13 @@ describe("satisfied install execution", () => {
           const result = yield* applyInstall(
             installRequest({
               type: "skill",
-              subject:
-                state === "changed-constraint"
-                  ? { kind: "source", source: "@acme/skills/review@*" }
-                  : { kind: "configured" },
-              reinstall: state === "force",
+              subject: {
+                kind: "source",
+                source:
+                  state === "changed-constraint"
+                    ? "@acme/skills/review@*"
+                    : "@acme/skills/review@^1.0.0",
+              },
             }),
           ).pipe(
             Effect.provideService(SettingsWriter, {
@@ -114,7 +115,7 @@ describe("satisfied install execution", () => {
             }),
           );
           expect(deriveOperationOutcome(result), JSON.stringify(result)).toBe(
-            state === "satisfied" || state === "force" ? "no-op" : "applied",
+            state === "satisfied" ? "no-op" : "applied",
           );
           expect(materializations).toBe(state === "satisfied" ? 0 : 1);
           expect(declarations).toBe(state === "satisfied" ? 0 : 1);

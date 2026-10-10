@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { ConfigureHook } from "@agentxm/workspace-features/configuration";
@@ -24,7 +25,7 @@ export const handleHookConfigure = (args: {
     {
       command: "hooks.configure",
       mode: args.preview ? "preview" : "apply",
-      planName: "Configure hook",
+      planName: "Configure hook extension",
     },
     Effect.gen(function* () {
       const configuration = yield* parseHookConfiguration(args.configuration);
@@ -42,13 +43,15 @@ export const handleHookConfigure = (args: {
     }),
   );
 const config = {
-  name: Argument.String("name"),
+  name: Argument.String("name").pipe(
+    withParameterDescription("Name of the hook extension to configure"),
+  ),
   configuration: Flag.String("configuration").pipe(
-    Flag.withDescription(
-      "Replace consumer values with this JSON object; omitted keys use publisher defaults",
+    withParameterDescription(
+      "Replace consumer values as a JSON object; {env: NAME} references a secret",
     ),
   ),
-  preview: previewCapabilityFlag("Validate values and describe native changes without applying"),
+  preview: previewCapabilityFlag(),
   scope: scopeFlag,
 } as const;
 export const configureCommand = Command.make("configure", config, (args) =>
@@ -57,7 +60,7 @@ export const configureCommand = Command.make("configure", config, (args) =>
   withArgvTracking(config),
   withCommandCapabilities(previewableCapabilities("workspace")),
   Command.withDescription(
-    "Configure an installed Hook without changing package content or acquisition intent",
+    "Configure an installed hook extension without changing its content or acquisition intent",
   ),
   Command.withExamples([
     {

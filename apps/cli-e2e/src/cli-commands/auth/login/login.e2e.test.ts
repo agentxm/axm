@@ -118,7 +118,7 @@ describe("axm login", () => {
     const output = result.stdout + result.stderr;
     expect(output).toContain("Sign in with a code; recommended for SSH");
     expect(output).toContain("headless environments");
-    expect(output).toContain("Start a new sign-in without prompting when a valid session");
+    expect(output).toContain("Replace an existing pending device sign-in intentionally");
     expect(output).toContain("axm login");
     expect(output).toContain("axm login --device-code");
     expect(output).toContain("--wait-for-human");

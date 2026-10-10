@@ -84,15 +84,11 @@ describe("root command help", () => {
       }
 
       const expectedFlags: ReadonlyArray<readonly [string, string]> = [
-        ["axm install", "reinstall"],
-        ["axm skills install", "reinstall"],
-        ["axm mcps install", "reinstall"],
-        ["axm subagents install", "reinstall"],
-        ["axm hooks install", "reinstall"],
-        ["axm packs install", "reinstall"],
-        ["axm rules install", "reinstall"],
-        ["axm update", "refresh"],
-        ["axm mcps update", "refresh"],
+        ["axm update", "reinstall"],
+        ["axm mcps update", "reinstall"],
+        ...["skills", "subagents", "rules", "hooks", "knowledge", "packs"].map(
+          (route) => [`axm ${route} update`, "reinstall"] as const,
+        ),
         ["axm agents add", "accept-warnings"],
         ["axm agents remove", "accept-warnings"],
         ["axm mcps add", "accept-warnings"],
@@ -377,7 +373,7 @@ describe("root command parser output", () => {
     }
   });
 
-  it("emits one JSON usage envelope for missing required flags", async () => {
+  it("emits one JSON usage envelope for a missing required argument", async () => {
     await expect(run(["token", "create", "--json"])).rejects.toMatchObject({
       code: ExitCode.Usage,
     });
@@ -388,7 +384,7 @@ describe("root command parser output", () => {
       ok: false,
       code: "usage",
       title: "Usage Error",
-      detail: "Missing required flag: --name",
+      detail: "Missing required argument: name",
     });
     expect(stdoutWrites.join("")).not.toContain('"type":"help"');
   });

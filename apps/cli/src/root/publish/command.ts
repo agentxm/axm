@@ -1,3 +1,6 @@
+import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { ownerHandleFlag } from "../../cli-flags/owner-handle.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { OutputWriteFailed, Screen } from "../../screen/index.js";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
@@ -7,7 +10,7 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
 import { AppError } from "../../app-error/index.js";
-import { acceptWarningsFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag, registryFlag } from "../../cli-flags/index.js";
 import {
   processOutcome,
   recordCommandCompletion,
@@ -18,7 +21,6 @@ import {
   ResolvePlanInteraction,
   type OperationOutcome,
   type ResolvePlanInteractionService,
-  credentialFreeLocatorRecoveryValue,
   publicRecoveryValue,
   recoveryOption,
   recoveryPositional,
@@ -60,7 +62,6 @@ export interface RootPublishHandlerArgs {
   readonly types: ReadonlyArray<(typeof selectableTypes)[number]>;
   readonly excludes: ReadonlyArray<string>;
   readonly registry: Option.Option<string>;
-  readonly registryUrl: Option.Option<string>;
   readonly backfill: boolean;
   readonly acceptWarnings: boolean;
   readonly preview: boolean;
@@ -80,7 +81,6 @@ export const makeExactPublishRecovery = (
   args: Pick<
     RootPublishHandlerArgs,
     | "registry"
-    | "registryUrl"
     | "backfill"
     | "visibility"
     | "acceptWarnings"
@@ -99,23 +99,17 @@ export const makeExactPublishRecovery = (
         onNone: () => [],
         onSome: (registryName) => [recoveryOption("--registry", publicRecoveryValue(registryName))],
       }),
-      ...Option.match(args.registryUrl, {
-        onNone: () => [],
-        onSome: (url) => [
-          recoveryOption("--registry-url", credentialFreeLocatorRecoveryValue(url)),
-        ],
-      }),
       ...(args.from === undefined
         ? []
-        : [recoveryOption("--from", publicRecoveryValue(args.from))]),
+        : [recoveryOption("--path", publicRecoveryValue(args.from))]),
       ...(args.packageVersion === undefined
         ? []
         : [recoveryOption("--package-version", publicRecoveryValue(args.packageVersion))]),
       ...(args.fileInclude ?? []).map((pattern) =>
-        recoveryOption("--include-file", publicRecoveryValue(pattern)),
+        recoveryOption("--include-path", publicRecoveryValue(pattern)),
       ),
       ...(args.fileExclude ?? []).map((pattern) =>
-        recoveryOption("--exclude-file", publicRecoveryValue(pattern)),
+        recoveryOption("--exclude-path", publicRecoveryValue(pattern)),
       ),
       recoverySwitch("--backfill", args.backfill),
       recoverySwitch("--accept-warnings", args.acceptWarnings),
@@ -137,7 +131,6 @@ const publishRequest = (args: RootPublishHandlerArgs, unattended: boolean): Publ
   types: args.types,
   excludes: args.excludes,
   registry: args.registry,
-  registryUrl: args.registryUrl,
   backfill: args.backfill,
   acceptWarnings: args.acceptWarnings,
   preview: args.preview,
@@ -307,57 +300,55 @@ export const handleRootPublish = Effect.fn("Publish.handle")(
 );
 
 const publishConfig = {
-  from: Flag.String("from").pipe(
-    Flag.withDescription("Publish an existing skill directory without converting its source"),
+  from: Flag.String("path").pipe(
+    withParameterDescription("Publish this existing directory without converting it"),
     Flag.optional,
   ),
   packageVersion: Flag.String("package-version").pipe(
-    Flag.withDescription("Exact publisher-envelope version for --from"),
+    withParameterDescription("Exact publisher-envelope version; only with --path"),
     Flag.optional,
   ),
-  fileInclude: Flag.String("include-file").pipe(
-    Flag.withDescription(
-      "For --from: include a source-relative Git-style path pattern; repeat for ordered rules, use ** to publish all permitted content",
+  fileInclude: Flag.String("include-path").pipe(
+    withParameterDescription(
+      "Include a source-relative Git-style path pattern in order; only with --path",
     ),
     Flag.atLeast(0),
   ),
-  fileExclude: Flag.String("exclude-file").pipe(
-    Flag.withDescription(
-      "For --from: exclude a source-relative Git-style path pattern after inclusion; repeat for ordered rules",
+  fileExclude: Flag.String("exclude-path").pipe(
+    withParameterDescription(
+      "Exclude a source-relative Git-style path pattern in order; only with --path",
     ),
     Flag.atLeast(0),
   ),
   selectors: Argument.String("extension").pipe(
-    Argument.withDescription("FQNs or type-qualified extension selectors"),
+    withParameterDescription(
+      "FQN, <plural-type>/<name>, or a glob of either; omit for all workspace-authored",
+    ),
     Argument.atLeast(0),
   ),
-  owner: Flag.String("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
+  owner: ownerHandleFlag.pipe(
+    withParameterDescription("Restrict to extensions of this owner handle"),
+    Flag.atLeast(0),
+  ),
   type: Flag.Literals("type", selectableTypes).pipe(
-    Flag.withDescription("Filter by extension type"),
+    withParameterDescription("Restrict to this extension type"),
     Flag.atLeast(0),
   ),
   exclude: Flag.String("exclude").pipe(
-    Flag.withDescription("Exclude a matching selector"),
+    withParameterDescription("Exclude a matching FQN, <plural-type>/<name>, or glob"),
     Flag.atLeast(0),
   ),
-  registry: Flag.String("registry").pipe(
-    Flag.withDescription("Target a specific named registry"),
-    Flag.optional,
-  ),
-  registryUrl: Flag.String("registry-url").pipe(
-    Flag.withDescription("Override the target registry URL for automation"),
-    Flag.optional,
-  ),
+  registry: registryFlag,
   backfill: backfillFlag,
   acceptWarnings: acceptWarningsFlag,
   visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
-    Flag.withDescription("Initial visibility for every new extension in the selection"),
+    withParameterDescription("Initial visibility for every new extension in the selection"),
     Flag.optional,
   ),
-  preview: previewCapabilityFlag("Preflight without uploading"),
+  preview: previewCapabilityFlag(),
   includeDependencies: Flag.Boolean("include-dependencies").pipe(
-    Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
-    Flag.withDefault(false),
+    withParameterDescription("Include workspace-sourced dependencies of selected packs"),
+    withParameterDefault(false),
   ),
 } as const;
 
@@ -379,7 +370,6 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
       types: [...parsed.type],
       excludes: [...parsed.exclude],
       registry: parsed.registry,
-      registryUrl: parsed.registryUrl,
       backfill: parsed.backfill,
       acceptWarnings: parsed.acceptWarnings,
       preview: parsed.preview,
@@ -392,14 +382,15 @@ export const publishCommand = Command.make("publish", publishConfig, (parsed) =>
         allowUninitialized: Option.isSome(parsed.from) || Option.isSome(parsed.packageVersion),
       }),
     );
-  }).pipe(withRuntime("publish")),
+  }).pipe(withRuntime("publish", { registry: parsed.registry })),
 ).pipe(
   withArgvTracking(publishConfig),
   withCommandCapabilities(
     previewableCapabilities("registry", { inputs: "explicit-or-documented-defaults" }),
   ),
+  Command.annotate(LearnMore, formatLearnMore([["axm help publish", "Read the publish guide"]])),
   Command.withDescription(
-    "Publish project-workspace extensions or an existing skill directory to a registry (archive policy: axm help publish)",
+    "Publish project-workspace extensions or an existing skill directory to a registry",
   ),
   Command.withShortDescription("Publish project extensions to a registry"),
   Command.withExamples([

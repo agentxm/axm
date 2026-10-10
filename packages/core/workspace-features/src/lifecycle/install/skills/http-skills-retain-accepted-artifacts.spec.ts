@@ -49,7 +49,7 @@ describe("HTTP skill lifecycle", () => {
     for (const journey of [
       "restore",
       "reinstall",
-      "reinstall-path",
+      "reinstall-selected",
       "reinstall-configured",
       "advance",
     ] as const) {
@@ -188,22 +188,22 @@ describe("HTTP skill lifecycle", () => {
             requests.length = 0;
             const sync = Effect.gen(function* () {
               if (journey.startsWith("reinstall")) {
-                yield* applyInstall(
-                  installRequest({
+                const result = yield* applyUpdate(
+                  configuredUpdateRequest({
                     type: "skill",
-                    subject:
-                      journey === "reinstall-configured"
-                        ? { kind: "configured" }
-                        : { kind: "source", source },
-                    ...(journey === "reinstall-path" ? { names: ["."] } : {}),
                     reinstall: true,
+                    ...(journey === "reinstall-configured" ? {} : { nameFilters: ["review"] }),
                   }),
                 );
+                expect(result._tag).toBe("Resolved");
+                if (result._tag !== "Resolved") throw new Error("Expected a reinstall operation");
+                const failed = result.resolution.units.find((unit) => unit.state === "failed");
+                if (failed !== undefined) return yield* Effect.fail(failed);
                 return;
               }
               const restored = yield* applySync({
                 target: Option.none(),
-                type: Option.some("skill"),
+                types: ["skill"],
               });
               expect(restored._tag).toBe("Resolved");
             });

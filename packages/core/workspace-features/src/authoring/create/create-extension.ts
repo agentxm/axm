@@ -141,6 +141,8 @@ import {
 interface CreateRequestBase {
   /** Name without owner, as the person typed it. */
   readonly name: string;
+  /** Optional discovery summary; omission keeps the scaffold-specific starter. */
+  readonly description?: Option.Option<string>;
   /** An explicitly requested owner, if the person named one. */
   readonly owner: Option.Option<string>;
 }
@@ -289,13 +291,14 @@ const declaration = (
 };
 
 const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredScaffold => {
+  const description = Option.getOrUndefined(request.description ?? Option.none());
   switch (request.type) {
     case "skill":
-      return skillScaffold({ name: request.name, owner });
+      return skillScaffold({ name: request.name, owner, description });
     case "subagent":
-      return subagentScaffold({ name: request.name, owner });
+      return subagentScaffold({ name: request.name, owner, description });
     case "rule":
-      return ruleScaffold({ name: request.name, owner, title: request.title });
+      return ruleScaffold({ name: request.name, owner, title: request.title, description });
     case "hook":
       return hookScaffold({
         name: request.name,
@@ -304,11 +307,12 @@ const scaffoldFor = (request: CreateExtensionRequest, owner: Handle): AuthoredSc
         protocol: request.protocol,
         event: request.event,
         matcher: request.matcher,
+        description,
       });
     case "knowledge":
       return knowledgeScaffold({ name: request.name, owner, description: request.description });
     case "pack":
-      return packScaffold({ name: request.name, owner });
+      return packScaffold({ name: request.name, owner, description });
     case "mcp-server":
       return mcpServerScaffold({
         name: request.name,
@@ -849,10 +853,7 @@ export const prepareCreateExtension: (
   // A description is the one piece of package content a creation flag
   // controls, so the operation says what it will record rather than leaving
   // the author to read it back out of the written manifest.
-  const authoredSummary =
-    request.type === "knowledge" || request.type === "mcp-server"
-      ? request.description
-      : Option.none<string>();
+  const authoredSummary = request.description ?? Option.none<string>();
   const plan: Plan<CreateExtensionRequirements> = {
     _tag: "Plan",
     name: createExtensionPlanName(request.type),

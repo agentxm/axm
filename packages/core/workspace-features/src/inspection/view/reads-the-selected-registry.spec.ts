@@ -71,7 +71,7 @@ describe("Registry-selected extension view", () => {
               field: Option.none(),
             });
             expect(result.document).toMatchObject({
-              handle,
+              fqn: handle,
               owner: "@acme",
               type: "skill",
             });

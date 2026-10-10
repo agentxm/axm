@@ -64,12 +64,17 @@ describe("axm help command conformance", () => {
         const result = Schema.decodeUnknownSync(HelpTopicResultSchema)(
           renderer.state.results[0]?.data,
         );
-        expect(result, topic).toEqual({
-          topic,
-          content: HELP_TOPICS[topic].endsWith("\n")
-            ? HELP_TOPICS[topic]
-            : `${HELP_TOPICS[topic]}\n`,
-        });
+        expect(result, topic).toEqual(
+          HELP_TOPIC_KINDS[topic] === "json-schema"
+            ? { topic, kind: "json-schema", schema: JSON.parse(HELP_TOPICS[topic]) }
+            : {
+                topic,
+                kind: "markdown",
+                content: HELP_TOPICS[topic].endsWith("\n")
+                  ? HELP_TOPICS[topic]
+                  : `${HELP_TOPICS[topic]}\n`,
+              },
+        );
       }
     }),
   );
@@ -117,16 +122,17 @@ describe("axm help command conformance", () => {
 
       const expectedArguments = new Map<string, ReadonlyArray<string>>([
         ["axm install", ["source"]],
-        ["axm update", ["extension[@version]"]],
-        ["axm uninstall", ["extension[@version]"]],
+        ["axm update", ["extension"]],
+        ["axm uninstall", ["extension"]],
         ["axm adopt", ["extension"]],
         ["axm demote", ["extension", "source"]],
         ["axm fork", ["source", "extension"]],
         ["axm skills import", ["source", "extension"]],
         ["axm subagents import", ["source", "extension"]],
+        ["axm mcps import", ["name", "extension"]],
         ["axm sync", ["extension"]],
         ["axm view", ["extension", "field"]],
-        ["axm version", ["extension", "bump", "version"]],
+        ["axm version", ["extension", "bump"]],
         ["axm publish", ["extension"]],
         ["axm skills publish", ["name"]],
         ["axm subagents publish", ["name"]],
@@ -135,7 +141,7 @@ describe("axm help command conformance", () => {
         ["axm hooks publish", ["name"]],
         ["axm knowledge publish", ["name"]],
         ["axm packs publish", ["name"]],
-        ["axm packs show", ["extension"]],
+        ["axm packs show", ["name"]],
         ["axm packs add", ["name", "extension"]],
         ["axm packs remove", ["name", "extension"]],
         ["axm skills uninstall", ["name"]],
@@ -156,7 +162,15 @@ describe("axm help command conformance", () => {
   it.effect("derives root and per-type install selectors from one grammar", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();
-      const selectorFlags = ["skill", "subagent", "rule", "hook", "knowledge", "mcp", "pack"];
+      const selectorFlags = [
+        "skill",
+        "subagent",
+        "rule",
+        "hook",
+        "knowledge",
+        "mcp-server",
+        "pack",
+      ];
       const root = files.get("axm install");
       expect(root).toBeDefined();
       expect(root?.flags.map(({ name }) => name)).toEqual(
@@ -170,7 +184,7 @@ describe("axm help command conformance", () => {
         ["rules", "rule"],
         ["hooks", "hook"],
         ["knowledge", "knowledge"],
-        ["mcps", "mcp"],
+        ["mcps", "mcp-server"],
         ["packs", "pack"],
       ] as const;
       for (const [plural, selector] of rows) {
@@ -216,6 +230,7 @@ describe("axm help command conformance", () => {
         yield* handleHelpPath([topic], rootCommand).pipe(Effect.provide(renderer.layer));
         expect(renderer.state.results[0]?.data, topic).toEqual({
           topic,
+          kind: "markdown",
           content: HELP_TOPICS[topic],
         });
       }
@@ -235,7 +250,11 @@ describe("axm help command conformance", () => {
           detail: `Unknown help topic or command path '${path.join(" ")}'.`,
           suggestions: [
             {
-              description: "List available help topics.",
+              description: "Show command help",
+              cmd: path[0] === "not-a-topic" ? "axm --help" : `axm ${path[0]} --help`,
+            },
+            {
+              description: "List available help topics",
               cmd: "axm help",
             },
           ],

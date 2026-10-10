@@ -8,7 +8,7 @@ import { ExitCode, exitCodeFor } from "./app-error/index.js";
 import {
   deriveOperationOutcome,
   type BlockingClass,
-  type OperationErrorCategory,
+  type ErrorCode,
   type OperationOutcome,
   type OperationResolution,
 } from "@agentxm/workspace-kernel/operations";
@@ -28,10 +28,10 @@ const BLOCKED_CONFLICT_CLASSES: ReadonlySet<BlockingClass> = new Set([
  */
 export interface OperationVerdict {
   readonly divergence?: boolean;
-  readonly failure?: { readonly category: OperationErrorCategory };
+  readonly failure?: { readonly category: ErrorCode };
   readonly blocking?: {
     readonly class: BlockingClass;
-    readonly causeCode?: OperationErrorCategory;
+    readonly causeCode?: ErrorCode;
   };
   readonly interruption?: { readonly signal: "SIGINT" | "SIGTERM" };
 }

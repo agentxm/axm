@@ -33,19 +33,31 @@ const COLLECTION_PAYLOADS = [
     DiscoverOutputSchema.fields,
     ["items", "count", "totalDetected", "registryAvailable"],
   ],
-  ["axm knowledge list", KnowledgeListQueryResultSchema.fields, ["items", "count"]],
   [
-    "axm knowledge concepts search",
+    "axm knowledge list",
+    KnowledgeListQueryResultSchema.fields,
+    ["filter", "count", "totalCount", "managementCounts", "nativeLocationCounts", "items"],
+  ],
+  [
+    "axm knowledge concepts query",
     KnowledgeConceptQueryPageSchema.fields,
-    ["query", "corpusFingerprint", "items", "count", "hasMore", "cursor", "explanation"],
+    ["query", "corpusFingerprint", "items", "count", "hasMore", "cursor"],
   ],
   [
     "axm list",
     ExtensionListDocumentSchema.fields,
-    ["filter", "items", "count", "totalCount", "coverage", "nativeLocationCounts"],
+    [
+      "filter",
+      "count",
+      "totalCount",
+      "managementCounts",
+      "nativeLocationCounts",
+      "items",
+      "coverage",
+    ],
   ],
   [
-    "axm instructions",
+    "axm instructions status",
     InstructionsStatusOutputSchema.fields,
     [
       "enabled",
@@ -88,7 +100,7 @@ const EXPECTED_RESULT_EXCEPTIONS = [
   },
   {
     family: "registry-view",
-    reason: "selected fields use value while full documents use data",
+    reason: "selected fields return scalars or arrays while full documents return extension facts",
   },
 ] as const;
 

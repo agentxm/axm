@@ -9,7 +9,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/catalog-is-complete",
   title: "Every supported lint rule has a stable default and input scope",
   statement:
-    "The lint rule catalog shall expose exactly the accepted rule identities, and each rule shall declare its accepted default severity and the filesystem views (workspace, git-index) it observes.",
+    "The lint rule catalog shall expose exactly the accepted rule identities, and each rule shall declare its accepted default severity and the filesystem views (filesystem, git-index) it observes.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "workspace-intent-fidelity"],
@@ -35,11 +35,11 @@ export const specification = defineSpecification({
 type ExpectedRule = readonly [
   id: string,
   defaultSeverity: "error" | "warning" | "info",
-  views: ReadonlyArray<"workspace" | "git-index">,
+  views: ReadonlyArray<"filesystem" | "git-index">,
 ];
 
-const bothViews = ["workspace", "git-index"] as const;
-const workspaceView = ["workspace"] as const;
+const bothViews = ["filesystem", "git-index"] as const;
+const workspaceView = ["filesystem"] as const;
 
 /**
  * Accepted lint-rule inventory. This is intentionally independent of the

@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../cli-parameters.js";
 /**
  * The `--non-interactive` flag and the invocation posture it resolves to.
  *
@@ -17,7 +18,7 @@ import { isCI } from "@agentxm/host-primitives";
 export const nonInteractiveFlag = GlobalFlag.Setting("axm-non-interactive")({
   flag: Flag.Boolean("non-interactive").pipe(
     Flag.optional,
-    Flag.withDescription("Never prompt; fail with guidance when input is required"),
+    withParameterDescription("Never prompt; fail with guidance when input is required"),
   ),
 });
 

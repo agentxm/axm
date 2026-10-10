@@ -30,11 +30,10 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const bundledRequest = (reinstall: boolean) =>
+const bundledRequest = () =>
   installRequest({
     type: "skill",
     subject: { kind: "bundled" },
-    reinstall,
     planName: "Install bundled AXM skill",
   });
 
@@ -44,7 +43,7 @@ describe("Bundled official-skill recovery over an authored official skill", () =
     for (const cleanup of cleanups.splice(0)) cleanup();
   });
 
-  it.effect("is blocked in preview and forced apply before any change", () => {
+  it.effect("is blocked in preview and apply before any change", () => {
     const workspace = workspaceWithAuthoredExtension({
       type: "skill",
       name: "axm",
@@ -85,8 +84,8 @@ describe("Bundled official-skill recovery over an authored official skill", () =
     return workspace
       .provide(
         Effect.gen(function* () {
-          expectBlocked(yield* previewInstall(bundledRequest(false)));
-          expectBlocked(yield* applyInstall(bundledRequest(true)));
+          expectBlocked(yield* previewInstall(bundledRequest()));
+          expectBlocked(yield* applyInstall(bundledRequest()));
 
           expect(workspace.readFile("axm.json")).toBe(before.settings);
           expect(workspace.readFile("axm-lock.yaml")).toBe(before.lock);

@@ -213,7 +213,7 @@ describe("axm lint handler", () => {
         workspaceRoot: tempDir,
         userHome: tempDir,
         scope: args.scope ?? "project",
-        input: { view: "workspace" },
+        input: { view: "filesystem" },
         nativeView: { kind: "workspace" },
         fix: args.fix ?? false,
       },

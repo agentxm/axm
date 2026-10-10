@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/import/package-enablement-is-explicit",
   title: "Imported packages are enabled only by an explicit request",
   statement:
-    "The --enable option of mcps import shall apply only to --as package conversion, enabling the converted package when supplied and leaving it disabled when omitted.",
+    "The --enable option of mcps import shall enable the converted package when supplied and leaving it disabled when omitted.",
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
@@ -35,7 +35,7 @@ export const specification = defineSpecification({
   methods: ["example", "decision-table"],
   derivedFrom: [
     "apps/cli/src/root/mcps/import.ts",
-    "apps/cli/src/root/mcps/import.test.ts",
+    "apps/cli-e2e/src/mcp-adoption-and-import-are-distinct.spec.ts",
     "apps/cli-e2e/src/fork-import.e2e.test.ts",
     "cli/mcps/projects-to-every-configured-agent",
   ],

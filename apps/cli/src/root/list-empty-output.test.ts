@@ -161,7 +161,7 @@ describe("list command empty output", () => {
         yield* handleListHook();
         yield* handleListMcpServers();
         const stdout = streams.lines("stdout").join("\n");
-        expect(stdout).toContain("No hooks packages found");
+        expect(stdout).toContain("No hook extensions found");
         expect(stdout).toContain("No MCP servers found");
       }),
     );
@@ -201,9 +201,12 @@ describe("list command empty output", () => {
             {
               name: "tool-audit",
               enabled: true,
-              source: "@acme/hooks/tool-audit",
+              source: expect.objectContaining({
+                kind: "registry",
+                locator: "@acme/hooks/tool-audit",
+              }),
               locked: true,
-              classification: { kind: "lifecycle", lifecycle: "configured" },
+              management: "configured",
             },
           ],
         });
@@ -236,7 +239,7 @@ describe("list command empty output", () => {
                   path: path.join(tempDir, ".mcp.json"),
                 },
               ],
-              classification: { kind: "lifecycle", lifecycle: "configured" },
+              management: "configured",
             },
           ],
         });

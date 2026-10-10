@@ -1,4 +1,7 @@
-import { Argument, Command, Flag } from "effect/cli";
+import { creationOwnerFlag } from "../../../cli-flags/owner-handle.js";
+import { withParameterDescription } from "../../../cli-parameters.js";
+import { descriptionFlag } from "../../../cli-flags/index.js";
+import { Argument, Command } from "effect/cli";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions";
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -12,21 +15,18 @@ import { handleSubagentsNew } from "./handler.js";
 
 const newConfig = {
   name: Argument.String("name").pipe(
-    Argument.withDescription("Name of the subagent (without owner)"),
+    withParameterDescription("Name of the subagent to create, without owner"),
   ),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription(
-      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
-    ),
-    Flag.optional,
-  ),
-  preview: previewCapabilityFlag("Show what files would be created without creating them"),
+  owner: creationOwnerFlag,
+  description: descriptionFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
   handleSubagentsNew({
     name: decodeExtensionNameSync(name),
     owner,
+    description,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("subagents new")),
 ).pipe(

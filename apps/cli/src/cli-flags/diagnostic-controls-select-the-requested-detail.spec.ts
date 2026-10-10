@@ -1,10 +1,11 @@
+import { axmBooleanEnabled } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { probeFlag } from "../test-support/parser-probe.js";
-import { isEnabledEnvRequest, resolveVerbosityLevel } from "./resolve-verbosity.js";
+import { resolveVerbosityLevel } from "./resolve-verbosity.js";
 
 export const specification = defineSpecification({
   requirement: "cli/diagnostic-controls-select-the-requested-detail",
@@ -110,8 +111,8 @@ const requestOf = (row: DetailCase) => ({
   flagQuiet: row.flags.includes("--quiet") || row.flags.includes("-q"),
   flagDebug: row.flags.includes("--debug"),
   flagVerbose: row.flags.includes("--verbose") || row.flags.includes("-v"),
-  envDebug: isEnabledEnvRequest(row.env["AXM_DEBUG"]),
-  envVerbose: isEnabledEnvRequest(row.env["AXM_VERBOSE"]),
+  envDebug: axmBooleanEnabled(row.env["AXM_DEBUG"]),
+  envVerbose: axmBooleanEnabled(row.env["AXM_VERBOSE"]),
 });
 
 const expectedLevel = {

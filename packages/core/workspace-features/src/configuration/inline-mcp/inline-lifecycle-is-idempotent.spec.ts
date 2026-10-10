@@ -49,7 +49,7 @@ const identicalAddRows: ReadonlyArray<IdenticalAddRow> = [
       url: "https://example.test/mcp",
       env: [],
       headerEnv: ["Authorization=CONTEXT_TOKEN"],
-      headers: ["X-Workspace:review-team"],
+      headers: ["X-Workspace=review-team"],
     },
   },
 ];

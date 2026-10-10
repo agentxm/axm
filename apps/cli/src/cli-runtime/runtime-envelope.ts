@@ -1,5 +1,5 @@
 import { appErrorWithDiagnostic } from "./terminal-diagnostics.js";
-import { FailureOperation } from "@agentxm/workspace-kernel/operations";
+import { FailureOperation, type ErrorCode } from "@agentxm/workspace-kernel/operations";
 import * as Context from "effect/Context";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -11,7 +11,7 @@ import * as Option from "effect/Option";
 
 import { jsonFlag, debugFlag, verboseFlag, quietFlag } from "../cli-flags/index.js";
 import type { OutputFormat } from "./output-mode.js";
-import type { AppErrorCode } from "../app-error/index.js";
+
 import { AppError, ExitCode, exitCodeFor } from "../app-error/index.js";
 import { isWorkspaceFailure, type WorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
@@ -323,7 +323,7 @@ export const withCliErrorHandling = <A, R>(
       );
     const defectFailure = (
       cause: Cause.Cause<unknown>,
-      code: AppErrorCode,
+      code: ErrorCode,
     ): Effect.Effect<CommandSettlementFailure> => {
       const defect = causeDefect(cause);
       return Effect.map(

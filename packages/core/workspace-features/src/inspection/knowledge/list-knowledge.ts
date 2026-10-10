@@ -28,15 +28,19 @@ import {
   WorkspaceLocation,
   WorkspaceRecords,
 } from "@agentxm/workspace-kernel/workspace-state";
-import {
-  ConfiguredAgentOutcomeSchema,
-  type ConfiguredAgentOutcome,
-} from "@agentxm/workspace-kernel/operations";
+import { type ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
 
+import {
+  buildInventoryDocument,
+  ExtensionListItemSchema,
+  ExtensionInventoryDocumentFields,
+  inventoryEnvelope,
+  type ExtensionListItem,
+} from "../inventory-document.js";
 import { WorkspaceInspectionFailed } from "../errors.js";
 
 const BundleSchema = Schema.Struct({
-  name: Schema.String,
+  ...ExtensionListItemSchema.fields,
   sourceRoot: Schema.String,
   concepts: Schema.Number,
   diagnostics: Schema.Number,
@@ -53,16 +57,16 @@ const BundleSchema = Schema.Struct({
       ]),
     }),
   ),
-  agentOutcomes: Schema.Array(ConfiguredAgentOutcomeSchema),
 });
 
 export const KnowledgeListQueryResultSchema = Schema.Struct({
+  ...ExtensionInventoryDocumentFields,
   items: Schema.Array(BundleSchema),
-  count: Schema.Number,
 });
 export type KnowledgeListQueryResult = typeof KnowledgeListQueryResultSchema.Type;
 
 export interface KnowledgeListRow {
+  readonly management: ExtensionListItem["management"];
   readonly name: string;
   readonly sourceRoot: string;
   readonly concepts: number;
@@ -79,7 +83,9 @@ const inspectionFailed = (name: string, cause: unknown) =>
   });
 
 export const ListKnowledge = {
-  query: Effect.fn("ListKnowledge.query")(function* () {
+  query: Effect.fn("ListKnowledge.query")(function* (request: {
+    readonly agents?: ReadonlyArray<string>;
+  }) {
     const location = yield* WorkspaceLocation;
     const records = yield* WorkspaceRecords;
     const settings = yield* SettingsReader;
@@ -105,7 +111,12 @@ export const ListKnowledge = {
       { concurrency: 16 },
     );
 
-    const inventory = yield* records.getExtensionInventory("knowledge", {});
+    const agentFilter = request.agents ?? [];
+    const fullInventory = yield* records.getExtensionInventory("knowledge", {});
+    const inventory =
+      agentFilter.length === 0
+        ? fullInventory
+        : yield* records.getExtensionInventory("knowledge", { agents: agentFilter });
     const configuredAgents = yield* settings.configuredAgents;
     const configured = yield* settings.entries("knowledge");
     const discoveryConfig = yield* settings.knowledgeDiscoveryConfig;
@@ -114,7 +125,7 @@ export const ListKnowledge = {
       Option.isSome(instructionFiles) && instructionFiles.value !== false;
 
     const bundlesByName = new Map(bundles.map((bundle) => [bundle.name, bundle]));
-    const inventoryNames = new Set(inventory.items.map((item) => item.name));
+    const inventoryNames = new Set(fullInventory.items.map((item) => item.name));
 
     const rows: ReadonlyArray<KnowledgeListRow> = [
       ...inventory.items.map((item): KnowledgeListRow => {
@@ -136,6 +147,7 @@ export const ListKnowledge = {
             : undefined;
         return {
           name: item.name,
+          management: item.classification.lifecycle,
           sourceRoot: bundle?.sourceRoot ?? item.paths[0] ?? "n/a",
           concepts: bundle?.inspection.concepts.length ?? 0,
           diagnostics: bundle?.inspection.diagnostics.length ?? 0,
@@ -144,9 +156,15 @@ export const ListKnowledge = {
         };
       }),
       ...bundles
-        .filter(({ name }) => !inventoryNames.has(name))
+        .filter(
+          ({ name }) =>
+            !inventoryNames.has(name) &&
+            (agentFilter.length === 0 ||
+              agentFilter.some((agent) => configuredAgents.includes(agent))),
+        )
         .map(({ name, sourceRoot, manifest, inspection }): KnowledgeListRow => ({
           name,
+          management: "configured",
           sourceRoot,
           concepts: inspection.concepts.length,
           diagnostics: inspection.diagnostics.length,
@@ -170,6 +188,31 @@ export const ListKnowledge = {
         })),
     ].sort((left, right) => left.name.localeCompare(right.name));
 
-    return { document: { items: rows, count: rows.length }, rows };
+    const core = yield* buildInventoryDocument(inventory);
+    const items = rows.map((row) => {
+      const observed = core.items.find((item) => item.name === row.name);
+      const bundle = bundlesByName.get(row.name);
+      const fallback: ExtensionListItem = {
+        type: "knowledge",
+        name: row.name,
+        scope: location.scope,
+        ...(bundle === undefined
+          ? {}
+          : {
+              fqn: `${bundle.manifest.owner}/knowledge/${bundle.manifest.name}`,
+              version: bundle.manifest.version,
+            }),
+        management: row.management,
+        installed: true,
+        enabled: true,
+        source: { kind: "unknown", locator: row.sourceRoot },
+        agentOutcomes: row.agentOutcomes,
+      };
+      return { ...(observed ?? fallback), ...row };
+    });
+    return { document: inventoryEnvelope(items, rows.length), rows } satisfies {
+      readonly document: KnowledgeListQueryResult;
+      readonly rows: ReadonlyArray<KnowledgeListRow>;
+    };
   }, withInspectionReadView),
 };

@@ -8,7 +8,7 @@ import type { KnowledgeInstructionEntryResolution } from "@agentxm/workspace-ker
 
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { ABSENT, count, type ViewColumn } from "../../screen/index.js";
-import { inventoryAgentOutcomes } from "../inventory-view.js";
+import { inventoryAgentOutcomes, inventoryLifecycle } from "../inventory-view.js";
 import { makePerTypeListCommand } from "../shared/list-command.js";
 
 const renderInstructionEntry = (
@@ -20,6 +20,10 @@ const renderInstructionEntry = (
 
 const BundleColumns = [
   { header: "Bundle", priority: "required", value: (row: KnowledgeListRow) => row.name },
+  {
+    header: "Management",
+    value: (row: KnowledgeListRow) => inventoryLifecycle({ lifecycle: row.management }),
+  },
   { header: "Concepts", align: "right", value: (row: KnowledgeListRow) => String(row.concepts) },
   {
     header: "Diagnostics",
@@ -41,11 +45,11 @@ const BundleColumns = [
 
 const { handler, command } = makePerTypeListCommand({
   type: "knowledge",
-  query: () => ListKnowledge.query().pipe(Effect.mapError(inspectionFailureToAppError)),
+  query: (agents) =>
+    ListKnowledge.query({ agents }).pipe(Effect.mapError(inspectionFailureToAppError)),
   schema: KnowledgeListQueryResultSchema,
   columns: BundleColumns,
   summary: (_document, rows) => count(rows.length, "knowledge bundle"),
-  agentFilter: false,
 });
 
 export const handleList = handler;

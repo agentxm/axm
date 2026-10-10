@@ -1,26 +1,27 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { Command, Flag } from "effect/cli";
+import { Argument, Command, Flag } from "effect/cli";
 
 import {
   ImportNativeExtension,
   importNativeExtensionPlanName,
   type NativeMcpCandidate,
 } from "@agentxm/workspace-features/authoring";
-import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
-  ImportMcpServers,
-  type McpImportPreflight,
+  AdoptMcpServers,
+  type McpAdoptionPreflight,
 } from "@agentxm/workspace-features/configuration";
-import type { OperationResolution } from "@agentxm/workspace-kernel/operations";
+import {
+  publicRecoveryValue,
+  recoveryPositional,
+  recoverySwitch,
+} from "@agentxm/workspace-kernel/operations";
 
-import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
-import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import { emitOperationResolution } from "../../operation-output.js";
-import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
@@ -31,29 +32,14 @@ import { makeConfirmationRecovery, makePlanInvocation } from "../shared/confirma
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface McpsImportArgs {
-  readonly name?: ReadonlyArray<string>;
+  readonly name: string;
+  readonly target: string;
+  readonly enable: boolean;
   readonly preview: boolean;
-  readonly as?: Option.Option<string>;
-  readonly enable?: boolean;
-  /** The scope selector this invocation carried, for the package route's boundary. */
-  readonly scope?: WorkspaceScope;
 }
 
-const importedCount = (
-  resolution: OperationResolution<unknown>,
-  candidateCount: number,
-): number => {
-  const importUnit = resolution.units.find((unit) => unit.label.startsWith("Import "));
-  return importUnit?.state === "committed" ? candidateCount : 0;
-};
-
-/**
- * What the configuration feature discovered, in the terms the authoring
- * feature decides over. The adapter answers what shape each native connection
- * has; whether that shape can become a package is the authoring feature's
- * refusal to make.
- */
-const discoveryFrom = (preflight: McpImportPreflight) => ({
+/** Adapt discovered native definitions to the authoring feature's conversion decision. */
+const discoveryFrom = (preflight: McpAdoptionPreflight) => ({
   candidates: preflight.candidates.map((candidate): NativeMcpCandidate => ({
     name: candidate.name,
     remote:
@@ -75,134 +61,66 @@ export const handleMcpsImport = (args: McpsImportArgs) =>
     {
       command: "mcps.import",
       mode: args.preview ? "preview" : "apply",
-      planName: Option.isSome(args.as ?? Option.none())
-        ? importNativeExtensionPlanName("mcp-server")
-        : "Import MCP servers",
+      planName: importNativeExtensionPlanName("mcp-server"),
     },
     handleMcpsImportBody(args),
   );
 
 const handleMcpsImportBody = Effect.fn("Mcps.import")(function* (args: McpsImportArgs) {
-  const packageTarget = args.as ?? Option.none<string>();
-  const enablePackage = args.enable ?? false;
-  // `--enable` decides the activation of a package only `--as` creates, so the
-  // combination is a grammar refusal rather than a request either feature can
-  // represent.
-  if (enablePackage && Option.isNone(packageTarget)) {
-    return yield* makeAppError({
-      code: "usage",
-      detail: "--enable requires --as <extension>",
-    });
-  }
-  const candidate = yield* ImportMcpServers.prepare(args.name ?? []).pipe(
+  const discovered = yield* AdoptMcpServers.prepare([args.name]).pipe(
     Effect.mapError(failureToAppError),
   );
-  const preflight = candidate.preflight;
-
-  if (Option.isSome(packageTarget)) {
-    // Authoring a package is project-workspace work, and `--scope` is this
-    // command's grammar, so the refusal names the selector the operator wrote
-    // rather than the scaffolding vocabulary the feature refuses in.
-    if ((args.scope ?? "project") !== "project") {
-      return yield* makeAppError({
-        code: "usage",
-        detail: "MCP package import is project-workspace only; omit --scope user",
-      });
-    }
-    const nonInteractive = !(yield* (yield* Screen).canAsk);
-    const conversion = yield* ImportNativeExtension.prepare({
-      type: "mcp-server",
-      target: packageTarget.value,
-      enable: enablePackage,
-      nonInteractive,
-      discovery: discoveryFrom(preflight),
-    }).pipe(Effect.mapError(failureToAppError));
-    const packageInvocation = yield* makePlanInvocation(
-      { preview: args.preview },
-      makeConfirmationRecovery(["mcps", "import"], []),
-    );
-    const packageResolution = yield* ImportNativeExtension.previewOrApply(
-      conversion,
-      packageInvocation.execution,
-    ).pipe(Effect.mapError(failureToAppError));
-    yield* emitOperationResolution(packageResolution, { recovery: packageInvocation.recovery });
-    return;
-  }
-
+  const nonInteractive = !(yield* (yield* Screen).canAsk);
+  const candidate = yield* ImportNativeExtension.prepare({
+    type: "mcp-server",
+    target: args.target,
+    enable: args.enable,
+    nonInteractive,
+    discovery: discoveryFrom(discovered.preflight),
+  }).pipe(Effect.mapError(failureToAppError));
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.preview },
-    makeConfirmationRecovery(["mcps", "import"], []),
+    makeConfirmationRecovery(
+      ["mcps", "import"],
+      [
+        recoverySwitch("--enable", args.enable),
+        recoveryPositional(publicRecoveryValue(args.name)),
+        recoveryPositional(publicRecoveryValue(args.target)),
+      ],
+    ),
   );
-  const resolution = yield* ImportMcpServers.previewOrApply(candidate, execution).pipe(
+  const resolution = yield* ImportNativeExtension.previewOrApply(candidate, execution).pipe(
     Effect.mapError(failureToAppError),
   );
-  const appliedCount = importedCount(resolution, preflight.candidates.length);
-  const suggestions = [
-    EXTENSION_TYPE_PRESENTATION["mcp-server"].inspect,
-    ...(appliedCount === 1
-      ? [{ description: "Undo", cmd: `axm mcps uninstall ${preflight.candidates[0]?.name ?? ""}` }]
-      : []),
-  ];
-  yield* emitOperationResolution(resolution, {
-    recovery,
-    suggestions,
-    ...(preflight.candidates.length === 0 && preflight.conflicts.length === 0
-      ? { message: "No unmanaged MCP servers imported." }
-      : {}),
-    imports: {
-      imported: appliedCount,
-      skipped: preflight.skipped.length,
-      conflicting: preflight.conflicts.length,
-    },
-  });
+  yield* emitOperationResolution(resolution, { recovery });
 });
 
 const importConfig = {
-  name: Flag.String("name").pipe(
-    Flag.atLeast(0),
-    Flag.withDescription(
-      "Select an explicit native-name subset; repeatable. Any blocker in the selected batch prevents adoption.",
-    ),
-  ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Import to project (default) or user-level configuration"),
-  ),
-  preview: previewCapabilityFlag("Show what would change without applying"),
-  as: Flag.String("as").pipe(
-    Flag.withDescription("Create one managed MCP package at the target FQN"),
-    Flag.optional,
+  name: Argument.String("name").pipe(withParameterDescription("Native MCP server name to convert")),
+  target: Argument.String("extension").pipe(
+    withParameterDescription("Fully qualified extension name, such as @owner/mcps/name"),
   ),
   enable: Flag.Boolean("enable").pipe(
-    Flag.withDescription("Enable a package created with --as"),
-    Flag.withDefault(false),
+    withParameterDescription("Enable and materialize the imported MCP package"),
+    withParameterDefault(false),
   ),
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const importCommand = Command.make(
-  "import",
-  importConfig,
-  ({ scope, preview, as, enable, name }) =>
-    handleMcpsImport({ preview, as, enable, scope, name }).pipe(
-      Effect.scoped,
-      withWorkspace(scope),
-      withRuntime("mcps import"),
-    ),
+export const importCommand = Command.make("import", importConfig, (args) =>
+  handleMcpsImport(args).pipe(Effect.scoped, withWorkspace("project"), withRuntime("mcps import")),
 ).pipe(
   withArgvTracking(importConfig),
-  withCommandCapabilities(previewableCapabilities("workspace")),
-  Command.withDescription("Import unmanaged MCP servers as inline settings entries"),
+  withCommandCapabilities(previewableCapabilities("authored-source")),
+  Command.withDescription("Convert one native MCP server into a project-workspace MCP package"),
   Command.withExamples([
     {
-      command: "axm mcps import",
-      description: "Adopt unmanaged MCP servers from workspace and configured agent MCP configs",
+      command: "axm mcps import context @me/mcps/context --preview",
+      description: "Preview conversion of one named native server",
     },
     {
-      command: "axm mcps import --preview",
-      description: "Preview unmanaged MCP server adoption",
-    },
-    {
-      command: "axm mcps import --as @me/mcps/context",
-      description: "Convert one losslessly representable native server into an authored package",
+      command: "axm mcps import context @me/mcps/context --enable",
+      description: "Convert and enable the named native server",
     },
   ]),
 );

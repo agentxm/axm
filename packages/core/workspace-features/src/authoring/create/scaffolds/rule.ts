@@ -28,6 +28,7 @@ const INITIAL_VERSION = decodeVersionSync("0.1.0");
 export const ruleScaffold = (args: {
   readonly name: string;
   readonly owner: Handle;
+  readonly description?: string | undefined;
   readonly title: Option.Option<string>;
 }): AuthoredScaffold => {
   const name = decodeExtensionNameSync(args.name);
@@ -37,6 +38,7 @@ export const ruleScaffold = (args: {
     owner: args.owner,
     name,
     version: INITIAL_VERSION,
+    ...(args.description === undefined ? {} : { description: args.description }),
     type: "rule",
     title,
   };

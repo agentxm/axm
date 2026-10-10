@@ -981,6 +981,13 @@ export const makeSyncPlan = <R>({
     }
     // Fully blocked components have no transition to couple. Keep each named
     // refusal visible instead of collapsing every prevented subject into one row.
+    // Joining a later aggregate step must not move its earlier materialization
+    // behind cleanup, whose final readback observes the settled workspace.
+    components.sort(
+      (left, right) =>
+        Math.min(...left.steps.map((step) => ordered.indexOf(step))) -
+        Math.min(...right.steps.map((step) => ordered.indexOf(step))),
+    );
     const reportedComponents = components.flatMap((component) =>
       component.steps.every((step) => step.readiness === "error")
         ? component.steps.map((step) => ({ keys: component.keys, steps: [step] }))
@@ -1029,6 +1036,7 @@ export const makeSyncPlan = <R>({
                     single.artifact?.nativeLocations ?? [],
                     retained,
                     scopedSubjects,
+                    graph,
                   )
                 : Effect.void,
           }).pipe(
@@ -1068,7 +1076,7 @@ export const makeSyncPlan = <R>({
         validate: Effect.void,
         captureNativeRetention: captureNativeOutputRetention,
         validateNativeOutputs: (evidence, expected, retained) =>
-          validateNativeOutputPostconditions(evidence, expected, retained, scopedSubjects),
+          validateNativeOutputPostconditions(evidence, expected, retained, scopedSubjects, graph),
       });
     });
     return {

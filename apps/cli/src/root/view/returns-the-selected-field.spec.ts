@@ -39,6 +39,7 @@ const deprecation = {
  * this table does not settle.
  */
 const selections = [
+  { field: "fqn", value: HANDLE },
   { field: "version", value: "1.1.0" },
   { field: "latest", value: "1.1.0" },
   { field: "versions", value: ["1.1.0", "1.0.0"] },
@@ -53,6 +54,13 @@ const selections = [
 
 /** The two ways a selected field has nothing to return. */
 const refusals = [
+  {
+    label: "the retired handle field",
+    field: "handle",
+    index: readExtensionIndex,
+    code: "not_found",
+    detail: "Unknown view field: handle",
+  },
   {
     label: "a field AXM does not report",
     field: "unsupported",

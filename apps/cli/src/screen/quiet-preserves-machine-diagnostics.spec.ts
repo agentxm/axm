@@ -53,7 +53,6 @@ describe("Quiet machine diagnostics", () => {
         source: Option.some(source),
         selectors: {},
         all: true,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],

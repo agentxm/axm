@@ -4,8 +4,7 @@ import { withInspectionReadView } from "../read-view.js";
  *
  * Three decisions live here: which registry answers (the configured default,
  * or a named registry source the workspace configured), which extension a
- * handle names (a fully qualified handle, a bare name with an explicit type,
- * or a bare name that must match exactly one installed identity), and which
+ * handle names (a fully qualified handle or a local name with an explicit type), and which
  * fields the answer carries. Reading published metadata never requires
  * management access.
  *
@@ -27,7 +26,6 @@ import { ConfiguredAgentOutcomeSchema } from "@agentxm/workspace-kernel/operatio
 import { evaluateHookAgentOutcome } from "@agentxm/workspace-kernel/projection";
 
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
-import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   extensionTypeToPlural,
   parseExtensionFqnParts,
@@ -36,11 +34,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
-import {
-  resolveIdentifier,
-  type IdentifierResourceType,
-  type ResolvedIdentifier,
-} from "@agentxm/workspace-kernel/sources";
+import { resolveIdentifier, type IdentifierResourceType } from "@agentxm/workspace-kernel/sources";
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import { SettingsReader, DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
@@ -53,7 +47,7 @@ const ViewVersionSchema = Schema.Struct({
 });
 
 const ViewDocumentFields = {
-  handle: Schema.String,
+  fqn: Schema.String,
   owner: Schema.String,
   type: Schema.String,
   name: Schema.String,
@@ -88,6 +82,7 @@ export type ViewFieldValue = typeof ViewFieldValueSchema.Type;
 
 /** The fields `axm view` can report on their own. */
 export const VIEW_FIELDS = [
+  "fqn",
   "version",
   "versions",
   "latest",
@@ -136,52 +131,6 @@ export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(fu
   } satisfies ViewTargetRegistry;
 });
 
-/**
- * A bare name with no type names exactly one extension or none: probing every
- * identifier-bearing type and finding more than one match is an ambiguity the
- * caller has to settle, not a choice this query may make.
- */
-const resolveBareHandle = Effect.fn("ViewExtension.resolveBareHandle")(function* (handle: string) {
-  const settings = yield* SettingsReader;
-  const defaultRegistry = yield* settings.defaultRegistry;
-  const installedGraph = yield* (yield* DesiredStateReader).graph();
-  const registrySources = yield* settings.registrySourceHosts;
-  const attempts = yield* Effect.forEach(
-    installableExtensionTypes,
-    (resourceType) =>
-      Effect.scoped(
-        resolveIdentifier({
-          installedGraph,
-          registrySources,
-          input: handle,
-          resourceType,
-          scope: "both",
-          registrySourceName: defaultRegistry,
-        }),
-      ).pipe(Effect.result),
-    // eslint-disable-next-line axm-policy/no-unbounded-io -- one probe per fixed installable extension type
-    { concurrency: "unbounded" },
-  );
-  const matches = attempts.flatMap((result): ReadonlyArray<ResolvedIdentifier> =>
-    result._tag === "Success" ? [result.success] : [],
-  );
-  if (matches.length > 1) {
-    return yield* new PublishedMetadataUnavailable({
-      reason: "ambiguous-name",
-      detail: `"${handle}" matches more than one extension: ${matches.map((match) => match.fqn).join(", ")}`,
-      matches: matches.map((match) => match.fqn),
-    });
-  }
-  const [match] = matches;
-  if (match === undefined) {
-    return yield* new PublishedMetadataUnavailable({
-      reason: "not-found",
-      detail: `No extension named "${handle}" was found`,
-    });
-  }
-  return match;
-});
-
 /** The published identity a handle names, resolving a bare name if needed. */
 export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(function* (request: {
   readonly handle: string;
@@ -189,28 +138,29 @@ export const resolveViewHandle = Effect.fn("ViewExtension.resolveHandle")(functi
 }) {
   const parts = parseExtensionFqnParts(request.handle);
   if (parts !== undefined) return parts;
+  if (Option.isNone(request.type)) {
+    return yield* new PublishedMetadataUnavailable({
+      reason: "type-required",
+      detail: `Local name "${request.handle}" requires --type; use a fully qualified extension name otherwise`,
+    });
+  }
   const settings = yield* SettingsReader;
   const defaultRegistry = yield* settings.defaultRegistry;
-
-  const resolved = Option.isSome(request.type)
-    ? yield* Effect.scoped(
-        resolveIdentifier({
-          installedGraph: yield* (yield* DesiredStateReader).graph(),
-          registrySources: yield* settings.registrySourceHosts,
-          input: request.handle,
-          resourceType: request.type.value,
-          scope: "both",
-          registrySourceName: defaultRegistry,
-        }),
-      )
-    : yield* resolveBareHandle(request.handle);
+  const resolved = yield* Effect.scoped(
+    resolveIdentifier({
+      installedGraph: yield* (yield* DesiredStateReader).graph(),
+      registrySources: yield* settings.registrySourceHosts,
+      input: request.handle,
+      resourceType: request.type.value,
+      scope: "both",
+      registrySourceName: defaultRegistry,
+    }),
+  );
   const owner = Option.getOrUndefined(resolved.owner);
   if (owner === undefined) {
     return yield* new PublishedMetadataUnavailable({
       reason: "unqualified-name",
-      detail: Option.isSome(request.type)
-        ? `Extension "${request.handle}" does not have a registry owner`
-        : `Invalid extension handle: ${request.handle}`,
+      detail: `Extension "${request.handle}" does not have a registry owner`,
     });
   }
   return { owner, type: resolved.type, name: resolved.name };
@@ -220,7 +170,7 @@ const toDocument = (index: ExtensionIndex, visibility: "public" | "private"): Vi
   const [latest] = index.versions;
   const handle = `${index.owner}/${extensionTypeToPlural[index.type]}/${index.name}`;
   return {
-    handle,
+    fqn: handle,
     owner: index.owner,
     type: index.type,
     name: index.name,
@@ -243,6 +193,8 @@ const toDocument = (index: ExtensionIndex, visibility: "public" | "private"): Vi
 
 const fieldValue = (data: ViewDocument, field: ViewField): ViewFieldValue | undefined => {
   switch (field) {
+    case "fqn":
+      return data.fqn;
     case "version":
     case "latest":
       return data.latest?.version;
@@ -333,7 +285,7 @@ export const ViewExtension = {
           () =>
             new PublishedMetadataUnavailable({
               reason: "field-unavailable",
-              detail: "Published Hook archive does not contain a valid native Hook package.",
+              detail: "Published Hook archive does not contain a valid native Hook extension.",
             }),
         ),
       );
@@ -357,7 +309,7 @@ export const ViewExtension = {
             name: manifest.name,
             agentId: id,
             outcome: "blocked" as const,
-            reasonCode: "unknown-agent",
+            reasonCode: "unknown-agent" as const,
             reason: "Configured agent has no supported native Hook writer.",
           };
         const agent = agentById(id);
@@ -401,7 +353,7 @@ export const ViewExtension = {
     if (value === undefined) {
       return yield* new PublishedMetadataUnavailable({
         reason: "field-unavailable",
-        detail: `Field "${field}" is not available for ${document.handle}`,
+        detail: `Field "${field}" is not available for ${document.fqn}`,
       });
     }
     return { outcome: "field", field, value, document } satisfies ViewExtensionResult;

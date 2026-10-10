@@ -15,23 +15,21 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import { ExtensionTypeSchema } from "@agentxm/extension-model/unstable/extensions";
-import { combineNativeLocationOutcomes } from "@agentxm/workspace-kernel/locations";
 import {
-  ExtensionInventorySchema,
-  ExtensionInventoryRowSchema,
-  ExtensionInventoryLifecycleSchema,
-} from "@agentxm/workspace-kernel/workspace-state";
+  buildInventoryDocument,
+  ExtensionListItemSchema,
+  ExtensionInventoryDocumentFields,
+  inventoryEnvelope,
+} from "../inventory-document.js";
+import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
 import {
   assessExtensionListItems,
   collectExtensionListItems,
   type ExtensionListFilter,
-  type ExtensionListItem,
+  type AssessedExtensionListItem,
 } from "./assessment.js";
-
-const ListFilterSchema = Schema.Literals(["all", "outdated", "deprecated"] as const);
 
 const AssessmentStateSchema = Schema.Literals([
   "not-checked",
@@ -56,19 +54,9 @@ const ExtensionAssessmentSchema = Schema.Struct({
   deprecation: Schema.optional(DeprecationViewSchema),
 });
 
-const ExtensionListItemSchema = Schema.Struct({
-  ref: Schema.String,
-  type: ExtensionTypeSchema,
-  name: Schema.String,
-  management: ExtensionInventoryLifecycleSchema,
-  installed: Schema.Boolean,
-  enabled: Schema.NullOr(Schema.Boolean),
-  version: Schema.optional(Schema.String),
-  source: Schema.optional(Schema.String),
+const AssessedExtensionListItemSchema = Schema.Struct({
+  ...ExtensionListItemSchema.fields,
   assessment: ExtensionAssessmentSchema,
-  nativeLocations: ExtensionInventoryRowSchema.fields.nativeLocations,
-  agentOutcomes: Schema.optionalKey(ExtensionInventoryRowSchema.fields.agentOutcomes),
-  duplicateDiscoveries: ExtensionInventoryRowSchema.fields.duplicateDiscoveries,
 });
 
 /** How much of the installed inventory the assessment could actually reach. */
@@ -80,18 +68,15 @@ const CoverageSchema = Schema.Struct({
 });
 
 export const ExtensionListDocumentSchema = Schema.Struct({
-  filter: ListFilterSchema,
-  items: Schema.Array(ExtensionListItemSchema),
-  count: Schema.Number,
-  totalCount: Schema.Number,
+  ...ExtensionInventoryDocumentFields,
+  items: Schema.Array(AssessedExtensionListItemSchema),
   coverage: Schema.optional(CoverageSchema),
-  nativeLocationCounts: ExtensionInventorySchema.fields.nativeLocationCounts,
 });
 export type ExtensionListDocument = typeof ExtensionListDocumentSchema.Type;
 
 export interface ListExtensionsRequest {
-  /** Restrict the inventory to one extension type. */
-  readonly type?: InstallableExtensionType;
+  /** Restrict the inventory to these extension types, combined as a union. */
+  readonly types?: ReadonlyArray<InstallableExtensionType>;
   /** Which extensions the answer keeps. Exactly one filter is in force. */
   readonly filter: ExtensionListFilter;
 }
@@ -100,14 +85,14 @@ export interface ListExtensionsRequest {
  * An update is available when the assessment found a newer matching release
  * (`available`) or a moved source revision (`changed`).
  */
-const matchesFilter = (item: ExtensionListItem, filter: ExtensionListFilter): boolean =>
+const matchesFilter = (item: AssessedExtensionListItem, filter: ExtensionListFilter): boolean =>
   filter === "all" ||
   (filter === "outdated"
     ? item.assessment.state === "available" || item.assessment.state === "changed"
     : item.assessment.state === "deprecated");
 
 /** An installed extension counts as checked once its assessment reached a verdict. */
-const checkedStates: ReadonlyArray<ExtensionListItem["assessment"]["state"]> = [
+const checkedStates: ReadonlyArray<AssessedExtensionListItem["assessment"]["state"]> = [
   "current",
   "available",
   "changed",
@@ -115,7 +100,7 @@ const checkedStates: ReadonlyArray<ExtensionListItem["assessment"]["state"]> = [
   "deprecated",
 ];
 
-const coverageFor = (items: ReadonlyArray<ExtensionListItem>) => ({
+const coverageFor = (items: ReadonlyArray<AssessedExtensionListItem>) => ({
   eligible: items.filter((item) => item.installed).length,
   checked: items.filter((item) => checkedStates.includes(item.assessment.state)).length,
   unknown: items.filter((item) => item.assessment.state === "unknown").length,
@@ -125,41 +110,30 @@ const coverageFor = (items: ReadonlyArray<ExtensionListItem>) => ({
 export interface ListExtensionsResult {
   readonly document: ExtensionListDocument;
   /** The kept items with their full assessments, for rendering. */
-  readonly items: ReadonlyArray<ExtensionListItem>;
+  readonly items: ReadonlyArray<AssessedExtensionListItem>;
 }
 
 export const ListExtensions = {
   query: Effect.fn("ListExtensions.query")(function* (request: ListExtensionsRequest) {
-    const collected = yield* collectExtensionListItems(request.type);
+    const collected = yield* collectExtensionListItems(request.types);
     const assessed =
       request.filter === "all"
         ? collected
         : yield* Effect.scoped(assessExtensionListItems(collected, request.filter));
     const items = assessed.filter((item) => matchesFilter(item, request.filter));
-    const native = combineNativeLocationOutcomes(
-      items.flatMap((item) => item.nativeLocations ?? []),
-    );
+    const raw = yield* (yield* WorkspaceRecords).getInventory({ types: request.types ?? [] });
+    const core = yield* buildInventoryDocument(raw);
+    const documentItems = items.map((item) => {
+      const observed = core.items.find(
+        (candidate) => candidate.type === item.type && candidate.name === item.name,
+      );
+      if (observed === undefined)
+        throw new Error("Inventory changed within its inspection read view");
+      return { ...observed, assessment: item.assessment };
+    });
     return {
       document: {
-        filter: request.filter,
-        items,
-        count: items.length,
-        totalCount: collected.length,
-        ...(items.some((item) => item.nativeLocations !== undefined)
-          ? {
-              nativeLocationCounts: {
-                units: native.length,
-                unverifiedExtensions: items.filter(
-                  (item) => item.type !== "pack" && item.nativeLocations === undefined,
-                ).length,
-                physicalLocations: new Set(
-                  native.map((unit) => JSON.stringify([unit.scope, unit.address.path])),
-                ).size,
-                configuredConsumers: new Set(native.flatMap((unit) => unit.configuredConsumers))
-                  .size,
-              },
-            }
-          : {}),
+        ...inventoryEnvelope(documentItems, collected.length, request.filter),
         ...(request.filter === "all" ? {} : { coverage: coverageFor(assessed) }),
       },
       items,

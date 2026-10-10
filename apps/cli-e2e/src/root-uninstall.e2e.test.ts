@@ -16,6 +16,7 @@ export const executionBinding = {
     "cli/uninstall/removes-direct-route-and-recomputes-reachability",
     "cli/uninstall/is-idempotent",
     "cli/uninstall/retires-a-desired-pack-whose-package-is-unreadable",
+    "cli/uninstall/rejects-versioned-root-targets",
   ],
   boundary: "process",
   rationale:
@@ -458,9 +459,37 @@ const uninstallCases: ReadonlyArray<UninstallCase> = [
 ];
 
 describe("axm uninstall", () => {
+  it.each(["1.2.3", "^1.2.3", ""])(
+    "refuses a version suffix @%s before loading or changing the workspace",
+    async (version) => {
+      const workspace = createTempDir();
+      const settingsPath = path.join(workspace.path, "axm.json");
+      const settings = "invalid workspace settings must not outrank argument validation\n";
+      try {
+        fs.writeFileSync(settingsPath, settings);
+        const result = await runCli(["uninstall", "--json", `@acme/skills/review@${version}`], {
+          cwd: workspace.path,
+        });
+        const document: unknown = JSON.parse(result.stdout);
+        expect(result.exitCode).toBe(2);
+        expect(document).toMatchObject({
+          ok: false,
+          code: "usage",
+          suggestions: expect.arrayContaining([
+            expect.objectContaining({ cmd: "axm uninstall @acme/skills/review" }),
+          ]),
+        });
+        expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settings);
+        expect(fs.readdirSync(workspace.path)).toEqual(["axm.json"]);
+      } finally {
+        workspace.cleanup();
+      }
+    },
+  );
+
   it.each(uninstallCases)(
     "matches $surface uninstall output and workspace state for $label registry FQNs",
-    async ({ surface, name, version, publishToRegistry, assertAdditionalCleanup }) => {
+    async ({ surface, name, publishToRegistry, assertAdditionalCleanup }) => {
       const registryDir = createTempDir("axm-registry-");
       const rootWorkspace = createTempDir();
       const typedWorkspace = createTempDir();
@@ -475,7 +504,7 @@ describe("axm uninstall", () => {
 
         const rootResult = await runJsonCommand(rootWorkspace.path, [
           "uninstall",
-          registryFqn(surface, name, version),
+          registryFqn(surface, name),
         ]);
         const typedResult = await runJsonCommand(typedWorkspace.path, [surface, "uninstall", name]);
 
@@ -492,7 +521,7 @@ describe("axm uninstall", () => {
 
         const rootSecondPass = await runJsonCommand(rootWorkspace.path, [
           "uninstall",
-          registryFqn(surface, name, version),
+          registryFqn(surface, name),
         ]);
         const typedSecondPass = await runJsonCommand(typedWorkspace.path, [
           surface,

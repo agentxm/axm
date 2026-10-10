@@ -99,14 +99,14 @@ export interface YankRequest {
   readonly ref: string;
   readonly allVersions: boolean;
   readonly category?: YankCategory;
-  readonly notice?: string;
+  readonly message?: string;
 }
 
 export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request: YankRequest) {
   const registryUrl = yield* RegistryUrl;
   const input = {
     ...(request.category === undefined ? {} : { category: request.category }),
-    ...(request.notice === undefined ? {} : { notice: request.notice }),
+    ...(request.message === undefined ? {} : { message: request.message }),
   };
 
   if (request.allVersions) {
@@ -117,33 +117,59 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
     return registryTransition({
       action: "yank",
       registry: registryUrl,
-      target,
+      fqn: target,
+      before: result.before,
+      after: result.after,
+      disposition: result.disposition,
+      revision: result.revision,
       affectedVersions: affected,
       message: `Yanked ${affected.length} available version${affected.length === 1 ? "" : "s"} of ${target}. Future versions are unaffected.`,
     });
   }
 
   const ref = yield* parseExactVersionReference(request.ref);
-  yield* yankExtensionVersion(ref, input);
+  const result = yield* yankExtensionVersion(ref, input);
   return registryTransition({
     action: "yank",
     registry: registryUrl,
-    target: request.ref,
+    fqn: `${ref.owner}/${ref.type}/${ref.name}`,
     version: ref.version,
-    message: `Yanked ${request.ref}. Exact installs remain available with a warning.`,
+    before: result.before,
+    after: {
+      yankedAt: result.yankedAt,
+      yankCategory: result.yankCategory,
+      yankMessage: result.yankMessage,
+    },
+    disposition: result.disposition,
+    revision: result.revision,
+    message:
+      result.disposition === "already-current"
+        ? `${request.ref} is already yanked. Exact installs remain available with a warning.`
+        : `Yanked ${request.ref}. Exact installs remain available with a warning.`,
   });
 });
 
 export const unyank = Effect.fn("RetirePublishedVersion.unyank")(function* (ref: string) {
   const registryUrl = yield* RegistryUrl;
   const parsed = yield* parseExactVersionReference(ref);
-  yield* unyankExtensionVersion(parsed);
+  const result = yield* unyankExtensionVersion(parsed);
   return registryTransition({
     action: "unyank",
     registry: registryUrl,
-    target: ref,
+    fqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     version: parsed.version,
-    message: `Restored ${ref} to fresh resolution.`,
+    before: result.before,
+    after: {
+      yankedAt: result.yankedAt,
+      yankCategory: result.yankCategory,
+      yankMessage: result.yankMessage,
+    },
+    disposition: result.disposition,
+    revision: result.revision,
+    message:
+      result.disposition === "already-current"
+        ? `${ref} is already available to fresh resolution.`
+        : `Restored ${ref} to fresh resolution.`,
   });
 });
 

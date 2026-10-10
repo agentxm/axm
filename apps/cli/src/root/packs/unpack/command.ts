@@ -1,4 +1,5 @@
-import { Argument, Command, Flag } from "effect/cli";
+import { withParameterDescription } from "../../../cli-parameters.js";
+import { Argument, Command } from "effect/cli";
 
 import { withArgvTracking } from "../../../cli-runtime/index.js";
 import {
@@ -11,9 +12,9 @@ import { scopeFlag } from "../../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../../runtime.js";
 
 const unpackConfig = {
-  name: Argument.String("name").pipe(Argument.withDescription("Pack name to unpack")),
-  scope: scopeFlag.pipe(Flag.withDescription("Unpack project (default) or user-level pack state")),
-  preview: previewCapabilityFlag("Show what would change in settings without modifying them"),
+  name: Argument.String("name").pipe(withParameterDescription("Name of the pack to unpack")),
+  scope: scopeFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope, preview }) =>
@@ -21,14 +22,14 @@ export const unpackCommand = Command.make("unpack", unpackConfig, ({ name, scope
 ).pipe(
   withArgvTracking(unpackConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
-  Command.withDescription("Eject pack into individual entries"),
+  Command.withDescription("Unpack a configured pack into individually configured extensions"),
   Command.withExamples([
     {
-      command: "axm packs unpack @acme/frontend-tools",
+      command: "axm packs unpack frontend-tools",
       description: "Stop using a pack and manage extensions individually",
     },
     {
-      command: "axm packs unpack @acme/frontend-tools --preview",
+      command: "axm packs unpack frontend-tools --preview",
       description: "See what settings would change first",
     },
   ]),

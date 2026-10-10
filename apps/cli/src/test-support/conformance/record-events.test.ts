@@ -74,7 +74,6 @@ describe("recorded lifecycle event logs", () => {
       source: Option.some(source),
       selectors: { skill: [path.basename(source)] },
       all: false,
-      force: false,
       preview,
       bind: [],
       bindEnv: [],

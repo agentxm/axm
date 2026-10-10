@@ -5,9 +5,8 @@ import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js
 
 const { handler, command } = makePerTypeListCommand({
   type: "rule",
-  ...inventoryList("rule", () => listRules()),
+  ...inventoryList("rule", (agents) => listRules({ agents })),
   columns: sourcedListColumns,
-  agentFilter: false,
 });
 
 export const handleList = handler;

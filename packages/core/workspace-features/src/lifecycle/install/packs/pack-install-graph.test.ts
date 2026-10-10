@@ -289,7 +289,7 @@ describe("pack install graph", () => {
 
           const error = yield* applyInstall(packRequest("@acme/packs/toolkit")).pipe(Effect.flip);
 
-          expect(error).toMatchObject({ _tag: "ExtensionLifecycleFailed" });
+          expect(error).toMatchObject({ category: "validation" });
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
@@ -306,7 +306,7 @@ describe("pack install graph", () => {
 
           const error = yield* applyInstall(packRequest("@acme/packs/absent")).pipe(Effect.flip);
 
-          expect(error).toMatchObject({ _tag: "ExtensionLifecycleFailed" });
+          expect(error).toMatchObject({ category: "not_found" });
           expect(workspace.snapshot()).toEqual(before);
         }),
       )

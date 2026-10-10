@@ -1,6 +1,6 @@
 # Publishing
 
-`axm publish` can publish an existing skill directory with `--from`, or select
+`axm publish` can publish an existing skill directory with `--path`, or select
 extensions authored by the project workspace. Each `axm <type> publish` command
 selects from the authored workspace. Authorship comes from the configured
 exact `workspace` source together with the project `owner`, settings map key,
@@ -12,8 +12,8 @@ directory alone does not grant publication authority.
 Supply the publisher identity and version separately from the existing source:
 
 ```bash
-axm publish @acme/skills/review --from ./review --package-version 1.0.0 --preview
-axm publish @acme/skills/review --from ./review --package-version 1.0.0
+axm publish @acme/skills/review --path ./review --package-version 1.0.0 --preview
+axm publish @acme/skills/review --path ./review --package-version 1.0.0
 ```
 
 The directory must contain `SKILL.md`. No setup, upstream `skill.json`, or source
@@ -23,9 +23,9 @@ links. It wraps that payload under `src/` in the archive and generates a separat
 `skill.json` with the supplied publisher identity and version. The source stays
 unchanged and does not become workspace-authored.
 
-This mode requires one skill FQN, `--from`, and `--package-version` together.
+This mode requires one skill FQN, `--path`, and `--package-version` together.
 Selection filters and dependency expansion do not apply. `--version` still
-reports the CLI version. Use `--registry` or `--registry-url` to select the
+reports the CLI version. Use `--registry NAME_OR_URL` to select the
 Registry; publication to a remote Registry still requires its normal publisher
 authorization. Preview does not upload anything.
 
@@ -144,15 +144,15 @@ excluded paths, so unreadable or unsafe source entries still refuse publication.
 A retained link to content removed by selection is refused. Existing safety
 checks still reject included `node_modules` and `.env` entries.
 
-For `--from`, repeat `--include-file` and `--exclude-file` to supply the same
+For `--path`, repeat `--include-path` and `--exclude-path` to supply the same
 ordered selection policy against original source paths. For example:
 
 ```bash
-axm publish @acme/skills/review --from ./review --package-version 1.0.0 \
-  --include-file '**' --exclude-file '*.map' --preview
+axm publish @acme/skills/review --path ./review --package-version 1.0.0 \
+  --include-path '**' --exclude-path '*.map' --preview
 ```
 
-The flags are available only with `--from`. Ignore rules are evaluated before
+The flags are available only with `--path`. Ignore rules are evaluated before
 the `src/` envelope mapping; previews retain source and archive paths, and the
 generated manifest records envelope-relative explicit policy. The generated
 envelope is mandatory; an upstream manifest follows ordinary source selection.
@@ -169,7 +169,7 @@ automatically excluded.
 ## Git source review
 
 For a new upload inside a Git worktree, AXM compares the exact filtered
-Registry payload with the package subtree at local Git `HEAD`. For `--from`,
+Registry payload with the package subtree at local Git `HEAD`. For `--path`,
 comparison uses the original directory and excludes the generated envelope.
 Link targets and executable modes participate in comparison. Added, modified,
 or deleted archive paths mean the release would contain source state that the

@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { FailureDiagnosticSchema } from "@agentxm/workspace-kernel/operations";
+import { FailureDiagnosticSchema, ErrorCodeSchema } from "@agentxm/workspace-kernel/operations";
 import { resolveUserAxmHome } from "@agentxm/workspace-kernel/workspace-state";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { AppErrorCodeSchema, makeAppError } from "../app-error/app-error.js";
+import { makeAppError } from "../app-error/app-error.js";
 import { SerializedErrorCauseSchema } from "../app-error/cause-chain.js";
 import { TelemetryErrorReport } from "../telemetry/__generated__/telemetry-client.js";
 import { DIAGNOSTIC_LIMITS } from "./terminal-diagnostics.js";
@@ -18,7 +18,7 @@ export const LocalDiagnosticSchema = Schema.Struct({
   occurredAt: Schema.NonEmptyString,
   failure: Schema.Struct({
     ...FailureDiagnosticSchema.fields,
-    category: AppErrorCodeSchema,
+    category: ErrorCodeSchema,
     errorClass: evidence.class,
     phase: wire.phase,
     handled: evidence.handled,
@@ -124,16 +124,28 @@ export const exportLocalDiagnostic = (options: {
     const output = path.resolve(options.output);
     const staged = `${output}.${globalThis.crypto.randomUUID()}.tmp`;
     yield* fs.writeFileString(staged, reviewed.content, { flag: "wx", mode: 0o600 }).pipe(
-      Effect.andThen(fs.link(staged, output)),
-      Effect.ensuring(fs.remove(staged, { force: true }).pipe(Effect.ignore)),
       Effect.mapError((cause) =>
         makeAppError({
           code: "validation",
-          detail:
-            "Could not export the diagnostic record to a new file. Choose an existing writable directory and a filename that does not exist.",
+          detail: "Could not stage the diagnostic record. Choose an existing writable directory.",
           cause,
         }),
       ),
+      Effect.andThen(
+        fs.link(staged, output).pipe(
+          Effect.mapError((cause) =>
+            makeAppError({
+              code: cause.reason._tag === "AlreadyExists" ? "conflict" : "validation",
+              detail:
+                cause.reason._tag === "AlreadyExists"
+                  ? "The diagnostic export destination already exists. Choose a new filename."
+                  : "Could not export the diagnostic record to a new file. Choose an existing writable directory.",
+              cause,
+            }),
+          ),
+        ),
+      ),
+      Effect.ensuring(fs.remove(staged, { force: true }).pipe(Effect.ignore)),
     );
     return { diagnosticId: reviewed.diagnosticId, sha256: reviewed.sha256, output };
   });

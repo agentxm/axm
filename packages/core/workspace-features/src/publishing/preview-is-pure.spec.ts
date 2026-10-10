@@ -128,7 +128,7 @@ describe("Publish preview purity", () => {
       const outcome = yield* world.provide(
         runPublish(
           requestFor(world, {
-            registryUrl: Option.some("https://registry.example.test"),
+            registry: Option.some("https://registry.example.test"),
             selectors: ["@acme/skills/review"],
             visibility: Option.some("private"),
           }),

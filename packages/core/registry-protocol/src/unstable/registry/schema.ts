@@ -101,7 +101,7 @@ export const VersionEntrySchema = Schema.Struct({
   integrity: Schema.String,
   yankedAt: Schema.optional(DateTimeUtcSchema),
   yankCategory: Schema.optional(Schema.String),
-  yankNotice: Schema.optional(Schema.String),
+  yankMessage: Schema.optional(Schema.String),
 }).annotate({
   identifier: "VersionEntry",
   title: "Version Entry",

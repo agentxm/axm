@@ -83,8 +83,10 @@ const sourceLocator = (ref: ExtensionRef, path: Path.Path, baseDir: string): str
       return `${publicUrl(ref.source.url)}#skill=${encodeURIComponent(ref.source.entry ?? ref.sourcePath)}`;
     case "registry":
       return publicUrl(ref.source.location);
-    case "git-hosted":
-      return `${publicUrl(ref.source.url)}${ref.sourcePath === undefined ? "" : `//${ref.sourcePath}`}`;
+    case "git-hosted": {
+      const selectedPath = ref.sourcePath ?? ".";
+      return `${publicUrl(ref.source.url)}${selectedPath === "." ? "" : `//${selectedPath}`}`;
+    }
     case "local":
       return path.resolve(baseDir, ref.sourcePath ?? ref.source.path);
     case "workspace":

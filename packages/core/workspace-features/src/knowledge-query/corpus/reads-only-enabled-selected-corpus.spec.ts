@@ -67,7 +67,7 @@ describe("Selected Knowledge corpus", () => {
             const revised = knowledgeDocument("# Session\n\nRevised searchable content.\n");
             workspace.writeDocument("session.md", revised);
             const afterSourceEdit = workspace.snapshot();
-            const searched = yield* KnowledgeDiscovery.search({ scope, expression: "revised" });
+            const searched = yield* KnowledgeDiscovery.query({ scope, expression: "revised" });
             if (searched.outcome !== "ready") throw new Error("Expected a page");
             expect(searched.page.items.map((item) => item.ref.conceptId)).toEqual(["session"]);
             expect(searched.page.corpusFingerprint).not.toBe(first.page.corpusFingerprint);

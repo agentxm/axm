@@ -4,7 +4,7 @@ import { LintJsonDocumentSchema } from "./json-schema.js";
 
 describe("lint JSON contract", () => {
   const document = {
-    input: { view: "workspace" as const },
+    input: { view: "filesystem" as const },
     findings: [
       {
         group: "workspace" as const,

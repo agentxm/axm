@@ -1,29 +1,11 @@
-import {
-  DiagnosticReviewDocumentSchema,
-  DiagnosticExportDocumentSchema,
-} from "./root/diagnostics/command.js";
-import { HookTestResultSchema } from "@agentxm/workspace-kernel/operations";
+import { NAMED_MACHINE_OUTPUT_SCHEMAS } from "./machine-output-schemas.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 
-import {
-  JsonErrorEnvelopeSchema,
-  JsonHelpDocSchema,
-  JsonVersionDocSchema,
-} from "./cli-runtime/index.js";
-import { LoginDocumentSchema } from "@agentxm/registry-access/authentication";
-import {
-  PublishResultSchema,
-  RegistryTransitionSchema,
-} from "@agentxm/workspace-features/publishing";
-import {
-  VisibilityEvaluationSchema,
-  VisibilityMutationResultSchema,
-} from "@agentxm/registry-protocol/unstable/publish";
-import { ExtensionInventorySchema } from "@agentxm/workspace-kernel/workspace-state";
+import { JsonHelpDocSchema, JsonVersionDocSchema } from "./cli-runtime/index.js";
 
 import {
   captureHelpDoc,
@@ -31,110 +13,41 @@ import {
   collectHelpFiles,
 } from "./test-support/command-tree-test-helpers.js";
 import { makeAxmFormatter } from "./formatter.js";
-import { PlanResolutionDocumentSchema } from "./operation-output.js";
 import {
   FORMATTER_VERSION_CONTRACT,
   MACHINE_OUTPUT_CONTRACT_ROWS,
 } from "./machine-output-contracts.js";
-import { AgentCapabilitiesOutputSchema } from "./root/agents/capabilities.js";
-import { AgentsListOutputSchema } from "./root/agents/list.js";
-import { LoginNoOpDocumentSchema } from "./root/auth/login.js";
-import { LogoutDocumentSchema } from "./root/auth/logout.js";
-import { RevokeTokenDocumentSchema, TokenListDocumentSchema } from "./root/auth/token.js";
-import { WhoamiDocumentSchema } from "./root/auth/whoami.js";
-import {
-  CachePruneOutputSchema,
-  CacheStatusOutputSchema,
-  CacheVerifyOutputSchema,
-} from "./root/cache/command.js";
-import { DiscoverOutputSchema } from "@agentxm/workspace-features/discovery";
-import { HelpIndexResultSchema, HelpTopicResultSchema } from "./root/help/command.js";
-import {
-  KnowledgeConceptGetOutputSchema,
-  KnowledgeConceptCorpusChangingFailureSchema,
-  KnowledgeConceptCursorFailureSchema,
-  KnowledgeConceptQueryPageSchema,
-  KnowledgeConceptRelatedOutputSchema,
-  KnowledgeConceptResolveOutputSchema,
-  KnowledgeConceptStatusOutputSchema,
-  KnowledgeLintQueryResultSchema,
-} from "@agentxm/workspace-features/knowledge-query";
-import { LintResultDocumentSchema } from "./root/lint/handler.js";
-import {
-  ArchivalTransitionOutputSchema,
-  LifecycleTransitionOutputSchema,
-} from "./root/lifecycle/command.js";
-
-import { InstructionsStatusOutputSchema } from "./root/instructions.js";
-import { SetupDocumentSchema } from "./root/setup.js";
-import { ShareWorkspaceDocumentSchema } from "@agentxm/workspace-features/sharing";
-import {
-  ExtensionListDocumentSchema,
-  ExtensionShowResultSchema,
-  SubagentRenderResultSchema,
-  KnowledgeListQueryResultSchema,
-  McpServerListQueryResultSchema,
-  PackShowResultSchema,
-  ViewDocumentSchema,
-  ViewFieldValueSchema,
-} from "@agentxm/workspace-features/inspection";
-import { UpgradeDocumentSchema } from "./root/upgrade/handler.js";
 
 const sorted = (values: Iterable<string>): ReadonlyArray<string> => [...values].sort();
 
-const NAMED_MACHINE_OUTPUT_SCHEMAS: Readonly<Record<string, Schema.Top>> = {
-  ArchivalTransitionOutputSchema,
-  AgentCapabilitiesOutputSchema,
-  AgentsListOutputSchema,
-  CachePruneOutputSchema,
-  CacheStatusOutputSchema,
-  CacheVerifyOutputSchema,
-  DiscoverOutputSchema,
-  DiagnosticReviewDocumentSchema,
-  DiagnosticExportDocumentSchema,
-  ExtensionInventorySchema,
-  ExtensionShowResultSchema,
-  SubagentRenderResultSchema,
-  HelpIndexResultSchema,
-  HelpTopicResultSchema,
-  HookTestResultSchema,
-  InstructionsStatusOutputSchema,
-  JsonErrorEnvelopeSchema,
-  JsonHelpDocSchema,
-  JsonVersionDocSchema,
-  KnowledgeLintQueryResultSchema,
-  KnowledgeListQueryResultSchema,
-  McpServerListQueryResultSchema,
-  KnowledgeConceptGetOutputSchema,
-  KnowledgeConceptCorpusChangingFailureSchema,
-  KnowledgeConceptCursorFailureSchema,
-  KnowledgeConceptQueryPageSchema,
-  KnowledgeConceptRelatedOutputSchema,
-  KnowledgeConceptResolveOutputSchema,
-  KnowledgeConceptStatusOutputSchema,
-  LifecycleTransitionOutputSchema,
-  LintResultDocumentSchema,
-  LoginDocumentSchema,
-  LoginNoOpDocumentSchema,
-  LogoutDocumentSchema,
-  ExtensionListDocumentSchema,
-  PackShowResultSchema,
-  PlanResolutionDocumentSchema,
-  PublishResultSchema,
-  RegistryTransitionSchema,
-  RevokeTokenDocumentSchema,
-  ShareWorkspaceDocumentSchema,
-  SetupDocumentSchema,
-  TokenListDocumentSchema,
-  UpgradeDocumentSchema,
-  ViewDocumentSchema,
-  ViewFieldValueSchema,
-  VisibilityEvaluationSchema,
-  VisibilityMutationResultSchema,
-  WhoamiDocumentSchema,
+const structFieldSets = (schema: unknown): ReadonlyArray<ReadonlyArray<string>> => {
+  if (!Schema.isSchema(schema)) throw new Error("Expected an Effect Schema");
+  const fields: unknown = Reflect.get(schema, "fields");
+  if (typeof fields === "object" && fields !== null) return [Object.keys(fields)];
+  const members: unknown = Reflect.get(schema, "members");
+  if (Array.isArray(members) && members.length > 0) return members.flatMap(structFieldSets);
+  throw new Error("Expected a struct or union of structs for required-key inspection");
 };
 
 describe("machine-output contract register", () => {
+  it("registers the formatter help required and optional keys exactly as its schema", () => {
+    const family = MACHINE_OUTPUT_CONTRACT_ROWS.find(
+      (row) => row.family.id === "formatter-help",
+    )?.family;
+    expect(family).toBeDefined();
+    const jsonSchema = Schema.toJsonSchemaDocument(JsonHelpDocSchema).schema;
+    expect(sorted(family?.requiredTopLevelKeys ?? [])).toEqual(
+      sorted(
+        Array.isArray(jsonSchema["required"])
+          ? jsonSchema["required"].filter((key): key is string => typeof key === "string")
+          : [],
+      ),
+    );
+    expect(
+      sorted([...(family?.requiredTopLevelKeys ?? []), ...(family?.optionalTopLevelKeys ?? [])]),
+    ).toEqual(sorted(Object.keys(JsonHelpDocSchema.fields)));
+  });
+
   it.effect("classifies every registered command path exactly once", () =>
     Effect.gen(function* () {
       const helpFiles = yield* collectHelpFiles();
@@ -235,11 +148,10 @@ describe("machine-output contract register", () => {
       for (const schemaName of family.schemaNames) {
         const schema = NAMED_MACHINE_OUTPUT_SCHEMAS[schemaName];
         expect(schema, schemaName).toBeDefined();
-        const fields = schema === undefined ? undefined : Reflect.get(schema, "fields");
-        expect(fields, `${schemaName} must be a struct for required-key inspection`).toBeDefined();
-        const fieldKeys = typeof fields === "object" && fields !== null ? Object.keys(fields) : [];
-        for (const requiredKey of requiredPayloadKeys) {
-          expect(fieldKeys, `${family.id}/${schemaName}`).toContain(requiredKey);
+        for (const fieldKeys of structFieldSets(schema)) {
+          for (const requiredKey of requiredPayloadKeys) {
+            expect(fieldKeys, `${family.id}/${schemaName}`).toContain(requiredKey);
+          }
         }
       }
     }

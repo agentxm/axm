@@ -436,5 +436,10 @@
     "disposition": "superseded-by",
     "successor": "workspace/mcps/explicit-cleanup-preserves-unselected-state",
     "basis": "Declaration authority replaces insertion receipt eligibility. Explicit cleanup removes the selected key and preserves the container and unselected state without restoring a historical baseline."
+  },
+  {
+    "requirement": "cli/install/inline-mcp-configuration-is-skipped",
+    "disposition": "retired",
+    "basis": "Install now requires an explicit source. Configured realization belongs to sync, which realizes inline MCP configuration rather than skipping it."
   }
 ]

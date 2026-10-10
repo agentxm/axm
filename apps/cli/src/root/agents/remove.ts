@@ -1,4 +1,5 @@
-import { Argument, Command, Flag } from "effect/cli";
+import { withParameterDescription } from "../../cli-parameters.js";
+import { Argument, Command } from "effect/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
@@ -87,14 +88,12 @@ const handleAgentsRemoveBody = Effect.fn("Agents.remove")(function* (args: Agent
 
 const removeConfig = {
   ids: Argument.String("id").pipe(
-    Argument.withDescription("Configured coding-agent IDs to remove"),
+    withParameterDescription("Configured coding-agent IDs to remove"),
     Argument.atLeast(1),
   ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Remove agents from project (default) or user-level configuration"),
-  ),
+  scope: scopeFlag,
   force: acceptWarningsFlag,
-  preview: previewCapabilityFlag("Show what would change without applying"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const removeCommand = Command.make(

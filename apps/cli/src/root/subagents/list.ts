@@ -9,7 +9,7 @@ import { inventoryList, makePerTypeListCommand } from "../shared/list-command.js
 
 const SubagentListColumns = [
   { header: "Name", priority: "required", value: (row: TypeListRow) => row.name },
-  { header: "State", value: (row: TypeListRow) => inventoryLifecycle(row) },
+  { header: "Management", value: (row: TypeListRow) => inventoryLifecycle(row) },
   { header: "Activation", value: (row: TypeListRow) => inventoryActivation(row) },
   {
     header: "Agents",
@@ -27,7 +27,6 @@ const { handler, command } = makePerTypeListCommand({
   type: "subagent",
   ...inventoryList("subagent", (agents) => listSubagents({ agents })),
   columns: SubagentListColumns,
-  agentFilter: true,
 });
 
 export const handleList = handler;

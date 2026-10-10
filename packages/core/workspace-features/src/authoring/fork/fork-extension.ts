@@ -238,7 +238,7 @@ const exactFilter = (fqn: ExtensionFqnParts): ExtensionPackageFilter => ({
 /**
  * Which packages in the named source the fork will consider.
  *
- * An explicit `--from` identity is decisive. Otherwise a source that already
+ * An explicit `--package` identity is decisive. Otherwise a source that already
  * names an owner, type, and name in its own syntax narrows to that package,
  * and anything else considers every package the source holds — which is what
  * makes "the source contains more than one" an answerable ambiguity rather
@@ -279,7 +279,7 @@ const selectPackage = (
     return Effect.fail(
       new AuthoringFailed({
         category: "validation",
-        detail: "The source contains multiple AXM packages; select one with --from <FQN>",
+        detail: "The source contains multiple AXM packages; select one with --package <FQN>",
       }),
     );
   }

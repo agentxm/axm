@@ -72,6 +72,10 @@ request and suggests valid command-help or topic-discovery entry points. A
 special case may add contextual guidance, but it must not establish a different
 resolution rule for one command.
 
+The `axm version` command and global `axm --version` flag are an accepted
+name collision, following npm’s convention. The command changes an extension
+version; the flag reports the CLI version. Their syntax is unambiguous.
+
 ## Authority and freshness
 
 Help architecture owns the relationship among the surfaces, not their current

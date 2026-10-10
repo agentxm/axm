@@ -35,14 +35,21 @@ export const rulesCommand = Command.make("rules").pipe(
   ),
   Command.withExamples([{ command: "axm rules list", description: "Inventory detected rules" }]),
   Command.withSubcommands([
-    newCommand,
-    installCommand,
-    uninstallCommand,
-    listCommand,
-    showCommand,
-    enableCommand,
-    disableCommand,
-    updateCommand,
-    publishCommand,
+    {
+      group: "MANAGE RULES",
+      commands: [
+        installCommand,
+        updateCommand,
+        uninstallCommand,
+        listCommand,
+        showCommand,
+        enableCommand,
+        disableCommand,
+      ],
+    },
+    {
+      group: "AUTHOR RULES",
+      commands: [newCommand, publishCommand],
+    },
   ]),
 );

@@ -330,7 +330,7 @@ export const axmSkillCompatibleConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message:
-        "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0. Reason: cli-version-incompatible. Target: AXM CLI 1.2.3 + official AXM skill 1.2.3. Next: `axm skills update --name axm --preview`.",
+        "AXM CLI 1.2.3 is outside the official AXM skill range >=1.1.0 <1.2.0. Reason: cli-version-incompatible. Target: AXM CLI 1.2.3 + official AXM skill 1.2.3. Next: `axm skills update axm --preview`.",
       location: { file: OFFICIAL_SKILL_PATH },
     },
   ],
@@ -508,7 +508,7 @@ export const deprecatedInstalledConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message:
-        "@acme/skills/old is deprecated (obsolete); replacement: none. Preview: axm migrate @acme/skills/old --dry-run. Apply: axm migrate @acme/skills/old.",
+        "@acme/skills/old is deprecated (obsolete); replacement: none. Preview: axm migrate @acme/skills/old --preview. Apply: axm migrate @acme/skills/old.",
       location: { file: "axm.json" },
     },
   ],

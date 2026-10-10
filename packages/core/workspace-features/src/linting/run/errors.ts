@@ -16,7 +16,7 @@ import * as Schema from "effect/Schema";
 export class LintStagingFailed extends Schema.TaggedError<LintStagingFailed>()(
   "LintStagingFailed",
   {
-    category: Schema.Literals(["validation", "internal"]),
+    category: Schema.Literals(["usage", "validation", "internal"]),
     title: Schema.optional(Schema.String),
     detail: Schema.String,
     cause: Schema.optional(Schema.Unknown),

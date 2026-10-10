@@ -105,7 +105,7 @@ describe("Editing authored package versions", () => {
       }),
     );
 
-  // Each rule names a different next version; `set` names one exactly.
+  // Each rule names a different next version; an exact value names one directly.
   const bumps = [
     { label: "patch", change: { _tag: "Increment", rule: "patch" }, expected: "1.2.4" },
     { label: "major", change: { _tag: "Increment", rule: "major" }, expected: "2.0.0" },

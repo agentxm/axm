@@ -15,7 +15,7 @@ AXM owns only the managed Rules region; authored prose and other contributors
 retain their own ownership.
 
 Global instruction-file propagation is a separate workspace capability. Use
-`axm instructions` and `axm help instructions` to inspect or configure it.
+`axm instructions status` and `axm help instructions` to inspect or configure it.
 
 ## Install and manage Rules
 
@@ -55,7 +55,7 @@ Rule lifecycle commands accept `--scope project` (default) or `--scope user`:
 - `axm rules show <name>` — inspect installed state for one Rule.
 - `axm rules enable <name>` / `axm rules disable <name>` — activate or
   deactivate an installed Rule.
-- `axm rules update [source] [--name <glob>]` — update configured Rules.
+- `axm rules update [--source <source>] [<name>...]` — update configured rules by source or name.
 - `axm rules uninstall <name>` — remove a Rule.
 - `axm rules publish` — publish a project-authored Rule.
 

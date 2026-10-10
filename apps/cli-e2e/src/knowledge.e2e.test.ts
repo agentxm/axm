@@ -7,8 +7,9 @@ export const executionBinding = {
   requirements: [
     "cli/knowledge/lint/reports-validation-without-mutation",
     "cli/knowledge/list/explains-instruction-entry-inclusion",
-    "cli/knowledge/concepts/search/matches-lexical-query",
-    "cli/knowledge/concepts/search/rejects-invalid-query",
+    "cli/knowledge/concepts/query/matches-lexical-query",
+    "cli/knowledge/concepts/query/uses-one-text-and-filter-route",
+    "cli/knowledge/concepts/query/rejects-invalid-query",
     "cli/knowledge/concepts/query/combines-typed-filters",
     "cli/knowledge/concepts/query/enumerates-selected-document-kinds",
     "cli/knowledge/concepts/query/bounds-concept-evidence",
@@ -19,8 +20,8 @@ export const executionBinding = {
     "cli/knowledge/concepts/related/traverses-authored-links",
     "cli/knowledge/concepts/cursors-bind-query-and-corpus",
     "cli/knowledge/concepts/reads-only-enabled-selected-corpus",
-    "cli/knowledge/concepts/status/reports-current-corpus-health",
-    "cli/knowledge/concepts/status/publishes-discovery-capabilities",
+    "cli/knowledge/concepts/capabilities/reports-current-corpus-identity",
+    "cli/knowledge/concepts/capabilities/publishes-discovery-capabilities",
   ],
   boundary: "process",
   rationale:
@@ -263,7 +264,7 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--non-interactive"], {
+      const install = await runCli(["sync", "--scope", "project", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
@@ -336,7 +337,7 @@ describe("axm knowledge lifecycle", () => {
         },
       });
 
-      const search = await runCli(["knowledge", "concepts", "search", "Architecture", "--json"], {
+      const search = await runCli(["knowledge", "concepts", "query", "Architecture", "--json"], {
         cwd: temp.path,
       });
       expect(search.exitCode, search.stdout + search.stderr).toBe(0);
@@ -398,7 +399,7 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--non-interactive"], {
+      const install = await runCli(["sync", "--scope", "project", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
@@ -418,7 +419,7 @@ describe("axm knowledge lifecycle", () => {
         ["executed-zero-match", 0],
       ] as const;
       for (const [query, count] of cases) {
-        const result = await runCli(["knowledge", "concepts", "search", query, "--json"], {
+        const result = await runCli(["knowledge", "concepts", "query", query, "--json"], {
           cwd: temp.path,
         });
         expect(result.exitCode, result.stdout + result.stderr).toBe(0);
@@ -426,7 +427,7 @@ describe("axm knowledge lifecycle", () => {
       }
 
       for (const query of ["", " \t ", '""', 'literal:""']) {
-        const result = await runCli(["knowledge", "concepts", "search", query, "--json"], {
+        const result = await runCli(["knowledge", "concepts", "query", query, "--json"], {
           cwd: temp.path,
         });
         expect(result.exitCode, result.stdout + result.stderr).toBe(9);
@@ -497,22 +498,20 @@ describe("axm knowledge lifecycle", () => {
         agents: [],
         knowledge: { platform: { source: "./knowledge-source", enabled: true } },
       });
-      const install = await runCli(["knowledge", "install", "--non-interactive"], {
+      const install = await runCli(["sync", "--scope", "project", "--non-interactive"], {
         cwd: temp.path,
       });
       expect(install.exitCode, install.stdout + install.stderr).toBe(0);
 
-      const status = await runCli(["knowledge", "concepts", "status", "--json"], {
+      const status = await runCli(["knowledge", "concepts", "capabilities", "--json"], {
         cwd: temp.path,
       });
       expect(status.exitCode, status.stdout + status.stderr).toBe(0);
       expect(JSON.parse(status.stdout)).toMatchObject({
         ok: true,
         result: {
-          readiness: "ready",
-          health: { status: "healthy" },
           capabilities: {
-            operations: ["resolve", "search", "query", "get", "related", "status"],
+            operations: ["resolve", "query", "get", "related", "capabilities"],
             strategies: ["lexical"],
             operators: ["term", "phrase", "literal", "equals", "not-equals", "contains"],
           },
@@ -550,14 +549,13 @@ describe("axm knowledge lifecycle", () => {
         [["--lifecycle", "status!=draft"], 4],
         [["--property", "/audience=agents"], 1],
       ] as const) {
-        const query = await runCli(
-          ["knowledge", "concepts", "query", ...filter, "--explain", "--json"],
-          { cwd: temp.path },
-        );
+        const query = await runCli(["knowledge", "concepts", "query", ...filter, "--json"], {
+          cwd: temp.path,
+        });
         expect(query.exitCode, query.stdout + query.stderr).toBe(0);
         expect(JSON.parse(query.stdout)).toMatchObject({
           ok: true,
-          result: { count, explanation: { strategy: "lexical" } },
+          result: { count },
         });
       }
 
@@ -674,16 +672,46 @@ describe("axm knowledge lifecycle", () => {
         result: { outcome: "failed", reason: "cursor-expired" },
       });
 
+      for (const args of [
+        ["knowledge", "concepts", "search", "session"],
+        ["knowledge", "concepts", "status"],
+        ["knowledge", "concepts", "query", "session", "--explain"],
+      ]) {
+        const rejected = await runCli([...args, "--json"], { cwd: temp.path });
+        expect(rejected.exitCode).toBe(2);
+        expect(JSON.parse(rejected.stdout)).toMatchObject({ ok: false, code: "usage" });
+      }
+      expect(JSON.parse(status.stdout).result).not.toHaveProperty("readiness");
+      expect(JSON.parse(status.stdout).result).not.toHaveProperty("health");
+      expect(firstDocument.result).not.toHaveProperty("explanation");
+
       for (const removed of ["search", "open"]) {
         const invocation = await runCli(["knowledge", removed], { cwd: temp.path });
         expect(invocation.exitCode).toBe(2);
       }
+
+      fs.writeFileSync(
+        path.join(
+          temp.path,
+          "agent_extensions",
+          "_local",
+          "project",
+          "knowledge-source",
+          "knowledge.json",
+        ),
+        "{ invalid",
+      );
+      const unavailable = await runCli(["knowledge", "concepts", "capabilities", "--json"], {
+        cwd: temp.path,
+      });
+      expect(unavailable.exitCode, unavailable.stdout + unavailable.stderr).toBe(6);
+      expect(JSON.parse(unavailable.stdout)).toMatchObject({ ok: false, code: "conflict" });
     } finally {
       temp.cleanup();
     }
   }, 120_000);
 
-  it("converges configured local Knowledge through install, update, sync, activation, and uninstall", async () => {
+  it("converges configured local Knowledge through sync, update, activation, and uninstall", async () => {
     const temp = createTempDir();
 
     try {
@@ -703,7 +731,7 @@ describe("axm knowledge lifecycle", () => {
         },
       });
 
-      const install = await runCli(["knowledge", "install", "--non-interactive"], {
+      const install = await runCli(["sync", "--scope", "project", "--non-interactive"], {
         cwd: temp.path,
       });
       expect({
@@ -774,7 +802,7 @@ describe("axm knowledge lifecycle", () => {
         "## Knowledge Bundles",
       );
       expect(fs.existsSync(canonical)).toBe(true);
-      const searchWhileHidden = await runCli(["knowledge", "concepts", "search", "architecture"], {
+      const searchWhileHidden = await runCli(["knowledge", "concepts", "query", "architecture"], {
         cwd: temp.path,
       });
       expect(searchWhileHidden.exitCode).toBe(0);
@@ -802,7 +830,7 @@ describe("axm knowledge lifecycle", () => {
         "[platform]",
       );
       const searchWithManifestExclusion = await runCli(
-        ["knowledge", "concepts", "search", "architecture"],
+        ["knowledge", "concepts", "query", "architecture"],
         { cwd: temp.path },
       );
       expect(searchWithManifestExclusion.exitCode).toBe(0);
@@ -874,7 +902,7 @@ describe("axm knowledge lifecycle", () => {
       expect(readJson(settingsPath)).toMatchObject({
         knowledge: { platform: { instructionEntry: false } },
       });
-      const searchAfterEnable = await runCli(["knowledge", "concepts", "search", "architecture"], {
+      const searchAfterEnable = await runCli(["knowledge", "concepts", "query", "architecture"], {
         cwd: temp.path,
       });
       expect(searchAfterEnable.exitCode).toBe(0);

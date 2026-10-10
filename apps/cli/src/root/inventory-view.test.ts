@@ -16,7 +16,7 @@ describe("inventory human vocabulary", () => {
     ["undeclared", "authored here but not added"],
     ["unmanaged", "outside AXM"],
   ] as const)("renders %s in product language", (lifecycle, expected) => {
-    expect(inventoryLifecycle({ lifecycle, enabled: true })).toBe(expected);
+    expect(inventoryLifecycle({ lifecycle })).toBe(expected);
   });
 
   it("explains when activation does not apply", () => {
@@ -31,7 +31,7 @@ describe("inventory human vocabulary", () => {
           name: "review",
           agentId: "claude-code",
           outcome: "projected",
-          reasonCode: "projected",
+          reasonCode: "supported",
           reason: "Projected successfully.",
         },
         {
@@ -39,7 +39,7 @@ describe("inventory human vocabulary", () => {
           name: "review",
           agentId: "cursor",
           outcome: "blocked",
-          reasonCode: "unsupported-scope",
+          reasonCode: "scope-not-modeled",
           reason: "project-scoped skills are unsupported",
         },
       ]),
@@ -50,14 +50,20 @@ describe("inventory human vocabulary", () => {
     expect(
       inventorySummary(
         {
-          items: [],
+          items: [
+            { installed: true },
+            { installed: true },
+            { installed: true },
+            { installed: false },
+          ],
           count: 4,
-          configuredCount: 3,
-          implicitCount: 0,
-          installedCount: 3,
-          leftoverCount: 0,
-          undeclaredCount: 0,
-          unmanagedCount: 1,
+          managementCounts: {
+            configured: 3,
+            implicit: 0,
+            leftover: 0,
+            undeclared: 0,
+            unmanaged: 1,
+          },
         },
         "skill",
       ),

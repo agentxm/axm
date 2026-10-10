@@ -1,3 +1,4 @@
+import { registryFlag } from "../../cli-flags/index.js";
 import * as Effect from "effect/Effect";
 import { Command } from "effect/cli";
 
@@ -77,10 +78,10 @@ export const handleLogout = Effect.fn("AuthLogout.handle")(
   Effect.asVoid,
 );
 
-const logoutConfig = {} as const;
+const logoutConfig = { registry: registryFlag } as const;
 
-export const logoutCommand = Command.make("logout", logoutConfig, () =>
-  handleLogout().pipe(withRuntime("auth logout")),
+export const logoutCommand = Command.make("logout", logoutConfig, ({ registry }) =>
+  handleLogout().pipe(withRuntime("auth logout", { registry })),
 ).pipe(
   withArgvTracking(logoutConfig),
   withCommandCapabilities(directWriteCapabilities("credentials")),

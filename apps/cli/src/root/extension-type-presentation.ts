@@ -14,7 +14,11 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 interface ExtensionTypePresentation {
   /** What a report calls one of, and several of, this type's extensions. */
-  readonly noun: { readonly singular: string; readonly plural: string };
+  readonly noun: {
+    readonly singular: string;
+    readonly plural: string;
+    readonly article: "a" | "an";
+  };
   /** The plural command group. */
   readonly route: string;
   /** The root install selection flag without its leading dashes. */
@@ -27,49 +31,49 @@ interface ExtensionTypePresentation {
 
 export const EXTENSION_TYPE_PRESENTATION = {
   skill: {
-    noun: { singular: "skill", plural: "skills" },
+    noun: { singular: "skill", plural: "skills", article: "a" },
     route: "skills",
     selectorFlag: "skill",
     exampleName: "code-review",
     inspect: { description: "Inspect installed skills", cmd: "axm skills list" },
   },
   "mcp-server": {
-    noun: { singular: "MCP server", plural: "MCP servers" },
+    noun: { singular: "MCP server", plural: "MCP servers", article: "an" },
     route: "mcps",
-    selectorFlag: "mcp",
+    selectorFlag: "mcp-server",
     exampleName: "context",
     inspect: { description: "Inspect installed MCP servers", cmd: "axm mcps list" },
   },
   subagent: {
-    noun: { singular: "subagent", plural: "subagents" },
+    noun: { singular: "subagent", plural: "subagents", article: "a" },
     route: "subagents",
     selectorFlag: "subagent",
     exampleName: "researcher",
     inspect: { description: "Inspect installed subagents", cmd: "axm subagents list" },
   },
   rule: {
-    noun: { singular: "rule", plural: "rules" },
+    noun: { singular: "rule", plural: "rules", article: "a" },
     route: "rules",
     selectorFlag: "rule",
     exampleName: "commit-style",
     inspect: { description: "Inspect installed rules", cmd: "axm rules list" },
   },
   hook: {
-    noun: { singular: "hooks package", plural: "hooks packages" },
+    noun: { singular: "hook extension", plural: "hook extensions", article: "a" },
     route: "hooks",
     selectorFlag: "hook",
     exampleName: "workspace-baseline",
-    inspect: { description: "Inspect installed hooks packages", cmd: "axm hooks list" },
+    inspect: { description: "Inspect installed hook extensions", cmd: "axm hooks list" },
   },
   knowledge: {
-    noun: { singular: "knowledge bundle", plural: "knowledge bundles" },
+    noun: { singular: "knowledge bundle", plural: "knowledge bundles", article: "a" },
     route: "knowledge",
     selectorFlag: "knowledge",
     exampleName: "platform",
     inspect: { description: "Inspect installed knowledge bundles", cmd: "axm knowledge list" },
   },
   pack: {
-    noun: { singular: "pack", plural: "packs" },
+    noun: { singular: "pack", plural: "packs", article: "a" },
     route: "packs",
     selectorFlag: "pack",
     exampleName: "frontend-tools",

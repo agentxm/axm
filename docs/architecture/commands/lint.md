@@ -53,17 +53,23 @@ missing AXM-owned agent projection whose canonical source is present is the
 motivating case: the target's content is a function of the source, so
 regenerating it decides nothing.
 
-`axm lint --fix` applies exactly those repairs and reports the remaining
-findings. It reuses the same reconciliation sync performs rather than
-implementing a second recovery path, so both commands converge on one desired
-state. Findings that are not repairable are never guessed at.
+`axm lint --fix` normalizes managed instruction aliases from authoritative
+local state and reports the remaining findings. This bounded offline mode
+reuses instruction reconciliation, without general workspace synchronization
+or registry access. Findings outside that normalization remain unchanged.
+
+`axm lint --fix --preview` reports eligible normalization without applying it.
+It preserves the original findings and records planned path changes separately,
+so a proposed repair cannot be mistaken for an applied repair. Preview requires
+fix mode; staged lint refuses both fix and fix preview.
 
 ## Non-responsibilities
 
 Lint does not report general inventory, available updates, unpublished authored
 content, registry availability, recovery classifications, or predictions about
 which mutation a finding would block. The deprecation check is the only
-network read; unavailable Registry state leaves that check unassessed.
+network read during ordinary lint; normalization and its preview skip it.
+Unavailable registry state leaves that check unassessed.
 
 Lint does not guess user intent, choose workspace configuration, install or
 remove extensions, or change authoritative lock state. Those responsibilities
@@ -86,9 +92,17 @@ establish valid authority again.
 
 ## Views
 
-A lint view selects the local snapshot to inspect, such as the worktree or Git
-index. Views use the same rules and invariant meanings; selecting a view cannot
+A lint run inspects the live filesystem by default, including outside Git.
+`--staged` selects the complete indexed workspace, including unchanged tracked
+files, rather than only filenames with staged changes. JSON identifies the
+input as `filesystem` or `git-index`. Views use the same rules and invariant
+meanings; selecting a view cannot
 turn valid state into a different predicate or add recovery guidance.
+
+An explicit `<workspace>` is the exact root in either mode. Without it, staged
+lint selects the Git root from the execution directory; filesystem lint uses
+the execution directory. Relative workspace paths follow global `-C`. An
+explicit workspace cannot be combined with user scope.
 
 The Git-index view reads raw staged and tracked blobs rather than a checkout, so
 Git filters and line-ending conversion do not alter the inspected bytes. A

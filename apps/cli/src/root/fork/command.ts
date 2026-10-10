@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
@@ -59,7 +60,7 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
       [
         ...Option.match(args.from, {
           onNone: () => [],
-          onSome: (value) => [recoveryOption("--from", publicRecoveryValue(value))],
+          onSome: (value) => [recoveryOption("--package", publicRecoveryValue(value))],
         }),
         recoverySwitch("--enable", args.enable),
         recoveryPositional(credentialFreeLocatorRecoveryValue(args.source)),
@@ -75,16 +76,18 @@ const handleForkBody = Effect.fn("Fork.handle")(function* (args: ForkHandlerArgs
 
 const config = {
   source: Argument.String("source").pipe(
-    Argument.withDescription("Registry, workspace, local, or Git AXM package source"),
+    withParameterDescription(
+      "AXM package from a registry FQN, Git locator, path, or workspace source",
+    ),
   ),
-  target: Argument.String("extension").pipe(Argument.withDescription("New target FQN")),
-  from: Flag.String("from").pipe(
-    Flag.withDescription("Source package FQN when the source contains multiple packages"),
+  target: Argument.String("extension").pipe(withParameterDescription("New target FQN")),
+  from: Flag.String("package").pipe(
+    withParameterDescription("Package FQN to fork when the source contains several packages"),
     Flag.optional,
   ),
   enable: Flag.Boolean("enable").pipe(
-    Flag.withDescription("Enable and materialize a newly forked extension"),
-    Flag.withDefault(false),
+    withParameterDescription("Enable and materialize a newly forked extension"),
+    withParameterDefault(false),
   ),
   preview: previewCapabilityFlag(),
 } as const;
@@ -99,11 +102,11 @@ export const forkCommand = Command.make("fork", config, (parsed) =>
   Command.withExamples([
     {
       command: "axm fork @acme/skills/review @me/skills/review-custom",
-      description: "Fork a Registry skill as a disabled workspace-authored package",
+      description: "Fork a registry skill as a disabled workspace-authored package",
     },
     {
       command:
-        "axm fork ./extensions @me/hooks/check-policy --from @acme/hooks/check-policy --enable",
+        "axm fork ./extensions @me/hooks/check-policy --package @acme/hooks/check-policy --enable",
       description: "Fork one package from a local collection and enable it",
     },
   ]),

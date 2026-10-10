@@ -1,7 +1,9 @@
+import { ownerHandleFlag } from "../../cli-flags/owner-handle.js";
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 
-import { acceptWarningsFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag, registryFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -30,29 +32,25 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
   const plural = extensionTypeToPlural[type];
   const commonConfig = {
     extensions: Argument.String("name").pipe(
-      Argument.withDescription("Bare names, globs, or fully-qualified extension names"),
+      withParameterDescription("Name, glob, or FQN within this type"),
       Argument.atLeast(0),
     ),
-    owner: Flag.String("owner").pipe(Flag.withDescription("Filter by owner"), Flag.atLeast(0)),
-    exclude: Flag.String("exclude").pipe(
-      Flag.withDescription("Exclude a matching name, glob, or FQN"),
+    owner: ownerHandleFlag.pipe(
+      withParameterDescription("Restrict to extensions of this owner handle"),
       Flag.atLeast(0),
     ),
-    registry: Flag.String("registry").pipe(
-      Flag.withDescription("Target a specific named registry"),
-      Flag.optional,
+    exclude: Flag.String("exclude").pipe(
+      withParameterDescription("Exclude a matching name, glob, or FQN within this type"),
+      Flag.atLeast(0),
     ),
-    registryUrl: Flag.String("registry-url").pipe(
-      Flag.withDescription("Override the target registry URL for automation"),
-      Flag.optional,
-    ),
+    registry: registryFlag,
     backfill: backfillFlag,
     acceptWarnings: acceptWarningsFlag,
     visibility: Flag.Literals("visibility", ["public", "private"] as const).pipe(
-      Flag.withDescription("Initial visibility for every new extension in the selection"),
+      withParameterDescription("Initial visibility for every new extension in the selection"),
       Flag.optional,
     ),
-    preview: previewCapabilityFlag("Preflight without uploading"),
+    preview: previewCapabilityFlag(),
   } as const;
 
   const examples = [
@@ -70,8 +68,8 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
     const config = {
       ...commonConfig,
       includeDependencies: Flag.Boolean("include-dependencies").pipe(
-        Flag.withDescription("Include workspace-sourced dependencies of selected packs"),
-        Flag.withDefault(false),
+        withParameterDescription("Include workspace-sourced dependencies of selected packs"),
+        withParameterDefault(false),
       ),
     } as const;
     return Command.make("publish", config, (parsed) =>
@@ -85,7 +83,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         return yield* handleRootPublish({
           ...selection,
           registry: parsed.registry,
-          registryUrl: parsed.registryUrl,
           backfill: parsed.backfill,
           acceptWarnings: parsed.acceptWarnings,
           preview: parsed.preview,
@@ -96,7 +93,10 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
           recoverySelectors: [...parsed.extensions],
           recoveryExcludes: [...parsed.exclude],
         });
-      }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
+      }).pipe(
+        withWorkspace("project"),
+        withRuntime(`${plural} publish`, { registry: parsed.registry }),
+      ),
     ).pipe(
       withArgvTracking(config),
       withCommandCapabilities(publishCapabilities),
@@ -117,7 +117,6 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
       return yield* handleRootPublish({
         ...selection,
         registry: parsed.registry,
-        registryUrl: parsed.registryUrl,
         backfill: parsed.backfill,
         acceptWarnings: parsed.acceptWarnings,
         preview: parsed.preview,
@@ -128,7 +127,10 @@ export const makePerTypePublishCommand = (type: PerTypePublishType) => {
         recoverySelectors: [...parsed.extensions],
         recoveryExcludes: [...parsed.exclude],
       });
-    }).pipe(withWorkspace("project"), withRuntime(`${plural} publish`)),
+    }).pipe(
+      withWorkspace("project"),
+      withRuntime(`${plural} publish`, { registry: parsed.registry }),
+    ),
   ).pipe(
     withArgvTracking(config),
     withCommandCapabilities(publishCapabilities),

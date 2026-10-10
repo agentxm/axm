@@ -12,7 +12,10 @@ import {
   toInstallableExtensionType,
   type InstallableExtensionType,
 } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import { RegistrySourceRefSchema } from "@agentxm/extension-model/unstable/extensions";
+import {
+  RegistrySourceRefSchema,
+  splitExtensionReference,
+} from "@agentxm/extension-model/unstable/extensions";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 
 const decodeRegistrySourceRef = Schema.decodeUnknownEffect(RegistrySourceRefSchema);
@@ -27,7 +30,7 @@ export interface RootUninstallIntent {
   readonly name: string;
 }
 
-const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>[@<version>]";
+const rootUninstallFqnGrammar = "@<handle>/<plural-type>/<name>";
 const supportedRootUninstallTypes = rootUninstallableTypeSegments.join(", ");
 
 const genericPerTypeUninstallGuidance =
@@ -78,7 +81,8 @@ export const resolveRootUninstallIntent: (
     });
   }
 
-  const parsed = yield* decodeRegistrySourceRef(source).pipe(
+  const reference = splitExtensionReference(source);
+  const parsed = yield* decodeRegistrySourceRef(reference.name).pipe(
     Effect.mapError((error) => {
       if (pluralType !== undefined && !isInstallableExtensionTypePlural(pluralType)) {
         return installRefused({
@@ -114,6 +118,17 @@ export const resolveRootUninstallIntent: (
         {
           description: `Use ${rootUninstallFqnGrammar}. Supported plural types: ${supportedRootUninstallTypes}.`,
         },
+      ],
+    });
+  }
+
+  if (reference.constraint !== undefined) {
+    return yield* installRefused({
+      category: "usage",
+      detail: "Uninstall requires an unversioned extension FQN",
+      recover: `Use ${rootUninstallFqnGrammar}; uninstall removes the configured extension`,
+      suggestions: [
+        { description: "Remove the configured extension", cmd: `axm uninstall ${reference.name}` },
       ],
     });
   }

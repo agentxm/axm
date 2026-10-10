@@ -16,8 +16,9 @@ import {
   lifecycleEvents,
   type OperationEvent,
   type OperationLifecycleService,
+  type ErrorCode,
 } from "@agentxm/workspace-kernel/operations";
-import { errorClassForAppErrorCode, type AppErrorCode } from "../app-error/index.js";
+import { errorClassForAppErrorCode } from "../app-error/index.js";
 import {
   TelemetryClient,
   type TelemetryFailurePhase,
@@ -191,7 +192,7 @@ export interface CommandSettlementFailure extends FailureDiagnostic {
   readonly relatedOmitted?: number;
   readonly history?: NonNullable<TelemetryFailureReport["history"]>;
   readonly frames?: NonNullable<TelemetryFailureReport["frames"]>;
-  readonly code: AppErrorCode;
+  readonly code: ErrorCode;
   /** Where in the invocation the command settled with the failure. */
   readonly phase: Exclude<TelemetryFailurePhase, "bootstrap">;
   /** Allowlisted diagnostic identity; see `failure-identity.ts`. */
@@ -279,7 +280,7 @@ const reportTerminalFailure = <E>(
 
 /**
  * Report the failure that ended the invocation after escaping every command
- * envelope — a startup rejection, a parse error, a configuration failure
+ * envelope — a bootstrap rejection, a parse error, a configuration failure
  * before the command ran, or an output failure after it — once, before the
  * process renders it. A cancellation, or help that exits successfully,
  * reports nothing.

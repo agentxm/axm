@@ -1,6 +1,6 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Option from "effect/Option";
 import { Command, Flag } from "effect/cli";
 
 import { makeAppError } from "../../app-error/index.js";
@@ -26,7 +26,7 @@ import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withRuntime, withWorkspace } from "../../runtime.js";
 
 export interface ListHandlerArgs {
-  readonly type: Option.Option<InstallableExtensionType>;
+  readonly types: ReadonlyArray<InstallableExtensionType>;
   readonly outdated: boolean;
   readonly deprecated: boolean;
 }
@@ -53,7 +53,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
   const screen = yield* Screen;
   const filter = args.outdated ? "outdated" : args.deprecated ? "deprecated" : "all";
   const result = yield* withLiveOperation(
-    { command: "list", name: "List extensions", mode: "preview" },
+    { command: "list", name: "List extensions", mode: "query" },
     observeUnit(
       {
         id: filter === "all" ? "inventory" : "assessment",
@@ -63,7 +63,7 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
             : `${filter === "outdated" ? "update" : "deprecation"} status`,
       },
       ListExtensions.query({
-        ...(Option.isSome(args.type) ? { type: args.type.value } : {}),
+        types: args.types,
         filter,
       }).pipe(Effect.mapError(inspectionFailureToAppError)),
     ),
@@ -84,18 +84,18 @@ export const handleList = Effect.fn("List.handle")(function* (args: ListHandlerA
 });
 
 const listConfig = {
-  scope: scopeFlag.pipe(Flag.withDescription("List project (default) or user-level extensions")),
+  scope: scopeFlag,
   type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
-    Flag.withDescription("Only list a specific extension type"),
-    Flag.optional,
+    withParameterDescription("Restrict to this extension type"),
+    Flag.atLeast(0),
   ),
   outdated: Flag.Boolean("outdated").pipe(
-    Flag.withDescription("Only list installed extensions with available updates"),
-    Flag.withDefault(false),
+    withParameterDescription("Only list installed extensions with available updates"),
+    withParameterDefault(false),
   ),
   deprecated: Flag.Boolean("deprecated").pipe(
-    Flag.withDescription("Only list installed extensions deprecated by their registry"),
-    Flag.withDefault(false),
+    withParameterDescription("Only list installed extensions deprecated by their registry"),
+    withParameterDefault(false),
   ),
 } as const;
 
@@ -103,7 +103,7 @@ export const listCommand = Command.make(
   "list",
   listConfig,
   ({ scope, type, outdated, deprecated }) =>
-    handleList({ type, outdated, deprecated }).pipe(
+    handleList({ types: type, outdated, deprecated }).pipe(
       withWorkspace({ scope, allowUninitialized: true }),
       withRuntime("list"),
     ),

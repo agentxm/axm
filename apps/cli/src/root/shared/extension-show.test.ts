@@ -3,12 +3,16 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
 
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers.js";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
-import { EXTENSION_SHOW_ITEM_FIELDS } from "@agentxm/workspace-features/inspection";
+import {
+  ExtensionShowResultSchema,
+  EXTENSION_SHOW_ITEM_FIELDS,
+} from "@agentxm/workspace-features/inspection";
 import { handleExtensionShow } from "./extension-show.js";
 import { paintText } from "../../screen/index.js";
 import { ConfiguredAgentOutcomesProvider } from "@agentxm/workspace-kernel/workspace-state";
@@ -77,6 +81,12 @@ describe("extension show", () => {
           nativeInvocation: "not-observed",
           fixtureEvidence: { state: "absent", reason: "No local fixture execution was recorded" },
         } as const;
+        const nativeUnits = [
+          {
+            scope: "project",
+            address: { kind: "region", path: ".claude/settings.json", region: "hooks" },
+          },
+        ] as const;
         return provide(
           Effect.gen(function* () {
             yield* handleExtensionShow({ type: "hook", name: "thing" }).pipe(
@@ -99,6 +109,8 @@ describe("extension show", () => {
                                 reason:
                                   "Native settings are present; host execution remains unverified",
                                 hook,
+                                mechanism: "native-hook",
+                                nativeUnits,
                               },
                             ],
                           },
@@ -109,7 +121,9 @@ describe("extension show", () => {
               }),
             );
             if (machine) {
-              expect(rendererState.results[0]?.data).toMatchObject({ agents: [{ hook }] });
+              expect(rendererState.results[0]?.data).toMatchObject({
+                agentOutcomes: [{ hook, mechanism: "native-hook", nativeUnits }],
+              });
             } else {
               const stdout = rendererState.docs
                 .filter((entry) => entry.channel === "stdout")
@@ -166,11 +180,10 @@ describe("extension show", () => {
           const document = rendererState.results[0]?.data;
           expect(document).toBeDefined();
           expect(Object.keys(document ?? {})).toStrictEqual(
-            type === "mcp-server" ? ["item", "mcp", "agents"] : ["item", "agents"],
+            type === "mcp-server" ? ["item", "mcp", "agentOutcomes"] : ["item", "agentOutcomes"],
           );
-          expect(
-            Object.keys((document as { readonly item: Record<string, unknown> }).item),
-          ).toStrictEqual(EXTENSION_SHOW_ITEM_FIELDS);
+          const decoded = Schema.decodeUnknownSync(ExtensionShowResultSchema)(document);
+          expect(Object.keys(decoded.item)).toStrictEqual(EXTENSION_SHOW_ITEM_FIELDS);
           expect(document).toMatchObject({
             item: { type, name: "thing", locked: false, version: null },
           });

@@ -430,7 +430,7 @@ describe("axm skills uninstall", () => {
           cwd: temp.path,
         });
 
-        expect(result.exitCode).toBe(10);
+        expect(result.exitCode).toBe(2);
         expect(getOutput(result)).toContain("axm setup");
       } finally {
         temp.cleanup();

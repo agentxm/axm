@@ -4,7 +4,6 @@ import * as path from "node:path";
 
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import { paintText } from "../../screen/index.js";
@@ -13,11 +12,7 @@ import { makeWorkspaceHandlerTestContext } from "../../test-support/test-helpers
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { handleRootVersion } from "./command.js";
 
-/**
- * The bump word is argument grammar this route owns: the feature takes a typed
- * change, so an unknown word, a `set` without a version, and a version passed
- * to a relative bump never reach it.
- */
+/** Invalid bump rules and non-exact versions fail before preparing a change. */
 describe("version argument grammar", () => {
   let tempDir: string;
   let originalCwd: string;
@@ -33,32 +28,10 @@ describe("version argument grammar", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  const rows = [
-    {
-      label: "an unknown bump word",
-      bump: "huge",
-      targetVersion: Option.none<string>(),
-      code: "validation",
-      contains: "Invalid version bump: huge",
-    },
-    {
-      label: "`set` without an exact version",
-      bump: "set",
-      targetVersion: Option.none<string>(),
-      code: "usage",
-      contains: "`set` requires an exact semver version",
-    },
-    {
-      label: "an exact version passed to a relative bump",
-      bump: "patch",
-      targetVersion: Option.some("1.2.3"),
-      code: "usage",
-      contains: 'Version target is only valid with "set"',
-    },
-  ] as const;
+  const rows = ["huge", "set", "^1.2.3", "latest"];
 
   for (const row of rows)
-    it.effect(`refuses ${row.label}`, () => {
+    it.effect(`refuses ${row}`, () => {
       writeWorkspaceFiles(path.join(tempDir, ".axm"));
       const { provide } = makeWorkspaceHandlerTestContext({ machine: true });
       return provide(
@@ -66,14 +39,15 @@ describe("version argument grammar", () => {
           const failure = yield* Effect.flip(
             handleRootVersion({
               handle: "@acme/skills/review",
-              bump: row.bump,
-              targetVersion: row.targetVersion,
+              bump: row,
               preview: false,
             }),
           );
 
-          expect(failure).toMatchObject({ code: row.code });
-          expect(failure).toMatchObject({ detail: expect.stringContaining(row.contains) });
+          expect(failure).toMatchObject({ code: "usage" });
+          expect(failure).toMatchObject({
+            detail: expect.stringContaining("or an exact semver version"),
+          });
         }),
       );
     });
@@ -142,7 +116,6 @@ describe("version preview", () => {
         yield* handleRootVersion({
           handle: "@acme/skills/review",
           bump: "minor",
-          targetVersion: Option.none(),
           preview: true,
         });
 

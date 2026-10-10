@@ -148,11 +148,14 @@ describe("axm lint (e2e, Phase 7)", () => {
       initializeGit(temp.path);
       git(temp.path, ["add", "."]);
       const indexBefore = git(temp.path, ["ls-files", "--stage"]);
-      for (const view of ["workspace", "git-index"]) {
-        const lint = await runCli(["lint", "--view", view, "--strict", "--json"], {
-          cwd: temp.path,
-          env,
-        });
+      for (const view of ["filesystem", "git-index"]) {
+        const lint = await runCli(
+          ["lint", ...(view === "git-index" ? ["--staged"] : []), "--strict", "--json"],
+          {
+            cwd: temp.path,
+            env,
+          },
+        );
         expect(lint.exitCode, `${lint.stderr}\n${lint.stdout}`).toBe(0);
         const document = JSON.parse(lint.stdout);
         expect(document.ok).toBe(true);
@@ -554,7 +557,7 @@ describe("axm lint (e2e, Phase 7)", () => {
         expect(git(temp.path, ["check-ignore", "CLAUDE.md"]).trim()).toBe("CLAUDE.md");
         git(temp.path, ["add", "."]);
 
-        const result = await runCli(["lint", "--view", "git-index", "--strict", "--json"], {
+        const result = await runCli(["lint", "--staged", "--strict", "--json"], {
           cwd: temp.path,
           env,
         });
@@ -597,7 +600,7 @@ describe("axm lint (e2e, Phase 7)", () => {
 
         const statusBefore = git(temp.path, ["status", "--porcelain=v2", "-z"]);
         const indexBefore = git(temp.path, ["ls-files", "--stage", "-z"]);
-        const result = await runCli(["lint", "--view", "git-index", "--json"], {
+        const result = await runCli(["lint", "--staged", "--json"], {
           cwd: path.join(temp.path, ".claude"),
           env: { DO_NOT_TRACK: "1" },
         });
@@ -626,15 +629,15 @@ describe("axm lint (e2e, Phase 7)", () => {
     it("rejects user scope and non-Git workspaces", async () => {
       const temp = createTempDir("axm-staged-errors-e2e-");
       try {
-        const user = await runCli(["lint", "--view", "git-index", "--scope", "user"], {
+        const user = await runCli(["lint", "--staged", "--scope", "user"], {
           cwd: temp.path,
         });
-        expect(user.exitCode).toBe(9);
+        expect(user.exitCode).toBe(2);
         expect(user.stdout + user.stderr).toContain(
-          "--view git-index cannot be combined with --scope user",
+          "--staged cannot be combined with --scope user",
         );
 
-        const outsideGit = await runCli(["lint", "--view", "git-index"], { cwd: temp.path });
+        const outsideGit = await runCli(["lint", "--staged"], { cwd: temp.path });
         expect(outsideGit.exitCode).toBe(9);
         expect(outsideGit.stdout + outsideGit.stderr).toContain("requires a Git repository");
       } finally {
@@ -642,12 +645,12 @@ describe("axm lint (e2e, Phase 7)", () => {
       }
     });
 
-    it("rejects the removed --staged flag", async () => {
+    it("rejects the removed --view flag", async () => {
       const temp = createTempDir();
       try {
-        const result = await runCli(["lint", "--staged"], { cwd: temp.path });
-        expect(result.exitCode).not.toBe(0);
-        expect(result.stdout + result.stderr).toContain("Unrecognized flag: --staged");
+        const result = await runCli(["lint", "--view", "git-index"], { cwd: temp.path });
+        expect(result.exitCode).toBe(2);
+        expect(result.stdout + result.stderr).toContain("Unrecognized flag: --view");
       } finally {
         temp.cleanup();
       }

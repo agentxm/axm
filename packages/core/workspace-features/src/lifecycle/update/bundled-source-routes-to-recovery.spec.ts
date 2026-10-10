@@ -82,7 +82,9 @@ describe("Targeted update of a bundled official skill", () => {
             expect(candidate.targetedContext?.blocker, mode).toBe("bundled-source");
             expect(candidate.detail, mode).toContain("embedded in this AXM executable");
 
-            const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);
+            const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution).pipe(
+              Effect.map((result) => result.resolution),
+            );
 
             expect(deriveOperationOutcome(resolution), mode).toBe("blocked");
             expect(resolution.blocking, mode).toMatchObject({

@@ -1,10 +1,9 @@
+import { ErrorCodeSchema, OPERATION_ERROR_CATEGORIES } from "@agentxm/workspace-kernel/operations";
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
 
 import {
   AppError,
-  AppErrorCodeSchema,
-  AppErrorCodes,
   ExitCode,
   ExitCodeDefinitions,
   errorClassForAppErrorCode,
@@ -14,19 +13,19 @@ import {
 
 describe("AppError", () => {
   it("derives codes from the schema", () => {
-    const decode = Schema.decodeUnknownSync(AppErrorCodeSchema);
+    const decode = Schema.decodeUnknownSync(ErrorCodeSchema);
 
     expect(decode("auth")).toBe("auth");
   });
 
-  it("maps every AppErrorCode to a defined ExitCode (1:1 except Success)", () => {
+  it("maps every ErrorCode to a defined ExitCode (1:1 except Success)", () => {
     const exitCodeValues = new Set<number>(Object.values(ExitCode));
-    const mappedExitCodes = AppErrorCodes.map((code) => exitCodeFor(code));
+    const mappedExitCodes = OPERATION_ERROR_CATEGORIES.map((code) => exitCodeFor(code));
 
     for (const code of mappedExitCodes) {
       expect(exitCodeValues.has(code)).toBe(true);
     }
-    expect(new Set(mappedExitCodes).size).toBe(AppErrorCodes.length);
+    expect(new Set(mappedExitCodes).size).toBe(OPERATION_ERROR_CATEGORIES.length);
     expect(mappedExitCodes.length).toBe(exitCodeValues.size - 1);
   });
 
@@ -41,7 +40,7 @@ describe("AppError", () => {
     );
   });
 
-  it("classifies AppErrorCode values for telemetry routing", () => {
+  it("classifies ErrorCode values for telemetry routing", () => {
     expect(errorClassForAppErrorCode("internal")).toBe("internal");
 
     for (const code of ["network", "unavailable", "rate_limit", "quota"] as const) {

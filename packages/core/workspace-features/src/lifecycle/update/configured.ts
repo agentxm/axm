@@ -39,6 +39,9 @@ import {
   ReleaseAgePosture,
   releaseAgeRecord,
   releaseAgeRecords,
+  acceptedConfiguredResolution,
+  requireAcceptedRegistryContent,
+  acceptedPackDependencyResolver,
   resolveConfiguredHook,
   resolveConfiguredKnowledge,
   resolveConfiguredMcpServer,
@@ -102,8 +105,11 @@ import {
 } from "@agentxm/workspace-kernel/sources";
 import { extensionTypePluralSentenceLabels } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
-import { inlineMcpNotApplicablePlan } from "../install/inline-mcp-operation.js";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import { inlineMcpNotApplicablePlan } from "./inline-mcp-operation.js";
+import {
+  decodeVersionRangeSync,
+  type VersionRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 
 import {
@@ -175,6 +181,7 @@ interface CollectedWorkspaceUpdatePlans {
 }
 
 interface WorkspaceUpdateCollectionRequest extends WorkspaceUpdateNameSelection {
+  readonly reinstall: boolean;
   readonly retainedNames?: ReadonlySet<string>;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
   /**
@@ -464,6 +471,7 @@ const withStepWarnings = (
 };
 
 interface ConfiguredUpdateIntentArgs<TIntent, R> {
+  readonly reinstall: boolean;
   readonly type: InstallableExtensionType;
   readonly name: string;
   readonly source: string;
@@ -503,8 +511,36 @@ const prepareUpdateIntent = <TIntent, R>(
   WorkspaceUpdateCollectorContext
 > =>
   Effect.gen(function* () {
+    const accepted = args.reinstall
+      ? yield* acceptedConfiguredResolution({
+          type: args.type,
+          name: args.name,
+          forceCanonical: true,
+        })
+      : Option.none();
+    if (Option.isSome(accepted) && accepted.value.ref.refType !== "registry") {
+      const intent = args.makeIntent(accepted.value.ref, accepted.value.versionRange);
+      if (intent === undefined)
+        return yield* new ExtensionLifecycleFailed({
+          category: "internal",
+          detail: `Accepted ${args.type} resolution returned ${accepted.value.ref.type}`,
+        });
+      return Effect.succeed({
+        kind: "selected",
+        intent,
+        holdbacks: [],
+        bypasses: [],
+        warnings: [],
+      } as const);
+    }
+    const acceptedRegistry = Option.flatMap(accepted, ({ ref }) =>
+      ref.refType === "registry" ? Option.some(ref) : Option.none(),
+    );
+    const selectionRange = Option.isSome(acceptedRegistry)
+      ? Option.some(decodeVersionRangeSync(acceptedRegistry.value.version))
+      : args.effective.range;
     const declaredSource = yield* Effect.option(resolveSource(args.source));
-    if (Option.isSome(declaredSource) && declaredSource.value.type === "git") {
+    if (!args.reinstall && Option.isSome(declaredSource) && declaredSource.value.type === "git") {
       const gitSource = declaredSource.value;
       const selector = Option.getOrUndefined(gitSource.ref);
       if (selector !== undefined) {
@@ -536,7 +572,7 @@ const prepareUpdateIntent = <TIntent, R>(
       args.source,
       args.type,
       args.releaseAgeEvaluation,
-      args.effective.range,
+      selectionRange,
     );
     return Effect.gen(function* () {
       const registryResolution = yield* resolveRegistry;
@@ -566,6 +602,9 @@ const prepareUpdateIntent = <TIntent, R>(
             kind: "policy_held",
             holdbacks: [releaseAgeRecord(subject, resolution.candidate)],
           } as const;
+        }
+        if (Option.isSome(acceptedRegistry)) {
+          yield* requireAcceptedRegistryContent(acceptedRegistry.value, resolution.ref);
         }
         const intent = args.makeIntent(resolution.ref, resolution.versionRange);
         if (intent === undefined) {
@@ -621,6 +660,7 @@ const resolveSkillIntent = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
+  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
     type: "skill",
@@ -628,12 +668,13 @@ const resolveSkillIntent = (
     source,
     releaseAgeEvaluation,
     effective,
+    reinstall,
     fallback: resolveConfiguredSkill(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "skill"
         ? ({
             skillsToInstall: [{ ref, versionRange }],
-            force: reacquiresContent(ref),
+            force: reinstall || reacquiresContent(ref),
           } satisfies SkillInstallIntent)
         : undefined,
   });
@@ -643,6 +684,7 @@ const resolveSubagentIntent = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
+  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
     type: "subagent",
@@ -650,12 +692,13 @@ const resolveSubagentIntent = (
     source,
     releaseAgeEvaluation,
     effective,
+    reinstall,
     fallback: resolveConfiguredSubagent(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "subagent"
         ? ({
             subagentsToInstall: [{ ref, versionRange }],
-            force: reacquiresContent(ref),
+            force: reinstall || reacquiresContent(ref),
           } satisfies SubagentInstallIntent)
         : undefined,
   });
@@ -665,6 +708,7 @@ const resolveRuleIntent = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
+  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
     type: "rule",
@@ -672,6 +716,7 @@ const resolveRuleIntent = (
     source,
     releaseAgeEvaluation,
     effective,
+    reinstall,
     fallback: resolveConfiguredRule(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "rule"
@@ -684,6 +729,7 @@ const resolveHookIntent = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
+  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
     type: "hook",
@@ -691,6 +737,7 @@ const resolveHookIntent = (
     source,
     releaseAgeEvaluation,
     effective,
+    reinstall,
     fallback: resolveConfiguredHook(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "hook"
@@ -703,6 +750,7 @@ const resolveKnowledgeIntent = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
+  reinstall: boolean,
 ) =>
   resolveUpdateIntent({
     type: "knowledge",
@@ -710,6 +758,7 @@ const resolveKnowledgeIntent = (
     source,
     releaseAgeEvaluation,
     effective,
+    reinstall,
     fallback: resolveConfiguredKnowledge(name, source, releaseAgeEvaluation, effective.range),
     makeIntent: (ref, versionRange) =>
       ref.type === "knowledge"
@@ -724,6 +773,7 @@ const resolveMcpServerIntent = (
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   effective: DesiredEffectiveConstraint,
   nonInteractive: boolean,
+  reinstall: boolean,
 ) =>
   Effect.gen(function* () {
     const resolution = yield* resolveUpdateIntent({
@@ -732,6 +782,7 @@ const resolveMcpServerIntent = (
       source,
       releaseAgeEvaluation,
       effective,
+      reinstall,
       fallback: resolveConfiguredMcpServer(name, source, releaseAgeEvaluation, effective.range),
       makeIntent: (ref, versionRange) =>
         ref.type === "mcp-server"
@@ -739,7 +790,7 @@ const resolveMcpServerIntent = (
               ref,
               localName: decodeExtensionNameSync(name),
               versionRange,
-              force: reacquiresContent(ref),
+              force: reinstall || reacquiresContent(ref),
               nonInteractive,
             } satisfies Omit<McpServerInstallIntent, "sourceIdentity">)
           : undefined,
@@ -771,9 +822,11 @@ const preparePackRef = (
   source: string,
   releaseAgeEvaluation: ReleaseAgeEvaluation,
   nonInteractive: boolean,
+  reinstall: boolean,
 ) =>
   prepareUpdateIntent({
     type: "pack",
+    reinstall,
     name,
     source,
     releaseAgeEvaluation,
@@ -784,6 +837,10 @@ const preparePackRef = (
       ref.type === "pack"
         ? ({
             packToInstall: ref,
+            forceCanonical: reinstall,
+            ...(reinstall
+              ? { dependencyResolver: acceptedPackDependencyResolver(releaseAgeEvaluation) }
+              : {}),
             versionRange,
             nonInteractive,
             releaseAgeEvaluation,
@@ -902,7 +959,13 @@ const collectSkillPlans = (selection: WorkspaceUpdateCollectionRequest, graph: D
             )
           : withinEffectiveConstraint(graph, "skill", name, (effective) =>
               collectResolvedPlan(
-                resolveSkillIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
+                resolveSkillIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  effective,
+                  selection.reinstall,
+                ),
                 planSkillInstall,
                 (error) => workspacePlanningErrorPlan("skill", name, error, conversion),
                 toTypedLabel("skill", name),
@@ -940,7 +1003,13 @@ const collectRulePlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
             )
           : withinEffectiveConstraint(graph, "rule", name, (effective) =>
               collectResolvedPlan(
-                resolveRuleIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
+                resolveRuleIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  effective,
+                  selection.reinstall,
+                ),
                 (intent) => planRuleInstall(intent),
                 (error) => workspacePlanningErrorPlan("rule", name, error, conversion),
                 toTypedLabel("rule", name),
@@ -978,7 +1047,13 @@ const collectHookPlans = (selection: WorkspaceUpdateCollectionRequest, graph: De
             )
           : withinEffectiveConstraint(graph, "hook", name, (effective) =>
               collectResolvedPlan(
-                resolveHookIntent(name, entry.source, selection.releaseAgeEvaluation, effective),
+                resolveHookIntent(
+                  name,
+                  entry.source,
+                  selection.releaseAgeEvaluation,
+                  effective,
+                  selection.reinstall,
+                ),
                 (intent) => planHookInstall(intent),
                 (error) => workspacePlanningErrorPlan("hook", name, error, conversion),
                 toTypedLabel("hook", name),
@@ -1024,6 +1099,7 @@ const collectKnowledgePlans = (
                   entry.source,
                   selection.releaseAgeEvaluation,
                   effective,
+                  selection.reinstall,
                 ),
                 (intent) => planKnowledgeInstall(intent),
                 (error) => workspacePlanningErrorPlan("knowledge", name, error, conversion),
@@ -1070,6 +1146,7 @@ const collectSubagentPlans = (
                   entry.source,
                   selection.releaseAgeEvaluation,
                   effective,
+                  selection.reinstall,
                 ),
                 (intent) => planSubagentInstall(intent),
                 (error) => workspacePlanningErrorPlan("subagent", name, error, conversion),
@@ -1122,7 +1199,7 @@ const collectMcpServerPlans = (
       entries,
       ([name, entry]) =>
         entry.source === undefined
-          ? Effect.succeed(collectedWorkspaceSourcePlan(inlineMcpNotApplicablePlan(name, "update")))
+          ? Effect.succeed(collectedWorkspaceSourcePlan(inlineMcpNotApplicablePlan(name)))
           : isWorkspaceSourceLocator(entry.source)
             ? Effect.succeed(
                 collectedWorkspaceSourcePlan(
@@ -1138,6 +1215,7 @@ const collectMcpServerPlans = (
                     selection.releaseAgeEvaluation,
                     effective,
                     selection.nonInteractive,
+                    selection.reinstall,
                   ),
                   (intent) => planMcpServerInstall(intent),
                   (error) => workspacePlanningErrorPlan("mcp-server", name, error, conversion),
@@ -1187,6 +1265,7 @@ const collectPackPlans = (selection: WorkspaceUpdateCollectionRequest) =>
               entry.source,
               selection.releaseAgeEvaluation,
               selection.nonInteractive,
+              selection.reinstall,
             ).pipe(
               Effect.result,
               Effect.map((resolve) =>
@@ -1356,6 +1435,7 @@ export const makeWorkspaceUpdatePlan = (
 
 /** What a configured sweep asks for: a type filter and an optional selection. */
 export interface WorkspaceUpdatePlanRequest {
+  readonly reinstall?: boolean;
   readonly type: Option.Option<WorkspaceUpdatableType>;
   readonly planName: string;
   readonly planDescription: Option.Option<string>;
@@ -1414,7 +1494,13 @@ export const buildWorkspaceUpdatePlan: (
         ? undefined
         : new Set([...requestedNames, ...retainedNames])
       : retainedNames;
-    return { names, retainedNames, releaseAgeEvaluation, nonInteractive: args.nonInteractive };
+    return {
+      names,
+      retainedNames,
+      releaseAgeEvaluation,
+      nonInteractive: args.nonInteractive,
+      reinstall: args.reinstall === true,
+    };
   };
   const selectedType = (type: WorkspaceUpdatableType) =>
     matchesRequestedType(args.type, type) ||
@@ -1483,7 +1569,7 @@ export const buildWorkspaceUpdatePlan: (
           ref: resolved.ref,
           nonInteractive: args.nonInteractive,
           strictAgentSync: true,
-          force: resolved.ref.refType !== "registry",
+          force: args.reinstall === true || resolved.ref.refType !== "registry",
           desiredEnabled: node.enabled,
           standalone: true,
           toStepFailure: conversionForMembers.toStepFailure,

@@ -35,7 +35,7 @@ import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface HandleSyncArgs {
   readonly target?: Option.Option<string>;
-  readonly type?: Option.Option<Exclude<ExtensionType, "pack">>;
+  readonly types?: ReadonlyArray<Exclude<ExtensionType, "pack">>;
   readonly preview: boolean;
   readonly failOnChange?: boolean;
 }
@@ -67,8 +67,8 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
   }
 
   const target = args.target ?? Option.none<string>();
-  const type = args.type ?? Option.none<Exclude<ExtensionType, "pack">>();
-  const candidate = yield* SyncWorkspace.prepare({ target, type }).pipe(
+  const types = args.types ?? [];
+  const candidate = yield* SyncWorkspace.prepare({ target, types }).pipe(
     Effect.mapError(toAppError),
   );
 
@@ -93,10 +93,7 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
           onNone: () => [],
           onSome: (value) => [recoveryPositional(publicRecoveryValue(value))],
         }),
-        ...Option.match(type, {
-          onNone: () => [],
-          onSome: (value) => [recoveryOption("--type", publicRecoveryValue(value))],
-        }),
+        ...types.map((value) => recoveryOption("--type", publicRecoveryValue(value))),
         recoverySwitch("--fail-on-change", args.failOnChange === true),
       ],
     ),

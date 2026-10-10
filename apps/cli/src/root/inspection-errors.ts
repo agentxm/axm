@@ -49,11 +49,16 @@ export const publishedMetadataUnavailableToAppError = (
   switch (failure.reason) {
     case "registry-not-configured":
       return makeAppError({ code: "not_found", detail: failure.detail });
-    case "ambiguous-name":
+    case "type-required":
       return makeAppError({
-        code: "validation",
+        code: "usage",
         detail: failure.detail,
-        suggestions: [{ description: "Re-run with --type or the fully-qualified name." }],
+        suggestions: [
+          {
+            description: "Specify --type or use a fully qualified extension name",
+            cmd: "axm view --help",
+          },
+        ],
       });
     case "unqualified-name":
       return makeAppError({

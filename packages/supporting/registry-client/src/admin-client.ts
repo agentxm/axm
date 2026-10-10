@@ -42,7 +42,7 @@ export interface PutExtensionDeprecationInput {
 
 export interface PutExtensionArchivalInput {
   readonly revision: string;
-  readonly reason: string | null;
+  readonly message?: string | null;
 }
 
 const normalizeRegistryArchival = (
@@ -52,7 +52,9 @@ const normalizeRegistryArchival = (
     ? null
     : {
         archivedAt: value.archivedAt,
-        ...(value.reason === undefined || value.reason === null ? {} : { reason: value.reason }),
+        ...(value.message === undefined || value.message === null
+          ? {}
+          : { message: value.message }),
       };
 
 const normalizeArchivalManagementView = (
@@ -197,7 +199,7 @@ const mutation = { kind: "mutation" } as const;
 
 export const yankExtensionVersion = (
   ref: RegistryExtensionVersionReference,
-  input: { readonly category?: YankCategory; readonly notice?: string },
+  input: { readonly category?: YankCategory; readonly message?: string },
 ) =>
   Effect.gen(function* () {
     const { client, registryUrl } = yield* makeLifecycleClient();
@@ -206,7 +208,7 @@ export const yankExtensionVersion = (
       client.ExtensionsYankVersion(ref.owner, ref.type, ref.name, ref.version, {
         payload: {
           ...(input.category === undefined ? {} : { category: input.category }),
-          ...(input.notice === undefined ? {} : { notice: input.notice }),
+          ...(input.message === undefined ? {} : { message: input.message }),
         },
       }),
       {
@@ -220,7 +222,7 @@ export const yankExtensionVersion = (
 
 export const yankAvailableExtensionVersions = (
   ref: RegistryExtensionReference,
-  input: { readonly category?: YankCategory; readonly notice?: string },
+  input: { readonly category?: YankCategory; readonly message?: string },
 ) =>
   Effect.gen(function* () {
     const { client, registryUrl } = yield* makeLifecycleClient();
@@ -230,7 +232,7 @@ export const yankAvailableExtensionVersions = (
         payload: {
           selection: "all-available",
           ...(input.category === undefined ? {} : { category: input.category }),
-          ...(input.notice === undefined ? {} : { notice: input.notice }),
+          ...(input.message === undefined ? {} : { message: input.message }),
         },
       }),
       {
@@ -299,7 +301,7 @@ export const archiveExtension = (
       registryUrl,
       client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
         params: { "if-match": input.revision },
-        payload: { reason: input.reason },
+        payload: input.message === undefined ? {} : { message: input.message },
       }),
       {
         operation: "archive extension",

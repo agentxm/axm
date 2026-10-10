@@ -116,17 +116,15 @@ describe("Safe effective identity", () => {
               expect(
                 Schema.encodeUnknownSync(WhoamiDocumentSchema)(renderer.state.results[0]?.data),
               ).toEqual({
-                data: {
-                  user: "@alice",
-                  registry,
-                  credentialType: "pat",
-                  authority: "limited",
-                  permissions: { owners: ["@alice"], extensions: [], permission: "publish" },
-                  resourceRestrictions: { extensions: ["@alice/skills/review"] },
-                  expiresAt,
-                  approvedAt: null,
-                  trustedPublisher: null,
-                },
+                user: "@alice",
+                registry,
+                credentialType: "pat",
+                authority: "limited",
+                permissions: { owners: ["@alice"], extensions: [], permission: "publish" },
+                resourceRestrictions: { extensions: ["@alice/skills/review"] },
+                expiresAt,
+                approvedAt: null,
+                trustedPublisher: null,
               });
             } else {
               for (const text of [
@@ -183,7 +181,8 @@ describe("Safe effective identity", () => {
             expect(
               Schema.encodeUnknownSync(WhoamiDocumentSchema)(renderer.state.results[0]?.data),
             ).toMatchObject({
-              data: { credentialType: "oidc", trustedPublisher: { name: "release" } },
+              credentialType: "oidc",
+              trustedPublisher: { name: "release" },
             });
           } else {
             expect(output).toContain("Trusted publisher  release");

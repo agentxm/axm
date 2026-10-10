@@ -241,7 +241,7 @@ describe("axm skills install output UX", () => {
     }
   });
 
-  it("reinstalls configured skills when no source argument is provided", async () => {
+  it("reinstalls a configured skill through update --reinstall", async () => {
     const temp = createTempDir();
     try {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -259,7 +259,7 @@ describe("axm skills install output UX", () => {
       );
       expect(initialInstall.exitCode).toBe(0);
 
-      const result = await runCli(["skills", "install"], {
+      const result = await runCli(["skills", "update", "my-skill", "--reinstall"], {
         cwd: temp.path,
       });
 

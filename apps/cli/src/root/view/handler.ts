@@ -70,7 +70,7 @@ const readAndEmit = (args: {
     const settings = yield* SettingsReader;
     const agents = yield* settings.configuredAgents;
     const result = yield* withLiveOperation(
-      { command: "view", name: `View ${args.handle}`, mode: "preview" },
+      { command: "view", name: `View ${args.handle}`, mode: "query" },
       observeUnit(
         { id: "index", label: `${args.handle} from ${args.targetRegistry.registryName}` },
         Effect.catchTags(
@@ -95,11 +95,11 @@ const unresolvable = {
 } as const;
 
 export const handleView = Effect.fn("View.handle")(function* (args: ViewHandlerArgs) {
-  const targetRegistry = yield* Effect.catchTags(resolveViewRegistry(args.registry), unresolvable);
   const parts = yield* Effect.catchTags(
     resolveViewHandle({ handle: args.handle, type: args.type ?? Option.none() }),
     unresolvable,
   );
+  const targetRegistry = yield* Effect.catchTags(resolveViewRegistry(args.registry), unresolvable);
   yield* readAndEmit({ handle: args.handle, field: args.field, targetRegistry, parts });
 });
 

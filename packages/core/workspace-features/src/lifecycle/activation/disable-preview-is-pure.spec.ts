@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/disable/preview-is-pure",
   title: "Disable preview describes the deactivation without changing any state",
   statement:
-    "When disable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hooks package, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the deactivation it would apply with a previewed outcome when the extension is enabled, report the request as unchanged when the extension is already disabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hooks package.",
+    "Disable shall withdraw existing outputs without requiring ReleaseAgePosture or evaluating release-age policy. When disable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hook extension, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the deactivation it would apply with a previewed outcome when the extension is enabled, report the request as unchanged when the extension is already disabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hook extension.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -83,7 +83,7 @@ const TYPES: ReadonlyArray<{
     name: "workspace-baseline",
     unconfigured: {
       kind: "unchanged",
-      message: 'hooks package "workspace-baseline" is not configured',
+      message: 'hook extension "workspace-baseline" is not configured',
     },
   },
   {
@@ -171,7 +171,7 @@ describe("Disable preview purity", () => {
           Effect.gen(function* () {
             // The split is the product's, not this example's: a skill,
             // subagent, Knowledge bundle, or Pack the workspace does not hold
-            // is refused, while an MCP server, rule, or hooks package settles
+            // is refused, while an MCP server, rule, or hook extension settles
             // as unchanged. Both leave the workspace exactly as it was.
             if (unconfigured.kind === "refused") {
               const failure = yield* previewActivation({

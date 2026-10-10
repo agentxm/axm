@@ -34,7 +34,7 @@ describe("Raw token creation", () => {
         owners: [],
         extensions: [],
         permission: "read",
-        output: "token",
+        plain: true,
       });
 
       expect(context.creations).toEqual(["ci"]);

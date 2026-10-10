@@ -831,9 +831,7 @@ export const KnowledgeManagerLive = Layer.effect(
       ManagerRequirements | Scope.Scope
     > =>
       Effect.gen(function* () {
-        const desired = yield* activeKnowledgeNodes(
-          dryRun ? nativeProjection?.desiredGraph : undefined,
-        );
+        const desired = yield* activeKnowledgeNodes(nativeProjection?.desiredGraph);
         const locked = yield* lockfile.entries("knowledge");
         const prepared: Array<PreparedKnowledgePackage> = [];
         for (const node of desired) {

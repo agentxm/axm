@@ -71,7 +71,7 @@ describe("Installed extension detail", () => {
               scope: "project",
               locked: false,
             });
-            expect(Array.isArray(result.agents)).toBe(true);
+            expect(Array.isArray(result.agentOutcomes)).toBe(true);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));

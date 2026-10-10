@@ -32,8 +32,8 @@ describe("scoped command suggestions", () => {
   });
 
   it("addresses a route by its leading words, past its arguments", () => {
-    expect(commandForScope("axm update skills/research --refresh", "user", routes)).toBe(
-      "axm update skills/research --refresh --scope user",
+    expect(commandForScope("axm update skills/research --reinstall", "user", routes)).toBe(
+      "axm update skills/research --reinstall --scope user",
     );
     expect(commandForScope("axm skills enable code-review", "user", routes)).toBe(
       "axm skills enable code-review --scope user",

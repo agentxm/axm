@@ -11,7 +11,7 @@ import {
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 import { captureCopiedDirectory } from "@agentxm/workspace-kernel/locations";
 import { observeConfiguredSkillLocations } from "@agentxm/workspace-kernel/projection";
-import { SetActivation } from "./set-activation.js";
+import { EnableExtension } from "./set-activation.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions";
 
@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   requirement: "cli/enable/preview-is-pure",
   title: "Enable preview describes the activation without changing any state",
   statement:
-    "When enable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hooks package, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the activation it would apply with a previewed outcome when the extension is disabled, report the request as unchanged when the extension is already enabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hooks package.",
+    "When enable runs in preview mode against an extension of any managed type — skill, subagent, MCP server, rule, hook extension, Knowledge bundle, or Pack — it shall not change settings, the lockfile, canonical content, agent projections, or any other workspace state; it shall report the activation it would apply with a previewed outcome when the extension is disabled, report the request as unchanged when the extension is already enabled, and, when the workspace holds no such extension, refuse the request for a skill, subagent, Knowledge bundle, or Pack and report it as unchanged for an MCP server, rule, or hook extension.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -92,7 +92,7 @@ const TYPES: ReadonlyArray<{
     name: "workspace-baseline",
     unconfigured: {
       kind: "unchanged",
-      message: 'hooks package "workspace-baseline" is not configured',
+      message: 'hook extension "workspace-baseline" is not configured',
     },
   },
   {
@@ -137,7 +137,7 @@ describe("Enable preview purity", () => {
           expect(previewed.outcome).toBe("previewed");
           const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
           expect(planned).toMatchObject([{ outcome: "projected", reasonCode: "supported" }]);
-          expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+          expect(planned[0]?.nativeUnits?.length).toBeGreaterThan(0);
           expect(fixture.snapshot()).toEqual(before);
           const applied = yield* applyActivation({ type: "skill", name: "review", enabled: true });
           expect(applied._tag).toBe("Resolved");
@@ -147,7 +147,7 @@ describe("Enable preview purity", () => {
           expect(observed).toMatchObject([
             { outcome: "current", reasonCode: "verified-native-unit" },
           ]);
-          expect(observed[0]?.nativeUnitKeys).toEqual(planned[0]?.nativeUnitKeys);
+          expect(observed[0]?.nativeUnits).toEqual(planned[0]?.nativeUnits);
           expect(previewed.resolution.units[0]?.artifact?.nativeLocations?.length).toBeGreaterThan(
             0,
           );
@@ -175,7 +175,7 @@ describe("Enable preview purity", () => {
           expect(outcomes).toMatchObject([
             { outcome: "blocked", reasonCode: "native-content-conflict" },
           ]);
-          expect(outcomes[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+          expect(outcomes[0]?.nativeUnits?.length).toBeGreaterThan(0);
           expect(fixture.snapshot()).toEqual(before);
         }),
       )
@@ -210,7 +210,7 @@ describe("Enable preview purity", () => {
             expect(previewed.outcome).toBe("previewed");
             const planned = previewed.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
             expect(planned).toMatchObject([{ agentId: "cursor", outcome: "projected" }]);
-            expect(planned[0]?.nativeUnitKeys?.length).toBeGreaterThan(0);
+            expect(planned[0]?.nativeUnits?.length).toBeGreaterThan(0);
             expect(fixture.snapshot()).toEqual(before);
 
             const applied = yield* applyActivation({
@@ -223,8 +223,8 @@ describe("Enable preview purity", () => {
             expect(applied.outcome).toBe("applied");
             const observed = applied.resolution.units.flatMap((unit) => unit.agentOutcomes ?? []);
             expect(observed).toMatchObject([{ agentId: "cursor", outcome: "current" }]);
-            expect(observed[0]?.nativeUnitKeys).toEqual(
-              expect.arrayContaining([...(planned[0]?.nativeUnitKeys ?? [])]),
+            expect(observed[0]?.nativeUnits).toEqual(
+              expect.arrayContaining([...(planned[0]?.nativeUnits ?? [])]),
             );
             expect(fixture.readFile(".claude/skills/review/SKILL.md")).toBe(foreign);
             const facts = yield* observeConfiguredSkillLocations({
@@ -307,16 +307,15 @@ describe("Enable preview purity", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const candidate = yield* SetActivation.prepare({
+          const candidate = yield* EnableExtension.prepare({
             type: "skill",
             name: "review",
-            enabled: true,
           });
           if (candidate._tag === "Unchanged") throw new Error("Expected activation work");
-          yield* SetActivation.previewOrApply(candidate, previewPlanExecution);
+          yield* EnableExtension.previewOrApply(candidate, previewPlanExecution);
           fixture.writeFile("axm.json", `${fixture.readFile("axm.json")}\n`);
           const before = fixture.snapshot();
-          const resolution = yield* SetActivation.previewOrApply(
+          const resolution = yield* EnableExtension.previewOrApply(
             candidate,
             preapprovedPlanExecution,
           );
@@ -390,7 +389,7 @@ describe("Enable preview purity", () => {
           Effect.gen(function* () {
             // The split is the product's, not this example's: a skill,
             // subagent, Knowledge bundle, or Pack the workspace does not hold
-            // is refused, while an MCP server, rule, or hooks package settles
+            // is refused, while an MCP server, rule, or hook extension settles
             // as unchanged. Both leave the workspace exactly as it was.
             if (unconfigured.kind === "refused") {
               const failure = yield* previewActivation({

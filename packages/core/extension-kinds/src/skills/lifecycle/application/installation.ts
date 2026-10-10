@@ -1,6 +1,11 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import {
+  VersionSchema,
+  type VersionRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { gitHostedSkillArtifactSource } from "./artifact.js";
 
 /** The change the reconciliation recipe classified for one install. */
@@ -50,7 +55,7 @@ export interface SkillInstallationFacts<E, Preparation, Execution, NativeLocatio
  */
 export const prepareSkillInstallation = <E, Preparation, Execution, NativeLocation = never>(
   facts: SkillInstallationFacts<E, Preparation, Execution, NativeLocation>,
-  input: { readonly ref: SkillExtensionRef },
+  input: { readonly ref: SkillExtensionRef; readonly versionRange: Option.Option<VersionRange> },
 ) =>
   Effect.gen(function* () {
     const ref = input.ref;
@@ -66,7 +71,12 @@ export const prepareSkillInstallation = <E, Preparation, Execution, NativeLocati
     // A first acquisition of an explicitly requested release says how young
     // it is; an already installed skill advancing through update was judged
     // by resolution, which held or exempted it before this step existed.
-    if (!before.installed && ref.refType === "registry") {
+    if (
+      !before.installed &&
+      ref.refType === "registry" &&
+      Option.isSome(input.versionRange) &&
+      Schema.is(VersionSchema)(input.versionRange.value)
+    ) {
       const age = yield* facts.releaseAge(ref);
       if (Option.isSome(age) && !age.value.mature) {
         warnings.push(

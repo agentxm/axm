@@ -1,13 +1,12 @@
+import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
-import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
-import { Argument, Command, Flag } from "effect/cli";
+import { Command, Flag } from "effect/cli";
 
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   packageMetadataEcosystems,
-  ShareFailed,
   ShareWorkspace,
   ShareWorkspaceDocumentSchema,
 } from "@agentxm/workspace-features/sharing";
@@ -22,64 +21,21 @@ import { withRuntime, withWorkspace } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 import { shareDoc } from "./view.js";
 
-const ecosystemFlag = (ecosystem: string) =>
-  Flag.Boolean(ecosystem).pipe(
-    Flag.withDescription(
-      `Emit portable ${ecosystem} package metadata with the Git source locator for the tag at HEAD`,
-    ),
-    Flag.withDefault(false),
-  );
-
 const shareConfig = {
-  directory: Argument.String("directory").pipe(
-    Argument.withDescription(
-      "Repository or skill collection to share; defaults to the current directory",
+  ecosystem: Flag.Literals("ecosystem", packageMetadataEcosystems).pipe(
+    Flag.optional,
+    withParameterDescription(
+      "Emit package metadata with the Git source locator for the tag at HEAD",
     ),
-    Argument.optional,
   ),
-  bazel: ecosystemFlag("bazel"),
-  cargo: ecosystemFlag("cargo"),
-  cocoapods: ecosystemFlag("cocoapods"),
-  composer: ecosystemFlag("composer"),
-  conan: ecosystemFlag("conan"),
-  conda: ecosystemFlag("conda"),
-  cpan: ecosystemFlag("cpan"),
-  cran: ecosystemFlag("cran"),
-  docker: ecosystemFlag("docker"),
-  gem: ecosystemFlag("gem"),
-  golang: ecosystemFlag("golang"),
-  hackage: ecosystemFlag("hackage"),
-  hex: ecosystemFlag("hex"),
-  huggingface: ecosystemFlag("huggingface"),
-  jsr: ecosystemFlag("jsr"),
-  julia: ecosystemFlag("julia"),
-  luarocks: ecosystemFlag("luarocks"),
-  maven: ecosystemFlag("maven"),
-  mojo: ecosystemFlag("mojo"),
-  npm: ecosystemFlag("npm"),
-  nuget: ecosystemFlag("nuget"),
-  opam: ecosystemFlag("opam"),
-  pub: ecosystemFlag("pub"),
-  pypi: ecosystemFlag("pypi"),
-  swift: ecosystemFlag("swift"),
-  zig: ecosystemFlag("zig"),
 };
 
 const handleShare = Effect.fn("Share.handle")(function* (config: {
-  readonly [E in (typeof packageMetadataEcosystems)[number]]: boolean;
+  readonly ecosystem: Option.Option<(typeof packageMetadataEcosystems)[number]>;
 }) {
-  const selectedEcosystems = packageMetadataEcosystems.filter((ecosystem) => config[ecosystem]);
-  if (selectedEcosystems.length > 1) {
-    return yield* Effect.fail(
-      new ShareFailed({
-        category: "validation",
-        detail: "Choose at most one package ecosystem flag per share command.",
-      }),
-    ).pipe(Effect.mapError(shareFailureToAppError));
-  }
-  const ecosystem = selectedEcosystems[0];
+  const ecosystem = Option.getOrUndefined(config.ecosystem);
   const result = yield* withLiveOperation(
-    { command: "share", name: "Share authored extensions", mode: "preview" },
+    { command: "share", name: "Share authored extensions", mode: "query" },
     observeUnit(
       { id: "repository", label: "repository share command" },
       ShareWorkspace.query(ecosystem === undefined ? undefined : { ecosystem }).pipe(
@@ -93,23 +49,23 @@ const handleShare = Effect.fn("Share.handle")(function* (config: {
 export const shareCommand = Command.make("share", shareConfig, (config) =>
   Effect.gen(function* () {
     const directory = yield* ExecutionDirectory;
-    const path = yield* Path.Path;
-    const projectRoot = makeAbsolutePath(
-      path,
-      path.resolve(
-        directory.path,
-        Option.getOrElse(config.directory, () => "."),
-      ),
-    );
     return yield* handleShare(config).pipe(
-      withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, projectRoot, allowUninitialized: true }),
+      withWorkspace({
+        scope: DEFAULT_WORKSPACE_SCOPE,
+        projectRoot: directory.path,
+        allowUninitialized: true,
+      }),
     );
   }).pipe(withRuntime("share")),
 ).pipe(
   withArgvTracking(shareConfig),
   withCommandCapabilities(readOnlyCapabilities()),
   Command.withDescription(
-    "Print a Git install command for existing skills or extensions without AXM setup; opt-out is not confidentiality",
+    "Print a Git install command for existing skills or extensions without AXM setup",
+  ),
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([["axm help settings", "Read discovery opt-out and confidentiality guidance"]]),
   ),
   Command.withShortDescription("Print an install command for an existing repository"),
   Command.withExamples([
@@ -118,7 +74,7 @@ export const shareCommand = Command.make("share", shareConfig, (config) =>
       description: "Print a live-checked install command with origin's self-describing locator",
     },
     {
-      command: "axm share --npm",
+      command: "axm share --ecosystem npm",
       description: "Emit package.json metadata for the tag at HEAD",
     },
     { command: "axm share --json", description: "Emit the share result as structured data" },

@@ -5,21 +5,24 @@ import {
   findRetainedSourceComponents,
   retainedSelectionSatisfied,
   mergeRetainedSourceRefs,
-} from "./accepted-source-reinstall.js";
+} from "./retained-source-components.js";
 import * as Option from "effect/Option";
 import type * as Config from "effect/Config";
+import * as DateTime from "effect/DateTime";
 import {
   extensionTypeToPlural,
   parseSourceQualifiedRegistrySourcePatternParts,
   type Handle,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   SourceHostProviders,
   registryLoginSuggestions,
+  sourceResolutionFailureCategory,
   resolveSource,
   type RegistryLookupProbe,
   type SourceResolutionFailure,
@@ -35,6 +38,12 @@ import {
   type ResolvedInstallRef,
   type ResolveInstallRequirements,
 } from "@agentxm/workspace-kernel/reconciliation";
+import {
+  makeConfiguredReleaseAgeEvaluation,
+  settleRegistryResolution,
+  normalizeReleaseAgeRecords,
+  ExtensionResolutionFailed,
+} from "@agentxm/workspace-kernel/resolution";
 
 export type SourceInstallType = "hook" | "rule" | "knowledge" | "skill" | "subagent";
 export type SourceInstallRef<T extends SourceInstallType> = Extract<
@@ -50,6 +59,96 @@ export interface ParsedInstallRequest {
   readonly resolutionProbes: ReadonlyArray<RegistryLookupProbe>;
 }
 
+/** Resolve named Registry installs under the same policy as configured entries. */
+export const resolveRegistryInstallRefs = <T extends InstallableExtensionType>(
+  type: T,
+  request: ParsedInstallRequest,
+  names: ReadonlyArray<string>,
+  selectionRange: Option.Option<string> = request.versionRange,
+) =>
+  Effect.gen(function* () {
+    const source = request.source;
+    if (source.type !== "registry" || Option.isNone(request.owner)) {
+      return yield* installRefused({
+        category: "validation",
+        detail: "Named Registry installs require an owner",
+      });
+    }
+    const owner = request.owner.value;
+    const providers = yield* SourceHostProviders;
+    const evaluation = yield* makeConfiguredReleaseAgeEvaluation();
+    const refs = yield* Effect.forEach(names, (name) =>
+      providers
+        .resolveNamedRegistry(source, {
+          name,
+          type,
+          owner,
+          versionRange: selectionRange,
+          releaseAgeEvaluation: evaluation,
+        })
+        .pipe(
+          Effect.catch((cause) =>
+            Effect.gen(function* () {
+              if (cause._tag === "ConfigError") return yield* Effect.fail(cause);
+              const suggestions =
+                sourceResolutionFailureCategory(cause) === "not_found"
+                  ? yield* registryLoginSuggestions([source.location.href])
+                  : [];
+              return yield* sourceResolutionRefused(cause, suggestions);
+            }),
+          ),
+          Effect.flatMap((resolution) =>
+            Effect.gen(function* () {
+              const login =
+                resolution.kind === "not_found"
+                  ? yield* registryLoginSuggestions([source.location.href])
+                  : [];
+              return yield* settleRegistryResolution({
+                ...resolution,
+                versionRange: request.versionRange,
+              }).pipe(
+                Effect.mapError((cause) =>
+                  login.length === 0
+                    ? cause
+                    : new ExtensionResolutionFailed({
+                        ...cause,
+                        suggestions: [...(cause.suggestions ?? []), ...login],
+                      }),
+                ),
+              );
+            }),
+          ),
+          Effect.flatMap((entry) => {
+            const ref = entry.ref;
+            const matches = (
+              value: ExtensionRef,
+            ): value is Extract<ExtensionRef, { readonly type: T }> => value.type === type;
+            return matches(ref)
+              ? Effect.succeed({ ...entry, ref })
+              : Effect.fail(
+                  installRefused({
+                    category: "internal",
+                    detail: `Registry returned ${ref.type} for a ${type} request`,
+                  }),
+                );
+          }),
+        ),
+    );
+    return {
+      refs,
+      evaluation,
+      releaseAge: {
+        evaluatedAt: DateTime.formatIso(evaluation.evaluatedAt),
+        holdbacks: normalizeReleaseAgeRecords(
+          refs.flatMap((entry) => entry.releaseAge?.holdbacks ?? []),
+        ),
+        bypasses: normalizeReleaseAgeRecords(
+          refs.flatMap((entry) => entry.releaseAge?.bypasses ?? []),
+        ),
+      },
+    };
+  });
+
 const MESSAGES: Record<
   SourceInstallType,
   {
@@ -61,8 +160,8 @@ const MESSAGES: Record<
 > = {
   hook: {
     invalidSource: "Invalid hooks source",
-    notFound: "No hooks packages found in source",
-    howToFix: () => "Verify the source contains hook packages",
+    notFound: "No hook extensions found in source",
+    howToFix: () => "Verify the source contains hook extensions",
   },
   rule: {
     invalidSource: "Invalid rule source",
@@ -207,7 +306,6 @@ export const parseLocatorInstallRequest = (
 export const discoverInstallRefs = <T extends SourceInstallType>(
   type: T,
   request: ParsedInstallRequest,
-  refreshLocal = false,
 ): Effect.Effect<
   ReadonlyArray<SourceInstallRef<T>>,
   ExtensionLifecycleFailed | Config.ConfigError,
@@ -218,7 +316,6 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
     const retained: ReadonlyArray<ExtensionRef> = (yield* findRetainedSourceComponents(
       request.source,
       type,
-      refreshLocal,
     )).filter((ref) => ref.type === type);
     if (retainedSelectionSatisfied(retained, request.names))
       return retained.filter((ref): ref is SourceInstallRef<T> => ref.type === type);

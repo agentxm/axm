@@ -47,7 +47,11 @@ export class McpDefinitionInvalid extends Data.TaggedError("McpDefinitionInvalid
 /** Member agents disagree about the shared MCP target. */
 export class McpSharedTargetConflict extends Data.TaggedError("McpSharedTargetConflict")<{
   readonly reason: string;
-}> {}
+}> {
+  override get message(): string {
+    return this.reason;
+  }
+}
 
 /** An agent hooks configuration file did not parse or validate. */
 export class HookConfigInvalid extends Data.TaggedError("HookConfigInvalid")<{

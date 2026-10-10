@@ -47,7 +47,7 @@ describe("Local ordinary inventories", () => {
           expect(result.document.items[0]?.assessment.deprecation).toBeUndefined();
           expect(result.document.coverage).toBeUndefined();
           expect(fixture.requests).toEqual([]);
-          const typed = yield* ListExtensions.query({ filter: "all", type: "skill" });
+          const typed = yield* ListExtensions.query({ filter: "all", types: ["skill"] });
           expect(typed.document.items).toEqual(result.document.items);
           expect(fixture.requests).toEqual([]);
         }),

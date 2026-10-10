@@ -1,5 +1,4 @@
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -53,8 +52,7 @@ describe("Machine version results", () => {
 
         yield* handleRootVersion({
           handle: "@acme/skills/review",
-          bump: "set",
-          targetVersion: Option.some(changed ? "2.0.0" : "1.2.3"),
+          bump: changed ? "2.0.0" : "1.2.3",
           preview: false,
         }).pipe(Effect.provide(created.layer));
 

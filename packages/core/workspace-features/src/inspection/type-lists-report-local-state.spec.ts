@@ -57,9 +57,9 @@ describe("Type-specific inventory", () => {
   const rows = [
     { type: "skill", read: () => listSkills({}) },
     { type: "subagent", read: () => listSubagents({}) },
-    { type: "rule", read: () => listRules() },
-    { type: "hook", read: () => listHooks() },
-    { type: "pack", read: () => listPacks() },
+    { type: "rule", read: () => listRules({}) },
+    { type: "hook", read: () => listHooks({}) },
+    { type: "pack", read: () => listPacks({}) },
   ] as const;
 
   for (const row of rows)
@@ -163,7 +163,7 @@ describe("Type-specific inventory", () => {
       .provide(
         Effect.gen(function* () {
           yield* installRegistryPack({ name: "toolkit", source: "test:@acme/packs/toolkit" });
-          const { inventory, rows: packRows } = yield* listPacks();
+          const { inventory, rows: packRows } = yield* listPacks({});
           expect(inventory.count).toBe(1);
           expect(packRows).toEqual([
             expect.objectContaining({

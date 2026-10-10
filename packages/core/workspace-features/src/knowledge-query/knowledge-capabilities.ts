@@ -4,17 +4,17 @@ import {
   KNOWLEDGE_DISCOVERY_OPERATIONS,
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
   KNOWLEDGE_METADATA_FILTER_FIELDS,
-  KNOWLEDGE_QUERY_CONTRACT_VERSION,
+  KNOWLEDGE_QUERY_CONTRACT_ID,
   KNOWLEDGE_QUERY_OPERATORS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
 } from "./knowledge-query.js";
 
-export const KNOWLEDGE_DISCOVERY_CAPABILITIES_VERSION = "axm-knowledge-discovery-capabilities-v1";
+export const KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID = "knowledge-discovery-capabilities-v1";
 
 export const KnowledgeDiscoveryCapabilitiesSchema = Schema.Struct({
-  version: Schema.Literal(KNOWLEDGE_DISCOVERY_CAPABILITIES_VERSION),
+  contract: Schema.Literal(KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID),
   operations: Schema.Array(Schema.Literals(KNOWLEDGE_DISCOVERY_OPERATIONS)),
-  queryContractVersion: Schema.Literal(KNOWLEDGE_QUERY_CONTRACT_VERSION),
+  queryContract: Schema.Literal(KNOWLEDGE_QUERY_CONTRACT_ID),
   strategies: Schema.Array(Schema.Literal("lexical")),
   operators: Schema.Array(Schema.Literals(KNOWLEDGE_QUERY_OPERATORS)),
   tokenizerProfile: Schema.Struct({
@@ -49,7 +49,7 @@ export const KnowledgeDiscoveryCapabilitiesSchema = Schema.Struct({
     ),
   }),
   output: Schema.Struct({
-    envelope: Schema.Literal("axm.machine-output/result-envelope-v1"),
+    envelope: Schema.Literal("result-envelope-v1"),
     resultLevel: Schema.Literal("concept"),
     paginationKeys: Schema.Array(Schema.Literals(["items", "count", "hasMore", "cursor"])),
   }),
@@ -61,9 +61,9 @@ export const KnowledgeDiscoveryCapabilitiesSchema = Schema.Struct({
 export type KnowledgeDiscoveryCapabilities = typeof KnowledgeDiscoveryCapabilitiesSchema.Type;
 
 export const KNOWLEDGE_DISCOVERY_CAPABILITIES: KnowledgeDiscoveryCapabilities = {
-  version: KNOWLEDGE_DISCOVERY_CAPABILITIES_VERSION,
+  contract: KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID,
   operations: KNOWLEDGE_DISCOVERY_OPERATIONS,
-  queryContractVersion: KNOWLEDGE_QUERY_CONTRACT_VERSION,
+  queryContract: KNOWLEDGE_QUERY_CONTRACT_ID,
   strategies: ["lexical"],
   operators: KNOWLEDGE_QUERY_OPERATORS,
   tokenizerProfile: KNOWLEDGE_SEARCH_TOKENIZER_PROFILE,
@@ -90,7 +90,7 @@ export const KNOWLEDGE_DISCOVERY_CAPABILITIES: KnowledgeDiscoveryCapabilities = 
     binds: ["corpus-fingerprint", "canonical-query-digest", "ordering-position"],
   },
   output: {
-    envelope: "axm.machine-output/result-envelope-v1",
+    envelope: "result-envelope-v1",
     resultLevel: "concept",
     paginationKeys: ["items", "count", "hasMore", "cursor"],
   },

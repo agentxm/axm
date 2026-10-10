@@ -40,6 +40,27 @@ describe("registryBaseUrl", () => {
 });
 
 describe("SettingsReader.registryTarget", () => {
+  it.effect.each(["https://other.example.test/axm/", "http://localhost:4000/registry/"])(
+    "accepts an explicit HTTP(S) endpoint %s",
+    (requested) =>
+      Effect.gen(function* () {
+        expect(yield* target(Option.some(requested), "company")).toEqual({
+          name: requested,
+          url: Option.some(requested.replace(/\/$/u, "")),
+        });
+      }),
+  );
+  it.effect.each([
+    "https://user:secret@example.test",
+    "https://example.test?token=secret",
+    "https://example.test#fragment",
+    "file:///tmp/registry",
+    "ftp://example.test",
+  ])("does not resolve a disallowed endpoint %s", (requested) =>
+    Effect.gen(function* () {
+      expect((yield* target(Option.some(requested))).url).toEqual(Option.none());
+    }),
+  );
   it.effect("renders the named registry source through the one base-URL rule", () =>
     Effect.gen(function* () {
       expect(yield* target(Option.some("company"))).toEqual({

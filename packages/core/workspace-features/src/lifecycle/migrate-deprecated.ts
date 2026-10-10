@@ -104,7 +104,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
           subject: { kind: "source", source: replacementFqn },
           selectors: {},
           all: false,
-          reinstall: false,
+
           localName: Option.none(),
           bind: [],
           bindEnv: [],

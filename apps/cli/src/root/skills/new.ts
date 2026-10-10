@@ -1,5 +1,8 @@
+import { creationOwnerFlag } from "../../cli-flags/owner-handle.js";
+import { withParameterDescription } from "../../cli-parameters.js";
+import { descriptionFlag } from "../../cli-flags/index.js";
 import * as Option from "effect/Option";
-import { Argument, Command, Flag } from "effect/cli";
+import { Argument, Command } from "effect/cli";
 
 import {
   decodeExtensionNameSync,
@@ -19,6 +22,7 @@ import { runCreateExtensionCommand } from "../shared/create-extension-command.js
 export interface SkillsNewHandlerArgs {
   readonly name: ExtensionName;
   readonly owner: Option.Option<string>;
+  readonly description?: Option.Option<string>;
   readonly preview: boolean;
 }
 
@@ -26,27 +30,31 @@ export const handleSkillsNew = (args: SkillsNewHandlerArgs) =>
   runCreateExtensionCommand({
     command: "skills.new",
     preview: args.preview,
-    request: { type: "skill", name: args.name, owner: args.owner },
+    request: {
+      type: "skill",
+      name: args.name,
+      owner: args.owner,
+      description: args.description ?? Option.none(),
+    },
     suggestions: (candidate) => [
       { description: `Edit \`${candidate.entryPath}\` to fill in instructions` },
     ],
   });
 
 const newConfig = {
-  name: Argument.String("name").pipe(Argument.withDescription("Name of the skill (without owner)")),
-  owner: Flag.String("owner").pipe(
-    Flag.withDescription(
-      "Owner to create under; recorded as the workspace owner when none is set (e.g., @acme)",
-    ),
-    Flag.optional,
+  name: Argument.String("name").pipe(
+    withParameterDescription("Name of the skill to create, without owner"),
   ),
-  preview: previewCapabilityFlag("Show what files would be created without creating them"),
+  owner: creationOwnerFlag,
+  description: descriptionFlag,
+  preview: previewCapabilityFlag(),
 } as const;
 
-export const newCommand = Command.make("new", newConfig, ({ name, owner, preview }) =>
+export const newCommand = Command.make("new", newConfig, ({ name, owner, description, preview }) =>
   handleSkillsNew({
     name: decodeExtensionNameSync(name),
     owner,
+    description,
     preview,
   }).pipe(withWorkspace(DEFAULT_WORKSPACE_SCOPE), withRuntime("skills new")),
 ).pipe(

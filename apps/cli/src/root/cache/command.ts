@@ -60,7 +60,7 @@ const formatBytes = (bytes: number): string => {
 export const handleCacheStatus = Effect.fn("Cache.status")(function* () {
   const cache = yield* makeUserArchiveCache();
   const status = yield* withLiveOperation(
-    { command: "cache.status", name: "Inspect archive cache", mode: "preview" },
+    { command: "cache.status", name: "Inspect archive cache", mode: "query" },
     observeUnit({ id: "status", label: "archive cache status" }, cache.status()),
   );
   yield* emitResult(status, CacheStatusOutputSchema, () =>
@@ -123,7 +123,7 @@ export const cacheVerifyCommand = Command.make("verify", verifyConfig, () =>
   handleCacheVerify().pipe(withRuntime("cache verify")),
 ).pipe(
   withArgvTracking(verifyConfig),
-  withCommandCapabilities(readOnlyCapabilities()),
+  withCommandCapabilities(directWriteCapabilities("application-state")),
   Command.withDescription("Verify every cached archive and remove corrupt entries"),
   Command.withExamples([
     { command: "axm cache verify", description: "Verify cached archive integrity" },

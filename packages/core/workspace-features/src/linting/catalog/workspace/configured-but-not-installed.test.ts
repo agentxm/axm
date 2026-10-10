@@ -122,7 +122,7 @@ describe("workspace/configured-but-not-installed", () => {
           observed(desiredNode({ type: "hook", name: "deploy", origin: "pack-member" }), "missing"),
         ]),
       ).toEqual([
-        "hook 'deploy' is desired, but its canonical content is missing from agent_extensions.",
+        "hook extension 'deploy' is desired, but its canonical content is missing from agent_extensions.",
       ]);
     }),
   );
@@ -178,7 +178,7 @@ describe("workspace/configured-but-not-installed", () => {
         ]),
       ).toEqual([
         expect.stringContaining("rule 'conventions' is desired"),
-        expect.stringContaining("hook 'pre-commit' is desired"),
+        expect.stringContaining("hook extension 'pre-commit' is desired"),
         expect.stringContaining("knowledge bundle 'domain' is desired"),
       ]);
     }),
@@ -198,7 +198,7 @@ describe("workspace/configured-but-not-installed in a real workspace", () => {
         workspaceRoot: workspace.root,
         userHome: workspace.home,
         scope: "project",
-        input: { view: "workspace" },
+        input: { view: "filesystem" },
         nativeView: { kind: "workspace" },
         fix: false,
       },

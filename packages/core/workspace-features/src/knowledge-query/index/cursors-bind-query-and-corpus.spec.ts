@@ -122,7 +122,7 @@ describe("Knowledge continuation", () => {
           const ids: string[] = [];
           let cursor: string | undefined;
           for (let page = 0; page < 3; page++) {
-            const result = yield* KnowledgeDiscovery.search({
+            const result = yield* KnowledgeDiscovery.query({
               scope: "project",
               expression: "session",
               resultLimit: 2,
@@ -159,7 +159,7 @@ describe("Knowledge continuation", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            const first = yield* KnowledgeDiscovery.search({
+            const first = yield* KnowledgeDiscovery.query({
               scope: "project",
               expression: "session",
               resultLimit: 1,
@@ -175,7 +175,7 @@ describe("Knowledge continuation", () => {
             if (change === "age") {
               // The advertised maximum age is inclusive; the cursor expires after it.
               yield* TestClock.adjust(maximumCursorAgeMillis);
-              const stillValid = yield* KnowledgeDiscovery.search({
+              const stillValid = yield* KnowledgeDiscovery.query({
                 scope: "project",
                 expression: "session",
                 resultLimit: 1,
@@ -188,7 +188,7 @@ describe("Knowledge continuation", () => {
             }
             const expression = change === "query" ? "token" : "session";
             const scope = change === "scope" ? ("user" as const) : ("project" as const);
-            const continued = yield* KnowledgeDiscovery.search({
+            const continued = yield* KnowledgeDiscovery.query({
               scope,
               expression,
               resultLimit: 1,
@@ -197,7 +197,7 @@ describe("Knowledge continuation", () => {
             expect(continued.outcome).toBe("cursor-expired");
 
             // The changed query remains valid when restarted without the old cursor.
-            const restarted = yield* KnowledgeDiscovery.search({
+            const restarted = yield* KnowledgeDiscovery.query({
               scope,
               expression,
               resultLimit: 1,

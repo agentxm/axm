@@ -4,9 +4,18 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import { OperationEventSchema } from "@agentxm/workspace-kernel/operations";
+import {
+  OperationEventSchema,
+  OperationModeSchema,
+  OperationPhaseSchema,
+  SettledOutcomeSchema,
+} from "@agentxm/workspace-kernel/operations";
 import { PlanResolutionDocumentSchema } from "../operation-output.js";
 import { ProgressEventSchema } from "./index.js";
+import { MachineEventSchema } from "../runtime.js";
+import { HELP_TOPICS } from "../__generated__/help-topics.js";
+import { handleList as handleRootList } from "../root/list/command.js";
+import { handleList as handleSkillsList } from "../root/skills/list.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleUpdate } from "../root/update/handler.js";
 import { handleSync } from "../root/sync/handler.js";
@@ -19,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/machine-progress-events-follow-the-lifecycle-schema",
   title: "Machine progress events are the published lifecycle events, in order, before the result",
   statement:
-    "When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, the operation shall write exactly one settled event before its result document, and a resolved unit that did not settle as planned shall carry the category and detail its producer settled with through that schema while a unit that settled as planned carries none.",
+    "When machine output mode is on and progress is enabled, every progress event written to standard error shall decode as one lifecycle event of the published schema whose sequence number strictly increases within its operation, the operation shall write exactly one settled event before its result document, read-only operations shall start in query mode and settle as completed, stderr shall use only the five published event types, served help shall list exactly the schema modes, phases, and settled outcomes in schema order, and a resolved unit that did not settle as planned shall carry the category and detail its producer settled with through that schema while a unit that settled as planned carries none.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -76,7 +85,6 @@ describe("Machine progress event contract", () => {
         source: Option.some(skillPackage),
         selectors: {},
         all: true,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],
@@ -100,7 +108,6 @@ describe("Machine progress event contract", () => {
         source: Option.some(skillPackage),
         selectors: {},
         all: true,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],
@@ -109,7 +116,7 @@ describe("Machine progress event contract", () => {
       }).pipe(Effect.provide(workspace.layer));
       const log = workspace.streams?.log ?? [];
       log.splice(0);
-      yield* handleUpdate({ source: Option.none(), force: false, preview }).pipe(
+      yield* handleUpdate({ source: Option.none(), reinstall: false, preview }).pipe(
         Effect.provide(workspace.layer),
       );
       return { log, progress: progressLines(log) };
@@ -126,6 +133,82 @@ describe("Machine progress event contract", () => {
       const log = workspace.streams?.log ?? [];
       return { log, progress: progressLines(log) };
     });
+
+  it("publishes exactly the lifecycle enum values in schema order", () => {
+    const help = HELP_TOPICS["machine-output"];
+    for (const row of [
+      { field: "OperationStarted.mode", values: OperationModeSchema.literals },
+      { field: "PhaseStarted.phase", values: OperationPhaseSchema.literals },
+      { field: "OperationSettled.outcome", values: SettledOutcomeSchema.literals },
+    ]) {
+      const line = help
+        .split("\n")
+        .find((entry) => entry.split("|")[1]?.trim() === `\`${row.field}\``);
+      expect(line).toBeDefined();
+      const cells = line?.split("|");
+      const values = [...(cells?.[2] ?? "").matchAll(/`([^`]+)`/gu)].map((match) => match[1]);
+      expect(values).toEqual(row.values);
+    }
+  });
+
+  it.effect(
+    "the public stderr schema accepts all five event types and refuses an unknown type",
+    () =>
+      Effect.gen(function* () {
+        const decode = Schema.decodeUnknownEffect(MachineEventSchema);
+        for (const event of [
+          {
+            type: "progress",
+            event: {
+              _tag: "OperationStarted",
+              operationId: "query",
+              name: "List",
+              mode: "query",
+              seq: 1,
+              atMs: 1_000,
+            },
+          },
+          { type: "log", level: "info", message: "Information" },
+          { type: "error", code: "network", message: "Connection refused" },
+          { type: "suggestion", description: "Try again", cmd: "axm list" },
+          { type: "instruction", message: "Complete sign-in" },
+        ]) {
+          expect(yield* decode(event)).toEqual(event);
+        }
+        expect(
+          yield* Effect.result(decode({ type: "unknown", message: "Unsupported" })),
+        ).toHaveProperty("_tag", "Failure");
+      }),
+  );
+
+  for (const route of ["root list", "typed list"] as const) {
+    it.effect(`${route} starts in query mode and completes once before its result`, () =>
+      Effect.gen(function* () {
+        const workspace = makeSpecWorkspace({ screen: { kind: "machine" }, flags: { json: true } });
+        cleanups.push(workspace.cleanup);
+        if (route === "root list") {
+          yield* handleRootList({ types: [], outdated: false, deprecated: false }).pipe(
+            Effect.provide(workspace.layer),
+          );
+        } else {
+          yield* handleSkillsList().pipe(Effect.provide(workspace.layer));
+        }
+        const log = workspace.streams?.log ?? [];
+        const progress = progressLines(log);
+        const events = yield* Effect.forEach(progress, (line) => decodeProgressEvent(line.value));
+        expect(events.filter((entry) => entry.event._tag === "OperationStarted")).toMatchObject([
+          { event: { mode: "query" } },
+        ]);
+        expect(events.filter((entry) => entry.event._tag === "OperationSettled")).toMatchObject([
+          { event: { outcome: "completed" } },
+        ]);
+        const resultIndex = log.findIndex((entry) => entry.channel === "stdout");
+        expect(resultIndex).toBeGreaterThan(-1);
+        expect(progress.every((line) => line.index < resultIndex)).toBe(true);
+        expect(log.filter((entry) => entry.channel === "stdout")).toHaveLength(1);
+      }),
+    );
+  }
 
   it.effect(
     "every progress line decodes through the published schema with a strictly increasing sequence",

@@ -15,7 +15,6 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import type { CliError } from "effect/cli";
 
-import { appErrorDoc, makeAppError } from "./app-error/index.js";
 import { decodeFormatterDocument, type OutputFormat } from "./cli-runtime/index.js";
 import { commandHelpDoc } from "./root/help/command-help-view.js";
 import { Screen, type OutputWriteFailed } from "./screen/index.js";
@@ -52,17 +51,8 @@ export const presentBuiltInOutput = (
         const doc = commandHelpDoc(document.value);
         if (options.helpRequest === undefined || !usageError) return yield* screen.result(doc);
 
-        // A usage error narrates the help, then the error the way every
-        // other usage error is painted.
+        // The process failure boundary paints the error once after this help.
         yield* screen.note(doc);
-        yield* screen.note(
-          appErrorDoc(
-            makeAppError({
-              code: "usage",
-              detail: options.helpRequest.errors.map((error) => error.message).join("; "),
-            }),
-          ),
-        );
       }
     }
   });

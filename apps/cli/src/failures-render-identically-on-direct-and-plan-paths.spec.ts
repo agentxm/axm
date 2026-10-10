@@ -241,7 +241,7 @@ export const specification = defineSpecification({
   requirement: "cli/failures-render-identically-on-direct-and-plan-paths",
   title: "A failure reads the same whether a command or a plan step reports it",
   statement:
-    "A typed failure shall report the same category, exit code, title, detail, structured problem, recorded evidence, and stated recoveries, each recovery's command addressed to the scope it runs in, whether it surfaces directly at the command boundary or settles a plan step.",
+    "A request that requires missing workspace initialization shall be a usage refusal with setup recovery on both direct and plan paths. A typed failure shall report the same category, exit code, title, detail, structured problem, recorded evidence, and stated recoveries, each recovery's command addressed to the scope it runs in, whether it surfaces directly at the command boundary or settles a plan step.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
@@ -1100,6 +1100,23 @@ const rendered = (error: AppError) => ({
 const viaPlanStep = (failure: StepFailure): AppError => stepFailureToAppError(failure);
 
 describe("A failure reads the same on the direct and plan paths", () => {
+  it.effect("an uninitialized workspace is a usage refusal with setup recovery on both paths", () =>
+    Effect.gen(function* () {
+      const failure = new WorkspaceNotInitialized({ settingsPath: "/w/axm.json" });
+      for (const scope of ["project", "user"] as const) {
+        const direct = yield* directView(failure, scope);
+        const plan = yield* planView(failure, scope);
+        expect(direct).toMatchObject({ code: "usage", exitCode: 2 });
+        expect(plan).toEqual(direct);
+        expect(direct.suggestions).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ cmd: expect.stringContaining("axm setup") }),
+          ]),
+        );
+      }
+    }),
+  );
+
   // A kernel rendering reaches the direct column only through the CLI's
   // envelope projection and the runtime's error document, and the plan
   // column only through the plan pipeline and the plan-family renderer, so a

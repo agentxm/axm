@@ -5,7 +5,6 @@ import * as path from "node:path";
 import { pathToFileURL } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
 import { afterEach, beforeEach } from "vitest";
 
 import {
@@ -21,7 +20,7 @@ import { handleList } from "./command.js";
 const painted = (state: TestRendererState): ReadonlyArray<string> =>
   state.docs.flatMap((entry) => paintText(entry.doc, { width: "unbounded", colors: false }));
 
-const listAll = { type: Option.none(), outdated: false, deprecated: false } as const;
+const listAll = { types: [], outdated: false, deprecated: false } as const;
 
 describe("root list", () => {
   let tempDir: string;
@@ -47,7 +46,7 @@ describe("root list", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false });
         expect(rendererState.results[0]?.data).toMatchObject({
           filter: "all",
           count: 2,
@@ -200,7 +199,7 @@ describe("root list", () => {
     });
     return provide(
       Effect.gen(function* () {
-        yield* handleList({ type: Option.none(), outdated: false, deprecated: false });
+        yield* handleList({ types: [], outdated: false, deprecated: false });
         const result = rendererState.results[0]?.data;
         expect(result).toMatchObject({
           filter: "all",

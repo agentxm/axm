@@ -7,7 +7,9 @@ import { afterEach } from "vitest";
 
 import { displayWidth, Screen, stripTerminalFormatting } from "./index.js";
 import { runCommand } from "../app.js";
+import { classifyError } from "../cli-runtime/handle-error.js";
 import { makeAxmFormatter } from "../formatter.js";
+import { toJsonHelpDoc } from "../cli-runtime/index.js";
 import { handleInstall } from "../root/install/handler.js";
 import { handleList as handleSkillsList } from "../root/skills/list.js";
 import { baseLayer } from "../runtime.js";
@@ -69,7 +71,6 @@ describe("Non-terminal human output", () => {
           source: Option.some(skillPackage),
           selectors: {},
           all: true,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],
@@ -125,9 +126,13 @@ describe("Non-terminal human output", () => {
    */
   const invoke = (argv: ReadonlyArray<string>, streams: RecordingStreams) =>
     runCommand(argv, false).pipe(
-      Effect.catch((error) =>
-        CliError.isCliError(error) && error._tag === "ShowHelp" ? Effect.void : Effect.fail(error),
-      ),
+      Effect.catch((error) => {
+        if (!CliError.isCliError(error) || error._tag !== "ShowHelp") return Effect.fail(error);
+        const classified = classifyError(error, "text");
+        return classified.stderrDoc === undefined
+          ? Effect.void
+          : Effect.flatMap(Screen, (screen) => screen.note(classified.stderrDoc ?? []));
+      }),
       Effect.provide(
         Layer.mergeAll(
           baseLayer,
@@ -159,11 +164,11 @@ describe("Non-terminal human output", () => {
         for (const line of stdout) expect(line, line).not.toMatch(/\s$/u);
         // Every described flag is on one line: nothing was wrapped to a column.
         // Root help names its global flags without describing them.
-        const doc = yield* captureHelpDoc(path);
+        const doc = toJsonHelpDoc(yield* captureHelpDoc(path));
         const described =
           path.length === 0 ? doc.flags : [...doc.flags, ...(doc.globalFlags ?? [])];
         for (const flag of described) {
-          const description = Option.getOrElse(flag.description, () => "");
+          const description = flag.description ?? "";
           if (description.length === 0) continue;
           expect(
             stdout.filter((line) => line.includes(description)),

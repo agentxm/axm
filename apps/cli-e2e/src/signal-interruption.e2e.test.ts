@@ -8,7 +8,10 @@ import { createTempDir, runCli } from "./e2e/utils.js";
  * process boundary. The literal shape is read by the specification catalog.
  */
 export const executionBinding = {
-  requirements: ["cli/interruption-preserves-authority-and-reports-recovery"],
+  requirements: [
+    "cli/interruption-preserves-authority-and-reports-recovery",
+    "cli/machine-errors-use-declared-codes",
+  ],
   boundary: "process",
   rationale:
     "Delivers a real signal to the built binary mid-acquisition, so the terminal document, its durable-state disposition, and the signal exit code are observed from outside the process rather than derived from a journal in memory.",
@@ -35,7 +38,7 @@ describe("signal interruption", () => {
       expect(document.ok).toBe(false);
       expect(document.result.contract).toBe("plan-result-v4");
       expect(document.result.outcome).toBe("interrupted");
-      expect(document.result.interruption).toEqual({ signal: "SIGINT", disposition: "none" });
+      expect(document.result.interruption).toEqual({ signal: "SIGINT", disposition: "untouched" });
     } finally {
       userHome.cleanup();
       workspace.cleanup();
@@ -63,7 +66,6 @@ describe("signal interruption", () => {
         type: "error",
         code: "interrupted",
         message: "Cancelled by SIGINT.",
-        reason: "interrupted",
         signal: "SIGINT",
       });
     } finally {

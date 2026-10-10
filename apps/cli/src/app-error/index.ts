@@ -1,7 +1,5 @@
 export {
   AppError,
-  AppErrorCodeSchema,
-  AppErrorCodes,
   ExitCode,
   ExitCodeDefinitions,
   appErrorCodeForExit,
@@ -12,7 +10,6 @@ export {
   makeAppError,
   type AppErrorClass,
   type AppErrorAction,
-  type AppErrorCode,
 } from "./app-error.js";
 export { appErrorDoc, renderAppError } from "./view.js";
 export {

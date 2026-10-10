@@ -165,7 +165,10 @@ export interface ResolvedInstallRef<TRef> {
  * ref comes from the accepted resolution already recorded for it.
  */
 export type PackRecoveryDependencyResolver = PackDependencyRefResolver<
-  AcceptedCanonicalRefError | ExtensionResolutionFailed | AcceptedPackMemberIncompatible,
+  | AcceptedCanonicalRefError
+  | ExtensionResolutionFailed
+  | AcceptedPackMemberIncompatible
+  | SourceResolutionFailure,
   | WorkspaceLocation
   | SettingsReader
   | LockfileReader

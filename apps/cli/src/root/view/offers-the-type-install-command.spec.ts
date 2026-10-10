@@ -52,7 +52,7 @@ describe("Install guidance for inspected extensions", () => {
           yield* handleView({ handle: fqn, field: Option.none(), registry: Option.none() });
 
           expect(workspace.rendererState.results[0]?.data).toMatchObject({
-            handle: fqn,
+            fqn,
             install: `axm ${row.plural} install ${fqn}`,
           });
 

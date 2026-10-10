@@ -30,17 +30,15 @@ describe("rules command group", () => {
       const output = yield* captureHelp(["instructions"]);
       expect(output).toContain("enable");
       expect(output).toContain("disable");
-      expect(output).not.toContain("status");
+      expect(output).toContain("status");
     }),
   );
 
-  it.effect("rejects superseded nested and status command paths", () =>
+  it.effect("rejects superseded nested instruction management", () =>
     Effect.gen(function* () {
       const nested = yield* parseCommand(["rules", "instructions"]);
-      const status = yield* parseCommand(["instructions", "status"]);
 
       expect(nested._tag).toBe("Failure");
-      expect(status._tag).toBe("Failure");
     }),
   );
 

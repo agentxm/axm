@@ -66,6 +66,7 @@ fi
 export const hookScaffold = (args: {
   readonly name: string;
   readonly owner: Handle;
+  readonly description?: string | undefined;
   readonly runtime: HookRuntime;
   readonly protocol: HookImplementation["protocol"];
   readonly event: string;
@@ -80,6 +81,7 @@ export const hookScaffold = (args: {
     type: "hook",
     name: decodeExtensionNameSync(args.name),
     version: INITIAL_VERSION,
+    ...(args.description === undefined ? {} : { description: args.description }),
     implementations: [
       {
         id: implementation,

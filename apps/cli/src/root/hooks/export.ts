@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
 import { ExportHook } from "@agentxm/workspace-features/authoring";
@@ -47,14 +48,16 @@ export const handleHookExport = (args: {
   );
 
 const config = {
-  directory: Argument.String("directory").pipe(Argument.withDescription("Hook package directory")),
+  directory: Argument.String("directory").pipe(
+    withParameterDescription("Hook extension directory"),
+  ),
   destination: Argument.String("destination").pipe(
-    Argument.withDescription("New directory under an existing workspace parent"),
+    withParameterDescription("New directory under an existing workspace parent"),
   ),
   implementation: Flag.String("implementation").pipe(
-    Flag.withDescription("Exact implementation ID to export"),
+    withParameterDescription("Exact implementation ID to export"),
   ),
-  preview: previewCapabilityFlag("Validate and preview the bundle without writing files"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const exportCommand = Command.make("export", config, (args) =>

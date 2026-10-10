@@ -5,6 +5,6 @@ import { CURSOR_SHOW } from "./terminal-style.js";
 export const interruptionFallback = (signal: "SIGINT" | "SIGTERM", machine: boolean): string => {
   const message = `Cancelled by ${signal}.`;
   return machine
-    ? encodeMachineEvent(errorEvent("interrupted", message, { reason: "interrupted", signal }))
+    ? encodeMachineEvent(errorEvent("interrupted", message, { signal }))
     : `${CURSOR_SHOW}${message}\n`;
 };

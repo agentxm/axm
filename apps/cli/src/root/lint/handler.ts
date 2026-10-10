@@ -38,6 +38,7 @@ export type LintResultDocument = typeof LintResultDocumentSchema.Type;
 export interface HandleLintArgs {
   readonly selection: LintSelection;
   readonly strict: boolean;
+  readonly preview?: boolean;
 }
 
 const emitJsonDocument = (doc: LintJsonDocument, ok: boolean) =>
@@ -62,7 +63,8 @@ const emitHumanOutput = (args: {
         repaired: toLintHumanFindings(repaired),
         counts: summary.counts,
         driftBanner: summary.driftBanner,
-        fix: args.selection.fix,
+        fix: args.selection.fix && args.result.document.normalization === undefined,
+        normalization: args.result.document.normalization?.changes,
         scope: args.selection.scope,
         exitCode: args.exitCode,
         verbosity: verbosity.level,
@@ -73,7 +75,7 @@ const emitHumanOutput = (args: {
 export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintArgs) {
   const result = yield* (
     args.selection.fix
-      ? LintWorkspace.fix(args.selection, { strict: args.strict })
+      ? LintWorkspace.fix(args.selection, { strict: args.strict, preview: args.preview === true })
       : LintWorkspace.query(args.selection, { strict: args.strict })
   ).pipe(Effect.mapError(lintFailureToAppError));
 

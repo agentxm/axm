@@ -1,20 +1,15 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 /** Root and per-type install commands generated from one grammar definition. */
 
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 
-import {
-  extensionTypeSentenceLabels,
-  extensionTypeToPlural,
-} from "@agentxm/extension-model/unstable/extensions";
+import { extensionTypeToPlural } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  type InstallExtensionSelectors,
-  installSourceArgumentDescription,
-} from "@agentxm/workspace-features/lifecycle";
+import { type InstallExtensionSelectors } from "@agentxm/workspace-features/lifecycle";
 
-import { agentFlag, ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
+import { agentFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseHookConfiguration } from "../hooks/configuration-input.js";
@@ -32,63 +27,55 @@ import {
   validateInstallArgsBeforeWorkspace,
 } from "./handler.js";
 
-const sourceArgument = (type?: InstallableExtensionType) =>
-  Argument.String("source").pipe(
-    Argument.withDescription(
-      type === undefined
-        ? 'Registry FQN (@owner/<plural-type>/<name>[@version]), self-describing Git locator, or path locator; hosted shorthand uses a final @revision, and shorthand revisions cannot contain "/"'
-        : installSourceArgumentDescription(type),
-    ),
-    Argument.optional,
-  );
+const sourceArgument = () =>
+  Argument.String("source").pipe(withParameterDescription("Registry FQN, Git locator, or path"));
 
 const selectorFlag = (type: InstallableExtensionType) => {
   return Flag.String(EXTENSION_TYPE_PRESENTATION[type].selectorFlag).pipe(
-    Flag.withDescription(
-      `Select a ${extensionTypeSentenceLabels[type].toLowerCase()} by name or glob; repeatable`,
+    withParameterDescription(
+      `Select ${EXTENSION_TYPE_PRESENTATION[type].noun.article} ${EXTENSION_TYPE_PRESENTATION[type].noun.singular} by name or glob`,
     ),
     Flag.atLeast(0),
   );
 };
 
 const allFlag = Flag.Boolean("all").pipe(
-  Flag.withDescription("Install every matching extension without prompting"),
-  Flag.withDefault(false),
+  withParameterDescription("Select every matching extension in the source"),
+  withParameterDefault(false),
 );
 
-const commonConfig = (type?: InstallableExtensionType) => ({
-  source: sourceArgument(type),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Install to project (default) or user-level configuration"),
-  ),
+const commonConfig = () => ({
+  source: sourceArgument(),
+  scope: scopeFlag,
   agent: agentFlag.pipe(
-    Flag.withDescription("Configure an agent on first install; repeat for each agent"),
+    withParameterDescription("Configure an agent on first install; repeat for each agent"),
   ),
   all: allFlag,
-  force: reinstallFlag.pipe(Flag.withDescription("Reinstall extensions that already exist")),
-  preview: previewCapabilityFlag("Show what would be installed without making changes"),
+  preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 });
 
 const mcpConfig = {
   bind: Flag.String("bind").pipe(
-    Flag.withDescription("Bind selected INPUT_ID=LITERAL; repeat for repeated arguments"),
+    withParameterDescription(
+      "Bind one input as INPUT_ID=VALUE; repeating an INPUT_ID appends in order",
+    ),
     Flag.atLeast(0),
   ),
   bindEnv: Flag.String("bind-env").pipe(
-    Flag.withDescription("Bind selected INPUT_ID=ENV_NAME without reading the environment"),
+    withParameterDescription("Bind selected INPUT_ID=ENV_NAME without reading the environment"),
     Flag.atLeast(0),
   ),
   distribution: Flag.String("distribution").pipe(
-    Flag.withDescription("Select the distribution ID shown by passive inspection"),
+    withParameterDescription("Distribution ID to select when the manifest offers several"),
     Flag.optional,
   ),
   nativeOauth: Flag.Boolean("native-oauth").pipe(
-    Flag.withDescription("Use authentication owned by the native MCP host"),
-    Flag.withDefault(false),
+    withParameterDescription("Use the native MCP host's OAuth; excludes an Authorization header"),
+    withParameterDefault(false),
   ),
   as: Flag.String("as").pipe(
-    Flag.withDescription("Install one MCP server using this local name"),
+    withParameterDescription("Install one MCP server using this local name"),
     Flag.optional,
   ),
 };
@@ -128,8 +115,8 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
     withCommandCapabilities(installCapabilities),
     Command.withDescription(
       type === undefined
-        ? "Install extensions from Registry, Git, or path sources, or reinstall configured sources"
-        : `Reinstall all configured ${extensionTypeToPlural[type]} from their sources, or install ${extensionTypeToPlural[type]} from a source`,
+        ? "Install extensions from a registry, Git, or path source"
+        : `Install ${EXTENSION_TYPE_PRESENTATION[type].noun.plural} from a registry, Git, or path source`,
     ),
     Command.withExamples([
       {
@@ -150,11 +137,10 @@ const finishCommand = <Name extends string, Input, ContextInput, E, R>(
   );
 
 interface ParsedTypedInstall {
-  readonly source: Option.Option<string>;
+  readonly source: string;
   readonly agent: ReadonlyArray<string>;
   readonly scope: "project" | "user";
   readonly all: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
   readonly ignoreReleaseAge: boolean;
 }
@@ -169,14 +155,7 @@ const executeInstall = (
     Effect.flatMap((agents) =>
       handleInstall(args).pipe(
         withReleaseAgePosture(ignoreReleaseAge),
-        withWorkspace(
-          Option.isSome(args.source)
-            ? {
-                scope,
-                initialSettings: { agents, instructionFiles: false },
-              }
-            : scope,
-        ),
+        withWorkspace({ scope, initialSettings: { agents, instructionFiles: false } }),
       ),
     ),
     withRuntime(runtimeName),
@@ -190,11 +169,11 @@ const runTypedInstall = (
 ) => {
   const args: InstallHandlerArgs = {
     type: Option.some(type),
-    source: parsed.source,
+    source: Option.some(parsed.source),
     agents: parsed.agent,
     selectors: selectorsFor(type, selection),
     all: parsed.all,
-    force: parsed.force,
+
     preview: parsed.preview,
     bind: [],
     bindEnv: [],
@@ -212,14 +191,13 @@ const runTypedInstall = (
 
 export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
   if (type === "mcp-server") {
-    const common = commonConfig(type);
+    const common = commonConfig();
     const config = {
       source: common.source,
       agent: common.agent,
       scope: common.scope,
       mcp: selectorFlag(type),
       all: common.all,
-      force: common.force,
       preview: common.preview,
       ...mcpConfig,
       ignoreReleaseAge: common.ignoreReleaseAge,
@@ -228,11 +206,11 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       Command.make("install", config, (parsed) => {
         const args: InstallHandlerArgs = {
           type: Option.some(type),
-          source: parsed.source,
+          source: Option.some(parsed.source),
           agents: parsed.agent,
           selectors: selectorsFor(type, parsed.mcp),
           all: parsed.all,
-          force: parsed.force,
+
           preview: parsed.preview,
           bind: parsed.bind,
           bindEnv: parsed.bindEnv,
@@ -249,18 +227,17 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
     );
   }
   if (type === "skill") {
-    const common = commonConfig(type);
+    const common = commonConfig();
     const config = {
       source: common.source,
       agent: common.agent,
       scope: common.scope,
       skill: selectorFlag(type),
       all: common.all,
-      force: common.force,
       preview: common.preview,
       bundled: Flag.Boolean("bundled").pipe(
-        Flag.withDescription("Install the embedded official AXM skill without Registry access"),
-        Flag.withDefault(false),
+        withParameterDescription("Install the embedded official AXM skill without registry access"),
+        withParameterDefault(false),
       ),
       ignoreReleaseAge: common.ignoreReleaseAge,
     } as const;
@@ -268,11 +245,11 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       Command.make("install", config, (parsed) => {
         const args: InstallHandlerArgs = {
           type: Option.some(type),
-          source: parsed.source,
+          source: Option.some(parsed.source),
           agents: parsed.agent,
           selectors: selectorsFor(type, parsed.skill),
           all: parsed.all,
-          force: parsed.force,
+
           preview: parsed.preview,
           bind: [],
           bindEnv: [],
@@ -286,14 +263,13 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
   }
   switch (type) {
     case "subagent": {
-      const common = commonConfig(type);
+      const common = commonConfig();
       const config = {
         source: common.source,
         agent: common.agent,
         scope: common.scope,
         subagent: selectorFlag(type),
         all: common.all,
-        force: common.force,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
       } as const;
@@ -305,14 +281,13 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       );
     }
     case "rule": {
-      const common = commonConfig(type);
+      const common = commonConfig();
       const config = {
         source: common.source,
         agent: common.agent,
         scope: common.scope,
         rule: selectorFlag(type),
         all: common.all,
-        force: common.force,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
       } as const;
@@ -324,7 +299,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       );
     }
     case "hook": {
-      const common = commonConfig(type);
+      const common = commonConfig();
       const config = {
         source: common.source,
         agent: common.agent,
@@ -332,10 +307,11 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         hook: selectorFlag(type),
         configuration: Flag.String("configuration").pipe(
           Flag.optional,
-          Flag.withDescription("Consumer values for one selected Hook as JSON"),
+          withParameterDescription(
+            "Consumer values as a JSON object; {env: NAME} references a secret",
+          ),
         ),
         all: common.all,
-        force: common.force,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
       } as const;
@@ -351,14 +327,13 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       );
     }
     case "knowledge": {
-      const common = commonConfig(type);
+      const common = commonConfig();
       const config = {
         source: common.source,
         agent: common.agent,
         scope: common.scope,
         knowledge: selectorFlag(type),
         all: common.all,
-        force: common.force,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
       } as const;
@@ -370,14 +345,13 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       );
     }
     case "pack": {
-      const common = commonConfig(type);
+      const common = commonConfig();
       const config = {
         source: common.source,
         agent: common.agent,
         scope: common.scope,
         pack: selectorFlag(type),
         all: common.all,
-        force: common.force,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
       } as const;
@@ -400,14 +374,13 @@ const installConfig = {
   knowledge: selectorFlag("knowledge"),
   mcp: selectorFlag("mcp-server"),
   pack: selectorFlag("pack"),
-  ...mcpConfig,
 } as const;
 
 export const installCommand = finishCommand(
   Command.make("install", installConfig, (parsed) => {
     const args: InstallHandlerArgs = {
       type: Option.none(),
-      source: parsed.source,
+      source: Option.some(parsed.source),
       agents: parsed.agent,
       selectors: {
         skill: parsed.skill,
@@ -419,20 +392,17 @@ export const installCommand = finishCommand(
         pack: parsed.pack,
       },
       all: parsed.all,
-      force: parsed.force,
+
       preview: parsed.preview,
-      bind: parsed.bind,
-      bindEnv: parsed.bindEnv,
-      ...(Option.isSome(parsed.distribution) ? { distributionId: parsed.distribution.value } : {}),
-      nativeOauth: parsed.nativeOauth,
-      localName: parsed.as,
+      bind: [],
+      bindEnv: [],
+      localName: Option.none(),
       bundled: false,
     };
     return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "install");
   }).pipe(withArgvTracking(installConfig)),
 ).pipe(
   Command.withExamples([
-    { command: "axm install", description: "Reinstall all configured extensions" },
     {
       command: "axm install @acme/skills/code-review",
       description: "Install a skill by fully qualified registry name",
@@ -453,9 +423,9 @@ export const installCommand = finishCommand(
   Command.annotate(
     LearnMore,
     formatLearnMore([
-      ["axm help getting-started", "How to set up and configure AXM"],
-      ["axm help basic-usage", "How to use AXM"],
-      ["axm help workspace-state", "How locators and accepted resolutions differ"],
+      ["axm help getting-started", "Read setup and configuration guidance"],
+      ["axm help basic-usage", "Read everyday extension commands"],
+      ["axm help workspace-state", "Understand locators and accepted resolutions"],
     ]),
   ),
   // Root help only: the per-type install commands keep their own descriptions.

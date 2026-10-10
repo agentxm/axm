@@ -90,7 +90,9 @@ describe("axm source smoke", () => {
     expect(result.exitCode).toBe(0);
     expect(output).toContain("Never prompt; fail with guidance when input is required");
     expect(output).toContain("Show only final outcomes, errors, and required actions");
-    expect(output).toContain("Show additional redacted diagnostic details for errors");
+    expect(output).toContain(
+      "Show full detail: folded rows, plan and finding details, and redacted error diagnostics",
+    );
     expect(output).toContain("Show redacted cause and stack details");
   });
 

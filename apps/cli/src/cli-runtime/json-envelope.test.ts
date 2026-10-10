@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
+import * as Data from "effect/Data";
+import { serializeErrorCauseChain } from "../app-error/cause-chain.js";
 
 import { makeAppError } from "../app-error/index.js";
 import { SettingsDecodeError } from "@agentxm/workspace-kernel/workspace-state";
@@ -46,27 +48,30 @@ describe("SuggestedActionSchema", () => {
 });
 
 describe("JsonEnvelopeSchema", () => {
-  it("projects diagnostic evidence from wider settlement records", () => {
+  it("keeps the diagnostic ID without exposing the internal diagnostic record", () => {
     const diagnostic = {
       kind: "registry.response-decode",
       operation: "publish.upload",
-      code: "internal",
-      handled: true,
-      phase: "command",
-      message: "local-only diagnostic message",
-      request: { service: "registry", status: 200, url: "/local-only-request" } as const,
+      request: { service: "registry", status: 200 } as const,
     };
-    const expected = {
-      kind: diagnostic.kind,
-      operation: diagnostic.operation,
-      request: { service: "registry", status: 200 },
-    };
-    const error = makeAppError({ code: "internal", detail: "failed", diagnostic });
+    const diagnosticId = "00000000-0000-4000-8000-000000000002";
+    const error = makeAppError({ code: "internal", detail: "failed", diagnosticId, diagnostic });
     const envelope = makeJsonErrorEnvelopeFromAppError(error);
-    expect(envelope.diagnostic).toEqual(expected);
-    const result = makeJsonSuccessEnvelope({ payload: {}, ok: false, diagnostic });
-    expect(result.ok === false && result.diagnostic).toEqual(expected);
-    expect(JSON.stringify(result)).not.toContain("local-only");
+    expect(envelope).toMatchObject({ ok: false, code: "internal", diagnosticId });
+    expect(envelope).not.toHaveProperty("diagnostic");
+    expect(error.diagnostic).toEqual(diagnostic);
+    const result = makeJsonSuccessEnvelope({
+      payload: { outcome: "failed" },
+      ok: false,
+      diagnosticId,
+    });
+    expect(result).toMatchObject({ ok: false, diagnosticId, result: { outcome: "failed" } });
+    expect(result).not.toHaveProperty("diagnostic");
+    for (const document of [envelope, result]) {
+      expect(JSON.stringify(document)).not.toContain(diagnostic.kind);
+      expect(JSON.stringify(document)).not.toContain(diagnostic.operation);
+      expect(Schema.decodeUnknownSync(JsonEnvelopeSchema)(document)).toEqual(document);
+    }
   });
 
   const secretSentinel = "AXM_SECRET_SENTINEL_92";
@@ -281,12 +286,39 @@ describe("JsonEnvelopeSchema", () => {
     expect(envelope.suggestions).toBeUndefined();
   });
 
+  it("omits causes by default and includes them only at the requested detail", () => {
+    const cause = new Error("cause message");
+    const error = makeAppError({ code: "internal", detail: "failed", cause });
+    expect(makeJsonErrorEnvelopeFromAppError(error)).not.toHaveProperty("cause");
+    expect(makeJsonErrorEnvelopeFromAppError(error, { verbose: true })).toMatchObject({
+      cause: [{ _tag: "Error", message: "cause message" }],
+    });
+    expect(
+      JSON.stringify(makeJsonErrorEnvelopeFromAppError(error, { verbose: true })),
+    ).not.toContain('"stack"');
+    expect(makeJsonErrorEnvelopeFromAppError(error, { debug: true })).toMatchObject({
+      cause: [{ stack: expect.any(String) }],
+    });
+  });
+
+  it("uses the tag rather than serializing unclassified cause fields into a message", () => {
+    class UntoldFailure extends Data.TaggedError("UntoldFailure")<{ readonly raw: unknown }> {}
+    const privateValue = "PRIVATE_UNCLASSIFIED_FIELD_42";
+    const causes = serializeErrorCauseChain(new UntoldFailure({ raw: { privateValue } }));
+    expect(causes).toEqual([{ _tag: "UntoldFailure", message: "UntoldFailure" }]);
+    expect(JSON.stringify(causes)).not.toContain(privateValue);
+    expect(serializeErrorCauseChain({ _tag: "Unclassified", raw: privateValue })).toEqual([
+      { _tag: "Unclassified", message: "Unclassified" },
+    ]);
+  });
+
   it("includes structured cause chains without debug stacks", () => {
     const cause = new Error("decode failed");
     cause.stack = "Error: decode failed\n at test";
 
     const envelope = makeJsonErrorEnvelopeFromAppError(
       makeAppError({ code: "internal", detail: "Failed to read workspace settings", cause }),
+      { verbose: true },
     );
 
     expect(envelope.cause).toEqual([{ _tag: "Error", message: "decode failed" }]);
@@ -304,6 +336,7 @@ describe("JsonEnvelopeSchema", () => {
           raw: { mcpServers: { bad: { foo: "bar" } } },
         }),
       }),
+      { verbose: true },
     );
 
     expect(envelope.cause).toEqual([

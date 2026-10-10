@@ -104,6 +104,11 @@ describe("Skill lifecycle fidelity", () => {
 
           const publisher = makeSyncFixture({ settings: { owner: "@acme", agents: [] } });
           const target = makePublishTarget(publisher.root);
+          publisher.writeSettings({
+            owner: "@acme",
+            agents: [],
+            sources: [{ name: "published", type: "registry", location: target.url }],
+          });
           cleanups.push(publisher.cleanup);
           const imported = yield* publisher.provide(
             Effect.gen(function* () {
@@ -124,7 +129,7 @@ describe("Skill lifecycle fidelity", () => {
             publisher.provide(
               Effect.gen(function* () {
                 const prepared = yield* PublishExtensions.prepare(
-                  publishRequest(target.url, {
+                  publishRequest("published", {
                     selectors: ["@acme/skills/review-package"],
                     preview: false,
                   }),
@@ -210,7 +215,10 @@ describe("Skill lifecycle fidelity", () => {
                 });
                 if (candidate.outcome === "nothing-configured")
                   throw new Error("Expected configured Skill update");
-                return yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+                return yield* UpdateExtensions.previewOrApply(
+                  candidate,
+                  preapprovedPlanExecution,
+                ).pipe(Effect.map((result) => result.resolution));
               }),
             );
             expect(deriveOperationOutcome(updated), JSON.stringify(updated)).toBe("applied");

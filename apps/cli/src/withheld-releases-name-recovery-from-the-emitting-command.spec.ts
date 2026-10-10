@@ -54,10 +54,9 @@ const heldNewerRelease = (cleanups: Array<() => void>) =>
     cleanups.push(workspace.cleanup);
     yield* handleInstall({
       type: Option.none(),
-      source: Option.none(),
+      source: Option.some(FQN),
       selectors: {},
       all: false,
-      force: false,
       preview: false,
       bind: [],
       bindEnv: [],
@@ -90,10 +89,9 @@ const allowedNewerRelease = (cleanups: Array<() => void>) =>
     cleanups.push(workspace.cleanup);
     yield* handleInstall({
       type: Option.none(),
-      source: Option.none(),
+      source: Option.some(FQN),
       selectors: {},
       all: false,
-      force: false,
       preview: false,
       bind: [],
       bindEnv: [],
@@ -139,7 +137,7 @@ const withholdingCommands: ReadonlyArray<{
     override: `axm update ${OVERRIDE}`,
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
-      handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
+      handleUpdate({ source: Option.none(), reinstall: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -148,7 +146,7 @@ const withholdingCommands: ReadonlyArray<{
     override: `axm update ${OVERRIDE} ${FQN}`,
     others: ["axm install", "axm sync", "axm skills update"],
     run: (workspace) =>
-      handleUpdate({ source: Option.some(FQN), force: false, preview: false }).pipe(
+      handleUpdate({ source: Option.some(FQN), reinstall: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       ),
   },
@@ -177,10 +175,9 @@ const refusingCommands: ReadonlyArray<{
     run: (workspace) =>
       handleInstall({
         type: Option.none(),
-        source: Option.none(),
+        source: Option.some(FQN),
         selectors: {},
         all: false,
-        force: false,
         preview: false,
         bind: [],
         bindEnv: [],
@@ -229,7 +226,7 @@ describe("A release withheld by the minimum release age", () => {
     Effect.gen(function* () {
       const workspace = yield* allowedNewerRelease(cleanups);
 
-      yield* handleUpdate({ source: Option.none(), force: false, preview: false }).pipe(
+      yield* handleUpdate({ source: Option.none(), reinstall: false, preview: false }).pipe(
         Effect.provide(workspace.layer),
       );
 

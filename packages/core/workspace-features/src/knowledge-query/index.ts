@@ -29,7 +29,7 @@ export {
 } from "./knowledge-revision.js";
 export {
   KNOWLEDGE_DISCOVERY_CAPABILITIES,
-  KNOWLEDGE_DISCOVERY_CAPABILITIES_VERSION,
+  KNOWLEDGE_DISCOVERY_CAPABILITIES_CONTRACT_ID,
   KnowledgeDiscoveryCapabilitiesSchema,
   type KnowledgeDiscoveryCapabilities,
 } from "./knowledge-capabilities.js";
@@ -42,7 +42,7 @@ export {
   KNOWLEDGE_DISCOVERY_OPERATIONS,
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
   KNOWLEDGE_METADATA_FILTER_FIELDS,
-  KNOWLEDGE_QUERY_CONTRACT_VERSION,
+  KNOWLEDGE_QUERY_CONTRACT_ID,
   KNOWLEDGE_QUERY_OPERATORS,
   KNOWLEDGE_SEARCHABLE_FIELDS,
   type KnowledgeQuery,
@@ -53,8 +53,6 @@ export {
   getKnowledgeIndexConcept,
   KnowledgeCursorInvalidError,
   KnowledgeIndex,
-  KNOWLEDGE_RANK_FACTORS,
-  KNOWLEDGE_RANK_TIE_BREAK,
   makeKnowledgeIndexSnapshot,
   queryKnowledgeIndex,
   queryKnowledgeIndexResult,
@@ -89,13 +87,13 @@ export {
   KnowledgeConceptRelatedOutputSchema,
   KnowledgeConceptResolveOutputSchema,
   KnowledgeConceptResultSchema,
-  KnowledgeConceptStatusOutputSchema,
+  KnowledgeConceptCapabilitiesOutputSchema,
   KnowledgeLintQueryResultSchema,
   type KnowledgeConceptGetOutput,
   type KnowledgeConceptQueryPage,
   type KnowledgeConceptRelatedOutput,
   type KnowledgeConceptResolveOutput,
-  type KnowledgeConceptStatusOutput,
+  type KnowledgeConceptCapabilitiesOutput,
   type KnowledgeLintQueryResult,
 } from "./documents.js";
 export {
@@ -103,7 +101,7 @@ export {
   type CapturedInstalledBundle,
   type InstalledKnowledgeCorpus,
 } from "./corpus/installed-corpus.js";
-export { reportKnowledgeCorpusStatus } from "./corpus/corpus-status.js";
+export { reportKnowledgeDiscoveryCapabilities } from "./corpus/corpus-capabilities.js";
 export {
   lintKnowledge,
   type LintKnowledgeRequest,
@@ -111,11 +109,7 @@ export {
 } from "./lint/lint-knowledge.js";
 export {
   checkTraversalDepth,
-  explainKnowledgeQuery,
   makeKnowledgeQueryRequest,
-  makeKnowledgeSearchRequest,
-  type KnowledgeQueryExplanation,
   type KnowledgeQueryRequest,
-  type KnowledgeSearchRequest,
 } from "./query/request.js";
 export { KnowledgeDiscovery } from "./knowledge-discovery.js";

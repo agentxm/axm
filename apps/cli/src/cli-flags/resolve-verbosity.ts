@@ -1,3 +1,5 @@
+import * as Option from "effect/Option";
+import { booleanOptionFromArgv } from "./argv-boolean.js";
 import type { VerbosityLevel } from "./verbosity.js";
 
 /**
@@ -5,22 +7,12 @@ import type { VerbosityLevel } from "./verbosity.js";
  * cannot leak verbose diagnostics.
  */
 export const resolveVerbosityFromArgv = (argv: ReadonlyArray<string>): VerbosityLevel => {
-  if (argv.includes("--quiet") || argv.includes("-q")) return "quiet";
-  for (let i = argv.length - 1; i >= 0; i--) {
-    const arg = argv[i];
-    if (arg === "--debug") return "debug";
-    if (arg === "--verbose" || arg === "-v") return "verbose";
-  }
+  if (Option.getOrElse(booleanOptionFromArgv(argv, ["--quiet", "-q"]), () => false)) return "quiet";
+  if (Option.getOrElse(booleanOptionFromArgv(argv, ["--debug"]), () => false)) return "debug";
+  if (Option.getOrElse(booleanOptionFromArgv(argv, ["--verbose", "-v"]), () => false))
+    return "verbose";
   return "normal";
 };
-
-/**
- * Whether a diagnostic environment request is enabled. Only the exact values
- * `1` and `true` enable one; every other value, including `TRUE`, `yes`, `0`
- * and the empty string, leaves the request off.
- */
-export const isEnabledEnvRequest = (value: string | undefined): boolean =>
-  value === "1" || value === "true";
 
 /** The diagnostic detail a run asks for, across flags and the environment. */
 export interface DiagnosticRequest {

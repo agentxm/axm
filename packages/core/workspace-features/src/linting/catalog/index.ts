@@ -31,8 +31,8 @@ export {
   type LintWorkspaceBuild,
   type LintWorkspaceView,
 } from "./workspace-read-model/lint-workspace.js";
-const repositoryViews = Object.freeze(["workspace", "git-index"] as const);
-const liveWorkspaceView = Object.freeze(["workspace"] as const);
+const repositoryViews = Object.freeze(["filesystem", "git-index"] as const);
+const liveWorkspaceView = Object.freeze(["filesystem"] as const);
 
 const describeRules = <C>(
   group: LintCatalogGroup,

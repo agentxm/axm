@@ -240,7 +240,7 @@ describe("process failure reporting", () => {
       return capture.errors;
     });
 
-  it.effect("reports a startup rejection as a handled bootstrap failure", () =>
+  it.effect("reports a bootstrap rejection as a handled bootstrap failure", () =>
     Effect.gen(function* () {
       const errors = yield* reportCause(
         Cause.fail(makeAppError({ code: "usage", detail: "SYNTHETIC_DETAIL_91" })),

@@ -49,12 +49,10 @@ export const acceptedInstallRequestRefs = (args: {
   readonly source: Source;
   readonly names: ReadonlyArray<string>;
   readonly versionRange: Option.Option<VersionRange>;
-  readonly force: boolean;
   readonly localName?: string;
 }) =>
   Effect.gen(function* () {
-    if (args.force || args.names.length === 0 || args.names.some((name) => name.includes("*")))
-      return [];
+    if (args.names.length === 0 || args.names.some((name) => name.includes("*"))) return [];
     const graph = yield* (yield* DesiredStateReader).graph();
     const refs: Array<ExtensionRef> = [];
     for (const name of args.names) {
@@ -73,7 +71,7 @@ export const acceptedInstallRequestRefs = (args: {
         type: args.type,
         name: desired.name,
         desired,
-        forceCanonical: args.force,
+        forceCanonical: false,
       });
       if (Option.isNone(accepted)) return [];
       const ref = accepted.value.ref;

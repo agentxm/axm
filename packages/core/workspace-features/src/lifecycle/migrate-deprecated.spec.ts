@@ -9,7 +9,6 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
   deriveOperationOutcome,
-  previewPlanExecution,
   ExtensionLifecycleFailed,
 } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
@@ -26,7 +25,7 @@ export const specification = defineSpecification({
   requirement: "cli/migrate/acts-on-deprecation",
   title: "Migrate replaces or removes a deprecated installed extension",
   statement:
-    "A migration of an installed Registry extension shall preview without changes, replace a superseded source with an available same-type or cross-type successor as one plan, remove an obsolete source, and refuse a manual-choice reason, concealed successor, or Pack-owned member.",
+    "A migration of an installed Registry extension shall replace a superseded source with an available same-type or cross-type successor as one plan, remove an obsolete source, and refuse a manual-choice reason, concealed successor, or Pack-owned member.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -110,13 +109,6 @@ describe("Migrate deprecated extension", () => {
               replacement: { status: "available", fqn: replacement },
             });
             const candidate = yield* MigrateDeprecated.prepare(SOURCE);
-            const before = created.workspace.snapshot();
-            const preview = yield* MigrateDeprecated.previewOrApply(
-              candidate,
-              previewPlanExecution,
-            );
-            expect(deriveOperationOutcome(preview)).toBe("previewed");
-            expect(created.workspace.snapshot()).toEqual(before);
             const applied = yield* MigrateDeprecated.previewOrApply(
               candidate,
               preapprovedPlanExecution,

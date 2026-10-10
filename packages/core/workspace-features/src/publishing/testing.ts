@@ -53,7 +53,7 @@ export const FIXTURE_OWNER = "@acme";
 export interface PublishTarget {
   /** Absolute directory the Registry's files land in. */
   readonly root: string;
-  /** `file://` URL for `registryUrl` on a publish request. */
+  /** `file://` URL for a configured Registry source. */
   readonly url: string;
   /**
    * Every file the Registry holds, relative to its root, sorted. An empty list
@@ -292,19 +292,18 @@ export const PublishPortsTest = (
 
 /**
  * A publish request with non-interactive defaults: every extension of every
- * publishable type, previewed against `registryUrl`, with no visibility
+ * publishable type, previewed against `registry`, with no visibility
  * override. Override only what the example is about.
  */
 export const publishRequest = (
-  registryUrl: string,
+  registry: string,
   overrides: Partial<PublishRequest> = {},
 ): PublishRequest => ({
   selectors: [],
   owners: [],
   types: [],
   excludes: [],
-  registry: Option.none(),
-  registryUrl: Option.some(registryUrl),
+  registry: Option.some(registry),
   backfill: false,
   acceptWarnings: false,
   preview: true,

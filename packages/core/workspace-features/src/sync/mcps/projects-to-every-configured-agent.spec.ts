@@ -38,7 +38,7 @@ export const specification = defineSpecification({
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
   derivedFrom: [
-    "cli/mcps/import/adoption-reaches-every-configured-agent",
+    "cli/mcps/adopt/adoption-reaches-every-configured-agent",
     "cli/mcps/inline-lifecycle-is-idempotent",
     "cli/mcps/inline-authority-is-operation-coherent",
     "cli/activation-follows-desired-state",
@@ -393,8 +393,10 @@ describe("MCP servers project to every configured agent", () => {
               row?.agentOutcomes.find((outcome) => outcome.agentId === "claude-code"),
             ).toMatchObject({ outcome: "failed", reasonCode: "stale-projection" });
             const shown = yield* shownMcpServer("context");
-            expect(shown.agents.find((agent) => agent.agent === "claude-code")).toMatchObject({
-              status: "failed",
+            expect(
+              shown.agentOutcomes.find((agent) => agent.agentId === "claude-code"),
+            ).toMatchObject({
+              outcome: "failed",
               reasonCode: "stale-projection",
               fields: ["command"],
             });

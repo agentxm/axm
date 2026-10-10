@@ -79,7 +79,7 @@ export const resolveInterruption = (
       },
       units: [],
       presentation: invocation.presentation,
-      interruption: { signal, disposition: "none" },
+      interruption: { signal, disposition: "untouched" },
       ...observedFootprint,
     });
   }
@@ -99,7 +99,7 @@ export const resolveInterruption = (
       releaseAge: state.releaseAge,
       preconditions: state.preconditions,
       riskConditions: state.riskConditions,
-      interruption: { signal, disposition: "none" },
+      interruption: { signal, disposition: "untouched" },
       ...observedFootprint,
     });
   }
@@ -160,7 +160,7 @@ export const resolveInterruption = (
         ? "retained"
         : inFlight.length > 0 || (state.resolved.length > 0 && state.restoresOnFailure)
           ? "restored"
-          : "none";
+          : "untouched";
   const recovery: OperationRecovery | undefined =
     disposition === "retained" || disposition === "unknown"
       ? {

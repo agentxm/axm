@@ -1,3 +1,5 @@
+import { LearnMore, formatLearnMore } from "../../formatter.js";
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { Argument, Command, Flag } from "effect/cli";
@@ -29,16 +31,16 @@ export const DiagnosticExportDocumentSchema = Schema.Struct({
 });
 const showConfig = {
   id: Argument.String("id").pipe(
-    Argument.withDescription("Diagnostic ID printed by the failed invocation"),
+    withParameterDescription("Diagnostic ID (UUID) printed by the failed invocation"),
   ),
 } as const;
 const exportConfig = {
   ...showConfig,
   reviewSha256: Flag.String("review-sha256").pipe(
-    Flag.withDescription("SHA-256 of the exact record reviewed with diagnostics show"),
+    withParameterDescription("SHA-256 of the exact record reviewed with diagnostics show"),
   ),
-  output: Flag.String("output").pipe(
-    Flag.withDescription("New local file for the reviewed record; never uploaded"),
+  output: Argument.String("destination").pipe(
+    withParameterDescription("New local file for the reviewed record; never uploaded"),
   ),
 } as const;
 
@@ -60,7 +62,7 @@ const showCommand = Command.make("show", showConfig, ({ id }) =>
   Command.withDescription("Review a retained local failure record without transmitting it"),
   Command.withExamples([
     {
-      command: "axm diagnostics show <id>",
+      command: "axm diagnostics show 123e4567-e89b-42d3-a456-426614174000",
       description: "Review the local record and obtain its SHA-256 before export",
     },
   ]),
@@ -79,23 +81,29 @@ const exportCommand = Command.make("export", exportConfig, (options) =>
   Command.withDescription("Write the exact reviewed diagnostic to a new restricted local file"),
   Command.withExamples([
     {
-      command: "axm diagnostics export <id> --review-sha256 <sha256> --output ./diagnostic.json",
+      command:
+        "axm diagnostics export --review-sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 123e4567-e89b-42d3-a456-426614174000 ./diagnostic.json",
       description: "Write exactly the reviewed record to a new file",
     },
   ]),
 );
 
 export const diagnosticsCommand = Command.make("diagnostics").pipe(
+  Command.annotate(
+    LearnMore,
+    formatLearnMore([["axm help diagnostics", "Read the diagnostics guide"]]),
+  ),
   Command.withDescription("Review and export local failure diagnostics"),
   withCommandCapabilities(groupCapabilities),
   Command.withSubcommands([showCommand, exportCommand]),
   Command.withExamples([
     {
-      command: "axm diagnostics show <id>",
+      command: "axm diagnostics show 123e4567-e89b-42d3-a456-426614174000",
       description: "Review a local record and obtain its SHA-256",
     },
     {
-      command: "axm diagnostics export <id> --review-sha256 <sha256> --output ./diagnostic.json",
+      command:
+        "axm diagnostics export --review-sha256 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa 123e4567-e89b-42d3-a456-426614174000 ./diagnostic.json",
       description: "Export exactly the reviewed record; no upload occurs",
     },
   ]),

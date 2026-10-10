@@ -10,7 +10,7 @@ import type * as Config from "effect/Config";
 import type { NativeLocationError } from "../locations/index.js";
 import * as Schema from "effect/Schema";
 import type { ExtensionManagerFailure } from "../materialization/index.js";
-import { FailureSuggestedActionSchema, OperationErrorCategorySchema } from "../operations/index.js";
+import { FailureSuggestedActionSchema, ErrorCodeSchema } from "../operations/index.js";
 import type { NativeFormatFailure } from "../agent-adapters/index.js";
 import type { InstructionMaintenanceFailure } from "../projection/index.js";
 import type { AcceptedCanonicalRefError } from "../workspace-state/index.js";
@@ -32,7 +32,7 @@ import type {
 export class WorkspaceSyncFailed extends Schema.TaggedError<WorkspaceSyncFailed>()(
   "WorkspaceSyncFailed",
   {
-    category: OperationErrorCategorySchema,
+    category: ErrorCodeSchema,
     detail: Schema.String,
     suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),

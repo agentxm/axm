@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
 import { Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
@@ -6,7 +7,7 @@ import {
   ConfiguredAgentInventorySchema,
   type ConfiguredAgentInventory,
 } from "@agentxm/workspace-features/configuration";
-import { emitResult, count, inventoryDoc, type ViewColumn } from "../../screen/index.js";
+import { emitResult, count, inventoryDoc, ABSENT, type ViewColumn } from "../../screen/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
@@ -31,10 +32,15 @@ type AgentListItem = ConfiguredAgentInventory["items"][number];
 
 const AgentListColumns = [
   { header: "ID", priority: "required", value: (row: AgentListItem) => row.id },
+  { header: "Kind", value: (row: AgentListItem) => row.kind },
   { header: "Agent", value: (row: AgentListItem) => row.name },
   { header: "Configured", value: (row: AgentListItem) => (row.configured ? "yes" : "no") },
   { header: "Detected", value: (row: AgentListItem) => (row.detected ? "yes" : "no") },
-  { header: "Rules", priority: "optional", value: (row: AgentListItem) => row.instructions },
+  {
+    header: "Rules",
+    priority: "optional",
+    value: (row: AgentListItem) => row.instructions ?? ABSENT,
+  },
   {
     header: "Lifecycle",
     priority: "optional",
@@ -44,7 +50,7 @@ const AgentListColumns = [
 
 export const handleAgentsList = Effect.fn("Agents.list")(function* (args: AgentsListArgs) {
   const inventory = yield* withLiveOperation(
-    { command: "agents.list", name: "Inspect coding agents", mode: "preview" },
+    { command: "agents.list", name: "Inspect coding agents", mode: "query" },
     ConfigureAgents.list({
       detected: args.detected,
       available: args.available,
@@ -70,21 +76,22 @@ export const handleAgentsList = Effect.fn("Agents.list")(function* (args: Agents
 });
 
 const listConfig = {
-  scope: scopeFlag.pipe(
-    Flag.withDescription("List agents from project (default) or user-level configuration"),
-  ),
+  scope: scopeFlag,
   detected: Flag.Boolean("detected").pipe(
-    Flag.withDescription("Show detected agents only"),
-    Flag.withDefault(false),
+    withParameterDescription("Show detected agents only"),
+    withParameterDefault(false),
   ),
   available: Flag.Boolean("available").pipe(
-    Flag.withDescription("Show all supported agent IDs"),
-    Flag.withDefault(false),
+    withParameterDescription("Show every catalog agent ID, including hosted agents"),
+    withParameterDefault(false),
   ),
 } as const;
 
 export const listCommand = Command.make("list", listConfig, ({ scope, detected, available }) =>
-  handleAgentsList({ detected, available }).pipe(withWorkspace(scope), withRuntime("agents list")),
+  handleAgentsList({ detected, available }).pipe(
+    withWorkspace({ scope, allowUninitialized: true }),
+    withRuntime("agents list"),
+  ),
 ).pipe(
   withArgvTracking(listConfig),
   withCommandCapabilities(readOnlyCapabilities()),

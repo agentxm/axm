@@ -20,6 +20,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import {
   applySync,
+  syncRequest,
   expectResolved,
   makeSyncFixture,
   makeFileRegistry,
@@ -31,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
   title: "Sync realizes desired additions and removes what desired state no longer includes",
   statement:
-    "Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned file outputs when reachability and ownership are established, retain native MCP and Hook registrations after lost reachability, and retain canonical content and accepted source integrity while native registrations reference its code, preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.",
+    "Sync shall realize desired installations and activation within all types or the union of explicitly selected types without duplicates, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned file outputs when reachability and ownership are established, retain native MCP and Hook registrations after lost reachability, and retain canonical content and accepted source integrity while native registrations reference its code, preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
@@ -53,6 +54,47 @@ describe("Sync realizes desired workspace state", () => {
     for (const cleanup of cleanups.splice(0)) {
       cleanup();
     }
+  });
+
+  it.effect("realizes and cleans up the selected type union while preserving other types", () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    registry.writeSkill("review", [{ version: "1.0.0", body: "Review." }]);
+    registry.writeSubagent("planner", [{ version: "1.0.0", body: "Plan." }]);
+    registry.writeRule("quality", [{ version: "1.0.0", body: "Quality." }]);
+    const base = { owner: "@acme", agents: ["claude-code"], sources: [registry.source] };
+    const workspace = makeSyncFixture({
+      settings: {
+        ...base,
+        skills: { review: "test:@acme/skills/review@^1.0.0" },
+        subagents: { planner: "test:@acme/subagents/planner@^1.0.0" },
+        rules: { quality: "test:@acme/rules/quality@^1.0.0" },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    const selected = syncRequest({ types: ["skill", "subagent", "skill"] });
+    const skillPath = fileRegistryPackagePath(registry, "skills", "review");
+    const subagentPath = fileRegistryPackagePath(registry, "subagents", "planner");
+    const rulePath = fileRegistryPackagePath(registry, "rules", "quality");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const first = expectResolved(yield* applySync(selected));
+          expect(deriveOperationOutcome(first), JSON.stringify(first)).toBe("applied");
+          expect(workspace.exists(skillPath)).toBe(true);
+          expect(workspace.exists(subagentPath)).toBe(true);
+          expect(workspace.exists(rulePath)).toBe(false);
+          yield* applySync();
+          const ruleBytes = workspace.readFile(`${rulePath}/src/RULE.md`);
+          workspace.writeSettings(base);
+          const cleanup = expectResolved(yield* applySync(selected));
+          expect(deriveOperationOutcome(cleanup), JSON.stringify(cleanup)).toBe("applied");
+          expect(workspace.exists(skillPath)).toBe(false);
+          expect(workspace.exists(subagentPath)).toBe(false);
+          expect(workspace.readFile(`${rulePath}/src/RULE.md`)).toBe(ruleBytes);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
   });
 
   it.effect.each([false, true])(

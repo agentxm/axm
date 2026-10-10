@@ -151,15 +151,14 @@ describe("pack publish resolution divergence", () => {
 });
 
 const args = (
-  registryUrl: string,
+  registry: string,
   overrides?: Partial<RootPublishHandlerArgs>,
 ): RootPublishHandlerArgs => ({
   selectors: [],
   owners: [],
   types: [],
   excludes: [],
-  registry: Option.none(),
-  registryUrl: Option.some(registryUrl),
+  registry: Option.some(registry),
   backfill: false,
   acceptWarnings: false,
   preview: true,
@@ -178,7 +177,17 @@ describe("root publish", () => {
     fs.mkdirSync(path.join(tempDir, "registry"), { recursive: true });
     fs.writeFileSync(
       path.join(tempDir, "axm.json"),
-      JSON.stringify({ owner: "@acme", agents: [] }),
+      JSON.stringify({
+        sources: [
+          {
+            name: "publication",
+            type: "registry",
+            location: pathToFileURL(path.join(tempDir, "registry")).href,
+          },
+        ],
+        owner: "@acme",
+        agents: [],
+      }),
     );
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
@@ -221,6 +230,13 @@ describe("root publish", () => {
     fs.writeFileSync(
       path.join(tempDir, "axm.json"),
       JSON.stringify({
+        sources: [
+          {
+            name: "publication",
+            type: "registry",
+            location: pathToFileURL(path.join(tempDir, "registry")).href,
+          },
+        ],
         owner: "@acme",
         agents: [],
         skills: { review: "workspace" },
@@ -390,16 +406,16 @@ describe("root publish", () => {
     it.effect("previews one plan ledger instead of a sentence per fact", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl));
+          yield* handleRootPublish(args(registry));
 
           // The view owns the preview, so the execution plan is not printed too.
           expect(rendererState.docs.map((entry) => entry.channel)).toEqual(["stdout"]);
           expect(painted(rendererState)).toEqual([
-            "Previewing publish  as @acme - to override",
+            "Previewing publish  as @acme - to publication",
             "",
             "     Extension                     Version   Plan      Detail",
             " +   @acme/skills/review           1.0.0     publish   2 entries, 340 B",
@@ -416,11 +432,11 @@ describe("root publish", () => {
     it.effect("shows the evidence behind each row with --verbose", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false, { verbose: true });
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl));
+          yield* handleRootPublish(args(registry));
 
           const lines = painted(rendererState);
           expect(lines).toContain("     visibility public from platform defaults");
@@ -435,14 +451,14 @@ describe("root publish", () => {
     it.effect("settles an apply as a result ledger with visibility in the verdict", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registry, { preview: false }));
 
           expect(painted(rendererState)).toEqual([
-            "Publishing  as @acme - to override",
+            "Publishing  as @acme - to publication",
             "",
             "     Extension                     Version   Status      Detail",
             " +   @acme/skills/review           1.0.0     published",
@@ -463,15 +479,15 @@ describe("root publish", () => {
 
     it.effect("states that a version is already published without a ledger", () => {
       writeReviewSkill();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
       const first = makeContext(false);
       const second = makeContext(false);
 
-      return first.provide(handleRootPublish(args(registryUrl, { preview: false }))).pipe(
+      return first.provide(handleRootPublish(args(registry, { preview: false }))).pipe(
         Effect.andThen(
           second.provide(
             Effect.gen(function* () {
-              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              yield* handleRootPublish(args(registry, { preview: false }));
               expect(painted(second.rendererState)).toEqual([
                 " ok  @acme/skills/review@1.0.0 is already published",
               ]);
@@ -483,15 +499,15 @@ describe("root publish", () => {
 
     it.effect("keeps an already-published skip quiet under --quiet", () => {
       writeReviewSkill();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
       const first = makeContext(false);
       const second = makeContext(false, { quiet: true });
 
-      return first.provide(handleRootPublish(args(registryUrl, { preview: false }))).pipe(
+      return first.provide(handleRootPublish(args(registry, { preview: false }))).pipe(
         Effect.andThen(
           second.provide(
             Effect.gen(function* () {
-              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              yield* handleRootPublish(args(registry, { preview: false }));
               expect(painted(second.rendererState)).toEqual([]);
             }),
           ),
@@ -502,11 +518,11 @@ describe("root publish", () => {
     it.effect("blocks on a source that differs from Git HEAD and ends with its exit code", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          const exit = yield* handleRootPublish(args(registryUrl, { preview: false })).pipe(
+          const exit = yield* handleRootPublish(args(registry, { preview: false })).pipe(
             differsFromHead,
             Effect.exit,
           );
@@ -533,13 +549,11 @@ describe("root publish", () => {
     it.effect("names the source state once as a field when the override is accepted", () => {
       writeReviewSkill();
       const { provide, rendererState } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { acceptWarnings: true })).pipe(
-            differsFromHead,
-          );
+          yield* handleRootPublish(args(registry, { acceptWarnings: true })).pipe(differsFromHead);
 
           expect(painted(rendererState)).toContain(
             "     Source                        differs from Git HEAD 0123456",
@@ -550,11 +564,11 @@ describe("root publish", () => {
 
     it.effect("renders an explicit empty-selection outcome", () => {
       const { provide, rendererState } = makeContext(false);
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registry, { preview: false }));
 
           expect(painted(rendererState)).toEqual([" ok  No extensions selected for publishing"]);
         }),
@@ -802,6 +816,13 @@ describe("root publish", () => {
       fs.writeFileSync(
         path.join(tempDir, "axm.json"),
         JSON.stringify({
+          sources: [
+            {
+              name: "publication",
+              type: "registry",
+              location: pathToFileURL(path.join(tempDir, "registry")).href,
+            },
+          ],
           owner: "@acme",
           agents: [],
           skills: Object.fromEntries(names.map((name) => [name, "workspace"])),
@@ -829,11 +850,11 @@ describe("root publish", () => {
         const existing = Array.from({ length: 18 }, (_, index) => `existing-${index + 1}`);
         writeSkillSettings(["first-release", "second-release", ...existing]);
         const { provide, rendererState } = makeContext();
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+        const registry = "publication";
 
         return provide(
           Effect.gen(function* () {
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            yield* handleRootPublish(args(registry, { preview: false }));
             writeSkill("first-release", "1.1.0");
             writeSkill("second-release", "2.0.0");
             // Local content that no longer matches the published archives.
@@ -843,7 +864,7 @@ describe("root publish", () => {
                 "\nEdited.\n",
               );
             }
-            const exit = yield* handleRootPublish(args(registryUrl, { preview: false }));
+            const exit = yield* handleRootPublish(args(registry, { preview: false }));
 
             expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
             const data = at(rendererState.results, 1).data;
@@ -875,14 +896,14 @@ describe("root publish", () => {
     it.effect("skips an existing version whose package would now fail the publication gate", () => {
       writeSkillSettings(["review"]);
       const { provide, rendererState } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          yield* handleRootPublish(args(registryUrl, { preview: false }));
+          yield* handleRootPublish(args(registry, { preview: false }));
           fs.rmSync(path.join(tempDir, "skills", "review", "src", "SKILL.md"));
           const exit = yield* handleRootPublish(
-            args(registryUrl, { preview: false, selectors: ["@acme/skills/review"] }),
+            args(registry, { preview: false, selectors: ["@acme/skills/review"] }),
           );
 
           expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
@@ -908,13 +929,13 @@ describe("root publish", () => {
         it.effect(`root publish skips an existing version selected by ${selection.name}`, () => {
           writeSkillSettings(["review"]);
           const { provide, rendererState } = makeContext();
-          const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+          const registry = "publication";
 
           return provide(
             Effect.gen(function* () {
-              yield* handleRootPublish(args(registryUrl, { preview: false }));
+              yield* handleRootPublish(args(registry, { preview: false }));
               const exit = yield* handleRootPublish(
-                args(registryUrl, { preview: false, selectors: selection.selectors }),
+                args(registry, { preview: false, selectors: selection.selectors }),
               );
 
               expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
@@ -949,6 +970,13 @@ describe("root publish", () => {
             fs.writeFileSync(
               path.join(tempDir, "axm.json"),
               JSON.stringify({
+                sources: [
+                  {
+                    name: "publication",
+                    type: "registry",
+                    location: pathToFileURL(path.join(tempDir, "registry")).href,
+                  },
+                ],
                 owner: "@acme",
                 agents: [],
                 [fixture.settingsKey]: { review: { source: "workspace" } },
@@ -956,12 +984,12 @@ describe("root publish", () => {
             );
             fixture.write(tempDir, { name: "review" });
             const { provide, rendererState } = makeContext();
-            const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+            const registry = "publication";
             const fqn = `@acme/${plural}/review`;
 
             return provide(
               Effect.gen(function* () {
-                yield* handleRootPublish(args(registryUrl, { preview: false }));
+                yield* handleRootPublish(args(registry, { preview: false }));
                 expect(
                   rowsOf(at(rendererState.results, 0).data, "apply", 1).get(fqn),
                 ).toMatchObject({ action: "publish", status: "success" });
@@ -977,7 +1005,7 @@ describe("root publish", () => {
                     excludes: [],
                   });
                   const exit = yield* handleRootPublish(
-                    args(registryUrl, { ...selection, preview: false }),
+                    args(registry, { ...selection, preview: false }),
                   );
 
                   expect(exit).toEqual({ _tag: "ProcessOutcome", exitCode: 0 });
@@ -1004,10 +1032,12 @@ describe("root publish", () => {
         ];
         expect(commands).toHaveLength(8);
         for (const command of commands) {
-          expect(yield* probeFlag(command, "--on-existing")).toBe("unrecognized");
+          for (const retired of ["--on-existing", "--from", "--include-file", "--exclude-file"]) {
+            expect(yield* probeFlag(command, retired)).toBe("unrecognized");
+          }
           const fileSelection = command.length === 1 ? "accepted" : "unrecognized";
-          expect(yield* probeFlag(command, "--include-file")).toBe(fileSelection);
-          expect(yield* probeFlag(command, "--exclude-file")).toBe(fileSelection);
+          expect(yield* probeFlag(command, "--include-path")).toBe(fileSelection);
+          expect(yield* probeFlag(command, "--exclude-path")).toBe(fileSelection);
         }
       }),
     );
@@ -1029,6 +1059,13 @@ describe("root publish", () => {
       fs.writeFileSync(
         path.join(tempDir, "axm.json"),
         JSON.stringify({
+          sources: [
+            {
+              name: "publication",
+              type: "registry",
+              location: pathToFileURL(path.join(tempDir, "registry")).href,
+            },
+          ],
           owner: "@acme",
           agents: [],
           skills: { review: "workspace" },
@@ -1036,8 +1073,8 @@ describe("root publish", () => {
       );
     };
 
-    const explicit = (registryUrl: string, overrides?: Partial<RootPublishHandlerArgs>) =>
-      args(registryUrl, {
+    const explicit = (registry: string, overrides?: Partial<RootPublishHandlerArgs>) =>
+      args(registry, {
         selectors: ["@acme/skills/review"],
         preview: false,
         ...overrides,
@@ -1046,15 +1083,15 @@ describe("root publish", () => {
     describe("version monotonicity", () => {
       it.effect("rejects a version below the highest published version", () => {
         const { provide, rendererState } = makeContext(false);
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+        const registry = "publication";
 
         return provide(
           Effect.gen(function* () {
             writeReviewSkill("1.1.0");
-            yield* handleRootPublish(args(registryUrl, { preview: false }));
+            yield* handleRootPublish(args(registry, { preview: false }));
 
             writeReviewSkill("1.0.5");
-            const exit = yield* handleRootPublish(explicit(registryUrl)).pipe(Effect.exit);
+            const exit = yield* handleRootPublish(explicit(registry)).pipe(Effect.exit);
 
             // The reported outcome carries the failure's recoveries and ends
             // with the conflict's exit code.
@@ -1086,6 +1123,13 @@ describe("root publish", () => {
       fs.writeFileSync(
         path.join(tempDir, "axm.json"),
         JSON.stringify({
+          sources: [
+            {
+              name: "publication",
+              type: "registry",
+              location: pathToFileURL(path.join(tempDir, "registry")).href,
+            },
+          ],
           owner: "@acme",
           agents: [],
           skills: { review: "@acme/skills/review@^1" },
@@ -1104,7 +1148,7 @@ describe("root publish", () => {
       () => {
         writeExternallySourcedExtensions();
         const { provide, rendererState } = makeContext();
-        const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+        const registry = "publication";
 
         return provide(
           Effect.gen(function* () {
@@ -1113,7 +1157,7 @@ describe("root publish", () => {
             );
             for (const [index, selector] of selectors.entries()) {
               const exit = yield* handleRootPublish(
-                args(registryUrl, { preview: false, selectors: [selector] }),
+                args(registry, { preview: false, selectors: [selector] }),
               ).pipe(Effect.exit);
 
               const data = at(rendererState.results, index).data;
@@ -1143,6 +1187,13 @@ describe("root publish", () => {
       fs.writeFileSync(
         path.join(tempDir, "axm.json"),
         JSON.stringify({
+          sources: [
+            {
+              name: "publication",
+              type: "registry",
+              location: pathToFileURL(path.join(tempDir, "registry")).href,
+            },
+          ],
           owner: "@acme",
           agents: [],
           skills: { review: "workspace" },
@@ -1170,11 +1221,11 @@ describe("root publish", () => {
     it.effect("reports a previewed outcome and the selected subject type", () => {
       writeReviewSkill();
       const { provide } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
-          const properties = yield* semanticProperties(handleRootPublish(args(registryUrl)));
+          const properties = yield* semanticProperties(handleRootPublish(args(registry)));
 
           expect(properties["cli.outcome"]).toBe("previewed");
           expect(properties["cli.subject_type"]).toBe("skill");
@@ -1188,12 +1239,12 @@ describe("root publish", () => {
     it.effect("reports an applied outcome with the published count", () => {
       writeReviewSkill();
       const { provide } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registry, { preview: false })),
           );
 
           expect(properties["cli.outcome"]).toBe("applied");
@@ -1206,12 +1257,12 @@ describe("root publish", () => {
 
     it.effect("reports a no-op outcome for an empty selection", () => {
       const { provide } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registry, { preview: false })),
           );
 
           expect(properties["cli.outcome"]).toBe("no-op");
@@ -1267,12 +1318,12 @@ describe("root publish", () => {
       );
       fs.writeFileSync(path.join(ruleDir, "src", "RULE.md"), "# Style\n\nUse tabs.\n");
       const { provide } = makeContext();
-      const registryUrl = pathToFileURL(path.join(tempDir, "registry")).href;
+      const registry = "publication";
 
       return provide(
         Effect.gen(function* () {
           const properties = yield* semanticProperties(
-            handleRootPublish(args(registryUrl, { preview: false })),
+            handleRootPublish(args(registry, { preview: false })),
           );
 
           expect(properties["cli.subject_type"]).toBe("mixed");
@@ -1292,7 +1343,6 @@ describe("publish recovery", () => {
         fileExclude: ["/drafts/"],
         packageVersion: "1.2.3",
         registry: Option.some("private"),
-        registryUrl: Option.none(),
         backfill: true,
         acceptWarnings: true,
         visibility: Option.none(),
@@ -1300,7 +1350,7 @@ describe("publish recovery", () => {
       ["@acme/skills/review"],
     );
     expect(renderConfirmationRecoveryCommand(recovery, { approval: "none" })).toBe(
-      "axm publish --registry private --from /workspace/upstream --package-version 1.2.3 --include-file '**' --include-file '!*.test.ts' --exclude-file /drafts/ --backfill --accept-warnings @acme/skills/review",
+      "axm publish --registry private --path /workspace/upstream --package-version 1.2.3 --include-path '**' --include-path '!*.test.ts' --exclude-path /drafts/ --backfill --accept-warnings @acme/skills/review",
     );
   });
 
@@ -1308,7 +1358,6 @@ describe("publish recovery", () => {
     const recovery = makeExactPublishRecovery(
       {
         registry: Option.some("private"),
-        registryUrl: Option.none(),
         backfill: false,
         acceptWarnings: false,
         visibility: Option.some("private"),
@@ -1369,7 +1418,7 @@ describe("publish recovery", () => {
         makeExactPublishRecovery(
           {
             registry: Option.some("private"),
-            registryUrl: Option.none(),
+
             backfill: false,
             acceptWarnings: false,
             visibility: Option.none(),

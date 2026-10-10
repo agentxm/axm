@@ -136,7 +136,7 @@ describe("project workspace settings validity prerequisite", () => {
           correction: "Edit the settings file",
         },
         {
-          name: "reinstall-capable lifecycle command cannot bypass the gate",
+          name: "install lifecycle command cannot bypass the gate",
           settingsPath: userSettingsPath,
           invalid: "{ not-json",
           args: [
@@ -145,7 +145,6 @@ describe("project workspace settings validity prerequisite", () => {
             SKILLS_REPO_FIXTURE,
             "--skill",
             "my-skill",
-            "--reinstall",
             "--non-interactive",
             "--json",
           ],

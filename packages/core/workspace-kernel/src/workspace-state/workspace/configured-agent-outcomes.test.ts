@@ -131,7 +131,7 @@ const providerOutcome = (name: string): ConfiguredAgentOutcome => ({
   name,
   agentId: "claude-code",
   outcome: "blocked",
-  reasonCode: "provider-observed",
+  reasonCode: "verified-native-unit",
   reason: "Manager observed a blocked projection.",
 });
 
@@ -199,7 +199,7 @@ describe("resolveConfiguredAgentOutcomes", () => {
         request,
       );
       expect(calls).toBe(1);
-      expect(outcomes.get("active")).toMatchObject([{ reasonCode: "provider-observed" }]);
+      expect(outcomes.get("active")).toMatchObject([{ reasonCode: "verified-native-unit" }]);
       expect(outcomes.get("second")).toMatchObject([
         { outcome: "blocked", reasonCode: "native-observation-unavailable" },
       ]);

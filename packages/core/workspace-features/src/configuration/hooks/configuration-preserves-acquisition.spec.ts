@@ -11,9 +11,9 @@ import { applyInstall, installRequest, makeInstallWorld } from "../../testing/in
 
 export const specification = defineSpecification({
   requirement: "cli/hooks/configure/preserves-acquisition-and-package-content",
-  title: "Hook configuration changes consumer values without acquiring another package",
+  title: "Hook extension configuration changes consumer values without acquiring another package",
   statement:
-    "When a person configures an installed Hook, AXM shall validate and replace consumer values, reconcile active native registrations, preserve immutable package content and accepted resolution, retain disabled state and source-less Pack membership, and refuse stale or unowned packages without changing workspace state.",
+    "When a person configures an installed hook extension, AXM shall validate and replace consumer values, reconcile active native registrations, preserve immutable package content and accepted resolution, retain disabled state and source-less Pack membership, and refuse stale or unowned packages without changing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition", "extension-adoption"],
@@ -59,7 +59,7 @@ const configure = (label: string) =>
     return yield* ConfigureHook.previewOrApply(candidate, preapprovedPlanExecution);
   });
 
-describe("Configuring installed Hooks", () => {
+describe("Configuring installed hook extensions", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
     for (const cleanup of cleanups.splice(0)) cleanup();

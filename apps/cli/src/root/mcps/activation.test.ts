@@ -14,7 +14,7 @@ import {
   makeWorkspaceHandlerTestContext,
 } from "../../test-support/test-helpers.js";
 
-import { handleActivation } from "../activation-handler.js";
+import { handleDisable, handleEnable } from "../activation-handler.js";
 
 const mcpEntry = (enabled: boolean) => ({
   connection: { transport: "streamable-http", url: "https://example.test/mcp", headers: {} },
@@ -68,16 +68,14 @@ describe("mcps enable/disable output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("mcp-server", {
-          enabled: true,
+        yield* handleEnable("mcp-server", {
           name: "context",
           preview: false,
         });
         rendererState.logs.length = 0;
         rendererState.results.length = 0;
 
-        yield* handleActivation("mcp-server", {
-          enabled: true,
+        yield* handleEnable("mcp-server", {
           name: "context",
           preview: false,
         });
@@ -95,8 +93,7 @@ describe("mcps enable/disable output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("mcp-server", {
-          enabled: true,
+        yield* handleEnable("mcp-server", {
           name: "context",
           preview: false,
         });
@@ -128,8 +125,7 @@ describe("mcps enable/disable output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("mcp-server", {
-          enabled: true,
+        yield* handleEnable("mcp-server", {
           name: "context",
           preview: false,
         });
@@ -152,8 +148,7 @@ describe("mcps enable/disable output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("mcp-server", {
-          enabled: false,
+        yield* handleDisable("mcp-server", {
           name: "context",
           preview: false,
         });
@@ -173,8 +168,7 @@ describe("mcps enable/disable output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("mcp-server", {
-          enabled: false,
+        yield* handleDisable("mcp-server", {
           name: "context",
           preview: false,
         });

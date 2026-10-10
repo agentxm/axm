@@ -1,3 +1,4 @@
+import { applySync } from "../../testing/sync-fixture.js";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -36,7 +37,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/records-direct-intent",
   title: "Install records the extension as directly desired workspace configuration",
   statement:
-    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when a configured Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor, in the words sync states that fact, and the update route that accepts a satisfying resolution.",
+    "When a person installs an acquirable extension, the install shall record it in workspace settings as directly desired configuration; when an explicitly requested Pack's accepted member resolution no longer satisfies that member's effective constraint, the install shall change nothing and report the mismatch with every contributor, in the words sync states that fact, and the update route that accepts a satisfying resolution.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
@@ -120,7 +121,7 @@ describe("Install records direct workspace intent", () => {
       return workspace
         .provide(
           Effect.gen(function* () {
-            yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+            yield* applySync();
 
             // The direct declaration keeps the pin the person recorded, and the
             // member both Packs require is realized at the version all admit.
@@ -158,7 +159,7 @@ describe("Install records direct workspace intent", () => {
           Effect.gen(function* () {
             // Both Packs accept the newest member version they admit, then the
             // person pins the member directly to an older one.
-            yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+            yield* applySync();
             expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
             workspace.writeFile(
               "axm.json",
@@ -177,7 +178,10 @@ describe("Install records direct workspace intent", () => {
             const before = workspace.snapshot();
 
             const refused = yield* applyInstall(
-              installRequest({ subject: { kind: "configured" } }),
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: SHARED_MEMBER_PACKS[0].fqn },
+              }),
             );
 
             // Replaying the accepted member would break the pin, and replay never
@@ -205,7 +209,10 @@ describe("Install records direct workspace intent", () => {
               `version: ${SHARED_MEMBER_PIN.inside}`,
             );
             const replayed = yield* applyInstall(
-              installRequest({ subject: { kind: "configured" } }),
+              installRequest({
+                type: "pack",
+                subject: { kind: "source", source: SHARED_MEMBER_PACKS[0].fqn },
+              }),
             );
             expect(deriveOperationOutcome(replayed)).not.toBe("blocked");
           }),

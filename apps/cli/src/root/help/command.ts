@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import type { OutputWriteFailed } from "../../screen/index.js";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -37,7 +38,7 @@ import { HELP_TOPIC_DESCRIPTIONS } from "./help-topic-descriptions.js";
 
 const helpConfig = {
   path: Argument.String("topic-or-command").pipe(
-    Argument.withDescription(
+    withParameterDescription(
       "Help topic or command path, such as basic-usage, skills install, or agents add",
     ),
     Argument.variadic(),
@@ -53,6 +54,7 @@ const TOPIC_ORDER: ReadonlyArray<HelpTopicName> = [
   "getting-started",
   "basic-usage",
   "machine-output",
+  "machine-output-schema",
   "authoring",
   "skills",
   "skill-schema",
@@ -88,15 +90,26 @@ export const HelpIndexResultSchema = Schema.Struct({
     Schema.Struct({
       name: Schema.String,
       description: Schema.String,
+      kind: Schema.Literals(["markdown", "json-schema"]),
     }),
   ),
 });
 export type HelpIndexResult = typeof HelpIndexResultSchema.Type;
 
-export const HelpTopicResultSchema = Schema.Struct({
-  topic: Schema.String,
-  content: Schema.String,
-});
+const JsonSchemaObject = Schema.Record(Schema.String, Schema.Unknown);
+
+export const HelpTopicResultSchema = Schema.Union([
+  Schema.Struct({
+    topic: Schema.String,
+    kind: Schema.Literal("markdown"),
+    content: Schema.String,
+  }),
+  Schema.Struct({
+    topic: Schema.String,
+    kind: Schema.Literal("json-schema"),
+    schema: JsonSchemaObject,
+  }),
+]);
 export type HelpTopicResult = typeof HelpTopicResultSchema.Type;
 
 interface HelpTopicRow {
@@ -117,13 +130,6 @@ const HELP_INDEX_SUGGESTIONS = [
   {
     description: "Show command help",
     cmd: "axm <command> --help",
-  },
-] as const satisfies ReadonlyArray<SuggestedAction>;
-
-const UNKNOWN_TOPIC_SUGGESTIONS = [
-  {
-    description: "List available help topics.",
-    cmd: "axm help",
   },
 ] as const satisfies ReadonlyArray<SuggestedAction>;
 
@@ -148,7 +154,11 @@ const writeHelpTopicIndex = () =>
     yield* emitResult(
       {
         usage: "axm help <topic>",
-        topics: rows.map(({ topic, description }) => ({ name: topic, description })),
+        topics: rows.map(({ topic, description }) => ({
+          name: topic,
+          description,
+          kind: HELP_TOPIC_KINDS[topic],
+        })),
       },
       HelpIndexResultSchema,
       () => [...tableDoc(rows, helpTopicColumns), ...suggestionsDoc(HELP_INDEX_SUGGESTIONS)],
@@ -160,15 +170,25 @@ const writeHelpTopic = (name: HelpTopicName) =>
   Effect.gen(function* () {
     const raw = HELP_TOPICS[name];
     const content = raw.endsWith("\n") ? raw : `${raw}\n`;
-    yield* emitResult({ topic: name, content }, HelpTopicResultSchema, () =>
-      HELP_TOPIC_KINDS[name] === "json-schema" ? rawDoc(content) : markdownDoc(content),
+    // Bundled schemas are generated and validated at build time. A malformed
+    // bundled asset violates that invariant rather than representing user input.
+    const result: HelpTopicResult =
+      HELP_TOPIC_KINDS[name] === "json-schema"
+        ? {
+            topic: name,
+            kind: "json-schema",
+            schema: Schema.decodeUnknownSync(Schema.fromJsonString(JsonSchemaObject))(raw),
+          }
+        : { topic: name, kind: "markdown", content };
+    yield* emitResult(result, HelpTopicResultSchema, () =>
+      result.kind === "json-schema" ? rawDoc(content) : markdownDoc(content),
     );
   });
 
 export const resolveCommandPath = (
   root: Command.Command.Any,
   requestedPath: ReadonlyArray<string>,
-): ReadonlyArray<string> | undefined => {
+): { readonly complete: boolean; readonly canonicalPath: ReadonlyArray<string> } => {
   let current = root;
   const canonicalPath: Array<string> = [];
 
@@ -176,13 +196,13 @@ export const resolveCommandPath = (
     const child = current.subcommands
       .flatMap((group) => group.commands)
       .find((command) => command.name === segment || command.alias === segment);
-    if (child === undefined) return undefined;
+    if (child === undefined) return { complete: false, canonicalPath };
 
     canonicalPath.push(child.name);
     current = child;
   }
 
-  return canonicalPath;
+  return { complete: true, canonicalPath };
 };
 
 export const handleHelpPath = (
@@ -196,8 +216,8 @@ export const handleHelpPath = (
     return writeHelpTopic(singleTopic);
   }
 
-  const canonicalPath = resolveCommandPath(root, path);
-  if (canonicalPath !== undefined) {
+  const { complete, canonicalPath } = resolveCommandPath(root, path);
+  if (complete) {
     return Effect.fail(
       new CliError.ShowHelp({ commandPath: [root.name, ...canonicalPath], errors: [] }),
     );
@@ -208,7 +228,13 @@ export const handleHelpPath = (
     makeAppError({
       code: "not_found",
       detail: `Unknown help topic or command path '${requested}'.`,
-      suggestions: UNKNOWN_TOPIC_SUGGESTIONS,
+      suggestions: [
+        {
+          description: "Show command help",
+          cmd: [root.name, ...canonicalPath, "--help"].join(" "),
+        },
+        { description: "List available help topics", cmd: "axm help" },
+      ],
     }),
   );
 };
@@ -224,15 +250,18 @@ export const makeHelpCommand = (getRootCommand: () => Command.Command.Any) =>
     Command.withShortDescription("Show topic or command help"),
     Command.withExamples([
       { command: "axm help", description: "View help topics" },
-      { command: "axm help basic-usage", description: "How to use AXM" },
+      { command: "axm help basic-usage", description: "Read the basic usage guide" },
       { command: "axm help skills install", description: "Show nested command help" },
-      { command: "axm help getting-started", description: "How to set up and configure AXM" },
-      { command: "axm help skills", description: "Managing agent skills with AXM" },
+      {
+        command: "axm help getting-started",
+        description: "Read the setup and configuration guide",
+      },
+      { command: "axm help skills", description: "Read the skills topic" },
       {
         command: "axm help subagents",
-        description: "Managing subagents with AXM",
+        description: "Read the subagents topic",
       },
       { command: "axm help skill-schema", description: "Print the skill manifest JSON Schema" },
-      { command: "axm help exit-codes", description: "Exit code conventions" },
+      { command: "axm help exit-codes", description: "Read the exit-code conventions" },
     ]),
   );

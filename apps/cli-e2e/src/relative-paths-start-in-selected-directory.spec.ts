@@ -92,6 +92,7 @@ describe("Relative paths start in the selected directory", () => {
         path.join(fixture.selected, "axm.json"),
         JSON.stringify({
           agents: [],
+          minimumReleaseAge: "0s",
           defaultRegistry: "test",
           sources: [
             {

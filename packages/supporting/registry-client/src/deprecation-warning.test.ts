@@ -14,14 +14,14 @@ describe("deprecation warning actions", () => {
         reason: "superseded",
         replacement: { status: "available", fqn: "@acme/skills/new" },
       }),
-    ).toContain(`axm migrate ${source} --dry-run`);
+    ).toContain(`axm migrate ${source} --preview`);
     expect(
       formatDeprecationWarning(source, {
         deprecatedAt,
         reason: "obsolete",
         message: "No longer needed.",
       }),
-    ).toContain(`axm migrate ${source} --dry-run`);
+    ).toContain(`axm migrate ${source} --preview`);
   });
 
   it("points manual decisions and unavailable successors to inspection", () => {

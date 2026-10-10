@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/ascii-human-output-preserves-content",
   title: "ASCII output changes display symbols while preserving content",
   statement:
-    "In human output, AXM shall use seven-bit ASCII display symbols without transliterating content when AXM_ASCII is non-empty, TERM is dumb, or the declared locale inputs consistently name non-UTF-8 locales, and shall otherwise use Unicode display symbols when locale inputs are absent or consistently name UTF-8 locales.",
+    "In human output, AXM shall use seven-bit ASCII display symbols without transliterating content when AXM_ASCII is 1 or true, TERM is dumb, or the declared locale inputs consistently name non-UTF-8 locales, and shall otherwise use Unicode display symbols when locale inputs are absent or consistently name UTF-8 locales.",
   class: "human-factors",
   role: "experience",
   goals: ["actionable-diagnostics"],
@@ -109,7 +109,10 @@ const document = [
 
 const cases = [
   { label: "AXM_ASCII numeric request", env: { AXM_ASCII: "1" }, ascii: true },
-  { label: "AXM_ASCII other nonempty value", env: { AXM_ASCII: "0" }, ascii: true },
+  { label: "AXM_ASCII explicitly disabled", env: { AXM_ASCII: "0" }, ascii: false },
+  { label: "AXM_ASCII true request", env: { AXM_ASCII: "true" }, ascii: true },
+  { label: "AXM_ASCII false request", env: { AXM_ASCII: "false" }, ascii: false },
+  { label: "AXM_ASCII unrecognized request uses default", env: { AXM_ASCII: "yes" }, ascii: false },
   { label: "dumb terminal", env: { TERM: "dumb" }, ascii: true },
   { label: "LC_ALL without UTF-8", env: { LC_ALL: "C" }, ascii: true },
   { label: "LC_CTYPE without UTF-8", env: { LC_CTYPE: "POSIX" }, ascii: true },

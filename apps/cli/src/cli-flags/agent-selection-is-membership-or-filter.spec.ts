@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/agent-selection-is-membership-or-filter",
   title: "The agent option configures workspace membership or filters inspection",
   statement:
-    "A command shall accept the agent option only to choose the workspace's configured agents or to filter read-only inspection, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension.",
+    "A command shall accept the agent option only to choose the workspace's configured agents or to filter read-only inspection, shall reject an unsupported identifier supplied through that option before any work begins, and shall not use that option to narrow the agents for one extension. Subagent inspection shall reject combining the agent filter with target rendering.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "actionable-diagnostics"],
@@ -46,7 +46,7 @@ export const specification = defineSpecification({
 
 /**
  * The commands that expose the --agent option choose workspace
- * membership at setup or first installation and row filtering when listing.
+ * membership at setup, first installation or first handoff, and inspection filtering.
  * Installation does not narrow an extension to a subset of workspace agents.
  */
 const AGENT_SELECTION_COMMANDS = [
@@ -61,8 +61,19 @@ const AGENT_SELECTION_COMMANDS = [
   "axm knowledge install",
   "axm packs install",
   "axm skills list",
+  "axm skills show",
   "axm subagents list",
+  "axm subagents show",
+  "axm mcps list",
   "axm mcps show",
+  "axm rules list",
+  "axm rules show",
+  "axm hooks list",
+  "axm hooks show",
+  "axm knowledge list",
+  "axm knowledge show",
+  "axm packs list",
+  "axm packs show",
 ] as const;
 
 const failureTag = (failure: unknown): string | undefined =>
@@ -117,8 +128,10 @@ describe("Unsupported agent identifiers", () => {
       args: ["setup", "--yes", "--scope", "project", "--non-interactive", "--agent", "bogus"],
     },
     { command: "axm install", args: ["install", "./skills", "--agent", "bogus"] },
-    { command: "axm skills list", args: ["skills", "list", "--agent", "bogus"] },
-    { command: "axm subagents list", args: ["subagents", "list", "--agent", "bogus"] },
+    ...["skills", "subagents", "mcps", "rules", "hooks", "knowledge", "packs"].flatMap((group) => [
+      { command: `axm ${group} list`, args: [group, "list", "--agent", "bogus"] },
+      { command: `axm ${group} show`, args: [group, "show", "example", "--agent", "bogus"] },
+    ]),
   ] as const;
 
   it.effect.each(rejectionRows)(

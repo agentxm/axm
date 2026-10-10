@@ -21,7 +21,7 @@ import {
   CodingAgentRepository,
   type CodingAgentRepositoryService,
 } from "@agentxm/workspace-kernel/projection";
-import { handleActivation } from "../activation-handler.js";
+import { handleDisable } from "../activation-handler.js";
 
 // -----------------------------------------------------------------------------
 // Helpers
@@ -112,8 +112,7 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleActivation("subagent", {
-          enabled: false,
+        const result = yield* handleDisable("subagent", {
           name: "nonexistent",
           preview: false,
         }).pipe(Effect.result);
@@ -141,8 +140,7 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("subagent", {
-          enabled: false,
+        yield* handleDisable("subagent", {
           name: "my-subagent",
           preview: false,
         });
@@ -168,8 +166,7 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("subagent", {
-          enabled: false,
+        yield* handleDisable("subagent", {
           name: "my-subagent",
           preview: false,
         });
@@ -247,8 +244,7 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("subagent", {
-          enabled: false,
+        yield* handleDisable("subagent", {
           name: "pack-subagent",
           preview: false,
         });
@@ -285,8 +281,7 @@ describe("subagents disable.handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("subagent", {
-          enabled: false,
+        yield* handleDisable("subagent", {
           name: "my-subagent",
           preview: false,
         });

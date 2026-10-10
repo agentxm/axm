@@ -2,6 +2,7 @@ import * as Effect from "effect/Effect";
 import { describe, expect, it } from "@effect/vitest";
 import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
 import { COMMAND_ROUTE_ALLOCATION } from "../../test-support/command-routes.js";
+import { toJsonHelpDoc } from "../../cli-runtime/index.js";
 import {
   makeCanonicalRequirementValidator,
   readCommandInventory,
@@ -42,8 +43,9 @@ describe("Command inventory navigation", () => {
     Effect.gen(function* () {
       const inventory = yield* readCommandInventory();
       const documents = yield* collectHelpFiles();
-      const root = documents.get("axm");
-      if (root === undefined) throw new Error("Missing root command help");
+      const rootHelp = documents.get("axm");
+      if (rootHelp === undefined) throw new Error("Missing root command help");
+      const root = toJsonHelpDoc(rootHelp);
       const routes = Object.keys(inventory.routes);
       expect([...routes].sort()).toEqual(
         COMMAND_ROUTE_ALLOCATION.map((entry) => entry.path.join(" ")).sort(),
@@ -64,8 +66,9 @@ describe("Command inventory navigation", () => {
       }
       for (const [route, row] of Object.entries(inventory.routes)) {
         const name = routeName(route);
-        const doc = documents.get(name);
-        if (doc === undefined) throw new Error(`Missing command help: ${name}`);
+        const help = documents.get(name);
+        if (help === undefined) throw new Error(`Missing command help: ${name}`);
+        const doc = toJsonHelpDoc(help);
         unique(
           row.flags.map((flag) => flag.name),
           `${name} flags`,
@@ -74,23 +77,31 @@ describe("Command inventory navigation", () => {
           row.arguments.map((argument) => argument.name),
           `${name} arguments`,
         );
-        expect(
-          row.flags.map(({ name, rawHelp }) => ({ name, ...rawHelp })),
-          name,
-        ).toEqual(
-          doc.flags.map(({ name, aliases, type, required }) => ({ name, aliases, type, required })),
-        );
-        expect(
-          row.arguments.map(({ name, rawHelp }) => ({ name, ...rawHelp })),
-          name,
-        ).toEqual(
-          (doc.args ?? []).map(({ name, type, required, variadic }) => ({
+        expect
+          .soft(
+            row.flags
+              .map(({ name, rawHelp }) => ({ name, ...rawHelp }))
+              .sort((a, b) => a.name.localeCompare(b.name)),
             name,
-            type,
-            required,
-            variadic,
-          })),
-        );
+          )
+          .toEqual(
+            doc.flags
+              .map(({ name, aliases, type, required }) => ({ name, aliases, type, required }))
+              .sort((a, b) => a.name.localeCompare(b.name)),
+          );
+        expect
+          .soft(
+            row.arguments.map(({ name, rawHelp }) => ({ name, ...rawHelp })),
+            name,
+          )
+          .toEqual(
+            (doc.args ?? []).map(({ name, type, required, variadic }) => ({
+              name,
+              type,
+              required,
+              variadic,
+            })),
+          );
       }
     }),
   );

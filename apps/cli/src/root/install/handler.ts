@@ -28,7 +28,6 @@ import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import { runInstallCommand } from "../shared/install-command.js";
-import { handleWorkspaceInstall } from "./workspace-install-handler.js";
 
 export interface InstallHandlerArgs {
   readonly agents?: ReadonlyArray<string>;
@@ -36,7 +35,6 @@ export interface InstallHandlerArgs {
   readonly source: Option.Option<string>;
   readonly selectors: InstallExtensionSelectors;
   readonly all: boolean;
-  readonly force: boolean;
   readonly preview: boolean;
   readonly bind: ReadonlyArray<string>;
   readonly bindEnv: ReadonlyArray<string>;
@@ -72,17 +70,18 @@ const validateGrammar = (args: InstallHandlerArgs) =>
         return agent;
       }),
     );
-    if ((args.agents?.length ?? 0) > 0 && Option.isNone(args.source)) {
-      return yield* makeAppError({ code: "usage", detail: "--agent requires an install source" });
-    }
-    const selected = selectedEntries(args.selectors);
-    if (Option.isNone(args.source) && (args.all || selected.length > 0)) {
+    if (Option.isNone(args.source)) {
       return yield* makeAppError({
         code: "usage",
-        detail: "Selection flags and --all require an install source",
-        recover: "Name a source, or omit source-selection flags to reinstall configured extensions",
+        detail: "An install source is required",
+        recover: "Supply a source, synchronize configured state, or acquire it again",
+        suggestions: [
+          { description: "Realize configured state", cmd: "axm sync" },
+          { description: "Acquire configured extensions again", cmd: "axm update --reinstall" },
+        ],
       });
     }
+    const selected = selectedEntries(args.selectors);
     if (Option.isSome(args.localName)) {
       const nonMcpSelections = selected.filter(({ type }) => type !== "mcp-server");
       if (Option.isNone(args.source) || nonMcpSelections.length > 0) {
@@ -146,33 +145,24 @@ export const handleInstall = (args: InstallHandlerArgs) =>
         });
       }
     }
-    if (Option.isNone(args.source) && !args.bundled) {
-      return yield* handleWorkspaceInstall({
-        command: [...commandSegments(args.type)].join("."),
-        type: args.type,
-        planName: Option.isSome(args.type)
-          ? `Install configured ${extensionTypeToPlural[args.type.value]}`
-          : "Install configured extensions",
-        planDescription: Option.some("Install configured workspace extensions"),
-        flags: { force: args.force, preview: args.preview },
-      });
+    if (Option.isNone(args.source)) {
+      return yield* makeAppError({ code: "usage", detail: "An install source is required" });
     }
 
     const nonInteractive = !(yield* (yield* Screen).canAsk);
     const ignoreReleaseAge = (yield* ReleaseAgePosture) === "ignore";
-    const source = Option.getOrElse(args.source, () => "@agentxm/skills/axm");
+    const source = args.source.value;
     const command = commandSegments(args.type);
     const selected = selectedEntries(args.selectors);
     return yield* runInstallCommand({
       command: command.join("."),
       preview: args.preview,
-      force: args.force,
       request: {
         type: args.type,
         subject: args.bundled ? { kind: "bundled" } : { kind: "source", source },
         selectors: args.selectors,
         all: args.all,
-        reinstall: args.force,
+
         localName: args.localName,
         bind: args.bind,
         bindEnv: args.bindEnv,

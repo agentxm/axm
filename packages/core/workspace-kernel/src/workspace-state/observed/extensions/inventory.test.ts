@@ -49,7 +49,7 @@ describe("projectExtensionInventory", () => {
                 name: record.name,
                 agentId: "codex",
                 outcome: "current",
-                reasonCode: "test",
+                reasonCode: "supported",
                 reason: "Test outcome",
               },
             ]

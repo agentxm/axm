@@ -43,7 +43,7 @@ const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> =>
 
 /** The flag that names one of this type's extensions on an install command. */
 const selectorFlag = (type: InstallableExtensionType): string =>
-  type === "mcp-server" ? "--mcp" : `--${type}`;
+  type === "mcp-server" ? "--mcp-server" : `--${type}`;
 
 /** What a request decided before the source's contents were known. */
 export interface InstallSelectionRequest {

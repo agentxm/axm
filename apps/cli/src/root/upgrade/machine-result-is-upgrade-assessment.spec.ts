@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/upgrade/machine-result-is-upgrade-assessment",
   title: "Machine upgrade emits one complete assessment",
   statement:
-    "When upgrade reports an assessment in machine mode, AXM shall emit exactly one axm.upgrade-assessment/v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.",
+    "When upgrade reports an assessment in machine mode, AXM shall emit exactly one upgrade-assessment-v1 result that separately records intent, platform, ownership, canonical selection, installer availability, target, mutation, verification, recovery, command evidence, and disposition.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -50,8 +50,8 @@ describe("Upgrade assessment contract", () => {
         "verification",
       ].sort(),
     );
-    expect(Schema.decodeUnknownSync(fields.contract)("axm.upgrade-assessment/v1")).toBe(
-      "axm.upgrade-assessment/v1",
+    expect(Schema.decodeUnknownSync(fields.contract)("upgrade-assessment-v1")).toBe(
+      "upgrade-assessment-v1",
     );
   });
   for (const scenario of [
@@ -79,7 +79,7 @@ describe("Upgrade assessment contract", () => {
         const emitted: unknown = JSON.parse(result.stdout);
         const document = yield* Schema.decodeUnknownEffect(UpgradeDocumentSchema)(emitted);
         expect(document.result).toMatchObject({
-          contract: "axm.upgrade-assessment/v1",
+          contract: "upgrade-assessment-v1",
           outcome: scenario.outcome,
           disposition: scenario.disposition,
         });

@@ -276,7 +276,7 @@ project after moving their consumer-specific responsibilities to the CLI.
 
 The application owns `UpgradeSettlement`: installation, availability, mutation,
 verification, and recovery facts. The CLI adapter under
-`self-update/adapters/cli` owns the `axm.upgrade-assessment/v1` document,
+`self-update/adapters/cli` owns the `upgrade-assessment-v1` document,
 messages, plan steps, and command display. The CLI maps a settlement once at its
 delivery boundary. Availability has one canonical value in the settlement, so
 failure wording and the machine disposition read the same observation.

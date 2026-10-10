@@ -153,7 +153,7 @@ export {
   FailureProblemSchema,
   FailureSuggestedActionSchema,
   OPERATION_ERROR_CATEGORIES,
-  OperationErrorCategorySchema,
+  ErrorCodeSchema,
   PlanInteractionFailed,
   STALE_CANDIDATE_DETAIL,
   StaleExecutionCandidate,
@@ -167,7 +167,7 @@ export {
   type FailureMetadata,
   type FailureProblem,
   type FailureSuggestedAction,
-  type OperationErrorCategory,
+  type ErrorCode,
 } from "./errors.js";
 
 // Interaction port for preview/apply presentation, progress, and confirmation.
@@ -223,6 +223,8 @@ export { LifecyclePostconditionViolated, ScaffoldedExtensionUnresolved } from ".
 export { ArtifactChangeSchema, type ArtifactChange } from "./artifact-change.js";
 export {
   ConfiguredAgentOutcomeSchema,
+  ConfiguredAgentReasonCodeSchema,
+  type ConfiguredAgentReasonCode,
   type ConfiguredAgentOutcome,
 } from "./configured-agent-outcome.js";
 

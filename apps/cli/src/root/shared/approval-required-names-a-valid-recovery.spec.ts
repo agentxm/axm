@@ -178,7 +178,6 @@ describe("Approval-required recovery", () => {
           source: Option.some(FQN),
           selectors: {},
           all: false,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],
@@ -239,7 +238,6 @@ describe("Approval-required recovery", () => {
           source: Option.some(FQN),
           selectors: {},
           all: false,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],
@@ -253,7 +251,7 @@ describe("Approval-required recovery", () => {
         republishUnderBinding(registry, SKILL, "hbnd_other");
         workspace.rendererState.results.splice(0);
 
-        yield* handleUpdate({ source: Option.some(FQN), force: false, preview: false }).pipe(
+        yield* handleUpdate({ source: Option.some(FQN), reinstall: false, preview: false }).pipe(
           Effect.provide(workspace.layer),
         );
 
@@ -303,7 +301,7 @@ describe("Approval-required recovery", () => {
     Effect.gen(function* () {
       const source = "./extensions";
       const { recovery } = yield* makeInstallPlanInvocation(
-        { preview: false, force: false },
+        { preview: false },
         ["install"],
         [source],
         [
@@ -328,7 +326,7 @@ describe("Approval-required recovery", () => {
       expect(argv).toContain("--ignore-release-age");
       expect(argv).not.toContain("--all");
       expect(yield* admitRecoveryArgv(argv, ["install"])).toMatchObject({
-        source: Option.some(source),
+        source,
         skill: ["alpha"],
         rule: ["safe-shell"],
         all: false,
@@ -342,7 +340,7 @@ describe("Approval-required recovery", () => {
     () =>
       Effect.gen(function* () {
         const { recovery } = yield* makeInstallPlanInvocation(
-          { preview: false, force: false },
+          { preview: false },
           ["mcps", "install"],
           ["@acme/mcps/context"],
           [recoveryOption("--env", protectedRecoveryValue())],

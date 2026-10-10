@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 /**
  * Command interaction capabilities.
  *
@@ -16,7 +17,7 @@
  */
 
 import * as ServiceMap from "effect/Context";
-import { Command, Flag } from "effect/cli";
+import { Command } from "effect/cli";
 
 import { previewFlag, yesFlag } from "../../cli-flags/index.js";
 
@@ -135,10 +136,9 @@ export const previewableCapabilities = (
 
 /**
  * The assessment flag for a command whose capabilities declare preview. The
- * description may be specialized; the spelling is fixed.
+ * spelling and description are shared by every assessment route.
  */
-export const previewCapabilityFlag = (description?: string) =>
-  description === undefined ? previewFlag : previewFlag.pipe(Flag.withDescription(description));
+export const previewCapabilityFlag = () => previewFlag;
 
 /**
  * The preapproval flag for a command whose capabilities declare a
@@ -147,7 +147,8 @@ export const previewCapabilityFlag = (description?: string) =>
  */
 export const preapprovalCapabilityFlag = (capabilities: {
   readonly preapproval: { readonly purpose: string };
-}) => yesFlag.pipe(Flag.withDescription(capabilities.preapproval.purpose));
+}) =>
+  yesFlag.pipe(withParameterDescription(`Approve ${capabilities.preapproval.purpose} in advance`));
 
 export interface RegisteredCommandCapabilities {
   readonly path: ReadonlyArray<string>;

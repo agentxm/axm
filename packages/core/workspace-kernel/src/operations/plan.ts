@@ -20,7 +20,7 @@ import type * as Effect from "effect/Effect";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import { OperationErrorCategorySchema, type StepFailure } from "./errors.js";
+import { ErrorCodeSchema, type StepFailure } from "./errors.js";
 import {
   EXTENSION_TYPE_TABLE,
   type ExtensionType,
@@ -99,7 +99,7 @@ export const PlanRiskConditionSchema = Schema.Union([
     level: Schema.Literal("blocked"),
     id: Schema.String,
     detail: Schema.String,
-    errorCode: OperationErrorCategorySchema,
+    errorCode: ErrorCodeSchema,
   }),
 ]);
 export type PlanRiskCondition = typeof PlanRiskConditionSchema.Type;

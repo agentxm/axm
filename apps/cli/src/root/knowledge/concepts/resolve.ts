@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../../cli-parameters.js";
 import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command, Flag } from "effect/cli";
@@ -38,7 +39,7 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
   fuzzy = false,
 ) {
   const resolved = yield* withLiveOperation(
-    { command: "knowledge.concepts.resolve", name: "Resolve knowledge concept", mode: "preview" },
+    { command: "knowledge.concepts.resolve", name: "Resolve knowledge concept", mode: "query" },
     Effect.catchTag(
       KnowledgeDiscovery.resolve({ input, fuzzy }),
       "KnowledgeCorpusUnavailable",
@@ -85,11 +86,11 @@ export const handleKnowledgeConceptResolve = Effect.fn("Knowledge.concepts.resol
 
 const resolveConfig = {
   input: Argument.String("input").pipe(
-    Argument.withDescription("Compact or canonical HTTPS concept reference"),
+    withParameterDescription("Compact or canonical HTTPS concept reference"),
   ),
   fuzzy: Flag.Boolean("fuzzy").pipe(
-    Flag.withDescription("Opt into bounded concept ID and title candidate matching"),
-    Flag.withDefault(false),
+    withParameterDescription("Opt into bounded concept ID and title candidate matching"),
+    withParameterDefault(false),
   ),
   ...scopeConfig,
 } as const;

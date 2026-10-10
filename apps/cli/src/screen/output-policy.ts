@@ -1,4 +1,4 @@
-import { ciEnabled } from "@agentxm/host-primitives";
+import { axmBooleanEnabled, ciEnabled } from "@agentxm/host-primitives";
 
 interface CliOutputEnvironment {
   readonly stdoutIsTTY: boolean | undefined;
@@ -48,7 +48,7 @@ const localeLacksUnicode = (env: NodeJS.ProcessEnv): boolean => {
 };
 
 const resolveGlyphs = (env: NodeJS.ProcessEnv): CliOutputPolicy["glyphs"] =>
-  hasNonEmptyEnv(env, "AXM_ASCII") || hasDumbTerminal(env) || localeLacksUnicode(env)
+  axmBooleanEnabled(env["AXM_ASCII"]) || hasDumbTerminal(env) || localeLacksUnicode(env)
     ? "ascii"
     : "unicode";
 

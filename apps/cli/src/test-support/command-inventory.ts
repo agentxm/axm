@@ -2,6 +2,7 @@
 import * as fs from "node:fs";
 import ts from "typescript";
 import * as Schema from "effect/Schema";
+import { ParameterVariadicSchema } from "../cli-parameters.js";
 
 import { specificationFileFor } from "./specification-index.js";
 
@@ -33,7 +34,7 @@ const argument = Schema.Struct({
   rawHelp: Schema.Struct({
     type: Schema.String,
     required: Schema.Boolean,
-    variadic: Schema.Boolean,
+    variadic: Schema.optionalKey(ParameterVariadicSchema),
   }),
 });
 export const CommandInventorySchema = Schema.Struct({

@@ -198,7 +198,7 @@ describe("fork and native import", () => {
       configureOwner(temp.path);
 
       const imported = await runCli(
-        ["mcps", "import", "--as", "@test/mcps/context", "--non-interactive", "--json"],
+        ["mcps", "import", "context", "@test/mcps/context", "--non-interactive", "--json"],
         { cwd: temp.path },
       );
       expect(imported.exitCode, `${imported.stderr}\n${imported.stdout}`).toBe(0);
@@ -273,7 +273,15 @@ describe("fork and native import", () => {
       const before = snapshotProtectedState(temp.path);
       for (const flags of [["--preview"], []]) {
         const imported = await runCli(
-          ["mcps", "import", "--as", "@test/mcps/context", ...flags, "--non-interactive", "--json"],
+          [
+            "mcps",
+            "import",
+            "context",
+            "@test/mcps/context",
+            ...flags,
+            "--non-interactive",
+            "--json",
+          ],
           { cwd: temp.path },
         );
         expect(imported.exitCode, imported.stdout + imported.stderr).toBe(0);

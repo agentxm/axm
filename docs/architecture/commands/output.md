@@ -143,6 +143,33 @@ typed human document is not a wire format, and machine output is not derived
 from it. Exact fields and observable output obligations remain with their
 executable authorities.
 
+## Launch contract
+
+At public launch, the machine contract freezes stdout document shapes and
+documented payload enums, stderr event types and payloads, error codes, and
+their exit-code mapping. Breaking changes require a new version of the affected
+contract family, expressed as `<family>-v<N>`; the CLI release number does not
+identify a machine contract.
+
+The ordinary `result-envelope-v1` contract is detected by shape and adds no
+top-level contract key. Plan, publish, Registry transition, and upgrade results
+declare their payload family under `result.contract`. Knowledge queries declare
+`query.contract: "knowledge-query-v1"`; discovery capabilities declare
+`capabilities.contract: "knowledge-discovery-capabilities-v1"` and refer to the
+query contract with `queryContract`.
+
+Error-envelope `code` and plan `failure.category` retain snake_case as a
+deliberate exception to kebab-case CLI enums. Registry `problemCode` remains
+unchanged; the CLI does not translate its spelling.
+
+Diagnostic-record contents are implementation-owned, unfrozen support
+artifacts, including when embedded under `result.record` or exported as a
+standalone file. They have no `diagnostic-record-v1` discriminator. Automation
+uses the public failure envelope's error code, recovery suggestions, and
+optional `diagnosticId`; internal failure and operation vocabulary stays in the
+local record and telemetry. Record review and export retain their existing
+authorization and exact-content checks.
+
 ## Interaction
 
 Preview, confirmation, execution, and rendering refer to one operation

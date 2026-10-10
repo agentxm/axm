@@ -2,15 +2,14 @@ import * as Schema from "effect/Schema";
 import { WORKSPACE_SCOPES } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { KnowledgeSearchableField } from "./knowledge-projection.js";
 
-export const KNOWLEDGE_QUERY_CONTRACT_VERSION = "axm-knowledge-query-v1";
+export const KNOWLEDGE_QUERY_CONTRACT_ID = "knowledge-query-v1";
 
 export const KNOWLEDGE_DISCOVERY_OPERATIONS = [
   "resolve",
-  "search",
   "query",
   "get",
   "related",
-  "status",
+  "capabilities",
 ] as const;
 
 export const KNOWLEDGE_QUERY_OPERATORS = [
@@ -101,7 +100,7 @@ export const KnowledgeQueryClauseSchema = Schema.Union([
 export type KnowledgeQueryClause = typeof KnowledgeQueryClauseSchema.Type;
 
 export const KnowledgeQuerySchema = Schema.Struct({
-  version: Schema.Literal(KNOWLEDGE_QUERY_CONTRACT_VERSION),
+  contract: Schema.Literal(KNOWLEDGE_QUERY_CONTRACT_ID),
   scope: Schema.Literals(WORKSPACE_SCOPES),
   clauses: Schema.Array(KnowledgeQueryClauseSchema),
   ordering: Schema.Literals(["relevance", "metadata"]),
@@ -131,7 +130,7 @@ export const makeKnowledgeQuery = (
     readonly cursor?: string;
   },
 ): KnowledgeQuery => ({
-  version: KNOWLEDGE_QUERY_CONTRACT_VERSION,
+  contract: KNOWLEDGE_QUERY_CONTRACT_ID,
   scope,
   clauses,
   ordering: options?.ordering ?? (clauses.length === 0 ? "metadata" : "relevance"),
@@ -143,7 +142,7 @@ export const makeKnowledgeQuery = (
 
 /** The cursor and bounds do not change which candidates a canonical query denotes. */
 export const knowledgeQueryIdentity = (query: KnowledgeQuery): unknown => ({
-  version: query.version,
+  contract: query.contract,
   scope: query.scope,
   clauses: query.clauses,
   ordering: query.ordering,

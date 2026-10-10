@@ -57,7 +57,7 @@ describe("./testing.js", () => {
           workspaceRoot: workspace.root,
           userHome: workspace.root,
           scope: "project",
-          input: { view: "workspace" },
+          input: { view: "filesystem" },
           nativeView: { kind: "workspace" },
           fix: false,
         },

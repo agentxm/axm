@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
 
 import { collectHelpFiles } from "../../test-support/command-tree-test-helpers.js";
@@ -11,7 +12,7 @@ export const specification = defineSpecification({
   requirement: "cli/preview-uses-the-canonical-flag",
   title: "Assessment uses its declared flag on every command",
   statement:
-    "Commands that assess their change without applying it shall accept --preview and no alternative spelling, except migrate, which uses --dry-run. Commands without a --preview assessment shall reject that flag, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them.",
+    "Commands that assess their change without applying it shall accept --preview and no alternative spelling. Commands without a --preview assessment shall reject that flag, every command that offers preapproval shall accept --yes while every command without one shall reject it, and rendered help shall list --preview and --yes on exactly the commands whose capabilities declare them. Preview help shall use the shared description Show what would change without applying it.",
   class: "functional",
   role: "interface",
   goals: ["machine-automation"],
@@ -69,10 +70,10 @@ describe("The canonical assessment flag", () => {
     }),
   );
 
-  it.effect("migrate uses its explicit --dry-run preview", () =>
+  it.effect("migrate uses --preview and rejects its retired spelling", () =>
     Effect.gen(function* () {
-      expect(yield* probeFlag(["migrate"], RETIRED_SPELLING)).toBe("accepted");
-      expect(yield* probeFlag(["migrate"], PREVIEW)).toBe("unrecognized");
+      expect(yield* probeFlag(["migrate"], RETIRED_SPELLING)).toBe("unrecognized");
+      expect(yield* probeFlag(["migrate"], PREVIEW)).toBe("accepted");
     }),
   );
 
@@ -90,6 +91,13 @@ describe("The canonical assessment flag", () => {
             continue;
           }
           const flagNames = new Set(doc.flags.map((flag) => flag.name));
+          if (route.preview) {
+            expect(
+              Option.getOrUndefined(
+                doc.flags.find((flag) => flag.name === "preview")?.description ?? Option.none(),
+              ),
+            ).toBe("Show what would change without applying it");
+          }
           if (flagNames.has("preview") !== route.preview) {
             disagreements.push(
               `${spelling}: help ${flagNames.has("preview") ? "lists" : "omits"} --preview`,

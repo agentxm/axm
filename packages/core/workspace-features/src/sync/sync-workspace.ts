@@ -124,7 +124,7 @@ type SyncPlanStep = PlannedJobStep<SyncWorkspaceRequirements>;
 export interface SyncWorkspaceRequest {
   /** One extension or Pack, by fully-qualified identifier. */
   readonly target: Option.Option<string>;
-  readonly type: Option.Option<Exclude<ExtensionType, "pack">>;
+  readonly types: ReadonlyArray<Exclude<ExtensionType, "pack">>;
 }
 
 /** The workspace already matches what it declares. */
@@ -163,8 +163,8 @@ export type SyncWorkspaceExecutionFailure =
 const scopeLabelFor = (selection: SyncSelection): string =>
   Option.isSome(selection.target)
     ? selection.target.value
-    : Option.isSome(selection.type)
-      ? `type ${selection.type.value}`
+    : selection.types.length > 0
+      ? `types ${selection.types.join(", ")}`
       : "workspace";
 
 const inventoriesStillCurrent = (observed: CollectedMaterializeSteps["inventoryObservations"]) =>
@@ -204,8 +204,8 @@ const selectionTouches = (
   selection: SyncSelection,
   unitType: "rule" | "hook" | "knowledge",
 ): boolean => {
-  if (Option.isNone(selection.target) && Option.isNone(selection.type)) return true;
-  if (Option.isSome(selection.type) && selection.type.value === unitType) return true;
+  if (Option.isNone(selection.target) && selection.types.length === 0) return true;
+  if (selection.types.includes(unitType)) return true;
   if (Option.isSome(selection.target)) {
     const parsedType = parseExtensionFqnParts(selection.target.value)?.type;
     return parsedType === unitType || parsedType === "pack";
@@ -271,8 +271,8 @@ export const prepareSyncWorkspace = (
     const location = yield* WorkspaceLocation;
     const invariantFacts = yield* WorkspaceInvariantFacts;
     const conversion = yield* StepFailureConversion;
-    const selection: SyncSelection = { target: request.target, type: request.type };
-    const scoped = Option.isSome(request.target) || Option.isSome(request.type);
+    const selection: SyncSelection = { target: request.target, types: [...new Set(request.types)] };
+    const scoped = Option.isSome(request.target) || request.types.length > 0;
     const scopeLabel = scopeLabelFor(selection);
     const planName = scoped ? `Sync ${scopeLabel}` : SYNC_PLAN_NAME;
     const planDescription = scoped
@@ -328,14 +328,15 @@ export const prepareSyncWorkspace = (
             adapter: conversion,
           });
           const selected = scoped ? selectedDesiredNodes(graph, selection) : [];
-          const selectedType = Option.getOrUndefined(selection.type);
-          const selectedAccepted =
-            selectedType === undefined
-              ? []
-              : Object.values(yield* lockfile.entries(selectedType)).map((entry) => ({
-                  type: selectedType,
-                  name: entry.identity.name,
-                }));
+          const selectedAccepted = (yield* Effect.forEach(selection.types, (type) =>
+            lockfile
+              .entries(type)
+              .pipe(
+                Effect.map((entries) =>
+                  Object.values(entries).map((entry) => ({ type, name: entry.identity.name })),
+                ),
+              ),
+          )).flat();
           const subjects = scoped ? [...selected, ...selectedAccepted] : undefined;
           const projectionFacts = yield* invariantFacts.projectionFactsForGraph(graph);
           const hookProjectionFacts = projectionFacts.filter(({ subject }) =>

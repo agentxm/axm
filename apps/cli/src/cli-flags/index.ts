@@ -1,4 +1,4 @@
-export { waitForHumanOption } from "./wait-for-human.js";
+import { withParameterDefault, withParameterDescription } from "../cli-parameters.js";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import { Flag, GlobalFlag } from "effect/cli";
@@ -16,30 +16,32 @@ import { jsonFlag } from "./json-flag.js";
 export const verboseFlag = GlobalFlag.Setting("axm-verbose")({
   flag: Flag.Boolean("verbose").pipe(
     Flag.withAlias("v"),
-    Flag.withDescription("Show additional redacted diagnostic details for errors"),
-    Flag.withDefault(false),
+    withParameterDescription(
+      "Show full detail: folded rows, plan and finding details, and redacted error diagnostics",
+    ),
+    withParameterDefault(false),
   ),
 });
 
 export const debugFlag = GlobalFlag.Setting("axm-debug")({
   flag: Flag.Boolean("debug").pipe(
-    Flag.withDescription("Show redacted cause and stack details (implies --verbose)"),
-    Flag.withDefault(false),
+    withParameterDescription("Show redacted cause and stack details; implies --verbose"),
+    withParameterDefault(false),
   ),
 });
 
 export const quietFlag = GlobalFlag.Setting("axm-quiet")({
   flag: Flag.Boolean("quiet").pipe(
     Flag.withAlias("q"),
-    Flag.withDescription("Show only final outcomes, errors, and required actions"),
-    Flag.withDefault(false),
+    withParameterDescription("Show only final outcomes, errors, and required actions"),
+    withParameterDefault(false),
   ),
 });
 
 export const directoryFlag = GlobalFlag.Setting("axm-directory")({
   flag: Flag.Directory("directory", { mustExist: true }).pipe(
     Flag.withAlias("C"),
-    Flag.withDescription(
+    withParameterDescription(
       "Run as if AXM was started in this directory (relative paths resolve from there)",
     ),
     Flag.optional,
@@ -47,7 +49,6 @@ export const directoryFlag = GlobalFlag.Setting("axm-directory")({
 });
 
 export {
-  isEnabledEnvRequest,
   resolveVerbosityFromArgv,
   resolveVerbosityLevel,
   type DiagnosticRequest,
@@ -81,8 +82,8 @@ export { whenDebug, whenNotQuiet, whenVerbose } from "./verbosity-helpers.js";
  */
 export const yesFlag = Flag.Boolean("yes").pipe(
   Flag.withAlias("y"),
-  Flag.withDescription("Approve the documented confirmation in advance"),
-  Flag.withDefault(false),
+  withParameterDescription("Approve the documented confirmation in advance"),
+  withParameterDefault(false),
 );
 
 /**
@@ -96,12 +97,9 @@ export const yesFlag = Flag.Boolean("yes").pipe(
 const OVERRIDE_FLAG_DECLARATIONS = {
   reinstall: {
     policy: "reinstall",
-    description: "Reinstall content that is already installed",
+    description: "Reinstall content at its accepted resolution",
   },
-  refresh: {
-    policy: "current",
-    description: "Run update even when the installed version is already current",
-  },
+
   "accept-warnings": {
     policy: "warning",
     description: "Apply the plan even when preflight reports unresolved warnings",
@@ -125,13 +123,11 @@ export const NAMED_OVERRIDE_POLICIES: Readonly<Record<string, string>> = Object.
 
 const makeOverrideFlag = (name: OverrideFlagName) =>
   Flag.Boolean(name).pipe(
-    Flag.withDescription(OVERRIDE_FLAG_DECLARATIONS[name].description),
-    Flag.withDefault(false),
+    withParameterDescription(OVERRIDE_FLAG_DECLARATIONS[name].description),
+    withParameterDefault(false),
   );
 
 export const reinstallFlag = makeOverrideFlag("reinstall");
-
-export const refreshFlag = makeOverrideFlag("refresh");
 
 /**
  * The one-shot minimum-release-age override. Every command whose outcome the
@@ -148,8 +144,8 @@ export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
  * assessment any other way.
  */
 export const previewFlag = Flag.Boolean("preview").pipe(
-  Flag.withDescription("Display plan without applying"),
-  Flag.withDefault(false),
+  withParameterDescription("Show what would change without applying it"),
+  withParameterDefault(false),
 );
 
 export { agentFlag } from "./agent-flag.js";
@@ -191,3 +187,24 @@ export const TestFlagsLayer = (overrides?: {
     Layer.succeed(debugFlag, overrides?.debug ?? false),
   );
 };
+
+/** Listing and search summary for every authored extension type. */
+export const descriptionFlag = Flag.String("description").pipe(
+  withParameterDescription("Short registry-facing summary shown in listings and search results"),
+  Flag.optional,
+);
+
+/** One Registry selector, resolved before transport and credentials are composed. */
+export const registryFlag = Flag.String("registry").pipe(
+  withParameterDescription("Registry name or absolute URL; defaults to axm.json defaultRegistry"),
+  Flag.optional,
+);
+
+export const axmGlobalFlags = [
+  nonInteractiveFlag,
+  verboseFlag,
+  debugFlag,
+  quietFlag,
+  jsonFlag,
+  directoryFlag,
+] as const;

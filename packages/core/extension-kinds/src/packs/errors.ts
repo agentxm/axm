@@ -7,7 +7,7 @@
 
 import * as Data from "effect/Data";
 
-import type { OperationErrorCategory } from "@agentxm/workspace-kernel/operations";
+import type { ErrorCode } from "@agentxm/workspace-kernel/operations";
 import {
   ExtensionKindFailureTypeId,
   type ExtensionKindFailure,
@@ -26,7 +26,7 @@ export class PackDefinitionInvalid
 {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
     ExtensionKindFailureTypeId;
-  get category(): OperationErrorCategory {
+  get category(): ErrorCode {
     return "validation";
   }
 }
@@ -40,7 +40,7 @@ export class PackInstallStateMissing
 {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
     ExtensionKindFailureTypeId;
-  get category(): OperationErrorCategory {
+  get category(): ErrorCode {
     return "internal";
   }
   get detail(): string {
@@ -58,7 +58,7 @@ export class PackStagingFailed
 {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId =
     ExtensionKindFailureTypeId;
-  get category(): OperationErrorCategory {
+  get category(): ErrorCode {
     return "internal";
   }
   get detail(): string {

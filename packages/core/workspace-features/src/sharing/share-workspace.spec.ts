@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/share-prints-live-install-command",
   title: "Share prints live install and package recommendation output without writing",
   statement:
-    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when one package ecosystem flag is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
+    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when an ecosystem is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],

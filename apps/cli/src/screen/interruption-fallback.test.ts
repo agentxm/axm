@@ -9,7 +9,7 @@ describe("interruptionFallback", () => {
 
   it("uses the canonical machine error event", () => {
     expect(interruptionFallback("SIGTERM", true)).toBe(
-      '{"type":"error","code":"interrupted","message":"Cancelled by SIGTERM.","reason":"interrupted","signal":"SIGTERM"}\n',
+      '{"type":"error","code":"interrupted","message":"Cancelled by SIGTERM.","signal":"SIGTERM"}\n',
     );
   });
 });

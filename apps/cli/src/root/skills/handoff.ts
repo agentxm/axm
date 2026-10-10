@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Command, Flag } from "effect/cli";
@@ -71,19 +72,19 @@ export const handleHandoff = (
 
 const config = {
   skill: Flag.String("skill").pipe(
-    Flag.withDescription("Transfer this installed Skills-manager entry; repeatable"),
+    withParameterDescription("Select an installed Skills-manager entry by exact name"),
     Flag.atLeast(0),
   ),
   all: Flag.Boolean("all").pipe(
-    Flag.withDescription("Transfer every verified entry in the selected manager lock"),
-    Flag.withDefault(false),
+    withParameterDescription("Select every verified entry in the selected manager lock"),
+    withParameterDefault(false),
   ),
   lock: Flag.String("lock").pipe(
-    Flag.withDescription("Skills manager lock path; defaults to the selected scope's lock"),
+    withParameterDescription("Skills manager lock path; defaults to the selected scope's lock"),
     Flag.optional,
   ),
   scope: scopeFlag,
-  agent: agentFlag.pipe(Flag.withDescription("Configure an agent on first handoff; repeatable")),
+  agent: agentFlag.pipe(withParameterDescription("Configure this coding agent on first handoff")),
   preview: previewCapabilityFlag(),
 } as const;
 

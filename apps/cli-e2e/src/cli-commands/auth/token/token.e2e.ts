@@ -1,5 +1,5 @@
 /**
- * E2E tests for `axm token`.
+ * E2E tests for `axm token show`.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -11,9 +11,9 @@ import { createTempDir, runCli, writeUserDefaultRegistry } from "../../../e2e/ut
 // Process evidence for this module is bound by the auth.e2e.test.ts Vitest entrypoint.
 
 const TOKEN_ENV = { AXM_TOKEN: "test-token-value" } as const;
-describe("axm token", () => {
-  it("writes exactly the token and one newline with --output token", async () => {
-    const result = await runCli(["token", "--output", "token"], {
+describe("axm token show", () => {
+  it("writes exactly the token and one newline with --plain", async () => {
+    const result = await runCli(["token", "show", "--plain"], {
       env: TOKEN_ENV,
       exactOutput: true,
     });
@@ -23,29 +23,31 @@ describe("axm token", () => {
   });
 
   it("refuses to export without an output mode when stdout is not a terminal", async () => {
-    const result = await runCli(["token"], { env: TOKEN_ENV });
+    const result = await runCli(["token", "show"], { env: TOKEN_ENV });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toBe("");
-    expect(result.stderr).toContain("--output token");
+    expect(result.stderr).toContain("--plain");
     expect(result.stderr).not.toContain("test-token-value");
   });
 
   it("refuses JSON token output with a secret-free usage envelope", async () => {
-    const result = await runCli(["token", "--json"], { env: TOKEN_ENV });
+    const result = await runCli(["token", "show", "--json"], { env: TOKEN_ENV });
     expect(result.exitCode).toBe(2);
     expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "usage" });
     expect(result.stdout + result.stderr).not.toContain("test-token-value");
   });
 
   for (const args of [
-    ["--output", "token", "--json"],
-    ["--output=token", "--help"],
-    ["--output", "token", "--version"],
-    ["--output", "token", "--output", "human"],
-    ["--output", "token", "--unknown-flag"],
+    ["--plain", "--json"],
+    ["--plain", "--help"],
+    ["--plain", "--version"],
+    ["--plain", "--unknown-flag"],
   ]) {
     it(`keeps stdout empty for a rejected raw invocation: ${args.join(" ")}`, async () => {
-      const result = await runCli(["token", ...args], { env: TOKEN_ENV, exactOutput: true });
+      const result = await runCli(["token", "show", ...args], {
+        env: TOKEN_ENV,
+        exactOutput: true,
+      });
       expect(result.exitCode).toBe(2);
       expect(result.stdout).toBe("");
       expect(result.stderr).not.toContain("test-token-value");
@@ -53,7 +55,7 @@ describe("axm token", () => {
   }
 
   it("fails without revoking anything when stdout is closed", async () => {
-    const result = await runCli(["token", "--output", "token"], {
+    const result = await runCli(["token", "show", "--plain"], {
       env: TOKEN_ENV,
       closedStdout: true,
     });
@@ -64,7 +66,7 @@ describe("axm token", () => {
   });
 
   it("fails with auth when no credentials available", async () => {
-    const result = await runCli(["token", "--output", "token"], {
+    const result = await runCli(["token", "show", "--plain"], {
       env: { AXM_TOKEN: "" },
       exactOutput: true,
     });
@@ -80,16 +82,7 @@ describe("axm token", () => {
     try {
       writeUserDefaultRegistry(home.path, registry.url);
       const result = await runCli(
-        [
-          "token",
-          "create",
-          "--name",
-          "e2e-browser-only",
-          "--permission",
-          "read",
-          "--output",
-          "token",
-        ],
+        ["token", "create", "e2e-browser-only", "--permission", "read", "--plain"],
         {
           env: {
             HOME: home.path,

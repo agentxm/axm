@@ -173,7 +173,6 @@ export const makeTelemetryOperation = () => {
           source: Option.some(options.fail === true ? `${source}/missing` : source),
           selectors: {},
           all: true,
-          force: false,
           preview: options.preview === true,
           bind: [],
           bindEnv: [],

@@ -190,8 +190,11 @@ describe("packs list.handler", () => {
               enabled: true,
               owner: "@acme",
               version: "1.0.0",
-              source: "test:@acme/packs/starter-pack",
-              classification: { kind: "lifecycle", lifecycle: "configured" },
+              source: expect.objectContaining({
+                kind: "registry",
+                locator: "test:@acme/packs/starter-pack",
+              }),
+              management: "configured",
             },
           ],
         });

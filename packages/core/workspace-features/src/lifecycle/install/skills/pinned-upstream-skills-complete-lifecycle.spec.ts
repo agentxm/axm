@@ -121,17 +121,11 @@ for (const source of corpus.sources) {
               fs.rmSync(canonical, { recursive: true });
               if (journey === "restore") {
                 yield* world.workspace.provide(
-                  applySync({ target: Option.none(), type: Option.some("skill") }),
+                  applySync({ target: Option.none(), types: ["skill"] }),
                 );
               } else {
                 yield* world.workspace.provide(
-                  applyInstall(
-                    installRequest({
-                      type: "skill",
-                      subject: { kind: "configured" },
-                      reinstall: true,
-                    }),
-                  ),
+                  applyUpdate(configuredUpdateRequest({ type: "skill", reinstall: true })),
                 );
               }
               assertPayload(active);

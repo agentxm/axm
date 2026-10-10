@@ -14,7 +14,7 @@ describe("lint catalog views", () => {
   });
 
   it("adds every live-only rule for workspace input", () => {
-    expect(lintCatalogsForView("workspace").workspace).toEqual(workspaceRules);
+    expect(lintCatalogsForView("filesystem").workspace).toEqual(workspaceRules);
     const repositoryRuleIds = REPOSITORY_LINT_CATALOGS.workspace.map((rule) => rule.id);
     const liveOnlyRuleIds = LIVE_ONLY_LINT_CATALOGS.workspace.map((rule) => rule.id);
     expect(repositoryRuleIds).toEqual(
@@ -27,6 +27,6 @@ describe("lint catalog views", () => {
     expect(liveOnlyRuleIds).toHaveLength(new Set(liveOnlyRuleIds).size);
     expect(repositoryRuleIds.some((id) => liveOnlyRuleIds.includes(id))).toBe(false);
     expect(repositoryRuleIds.length + liveOnlyRuleIds.length).toBe(workspaceRules.length);
-    expect(LINT_CATALOGS).toEqual(lintCatalogsForView("workspace"));
+    expect(LINT_CATALOGS).toEqual(lintCatalogsForView("filesystem"));
   });
 });

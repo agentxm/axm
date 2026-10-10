@@ -52,10 +52,9 @@ export const specification = defineSpecification({
  * fixture here fails that gate rather than shipping an unexplained flag.
  */
 const PREAPPROVAL_PURPOSES: Readonly<Record<string, string>> = {
-  "axm demote": "replacing workspace source authority with the externally sourced package",
-  "axm setup":
-    "applying the documented unattended setup defaults with an explicit scope and explicit agents",
-  "axm login": "starting a new sign-in without prompting when a valid session already exists",
+  "axm demote": "replacing workspace source authority with an external package",
+  "axm setup": "applying unattended setup defaults with an explicit scope and agents",
+  "axm login": "starting a new sign-in when a valid session already exists",
 };
 
 const SKILL = "review";

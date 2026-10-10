@@ -478,9 +478,6 @@ export const ScreenMachine = (options?: {
                     ...(resultOptions?.diagnosticId === undefined
                       ? {}
                       : { diagnosticId: resultOptions.diagnosticId }),
-                    ...(resultOptions?.diagnostic === undefined
-                      ? {}
-                      : { diagnostic: resultOptions.diagnostic }),
                     ...(resultOptions?.ok === undefined ? {} : { ok: resultOptions.ok }),
                     ...(resultOptions?.summary === undefined
                       ? {}

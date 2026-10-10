@@ -16,7 +16,6 @@ import { parseKnowledgeSearchQuery } from "@agentxm/extension-content/knowledge"
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 
 import { KNOWLEDGE_DISCOVERY_CAPABILITIES } from "../knowledge-capabilities.js";
-import { KNOWLEDGE_RANK_FACTORS, KNOWLEDGE_RANK_TIE_BREAK } from "../knowledge-index.js";
 import { KnowledgeRequestInvalid } from "../errors.js";
 import {
   KNOWLEDGE_LIFECYCLE_FILTER_FIELDS,
@@ -46,30 +45,6 @@ export interface KnowledgeQueryRequest {
   readonly passageLength?: number;
   readonly cursor?: string;
 }
-
-/** A lexical search request: one text expression plus paging. */
-export interface KnowledgeSearchRequest {
-  readonly scope: WorkspaceScope;
-  readonly expression: string;
-  readonly resultLimit?: number;
-  readonly cursor?: string;
-}
-
-/** The published explanation of how the lexical strategy ranked a page. */
-export interface KnowledgeQueryExplanation {
-  readonly strategy: "lexical";
-  readonly ordering: "relevance" | "metadata";
-  readonly rankFactors: ReadonlyArray<{ readonly field: string; readonly weight: number }>;
-  readonly tieBreak: string;
-}
-
-/** Explain a query's ranking from the ranker's own weights. */
-export const explainKnowledgeQuery = (query: KnowledgeQuery): KnowledgeQueryExplanation => ({
-  strategy: "lexical",
-  ordering: query.ordering,
-  rankFactors: KNOWLEDGE_RANK_FACTORS,
-  tieBreak: KNOWLEDGE_RANK_TIE_BREAK,
-});
 
 type FilterOperator = "equals" | "not-equals" | "contains";
 
@@ -288,19 +263,6 @@ export const makeKnowledgeQueryRequest = (
   request: KnowledgeQueryRequest,
 ): Effect.Effect<KnowledgeQuery, KnowledgeRequestInvalid> => {
   const clauses = buildClauses(request);
-  if (typeof clauses === "string") {
-    return Effect.fail(new KnowledgeRequestInvalid({ detail: clauses }));
-  }
-  const bounds = checkPagingBounds(request);
-  if (bounds !== undefined) return Effect.fail(new KnowledgeRequestInvalid({ detail: bounds }));
-  return Effect.succeed(makeKnowledgeQuery(request.scope, clauses, paging(request)));
-};
-
-/** Build the canonical query one lexical search request denotes. */
-export const makeKnowledgeSearchRequest = (
-  request: KnowledgeSearchRequest,
-): Effect.Effect<KnowledgeQuery, KnowledgeRequestInvalid> => {
-  const clauses = textClauses(request.expression);
   if (typeof clauses === "string") {
     return Effect.fail(new KnowledgeRequestInvalid({ detail: clauses }));
   }

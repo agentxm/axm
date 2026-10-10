@@ -184,6 +184,7 @@ describe.skipIf(!ptyIsSupported)("the review gate under a pseudo-terminal", () =
       result.transcript.lastIndexOf("Apply changes?"),
     );
 
+    expect(result.exitCode, result.transcript).toBe(0);
     expect(result.transcript).toMatch(/✔ {3}Apply changes {2,}no/u);
     expect(result.transcript).not.toMatch(/✔ {3}Apply changes {2,}details/u);
     expect(workspace.settings()).toMatchObject({ skills: { review: "workspace" } });

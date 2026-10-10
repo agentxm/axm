@@ -236,9 +236,9 @@ describe("install source selection", () => {
     {
       type: "mcp-server",
       refs: [mcpServer("filesystem")],
-      detail: "--mcp or --all is required to select MCP servers when no prompt can open",
+      detail: "--mcp-server or --all is required to select MCP servers when no prompt can open",
       recover:
-        "Repeat --mcp for each name to install, pass --all to take every MCP server, or rerun from an interactive terminal",
+        "Repeat --mcp-server for each name to install, pass --all to take every MCP server, or rerun from an interactive terminal",
     },
   ])(
     "requires a $type selector or --all when no prompt can open",

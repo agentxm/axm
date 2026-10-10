@@ -90,7 +90,7 @@ describe("delegated upgrades", () => {
       });
       expect(trial.releaseRequests).toEqual([]);
       expect(trial.assessment).toMatchObject({
-        contract: "axm.upgrade-assessment/v1",
+        contract: "upgrade-assessment-v1",
         disposition: "upgraded",
         intent: { mode: "exact", requestedVersion: TARGET_VERSION },
         canonical: { source: "exact-version" },

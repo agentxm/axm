@@ -163,7 +163,7 @@ describe("Pinned retained source layouts", () => {
             const acceptedBytes = world.workspace.readFile("axm-lock.yaml");
             fs.rmSync(retained, { recursive: true });
             yield* Ref.set(acquisitions, 0);
-            yield* applySync({ target: Option.none(), type: Option.some("skill") }).pipe(
+            yield* applySync({ target: Option.none(), types: ["skill"] }).pipe(
               Effect.provideService(SourceHostProviders, counted),
             );
             expect(yield* Ref.get(acquisitions)).toBe(1);

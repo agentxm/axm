@@ -400,6 +400,9 @@ importers:
       semver:
         specifier: 'catalog:'
         version: 7.8.5
+      string-argv:
+        specifier: 0.3.2
+        version: 0.3.2
       typescript:
         specifier: 'catalog:'
         version: '@typescript/typescript6@6.0.2'

@@ -32,7 +32,7 @@ describe("./testing.js", () => {
   it("admits a whole-workspace sweep by default", () => {
     const request = syncRequest();
     expect(Option.isNone(request.target)).toBe(true);
-    expect(Option.isNone(request.type)).toBe(true);
-    expect(Option.getOrThrow(syncRequest({ type: Option.some("skill") }).type)).toBe("skill");
+    expect(request.types.length === 0).toBe(true);
+    expect(syncRequest({ types: ["skill"] }).types[0]).toBe("skill");
   });
 });

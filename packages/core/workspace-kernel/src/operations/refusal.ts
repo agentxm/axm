@@ -7,11 +7,7 @@
  */
 
 import * as Schema from "effect/Schema";
-import {
-  FailureMetadataSchema,
-  FailureSuggestedActionSchema,
-  OperationErrorCategorySchema,
-} from "./errors.js";
+import { FailureMetadataSchema, FailureSuggestedActionSchema, ErrorCodeSchema } from "./errors.js";
 /**
  * A lifecycle policy step could not proceed. The carried fields mirror the
  * application error envelope's inputs 1:1: `category` selects the code,
@@ -22,7 +18,7 @@ import {
 export class ExtensionLifecycleFailed extends Schema.TaggedError<ExtensionLifecycleFailed>()(
   "ExtensionLifecycleFailed",
   {
-    category: OperationErrorCategorySchema,
+    category: ErrorCodeSchema,
     title: Schema.optional(Schema.String),
     detail: Schema.optional(Schema.String),
     metadata: Schema.optional(FailureMetadataSchema),

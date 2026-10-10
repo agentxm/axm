@@ -18,6 +18,12 @@ This corpus does not use **namespace** as a synonym for a handle, an FQN's
 owner scope, or a command group. Formal external meanings, such as the Package
 URL namespace component or a repository namespace, remain unchanged.
 
+## Diagnostic ID
+
+The UUID a failed invocation prints to identify its retained local diagnostic
+record. It names local evidence for review or export; it is not an extension
+identity or a remote support-ticket ID.
+
 ## Managed output
 
 A file, configuration entry, directory, alias, or managed region AXM derives
@@ -173,7 +179,9 @@ Observed content for which AXM cannot establish authority. Unowned describes
 AXM's relationship to a specific occurrence, not the extension's lifecycle or
 the validity of the workspace. Depending on its type and location, unowned
 content may coexist independently, collide with desired output, or make
-authority ambiguous. AXM does not adopt, rewrite, or remove it. Manual
+authority ambiguous. Reconciliation does not adopt, rewrite, or remove it.
+Explicit `mcps adopt` or `mcps import <name> <extension>` can transfer ownership
+of a selected, losslessly representable native MCP server. Otherwise, manual
 preservation, relocation, or removal owns recovery when it blocks required AXM
 output.
 

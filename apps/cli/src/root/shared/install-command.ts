@@ -49,7 +49,6 @@ export interface InstallCommandArgs {
   readonly command: string;
   readonly request: InstallExtensionsRequest;
   readonly preview: boolean;
-  readonly force: boolean;
   /** The command words a confirmation-recovery line reproduces. */
   readonly recoveryCommand: ReadonlyArray<string>;
   /** The positional locators that line reproduces. */
@@ -93,19 +92,8 @@ const body = (args: InstallCommandArgs) =>
     yield* showDiagnostics(candidate);
 
     const noOpMessage = args.noOpMessage;
-    if (candidate.empty) {
-      yield* emitNoOpOutcome({
-        planName: candidate.planName,
-        message: Option.getOrElse(
-          candidate.emptyMessage,
-          () => noOpMessage ?? "No extensions installed.",
-        ),
-      });
-      return;
-    }
-
     const { execution, recovery } = yield* makeInstallPlanInvocation(
-      { preview: args.preview, force: args.force },
+      { preview: args.preview },
       args.recoveryCommand,
       args.recoveryLocators,
       args.recoveryArguments ?? [],

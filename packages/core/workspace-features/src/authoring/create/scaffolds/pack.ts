@@ -24,6 +24,7 @@ const INITIAL_VERSION = decodeVersionSync("0.0.1");
 export const packScaffold = (args: {
   readonly name: string;
   readonly owner: Handle;
+  readonly description?: string | undefined;
 }): AuthoredScaffold => {
   const manifest: PackManifest = {
     $schema: PACK_MANIFEST_SCHEMA_URL,
@@ -31,6 +32,7 @@ export const packScaffold = (args: {
     type: "pack",
     name: decodeExtensionNameSync(args.name),
     version: INITIAL_VERSION,
+    ...(args.description === undefined ? {} : { description: args.description }),
     dependencies: {},
   };
   return {

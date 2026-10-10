@@ -20,6 +20,7 @@ import { afterAll, afterEach } from "vitest";
 
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { getAppError } from "../test-support/test-helpers.js";
+import { handleUpdate } from "./update/handler.js";
 import { handleInstall } from "./install/handler.js";
 import { handleLint } from "./lint/handler.js";
 import { handleList } from "./list/command.js";
@@ -217,12 +218,10 @@ const invokeOperation = (
 ): Effect.Effect<unknown, unknown> => {
   switch (family) {
     case "read":
-      return workspace
-        .provide(handleList({ type: Option.none(), outdated: false, deprecated: false }))
-        .pipe(
-          Effect.flip,
-          Effect.map((error): unknown => error),
-        );
+      return workspace.provide(handleList({ types: [], outdated: false, deprecated: false })).pipe(
+        Effect.flip,
+        Effect.map((error): unknown => error),
+      );
     case "diagnose":
       return workspace
         .provide(
@@ -231,7 +230,7 @@ const invokeOperation = (
               workspaceRoot: workspace.root,
               userHome: workspace.root,
               scope,
-              input: { view: "workspace" },
+              input: { view: "filesystem" },
               nativeView: { kind: "workspace" },
               fix: false,
             },
@@ -255,7 +254,6 @@ const invokeOperation = (
             source: Option.some(packagePath),
             selectors: {},
             all: true,
-            force: false,
             preview: false,
             bind: [],
             bindEnv: [],
@@ -269,20 +267,7 @@ const invokeOperation = (
         );
     case "force-mutate":
       return workspace
-        .provide(
-          handleInstall({
-            type: Option.none(),
-            source: Option.some(packagePath),
-            selectors: {},
-            all: true,
-            force: true,
-            preview: false,
-            bind: [],
-            bindEnv: [],
-            localName: Option.none(),
-            bundled: false,
-          }),
-        )
+        .provide(handleUpdate({ source: Option.none(), reinstall: true, preview: false }))
         .pipe(
           Effect.flip,
           Effect.map((error): unknown => error),
@@ -351,7 +336,6 @@ describe("Invalid workspace state gates operations", () => {
           source: Option.some(packagePath),
           selectors: {},
           all: true,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],

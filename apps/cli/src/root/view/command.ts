@@ -1,4 +1,9 @@
+import { registryFlag } from "../../cli-flags/index.js";
+import { VIEW_FIELDS } from "@agentxm/workspace-features/inspection";
+import { withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
+import * as Effect from "effect/Effect";
+import { makeAppError } from "../../app-error/index.js";
 import * as Option from "effect/Option";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
@@ -12,26 +17,32 @@ import { handleDefaultRegistryFqnView, handleView } from "./handler.js";
 
 const viewConfig = {
   handle: Argument.String("extension").pipe(
-    Argument.withDescription("Fully-qualified extension handle (@owner/skills/name)"),
-  ),
-  field: Argument.String("field").pipe(
-    Argument.withDescription(
-      "Optional field: version, versions, latest, description, owner, type, visibility, lifecycle-state, archival, deprecation",
+    withParameterDescription(
+      "Extension FQN in @owner/<plural-type>/<name> form, or a local name with --type",
     ),
+  ),
+  field: Argument.Literals("field", VIEW_FIELDS).pipe(
+    withParameterDescription("Field to print"),
     Argument.optional,
   ),
-  registry: Flag.String("registry").pipe(
-    Flag.withDescription("Target a specific named registry instead of the default"),
-    Flag.optional,
-  ),
+  registry: registryFlag,
   type: Flag.Literals("type", [...installableExtensionTypes]).pipe(
-    Flag.withDescription("Extension type for bare-name lookup"),
+    withParameterDescription("Extension type of a bare name"),
     Flag.optional,
   ),
 } as const;
 
 export const viewCommand = Command.make("view", viewConfig, ({ handle, field, registry, type }) => {
   const parts = parseExtensionFqnParts(handle);
+  if (parts === undefined && Option.isNone(type)) {
+    return Effect.fail(
+      makeAppError({
+        code: "usage",
+        detail: `Local name "${handle}" requires --type`,
+        suggestions: [{ description: "Show metadata lookup syntax", cmd: "axm view --help" }],
+      }),
+    );
+  }
   // A fully qualified handle needs no workspace to name what it views; the
   // effective default Registry is still the settings-selected one, so the
   // workspace is read as it is, initialized or not.
@@ -42,8 +53,8 @@ export const viewCommand = Command.make("view", viewConfig, ({ handle, field, re
     );
   }
   return handleView({ handle, field, registry, type }).pipe(
-    withWorkspace(DEFAULT_WORKSPACE_SCOPE),
-    withRuntime("view"),
+    withWorkspace({ scope: DEFAULT_WORKSPACE_SCOPE, allowUninitialized: parts !== undefined }),
+    withRuntime("view", { registry }),
   );
 }).pipe(
   withArgvTracking(viewConfig),

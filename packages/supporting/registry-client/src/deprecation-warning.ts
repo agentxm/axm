@@ -18,7 +18,7 @@ export const formatDeprecationWarning = (
   const action =
     deprecation.reason === "obsolete" ||
     (deprecation.reason === "superseded" && deprecation.replacement.status === "available")
-      ? `Run axm migrate ${extensionRef} --dry-run to preview migration`
+      ? `Run axm migrate ${extensionRef} --preview to preview migration`
       : deprecation.reason === "superseded"
         ? `Inspect axm view ${extensionRef}; the replacement is unavailable`
         : `Inspect axm view ${extensionRef} and choose a successor manually`;

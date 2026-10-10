@@ -18,14 +18,14 @@ const makeHelpDoc = (overrides: Partial<HelpDoc> = {}): HelpDoc => ({
 const globalFlags = [
   {
     name: "verbose",
-    aliases: [],
+    aliases: ["v"],
     type: "boolean",
     description: Option.none(),
     required: false,
   },
   {
     name: "json",
-    aliases: [],
+    aliases: ["j"],
     type: "boolean",
     description: Option.none(),
     required: false,
@@ -68,8 +68,8 @@ describe("makeAxmFormatter", () => {
         },
       ],
       globalFlags: [
-        { name: "verbose", aliases: [], type: "boolean", required: false },
-        { name: "json", aliases: [], type: "boolean", required: false },
+        { name: "verbose", aliases: ["-v"], type: "boolean", required: false },
+        { name: "json", aliases: ["-j"], type: "boolean", required: false },
       ],
     });
   });

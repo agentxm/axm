@@ -77,7 +77,9 @@ describe("Trusted publishing from a GitHub Actions job", () => {
       expect(JSON.parse(result.stdout)).toMatchObject({
         ok: true,
         result: {
-          data: { user: OWNER, credentialType: "oidc", trustedPublisher: { name: "release" } },
+          user: OWNER,
+          credentialType: "oidc",
+          trustedPublisher: { name: "release" },
         },
       });
       expect(result.stdout + result.stderr).not.toContain(WORKLOAD_TOKEN);
@@ -131,7 +133,7 @@ describe("Trusted publishing from a GitHub Actions job", () => {
   it("writes the workload token when it is the effective credential", async () => {
     const world = await setup();
     try {
-      const result = await runCli(["token", "--output", "token"], {
+      const result = await runCli(["token", "show", "--plain"], {
         env: world.env,
         exactOutput: true,
       });

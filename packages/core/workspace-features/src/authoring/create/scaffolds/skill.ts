@@ -21,9 +21,9 @@ import { manifestText, stageFileAt, type AuthoredScaffold } from "./scaffold.js"
 const SKILL_BODY = "src/SKILL.md";
 const INITIAL_VERSION = decodeVersionSync("0.0.1");
 
-const skillBody = (name: string) => `---
+const skillBody = (name: string, description: string | undefined) => `---
 name: ${name}
-description: Describe when this skill should be triggered by the agent
+description: ${description === undefined ? "Describe when this skill should be triggered by the agent" : JSON.stringify(description)}
 ---
 
 Describe what this skill does and when to use it.
@@ -32,6 +32,7 @@ Describe what this skill does and when to use it.
 export const skillScaffold = (args: {
   readonly name: string;
   readonly owner: Handle;
+  readonly description?: string | undefined;
 }): AuthoredScaffold => {
   const manifest: SkillManifest = {
     $schema: MANIFEST_SCHEMA_URL,
@@ -39,6 +40,7 @@ export const skillScaffold = (args: {
     type: "skill",
     name: decodeExtensionNameSync(args.name),
     version: INITIAL_VERSION,
+    ...(args.description === undefined ? {} : { description: args.description }),
   };
   return {
     subject: "Skill",
@@ -54,7 +56,7 @@ export const skillScaffold = (args: {
         });
         yield* stageFileAt({
           path: path.join(stagingPath, ...SKILL_BODY.split("/")),
-          contents: skillBody(args.name),
+          contents: skillBody(args.name, args.description),
         });
       }),
   };

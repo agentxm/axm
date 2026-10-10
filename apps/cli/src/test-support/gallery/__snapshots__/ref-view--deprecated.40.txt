@@ -15,5 +15,5 @@
                     release-notes
 
 Next
-     axm migrate @legacy/skills/changelog --dry-run
+     axm migrate @legacy/skills/changelog --preview
      Preview migration

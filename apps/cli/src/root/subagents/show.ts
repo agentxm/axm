@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
@@ -5,7 +6,8 @@ import { AGENT_IDS } from "@agentxm/extension-model/unstable/agent-capabilities/
 import { RenderSubagent, SubagentRenderResultSchema } from "@agentxm/workspace-features/inspection";
 
 import { processOutcome, withArgvTracking } from "../../cli-runtime/index.js";
-import { ExitCode } from "../../app-error/index.js";
+import { makeAppError, ExitCode } from "../../app-error/index.js";
+import { agentFlag } from "../../cli-flags/agent-flag.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { inspectionFailureToAppError } from "../../feature-errors.js";
 import { withLiveOperation } from "../../operation-lifecycle.js";
@@ -16,12 +18,17 @@ import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command
 import { handleExtensionShow } from "../shared/extension-show.js";
 
 const config = {
-  name: Argument.String("name").pipe(Argument.withDescription("Name of the subagent to inspect")),
+  name: Argument.String("name").pipe(withParameterDescription("Name of the subagent to show")),
   scope: scopeFlag,
+  agent: agentFlag.pipe(
+    withParameterDescription(
+      "Show only these agents' outcomes; unconfigured agents are reported as not configured",
+    ),
+  ),
   render: Flag.Literals("render", AGENT_IDS).pipe(
     Flag.optional,
-    Flag.withDescription(
-      "Render for one catalog runtime without writing files or changing configured agents",
+    withParameterDescription(
+      "Render for one catalog agent, including hosted ones, without writing files",
     ),
   ),
 };
@@ -30,7 +37,7 @@ export const handleSubagentRender = Effect.fn("Subagents.render")(function* (
   request: Parameters<typeof RenderSubagent.query>[0],
 ) {
   const result = yield* withLiveOperation(
-    { command: "subagents.show", name: "Render subagent", mode: "preview" },
+    { command: "subagents.show", name: "Render subagent", mode: "query" },
     RenderSubagent.query(request).pipe(
       Effect.catchTag("ExtensionNotInstalled", (failure) =>
         Effect.fail(extensionNotInstalledToAppError(failure)),
@@ -63,11 +70,15 @@ export const handleSubagentRender = Effect.fn("Subagents.render")(function* (
   return processOutcome(supported ? ExitCode.Success : ExitCode.Issues);
 });
 
-export const showCommand = Command.make("show", config, ({ name, scope, render }) =>
-  (Option.isSome(render)
-    ? handleSubagentRender({ name, agentId: render.value })
-    : handleExtensionShow({ type: "subagent", name })
-  ).pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("subagents show")),
+export const showCommand = Command.make("show", config, ({ name, scope, render, agent }) =>
+  Option.isSome(render) && agent.length > 0
+    ? Effect.fail(
+        makeAppError({ code: "usage", detail: "--agent and --render cannot be combined" }),
+      ).pipe(withRuntime("subagents show"))
+    : (Option.isSome(render)
+        ? handleSubagentRender({ name, agentId: render.value })
+        : handleExtensionShow({ type: "subagent", name, agents: agent })
+      ).pipe(withWorkspace({ scope, allowUninitialized: true }), withRuntime("subagents show")),
 ).pipe(
   withArgvTracking(config),
   withCommandCapabilities(readOnlyCapabilities()),

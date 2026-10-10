@@ -132,7 +132,7 @@ import type { StepFailureConversionService } from "./step-failure-conversion.js"
 
 export interface SyncSelection {
   readonly target: Option.Option<string>;
-  readonly type: Option.Option<Exclude<ExtensionType, "pack">>;
+  readonly types: ReadonlyArray<Exclude<ExtensionType, "pack">>;
   /**
    * The exact desired nodes an activation change moves. Narrower than a
    * target or a type: an identity is not always a parseable name, and a type
@@ -174,9 +174,8 @@ export const selectedDesiredNodes = (
       (node) => node.type === parsed.type && desiredPackageKey(node.identity) === target,
     );
   }
-  if (Option.isSome(selection.type)) {
-    const type = selection.type.value;
-    return graph.nodes.filter((node) => node.type === type);
+  if (selection.types.length > 0) {
+    return graph.nodes.filter((node) => selection.types.some((type) => node.type === type));
   }
   return graph.nodes;
 };
@@ -195,12 +194,11 @@ export const scopedProblems = (
       );
     });
   }
-  if (Option.isNone(selection.target) && Option.isNone(selection.type)) return graph.problems;
-  if (Option.isSome(selection.type)) {
-    const type = selection.type.value;
+  if (Option.isNone(selection.target) && selection.types.length === 0) return graph.problems;
+  if (selection.types.length > 0) {
     return graph.problems.filter((problem) => {
       const subject = desiredProblemSubject(problem);
-      return subject.kind === "pack" || subject.type === type;
+      return subject.kind === "pack" || selection.types.some((type) => subject.type === type);
     });
   }
   if (Option.isNone(selection.target)) return graph.problems;
@@ -659,7 +657,7 @@ export const collectMaterializeSteps = (args: {
       desiredState.nodes.some(
         (node) => node.type === ref.type && node.name === targetFromRef(ref).name && node.enabled,
       );
-    const selection = args.selection ?? { target: Option.none(), type: Option.none() };
+    const selection = args.selection ?? { target: Option.none(), types: [] };
     const problems = scopedProblems(desiredState, selection);
     // A Pack whose routes cannot be established leaves the selection's
     // membership unknown, so nothing in it can be planned unless recovery

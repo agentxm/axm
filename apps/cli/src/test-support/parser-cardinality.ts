@@ -23,15 +23,21 @@ const control = (
 ): Control => ({
   route,
   flag,
-  configKey: flag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase()),
+  configKey:
+    flag === "mcp-server"
+      ? "mcp"
+      : flag.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase()),
   values,
-  siblingInputs,
+  siblingInputs:
+    route === "install" || route.endsWith(" install")
+      ? ["parser-source", ...siblingInputs]
+      : siblingInputs,
 });
 
 // These are runnable input controls, not a second cardinality declaration.
 export const repeatedFlagControls = [
-  { ...control("publish", "include-file", ["/src/", "/dist/"]), configKey: "fileInclude" },
-  { ...control("publish", "exclude-file", ["*.map", "evals/"]), configKey: "fileExclude" },
+  { ...control("publish", "include-path", ["/src/", "/dist/"]), configKey: "fileInclude" },
+  { ...control("publish", "exclude-path", ["*.map", "evals/"]), configKey: "fileExclude" },
   ...[
     "install",
     "hooks install",
@@ -42,9 +48,6 @@ export const repeatedFlagControls = [
     "skills install",
     "subagents install",
   ].map((route) => control(route, "agent", ["claude-code", "codex"])),
-  ...["hooks", "knowledge", "mcps", "rules", "skills", "subagents"].map((type) =>
-    control(`${type} update`, "name"),
-  ),
   ...["field", "property", "metadata", "lifecycle", "tag"].map((flag) =>
     control("knowledge concepts query", flag),
   ),
@@ -52,38 +55,37 @@ export const repeatedFlagControls = [
   control("mcps add", "header", ["X-One:1", "X-Two:2"], ["parser-fixture"]),
   control("mcps add", "arg", ["first", "second"], ["parser-fixture"]),
   control("mcps add", "header-env", ["X-One=ONE", "X-Two=TWO"], ["parser-fixture"]),
-  control("mcps import", "name"),
-  control("mcps show", "agent", ["claude-code", "codex"], ["parser-fixture"]),
-  ...["install", "mcps install"].flatMap((route) => [
-    control(route, "bind", ["environment/ONE=1", "environment/TWO=2"]),
-    control(route, "bind-env", ["environment/ONE=ONE", "environment/TWO=TWO"]),
+  control("mcps adopt", "name"),
+  ...["skills", "subagents", "mcps", "rules", "hooks", "knowledge", "packs"].flatMap((group) => [
+    control(`${group} list`, "agent", ["claude-code", "codex"]),
+    control(`${group} show`, "agent", ["claude-code", "codex"], ["parser-fixture"]),
   ]),
-  ...["skill", "subagent", "rule", "hook", "knowledge", "mcp", "pack"].map((flag) =>
+  control("mcps install", "bind", ["environment/ONE=1", "environment/TWO=2"]),
+  control("mcps install", "bind-env", ["environment/ONE=ONE", "environment/TWO=TWO"]),
+  ...["skill", "subagent", "rule", "hook", "knowledge", "mcp-server", "pack"].map((flag) =>
     control("install", flag),
   ),
   control("hooks install", "hook"),
   control("knowledge install", "knowledge"),
-  control("mcps install", "mcp"),
+  control("mcps install", "mcp-server"),
   control("packs install", "pack"),
   control("rules install", "rule"),
   control("setup", "agent", ["claude-code", "claude-code"]),
   control("skills install", "skill"),
   control("skills handoff", "skill"),
   control("skills handoff", "agent", ["claude-code", "codex"]),
-  control("skills list", "agent", ["claude-code", "claude-code"]),
   control("subagents install", "subagent"),
-  control("subagents list", "agent", ["claude-code", "claude-code"]),
   control(
     "token create",
     "owner",
     ["@first", "@second"],
-    ["--name", "parser-fixture", "--permission", "read"],
+    ["parser-fixture", "--permission", "read"],
   ),
   control(
     "token create",
     "extension",
     ["@first/skills/one", "@second/skills/two"],
-    ["--name", "parser-fixture", "--permission", "read"],
+    ["parser-fixture", "--permission", "read"],
   ),
 ] satisfies ReadonlyArray<Control>;
 

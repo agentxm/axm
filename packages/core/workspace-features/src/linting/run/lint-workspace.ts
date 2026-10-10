@@ -48,6 +48,8 @@ import {
   observeConfiguredSkillLocations,
   observeWorkspaceOwnershipIssues,
   deriveAgentOutputAuthority,
+  instructionProjectionEffects,
+  instructionReconciliationReadiness,
 } from "@agentxm/workspace-kernel/projection";
 import {
   LockfileReader,
@@ -137,16 +139,23 @@ export const admitLintRequest = (request: LintWorkspaceRequest) =>
   Effect.gen(function* () {
     if (request.fix && request.view === "git-index") {
       return yield* new LintStagingFailed({
-        category: "validation",
+        category: "usage",
         detail:
-          "--fix cannot be combined with --view git-index because the index snapshot is not the working tree",
+          "--fix cannot be combined with --staged because the index snapshot is not the working tree",
       });
     }
     if (request.view === "git-index" && request.scope === "user") {
       return yield* new LintStagingFailed({
-        category: "validation",
+        category: "usage",
         detail:
-          "--view git-index cannot be combined with --scope user because Git indexes are project-scoped",
+          "--staged cannot be combined with --scope user because Git indexes are project-scoped",
+      });
+    }
+
+    if (request.scope === "user" && request.path !== undefined) {
+      return yield* new LintStagingFailed({
+        category: "usage",
+        detail: "An explicit workspace cannot be combined with --scope user",
       });
     }
 
@@ -179,7 +188,7 @@ export const admitLintRequest = (request: LintWorkspaceRequest) =>
       }),
       userHome: request.userHome,
       scope: request.scope,
-      input: { view: "workspace" },
+      input: { view: "filesystem" },
       nativeView: { kind: "workspace" },
       fix: request.fix,
     } satisfies LintSelection;
@@ -401,7 +410,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
     // Cross-scope agent facts. The agents that read this workspace also read
     // the user scope; a project folder that is the user home has no separate
     // user scope, and a Git-index snapshot has no live agent folders.
-    const liveView = selection.input.view === "workspace";
+    const liveView = selection.input.view === "filesystem";
     const realRoot = (root: string) =>
       fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
     const projectIsUserHome =
@@ -431,41 +440,42 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
       ? yield* observeAuthoredPackages({ layout, settings: settings.value })
       : [];
     const registryClients = yield* RegistryClientFactory;
-    const deprecatedInstalled = Result.isFailure(observed)
-      ? []
-      : (yield* Effect.forEach(observed.success, ({ desired, observation }) =>
-          observation.status !== "usable"
-            ? Effect.succeedNone
-            : acceptedResolutionRef({ type: desired.type, name: desired.name, desired }).pipe(
-                Effect.option,
-                Effect.map(Option.flatten),
-                Effect.flatMap((accepted) => {
-                  if (Option.isNone(accepted) || accepted.value.refType !== "registry") {
-                    return Effect.succeedNone;
-                  }
-                  const ref = accepted.value;
-                  return Effect.gen(function* () {
-                    const client = yield* registryClients.forLocation(ref.source.location);
-                    const index = yield* client.getExtensionIndex({
-                      owner: ref.owner,
-                      type: ref.type,
-                      name: ref.name,
-                    });
-                    return Option.flatMap(index, (entry) =>
-                      entry.deprecation === null
-                        ? Option.none()
-                        : Option.some({
-                            fqn: `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
-                            deprecation: entry.deprecation,
-                            memberPacks: desired.origins.flatMap((origin) =>
-                              origin.type === "pack" ? [origin.pack.fqn] : [],
-                            ),
-                          }),
-                    );
-                  }).pipe(Effect.orElseSucceed(() => Option.none()));
-                }),
-              ),
-        )).flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
+    const deprecatedInstalled =
+      selection.fix || Result.isFailure(observed)
+        ? []
+        : (yield* Effect.forEach(observed.success, ({ desired, observation }) =>
+            observation.status !== "usable"
+              ? Effect.succeedNone
+              : acceptedResolutionRef({ type: desired.type, name: desired.name, desired }).pipe(
+                  Effect.option,
+                  Effect.map(Option.flatten),
+                  Effect.flatMap((accepted) => {
+                    if (Option.isNone(accepted) || accepted.value.refType !== "registry") {
+                      return Effect.succeedNone;
+                    }
+                    const ref = accepted.value;
+                    return Effect.gen(function* () {
+                      const client = yield* registryClients.forLocation(ref.source.location);
+                      const index = yield* client.getExtensionIndex({
+                        owner: ref.owner,
+                        type: ref.type,
+                        name: ref.name,
+                      });
+                      return Option.flatMap(index, (entry) =>
+                        entry.deprecation === null
+                          ? Option.none()
+                          : Option.some({
+                              fqn: `${ref.owner}/${toExtensionTypePlural(ref.type)}/${ref.name}`,
+                              deprecation: entry.deprecation,
+                              memberPacks: desired.origins.flatMap((origin) =>
+                                origin.type === "pack" ? [origin.pack.fqn] : [],
+                              ),
+                            }),
+                      );
+                    }).pipe(Effect.orElseSucceed(() => Option.none()));
+                  }),
+                ),
+          )).flatMap((entry) => (Option.isSome(entry) ? [entry.value] : []));
     const evaluations = yield* evaluateAllCatalogs({
       view: selection.input.view,
       contexts: {
@@ -530,6 +540,10 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
         repaired: [],
       } satisfies LintWorkspaceResult,
       settings,
+      instructionSnapshot:
+        workspaceContext.instructions === undefined
+          ? Option.none()
+          : yield* workspaceContext.instructions.snapshot,
     };
   });
 
@@ -548,7 +562,7 @@ export const queryLintWorkspace = (
  */
 export const fixLintWorkspace = (
   selection: LintSelection,
-  options: { readonly strict: boolean },
+  options: { readonly strict: boolean; readonly preview?: boolean },
 ): Effect.Effect<
   LintWorkspaceResult,
   LintWorkspaceFailure,
@@ -558,7 +572,28 @@ export const fixLintWorkspace = (
     // The reconciliation pass proves every determined instruction target
     // current after it writes. Reuse that proof instead of gathering every
     // lint catalog a second time.
-    const { result: before, settings } = yield* runLint(selection, options);
+    const { result: before, settings, instructionSnapshot } = yield* runLint(selection, options);
+    if (options.preview === true) {
+      if (Option.isSome(instructionSnapshot)) {
+        const failure = yield* instructionReconciliationReadiness({
+          snapshot: instructionSnapshot.value,
+          workspaceRoot: instructionSnapshot.value.workspaceRoot,
+        });
+        if (Option.isSome(failure)) return yield* failure.value;
+      }
+      return {
+        ...before,
+        document: {
+          ...before.document,
+          normalization: {
+            mode: "preview",
+            changes: Option.isSome(instructionSnapshot)
+              ? instructionProjectionEffects(instructionSnapshot.value)
+              : [],
+          },
+        },
+      };
+    }
     const repairedRuleIds = new Set(
       yield* applyDeterminedRepairs({
         workspaceRoot: selection.workspaceRoot,

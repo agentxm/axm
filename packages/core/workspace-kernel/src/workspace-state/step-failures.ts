@@ -353,7 +353,7 @@ export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure)
       return makeStepFailure({ category: "validation", detail: error.detail, cause: error.cause });
     case "WorkspaceNotInitialized":
       return makeStepFailure({
-        category: "internal",
+        category: "usage",
         detail: `Workspace settings not found: ${error.settingsPath}`,
         suggestions: [{ description: "Create the workspace.", cmd: "axm setup" }],
       });

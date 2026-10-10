@@ -26,17 +26,22 @@ states:
 - `axm skills import <source> <extension>` and `axm subagents import <source>
 <extension>` convert losslessly supported native content into managed Skill
   and Subagent packages from local or Git sources. Rules, Knowledge bundles,
-  Hooks, and Packs have no native package-conversion command.
-- `axm mcps import` is a distinct MCP configuration discovery and adoption
-  workflow: omit `--as` for inline management, or use `--as <extension>` when
-  one remote server has a lossless package form.
+  and Packs have no native package-conversion command.
+- `axm hooks import <source> <extension>` packages a supported native hook
+  registration and starts it inactive. See `axm help hooks` for its source
+  and configuration selectors.
+- `axm mcps adopt` takes unmanaged native MCP servers into inline management
+  in the selected project or user scope. Repeat `--name` to select a subset.
+- `axm mcps import <name> <extension>` converts one named native MCP server
+  into a project-workspace package when it has a lossless package form. It
+  starts disabled unless `--enable` is supplied.
 
-Both commands create target version `0.1.0` and start a fresh target disabled
+Package creation commands create target version `0.1.0` and start a fresh target disabled
 unless `--enable` is supplied. Disabled `fork`, `skills import`, and `subagents
 import` operations leave their source projections untouched. MCP package import is the
 explicit adoption case: after the managed package validates, it replaces the
-selected native config entry and leaves the managed target disabled. If the
-target name already has a settings entry, its enabled state is preserved. Use
+selected native config entry and leaves the managed target disabled unless
+`--enable` is supplied. Use
 `--preview` to inspect canonical and configuration changes without mutating the
 workspace.
 

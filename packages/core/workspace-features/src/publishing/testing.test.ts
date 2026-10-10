@@ -63,9 +63,9 @@ describe("./testing.js", () => {
       // A publish target starts empty: a conflict has to be published into it.
       expect(target.storedFiles()).toEqual([]);
 
-      const request = publishRequest(target.url);
+      const request = publishRequest("publication");
       expect(request.preview).toBe(true);
-      expect(Option.getOrThrow(request.registryUrl)).toBe(target.url);
+      expect(Option.getOrThrow(request.registry)).toBe("publication");
     } finally {
       fs.rmSync(workspaceRoot, { recursive: true, force: true });
     }

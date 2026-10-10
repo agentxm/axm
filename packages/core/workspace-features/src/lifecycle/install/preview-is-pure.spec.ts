@@ -5,10 +5,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
-import {
-  deriveOperationOutcome,
-  ExtensionLifecycleFailed,
-} from "@agentxm/workspace-kernel/operations";
+import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 
@@ -210,56 +207,9 @@ describe("Install preview purity", () => {
               installRequest({ type, subject: { kind: "source", source: absent } }),
             ).pipe(Effect.flip);
 
-            expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
-            if (failure instanceof ExtensionLifecycleFailed) {
-              expect(failure.category).toBe("not_found");
-            }
+            expect(failure).toMatchObject({ category: "not_found" });
             expect(workspace.snapshot()).toEqual(before);
             expect(workspace.homeSnapshot()).toEqual(homeBefore);
-            expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
-
-  it.effect(
-    "a previewed reinstall that would change publisher reports the change and writes nothing",
-    () => {
-      const { workspace, registry } = world();
-      registry.writeSkill("code-review", [{ version: "1.0.0", body: "First guidance." }]);
-      const request = installRequest({
-        type: "skill",
-        subject: { kind: "source", source: "@acme/skills/code-review" },
-      });
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* applyInstall(request);
-
-            // The Registry now binds the same extension to a different
-            // publisher than the one this workspace accepted.
-            const lock = workspace.readFile("axm-lock.yaml");
-            expect(lock).toContain("publisherBindingId: hbnd_test");
-            workspace.writeFile(
-              "axm-lock.yaml",
-              lock.replace("publisherBindingId: hbnd_test", "publisherBindingId: hbnd_previous"),
-            );
-            const before = workspace.snapshot();
-
-            const resolution = yield* previewInstall({ ...request, reinstall: true });
-
-            expect(deriveOperationOutcome(resolution)).toBe("previewed");
-            expect(resolution.riskConditions).toEqual(
-              expect.arrayContaining([
-                expect.objectContaining({
-                  id: "publisher-ownership-change",
-                  level: "confirmable",
-                  consent: "interactive-only",
-                }),
-              ]),
-            );
-            expect(workspace.snapshot()).toEqual(before);
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
           }),
         )

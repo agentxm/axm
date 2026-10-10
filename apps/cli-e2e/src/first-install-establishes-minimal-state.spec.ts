@@ -218,7 +218,7 @@ describe("First portable plugin MCP install", () => {
           "mcps",
           "install",
           source,
-          "--mcp",
+          "--mcp-server",
           "context",
           "--as",
           "work-context",

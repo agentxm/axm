@@ -21,3 +21,17 @@ export const ciEnabled = (raw: string | undefined): boolean =>
 
 /** Whether CI is enabled, read through the active configuration provider. */
 export const isCI = Effect.map(envOption("CI"), (value) => Option.exists(value, ciEnabled));
+
+/** AXM on/off inputs use exact lowercase values; all other values use their declared default. */
+export const axmBooleanEnabled = (raw: string | undefined, defaultValue = false): boolean => {
+  switch (raw) {
+    case "1":
+    case "true":
+      return true;
+    case "0":
+    case "false":
+      return false;
+    default:
+      return defaultValue;
+  }
+};

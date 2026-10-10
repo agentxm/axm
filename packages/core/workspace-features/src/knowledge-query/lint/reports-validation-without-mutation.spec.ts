@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/knowledge/lint/reports-validation-without-mutation",
   title: "Knowledge lint reports source findings without changing content",
   statement:
-    "When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone.",
+    "When validating installed or explicitly selected authored Knowledge, AXM shall report source-located findings without changing workspace content, returning failure for errors and success for warnings alone. Omitted selection shall validate all installed bundles; an installed name shall select only that bundle, while an authored --path shall select that directory.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -26,6 +26,30 @@ export const specification = defineSpecification({
 });
 
 describe("Read-only Knowledge validation", () => {
+  it.effect("validates every installed bundle by default and limits a named request", () => {
+    const workspace = makeKnowledgeFixtureWorkspace({
+      bundles: [
+        { name: "platform", documents: { "guide.md": knowledgeDocument("# Platform\n") } },
+        { name: "operations", documents: { "broken.md": "---\ntype: [broken\n---\n# Broken\n" } },
+      ],
+    });
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const selected = yield* lintKnowledge({ bundle: "platform" });
+          expect(selected.bundleCount).toBe(1);
+          expect(selected.document.valid).toBe(true);
+          const all = yield* lintKnowledge({});
+          expect(all.bundleCount).toBe(2);
+          expect(all.document.valid).toBe(false);
+          expect(all.document.diagnostics.some((finding) => finding.bundle === "operations")).toBe(
+            true,
+          );
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(workspace.cleanup)));
+  });
+
   for (const selection of ["installed", "authored"] as const)
     it.effect(`reports and clears ${selection} validation errors`, () => {
       const invalid = "---\ntype: [broken\n---\n# Broken\n";

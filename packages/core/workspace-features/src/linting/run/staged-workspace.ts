@@ -105,7 +105,7 @@ const parseIndexEntries = (
       if (stage !== "0") {
         return yield* stagedSnapshotError({
           detail:
-            "The Git index contains unmerged entries. Resolve the merge conflicts and stage the result before running axm lint --view git-index.",
+            "The Git index contains unmerged entries. Resolve the merge conflicts and stage the result before running axm lint --staged.",
         });
       }
       entries.push({ mode, objectId, path: entryPath });
@@ -321,7 +321,7 @@ export const materializeGitIndexWorkspace = Effect.fn("Lint.materializeGitIndexW
     if (Option.isNone(gitRoot)) {
       return yield* stagedSnapshotError({
         title: "Git index unavailable",
-        detail: `axm lint --view git-index requires a Git repository; no .git entry was found from '${resolvedStartPath}'`,
+        detail: `axm lint --staged requires a Git repository; no .git entry was found from '${resolvedStartPath}'`,
       });
     }
 

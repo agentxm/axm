@@ -12,6 +12,7 @@
 
 import * as fs from "node:fs";
 import * as path from "node:path";
+import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineExecutionBinding } from "@agentxm/specification-metadata";
@@ -19,7 +20,10 @@ import { defineExecutionBinding } from "@agentxm/specification-metadata";
 import { makeOutputControlsFixture } from "./test-support/output-controls-harness.js";
 
 export const executionBinding = defineExecutionBinding({
-  requirements: ["cli/diagnostic-controls-select-the-requested-detail"],
+  requirements: [
+    "cli/diagnostic-controls-select-the-requested-detail",
+    "cli/machine-errors-use-the-stable-envelope",
+  ],
   boundary: "process",
   rationale:
     "Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.",
@@ -116,4 +120,59 @@ describe("Diagnostic request precedence", () => {
       }
     },
   );
+});
+
+const MachineFailure = Schema.Struct({
+  ok: Schema.Literal(false),
+  code: Schema.Literal("validation"),
+  cause: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        _tag: Schema.String,
+        message: Schema.String,
+        stack: Schema.optional(Schema.String),
+      }),
+    ),
+  ),
+});
+const decodeMachineFailure = Schema.decodeUnknownSync(Schema.fromJsonString(MachineFailure));
+
+describe("Machine failure diagnostic detail", () => {
+  it.each([
+    { flags: [], env: {}, cause: false, stack: false },
+    { flags: ["--verbose"], env: {}, cause: true, stack: false },
+    { flags: ["--debug"], env: {}, cause: true, stack: true },
+    { flags: [], env: { AXM_VERBOSE: "1" }, cause: true, stack: false },
+    { flags: [], env: { AXM_DEBUG: "true" }, cause: true, stack: true },
+    {
+      flags: ["--quiet", "--debug", "--verbose"],
+      env: { AXM_DEBUG: "1" },
+      cause: false,
+      stack: false,
+    },
+  ])("limits cause output for flags $flags and environment $env", async (row) => {
+    const fixture = makeOutputControlsFixture();
+    try {
+      fs.writeFileSync(path.join(fixture.project, "axm.json"), "{\n");
+      const result = await fixture.run(
+        ["list", "--scope", "project", "--json", ...row.flags],
+        row.env,
+      );
+      expect(result.exitCode, result.stdout + result.stderr).toBe(9);
+      const document = decodeMachineFailure(result.stdout);
+      expect(document.cause !== undefined).toBe(row.cause);
+      if (row.cause) {
+        expect(document.cause).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({ _tag: "SettingsParseError", message: expect.any(String) }),
+          ]),
+        );
+      }
+      expect(document.cause?.some((cause) => cause.stack !== undefined) ?? false).toBe(row.stack);
+      expect(result.stderr).toContain('"code":"validation"');
+      expect(JSON.parse(result.stdout)).not.toHaveProperty("diagnostic");
+    } finally {
+      fixture.cleanup();
+    }
+  });
 });

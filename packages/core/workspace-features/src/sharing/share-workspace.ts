@@ -237,7 +237,7 @@ const renderPackageMetadata = (
 
 const selectorFlag: Readonly<Record<InstallableExtensionType, string>> = {
   skill: "--skill",
-  "mcp-server": "--mcp",
+  "mcp-server": "--mcp-server",
   subagent: "--subagent",
   rule: "--rule",
   hook: "--hook",

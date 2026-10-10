@@ -10,7 +10,7 @@ import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
 
 import { applyActivation } from "../../activation/test-helpers.js";
-import { SetActivation } from "../../activation/set-activation.js";
+import { DisableExtension } from "../../activation/set-activation.js";
 import { readSettings } from "../../install/test-helpers.js";
 import {
   applyInstall,
@@ -331,15 +331,14 @@ describe("pack removal", () => {
             }),
           );
           if (!enabled) {
-            yield* SetActivation.prepare({
+            yield* DisableExtension.prepare({
               type: "skill",
               name: "promoted",
-              enabled: false,
             }).pipe(
               Effect.flatMap((candidate) =>
                 candidate._tag === "Unchanged"
                   ? Effect.void
-                  : SetActivation.previewOrApply(candidate, preapprovedPlanExecution),
+                  : DisableExtension.previewOrApply(candidate, preapprovedPlanExecution),
               ),
             );
           }

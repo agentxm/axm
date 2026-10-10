@@ -6,7 +6,7 @@ walks through first-time setup. Once `.axm/` exists, switch to
 
 <!-- axm:generated:extension-type-list -->
 
-AXM manages skills, MCP servers, subagents, rules, hooks, knowledge bundles, and packs.
+AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bundles, and packs.
 
 <!-- /axm:generated -->
 

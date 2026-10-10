@@ -49,7 +49,6 @@ describe("Machine install result contract", () => {
         source: Option.some(skillPackage),
         selectors: {},
         all: true,
-        force: false,
         preview: options?.preview === true,
         bind: [],
         bindEnv: [],

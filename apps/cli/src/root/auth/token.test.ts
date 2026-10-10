@@ -99,7 +99,7 @@ describe("auth token handler", () => {
     const { provide } = makeLayers();
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleToken({ output: "token" }).pipe(
+        const result = yield* handleToken({ plain: true }).pipe(
           Effect.catchTag("AppError", (e) =>
             Effect.succeed({
               error: true,
@@ -117,7 +117,7 @@ describe("auth token handler", () => {
     const { provide } = makeLayers({ allowsPersistedCredentials: false });
     return provide(
       Effect.gen(function* () {
-        const result = yield* handleToken({ output: "token" }).pipe(
+        const result = yield* handleToken({ plain: true }).pipe(
           Effect.catchTag("AppError", (e) =>
             Effect.succeed({
               error: true,
@@ -167,7 +167,7 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleToken({ output: "token" });
+        yield* handleToken({ plain: true });
         expect(rendererState.credentials).toEqual(["axm_env_test_token\n"]);
       }),
     );
@@ -258,7 +258,7 @@ describe("auth token handler", () => {
           owners: [],
           extensions: [],
           permission: "read",
-          output: "token",
+          plain: true,
         });
 
         expect(rendererState.credentials).toEqual(["axmt_created\n"]);
@@ -306,7 +306,7 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListTokens();
+        yield* handleListTokens({});
         expect(rendererState.tables[0]?.items).toMatchObject([
           {
             id: "token_123",
@@ -350,7 +350,7 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListTokens();
+        yield* handleListTokens({});
 
         expect(rendererState.results[0]?.data).toMatchObject({
           count: 1,
@@ -381,7 +381,7 @@ describe("auth token handler", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleListTokens();
+        yield* handleListTokens({});
 
         expect(rendererState.tables).toEqual([]);
         expect(rendererState.logs).toEqual([]);

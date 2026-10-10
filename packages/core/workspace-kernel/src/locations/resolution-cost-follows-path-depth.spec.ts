@@ -3,6 +3,7 @@ import * as NodePath from "@effect/platform-node/NodePath";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as PlatformError from "effect/PlatformError";
 import * as Ref from "effect/Ref";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -88,7 +89,8 @@ it.effect(
     Effect.gen(function* () {
       const host = yield* FileSystem.FileSystem;
       const temporary = yield* host.makeTempDirectoryScoped();
-      const info = yield* host.stat(temporary);
+      // Synthetic paths require synthetic identity, even when the host omits its numeric inode.
+      const info = { ...(yield* host.stat(temporary)), ino: Option.some(1) };
       const calls = yield* Ref.make<ReadonlyArray<string>>([]);
       const fs = FileSystem.makeNoop({
         realPath: (target) =>

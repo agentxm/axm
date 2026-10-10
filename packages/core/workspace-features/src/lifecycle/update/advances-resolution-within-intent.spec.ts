@@ -1,3 +1,4 @@
+import { applySync } from "../../testing/sync-fixture.js";
 import * as Schema from "effect/Schema";
 import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import { fileRegistryPackagePath } from "../../testing/install-world.js";
@@ -145,11 +146,11 @@ type DeclarationSpelling = (typeof DECLARATION_SPELLINGS)[number];
 const spelled = (locator: string, spelling: DeclarationSpelling, sourceName: string): string =>
   spelling === "bare" ? locator : `${sourceName}:${locator}`;
 
-/** `axm skills update --name <name>`: the configured sweep narrowed to one skill. */
+/** `axm skills update <name>`: the configured sweep narrowed to one skill. */
 const typeGroupSkillUpdate = (name: string) =>
   applyUpdate(configuredUpdateRequest({ type: "skill", nameFilters: [name] }));
 
-/** `axm subagents update --name <name>`: the configured sweep narrowed to one subagent. */
+/** `axm subagents update <name>`: the configured sweep narrowed to one subagent. */
 const typeGroupSubagentUpdate = (name: string) =>
   applyUpdate(configuredUpdateRequest({ type: "subagent", nameFilters: [name] }));
 
@@ -252,9 +253,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
       const created = makeInstallWorld({ settings: sharedSubagentSettings("1.0.0") });
       cleanups.push(created.cleanup);
       publishSharedSubagentScenario(created.registry);
-      yield* created.workspace.provide(
-        applyInstall(installRequest({ subject: { kind: "configured" } })),
-      );
+      yield* created.workspace.provide(applySync());
       created.workspace.writeFile(
         "axm.json",
         `${JSON.stringify(
@@ -379,7 +378,7 @@ it.effect.each(omittedActivationRows)(
       .provide(
         Effect.gen(function* () {
           publish(registry, [firstVersion]);
-          yield* applyInstall(installRequest({ subject: { kind: "configured" } }));
+          yield* applySync();
           expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
           publish(registry, [firstVersion, { version: "2.0.0", body: "Second guidance." }]);
 
@@ -716,9 +715,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
         const created = makeInstallWorld({ settings: sharedMemberSettings("1.0.0") });
         cleanups.push(created.cleanup);
         publishSharedMemberScenario(created.registry);
-        yield* created.workspace.provide(
-          applyInstall(installRequest({ subject: { kind: "configured" } })),
-        );
+        yield* created.workspace.provide(applySync());
         created.workspace.writeFile(
           "axm.json",
           `${JSON.stringify(
@@ -807,7 +804,10 @@ describe.each(["configured", "targeted", "type-group"] as const)(
                 }
                 // The same FQN, now bound to another configured Registry.
                 writeSettings(`mirror:${pinned}`);
-                return yield* UpdateExtensions.previewOrApply(candidate, preapprovedPlanExecution);
+                return yield* UpdateExtensions.previewOrApply(
+                  candidate,
+                  preapprovedPlanExecution,
+                ).pipe(Effect.map((result) => result.resolution));
               }),
             );
 

@@ -22,6 +22,7 @@ export const EXPECTED_CONTENT_ASSETS = [
   "axm-lock.schema.json",
   "hook.schema.json",
   "knowledge.schema.json",
+  "machine-output.schema.json",
   "mcp.schema.json",
   "pack.schema.json",
   "rule.schema.json",

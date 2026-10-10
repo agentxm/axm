@@ -51,7 +51,6 @@ const installSkill = (fqn: string) =>
     source: Option.some(fqn),
     selectors: {},
     all: false,
-    force: false,
     preview: false,
     bind: [],
     bindEnv: [],
@@ -80,7 +79,7 @@ describe("skills update route", () => {
     }),
   );
 
-  it.effect("a positional that names an installed skill narrows the sweep to that skill", () =>
+  it.effect("positional names narrows the sweep to the installed skill", () =>
     Effect.gen(function* () {
       const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);
@@ -105,7 +104,7 @@ describe("skills update route", () => {
       const lockBefore = workspace.readLockfileText();
       workspace.rendererState.results.splice(0);
 
-      yield* skillsUpdate({ source: REVIEW, preview: true }).pipe(Effect.provide(workspace.layer));
+      yield* skillsUpdate({ names: [REVIEW], preview: true }).pipe(Effect.provide(workspace.layer));
 
       const result = expectPreviewedPlanResult(workspace.rendererState.results[0]?.data, {
         planName: "Update skills",

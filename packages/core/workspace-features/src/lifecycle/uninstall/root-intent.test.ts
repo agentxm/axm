@@ -4,13 +4,13 @@ import { describe, expect, it } from "@effect/vitest";
 import type { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
 import { resolveRootUninstallIntent } from "./root-intent.js";
 
-const rootFqnGrammarSnippet = "@<handle>/<plural-type>/<name>[@<version>]";
+const rootFqnGrammarSnippet = "@<handle>/<plural-type>/<name>";
 
 const guidanceOf = (failure: ExtensionLifecycleFailed): string =>
   (failure.suggestions ?? []).map((suggestion) => suggestion.description).join("\n");
 
 describe("resolveRootUninstallIntent", () => {
-  it.effect("parses supported registry FQNs and strips version constraints from the name", () =>
+  it.effect("parses supported unversioned registry FQNs", () =>
     Effect.gen(function* () {
       const cases = [
         { source: "@acme/skills/code-review", owner: "@acme", type: "skill", name: "code-review" },
@@ -22,7 +22,7 @@ describe("resolveRootUninstallIntent", () => {
           name: "researcher",
         },
         {
-          source: "@acme/packs/frontend-tools@1.2.3",
+          source: "@acme/packs/frontend-tools",
           owner: "@acme",
           type: "pack",
           name: "frontend-tools",

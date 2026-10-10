@@ -1,5 +1,7 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
-import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import * as Result from "effect/Result";
 import { Argument, Command } from "effect/cli";
 
@@ -10,7 +12,6 @@ import {
 } from "@agentxm/workspace-features/authoring";
 import { extensionTypeToPlural, parseFqn } from "@agentxm/extension-model/unstable/extensions";
 import { DEFAULT_WORKSPACE_SCOPE } from "@agentxm/extension-model/unstable/workspace-scope";
-import { operationPresentation } from "@agentxm/workspace-kernel/operations";
 
 import { makeAppError } from "../../app-error/index.js";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
@@ -24,81 +25,44 @@ import {
 } from "../shared/command-capabilities.js";
 import { makePlanInvocation } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
-import {
-  isVersionableType,
-  versionableTypes,
-  type VersionableExtensionType,
-} from "./versionable-types.js";
+import { isVersionableType, versionableTypes } from "./versionable-types.js";
 
-export interface VersionHandlerArgs {
-  readonly type: VersionableExtensionType;
+export interface RootVersionHandlerArgs {
   readonly handle: string;
   readonly bump: string;
-  readonly targetVersion: Option.Option<string>;
   readonly preview: boolean;
 }
 
-/**
- * Turn the bump word and the optional exact version into the change the
- * feature takes. An unknown word, a `set` without a version, and a version
- * passed to a relative bump are argument grammar this route refuses before a
- * request exists.
- */
+const VersionBumpSchema = Schema.Union([
+  Schema.Literals(["major", "minor", "patch", "prerelease"]),
+  VersionSchema,
+]);
+
+/** CLI grammar has one slot for a relative rule or an exact semantic version. */
 const parseChange = (
   bump: string,
   handle: string,
-  targetVersion: Option.Option<string>,
 ): Effect.Effect<AuthoredVersionChange, ReturnType<typeof makeAppError>> => {
-  if (bump === "set") {
-    return Option.match(targetVersion, {
-      onNone: () =>
-        makeAppError({
-          code: "usage",
-          detail: "`set` requires an exact semver version",
-          suggestions: [
-            {
-              description: "Set an exact semver version.",
-              cmd: `axm version ${handle} set 1.2.3`,
-            },
-          ],
-        }),
-      onSome: (version) => Effect.succeed<AuthoredVersionChange>({ _tag: "Exact", version }),
-    });
+  if (bump === "patch" || bump === "minor" || bump === "major" || bump === "prerelease") {
+    return Effect.succeed<AuthoredVersionChange>({ _tag: "Increment", rule: bump });
   }
-  if (bump !== "patch" && bump !== "minor" && bump !== "major" && bump !== "prerelease") {
-    return makeAppError({ code: "validation", detail: `Invalid version bump: ${bump}` });
-  }
-  if (Option.isSome(targetVersion)) {
-    return makeAppError({
-      code: "usage",
-      detail: `Version target is only valid with "set", got ${bump}`,
-      suggestions: [
-        {
-          description: "Run the requested bump without an exact version argument.",
-          cmd: `axm version ${handle} ${bump}`,
-        },
-      ],
-    });
-  }
-  return Effect.succeed<AuthoredVersionChange>({ _tag: "Increment", rule: bump });
+  const version = Schema.decodeUnknownResult(VersionSchema)(bump);
+  if (Result.isSuccess(version))
+    return Effect.succeed<AuthoredVersionChange>({ _tag: "Exact", version: version.success });
+  return makeAppError({
+    code: "usage",
+    detail: `Expected major, minor, patch, prerelease, or an exact semver version; got ${bump}`,
+    suggestions: [
+      { description: `Review the version syntax for ${handle}.`, cmd: "axm version --help" },
+    ],
+  });
 };
 
-const versionPresentation = (type: VersionableExtensionType) =>
-  operationPresentation({ imperative: "update", past: "Updated", gerund: "Updating" }, type);
-
-export const handleVersion = (args: VersionHandlerArgs) =>
-  withOperationLifecycle(
-    {
-      command: "version",
-      mode: args.preview ? "preview" : "apply",
-      planName: changeAuthoredVersionPlanName,
-      presentation: versionPresentation(args.type),
-    },
-    handleVersionBody(args),
-  );
-
-const handleVersionBody = Effect.fn("Version.handle")(function* (args: VersionHandlerArgs) {
-  const change = yield* parseChange(args.bump, args.handle, args.targetVersion);
+const handleRootVersionBody = Effect.fn("Version.handleRoot")(function* (
+  args: RootVersionHandlerArgs,
+) {
+  yield* inferVersionableType(args.handle);
+  const change = yield* parseChange(args.bump, args.handle);
   const candidate = yield* ChangeAuthoredVersion.prepare({
     fqn: args.handle,
     change,
@@ -113,13 +77,6 @@ const handleVersionBody = Effect.fn("Version.handle")(function* (args: VersionHa
   );
   yield* emitOperationResolution(resolution, { recovery });
 });
-
-export interface RootVersionHandlerArgs {
-  readonly handle: string;
-  readonly bump: string;
-  readonly targetVersion: Option.Option<string>;
-  readonly preview: boolean;
-}
 
 const supportedHandleHints = versionableTypes
   .map((type) => `\`@owner/${extensionTypeToPlural[type]}/name\``)
@@ -148,36 +105,22 @@ export const handleRootVersion = (args: RootVersionHandlerArgs) =>
     handleRootVersionBody(args),
   );
 
-const handleRootVersionBody = Effect.fn("Version.handleRoot")(function* (
-  args: RootVersionHandlerArgs,
-) {
-  const type = yield* inferVersionableType(args.handle);
-  return yield* handleVersionBody({ ...args, type });
-});
-
-const supportedTypePluralPattern = versionableTypes
-  .map((type) => extensionTypeToPlural[type])
-  .join("|");
-
 const rootVersionConfig = {
   handle: Argument.String("extension").pipe(
-    Argument.withDescription(
-      `Fully-qualified extension handle (@owner/<${supportedTypePluralPattern}>/name)`,
-    ),
+    withParameterDescription("Extension FQN in @owner/<plural-type>/<name> form"),
   ),
-  bump: Argument.String("bump").pipe(Argument.withDescription("Version bump rule or set")),
-  targetVersion: Argument.String("version").pipe(
-    Argument.withDescription("Exact semver version for set"),
-    Argument.optional,
+  bump: Argument.String("bump").pipe(
+    Argument.withSchema(VersionBumpSchema),
+    withParameterDescription("major, minor, patch, prerelease, or an exact semver version"),
   ),
-  preview: previewCapabilityFlag("Print the bump without writing"),
+  preview: previewCapabilityFlag(),
 } as const;
 
 export const versionCommand = Command.make(
   "version",
   rootVersionConfig,
-  ({ handle, bump, targetVersion, preview }) =>
-    handleRootVersion({ handle, bump, targetVersion, preview }).pipe(
+  ({ handle, bump, preview }) =>
+    handleRootVersion({ handle, bump, preview }).pipe(
       withWorkspace(DEFAULT_WORKSPACE_SCOPE),
       withRuntime("version"),
     ),
@@ -189,7 +132,7 @@ export const versionCommand = Command.make(
   Command.withExamples([
     {
       command: "axm version @acme/hooks/block-secrets patch",
-      description: "Bump a hook's patch version",
+      description: "Bump a hook extension's patch version",
     },
     {
       command: "axm version @acme/skills/code-review minor",
@@ -204,7 +147,7 @@ export const versionCommand = Command.make(
       description: "Bump an MCP server's minor version",
     },
     {
-      command: "axm version @acme/packs/frontend-tools set 1.2.3",
+      command: "axm version @acme/packs/frontend-tools 1.2.3",
       description: "Set an exact pack version",
     },
   ]),

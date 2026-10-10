@@ -159,6 +159,9 @@ File artifacts require ownership evidence independently of equivalent content.
 Native MCP and Hook configuration instead follows
 [declaration authority](managed-file-ownership.md#native-declaration-authority),
 including same-name replacement and retention when declarations disappear.
+Explicit `mcps adopt` records losslessly representable native MCP entries as
+inline declarations; `mcps import <name> <extension>` converts one into an
+authored package. Neither establishes file-artifact ownership.
 
 ## Recovery-conformance verification
 

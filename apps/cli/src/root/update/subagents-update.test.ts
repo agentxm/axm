@@ -1,7 +1,7 @@
 /**
  * `axm subagents update` is `axm update` narrowed to subagents. These
  * examples pin the route's own concerns — its plan name, its no-op message,
- * how `--name` narrows the sweep, and how a held release is reported — and
+ * how `positional names` narrows the sweep, and how a held release is reported — and
  * leave what an update decides to the update specifications.
  */
 
@@ -48,7 +48,6 @@ const installSubagent = (fqn: string) =>
     source: Option.some(fqn),
     selectors: {},
     all: false,
-    force: false,
     preview: false,
     bind: [],
     bindEnv: [],
@@ -76,7 +75,7 @@ describe("subagents update route", () => {
     }),
   );
 
-  it.effect("--name narrows the sweep to the subagents it names", () =>
+  it.effect("positional names narrows the sweep to the subagents it names", () =>
     Effect.gen(function* () {
       const registry = makeFileRegistry();
       cleanups.push(registry.cleanup);

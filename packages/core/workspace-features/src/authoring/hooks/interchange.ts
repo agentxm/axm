@@ -279,7 +279,7 @@ export const prepareNativeHookImport = Effect.fn("Hook.prepareNativeImport")(fun
         },
       },
     },
-    "Imported Hook package is invalid.",
+    "Imported Hook extension is invalid.",
   );
   return { manifest, files } satisfies NativeHookBundle;
 });

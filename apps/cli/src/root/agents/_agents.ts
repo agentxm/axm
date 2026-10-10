@@ -17,7 +17,7 @@ export const agentsCommand = Command.make("agents").pipe(
       ["axm agents add <id>", "Configure another coding-agent harness"],
       ["axm agents remove <id>", "Remove a coding-agent harness from AXM management"],
       ["axm agents capabilities <id>", "Show what one coding agent supports"],
-      ["axm rules", "Inspect and manage workspace instruction files"],
+      ["axm instructions", "Inspect and manage workspace instruction files"],
     ]),
   ),
   Command.withExamples([

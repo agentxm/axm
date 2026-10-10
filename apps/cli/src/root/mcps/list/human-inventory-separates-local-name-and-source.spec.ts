@@ -43,7 +43,6 @@ describe("List locally named MCP connections for a person", () => {
           source: Option.some("@acme/mcps/context"),
           selectors: { "mcp-server": [] },
           all: false,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],

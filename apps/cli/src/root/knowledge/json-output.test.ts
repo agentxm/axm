@@ -13,11 +13,11 @@ import {
   makeWorkspaceHandlerTestContext,
   makeWorkspaceLifecycleTestContext,
 } from "../../test-support/test-helpers.js";
-import { handleActivation } from "../activation-handler.js";
+import { handleDisable, handleEnable } from "../activation-handler.js";
 import { handleKnowledgeLint } from "./lint.js";
 import { handleKnowledgeConceptGet } from "./concepts/get.js";
-import { handleKnowledgeConceptSearch } from "./concepts/search.js";
-import { handleKnowledgeConceptStatus } from "./concepts/status.js";
+
+import { handleKnowledgeConceptCapabilities } from "./concepts/capabilities.js";
 import { handleKnowledgeConceptResolve } from "./concepts/resolve.js";
 import { handleKnowledgeConceptRelated } from "./concepts/related.js";
 import { handleKnowledgeConceptQuery } from "./concepts/query.js";
@@ -54,6 +54,17 @@ const writeAuthoredBundle = (packageRoot: string, opts: { readonly valid: boolea
 };
 
 describe("knowledge JSON output", () => {
+  it.effect("refuses an installed name combined with an authored path as usage", () => {
+    const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
+    return provide(
+      Effect.gen(function* () {
+        const failure = yield* handleKnowledgeLint("platform", "pkg").pipe(Effect.flip);
+        expect(failure).toMatchObject({ code: "usage" });
+        expect(rendererState.results).toEqual([]);
+      }),
+    );
+  });
+
   let tempDir: string;
   let originalCwd: string;
 
@@ -275,12 +286,19 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleKnowledgeConceptSearch("Authentication", "project");
+        yield* handleKnowledgeConceptQuery("project", {
+          expression: "Authentication",
+          fields: [],
+          properties: [],
+          metadata: [],
+          lifecycle: [],
+          tags: [],
+        });
 
         expect(startedUnits(rendererState)).toEqual(["installed knowledge"]);
         expect(rendererState.results).toHaveLength(1);
         expect(rendererState.results[0]?.data).toMatchObject({
-          query: { version: "axm-knowledge-query-v1", scope: "project" },
+          query: { contract: "knowledge-query-v1", scope: "project" },
           count: 1,
           items: [
             {
@@ -301,11 +319,11 @@ describe("knowledge JSON output", () => {
             raw: expect.stringContaining("# Authentication"),
           },
         });
-        yield* handleKnowledgeConceptStatus();
+        yield* handleKnowledgeConceptCapabilities();
         expect(rendererState.results[2]?.data).toMatchObject({
           capabilities: {
-            version: "axm-knowledge-discovery-capabilities-v1",
-            operations: ["resolve", "search", "query", "get", "related", "status"],
+            contract: "knowledge-discovery-capabilities-v1",
+            operations: ["resolve", "query", "get", "related", "capabilities"],
           },
           bundleCount: 1,
           conceptCount: 2,
@@ -328,7 +346,6 @@ describe("knowledge JSON output", () => {
       Effect.gen(function* () {
         const cases = [
           [handleKnowledgeList(), "platform"],
-          [handleKnowledgeConceptSearch("Authentication", "project"), "auth"],
           [
             handleKnowledgeConceptQuery("project", {
               expression: "Authentication",
@@ -337,14 +354,24 @@ describe("knowledge JSON output", () => {
               metadata: [],
               lifecycle: [],
               tags: [],
-              explain: false,
+            }),
+            "auth",
+          ],
+          [
+            handleKnowledgeConceptQuery("project", {
+              expression: "Authentication",
+              fields: [],
+              properties: [],
+              metadata: [],
+              lifecycle: [],
+              tags: [],
             }),
             "auth",
           ],
           [handleKnowledgeConceptResolve(reference), reference],
           [handleKnowledgeConceptGet(reference), "Rotate credentials."],
           [handleKnowledgeConceptRelated(reference), "No related installed knowledge concepts"],
-          [handleKnowledgeConceptStatus(), "Knowledge discovery"],
+          [handleKnowledgeConceptCapabilities(), "Knowledge discovery"],
         ] as const;
         for (const [command, expected] of cases) {
           const before = rendererState.docs.length;
@@ -372,9 +399,8 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("knowledge", {
+        yield* handleDisable("knowledge", {
           name: "platform",
-          enabled: false,
           preview: false,
         });
 
@@ -398,9 +424,8 @@ describe("knowledge JSON output", () => {
 
     return provide(
       Effect.gen(function* () {
-        yield* handleActivation("knowledge", {
+        yield* handleEnable("knowledge", {
           name: "platform",
-          enabled: true,
           preview: false,
         });
 

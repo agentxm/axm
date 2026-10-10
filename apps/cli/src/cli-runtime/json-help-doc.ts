@@ -1,22 +1,17 @@
+import type { ParameterRecord } from "../cli-parameters.js";
+import * as ServiceMap from "effect/Context";
+import {
+  ParameterSchema,
+  ParameterRecordsAnnotation,
+  toParameterReference,
+} from "../cli-parameters.js";
+import { axmGlobalFlags } from "../cli-flags/index.js";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { FlagDoc, HelpDoc } from "effect/cli/HelpDoc";
 
-export interface JsonFlagDoc {
-  readonly name: string;
-  readonly aliases: ReadonlyArray<string>;
-  readonly type: string;
-  readonly required: boolean;
-  readonly description?: string | undefined;
-}
-
-export interface JsonArgDoc {
-  readonly name: string;
-  readonly type: string;
-  readonly required: boolean;
-  readonly variadic: boolean;
-  readonly description?: string | undefined;
-}
+export type JsonFlagDoc = ParameterRecord;
+export type JsonArgDoc = ParameterRecord;
 
 export interface JsonSubcommandDoc {
   readonly name: string;
@@ -47,21 +42,8 @@ export interface JsonHelpDoc {
   readonly learnMore?: string | undefined;
 }
 
-export const JsonFlagDocSchema = Schema.Struct({
-  name: Schema.String,
-  aliases: Schema.Array(Schema.String),
-  type: Schema.String,
-  required: Schema.Boolean,
-  description: Schema.optional(Schema.String),
-});
-
-export const JsonArgDocSchema = Schema.Struct({
-  name: Schema.String,
-  type: Schema.String,
-  required: Schema.Boolean,
-  variadic: Schema.Boolean,
-  description: Schema.optional(Schema.String),
-});
+export const JsonFlagDocSchema = ParameterSchema;
+export const JsonArgDocSchema = ParameterSchema;
 
 export const JsonSubcommandDocSchema = Schema.Struct({
   name: Schema.String,
@@ -116,39 +98,64 @@ export const toJsonFlagDoc = (flag: FlagDoc): JsonFlagDoc => ({
   aliases: flag.aliases,
   type: flag.type,
   required: flag.required,
-  description: Option.getOrUndefined(flag.description),
+  ...(Option.isSome(flag.description) ? { description: flag.description.value } : {}),
 });
 
 export const toJsonHelpDoc = (
   doc: HelpDoc,
   options?: { readonly learnMore?: string | undefined },
-): JsonHelpDoc => ({
-  type: "help",
-  description: doc.description,
-  usage: doc.usage,
-  flags: doc.flags.map(toJsonFlagDoc),
-  globalFlags: doc.globalFlags?.map(toJsonFlagDoc),
-  args: doc.args?.map((arg) => ({
-    name: arg.name,
-    type: arg.type,
-    required: arg.required,
-    variadic: arg.variadic,
-    description: Option.getOrUndefined(arg.description),
-  })),
-  subcommands: doc.subcommands?.map((group) => ({
-    group: group.group,
-    commands: group.commands.map((command) => ({
-      name: command.name,
-      alias: command.alias,
-      shortDescription: command.shortDescription,
-      description: command.description,
+): JsonHelpDoc => {
+  const records = ServiceMap.get(doc.annotations, ParameterRecordsAnnotation);
+  const globalRecords = axmGlobalFlags.map(({ flag }) => toParameterReference(flag));
+  const flagRecord = (flag: FlagDoc): ParameterRecord =>
+    records.find((row) => row.kind === "flag" && row.parameter.name === flag.name)?.parameter ??
+    toJsonFlagDoc(flag);
+  const args = doc.args?.map(
+    (arg): ParameterRecord =>
+      records.find((row) => row.kind === "argument" && row.parameter.name === arg.name)
+        ?.parameter ?? {
+        name: arg.name,
+        aliases: [],
+        type: arg.type,
+        required: arg.required,
+        ...(Option.isSome(arg.description) ? { description: arg.description.value } : {}),
+        ...(arg.variadic ? { variadic: { min: arg.required ? 1 : 0 } } : {}),
+      },
+  );
+  const path = doc.usage.replace(/\s*[[<].*$/u, "").trim();
+  const usage =
+    doc.subcommands !== undefined && doc.subcommands.some((group) => group.commands.length > 0)
+      ? `${path} <${path === "axm" ? "command" : "subcommand"}> [flags]`
+      : `${path} [flags]${(args ?? [])
+          .map((arg) => {
+            const name = `<${arg.name}>${arg.variadic === undefined ? "" : "..."}`;
+            return ` ${arg.required ? name : `[${name}]`}`;
+          })
+          .join("")}`;
+  return {
+    type: "help",
+    description: doc.description,
+    usage,
+    flags: doc.flags.map(flagRecord),
+    globalFlags: doc.globalFlags?.map(
+      (flag) => globalRecords.find((record) => record.name === flag.name) ?? toJsonFlagDoc(flag),
+    ),
+    args,
+    subcommands: doc.subcommands?.map((group) => ({
+      group: group.group,
+      commands: group.commands.map((command) => ({
+        name: command.name,
+        alias: command.alias,
+        shortDescription: command.shortDescription,
+        description: command.description,
+      })),
     })),
-  })),
-  examples: doc.examples?.map((example) => ({
-    command: example.command,
-    description: example.description,
-  })),
-  ...(options?.learnMore !== undefined && options.learnMore !== ""
-    ? { learnMore: options.learnMore }
-    : {}),
-});
+    examples: doc.examples?.map((example) => ({
+      command: example.command,
+      description: example.description,
+    })),
+    ...(options?.learnMore !== undefined && options.learnMore !== ""
+      ? { learnMore: options.learnMore }
+      : {}),
+  };
+};

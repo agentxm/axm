@@ -9,18 +9,19 @@
  * @packageDocumentation
  */
 
-// Activation: enable and disable for every extension type, as one use case.
+// Activation: separate enable and disable entries over shared settlement.
+export { resolveRootActivationIntent } from "./activation/root-intent.js";
 export {
-  prepareSetActivation,
-  previewOrApplySetActivation,
-  SetActivation,
+  EnableExtension,
+  DisableExtension,
   type ActivationUnchanged,
-  type SetActivationCandidate,
-  type SetActivationFailure,
-  type SetActivationRequest,
-  type SetActivationRequirements,
+  type ActivationCandidate,
+  type ActivationFailure,
+  type EnableExtensionRequest,
+  type DisableExtensionRequest,
+  type ActivationRequirements,
 } from "./activation/set-activation.js";
-export type { SetActivationExecutionFailure } from "./activation/errors.js";
+export type { ActivationExecutionFailure } from "./activation/errors.js";
 
 export {
   SOURCE_FAMILY_LIFECYCLE_CELLS,
@@ -41,8 +42,7 @@ export {
   withPublisherTrustConditions,
 } from "./publisher-binding.js";
 
-// Install: acquiring extensions a request names, or the ones the workspace
-// already declares, as one use case behind every command spelling.
+// Install: acquiring extensions from an explicit source or the bundled skill.
 export {
   InstallExtensions,
   prepareInstallExtensions,
@@ -50,7 +50,6 @@ export {
   type InstallDiagnostics,
   type InstallExtensionsCandidate,
   type InstallExtensionsResult,
-  type InstalledSkill,
   type InstallExtensionsFailure,
   type InstallExtensionsRequest,
   type InstallExtensionSelectors,
@@ -71,18 +70,7 @@ export {
   type RootInstallableType,
   type RootInstallableTypeSegment,
 } from "./install/root-intent.js";
-export {
-  installCommandFor,
-  installSourceArgumentDescription,
-  perTypeInstallPluralSegments,
-} from "./install/per-type-install.js";
-export {
-  buildConfiguredInstallPlan,
-  type ConfiguredInstallPlanResult,
-  type ConfiguredInstallRequirements,
-  type ConfiguredInstallableType,
-} from "./install/configured.js";
-export { inlineMcpNotApplicablePlan } from "./install/inline-mcp-operation.js";
+export { installCommandFor, perTypeInstallPluralSegments } from "./install/per-type-install.js";
 
 // Uninstall: withdrawing extensions, as one use case behind every spelling.
 export { MigrateDeprecated } from "./migrate-deprecated.js";
@@ -125,11 +113,11 @@ export {
   type UpdateCandidate,
   type UpdateFailure,
   type UpdateRequest,
+  type UpdateResult,
   type UpdateRequirements,
   type UpdateSubjectType,
 } from "./update/update-extensions.js";
 export {
-  UPDATE_NAME_FILTER_FLAG,
   type ConfiguredUpdateSelection,
   type ConfiguredUpdateSelector,
   type ConfiguredUpdateSelectorType,
@@ -179,3 +167,5 @@ export {
 } from "./demote/demote-to-external-source.js";
 
 export { HandoffSkills, type HandoffRequest } from "./handoff.js";
+
+export type { InstalledSkill } from "./skill-acquisitions.js";

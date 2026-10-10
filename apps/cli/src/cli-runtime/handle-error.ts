@@ -148,7 +148,14 @@ export const classifyError = (
         };
       }
 
-      return { exitCode: ExitCode.Usage };
+      return {
+        exitCode: ExitCode.Usage,
+        ...renderAppErrorChannels(
+          makeAppError({ code: "usage", detail: cliErrorMessage(error.errors) }),
+          format,
+          options,
+        ),
+      };
     }
 
     if (format !== "text") {
@@ -195,6 +202,8 @@ export const handleError = (
   diagnostic?: {
     readonly diagnosticId?: string;
     readonly diagnostic?: AppError["diagnostic"];
+    readonly verbose?: boolean;
+    readonly debug?: boolean;
   },
 ) => {
   const original =
@@ -217,7 +226,10 @@ export const handleError = (
             : { diagnosticId: diagnostic.diagnosticId }),
           ...(diagnostic?.diagnostic === undefined ? {} : { diagnostic: diagnostic.diagnostic }),
         });
-  const { exitCode, stderr, stderrDoc, stdout } = classifyError(rendered, format);
+  const { exitCode, stderr, stderrDoc, stdout } = classifyError(rendered, format, {
+    verbose: diagnostic?.verbose === true,
+    debug: diagnostic?.debug === true,
+  });
   const output = Effect.gen(function* () {
     const screen = yield* Screen;
     if (stderrDoc !== undefined) {

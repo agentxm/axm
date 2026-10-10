@@ -53,7 +53,6 @@ import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
   SettingsReader,
   acceptedCanonicalObservation,
-  registryBaseUrl,
   settingsEntries,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -196,7 +195,6 @@ export interface PublishRequest {
   readonly types: ReadonlyArray<PublishableType>;
   readonly excludes: ReadonlyArray<string>;
   readonly registry: Option.Option<string>;
-  readonly registryUrl: Option.Option<string>;
   readonly backfill: boolean;
   readonly acceptWarnings: boolean;
   readonly preview: boolean;
@@ -411,7 +409,10 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
   const path = yield* Path.Path;
   const hasFilters = args.owners.length > 0 || args.types.length > 0 || args.excludes.length > 0;
   if (args.from === undefined && (args.fileInclude !== undefined || args.fileExclude !== undefined))
-    return yield* validation("--include-file and --exclude-file require --from.");
+    return yield* new PublishFailed({
+      category: "usage",
+      detail: "--include-path and --exclude-path require --path",
+    });
   if (args.from !== undefined || args.packageVersion !== undefined) {
     const selector = args.selectors[0];
     if (
@@ -425,7 +426,7 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
       return yield* new PublishFailed({
         category: "usage",
         detail:
-          "Existing-directory publication requires one skill FQN, --from, and --package-version; selection filters and dependency expansion are not applicable.",
+          "Existing-directory publication requires one skill FQN, --path, and --package-version; selection filters and dependency expansion are not applicable.",
       });
     }
     if (!path.isAbsolute(args.from))
@@ -709,23 +710,22 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
 });
 
 /**
- * The Registry a publish addresses: an explicit URL override, else the named
- * or default configured source, through the workspace's one target owner.
+ * The registry a publish addresses: a configured name or absolute HTTP(S) URL,
+ * otherwise the default configured source, through one target owner.
  */
 export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(function* (
   requested: Option.Option<string>,
-  urlOverride: Option.Option<string>,
 ) {
-  if (Option.isSome(urlOverride)) {
-    const url = yield* Effect.try({
-      try: () => registryBaseUrl(new URL(urlOverride.value)),
-      catch: (cause) => validation("--registry-url must be a valid URL", { cause }),
-    });
-    return { name: Option.getOrElse(requested, () => "override"), url } satisfies TargetRegistry;
-  }
   const settings = yield* SettingsReader;
   const selection = yield* settings.registryTarget(requested);
   if (Option.isNone(selection.url)) {
+    if (Option.isSome(requested) && URL.canParse(requested.value)) {
+      return yield* new PublishFailed({
+        category: "usage",
+        detail:
+          "--registry must name a configured registry or an absolute HTTP(S) URL without credentials, query or fragment",
+      });
+    }
     return yield* Effect.fail(
       Option.isNone(requested)
         ? new PublishFailed({

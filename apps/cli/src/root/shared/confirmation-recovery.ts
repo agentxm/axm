@@ -119,7 +119,7 @@ export const makePublicPositionalPlanInvocation = (
   );
 
 export const makeInstallPlanInvocation = (
-  intent: RequestedPlanIntent & { readonly force?: boolean },
+  intent: RequestedPlanIntent,
   command: ReadonlyArray<string>,
   locators: ReadonlyArray<string>,
   arguments_: ReadonlyArray<ConfirmationRecoveryArgument> = [],
@@ -127,7 +127,6 @@ export const makeInstallPlanInvocation = (
   makePlanInvocation(
     intent,
     makeConfirmationRecovery(command, [
-      recoverySwitch("--reinstall", intent.force === true),
       ...arguments_,
       ...locators.map((value) => recoveryPositional(credentialFreeLocatorRecoveryValue(value))),
     ]),
@@ -197,8 +196,8 @@ export const narrowInstallSelection = (
 };
 
 /**
- * A typed update replayed for the units that did not settle: the `--name`
- * selectors it carried give way to the names still waiting. A sweep whose
+ * A typed update replayed for the units that did not settle: the positional
+ * names it carried give way to the names still waiting. A sweep whose
  * waiting units are not extensions a name can select is replayed as typed.
  */
 export const narrowUpdateNames = (
@@ -210,10 +209,8 @@ export const narrowUpdateNames = (
   return {
     ...recovery,
     arguments: [
-      ...recovery.arguments.filter(
-        (argument) => argument._tag !== "Option" || argument.flag !== "--name",
-      ),
-      ...units.map((unit) => recoveryOption("--name", publicRecoveryValue(unit.name))),
+      ...recovery.arguments.filter((argument) => argument._tag !== "Positional"),
+      ...units.map((unit) => recoveryPositional(publicRecoveryValue(unit.name))),
     ],
   };
 };

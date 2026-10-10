@@ -28,6 +28,11 @@ The authoring family spans three kinds of work:
 - Edit an authored package: `version` changes its version, while Pack editing
   changes its declared membership.
 
+Conversion commands name the source before the new extension identity. Native
+bundle imports use a directory as that source. Authority-changing commands
+lead with the existing subject; `demote` then takes its replacement source, so
+it is not an inverse fork operation.
+
 MCP import has a separate responsibility: discover native server configuration
 and bring the selected configuration under management. Its package-conversion
 path is described by the MCP specifications.
@@ -66,7 +71,11 @@ identity and placement model; authorship does not select a stricter content gate
 
 ## Local editing and publication
 
-Local creation prepares content for editing. Publication applies its own
+Local creation prepares content for editing. The shared `--description` input
+is the short Registry listing and search summary; each scaffold remains
+editable when the summary is omitted. A rule title names its body and remains
+a separate input. Skill summaries are recorded in both the manifest and Skill
+frontmatter so package discovery and the agent payload agree. Publication applies its own
 distribution checks to the selected packages. This separation lets an
 empty Pack or an unfinished MCP package remain editable without inventing
 external runtime configuration or pretending the package is ready to publish.

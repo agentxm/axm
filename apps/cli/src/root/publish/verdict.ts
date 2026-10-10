@@ -92,7 +92,7 @@ export const publishVerdictOf = (
       tone: "error",
       verdict: interruptionPhrase(
         result.interruption.signal,
-        published.length > 0 ? "retained" : unconfirmed.length > 0 ? "unknown" : "none",
+        published.length > 0 ? "retained" : unconfirmed.length > 0 ? "unknown" : "untouched",
       ),
       aside: problemAside,
     };

@@ -1,3 +1,4 @@
+import { recordSkillInstalls } from "../../cli-runtime/index.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -12,7 +13,7 @@ import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import {
   operationPresentation,
   publicRecoveryValue,
-  recoveryOption,
+  recoveryPositional,
   recoverySwitch,
   type ConfirmationRecovery,
 } from "@agentxm/workspace-kernel/operations";
@@ -40,7 +41,7 @@ import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
 export interface WorkspaceUpdateFlags {
   readonly preview: boolean;
-  readonly force?: boolean;
+  readonly reinstall?: boolean;
 }
 
 /** The route a person reruns to confirm this sweep. */
@@ -59,7 +60,7 @@ const workspaceUpdateCommand = (
  * the invocation again only where a rerun would actually settle it, so a
  * failure no rerun can change names nothing here. Settled units are no-ops
  * on a rerun, so the invocation is safe to repeat; the root route takes no
- * `--name` and repeats the whole sweep, while a typed route is narrowed to
+ * name selection and repeats the whole sweep, while a typed route is narrowed to
  * the units that are still waiting.
  */
 export const updateSuggestions =
@@ -124,6 +125,7 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
 ) {
   const candidate = yield* UpdateExtensions.prepare({
     kind: "configured",
+    reinstall: args.flags.reinstall === true,
     type: args.type,
     planName: args.planName,
     planDescription: args.planDescription,
@@ -154,14 +156,18 @@ const handleWorkspaceUpdateBody = Effect.fn("Update.handleConfigured")(function*
   const { execution, recovery } = yield* makePlanInvocation(
     { preview: args.flags.preview },
     makeConfirmationRecovery(workspaceUpdateCommand(args.type), [
-      recoverySwitch("--refresh", args.flags.force === true),
+      recoverySwitch("--reinstall", args.flags.reinstall === true),
       recoverySwitch("--ignore-release-age", posture === "ignore"),
       ...(candidate.outcome === "planned" ? (candidate.selectedNames ?? []) : []).map((name) =>
-        recoveryOption("--name", publicRecoveryValue(name)),
+        recoveryPositional(publicRecoveryValue(name)),
       ),
     ]),
   );
-  const resolution = yield* UpdateExtensions.previewOrApply(candidate, execution);
+  const { resolution, installedSkills } = yield* UpdateExtensions.previewOrApply(
+    candidate,
+    execution,
+  );
+  yield* recordSkillInstalls(installedSkills);
   yield* setCommandSemanticProperties(
     summarizeCommandOutcome(
       operationResolutionSummary(resolution, {

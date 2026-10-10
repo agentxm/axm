@@ -191,7 +191,7 @@ describe("root update handler", () => {
     };
   };
 
-  const rootUpdate = { source: Option.none<string>(), force: false, preview: false };
+  const rootUpdate = { source: Option.none<string>(), reinstall: false, preview: false };
 
   it.effect("emits JSON no-op when workspace has no configured extensions to update", () =>
     Effect.gen(function* () {

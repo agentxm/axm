@@ -39,15 +39,21 @@ export const subagentsCommand = Command.make("subagents").pipe(
     },
   ]),
   Command.withSubcommands([
-    installCommand,
-    uninstallCommand,
-    listCommand,
-    showCommand,
-    updateCommand,
-    newCommand,
-    importCommand,
-    publishCommand,
-    enableCommand,
-    disableCommand,
+    {
+      group: "MANAGE SUBAGENTS",
+      commands: [
+        installCommand,
+        updateCommand,
+        uninstallCommand,
+        listCommand,
+        showCommand,
+        enableCommand,
+        disableCommand,
+      ],
+    },
+    {
+      group: "AUTHOR SUBAGENTS",
+      commands: [newCommand, importCommand, publishCommand],
+    },
   ]),
 );

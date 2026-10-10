@@ -19,6 +19,8 @@ export const RELEASE_CONTENT_SOURCES = {
   "axm-lock.schema.json": "apps/cli/site-content/__generated__/schemas/axm-lock.schema.json",
   "hook.schema.json": "apps/cli/site-content/__generated__/schemas/hook.schema.json",
   "knowledge.schema.json": "apps/cli/site-content/__generated__/schemas/knowledge.schema.json",
+  "machine-output.schema.json":
+    "apps/cli/site-content/__generated__/schemas/machine-output.schema.json",
   "mcp.schema.json": "apps/cli/site-content/__generated__/schemas/mcp.schema.json",
   "pack.schema.json": "apps/cli/site-content/__generated__/schemas/pack.schema.json",
   "rule.schema.json": "apps/cli/site-content/__generated__/schemas/rule.schema.json",

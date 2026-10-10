@@ -1,6 +1,6 @@
 # Hooks
 
-Hook packages contain native event handlers and their resources. AXM installs
+Hook extensions contain native event handlers and their resources. AXM installs
 and reconciles native registrations for the workspace's configured agents.
 The native agent owns execution, trust, event timing, and decision aggregation.
 
@@ -133,13 +133,13 @@ Consumer settings belong in `axm.json`, separate from immutable package content:
 
 Secret fields require symbolic environment references. AXM keeps the reference
 in workspace settings and generated commands; the execution environment supplies
-the value. A hook supplied by a Pack can use a source-less settings object to
+the value. A hook extension supplied by a Pack can use a source-less settings object to
 hold these preferences without creating another acquisition declaration.
 
 `axm hooks configure <name> --configuration '<JSON object>'` replaces the whole
 consumer document. Omitted keys return to publisher defaults. Add `--preview`
 to validate without writing. Configuration retains source, accepted resolution,
-package bytes, and enabled state; disabled hooks remain disabled.
+package bytes, and enabled state; disabled hook extensions remain disabled.
 
 ## Creation and fixture execution
 
@@ -170,8 +170,8 @@ installation, synchronization, and publication do not execute fixture code.
 
 ## Native state and declaration authority
 
-Hooks activate only through native settings. Unsupported required targets block
-before writing; AXM does not generate instruction fallbacks. Disabling a hook
+Hook extensions activate only through native settings. Unsupported required targets block
+before writing; AXM does not generate instruction fallbacks. Disabling a hook extension
 withdraws selected configured-agent native registrations and retains its package and preferences.
 
 Install and sync report per-agent outcomes and reasons. `projected` means a
@@ -185,7 +185,7 @@ evidence. Missing, invalid, historical, and stale evidence remain distinct.
 reports static package facts and prospective configured-agent outcomes. Published
 inspection does not inherit local fixture receipts or claim native invocation.
 
-A Hook declaration selects direct `bash`, `node`, `bun` or `python3` invocations
+A hook extension declaration selects direct `bash`, `node`, `bun` or `python3` invocations
 whose script is strictly beneath its exact canonical package root in the
 selected scope. Updating a package replaces those registrations across changed
 events, matchers, scripts and arguments, consolidating old duplicates. AXM emits
@@ -207,7 +207,7 @@ separate from registration currency and actual native-host invocation.
 
 `axm hooks import <directory> @owner/hooks/<name> --protocol <host>` converts a
 local native command bundle into an inactive project package. The directory
-contains `hooks.json` and relative scripts. Use `--config <relative-path>` for a
+contains `hooks.json` and relative scripts. Use `--file <relative-path>` for a
 different JSON filename and repeat `--resource <relative-path>` for additional
 runtime files. Preview validates the bundle without creating or executing it.
 
@@ -240,10 +240,10 @@ AXM does not discover dependencies by executing or parsing scripts.
 - `axm hooks test <directory>` — execute selected declared fixtures and save evidence.
 - `axm hooks import <directory> @owner/hooks/<name> --protocol <host>` — import an inactive native bundle.
 - `axm hooks export <directory> <destination> --implementation <id>` — create a portable native bundle.
-- `axm hooks install <source>` — acquire and project a hook; use `--configuration`
-  for one selected Hook's consumer values.
+- `axm hooks install <source>` — acquire and project a hook extension; use `--configuration`
+  for one selected hook extension's consumer values.
 - `axm hooks configure <name> --configuration '<JSON object>'` — replace consumer values.
-- `axm hooks list` — list local hooks, source, lock state, and agent outcomes.
+- `axm hooks list` — list local hook extensions, source, lock state, and agent outcomes.
 - `axm hooks show <name>` — inspect installed state and per-agent reasons.
 - `axm hooks enable <name>` / `axm hooks disable <name>` — reconcile activation.
 - `axm hooks update <name>` — update the accepted package version.
@@ -256,7 +256,7 @@ project authoring. Consult each command's `--help` for its supported flags.
 
 ## Recommended packs
 
-Name the pack(s) your hook ships with in `hook.json` `recommendedPacks`, using
+Name the pack(s) your hook extension ships with in `hook.json` `recommendedPacks`, using
 the bare pack reference — do not include a version range:
 
 ```json
@@ -265,19 +265,19 @@ the bare pack reference — do not include a version range:
 }
 ```
 
-When a pack lists this hook as a dependency and the hook lists that pack as
+When a pack lists this hook extension as a dependency and the extension lists that pack as
 recommended, the registry marks both sides of the relationship **official**.
 Either side may declare alone; the badge appears only when both agree.
 
-Keep the hook self-contained. `recommendedPacks` does not install the pack or
-its members. If the hook requires another extension, name that sibling by its
+Keep the hook extension self-contained. `recommendedPacks` does not install the pack or
+its members. If the hook extension requires another extension, name that sibling by its
 extension identity and let the agent resolve it through its own discovery —
 never by file path. See `axm help packs` for pack composition.
 
 ## Where to go next
 
-- `axm hooks --help` — Hook commands and flags
+- `axm hooks --help` — Hook extension commands and flags
 - `axm help hook-schema` — complete manifest schema
 - `axm help settings` — consumer settings
 - `axm help workspace-state` — desired, accepted, and observed state
-- `axm help packs` — composing Hook packages
+- `axm help packs` — composing Hook extensions

@@ -37,7 +37,7 @@ describe("install argument grammar", () => {
     fs.rmSync(tempDir, { recursive: true, force: true });
   });
 
-  it.effect("refuses --as without a source before mutation", () => {
+  it.effect("refuses a missing source before mutation", () => {
     const { provide } = makeWorkspaceLifecycleTestContext({ wsOptions: { projectRoot: tempDir } });
     const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
     const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
@@ -49,7 +49,6 @@ describe("install argument grammar", () => {
           source: Option.none(),
           selectors: { "mcp-server": [] },
           all: false,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],
@@ -57,9 +56,7 @@ describe("install argument grammar", () => {
           bundled: false,
         }).pipe(Effect.flip);
 
-        expect(getAppError(failure).detail).toContain(
-          "--as is only valid for an MCP server selected from a source",
-        );
+        expect(getAppError(failure).detail).toContain("An install source is required");
         expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
         expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
       }),

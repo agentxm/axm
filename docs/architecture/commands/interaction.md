@@ -51,9 +51,8 @@ meaning, and an architecture specification compares every node's declaration
 with its parsed flags and its executable evidence
 through the repository's command-capability allocation check.
 
-`--preview` is the usual spelling of assessment
-(`cli/preview-uses-the-canonical-flag`). The deprecated-extension migration
-command uses `--dry-run`. A preview reports the exact candidate — including one
+`--preview` is the canonical spelling of assessment
+(`cli/preview-uses-the-canonical-flag`). A preview reports the exact candidate — including one
 the command would refuse to apply — and changes no protected state. Each
 preview route carries its own `preview-is-pure` specification, identified as
 `cli/<command>/preview-is-pure` and resolved through the
@@ -235,8 +234,8 @@ code for device login and the link for every other wait, and `esc` abandons the
 wait. A failed open or copy remains on the wait line so the person can recover.
 Abandoning is not a failure of the underlying request; the command ends with
 its pending outcome and names the exact route that resumes it, such as `axm
-login --device-code --wait-for-human 300` for a pending device sign-in or `axm publish
---authorization-request <url>` for publication. When the wait completes it
+login --device-code --wait-for-human 300` for a pending device sign-in.
+Publication does not expose an authorization-resume route. When the wait completes it
 appends a truthful disposition; generic wait completion does not claim that
 authorization or publication succeeded. The domain result supplies that fact.
 Without animation the same instructions print once and the command waits.

@@ -10,7 +10,7 @@ const published = (version: string) => ({
 
 /** A current, public skill with a long release history. */
 export const codeReview: ViewDocument = {
-  handle: "@acme/skills/code-review",
+  fqn: "@acme/skills/code-review",
   owner: "@acme",
   type: "skill",
   name: "code-review",
@@ -42,7 +42,7 @@ export const codeReview: ViewDocument = {
 
 /** A deprecated skill whose owner names an available replacement. */
 export const changelog: ViewDocument = {
-  handle: "@legacy/skills/changelog",
+  fqn: "@legacy/skills/changelog",
   owner: "@legacy",
   type: "skill",
   name: "changelog",

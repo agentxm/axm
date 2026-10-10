@@ -19,7 +19,7 @@ export {
   type ExtensionAssessment,
   type ExtensionAssessmentState,
   type ExtensionListFilter,
-  type ExtensionListItem,
+  type AssessedExtensionListItem,
 } from "./extension-list/assessment.js";
 
 // Read-only application APIs.
@@ -44,7 +44,6 @@ export {
 } from "./type-list/type-lists.js";
 export type { TypeListRow } from "./type-list/type-list-row.js";
 export {
-  mcpServerListDocument,
   McpServerListQueryResultSchema,
   type McpServerListQueryResult,
   type McpServerListRow,
@@ -87,3 +86,12 @@ export {
   type KnowledgeListQueryResult,
   type KnowledgeListRow,
 } from "./knowledge/list-knowledge.js";
+
+export {
+  ExtensionListItemSchema,
+  ExtensionListSourceSchema,
+  ExtensionInventoryDocumentSchema,
+  type ExtensionListItem,
+  type ExtensionListSource,
+  type ExtensionInventoryDocument,
+} from "./inventory-document.js";

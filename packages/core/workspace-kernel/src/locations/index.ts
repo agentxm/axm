@@ -3,6 +3,9 @@ export { observationViewLayer, type NativeObservationView } from "./observation-
 export { nativeInode } from "./native-inode.js";
 export { captureNativeLocationSet, type NativeLocationSet } from "./native-location-set.js";
 export {
+  NativeUnitReferenceSchema,
+  nativeUnitReference,
+  type NativeUnitReference,
   OwnershipUnitAddressSchema,
   NativeLocationOutcomeSchema,
   combineNativeLocationOutcomes,

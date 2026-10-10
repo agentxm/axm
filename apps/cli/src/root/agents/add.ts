@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -72,7 +73,7 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
   const materialize = yield* observeUnit(
     { id: "materialization", label: "installed extension materialization" },
     SyncWorkspace.planMaterialization({
-      selection: { target: Option.none(), type: Option.none() },
+      selection: { target: Option.none(), types: [] },
       configuredAgents: candidate.configuredAgents,
       newlyConfiguredAgentIds: candidate.agentIds,
     }).pipe(Effect.mapError(toAppError)),
@@ -99,18 +100,16 @@ const handleAgentsAddBody = Effect.fn("Agents.add")(function* (args: AgentsAddAr
 
 const addConfig = {
   ids: Argument.String("id").pipe(
-    Argument.withDescription("Coding-agent IDs to configure, such as claude-code or cursor"),
+    withParameterDescription("Coding-agent IDs to configure, such as claude-code or cursor"),
     Argument.atLeast(0),
   ),
-  scope: scopeFlag.pipe(
-    Flag.withDescription("Add agents to project (default) or user-level configuration"),
-  ),
+  scope: scopeFlag,
   detected: Flag.Boolean("detected").pipe(
-    Flag.withDescription("Add detected agents"),
-    Flag.withDefault(false),
+    withParameterDescription("Add detected agents"),
+    withParameterDefault(false),
   ),
   force: acceptWarningsFlag,
-  preview: previewCapabilityFlag("Show what would change without applying"),
+  preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
 } as const;
 

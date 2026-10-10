@@ -46,7 +46,7 @@ import {
   KnowledgeManager,
 } from "../materialization/index.js";
 import {
-  nativeUnitKey,
+  nativeUnitReference,
   combineNativeLocationOutcomes,
   type NativeLocationOutcome,
 } from "../locations/index.js";
@@ -119,7 +119,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
             : units.length === 0
               ? "No applicable native unit was observed for this agent."
               : "Native units are missing, lack applicable authority, or differ from desired content.",
-          nativeUnitKeys: units.map(nativeUnitKey),
+          nativeUnits: units.map(nativeUnitReference),
         };
       }),
     });
@@ -128,7 +128,10 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
       (request: ConfiguredAgentOutcomesRequest) =>
         Effect.gen(function* () {
           const observed = yield* manager
-            .projectionPlans({ configuredAgents: request.agentIds })
+            .projectionPlans({
+              configuredAgents: request.agentIds,
+              ...(request.desiredGraph === undefined ? {} : { desiredGraph: request.desiredGraph }),
+            })
             .pipe(
               Effect.flatMap((plans) =>
                 observeInstructionSurfacePlans(plans, {
@@ -137,7 +140,7 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                 }),
               ),
             );
-          const graph = yield* (yield* DesiredStateReader).graph();
+          const graph = request.desiredGraph ?? (yield* (yield* DesiredStateReader).graph());
           const accepted = yield* (yield* LockfileReader).entries(request.type);
           return new Map(
             request.rows.map((row) => {
@@ -224,9 +227,9 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                               ? verified.reasonCode
                               : capability.reasonCode,
                           reason: `${capability.reason} ${verified.reason}`,
-                          nativeUnitKeys: verified.nativeUnitKeys,
+                          nativeUnits: verified.nativeUnits,
                         }
-                      : { ...capability, nativeUnitKeys: verified.nativeUnitKeys };
+                      : { ...capability, nativeUnits: verified.nativeUnits };
                   }),
                 },
               ]),
@@ -280,9 +283,9 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                                 ? current.reasonCode
                                 : selected.reasonCode,
                             reason: `${selected.reason} ${current.reason}`,
-                            nativeUnitKeys: current.nativeUnitKeys,
+                            nativeUnits: current.nativeUnits,
                           }
-                        : { ...selected, nativeUnitKeys: current.nativeUnitKeys };
+                        : { ...selected, nativeUnits: current.nativeUnits };
                     }),
                   },
                 ] as const;
@@ -338,9 +341,9 @@ export const ConfiguredAgentOutcomesProviderLive = Layer.effect(
                   {
                     agentOutcomes: inspection.outcomes.map((outcome) => ({
                       ...outcome,
-                      nativeUnitKeys: inspection.nativeLocations
+                      nativeUnits: inspection.nativeLocations
                         .filter((unit) => unit.configuredConsumers.includes(outcome.agentId))
-                        .map(nativeUnitKey),
+                        .map(nativeUnitReference),
                     })),
                     nativeLocations: inspection.nativeLocations,
                   },

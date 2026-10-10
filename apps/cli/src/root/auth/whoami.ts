@@ -1,3 +1,4 @@
+import { registryFlag } from "../../cli-flags/index.js";
 import * as DateTime from "effect/DateTime";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import * as Effect from "effect/Effect";
@@ -18,7 +19,7 @@ import { coerceAuthFailure } from "../../feature-errors.js";
 import { withRuntime } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
-export const WhoamiDataSchema = Schema.Struct({
+export const WhoamiDocumentSchema = Schema.Struct({
   user: Schema.String,
   registry: Schema.String,
   credentialType: Schema.String,
@@ -31,10 +32,6 @@ export const WhoamiDataSchema = Schema.Struct({
   approvedAt: Schema.NullOr(DateTimeUtcSchema),
   trustedPublisher: Schema.NullOr(Schema.Struct({ name: Schema.String })),
 });
-const WhoamiDocumentFields = {
-  data: WhoamiDataSchema,
-} satisfies Schema.Struct.Fields;
-export const WhoamiDocumentSchema = Schema.Struct(WhoamiDocumentFields);
 export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
@@ -42,14 +39,14 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
     const registry = yield* selectedRegistry;
 
     const identity = yield* withLiveOperation(
-      { command: "auth.whoami", name: `Check identity on ${registry.host}`, mode: "preview" },
+      { command: "auth.whoami", name: `Check identity on ${registry.host}`, mode: "query" },
       observeUnit(
         { id: "identity", label: `identity on ${registry.host}` },
         currentIdentity(registry.url),
       ),
     );
 
-    yield* emitResult({ data: identity }, WhoamiDocumentSchema, () => {
+    yield* emitResult(identity, WhoamiDocumentSchema, () => {
       const restrictions = identity.resourceRestrictions?.extensions ?? null;
       const limits =
         identity.authority === "account"
@@ -86,10 +83,10 @@ export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   Effect.asVoid,
 );
 
-const whoamiConfig = {} as const;
+const whoamiConfig = { registry: registryFlag } as const;
 
-export const whoamiCommand = Command.make("whoami", whoamiConfig, () =>
-  handleWhoami().pipe(withRuntime("auth whoami")),
+export const whoamiCommand = Command.make("whoami", whoamiConfig, ({ registry }) =>
+  handleWhoami().pipe(withRuntime("auth whoami", { registry })),
 ).pipe(
   withArgvTracking(whoamiConfig),
   withCommandCapabilities(readOnlyCapabilities()),

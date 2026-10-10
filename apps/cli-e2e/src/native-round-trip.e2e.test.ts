@@ -87,7 +87,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
         '{"keep":"foreign","mcpServers":{"adopted":{"command":"node","args":["server.js"]}}}',
       );
       expect(fs.existsSync(propagated)).toBe(false);
-      await execute(fixture, ["mcps", "import"]);
+      await execute(fixture, ["mcps", "adopt"]);
       for (const native of [original, propagated])
         expect(JSON.parse(fs.readFileSync(native, "utf8"))).toHaveProperty(
           "mcpServers.adopted.command",
@@ -547,7 +547,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
                   "--scope",
                   row.scope,
                 ]
-              : ["install", source, "--mcp", "context", "--scope", row.scope],
+              : ["install", source, "--mcp-server", "context", "--scope", row.scope],
           );
           expect(fs.readFileSync(target, "utf8")).toContain("context");
           await execute(fixture, ["mcps", "uninstall", "context", "--scope", row.scope]);

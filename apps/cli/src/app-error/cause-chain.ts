@@ -1,7 +1,7 @@
-import { redactRegistryText, redactRegistryValue } from "@agentxm/registry-client";
+import { redactRegistryText } from "@agentxm/registry-client";
 import * as Schema from "effect/Schema";
-import { AppErrorCodeSchema, type AppError } from "./app-error.js";
-import { StepFailure } from "@agentxm/workspace-kernel/operations";
+import { type AppError } from "./app-error.js";
+import { StepFailure, ErrorCodeSchema } from "@agentxm/workspace-kernel/operations";
 
 /**
  * One serialized entry of a failure's cause chain, as every machine document
@@ -9,7 +9,7 @@ import { StepFailure } from "@agentxm/workspace-kernel/operations";
  */
 export const SerializedErrorCauseSchema = Schema.Struct({
   _tag: Schema.String,
-  code: Schema.optional(AppErrorCodeSchema),
+  code: Schema.optional(ErrorCodeSchema),
   message: Schema.String,
   stack: Schema.optional(Schema.String),
 }).annotate({
@@ -73,11 +73,10 @@ const causeMessage = (cause: unknown, secrets: ReadonlyArray<string>): string =>
   const structuredMessage = structuredObjectMessage(cause);
   if (structuredMessage !== undefined) return redactRegistryText(structuredMessage, { secrets });
 
-  try {
-    return JSON.stringify(redactRegistryValue(cause, { secrets })) ?? String(cause);
-  } catch {
-    return "[unserializable object]";
-  }
+  return redactRegistryText(
+    getStringField(cause, "_tag") ?? (cause instanceof Error ? errorTag(cause) : objectTag(cause)),
+    { secrets },
+  );
 };
 
 const nestedCause = (cause: unknown): unknown => {

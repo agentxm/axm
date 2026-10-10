@@ -1,3 +1,9 @@
+import {
+  collectSkillAcquisitions,
+  settledSkillAcquisitions,
+  type InstalledSkill,
+  type SkillAcquisitionCandidate,
+} from "../skill-acquisitions.js";
 /**
  * Advancing what the workspace already accepted.
  *
@@ -24,6 +30,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type * as Config from "effect/Config";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
@@ -56,6 +63,9 @@ import {
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
   ReleaseAgePosture,
+  acceptedPackDependencyResolver,
+  acceptedConfiguredResolution,
+  requireAcceptedRegistryContent,
   makeConfiguredReleaseAgeEvaluation,
   normalizeReleaseAgeRecords,
   releaseAgeRecord,
@@ -111,7 +121,8 @@ import {
   type PackMemberRef,
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
-import { withPublisherTrust } from "../publisher-binding.js";
+import type { PrepareInstallRequirements } from "../install/vocabulary.js";
+import { prepareAcquisitionPlan } from "../prepare-acquisition-plan.js";
 import { planHookInstall } from "@agentxm/extension-kinds/hooks";
 import { planKnowledgeInstall } from "@agentxm/extension-kinds/knowledge";
 import {
@@ -135,6 +146,7 @@ import { wrapTargetedUpdatePlan } from "./targeted-plan.js";
 /** Advance one extension the person named by its Registry identity. */
 export interface TargetedUpdateRequest {
   readonly kind: "targeted";
+  readonly reinstall?: boolean;
   /** The Registry FQN, optionally carrying a version range. */
   readonly source: string;
   /** Whether prompts may be asked while the plan is built. */
@@ -144,6 +156,7 @@ export interface TargetedUpdateRequest {
 /** Sweep the configured entries, optionally narrowed by type and selection. */
 export interface ConfiguredUpdateRequest {
   readonly kind: "configured";
+  readonly reinstall?: boolean;
   /** Restrict the sweep to one extension type. */
   readonly type: Option.Option<WorkspaceUpdatableType>;
   /**
@@ -183,6 +196,7 @@ export type UpdateSubjectType = WorkspaceUpdatableType | "mixed";
 /** A settled update that has work to execute. */
 export interface PlannedUpdateCandidate {
   readonly outcome: "planned";
+  readonly skillCandidates: ReadonlyArray<SkillAcquisitionCandidate>;
   /** The type this advance is about, or `mixed` when a sweep spans types. */
   readonly subjectType: UpdateSubjectType;
   readonly execution: ExecutionCandidate<UpdateRequirements>;
@@ -252,6 +266,7 @@ export type UpdateCandidate =
  * probe an update consults before it decides anything.
  */
 export type UpdateFailure =
+  | Config.ConfigError
   | ExtensionLifecycleFailed
   | CandidateFingerprintFailed
   | ExtensionResolutionFailed
@@ -261,6 +276,7 @@ export type UpdateFailure =
 
 /** Everything settling an update reads before it freezes a candidate. */
 export type PrepareUpdateRequirements =
+  | PrepareInstallRequirements
   | UpdateRequirements
   | UpdateManagers
   | ConfiguredAgentOutcomesProvider
@@ -391,6 +407,7 @@ const acceptedRegistryFloor = Effect.fn("UpdateExtensions.acceptedFloor")(functi
  */
 const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(function* (args: {
   readonly intent: RootUpdateIntent;
+  readonly reinstall: boolean;
   readonly ref: ExtensionRef;
   readonly versionRange: Option.Option<VersionRange>;
   readonly nonInteractive: boolean;
@@ -409,11 +426,17 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
     case "skill":
       return ref.type !== "skill"
         ? yield* mismatch()
-        : yield* planSkillInstall({ skillsToInstall: [{ ref, versionRange }] });
+        : yield* planSkillInstall({
+            skillsToInstall: [{ ref, versionRange }],
+            force: args.reinstall,
+          });
     case "subagent":
       return ref.type !== "subagent"
         ? yield* mismatch()
-        : yield* planSubagentInstall({ subagentsToInstall: [{ ref, versionRange }] });
+        : yield* planSubagentInstall({
+            subagentsToInstall: [{ ref, versionRange }],
+            force: args.reinstall,
+          });
     case "rule":
       return ref.type !== "rule"
         ? yield* mismatch()
@@ -448,7 +471,7 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
         localName,
         sourceIdentity,
         versionRange: Option.map(versionRange, (range) => range),
-        force: false,
+        force: args.reinstall,
         nonInteractive: args.nonInteractive,
       });
     }
@@ -457,6 +480,10 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
         ? yield* mismatch()
         : yield* planPackInstall({
             packToInstall: ref,
+            forceCanonical: args.reinstall,
+            ...(args.reinstall
+              ? { dependencyResolver: acceptedPackDependencyResolver(args.releaseAgeEvaluation) }
+              : {}),
             versionRange,
             nonInteractive: args.nonInteractive,
             releaseAgeEvaluation: args.releaseAgeEvaluation,
@@ -571,14 +598,42 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   }
   const providers = yield* SourceHostProviders;
   const accepted = yield* acceptedRegistryFloor(intent);
+  const desired = desiredNodeForIntent(yield* (yield* DesiredStateReader).graph(), intent);
+  const current = request.reinstall
+    ? Option.map(
+        yield* acceptedConfiguredResolution({
+          type: intent.type,
+          name: desired?.name ?? intent.name,
+          ...(desired === undefined ? {} : { desired }),
+          forceCanonical: true,
+        }),
+        ({ ref }) => ref,
+      )
+    : Option.none<ExtensionRef>();
+  if (
+    Option.isSome(current) &&
+    current.value.refType === "registry" &&
+    Option.isSome(intent.versionRange) &&
+    !versionSatisfiesRange(current.value.version, intent.versionRange.value)
+  ) {
+    return yield* new ExtensionLifecycleFailed({
+      category: "conflict",
+      detail: "The accepted version does not satisfy the requested reinstall constraint",
+      suggestions: [{ description: "Omit --reinstall to select a new version" }],
+    });
+  }
+  // Reinstall pins selection, not authorization: current exact-version metadata
+  // still governs publisher approval and release-age eligibility.
   const selected = yield* providers.resolveNamedRegistry(source, {
     name: intent.name,
     type: intent.type,
     owner: intent.owner,
     versionRange:
-      targetedContext?.public.effectiveConstraint === undefined
-        ? intent.versionRange
-        : Option.some(decodeVersionRangeSync(targetedContext.public.effectiveConstraint)),
+      Option.isSome(current) && current.value.refType === "registry"
+        ? Option.some(decodeVersionRangeSync(current.value.version))
+        : targetedContext?.public.effectiveConstraint === undefined
+          ? intent.versionRange
+          : Option.some(decodeVersionRangeSync(targetedContext.public.effectiveConstraint)),
     releaseAgeEvaluation,
     ...(Option.isSome(accepted) ? { accepted: accepted.value } : {}),
   });
@@ -605,34 +660,43 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
     });
   }
 
+  if (Option.isSome(current) && current.value.refType === "registry") {
+    yield* requireAcceptedRegistryContent(current.value, selected.ref);
+  }
+
   // A Pack-owned member advances inside its Pack's graph, so its step is the
   // member transition rather than a direct install: nothing writes a direct
   // declaration the workspace did not ask for.
   const plan: Plan<UpdateRequirements> =
     targetedContext?.public.authority === "pack-aware"
       ? yield* wrapTargetedUpdatePlan({
-          plan: yield* withPublisherTrust({
-            _tag: "Plan",
-            name: `Update ${intent.target}`,
-            description: Option.some(`Update pack-derived member ${intent.target}`),
-            jobs: [
-              {
-                concurrency: 1,
-                steps: [
-                  yield* buildPackMemberStep({
-                    ref: yield* requirePackMemberRef(intent, selected.ref),
-                    nonInteractive: request.nonInteractive,
-                    strictAgentSync: true,
-                    toStepFailure: (yield* StepFailureConversion).toStepFailure,
-                  }),
-                ],
-              },
-            ],
-          } satisfies Plan<UpdateRequirements>),
+          plan: yield* prepareAcquisitionPlan(
+            {
+              _tag: "Plan",
+              name: `Update ${intent.target}`,
+              description: Option.some(`Update pack-derived member ${intent.target}`),
+              jobs: [
+                {
+                  concurrency: 1,
+                  steps: [
+                    yield* buildPackMemberStep({
+                      ref: yield* requirePackMemberRef(intent, selected.ref),
+                      nonInteractive: request.nonInteractive,
+                      strictAgentSync: true,
+                      force: request.reinstall === true,
+                      toStepFailure: (yield* StepFailureConversion).toStepFailure,
+                    }),
+                  ],
+                },
+              ],
+            } satisfies Plan<UpdateRequirements>,
+            request.reinstall === true,
+          ),
           context: targetedContext,
         })
       : yield* planTargetedDirect({
           intent,
+          reinstall: request.reinstall === true,
           ref: selected.ref,
           nonInteractive: request.nonInteractive,
           releaseAgeEvaluation,
@@ -642,7 +706,9 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   const { holdbacks, bypasses } = releaseAgeRecords(
     releaseAgeSubject(
       intent,
-      Option.isSome(accepted) && accepted.value.version === selected.ref.version
+      Option.isSome(accepted) &&
+        accepted.value.version === selected.ref.version &&
+        accepted.value.publisherBindingId === selected.ref.publisherBindingId
         ? accepted.value.version
         : undefined,
     ),
@@ -654,6 +720,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
     outcome: "planned",
     subjectType: intent.type,
     execution: yield* prepareExecutionCandidate(plan),
+    skillCandidates: request.reinstall === true ? yield* collectSkillAcquisitions(plan, false) : [],
     releaseAge: { evaluatedAt: evaluatedAtText, holdbacks, bypasses },
     ...(targetedContext === undefined
       ? {}
@@ -689,6 +756,7 @@ const requirePackMemberRef = (
  */
 const planTargetedDirect = Effect.fn("UpdateExtensions.planTargetedDirect")(function* (args: {
   readonly intent: RootUpdateIntent;
+  readonly reinstall: boolean;
   readonly ref: ExtensionRef;
   readonly nonInteractive: boolean;
   readonly releaseAgeEvaluation: ReleaseAgeEvaluation;
@@ -704,20 +772,22 @@ const planTargetedDirect = Effect.fn("UpdateExtensions.planTargetedDirect")(func
 
   const planned = yield* planResolvedTarget({
     intent,
+    reinstall: args.reinstall,
     ref: args.ref,
     versionRange: durableRange,
     nonInteractive: args.nonInteractive,
     releaseAgeEvaluation: args.releaseAgeEvaluation,
   });
 
+  const settled = yield* prepareAcquisitionPlan(planned, args.reinstall);
   if (context === undefined) {
     return {
-      ...planned,
+      ...settled,
       presentation: updatePresentation(intent.type),
     } satisfies Plan<UpdateRequirements>;
   }
   return yield* wrapTargetedUpdatePlan({
-    plan: yield* withPublisherTrust(planned),
+    plan: settled,
     context,
     ...(Option.isNone(intent.versionRange) ? {} : { explicitRange: intent.versionRange.value }),
   });
@@ -791,6 +861,7 @@ const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(functi
     planName: request.planName,
     planDescription: request.planDescription,
     nonInteractive: request.nonInteractive,
+    reinstall: request.reinstall === true,
     ...(names === undefined ? {} : { names }),
   }).pipe(Effect.provideService(DesiredStateReader, phaseReader));
 
@@ -801,7 +872,7 @@ const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(functi
   // Every Registry acceptance the sweep proposed is classified against the
   // accepted resolution, so a replaced publisher binding carries the same
   // interactive-only condition here as on the install routes.
-  const plan = yield* withPublisherTrust(result.plan).pipe(
+  const plan = yield* prepareAcquisitionPlan(result.plan, request.reinstall === true).pipe(
     Effect.provideService(DesiredStateReader, phaseReader),
   );
   return {
@@ -810,6 +881,7 @@ const prepareConfigured = Effect.fn("UpdateExtensions.prepareConfigured")(functi
     execution: yield* prepareExecutionCandidate(plan, {
       configuredAgentOperations: configuredAgentOperations(plan, request.type, names),
     }),
+    skillCandidates: request.reinstall === true ? yield* collectSkillAcquisitions(plan, false) : [],
     ...(names === undefined ? {} : { selectedNames: names }),
   } satisfies PlannedUpdateCandidate;
 });
@@ -881,32 +953,44 @@ const settledResolution = (
  * application reports it as the no-op it is, so this takes only the
  * candidates that do describe an operation.
  */
+export interface UpdateResult {
+  readonly resolution: OperationResolution;
+  readonly installedSkills: ReadonlyArray<InstalledSkill>;
+}
+
 export const previewOrApplyUpdate = (
   candidate: Exclude<UpdateCandidate, NothingConfiguredUpdateCandidate>,
   execution: PlanExecution,
 ) =>
-  candidate.outcome === "planned"
-    ? resolveExecutionCandidate(candidate.execution, execution).pipe(
-        Effect.map((resolution) =>
-          candidate.releaseAge === undefined
-            ? resolution
-            : {
-                ...resolution,
-                releaseAge: {
-                  evaluatedAt: candidate.releaseAge.evaluatedAt,
-                  holdbacks: normalizeReleaseAgeRecords([
-                    ...candidate.releaseAge.holdbacks,
-                    ...(resolution.releaseAge?.holdbacks ?? []),
-                  ]),
-                  bypasses: normalizeReleaseAgeRecords([
-                    ...candidate.releaseAge.bypasses,
-                    ...(resolution.releaseAge?.bypasses ?? []),
-                  ]),
+  Effect.gen(function* () {
+    const resolution = yield* candidate.outcome === "planned"
+      ? resolveExecutionCandidate(candidate.execution, execution).pipe(
+          Effect.map((resolution) =>
+            candidate.releaseAge === undefined
+              ? resolution
+              : {
+                  ...resolution,
+                  releaseAge: {
+                    evaluatedAt: candidate.releaseAge.evaluatedAt,
+                    holdbacks: normalizeReleaseAgeRecords([
+                      ...candidate.releaseAge.holdbacks,
+                      ...(resolution.releaseAge?.holdbacks ?? []),
+                    ]),
+                    bypasses: normalizeReleaseAgeRecords([
+                      ...candidate.releaseAge.bypasses,
+                      ...(resolution.releaseAge?.bypasses ?? []),
+                    ]),
+                  },
                 },
-              },
-        ),
-      )
-    : Effect.succeed(settledResolution(candidate, execution));
+          ),
+        )
+      : Effect.succeed(settledResolution(candidate, execution));
+    const installedSkills =
+      candidate.outcome === "planned"
+        ? yield* settledSkillAcquisitions(candidate.skillCandidates, resolution, "reinstall")
+        : [];
+    return { resolution, installedSkills } satisfies UpdateResult;
+  });
 
 /**
  * The ownership context an outcome reports: a stale-candidate outcome says

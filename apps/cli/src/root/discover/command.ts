@@ -2,22 +2,17 @@
  * CLI command definition for `axm discover`.
  */
 
-import { Command, Flag } from "effect/cli";
+import { Command } from "effect/cli";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { withRuntime } from "../../runtime.js";
 import { readOnlyCapabilities, withCommandCapabilities } from "../shared/command-capabilities.js";
 
 import { handleDiscover } from "./handler.js";
 
-const discoverConfig = {
-  path: Flag.String("path").pipe(
-    Flag.optional,
-    Flag.withDescription("Scan a different directory instead of the current working directory"),
-  ),
-} as const;
+const discoverConfig = {};
 
-export const discoverCommand = Command.make("discover", discoverConfig, ({ path }) =>
-  handleDiscover({ path }).pipe(withRuntime("discover")),
+export const discoverCommand = Command.make("discover", discoverConfig, () =>
+  handleDiscover().pipe(withRuntime("discover")),
 ).pipe(
   withArgvTracking(discoverConfig),
   withCommandCapabilities(readOnlyCapabilities()),
@@ -25,12 +20,12 @@ export const discoverCommand = Command.make("discover", discoverConfig, ({ path 
   Command.withExamples([
     { command: "axm discover", description: "Discover extensions for the current project" },
     {
-      command: "axm discover --path ./my-project",
+      command: "axm -C ./my-project discover",
       description: "Discover extensions for a specific directory",
     },
     {
       command: "axm discover --json",
-      description: "Emit { command, items, count, totalDetected, registryAvailable }",
+      description: "Print discovery results as JSON",
     },
   ]),
 );

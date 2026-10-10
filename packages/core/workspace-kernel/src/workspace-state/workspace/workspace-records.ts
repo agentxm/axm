@@ -34,6 +34,7 @@ import {
   type ExtensionInventory,
 } from "../observed/extensions/inventory.js";
 import { projectWorkspaceRecords } from "../observed/record-projection.js";
+import type { ConfiguredAgentOutcome } from "../../operations/index.js";
 import type { WorkspaceRecordRow } from "../observed/records.js";
 import type { LockfileReadError, SettingsReadError } from "../observed/errors.js";
 import { readScopedModel } from "./state-cells.js";
@@ -41,9 +42,9 @@ import { readScopedModel } from "./state-cells.js";
 type Read<A> = Effect.Effect<A, WorkspaceStateReadFailure, FileSystem.FileSystem | Path.Path>;
 
 export interface WorkspaceRecordsService {
-  /** Inventory across every installable extension type, or one selected type. */
+  /** Inventory across every installable extension type, or a selected set of types. */
   readonly getInventory: (options: {
-    readonly type?: InstallableExtensionType;
+    readonly types?: ReadonlyArray<InstallableExtensionType>;
   }) => Read<ExtensionInventory>;
   /** Physical inventory with configured-agent outcomes overlaid. */
   readonly getExtensionInventory: (
@@ -156,9 +157,9 @@ export const makeWorkspaceRecords = (
               [...genericConfiguredAgentOutcomes(request)].map(([name, outcomes]) => [
                 name,
                 {
-                  agentOutcomes: outcomes.map((outcome) => ({
+                  agentOutcomes: outcomes.map((outcome): ConfiguredAgentOutcome => ({
                     ...outcome,
-                    outcome: "blocked" as const,
+                    outcome: "blocked",
                     reasonCode: "native-observation-unavailable",
                     reason: "Native locations could not be verified.",
                   })),
@@ -195,7 +196,10 @@ export const makeWorkspaceRecords = (
     getInventory: (options) =>
       withScoped(({ project, configuredAgents, provider }) =>
         Effect.gen(function* () {
-          const types = options.type === undefined ? installableExtensionTypes : [options.type];
+          const types =
+            options.types === undefined || options.types.length === 0
+              ? installableExtensionTypes
+              : [...new Set(options.types)];
           const inventories = yield* Effect.forEach(types, (type) =>
             project(type).pipe(
               Effect.flatMap((rows) => inventoryFor(type, rows, configuredAgents, provider)),

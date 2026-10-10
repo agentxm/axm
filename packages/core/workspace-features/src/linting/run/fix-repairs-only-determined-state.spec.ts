@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/fix-repairs-only-determined-state",
   title: "Lint fix requires known ownership and unambiguous content",
   statement:
-    "When lint runs with --fix, it shall repair only state that local authority fully determines, such as a missing instruction alias, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.",
+    "When lint runs with --fix, it shall normalize only instruction aliases fully determined by local authority, without network access or general workspace reconciliation, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],

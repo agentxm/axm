@@ -21,9 +21,7 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "What explanatory information should query --explain promise about why concepts matched and their ordering? The current strategy and numeric ranking weights are implementation evidence, not accepted output obligations.",
-  ],
+  openQuestions: [],
 });
 
 describe("Bounded source evidence", () => {

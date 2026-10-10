@@ -1,3 +1,4 @@
+import { withParameterDefault, withParameterDescription } from "../../../cli-parameters.js";
 import { withLiveOperation } from "../../../operation-lifecycle.js";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -27,7 +28,7 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
   options?: { readonly ifRevision?: string; readonly raw?: boolean },
 ) {
   const result = yield* withLiveOperation(
-    { command: "knowledge.concepts.get", name: "Read knowledge concept", mode: "preview" },
+    { command: "knowledge.concepts.get", name: "Read knowledge concept", mode: "query" },
     Effect.catchTags(
       KnowledgeDiscovery.get({
         reference,
@@ -59,15 +60,21 @@ export const handleKnowledgeConceptGet = Effect.fn("Knowledge.concepts.get")(fun
 
 const getConfig = {
   reference: Argument.String("reference").pipe(
-    Argument.withDescription("Concept reference: @owner/knowledge/name#concept-id"),
+    withParameterDescription(
+      "Reference: @owner/knowledge/name#concept-id or canonical HTTPS concept URL",
+    ),
   ),
   ifRevision: Flag.String("if-revision").pipe(
-    Flag.withDescription("Fail if the current content revision differs"),
+    withParameterDescription(
+      "Fail with a conflict unless contentRevision matches this value from an earlier --json",
+    ),
     Flag.optional,
   ),
   raw: Flag.Boolean("raw").pipe(
-    Flag.withDescription("Include the exact source document in machine output"),
-    Flag.withDefault(false),
+    withParameterDescription(
+      "Show the exact source with frontmatter instead of the body; JSON adds concept.raw",
+    ),
+    withParameterDefault(false),
   ),
   ...scopeConfig,
 } as const;

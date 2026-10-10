@@ -39,6 +39,13 @@ describe("reviewed local diagnostic export", () => {
           output,
           directory,
         });
+        const absentDirectory = yield* exportLocalDiagnostic({
+          id,
+          reviewSha256: review.sha256,
+          output: path.join(directory, "missing", "record.json"),
+          directory,
+        }).pipe(Effect.flip);
+        expect(absentDirectory).toMatchObject({ _tag: "AppError", code: "validation" });
         expect(exported.sha256).toBe(review.sha256);
         expect(yield* fs.readFileString(output)).toBe(review.content);
         if (process.platform !== "win32") expect((yield* fs.stat(output)).mode & 0o777).toBe(0o600);
@@ -48,7 +55,7 @@ describe("reviewed local diagnostic export", () => {
           output,
           directory,
         }).pipe(Effect.flip);
-        expect(overwrite._tag).toBe("AppError");
+        expect(overwrite).toMatchObject({ _tag: "AppError", code: "conflict" });
         expect(yield* fs.readFileString(output)).toBe(review.content);
         expect((yield* fs.readDirectory(directory)).some((name) => name.endsWith(".tmp"))).toBe(
           false,
@@ -80,7 +87,7 @@ describe("reviewed local diagnostic export", () => {
           output,
           directory,
         }).pipe(Effect.flip);
-        expect(error._tag).toBe("AppError");
+        expect(error).toMatchObject({ _tag: "AppError", code: "validation" });
         expect(yield* fs.exists(output)).toBe(false);
       }),
     ).pipe(Effect.provide(NodeServices.layer)),

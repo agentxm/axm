@@ -1,4 +1,3 @@
-import type { FailureDiagnostic } from "@agentxm/workspace-kernel/operations";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 
 // ---------------------------------------------------------------------------
@@ -40,5 +39,4 @@ export interface SuccessOptions extends SuggestionOptions {
 export interface ResultOptions extends SuccessOptions {
   readonly ok?: boolean;
   readonly diagnosticId?: string;
-  readonly diagnostic?: FailureDiagnostic;
 }

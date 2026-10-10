@@ -50,16 +50,26 @@ back together, while owner pack roots and manifests remain unchanged.
 
 Update and reinstall may replace divergent external canonical extension content
 because the command explicitly requests replacement. AXM discloses that
-replacement; it does not require `--force` for the routine operation the user
-selected.
+replacement as part of the requested operation.
+
+`--reinstall` reacquires the accepted immutable version, even if a newer
+release is available. It preserves durable constraints and Pack member
+ownership. It uses the same acquisition, publisher-trust, projection-readiness,
+and retained-package settlement path as explicit installation.
+
+Registry reinstallation selects the exact accepted version against current
+metadata. Authorization and publisher identity can change independently of
+immutable package content, so refreshing them does not authorize different
+archive bytes. A Pack reinstall includes its accepted member closure in both
+reacquisition and publisher-trust assessment.
 
 Every type-group spelling — `skills update`, `subagents update`, `rules
 update`, and the rest — is the root sweep narrowed to one type, and a
-positional or `--name` selector narrows it further to the configured entries it
-names. One planner decides every spelling, so the same entry settles the same
+positional name selector narrows it further, and `--source` filters only by
+source locator. Names never stand in for sources. One planner decides every spelling, so the same entry settles the same
 way whichever command names it: a Registry entry advances within its effective
-constraint, an entry pinned to a Git tag or commit is held unchanged while a
-newer tag is reported, an unreachable source blocks that one unit, a release
+constraint, an ordinary update of an entry pinned to a Git tag or commit is held unchanged
+while a newer tag is reported, an unreachable source blocks that one unit, a release
 under the minimum age is held unless an exemption or the one-shot override
 admits it, a range never selects a yanked release, and a canonical tree that
 is missing or edited is reacquired and reported as updated. Whether an entry is
@@ -106,6 +116,8 @@ the accepted resolution within durable intent
 workspace does not desire (`cli/update/refuses-undesired-extensions`), planning
 coherent groups and explaining what a refusal prevented
 (`cli/update/plans-coherent-groups-and-explains-blockers`), and pure preview
-(`cli/update/preview-is-pure`). The
+(`cli/update/preview-is-pure`), accepted-content reacquisition
+(`cli/update/reinstall-reacquires-accepted-content`), and committed skill
+observations (`cli/update/reinstalled-skills-follow-settlement`). The
 [specification catalog](../../../specifications/catalog.md) resolves each
 identity to its owning project and file.

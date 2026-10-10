@@ -29,16 +29,25 @@ import type { AcceptedCanonicalRefError } from "../workspace-state/index.js";
 
 import { AcceptedPackMemberIncompatible, type ExtensionResolutionFailed } from "./errors.js";
 import { acceptedConfiguredResolution } from "./accepted-configured-entry.js";
-import type { SourceHostProviders } from "../sources/index.js";
+import { SourceHostProviders, type SourceResolutionFailure } from "../sources/index.js";
 import type { PackDependencyRefResolver } from "./pack-dependency-resolution.js";
+import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
+import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
+import { settleRegistryResolution } from "./configured-entry-resolution.js";
+import { requireAcceptedRegistryContent } from "./accepted-registry-content.js";
 
 /**
  * Resolve every Pack member from the accepted resolution recorded for its
  * configured name, allowing normal first resolution when a member has none.
  */
 export const acceptedPackDependencyResolver =
-  (): PackDependencyRefResolver<
-    AcceptedCanonicalRefError | ExtensionResolutionFailed | AcceptedPackMemberIncompatible,
+  (
+    reinstallEvaluation?: ReleaseAgeEvaluation,
+  ): PackDependencyRefResolver<
+    | AcceptedCanonicalRefError
+    | ExtensionResolutionFailed
+    | AcceptedPackMemberIncompatible
+    | SourceResolutionFailure,
     | WorkspaceLocation
     | SettingsReader
     | LockfileReader
@@ -69,6 +78,27 @@ export const acceptedPackDependencyResolver =
             acceptedVersion: candidate.version,
             constraint,
           });
+        }
+        if (reinstallEvaluation !== undefined && candidate.refType === "registry") {
+          const resolution = yield* (yield* SourceHostProviders).resolveNamedRegistry(
+            candidate.source,
+            {
+              name: candidate.name,
+              type,
+              owner,
+              versionRange: Option.some(decodeVersionRangeSync(candidate.version)),
+              releaseAgeEvaluation: reinstallEvaluation,
+              accepted: {
+                version: candidate.version,
+                publisherBindingId: candidate.publisherBindingId,
+              },
+            },
+          );
+          const selected = yield* settleRegistryResolution({
+            ...resolution,
+            versionRange: Option.some(decodeVersionRangeSync(constraint)),
+          });
+          return Option.some(yield* requireAcceptedRegistryContent(candidate, selected.ref));
         }
       }
       return yield* acceptedConfiguredResolution({ type, name }).pipe(

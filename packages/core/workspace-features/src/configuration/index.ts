@@ -135,21 +135,21 @@ export {
 } from "./inline-mcp/add-inline-mcp-server.js";
 
 export {
-  preflightMcpImports,
+  preflightMcpAdoptions,
   type InlineMcpDefinition,
-  type McpImportAdoption,
-  type McpImportCandidate,
-  type McpImportFinding,
-  type McpImportPreflight,
-  type McpImportSource,
-} from "./mcp-import/preflight.js";
-export { applyMcpImport, collectMcpImportSources } from "./mcp-import/apply.js";
+  type McpNativeAdoption,
+  type McpAdoptionCandidate,
+  type McpAdoptionFinding,
+  type McpAdoptionPreflight,
+  type McpNativeSource,
+} from "./mcp-adoption/preflight.js";
+export { applyMcpAdoption, collectMcpNativeSources } from "./mcp-adoption/apply.js";
 export {
-  ImportMcpServers,
-  prepareImportMcpServers,
-  previewOrApplyImportMcpServers,
-  type ImportMcpServersCandidate,
-  type ImportMcpServersRequirements,
-} from "./mcp-import/import-mcp-servers.js";
+  AdoptMcpServers,
+  prepareAdoptMcpServers,
+  previewOrApplyAdoptMcpServers,
+  type AdoptMcpServersCandidate,
+  type AdoptMcpServersRequirements,
+} from "./mcp-adoption/adopt-mcp-servers.js";
 
 export { ConfigureHook, prepareConfigureHook } from "./hooks/configure-hook.js";

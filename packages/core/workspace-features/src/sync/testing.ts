@@ -66,12 +66,12 @@ export const makeSyncPortsTest = (): SyncPortsTest => {
 
 /**
  * A whole-workspace sweep: no single target and no type filter. Override
- * `target` or `type` for the narrowed forms `axm sync` admits.
+ * `target` or `types` for the narrowed forms `axm sync` admits.
  */
 export const syncRequest = (
   overrides: Partial<SyncWorkspaceRequest> = {},
 ): SyncWorkspaceRequest => ({
   target: Option.none(),
-  type: Option.none(),
+  types: [],
   ...overrides,
 });

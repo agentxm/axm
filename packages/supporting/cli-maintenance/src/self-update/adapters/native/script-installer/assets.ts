@@ -42,7 +42,7 @@ const fetchAsset = (
           orElse: () =>
             Effect.fail(
               new UpgradeFailed({
-                category: "network",
+                category: "timeout",
                 detail: "Release asset download timed out",
               }),
             ),

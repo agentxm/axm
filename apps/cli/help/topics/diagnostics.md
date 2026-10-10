@@ -7,6 +7,12 @@ A failed invocation prints a Diagnostic ID in human output and carries
 record and, when error telemetry is enabled, its remote report. An ID does not
 prove a remote report was delivered.
 
+Record contents are implementation-owned support evidence and may change
+between releases. They remain unfrozen when shown under `result.record` or
+exported to a file, and carry no diagnostic-record contract identifier.
+Automation uses the public failure envelope's error code, recovery suggestions,
+and optional `diagnosticId`.
+
 Review a retained record before sharing it:
 
 ```bash
@@ -19,7 +25,7 @@ filesystem paths. Review the displayed content and copy its SHA-256 to export
 exactly that record:
 
 ```bash
-axm diagnostics export <id> --review-sha256 <sha256> --output ./diagnostic.json
+axm diagnostics export --review-sha256 <sha256> <id> ./diagnostic.json
 ```
 
 Export writes a new restricted local file. It refuses an existing filename or

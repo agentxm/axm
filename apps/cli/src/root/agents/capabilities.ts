@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
@@ -191,7 +192,7 @@ export const handleAgentsCapabilities = Effect.fn("Agents.capabilities")(functio
 
 const capabilitiesConfig = {
   id: Argument.String("id").pipe(
-    Argument.withDescription("Coding-agent ID, such as claude-code or cursor"),
+    withParameterDescription("Coding-agent ID, such as claude-code or cursor"),
   ),
 } as const;
 

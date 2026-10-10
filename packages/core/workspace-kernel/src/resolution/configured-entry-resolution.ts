@@ -78,13 +78,13 @@ const resolveConfiguredWorkspaceRef = (name: string, source: string, expectedTyp
     });
   });
 
-const configuredRegistryResolution = (resolution: ConfiguredRegistryResolution) =>
+export const settleRegistryResolution = (resolution: ConfiguredRegistryResolution) =>
   Effect.gen(function* () {
     if (resolution.kind === "not_found") {
       return yield* new ExtensionResolutionFailed({
         category: "not_found",
-        detail: `Configured extension "${resolution.target}" could not be found in its source`,
-        suggestions: [{ description: "Verify the configured source or update axm.json." }],
+        detail: `Extension "${resolution.target}" could not be found in its source`,
+        suggestions: [{ description: "Verify the requested Registry source." }],
       });
     }
     if (resolution.kind === "version_unsatisfied") {
@@ -143,7 +143,7 @@ const prepareConfiguredRegistryRef = (
             onNone: () =>
               Effect.succeed(Option.none<ResolvedConfiguredEntry<ConfiguredRegistryRef>>()),
             onSome: (resolution) =>
-              configuredRegistryResolution(resolution).pipe(Effect.map(Option.some)),
+              settleRegistryResolution(resolution).pipe(Effect.map(Option.some)),
           }),
         ),
       ),

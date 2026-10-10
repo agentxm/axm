@@ -12,6 +12,7 @@
 
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
@@ -126,3 +127,24 @@ export const probeFlag = (
   commandPath: ReadonlyArray<string>,
   flag: string,
 ): Effect.Effect<FlagProbeOutcome> => probeFlags(commandPath, [flag]);
+
+/**
+ * Parse example grammar without dispatching. Directory existence is an example's
+ * external precondition; supply an existing directory for that parser check.
+ */
+export const parseInvocation = (argv: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    yield* Command.runWith(rootCommand.pipe(Command.withHandler(() => Effect.void)), {
+      version: TEST_VERSION,
+      renderErrors: false,
+    })(argv).pipe(
+      Effect.provideService(FileSystem.FileSystem, {
+        ...fs,
+        exists: () => Effect.succeed(true),
+        stat: () => fs.stat("."),
+      }),
+      Effect.provideService(Console.Console, silentConsole),
+      Effect.provideService(CliOutput.Formatter, silentFormatter),
+    );
+  }).pipe(Effect.provide(parserLayer()));

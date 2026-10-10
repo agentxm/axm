@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../cli-parameters.js";
 import {
   SetupOutcomeSchema,
   SetupWorkspace,
@@ -41,8 +42,7 @@ import { installBundledAxmSkill } from "@agentxm/extension-kinds/skills";
 const setupCapabilities = {
   preview: true,
   preapproval: {
-    purpose:
-      "Apply the documented unattended setup defaults with an explicit scope and explicit agents",
+    purpose: "applying unattended setup defaults with an explicit scope and agents",
   },
   trust: [],
   inputs: "explicit-or-documented-defaults",
@@ -268,10 +268,14 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
 
 const setupConfig = {
   scope: Flag.Literals("scope", ["project", "user"] as const).pipe(
-    Flag.withDescription("Configuration scope: project or user (required for unattended apply)"),
+    withParameterDescription(
+      "Configuration scope; required when applying unattended setup defaults",
+    ),
     Flag.optional,
   ),
-  agent: agentFlag.pipe(Flag.withDescription("Specify agents to configure (skips auto-detection)")),
+  agent: agentFlag.pipe(
+    withParameterDescription("Configure these coding agents instead of auto-detection"),
+  ),
   yes: preapprovalCapabilityFlag(setupCapabilities),
   preview: previewCapabilityFlag(),
 } as const;

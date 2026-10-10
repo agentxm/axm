@@ -1,3 +1,4 @@
+import { type ErrorCode } from "@agentxm/workspace-kernel/operations";
 /**
  * Safe diagnostic identity for a terminal failure.
  *
@@ -12,7 +13,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { CliError } from "effect/cli";
 
-import { AppError, type AppErrorCode } from "../app-error/index.js";
+import { AppError } from "../app-error/index.js";
 import { isWorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import { OutputWriteFailed } from "../screen/streams.js";
@@ -21,7 +22,7 @@ import type { TelemetryFailurePhase } from "../telemetry/index.js";
 export interface FailureIdentity extends FailureDiagnostic {
   /** Stable diagnostic identifier; `unknown` when no enumerable one applies. */
   readonly kind: string;
-  readonly code: AppErrorCode;
+  readonly code: ErrorCode;
   /** False for a defect. */
   readonly handled: boolean;
 }
@@ -152,7 +153,7 @@ export const causeCarriesOutputFailure = (cause: Cause.Cause<unknown>): boolean 
  * The terminal failure a cause ends an invocation with outside every runtime
  * envelope: none for a cancellation or a help request that exits successfully.
  * An output failure settles in the output phase. Anything else settles in
- * `phase`: startup for a failure that escaped before any command ran — a
+ * `phase`: bootstrap for a failure that escaped before any command ran — a
  * workspace failure there is one of configuration — or the command phase for
  * a command that runs without the envelope.
  */

@@ -66,7 +66,7 @@ import {
   WorkspaceRecords,
   workspaceTransactionFailureToStepFailure,
 } from "../../workspace-state/index.js";
-import { nativeUnitKey, type NativeLocationOutcome } from "../../locations/index.js";
+import { nativeUnitReference, type NativeLocationOutcome } from "../../locations/index.js";
 import {
   type ExecutionCandidate,
   isExecutionCandidateFresh,
@@ -815,8 +815,11 @@ describe("previewOrApply", () => {
         outcome: "projected",
         reasonCode: "planned-native-unit",
         reason: "Prospective source passed owner preflight",
-        nativeUnitKeys: [
-          JSON.stringify(["project", "region", "/tmp/axm-preview/AGENTS.md", "rules"]),
+        nativeUnits: [
+          {
+            scope: "project",
+            address: { kind: "region", path: "/tmp/axm-preview/AGENTS.md", region: "rules" },
+          },
         ],
       };
       const plan: Plan = {
@@ -1130,8 +1133,8 @@ describe("previewOrApply", () => {
           { readiness: "ready", outcomes: [{ name: "triage", outcome: "projected" }] },
         ]);
         expect(steps.map((step) => step.agentOutcomes?.length)).toEqual([1, 1]);
-        expect(steps[1]?.agentOutcomes?.[0]?.nativeUnitKeys).toEqual([
-          nativeUnitKey(location("triage", "absent")),
+        expect(steps[1]?.agentOutcomes?.[0]?.nativeUnits).toEqual([
+          nativeUnitReference(location("triage", "absent")),
         ]);
       }).pipe(Effect.provide(context.layer));
     },
@@ -1217,7 +1220,7 @@ describe("previewOrApply", () => {
         const step = candidate.plan.jobs[0]?.steps[0];
         expect(step?.readiness).toBe("ready");
         expect(step?.agentOutcomes).toMatchObject([
-          { name: "review", outcome: "projected", nativeUnitKeys: [nativeUnitKey(intended)] },
+          { name: "review", outcome: "projected", nativeUnits: [nativeUnitReference(intended)] },
         ]);
       }).pipe(Effect.provide(context.layer));
     },
@@ -1463,14 +1466,14 @@ describe("previewOrApply", () => {
                           outcome: "projected",
                           reasonCode: "planned-native-unit",
                           reason: "Owner-prepared native realization",
-                          nativeUnitKeys: nativeLocations
+                          nativeUnits: nativeLocations
                             .filter((unit) =>
                               unit.address.kind === "region"
                                 ? unit.address.region === reference
                                 : unit.address.kind === "key-path" &&
                                   unit.address.keys[1] === reference,
                             )
-                            .map(nativeUnitKey),
+                            .map(nativeUnitReference),
                         },
                       ],
                     },

@@ -39,6 +39,37 @@
                   "required": ["value"],
                   "additionalProperties": false
                 }
+              },
+              "default": {
+                "anyOf": [
+                  { "type": "string" },
+                  {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  { "type": "boolean" }
+                ]
+              },
+              "range": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "max": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  }
+                },
+                "required": ["min", "max"],
+                "additionalProperties": false
               }
             },
             "required": ["name", "aliases", "type", "required"],
@@ -69,6 +100,37 @@
                   "required": ["value"],
                   "additionalProperties": false
                 }
+              },
+              "default": {
+                "anyOf": [
+                  { "type": "string" },
+                  {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  { "type": "boolean" }
+                ]
+              },
+              "range": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "max": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  }
+                },
+                "required": ["min", "max"],
+                "additionalProperties": false
               }
             },
             "required": ["name", "aliases", "type", "required"],
@@ -99,6 +161,37 @@
                   "required": ["value"],
                   "additionalProperties": false
                 }
+              },
+              "default": {
+                "anyOf": [
+                  { "type": "string" },
+                  {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  { "type": "boolean" }
+                ]
+              },
+              "range": {
+                "type": "object",
+                "properties": {
+                  "min": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  },
+                  "max": {
+                    "anyOf": [
+                      { "type": "number" },
+                      { "type": "string", "enum": ["Infinity", "-Infinity", "NaN"] }
+                    ]
+                  }
+                },
+                "required": ["min", "max"],
+                "additionalProperties": false
               }
             },
             "required": ["name", "aliases", "type", "required"],

@@ -141,16 +141,16 @@ describe("evaluateAxmSkillCompatibility", () => {
       action: "update-registry-skill",
       targetCliVersion: "1.3.0",
       targetSkillVersion: "1.3.0",
-      nextAction: "axm skills update --name axm --preview",
+      nextAction: "axm skills update axm --preview",
       steps: [
         {
           boundary: "workspace",
-          command: "axm skills update --name axm --preview",
+          command: "axm skills update axm --preview",
           preview: true,
         },
         {
           boundary: "workspace",
-          command: "axm skills update --name axm",
+          command: "axm skills update axm",
           preview: false,
         },
         { boundary: "verification", command: "axm lint", preview: false },
@@ -170,7 +170,7 @@ describe("evaluateAxmSkillCompatibility", () => {
 
     expect(result.recovery).toMatchObject({
       action: "update-registry-skill",
-      nextAction: "axm skills update --name axm --preview",
+      nextAction: "axm skills update axm --preview",
     });
   });
 

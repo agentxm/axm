@@ -138,9 +138,18 @@ describe("axm mcps new", () => {
       });
       configureWorkspace(temp.path, (settings) => ({
         ...settings,
-        mcpServers: { context: { source: "workspace" } },
+        mcpServers: {
+          context: {
+            source: "workspace",
+            distribution: {
+              kind: "remote",
+              transport: "streamable-http",
+              url: "https://example.test/mcp",
+            },
+          },
+        },
       }));
-      const installed = await runCli(["mcps", "install"], { cwd: temp.path });
+      const installed = await runCli(["sync"], { cwd: temp.path });
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
       writeJson(path.join(packageDir, "mcp.json"), {
         ...readJson(path.join(packageDir, "mcp.json")),

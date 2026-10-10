@@ -9,6 +9,9 @@ import { authoredSettingsKey, makePublishTarget } from "../testing.js";
 import {
   expectPublishFailed,
   makePublishWorld,
+  makeRemotePublishWorld,
+  remoteRequest,
+  remotePublicationRegistry,
   publishDocument,
   runPublish,
   type PublishWorld,
@@ -20,13 +23,13 @@ export const specification = defineSpecification({
   requirement: "cli/publication-uses-explicit-registry-target",
   title: "Publication uses the explicitly selected Registry",
   statement:
-    "When exactly one Registry target is supplied for publication — a configured Registry by name, or an explicit Registry URL — AXM shall direct the admitted publication to that Registry and refuse a target it cannot resolve without publishing anywhere.",
+    "When exactly one Registry target is supplied for publication — a configured Registry by name, or an absolute HTTP(S) URL without credentials, query or fragment — AXM shall direct the admitted publication to that Registry and refuse a target it cannot resolve without publishing anywhere.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
   boundary: "memory",
   boundaryRationale:
-    "The publish use case resolves the target against the workspace's configured sources; two real file Registries show the admitted publication landing at the selected destination and the other staying empty.",
+    "The publish use case resolves the target against the workspace's configured sources; real file Registries distinguish configured targets; an HTTP transport fixture observes direct URL publication.",
   methods: ["decision-table", "example"],
   derivedFrom: [
     "apps/cli/src/root/publish/command.ts",
@@ -34,16 +37,13 @@ export const specification = defineSpecification({
   ],
   supersedes: [],
   assumptions: [],
-  openQuestions: [
-    "What target or rejection is required when both a configured name and an explicit URL are supplied? The current implementation prefers the URL and retains the supplied name as a label; no public precedence promise was identified.",
-    "Which URL schemes are supported publication targets beyond the existing local Registry and HTTP implementations? No new scheme support or normalization guarantee is established here.",
-  ],
+  openQuestions: [],
   limitations: [
     {
       limitation:
-        "The examples use local file Registry destinations. HTTP publication capability binding and credential-origin isolation remain separately owned; no live Registry, remote authentication, or server-side storage behavior is established here.",
+        "The HTTP transport fixture exercises client selection and uploads without a live Registry; server storage and remote authentication remain separately owned.",
       retirementCondition:
-        "Retain explicit target selection evidence through each supported target transport without duplicating the credential and publication-capability owners.",
+        "Retain explicit target selection evidence at the deployed Registry boundary.",
     },
   ],
 });
@@ -106,7 +106,6 @@ const targetedRequest = (overrides: Partial<PublishRequest>): PublishRequest => 
   types: [],
   excludes: [],
   registry: Option.none(),
-  registryUrl: Option.none(),
   backfill: false,
   acceptWarnings: false,
   preview: false,
@@ -144,41 +143,59 @@ describe("Explicit publication Registry target", () => {
   );
 
   for (const type of publicationTypes) {
-    for (const targetForm of ["configured name", "explicit URL"] as const) {
-      it.effect(
-        `${type.route} publish uses the ${targetForm} without publishing to another configured Registry`,
-        () =>
-          Effect.gen(function* () {
-            const fixture = makeTwoRegistryWorld(type);
-            worlds.push(fixture.world);
+    it.effect(
+      `${type.route} publish uses the configured name without publishing to another Registry`,
+      () =>
+        Effect.gen(function* () {
+          const fixture = makeTwoRegistryWorld(type);
+          worlds.push(fixture.world);
 
-            const selection = yield* normalizeTypePublishSelection({
-              type: type.type,
-              selectors: ["review"],
-              owners: [],
-              excludes: [],
-            });
-            const outcome = yield* fixture.world.provide(
-              runPublish(
-                targetedRequest({
-                  ...selection,
-                  ...(targetForm === "configured name"
-                    ? { registry: Option.some("selected") }
-                    : { registryUrl: Option.some(fixture.selected.url) }),
-                }),
-              ),
-            );
+          const selection = yield* normalizeTypePublishSelection({
+            type: type.type,
+            selectors: ["review"],
+            owners: [],
+            excludes: [],
+          });
+          const outcome = yield* fixture.world.provide(
+            runPublish(
+              targetedRequest({
+                ...selection,
+                registry: Option.some("selected"),
+              }),
+            ),
+          );
 
-            const archive = `extensions/@acme/${type.route}/review/1.0.0.zip`;
-            expect(fixture.selectedArchives()).toEqual([archive]);
-            expect(publishDocument(outcome).counts.published).toBe(1);
-            expect(fixture.distractor.storedFiles()).toEqual([]);
-          }),
-      );
-    }
+          const archive = `extensions/@acme/${type.route}/review/1.0.0.zip`;
+          expect(fixture.selectedArchives()).toEqual([archive]);
+          expect(publishDocument(outcome).counts.published).toBe(1);
+          expect(fixture.distractor.storedFiles()).toEqual([]);
+        }),
+    );
   }
 
-  for (const target of ["name", "url", "missing-name", "invalid-url"] as const) {
+  it.effect("publishes to an explicit HTTP URL without a configured source", () =>
+    Effect.gen(function* () {
+      const world = makeRemotePublishWorld({ settings: { skills: { review: "workspace" } } });
+      worlds.push(world);
+      world.write("skill", { name: "review" });
+      const outcome = yield* world.provide(runPublish(remoteRequest()));
+      expect(publishDocument(outcome).counts.published).toBe(1);
+      expect(world.uploads).toHaveLength(1);
+      expect(
+        world.requests.every((request) => request.url.startsWith(remotePublicationRegistry + "/")),
+      ).toBe(true);
+    }),
+  );
+
+  for (const target of [
+    "name",
+    "missing-name",
+    "file:///unsupported",
+    "ftp://example.test",
+    "https://user:password@example.test",
+    "https://example.test?query=value",
+    "https://example.test#fragment",
+  ] as const) {
     it.effect(`root publish resolves ${target} before distributing anything`, () =>
       Effect.gen(function* () {
         const type = publicationTypes[0];
@@ -187,16 +204,12 @@ describe("Explicit publication Registry target", () => {
 
         const request = targetedRequest({
           selectors: ["@acme/skills/review"],
-          ...(target === "name"
-            ? { registry: Option.some("selected") }
-            : target === "url"
-              ? { registryUrl: Option.some(fixture.selected.url) }
-              : target === "missing-name"
-                ? { registry: Option.some("missing") }
-                : { registryUrl: Option.some("not a Registry URL") }),
+          registry: Option.some(
+            target === "name" ? "selected" : target === "missing-name" ? "missing" : target,
+          ),
         });
 
-        if (target === "name" || target === "url") {
+        if (target === "name") {
           const outcome = yield* fixture.world.provide(runPublish(request));
           const archive = "extensions/@acme/skills/review/1.0.0.zip";
           expect(fixture.selectedArchives()).toEqual([archive]);
@@ -205,9 +218,7 @@ describe("Explicit publication Registry target", () => {
           const failure = expectPublishFailed(
             yield* fixture.world.provide(Effect.flip(runPublish(request))),
           );
-          expect(failure.detail).toContain(
-            target === "missing-name" ? "missing" : "--registry-url",
-          );
+          expect(failure.detail).toContain(target === "missing-name" ? "missing" : "--registry");
           expect(fixture.selected.storedFiles()).toEqual([]);
         }
         expect(fixture.distractor.storedFiles()).toEqual([]);

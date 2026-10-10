@@ -83,7 +83,7 @@ export type CatalogError<K extends CatalogGroup> = K extends "workspace"
   : never;
 
 /** Filesystem identity evaluated by a lint run. */
-export type LintView = "workspace" | "git-index";
+export type LintView = "filesystem" | "git-index";
 
 /** The context type a given catalog's rules consume. */
 export type CatalogContext<K extends CatalogGroup> = CatalogRuleContexts[K][number];
@@ -124,11 +124,11 @@ export const lintCatalogsForView = (
   readonly [K in CatalogGroup]: ReadonlyArray<LintRule<CatalogContext<K>, CatalogError<K>>>;
 } => ({
   ...REPOSITORY_LINT_CATALOGS,
-  workspace: view === "workspace" ? workspaceRules : REPOSITORY_LINT_CATALOGS.workspace,
+  workspace: view === "filesystem" ? workspaceRules : REPOSITORY_LINT_CATALOGS.workspace,
 });
 
 /** Complete workspace catalog retained for callers that do not select a view. */
-export const LINT_CATALOGS = lintCatalogsForView("workspace");
+export const LINT_CATALOGS = lintCatalogsForView("filesystem");
 
 /**
  * Catalog evaluation and rendering order.

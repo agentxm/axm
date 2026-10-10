@@ -9,7 +9,11 @@ depends-on:
 
 # Install
 
-`axm install` expresses that an extension should be directly desired in the
+`axm install <source>` and all seven typed install routes require an explicit
+source. A cloned workspace realizes its configured state with `axm sync`;
+`axm update --reinstall` reacquires accepted external content.
+
+Installation expresses that an extension should be directly desired in the
 selected workspace scope. It then realizes the selected extension and the other
 extensions that must change with it.
 
@@ -31,10 +35,8 @@ drifted acquired content is restored from the exact accepted identity; failure
 to obtain that identity does not authorize a newer one. Supplying a different constraint explicitly authorizes
 changing that durable choice; it does not require a replacement override.
 
-An inline MCP definition is already authoritative configuration, not an
-extension acquisition target. Workspace-wide install reports it as not
-applicable and directs reconciliation to sync; it neither resolves a source nor
-prevents applicable configured extensions from proceeding.
+Inline MCP definitions are authoritative configuration and have no external
+source to acquire. Sync reconciles their projections.
 
 ## Non-responsibilities
 
@@ -53,6 +55,14 @@ The root command is the normal fully qualified extension surface. A type
 command group may accept additional type-specific inputs, but both forms
 express the same durable intent and produce the same underlying plan and result.
 
+MCP convenience flags distinguish literal inputs from host environment
+references: `--bind INPUT_ID=VALUE` pairs with `--bind-env INPUT_ID=ENV_NAME`,
+and `--header NAME=VALUE` pairs with `--header-env NAME=ENV_NAME`. These values
+split on the first `=`; subsequent separators belong to the value. Inline
+`--env NAME` records a host environment reference, while `--env KEY=VALUE`
+records a literal. References are stored symbolically rather than read from
+the CLI process environment.
+
 Skill installation and the configured update sweep share the skill
 application's planning and the same transactional materialization path. The
 application owns skill selection, recipient diagnostics, and artifact meaning.
@@ -60,6 +70,11 @@ Install declares direct intent; update re-declares the intent the workspace
 already recorded and advances its accepted resolution. The shared transaction
 machinery owns settlement and restoration, without deciding whether a skill
 declaration should change.
+
+Install and reinstall expose neutral skill-acquisition observations after
+settlement. A native-output repair retains its accepted source identity and
+does not count as a fresh install; update marks freshly reacquired skills as
+reinstalls. CLI telemetry consumes these facts without owning settlement.
 
 ## Specifications
 

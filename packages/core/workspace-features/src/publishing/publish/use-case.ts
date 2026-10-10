@@ -267,7 +267,7 @@ const workspaceReachability = (
 export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request: PublishRequest) {
   const registry = yield* observeUnit(
     { id: "registry", label: "publish registry" },
-    resolveTargetRegistry(request.registry, request.registryUrl),
+    resolveTargetRegistry(request.registry),
   );
   const settings = yield* SettingsReader;
   const registryUrl = yield* RegistryUrl;

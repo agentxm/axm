@@ -183,7 +183,7 @@ const buildAndEvaluate = (
       ...(defersExtensionRules === undefined ? {} : { defersExtensionRules }),
     });
     const evaluations = yield* evaluateAllCatalogs({
-      view: "workspace",
+      view: "filesystem",
       contexts: {
         ...emptyCatalogRuleContexts,
         skill: buildSkillRuleContexts(lintWorkspace.view),

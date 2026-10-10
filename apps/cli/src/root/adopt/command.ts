@@ -1,3 +1,4 @@
+import { withParameterDescription } from "../../cli-parameters.js";
 import * as Effect from "effect/Effect";
 import { Argument, Command } from "effect/cli";
 
@@ -49,7 +50,7 @@ const handleAdoptBody = Effect.fn("Adopt.handle")(function* (args: AdoptHandlerA
 
 const config = {
   fqn: Argument.String("extension").pipe(
-    Argument.withDescription("Canonical extension FQN (@owner/<plural-type>/name)"),
+    withParameterDescription("Extension FQN in @owner/<plural-type>/<name> form"),
   ),
   preview: previewCapabilityFlag(),
 } as const;
@@ -67,7 +68,7 @@ export const adoptCommand = Command.make("adopt", config, ({ fqn, preview }) =>
     {
       command: "axm adopt @acme/skills/code-review",
       description:
-        "Adopt an installed package for authoring, or declare authored skills/code-review",
+        "Adopt an installed package for authoring, or declare an authored package in place",
     },
   ]),
 );

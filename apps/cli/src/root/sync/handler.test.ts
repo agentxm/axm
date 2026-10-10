@@ -1650,7 +1650,7 @@ describe("root sync handler", () => {
         "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
       );
 
-      yield* provide(handleSync({ preview: true, type: Option.some("hook") }));
+      yield* provide(handleSync({ preview: true, types: ["hook"] }));
       const preview = expectRecord(
         property(expectRecord(rendererState.results[0]?.data), "result"),
       );
@@ -1663,7 +1663,7 @@ describe("root sync handler", () => {
       ).toEqual([]);
       expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toContain("# Old copy");
 
-      yield* provide(handleSync({ preview: false, type: Option.some("hook") }));
+      yield* provide(handleSync({ preview: false, types: ["hook"] }));
       expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).toContain("# Workspace");
       expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf8")).not.toContain("# Old copy");
     }),
@@ -2079,7 +2079,7 @@ describe("root sync handler", () => {
 
       yield* provide(
         handleSync({
-          type: Option.some("skill"),
+          types: ["skill"],
           preview: false,
         }),
       );

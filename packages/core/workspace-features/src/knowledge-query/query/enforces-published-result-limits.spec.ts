@@ -37,7 +37,7 @@ const operations = [
   {
     name: "search",
     run: (resultLimit: number) =>
-      KnowledgeDiscovery.search({ scope: "project", expression: "session", resultLimit }),
+      KnowledgeDiscovery.query({ scope: "project", expression: "session", resultLimit }),
   },
 ];
 

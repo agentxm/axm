@@ -95,12 +95,12 @@ describe("Authoring commands use the project workspace", () => {
         const input: unknown = JSON.parse(refused.stdout);
         const failure = Schema.decodeUnknownSync(ErrorEnvelope)(input);
         expect(failure).toMatchObject({ code: "usage" });
-        expect(failure.detail).toContain("project-workspace");
+        expect(failure.detail).toContain("Unrecognized flag: --scope");
         expect(snapshotProtectedState(fixture.selected)).toEqual(beforeProject);
         expect(snapshotProtectedState(userRoot)).toEqual(beforeUser);
         expect(snapshotTree(fixture.invoking)).toEqual(beforeInvoking);
 
-        const created = await fixture.importPackage(["--scope", "project"]);
+        const created = await fixture.importPackage([]);
         expect(created.exitCode, created.stdout + created.stderr).toBe(0);
         expect(readImportedMcpManifest(fixture.selected)).toMatchObject({
           owner: "@acme",

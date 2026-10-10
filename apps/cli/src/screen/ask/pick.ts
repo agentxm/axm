@@ -4,15 +4,17 @@
  * Every option carries a mark saying whether it is picked, and `space` toggles
  * the one under the caret. Options that name a group sit one step in beneath
  * the group's header, whose mark says whether all, some, or none of them are
- * picked and which toggles them together. Typing narrows the list to the
- * options whose titles contain what was typed, and a group with none of them
- * goes. The list shows as much as the height it is given allows, and never more
+ * picked and which toggles them together. The left arrow folds the caret's
+ * group to its header and the right arrow opens it again. Typing narrows the
+ * list to the options whose title, details, or group contain what was typed,
+ * and a group with none of them goes. The list shows as much as the height it is given allows, and never more
  * than a screenful a person can take in at once; it names what it left out
  * above and below, and keeps the header of the caret's group pinned
  * above it once the header has scrolled away. Neither the reducer nor the view
  * touches the terminal.
  */
 
+import { plain } from "../doc.js";
 import type { CalloutNode, Doc, PromptOption, PromptPicked } from "../doc.js";
 import {
   isQuitKey,
@@ -33,6 +35,14 @@ import { listWindow, skippedAbove, windowLines } from "./list-window.js";
  * the caret's details, and the keys stay within a glance of the caret.
  */
 const LIST_LINES = 14;
+/** The lines kept beneath a list for what the caret's option means, where the height spares them. */
+const DETAIL_LINES = 2;
+/** The rows a page key moves the caret: a screenful less the rows that carry the eye across. */
+const PAGE_ROWS = LIST_LINES - 2;
+/** The options a folded group names before it counts the rest. */
+const NAMED_IN_FOLD = 3;
+/** The groups a list names below its window before it counts the rest. */
+const NAMED_BELOW = 2;
 
 /** Where the caret stands, what is picked, what narrows the list, and what was refused. */
 export interface PickState {
@@ -41,6 +51,8 @@ export interface PickState {
   /** The positions in the question's options of those picked. */
   readonly picked: ReadonlySet<number>;
   readonly filter: string;
+  /** The groups folded to their headers. A filter shows its matches whatever is folded. */
+  readonly folded: ReadonlySet<string>;
   /** Why the last key was refused, until the next key that changes something. */
   readonly problem?: string;
 }
@@ -57,6 +69,8 @@ export type PickRow =
       readonly label: string;
       readonly members: ReadonlyArray<number>;
       readonly shown: ReadonlyArray<number>;
+      /** Whether the group's options stay behind its header. */
+      readonly folded: boolean;
     }
   | { readonly _tag: "Option"; readonly index: number; readonly grouped: boolean };
 
@@ -67,19 +81,34 @@ export const initialPickState = <A>(ask: PickAsk<A>): PickState => ({
     ask.options.flatMap((option, index) => (option.selected === true ? [index] : [])),
   ),
   filter: "",
+  folded: new Set(),
 });
 
-const matches = (title: string, filter: string): boolean =>
-  title.toLowerCase().includes(filter.toLowerCase());
+const contains = (text: string, filter: string): boolean =>
+  text.toLowerCase().includes(filter.toLowerCase());
+
+/** Whether what was typed is in the option's title, its details, or its group's name. */
+const matches = <A>(option: PickAsk<A>["options"][number], filter: string): boolean =>
+  contains(option.title, filter) ||
+  (option.details ?? []).some((detail) => contains(plain(detail), filter)) ||
+  (option.group !== undefined && contains(option.group, filter));
 
 /**
  * The rows the filter leaves, in order: options without a group first, then
  * each group in the order it first appears, its header before its options. A
- * group none of whose options match is left out, header and all.
+ * group none of whose options match is left out, header and all, and a folded
+ * group keeps its header alone while nothing is typed.
  */
-export const pickRows = <A>(ask: PickAsk<A>, filter: string): ReadonlyArray<PickRow> => {
+export const pickRows = <A>(
+  ask: PickAsk<A>,
+  filter: string,
+  folded: ReadonlySet<string> = new Set(),
+): ReadonlyArray<PickRow> => {
   const shown = (indices: ReadonlyArray<number>) =>
-    indices.filter((index) => matches(ask.options[index]?.title ?? "", filter));
+    indices.filter((index) => {
+      const option = ask.options[index];
+      return option !== undefined && matches(option, filter);
+    });
   const ungrouped = ask.options.flatMap((option, index) =>
     option.group === undefined ? [index] : [],
   );
@@ -93,12 +122,17 @@ export const pickRows = <A>(ask: PickAsk<A>, filter: string): ReadonlyArray<Pick
         option.group === label ? [index] : [],
       );
       const visible = shown(members);
-      return visible.length === 0
-        ? []
-        : [
-            { _tag: "Group", label, members, shown: visible },
-            ...visible.map((index): PickRow => ({ _tag: "Option", index, grouped: true })),
-          ];
+      if (visible.length === 0) return [];
+      const header: PickRow = {
+        _tag: "Group",
+        label,
+        members,
+        shown: visible,
+        folded: filter.length === 0 && folded.has(label),
+      };
+      return header.folded
+        ? [header]
+        : [header, ...visible.map((index): PickRow => ({ _tag: "Option", index, grouped: true }))];
     }),
   ];
 };
@@ -119,6 +153,9 @@ const outOfBounds = <A>(ask: PickAsk<A>, size: number): string | undefined =>
  * Picking past the question's `max` is refused with the reason and changes
  * nothing.
  */
+const rowsOf = <A>(ask: PickAsk<A>, state: PickState): ReadonlyArray<PickRow> =>
+  pickRows(ask, state.filter, state.folded);
+
 const toggled = <A>(
   ask: PickAsk<A>,
   state: PickState,
@@ -146,6 +183,7 @@ const toggled = <A>(
             cursor: state.cursor,
             picked,
             filter: state.filter,
+            folded: state.folded,
             ...(ask.max === undefined
               ? {}
               : { problem: `Pick at most ${count(ask.noun, ask.max)}` }),
@@ -153,7 +191,10 @@ const toggled = <A>(
         : { ...state, problem: `Pick at most ${count(ask.noun, ask.max ?? picked.size)}` },
     };
   }
-  return { _tag: "Next", state: { cursor: state.cursor, picked, filter: state.filter } };
+  return {
+    _tag: "Next",
+    state: { cursor: state.cursor, picked, filter: state.filter, folded: state.folded },
+  };
 };
 
 /**
@@ -161,8 +202,8 @@ const toggled = <A>(
  * while that option still shows, else moves to the first option that does.
  */
 const refiltered = <A>(ask: PickAsk<A>, state: PickState, filter: string): PickAction => {
-  const before = pickRows(ask, state.filter)[state.cursor];
-  const rows = pickRows(ask, filter);
+  const before = rowsOf(ask, state)[state.cursor];
+  const rows = pickRows(ask, filter, state.folded);
   const kept =
     before?._tag === "Option"
       ? rows.findIndex((row) => row._tag === "Option" && row.index === before.index)
@@ -174,17 +215,44 @@ const refiltered = <A>(ask: PickAsk<A>, state: PickState, filter: string): PickA
           0,
           rows.findIndex((row) => row._tag === "Option"),
         );
-  return { _tag: "Next", state: { cursor, picked: state.picked, filter } };
+  return { _tag: "Next", state: { cursor, picked: state.picked, filter, folded: state.folded } };
 };
 
 const moved = <A>(ask: PickAsk<A>, state: PickState, step: number): PickAction => {
-  const last = Math.max(0, pickRows(ask, state.filter).length - 1);
+  const last = Math.max(0, rowsOf(ask, state).length - 1);
   return {
     _tag: "Next",
     state: {
       cursor: Math.min(Math.max(0, state.cursor + step), last),
       picked: state.picked,
       filter: state.filter,
+      folded: state.folded,
+    },
+  };
+};
+
+/**
+ * The caret's group folded to its header, or opened again. The caret goes to
+ * the header, which is where a folded group's options went. A filter shows its
+ * matches whatever is folded, so the key does nothing while one is typed.
+ */
+const refolded = <A>(ask: PickAsk<A>, state: PickState, fold: boolean): PickAction => {
+  const row = rowsOf(ask, state)[state.cursor];
+  const label = row?._tag === "Group" ? row.label : ask.options[row?.index ?? -1]?.group;
+  if (state.filter.length > 0 || label === undefined) return { _tag: "Next", state };
+  const folded = new Set(state.folded);
+  if (fold) folded.add(label);
+  else folded.delete(label);
+  const cursor = pickRows(ask, state.filter, folded).findIndex(
+    (candidate) => candidate._tag === "Group" && candidate.label === label,
+  );
+  return {
+    _tag: "Next",
+    state: {
+      cursor: fold ? Math.max(0, cursor) : state.cursor,
+      picked: state.picked,
+      filter: state.filter,
+      folded,
     },
   };
 };
@@ -194,7 +262,9 @@ const shownOptions = (rows: ReadonlyArray<PickRow>): ReadonlyArray<number> =>
   rows.flatMap((row) => (row._tag === "Option" ? [row.index] : []));
 
 /**
- * One key against one list. The arrows move the caret and stop at either end;
+ * One key against one list. The arrows move the caret and stop at either end,
+ * the page keys move it a screenful, and `home` and `end` take it to either
+ * end; the left arrow folds the caret's group and the right arrow opens it;
  * `space` toggles the row under it, a group's header toggling the options of
  * the group that show; `ctrl`+`a` toggles every option that shows; `enter`
  * submits what is picked once it is within the question's bounds. Typed text
@@ -218,7 +288,13 @@ export const reducePick = <A>(ask: PickAsk<A>, state: PickState, key: AskKey): P
   }
   if (key.name === "up") return moved(ask, state, -1);
   if (key.name === "down") return moved(ask, state, 1);
-  const rows = pickRows(ask, state.filter);
+  if (key.name === "pageup") return moved(ask, state, -PAGE_ROWS);
+  if (key.name === "pagedown") return moved(ask, state, PAGE_ROWS);
+  if (key.name === "home") return moved(ask, state, Number.NEGATIVE_INFINITY);
+  if (key.name === "end") return moved(ask, state, Number.POSITIVE_INFINITY);
+  if (key.name === "left") return refolded(ask, state, true);
+  if (key.name === "right") return refolded(ask, state, false);
+  const rows = rowsOf(ask, state);
   if (key.name === "space" || key.char === " ") {
     const row = rows[state.cursor];
     if (row === undefined) return { _tag: "Next", state };
@@ -253,17 +329,25 @@ const markOf = (indices: ReadonlyArray<number>, picked: ReadonlySet<number>): Pr
 /**
  * One row as the list paints it. A group's header counts its picked options —
  * of all of them, or of those that show while the list is filtered — and its
- * mark stands for all of them either way.
+ * mark stands for all of them either way. A folded header names the first of
+ * the options behind it.
  */
 const optionOf = <A>(ask: PickAsk<A>, state: PickState, row: PickRow): PromptOption => {
   if (row._tag === "Group") {
     const filtered = state.filter.length > 0;
     const counted = filtered ? row.shown : row.members;
+    const titles = row.members.flatMap((index) => {
+      const option = ask.options[index];
+      return option === undefined ? [] : [option.title];
+    });
+    const rest = titles.length - NAMED_IN_FOLD;
+    const named = titles.slice(0, NAMED_IN_FOLD).join(", ");
     return {
-      title: row.label,
+      title: [{ text: row.label, bold: true }],
       picked: markOf(row.members, state.picked),
       details: [
         `${String(pickedOf(counted, state.picked))} of ${String(counted.length)}${filtered ? " shown" : ""}`,
+        ...(row.folded ? [rest > 0 ? `${named} +${String(rest)}` : named] : []),
       ],
     };
   }
@@ -293,19 +377,14 @@ const groupHeaderOf =
 
 /** The question as the live scene shows it in `rows` lines while it stands open. */
 export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc => {
-  const list = pickRows(ask, state.filter);
-  // The question, its note, the hint, a refusal, and the line that names the
+  const list = rowsOf(ask, state);
+  // The question, its note, the hint, a refusal, and the lines that name the
   // caret's details where the list cannot carry them take their lines before
-  // any row does.
+  // any row does. The details take a second line only where no row pays for it.
   const described = ask.options.some((option) => (option.details?.length ?? 0) > 0);
-  const room = Math.min(
-    LIST_LINES,
-    rows -
-      2 -
-      (ask.note === undefined ? 0 : 1) -
-      (state.problem === undefined ? 0 : 1) -
-      (described ? 1 : 0),
-  );
+  const fixed = 2 + (ask.note === undefined ? 0 : 1) + (state.problem === undefined ? 0 : 1);
+  const detailLines = !described ? 0 : rows - fixed - DETAIL_LINES >= LIST_LINES ? DETAIL_LINES : 1;
+  const room = Math.min(LIST_LINES, rows - fixed - detailLines);
   const window = listWindow(list.length, state.cursor, room, groupHeaderOf(list));
   const shownRow = (index: number): PromptOption => {
     const row = list[index];
@@ -318,6 +397,16 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
   // A pick the filter hides still counts, and would otherwise look lost.
   const hidden = filtered ? state.picked.size - pickedOf(shown, state.picked) : 0;
   const selected = `${String(state.picked.size)} of ${String(ask.options.length)} selected${hidden === 0 ? "" : ` (${String(hidden)} hidden)`}`;
+  const grouped = list.some((row) => row._tag === "Group");
+  // The groups whose headers the window has not reached, so a person knows
+  // what the rows left out below are before scrolling to them.
+  const unseen = list
+    .slice(window.end)
+    .flatMap((row) => (row._tag === "Group" ? [`${row.label} (${String(row.shown.length)})`] : []));
+  const below =
+    unseen.length > NAMED_BELOW
+      ? `${unseen.slice(0, NAMED_BELOW).join(", ")} +${String(unseen.length - NAMED_BELOW)} groups`
+      : unseen.join(", ");
   const submit =
     ask.verb === undefined
       ? "confirm"
@@ -336,6 +425,8 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
         }),
       ],
       more: list.length - window.end,
+      ...(below.length === 0 ? {} : { below }),
+      ...(detailLines === 0 ? {} : { detailLines }),
       // A window squeezed past its room has no line left to lend.
       ...(described && window.end < list.length && windowLines(window, list.length) <= room
         ? { spare: shownRow(window.end) }
@@ -352,6 +443,7 @@ export const pickDoc = <A>(ask: PickAsk<A>, state: PickState, rows: number): Doc
             status: [selected],
             keys: [
               { key: "arrows", word: "move" },
+              ...(grouped ? [{ key: "sides", word: "fold" }] : []),
               { key: "space", word: "toggle" },
               { key: "^a", word: "all" },
               { key: "enter", word: submit },

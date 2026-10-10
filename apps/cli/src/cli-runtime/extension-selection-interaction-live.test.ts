@@ -78,7 +78,7 @@ describe("InstallSelectionLive", () => {
       ]);
 
       expect(test.state.script.asks[0]).toMatchObject({
-        note: "2 skills in 2 groups",
+        note: "2 skills in 2 groups: engineering (1), productivity (1)",
         options: [{ group: "engineering" }, { group: "productivity" }],
       });
     }).pipe(Effect.provide(test.layer));

@@ -30,6 +30,8 @@ const eastAsianWidth = {
   "─": "ambiguous", // ─ BOX DRAWINGS LIGHT HORIZONTAL
   "└": "ambiguous", // └ BOX DRAWINGS LIGHT UP AND RIGHT
   "│": "ambiguous", // │ BOX DRAWINGS LIGHT VERTICAL
+  "←": "ambiguous", // ← LEFTWARDS ARROW
+  "→": "ambiguous", // → RIGHTWARDS ARROW
   "↑": "ambiguous", // ↑ UPWARDS ARROW
   "↓": "ambiguous", // ↓ DOWNWARDS ARROW
   "…": "ambiguous", // … HORIZONTAL ELLIPSIS
@@ -114,7 +116,7 @@ describe("glyph width", () => {
     const ambiguous = inlineGlyphs(unicodeGlyphs).filter((glyph) =>
       characters(glyph).some((character) => widthClass(character) === "ambiguous"),
     );
-    expect(ambiguous).toEqual(["├─ ", "└─ ", "│  ", " · ", "…", "↑", "↓", "↑↓"]);
+    expect(ambiguous).toEqual(["├─ ", "└─ ", "│  ", " · ", "…", "↑", "↓", "↑↓", "←→"]);
     for (const glyph of inlineGlyphs(asciiGlyphs)) expect(isSevenBit(glyph), glyph).toBe(true);
   });
 

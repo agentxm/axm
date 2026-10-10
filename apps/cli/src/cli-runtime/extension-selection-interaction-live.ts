@@ -63,14 +63,28 @@ const candidateOption = (
   ...(Option.isSome(candidate.group) ? { group: candidate.group.value } : {}),
 });
 
-/** How many candidates the source offers, and under how many headings when it sorts them. */
+/** The headings a note names one by one; past these it only counts them. */
+const NAMED_GROUPS = 4;
+
+/**
+ * How many candidates the source offers, and the headings it sorts them
+ * under with how many each holds — a list shows only its first screenful, so
+ * this is where a person learns what else is in it.
+ */
 const offered = (
   candidates: ReadonlyArray<InstallSelectionCandidate>,
   noun: { readonly one: string; readonly other: string },
 ): string => {
   const count = `${String(candidates.length)} ${candidates.length === 1 ? noun.one : noun.other}`;
-  const groups = new Set(candidates.flatMap((candidate) => Option.toArray(candidate.group))).size;
-  return groups > 1 ? `${count} in ${String(groups)} groups` : count;
+  const sizes = new Map<string, number>();
+  for (const group of candidates.flatMap((candidate) => Option.toArray(candidate.group))) {
+    sizes.set(group, (sizes.get(group) ?? 0) + 1);
+  }
+  if (sizes.size <= 1) return count;
+  const groups = `${count} in ${String(sizes.size)} groups`;
+  return sizes.size > NAMED_GROUPS
+    ? groups
+    : `${groups}: ${[...sizes].map(([group, size]) => `${group} (${String(size)})`).join(", ")}`;
 };
 
 /**

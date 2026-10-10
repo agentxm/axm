@@ -8,4 +8,5 @@
    ◯   reviewer                    A second reader for risky changes
    ◯   planner                     Breaks a goal into ordered tasks
 
-2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm
+
+2 of 6 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm

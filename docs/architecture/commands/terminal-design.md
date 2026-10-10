@@ -239,12 +239,17 @@ default reads the same on a terminal without color.
 
 A list opens under its question with one line per option, so it is exactly
 as tall as it looks. The caret marks the option `enter` takes, titles sit at
-the content column, and details sit at the value column. Details show for
-every option or for none: a narrow list drops them all before it shortens a
-title in the middle, rather than leaving some options looking bare. A list
-shows as many options as the height it is given and names the rest on a dim
-line at the content column, `↑ 3 more` above the window and `↓ 3 more` below
-it, and its window follows the caret instead of scrolling the terminal. A
+the content column, and details sit at the value column, or at one column
+past it for the whole list where a title needs the room and details keep half
+the line. Details show for every option or for none: a narrow list drops them
+all before it shortens a title in the middle, rather than leaving some options
+looking bare. A list whose details do not all fit beside their titles keeps
+lines beneath itself for the caret's own, wrapped and named, and keeps them
+empty where the caret's details already show whole, so its height never
+follows the caret. A list shows as many options as the height it is given and
+names the rest on a dim line at the content column, `↑ 3 more` above the
+window and `↓ 3 more` below it, and its window follows the caret instead of
+scrolling the terminal. A
 typed line follows its question behind the caret, or takes the line beneath it
 when both do not fit; a line the question refuses stays open with the reason
 beneath it in the attention mark.
@@ -253,11 +258,16 @@ A list that takes several puts each option's selection mark between the caret
 and the title. Options that share a group sit one step in under the group's
 header, whose mark is partial while only some of them are picked and whose
 count sits at the value column; a group whose header scrolls away stays
-pinned above the window while the caret is in it. Typing after the question
-narrows the list to the titles that contain it and drops groups with no
-match. One dim line beneath the list says how many are picked and names its
-keys; a narrow line drops the arrows and the words of named keys first, then
-every key.
+pinned above the window while the caret is in it. The left arrow folds the
+caret's group to its header, which then names the first options behind it,
+and the right arrow opens it; the line that counts what the window leaves out
+below also names the groups it has not reached, `↓ 16 more · productivity (7)`.
+Typing after the question narrows the list to the options whose title,
+details, or group contain it and drops groups with no match; what was typed is
+bold where it shows, and details too long for their line open at the match
+rather than hide it. One dim line beneath the list says how many are picked
+and names its keys; a narrow line drops the arrows and the words of named keys
+first, then every key.
 
 A protected column is laid out at its natural width even where a width hint
 would keep the columns after it on a shared lane: alignment is worth having

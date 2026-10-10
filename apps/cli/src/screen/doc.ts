@@ -162,8 +162,9 @@ export interface PromptOption {
 export type PromptPicked = "all" | "some" | "none";
 
 /**
- * One key a list answers to: the key as typed, or `arrows` for the up and
- * down arrows the painter draws, and the word for what it does.
+ * One key a list answers to: the key as typed, `arrows` for the up and down
+ * arrows or `sides` for the left and right arrows the painter draws, and the
+ * word for what it does.
  */
 export interface PromptKey {
   readonly key: string;
@@ -199,6 +200,13 @@ export interface PromptNode {
   readonly options?: ReadonlyArray<PromptOption>;
   /** How many options did not fit below the list, named on one line beneath it. */
   readonly more?: number;
+  /** What the options left out below are, such as the groups among them, after their count. */
+  readonly below?: Text;
+  /**
+   * The lines kept beneath the list for what the caret's option means, where
+   * the options cannot all carry their details whole; one where none is named.
+   */
+  readonly detailLines?: number;
   /**
    * The option after the last, for a list that keeps a line to name the
    * caret's details. Where every option carries its details beside its title

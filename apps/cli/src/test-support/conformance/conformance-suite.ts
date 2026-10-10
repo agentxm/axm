@@ -69,13 +69,14 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
           pushText(option.title);
           option.details?.forEach(pushText);
         });
+        pushText(node.below);
         pushText(node.entry);
         pushText(node.filter);
         node.hint?.status.forEach((status) => visit(status, false));
         node.hint?.keys.forEach((key) => {
-          // `arrows` is a semantic token: each painter chooses its own visible
-          // arrow label rather than printing the token itself.
-          if (key.key !== "arrows") visit(key.key, false);
+          // `arrows` and `sides` are semantic tokens: each painter chooses its
+          // own visible arrow label rather than printing the token itself.
+          if (key.key !== "arrows" && key.key !== "sides") visit(key.key, false);
           visit(key.word, false);
         });
         return;

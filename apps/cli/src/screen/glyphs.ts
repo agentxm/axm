@@ -11,7 +11,14 @@ export interface Glyphs {
     readonly unselected: string;
     readonly partial: string;
   };
-  readonly arrows: { readonly up: string; readonly down: string; readonly key: string };
+  readonly arrows: {
+    readonly up: string;
+    readonly down: string;
+    /** The up and down arrows as a hint names them. */
+    readonly key: string;
+    /** The left and right arrows as a hint names them. */
+    readonly sides: string;
+  };
   readonly spinner: ReadonlyArray<string>;
   readonly tree: {
     readonly branch: string;
@@ -46,7 +53,7 @@ export const unicodeGlyphs: Glyphs = {
     unselected: "◯",
     partial: "◪",
   },
-  arrows: { up: "↑", down: "↓", key: "↑↓" },
+  arrows: { up: "↑", down: "↓", key: "↑↓", sides: "←→" },
   spinner: ["◒", "◓"],
   tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
   separator: " · ",
@@ -76,7 +83,7 @@ export const asciiGlyphs: Glyphs = {
     unselected: "[ ]",
     partial: "[-]",
   },
-  arrows: { up: "^", down: "v", key: "up/down" },
+  arrows: { up: "^", down: "v", key: "up/down", sides: "left/right" },
   spinner: [".."],
   tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
   separator: " - ",

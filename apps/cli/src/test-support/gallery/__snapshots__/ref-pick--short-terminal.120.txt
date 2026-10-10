@@ -2,5 +2,5 @@
    ◪ Skills                        2 of 4
      ↑ 2 more
  ❯ ◯   changelog                   Drafts release notes from merged work
-     ↓ 4 more
-2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm
+     ↓ 4 more · Subagents (2)
+2 of 6 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm

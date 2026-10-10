@@ -58,8 +58,9 @@ agent configured in `$.agents`.
 Use `axm agents list` to inspect configured and detected coding agents. Use
 `axm agents add <id>` or `axm agents remove <id>` for day-2 agent changes so
 AXM also creates or removes the per-agent managed artifacts for installed
-extensions. `axm setup` only initializes an absent scope; rerunning it never
-changes existing agent membership.
+extensions. `axm setup` initializes an absent scope; rerunning it never changes
+existing agent membership, and only settles an instruction-file choice the
+project has not recorded yet.
 
 Extensions are typically referenced by their full name:
 `<@owner>/<skills|subagents|...>/<name>`. Acquired project packages are committed

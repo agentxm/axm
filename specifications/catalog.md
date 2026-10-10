@@ -1374,19 +1374,36 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Supersedes: `cli/install/root-and-type-forms-express-same-intent`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/install-forms-express-same-intent.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/install-forms-express-same-intent.spec.ts)
 
-##### First install establishes only selected management state
+##### An unattended first install establishes only selected management state
 
 - Requirement: `cli/install/first-install-establishes-minimal-state`
 - Owner: `cli-e2e`
-- Statement: An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall ask which agents to configure where a prompt can open, after the person has selected what to install, and establish the ones chosen; a selection that is cancelled or finds nothing to install shall not ask. Where no prompt can open it shall refuse without writing state and permit retry with --agent, and a cancelled question shall write no state. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.
+- Statement: An explicit source install into an uninitialized scope where no prompt can open, or under preview, shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, instruction synchronization, or a recorded instruction-management choice. With no explicit or detected agents it shall refuse without writing state and permit retry with --agent where no prompt can open; a preview where one can shall ask which agents to configure after the person has selected what to install, shall not ask when that selection is cancelled or finds nothing to install, and shall write no state when the question is cancelled. Its report shall name native destinations accurately and, when a project install brings Rules or Knowledge while the instruction-management choice is unrecorded, shall name the command that settles it. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
 - Boundary: process; selection: per-change
 - Boundary rationale: A shipped CLI process owns first-use argument handling and workspace initialization; each case runs against isolated application and platform homes with no credentials.
 - Methods: example, decision-table
-- Limitation: The agent question, its place after the selection, and its cancellation are exercised in process against a scripted screen at apps/cli/src/root/install/first-install-order.test.ts and apps/cli/src/runtime.test.ts; the process examples here cover only the refusal where no prompt can open. Retires when: Add a first-install example that answers and cancels the agent question through a supported terminal process harness.
+- Open questions: Whether an unattended first install should instead take setup's unattended default and manage instruction files is undecided; it records no choice, so agents do not see Rules or Knowledge until setup settles it.
+- Limitation: The agent question, its place after the selection, and its cancellation are exercised in process against a scripted screen at apps/cli/src/root/install/first-install-order.test.ts and apps/cli/src/root/shared/first-use.test.ts; the process examples here cover only the refusal where no prompt can open. Retires when: Add a first-install example that answers and cancels the agent question through a supported terminal process harness.
 - Source: [`apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts`](../apps/cli-e2e/src/first-install-establishes-minimal-state.spec.ts)
+
+##### A first install a person can answer sets the workspace up
+
+- Requirement: `cli/install/first-install-sets-up-the-workspace`
+- Owner: `cli`
+- Statement: Where a prompt can open, an install applied into an uninitialized scope shall, after the person has selected what to install, ask what setup asks — the coding agents the request did not name and, in a project, whether and from which file to manage instruction files — show setup's plan, and on approval set the workspace up before installing into it; a cancelled or empty selection shall ask nothing further, and a cancelled question or declined plan shall write no state.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/first-install-establishes-minimal-state`, `cli/setup/first-use-plan-and-migration`
+- Open questions: Whether a first install should also offer the official AXM skill that setup seeds is undecided; it installs only what the person selected.; A Skills-manager handoff into an uninitialized scope sets the workspace up the same way, but no example here exercises that route.
+- Limitation: The questions are answered through the scripted terminal, which replays keys through the production reducer and view; the examples do not establish the rendering in a real terminal emulator. Retires when: Add process-boundary evidence when an interactive terminal harness is allocated to the install route.
+- Limitation: The examples drive the install handler with the first use its command selects where a prompt can open; the command's own choice between setup and the unattended path is exercised only by cli/install/first-install-establishes-minimal-state at the process boundary. Retires when: Drive the registered install command against a scripted terminal once the command harness can open prompts.
+- Source: [`apps/cli/src/root/install/first-install-sets-up-the-workspace.spec.ts`](../apps/cli/src/root/install/first-install-sets-up-the-workspace.spec.ts)
 
 ##### Install observations follow committed fresh skill acquisitions
 
@@ -2043,7 +2060,7 @@ People and agents can discover concepts, commands, and contracts from the surfac
 
 - Requirement: `cli/knowledge/list/explains-instruction-entry-inclusion`
 - Owner: `workspace-features`
-- Statement: When listing an installed or explicitly disabled Knowledge bundle, AXM shall report whether its entry is included in agent instructions and the effective reason for that decision.
+- Statement: When listing an installed or explicitly disabled Knowledge bundle, AXM shall report whether its entry is included in agent instructions and the effective reason for that decision, distinguishing a workspace that never chose whether to manage instruction files from one that disabled them.
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
@@ -4702,7 +4719,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/rerun-preserves-existing-configuration`
 - Owner: `workspace-features`
-- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands.
+- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

@@ -27,7 +27,7 @@ import {
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
-import { runInstallCommand, type FirstInstallAgents } from "../shared/install-command.js";
+import { runInstallCommand, type FirstInstall } from "../shared/install-command.js";
 
 export interface InstallHandlerArgs {
   readonly agents?: ReadonlyArray<string>;
@@ -126,11 +126,16 @@ const validateGrammar = (args: InstallHandlerArgs) =>
 /** Reject grammar mistakes before workspace acquisition can mask the usage error. */
 export const validateInstallArgsBeforeWorkspace = validateGrammar;
 
-export const handleInstall = (args: InstallHandlerArgs, firstInstall?: FirstInstallAgents) =>
+export const handleInstall = <R = never>(
+  args: InstallHandlerArgs,
+  firstInstall?: FirstInstall<R>,
+) =>
   Effect.gen(function* () {
     yield* validateGrammar(args);
     const requestedAgents = args.agents ?? [];
-    if (requestedAgents.length > 0) {
+    // A first install has no membership to disagree with: the agents it names
+    // establish the workspace.
+    if (requestedAgents.length > 0 && firstInstall === undefined) {
       const configured = yield* (yield* SettingsReader).configuredAgents;
       const missing = requestedAgents.filter((agent) => !configured.includes(agent));
       if (missing.length > 0 || configured.some((agent) => !requestedAgents.includes(agent))) {

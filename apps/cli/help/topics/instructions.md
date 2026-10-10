@@ -26,7 +26,8 @@ The top-level `instructionFiles` setting owns the choice:
 
 The supported forms are:
 
-- absent — the workspace has not configured instruction-file management;
+- absent — the workspace has not configured instruction-file management, as
+  after an unattended first install; `axm setup` settles the choice;
 - `false` — propagation is explicitly disabled; or
 - `{ fileName?, gitignoreAliases? }` — propagation is enabled with optional
   source and alias-ignore preferences.

@@ -2,6 +2,7 @@
 
 export type KnowledgeInstructionEntryReason =
   | "bundle-disabled"
+  | "instruction-files-not-configured"
   | "instruction-files-disabled"
   | "knowledge-instructions-disabled"
   | "workspace-excluded"
@@ -20,13 +21,21 @@ export interface KnowledgeInstructionEntryResolution {
 export const resolveKnowledgeInstructionEntry = (args: {
   readonly bundleEnabled: boolean;
   readonly instructionFilesEnabled: boolean;
+  /** The workspace never chose whether to manage instruction files. */
+  readonly instructionFilesUndecided?: boolean;
   readonly knowledgeInstructionsEnabled: boolean;
   readonly workspaceInstructionEntry?: boolean;
   readonly manifestInstructionEntry?: boolean;
 }): KnowledgeInstructionEntryResolution => {
   if (!args.bundleEnabled) return { included: false, reason: "bundle-disabled" };
   if (!args.instructionFilesEnabled) {
-    return { included: false, reason: "instruction-files-disabled" };
+    return {
+      included: false,
+      reason:
+        args.instructionFilesUndecided === true
+          ? "instruction-files-not-configured"
+          : "instruction-files-disabled",
+    };
   }
   if (!args.knowledgeInstructionsEnabled) {
     return { included: false, reason: "knowledge-instructions-disabled" };

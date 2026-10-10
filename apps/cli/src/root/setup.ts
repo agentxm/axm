@@ -61,6 +61,10 @@ const setupSuggestions = (args: {
   readonly agentIds: ReadonlyArray<string>;
   readonly scope: WorkspaceScope;
   readonly telemetryEnabled: boolean;
+  /** This run settled the instruction choice of a workspace that already existed. */
+  readonly completed: boolean;
+  /** The workspace exists and has never settled its instruction choice. */
+  readonly instructionChoiceOpen: boolean;
 }): ReadonlyArray<SuggestedAction> => {
   if (args.status === "preview") {
     const agentFlags = args.agentIds.map((id) => ` --agent ${id}`).join("");
@@ -97,6 +101,21 @@ const setupSuggestions = (args: {
     suggestions.splice(1, 0, {
       description: "Manage coding-agent membership",
       cmd: "axm agents --help",
+    });
+  }
+
+  if (args.completed) {
+    suggestions.unshift({
+      description: "Bring installed Rules and Knowledge into the instruction files",
+      cmd: "axm sync",
+    });
+  }
+
+  if (args.instructionChoiceOpen) {
+    suggestions.unshift({
+      description:
+        "Instruction files are not set up, so agents do not see installed Rules or Knowledge; settle that choice",
+      cmd: `axm setup --yes --scope ${args.scope}`,
     });
   }
 
@@ -232,6 +251,11 @@ export const handleSetup = Effect.fn("Setup.handle")(function* (args: HandleSetu
         agentIds: result.agents.map((agent) => agent.id),
         scope: transition.location.scope,
         telemetryEnabled,
+        completed: transition.completed,
+        instructionChoiceOpen:
+          result.status === "already-initialized" &&
+          transition.location.scope === "project" &&
+          result.instructions === undefined,
       }),
       transition.location.scope,
       scopedRoutes,

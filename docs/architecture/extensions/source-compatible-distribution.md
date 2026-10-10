@@ -170,21 +170,34 @@ procurement guidance supplies AXM routing without editing the upstream skill.
 
 ## First install and management handoff
 
-First install composes minimal scope and agent configuration with acquisition in
-the same plan. Preview and failed preflight leave no setup footprint. This path
-does not implicitly enroll instruction files, bundled extras, or Registry
-authentication. Existing malformed settings and unsupported lock state remain
-errors rather than reasons to overwrite configuration.
+First use has two forms, chosen by whether a person can answer.
+
+Where a prompt can open, an applied first install is setup followed by the
+install: after the selection it asks what `axm setup` asks, shows setup's plan,
+and on approval sets the workspace up in setup's own transaction before the
+install opens it. Instruction files are enrolled only by that explicit answer.
+A failed install after an approved setup leaves the workspace set up, and the
+retry installs into it.
+
+Where no prompt can open, and under preview, first install composes minimal
+scope and agent configuration with acquisition in the same plan. Preview and
+failed preflight leave no setup footprint. This path does not implicitly enroll
+instruction files, bundled extras, or Registry authentication, and it records
+no instruction-management choice: nobody was asked, so the setting stays absent
+rather than disabled. Setup settles an absent choice in an existing project
+workspace without touching its membership or extensions. Existing malformed
+settings and unsupported lock state remain errors rather than reasons to
+overwrite configuration.
 
 Agent selection during first install establishes the workspace's destinations.
 It does not create an ephemeral per-command subset that a later sync would undo.
 Existing workspaces retain their declared activation policy.
 
-Where neither a flag nor the project names an agent, first install asks which
-to configure after the person has selected what to install. Selection reads no
-agent configuration, so it settles in the uninitialized scope; planning runs in
-the workspace the chosen agents establish. A source that offers nothing, or a
-cancelled selection, never reaches the agent question.
+Whatever first install asks, it asks after the person has selected what to
+install. Selection reads no agent configuration, so it settles in the
+uninitialized scope; planning runs in the workspace that setup, or the chosen
+agents, establish. A source that offers nothing, or a cancelled selection,
+never reaches those questions.
 
 Management handoff is distinct from import, fork, and adopt. It reads supported
 project and user Skills lock records plus observed native entries, recovers

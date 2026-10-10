@@ -40,6 +40,8 @@ import {
   type InstallHandlerArgs,
   validateInstallArgsBeforeWorkspace,
 } from "./handler.js";
+import { firstUseWorkspace, setUpFirstUse } from "../shared/first-use.js";
+import type { FirstInstall } from "../shared/install-command.js";
 
 const sourceArgument = () =>
   Argument.String("source").pipe(withParameterDescription("Registry FQN, Git locator, or path"));
@@ -169,32 +171,52 @@ const executeInstall = (
     Effect.flatMap((agents) =>
       Effect.gen(function* () {
         const install = handleInstall(args).pipe(withReleaseAgePosture(ignoreReleaseAge));
-        const established = (known: typeof agents) =>
-          install.pipe(
-            withWorkspace({ scope, initialSettings: { agents: known, instructionFiles: false } }),
-          );
-        // Named agents settle the question, and the bundled skill has nothing
-        // to select, so neither waits for a selection.
-        if (agents.length > 0 || args.bundled) return yield* established(agents);
         const observed = yield* observeFirstInstallAgents(scope);
-        if (observed._tag === "Established") return yield* established(agents);
-        if (observed._tag === "Detected") return yield* established(observed.agents);
-        if (!(yield* canAskUndetectedAgents)) {
+        if (observed._tag === "Established") return yield* install.pipe(withWorkspace(scope));
+        // First use asks after the selection: select in the uninitialized
+        // scope, establish the workspace, then install into it.
+        const afterSelection = <R>(
+          establish: FirstInstall<R>["establish"],
+          workspace: Parameters<typeof withWorkspace>[0],
+        ) =>
+          handleInstall(args, { scope, establish }).pipe(
+            withReleaseAgePosture(ignoreReleaseAge),
+            withWorkspace(workspace),
+          );
+        const canAsk = yield* canAskUndetectedAgents;
+        if (canAsk && !args.preview) {
+          // Setup writes before the install opens its workspace, so the empty
+          // initial settings make an unreadable resolution lock refuse first.
+          return yield* afterSelection(setUpFirstUse({ scope, agents }), {
+            scope,
+            allowUninitialized: true,
+            initialSettings: {},
+          });
+        }
+        // Nobody can answer setup's questions, or this is a preview: the
+        // agents named or found in the project settle the minimal workspace.
+        if (agents.length > 0 || observed._tag === "Detected") {
+          const known =
+            agents.length > 0 || observed._tag !== "Detected" ? agents : observed.agents;
+          return yield* install.pipe(
+            withWorkspace(firstUseWorkspace(scope, { _tag: "Minimal", agents: known })),
+          );
+        }
+        if (!canAsk) {
           return yield* undetectedAgentsRefusal(
-            !args.all &&
+            !args.bundled &&
+              !args.all &&
               installableExtensionTypes.every(
                 (type) => installSelectorsFor(args.selectors, type).length === 0,
               ),
           );
         }
-        // No agents are known and a question can open: select in the
-        // uninitialized scope, then ask, then install for the agents chosen.
-        return yield* handleInstall(args, {
-          scope,
-          agents: chooseUndetectedAgents(observed.detections),
-        }).pipe(
-          withReleaseAgePosture(ignoreReleaseAge),
-          withWorkspace({ scope, allowUninitialized: true }),
+        return yield* afterSelection(
+          Effect.map(chooseUndetectedAgents(observed.detections), (chosen) => ({
+            _tag: "Minimal" as const,
+            agents: chosen,
+          })),
+          { scope, allowUninitialized: true },
         );
       }),
     ),

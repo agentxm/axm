@@ -77,7 +77,11 @@ import {
   type SetupPlanRow,
   WorkspaceInitializationInteraction,
 } from "./initialization-interaction.js";
-import { bootstrapWorkspace, type SetupAgentCandidate } from "./initialization.js";
+import {
+  bootstrapWorkspace,
+  setupCompletesInstructionChoice,
+  type SetupAgentCandidate,
+} from "./initialization.js";
 
 /** Every failure a setup run can settle into. */
 export type SetupWorkspaceFailure =
@@ -374,8 +378,10 @@ export interface SetupTransition {
   readonly location: LocatedWorkspace;
   /** The run created the workspace. */
   readonly initialized: boolean;
-  /** A preview: the run would create the workspace. */
+  /** A preview: the run would create the workspace or settle its instruction choice. */
   readonly wouldInitialize: boolean;
+  /** The run settled the instruction choice of a workspace that already existed. */
+  readonly completed: boolean;
   /** The person declined the interactive setup. */
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
@@ -436,7 +442,13 @@ export const previewOrApplySetupWorkspace = <
       }
       return { ...settled, footprint: yield* readFootprint };
     }).pipe(Effect.provideService(FootprintRecorder, recorder));
-    if (candidate.request.preview === true || candidate.settingsExist) return yield* initialize;
+    // A workspace that exists changes only when setup settles the instruction
+    // choice it left open, and that change needs the same transaction.
+    const completes =
+      candidate.settingsExist && (yield* setupCompletesInstructionChoice(workspaceOptions));
+    if (candidate.request.preview === true || (candidate.settingsExist && !completes)) {
+      return yield* initialize;
+    }
     const scopes = yield* WorkspaceTransactionScopes;
     const scope = yield* scopes.forWorkspace({
       workspaceDir: candidate.workspaceDir,
@@ -530,8 +542,12 @@ export const reportSetupWorkspace = (
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const fileSystem = yield* FileSystem.FileSystem;
-    const { settings, location, initialized, wouldInitialize, cancelled, agentCandidates } =
-      request.transition;
+    const { settings, location, wouldInitialize, cancelled, agentCandidates } = request.transition;
+    // Settling an existing workspace's instruction choice changes it just as
+    // creating it does; only the bundled skill and the wording tell them apart.
+    const completed = request.transition.completed;
+    const completing = completed || (wouldInitialize && request.candidate.settingsExist);
+    const initialized = request.transition.initialized || completed;
     const scope = location.scope;
     const agentIds = settings.agents ?? [];
     const scopeAgentIds = cancelled
@@ -659,8 +675,11 @@ export const reportSetupWorkspace = (
       {
         label: "Workspace configuration",
         status: stepStatus(resolvedStatus, initialized),
-        message:
-          resolvedStatus === "preview"
+        message: completing
+          ? resolvedStatus === "preview"
+            ? "Would record the instruction choice"
+            : "Recorded the instruction choice"
+          : resolvedStatus === "preview"
             ? "Would initialize workspace configuration"
             : initialized
               ? "Initialized workspace configuration"
@@ -668,7 +687,7 @@ export const reportSetupWorkspace = (
         artifact: {
           path: settingsPath,
           scope,
-          change: artifactChange(resolvedStatus, initialized),
+          change: completing ? "updated" : artifactChange(resolvedStatus, initialized),
           targets: workspaceTargets,
         },
       },
@@ -691,7 +710,7 @@ export const reportSetupWorkspace = (
         },
       });
     }
-    if (request.bundledSkill.installed || resolvedStatus === "preview") {
+    if (request.bundledSkill.installed || (resolvedStatus === "preview" && !completing)) {
       const change = artifactChange(resolvedStatus, request.bundledSkill.installed);
       steps.push({
         label: "@agentxm/skills/axm",
@@ -730,15 +749,19 @@ export const reportSetupWorkspace = (
       ? "Setup cancelled — no changes applied"
       : wouldInitialize
         ? "Setup plan ready"
-        : !initialized
-          ? membershipRequested
-            ? "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents"
+        : completed
+          ? instructions?.enabled === true
+            ? "Configured instruction files for the existing workspace"
+            : "Recorded that this workspace does not manage instruction files"
+          : !initialized
+            ? membershipRequested
+              ? "Workspace already initialized; use `axm agents add` or `axm agents remove` to change coding agents"
+              : agents.length > 0
+                ? `Workspace already initialized with agents: ${agentNames}`
+                : "Workspace already initialized with no coding agents"
             : agents.length > 0
-              ? `Workspace already initialized with agents: ${agentNames}`
-              : "Workspace already initialized with no coding agents"
-          : agents.length > 0
-            ? `Initialized with agents: ${agentNames}`
-            : "Workspace initialized with no coding agents";
+              ? `Initialized with agents: ${agentNames}`
+              : "Workspace initialized with no coding agents";
 
     return {
       outcome:

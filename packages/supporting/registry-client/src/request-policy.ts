@@ -156,7 +156,7 @@ const getStringField = (value: unknown, field: string): string | undefined => {
 
 const requestIdFromError = (error: unknown): string | undefined => {
   const body = retryEvidence(error)?.body;
-  return getStringField(body, "requestId") ?? getStringField(body, "request_id");
+  return getStringField(body, "requestId");
 };
 
 const retryAfter = (error: unknown) =>

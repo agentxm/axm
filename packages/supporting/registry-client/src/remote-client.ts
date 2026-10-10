@@ -98,15 +98,51 @@ import {
   type RegistryRequestReplaySafety,
 } from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
-import type {
-  ExtensionsGet200,
-  ExtensionsListByOwner200,
-} from "./__generated__/registry-client.js";
+import type { ExtensionsGet200, ExtensionSummaryPage } from "./__generated__/registry-client.js";
 
 // Reuse the established four-request cap from publish transport. Named and
 // list discovery share the same registry service and must not multiply it via
 // nested traversals.
 const REGISTRY_READ_CONCURRENCY = 4;
+
+// The Registry's largest page; listings follow cursors to the end.
+const EXTENSION_LIST_PAGE_LIMIT = "100";
+
+const malformedExtensionPage = (detail: string) =>
+  new RegistryRequestFailed({ reason: "response-decode", category: "internal", detail });
+
+/**
+ * Follow an extension listing's cursor pages to the end. A page that claims
+ * more items without a cursor, or a cursor the Registry has already returned,
+ * cannot be continued faithfully, so the listing fails instead of truncating.
+ */
+const collectExtensionSummaryPages = (
+  fetchPage: (cursor: string | null) => Effect.Effect<ExtensionSummaryPage, RegistryClientFailure>,
+): Effect.Effect<ExtensionSummaryPage["extensions"], RegistryClientFailure> =>
+  Effect.gen(function* () {
+    const extensions: Array<ExtensionSummaryPage["extensions"][number]> = [];
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    for (;;) {
+      const page: ExtensionSummaryPage = yield* fetchPage(cursor);
+      extensions.push(...page.extensions);
+      if (page.cursor === null) {
+        if (page.hasMore) {
+          return yield* malformedExtensionPage(
+            "Registry extension listing reported more pages without a cursor.",
+          );
+        }
+        return extensions;
+      }
+      if (!page.hasMore || seen.has(page.cursor)) {
+        return yield* malformedExtensionPage(
+          "Registry extension listing returned an inconsistent or repeated cursor.",
+        );
+      }
+      seen.add(page.cursor);
+      cursor = page.cursor;
+    }
+  });
 const SETTLEMENT_READ_REQUEST_POLICY: RegistryRequestPolicy = {
   requestTimeout: "10 seconds",
   totalDeadline: "10 seconds",
@@ -215,7 +251,7 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
     name: response.name,
     owner: response.owner,
     type: narrowExtensionType(response.type),
-    publisherBindingId: response.publisher_binding_id,
+    publisherBindingId: response.publisherBindingId,
     description: response.description ?? undefined,
     repository: response.repository ?? undefined,
     license: response.license ?? undefined,
@@ -248,9 +284,9 @@ const mapToExtensionIndex = (response: ExtensionsGet200): ExtensionIndex =>
         v.packages === null || v.packages === undefined
           ? undefined
           : decodeCompanionPackages(v.packages),
-      yankedAt: v.yanked_at ?? undefined,
-      yankCategory: v.yank_category ?? undefined,
-      yankNotice: v.yank_notice ?? undefined,
+      yankedAt: v.yankedAt ?? undefined,
+      yankCategory: v.yankCategory ?? undefined,
+      yankNotice: v.yankNotice ?? undefined,
     })),
   });
 
@@ -527,7 +563,6 @@ export const createRemoteRegistryClient = (
               name: decodeExtensionNameSync(response.name),
               version: decodeVersionSync(response.version),
               integrity: response.integrity,
-              status: response.status,
             } satisfies ExactExtensionVersion),
           ),
           Effect.catch((error) =>
@@ -684,7 +719,7 @@ export const createRemoteRegistryClient = (
     Effect.gen(function* () {
       // Named wildcard discovery uses the server's exact filter before any
       // full index fetch. The owner-wide list has no name filter.
-      let listResults: ReadonlyArray<ExtensionsListByOwner200["extensions"]>;
+      let listResults: ReadonlyArray<ExtensionSummaryPage["extensions"]>;
       if (args.names.length > 0) {
         const names = [
           ...new Set(
@@ -741,36 +776,47 @@ export const createRemoteRegistryClient = (
 
   const fetchExtensionList = (
     owner: Handle | "*",
-  ): Effect.Effect<ExtensionsListByOwner200["extensions"], RegistryClientFailure> =>
-    executeRemoteRequest(client.ExtensionsListByOwner(owner, undefined), {
-      operation: "list owner extensions",
-      method: "GET",
-      path: `/v1/extensions/${owner}`,
-      replaySafety: safe,
-      mapError: (error, nowMillis) =>
-        mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
-    }).pipe(Effect.map((response) => response.extensions));
+  ): Effect.Effect<ExtensionSummaryPage["extensions"], RegistryClientFailure> =>
+    collectExtensionSummaryPages((cursor) =>
+      executeRemoteRequest(
+        client.ExtensionsListByOwner(owner, {
+          params: { limit: EXTENSION_LIST_PAGE_LIMIT, ...(cursor === null ? {} : { cursor }) },
+        }),
+        {
+          operation: "list owner extensions",
+          method: "GET",
+          path: `/v1/extensions/${owner}`,
+          replaySafety: safe,
+          mapError: (error, nowMillis) =>
+            mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+        },
+      ),
+    );
 
   const fetchExtensionListByType = (
     owner: Handle | "*",
     type: ExtensionType,
     name?: ExtensionName,
-  ): Effect.Effect<ExtensionsListByOwner200["extensions"], RegistryClientFailure> =>
-    executeRemoteRequest(
-      client.ExtensionsListByType(
-        owner,
-        pluralizeType(type),
-        name === undefined ? undefined : { params: { "filter[name]": name } },
+  ): Effect.Effect<ExtensionSummaryPage["extensions"], RegistryClientFailure> =>
+    collectExtensionSummaryPages((cursor) =>
+      executeRemoteRequest(
+        client.ExtensionsListByType(owner, pluralizeType(type), {
+          params: {
+            limit: EXTENSION_LIST_PAGE_LIMIT,
+            ...(cursor === null ? {} : { cursor }),
+            ...(name === undefined ? {} : { "filter[name]": name }),
+          },
+        }),
+        {
+          operation: "list owner extensions by type",
+          method: "GET",
+          path: `/v1/extensions/${owner}/${pluralizeType(type)}`,
+          replaySafety: safe,
+          mapError: (error, nowMillis) =>
+            mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
+        },
       ),
-      {
-        operation: "list owner extensions by type",
-        method: "GET",
-        path: `/v1/extensions/${owner}/${pluralizeType(type)}`,
-        replaySafety: safe,
-        mapError: (error, nowMillis) =>
-          mapDiscoveryError(error, "REGISTRY_REMOTE_DISCOVERY", nowMillis),
-      },
-    ).pipe(Effect.map((response) => response.extensions));
+    );
 
   // ---------------------------------------------------------------------------
   // ownerExists
@@ -1074,7 +1120,6 @@ export const createRemoteRegistryClient = (
                 name: decodeExtensionNameSync(response.name),
                 version: decodeVersionSync(response.version),
                 integrity: response.integrity,
-                status: response.publish_status,
                 visibility: response.visibility,
                 links: response.links,
                 warnings: response.warnings.map((warning) => ({
@@ -1195,9 +1240,9 @@ export const createRemoteRegistryClient = (
           ? {}
           : {
               params: {
-                intent_visibility: args.intent.value,
-                intent_source: args.intent.source,
-                intent_fingerprint: args.intent.fingerprint,
+                intentVisibility: args.intent.value,
+                intentSource: args.intent.source,
+                intentFingerprint: args.intent.fingerprint,
               },
             }),
         config: undefined,

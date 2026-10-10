@@ -70,7 +70,7 @@ describe("Publication outcome evidence", () => {
           upload: (request, _index, success) =>
             Effect.sync(() =>
               request.url.includes("/skills/review/")
-                ? registryProblem("validation", 400)
+                ? registryProblem("invalid_request", 400)
                 : success(request),
             ),
         });
@@ -186,7 +186,7 @@ describe("Publication outcome evidence", () => {
    */
   const unsettledUploads = {
     settings: { skills: { review: "workspace", format: "workspace" } },
-    upload: () => Effect.succeed(registryProblem("internal", 500)),
+    upload: () => Effect.succeed(registryProblem("internal_error", 500)),
   } as const;
 
   // Every upload retries on a real schedule before its attempts are exhausted,

@@ -66,9 +66,9 @@ describe("Visibility intent precedence", () => {
           scenario.intent === null
             ? {}
             : {
-                intent_visibility: scenario.intent.value,
-                intent_source: scenario.intent.source,
-                intent_fingerprint: scenario.intent.fingerprint,
+                intentVisibility: scenario.intent.value,
+                intentSource: scenario.intent.source,
+                intentFingerprint: scenario.intent.fingerprint,
               },
         );
         const encoded = yield* Schema.encodeUnknownEffect(VisibilityEvaluationSchema)(reported);

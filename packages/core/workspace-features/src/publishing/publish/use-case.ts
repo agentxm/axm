@@ -946,7 +946,7 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
           action: "error",
           phase: "upload_execution",
           reason:
-            cause?.problemCode === "publish/precondition-changed"
+            cause?.problemCode === "publish_precondition_changed"
               ? "publish_precondition_changed"
               : lifecycleReason !== undefined
                 ? lifecycleReason

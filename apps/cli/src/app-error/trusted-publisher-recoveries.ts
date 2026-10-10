@@ -14,6 +14,7 @@ import * as ServiceMap from "effect/Context";
 import * as Option from "effect/Option";
 
 import { TRUSTED_PUBLISHER_SETTINGS_URL } from "@agentxm/registry-access/authentication";
+import type { GeneratedRegistryClient } from "@agentxm/registry-client";
 import type { AmbientCredentialSource } from "@agentxm/registry-access/credentials";
 import {
   makeStepFailure,
@@ -45,10 +46,18 @@ const TRUSTED_PUBLISHER_RECOVERY = {
  * credential's scope and resource limits, and every publish refusal except an
  * exhausted quota, which no permission changes.
  */
+const DECIDED_BY_TRUSTED_PUBLISHER: ReadonlySet<string> = new Set([
+  "insufficient_scope",
+  "resource_restriction",
+  "publish_insufficient_scope",
+  "publish_resource_restriction",
+  "publish_handle_not_owned",
+  "publish_publish_forbidden",
+  "publish_plan_limit_reached",
+] satisfies ReadonlyArray<GeneratedRegistryClient.ForbiddenErrorEncoded["code"]>);
+
 const decidedByTrustedPublisher = (problemCode: string): boolean =>
-  problemCode === "insufficient_scope" ||
-  problemCode === "resource_restriction" ||
-  (problemCode.startsWith("publish/") && problemCode !== "publish/quota-exceeded");
+  DECIDED_BY_TRUSTED_PUBLISHER.has(problemCode);
 
 interface RenderedRefusal {
   readonly metadata?: FailureMetadata | undefined;

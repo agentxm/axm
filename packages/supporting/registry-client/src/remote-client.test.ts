@@ -113,7 +113,7 @@ const extensionIndexResponse = {
   name: "test-skill",
   owner: "@acme",
   type: "skill",
-  publisher_binding_id: "hbnd_test",
+  publisherBindingId: "hbnd_test",
   description: "A test skill",
   repository: { url: "https://github.com/acme/test-skill" },
   license: "MIT",
@@ -145,9 +145,8 @@ const publishSuccessResponse = {
   name: "test-skill",
   version: "1.0.0",
   integrity: "sha512-abc123",
-  sha256_hex: "abc123",
-  published_at: "2025-01-01T00:00:00Z",
-  publish_status: "available",
+  sha256Hex: "abc123",
+  publishedAt: "2025-01-01T00:00:00Z",
   visibility: { value: "public", disposition: "establish", source: "platform" },
   warnings: [],
   links: { html: "https://agentxm.ai/acme/skills/test-skill" },
@@ -474,12 +473,13 @@ describe("getExtensionIndex", () => {
         () =>
           new Response(
             JSON.stringify({
-              kind: "DecodeErrorResponse",
               type: "about:blank",
               title: "Bad Request",
               status: 400,
               detail: "Invalid request",
               code: "invalid_request",
+              requestId: "req_invalid",
+              errors: [{ pointer: "/owner", detail: "Expected a handle" }],
             }),
             { status: 400 },
           ),
@@ -507,7 +507,8 @@ describe("getExtensionsByScope", () => {
         if (decodeURIComponent(url.pathname) === "/v1/extensions/*/skills") {
           return new Response(
             JSON.stringify({
-              total: 1,
+              cursor: null,
+              hasMore: false,
               extensions: [
                 {
                   owner: "@acme",
@@ -548,7 +549,8 @@ describe("getExtensionsByScope", () => {
         if (path === "/v1/extensions/@acme/skills") {
           return new Response(
             JSON.stringify({
-              total: 1,
+              cursor: null,
+              hasMore: false,
               extensions: [
                 {
                   owner: "@acme",
@@ -579,6 +581,84 @@ describe("getExtensionsByScope", () => {
       expect(indexReads).toBe(1);
       expect(result.indexes.map((index) => index.name)).toEqual(["test-skill"]);
       expect(result.extensions.map((entry) => entry.name)).toEqual(["test-skill"]);
+    }),
+  );
+
+  const summary = (name: string) => ({
+    owner: "@acme",
+    type: "skill",
+    name,
+    latestVersion: "1.0.0",
+    deprecation: null,
+    archival: null,
+  });
+  const listAllSkills = (client: ReturnType<typeof createRemoteRegistryClient>) =>
+    client.getExtensionsByScope({
+      owner: registryOwner,
+      names: [],
+      types: [],
+      limit: Option.none(),
+      offset: 0,
+    });
+
+  it.effect("follows an owner listing's cursor pages to the end", () =>
+    Effect.gen(function* () {
+      const listQueries: Array<Record<string, string>> = [];
+      const httpClient = makeMockHttpClient((request) => {
+        const url = Option.getOrThrow(HttpClientRequest.toUrl(request));
+        const path = decodeURIComponent(url.pathname);
+        if (path === "/v1/extensions/@acme") {
+          listQueries.push(Object.fromEntries(url.searchParams));
+          const page =
+            url.searchParams.get("cursor") === "page-2"
+              ? { extensions: [summary("second-skill")], cursor: null, hasMore: false }
+              : { extensions: [summary("first-skill")], cursor: "page-2", hasMore: true };
+          return new Response(JSON.stringify(page), { status: 200 });
+        }
+        const name = path.split("/").at(-1) ?? "";
+        return new Response(JSON.stringify({ ...extensionIndexResponse, name }), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const result = yield* listAllSkills(client);
+
+      expect(listQueries).toEqual([{ limit: "100" }, { limit: "100", cursor: "page-2" }]);
+      expect(result.indexes.map((index) => index.name)).toEqual(["first-skill", "second-skill"]);
+      expect(result.total).toBe(2);
+    }),
+  );
+
+  it.effect.each([
+    {
+      case: "a page that claims more items without a cursor",
+      page: () => ({ extensions: [summary("first-skill")], cursor: null, hasMore: true }),
+    },
+    {
+      case: "a cursor the listing already returned",
+      page: () => ({ extensions: [summary("first-skill")], cursor: "page-2", hasMore: true }),
+    },
+    {
+      case: "a cursor on a page that claims to be the last",
+      page: () => ({ extensions: [summary("first-skill")], cursor: "page-2", hasMore: false }),
+    },
+  ])("fails instead of truncating a listing on $case", ({ page }) =>
+    Effect.gen(function* () {
+      let listReads = 0;
+      const httpClient = makeMockHttpClient((request) => {
+        const path = decodeURIComponent(new URL(request.url).pathname);
+        if (path === "/v1/extensions/@acme") {
+          listReads++;
+          return new Response(JSON.stringify(page()), { status: 200 });
+        }
+        return new Response(JSON.stringify(extensionIndexResponse), { status: 200 });
+      });
+      const client = createRemoteRegistryClient(BASE_URL, httpClient);
+
+      const error = yield* runFailure(listAllSkills(client));
+
+      expect(error._tag).toBe("RegistryRequestFailed");
+      expect(error._tag === "RegistryRequestFailed" && error.reason).toBe("response-decode");
+      expect(listReads).toBeLessThanOrEqual(2);
     }),
   );
 
@@ -1123,9 +1203,9 @@ describe("getExtensionPackage", () => {
           version.version === "1.0.0"
             ? {
                 ...version,
-                yanked_at: "2025-02-02T00:00:00Z",
-                yank_category: "security",
-                yank_notice: "Do not use for new installs",
+                yankedAt: "2025-02-02T00:00:00Z",
+                yankCategory: "security",
+                yankNotice: "Do not use for new installs",
               }
             : version,
         ),
@@ -1480,8 +1560,8 @@ describe("previewExtensionPublishes", () => {
               title: "Payload Too Large",
               status: 413,
               detail: "At most 100 candidates are allowed.",
-              code: "publish/preflight-batch-too-large",
-              max_items: 100,
+              code: "publish_preflight_batch_too_large",
+              maxItems: 100,
             }),
             { status: 413 },
           ),
@@ -1589,7 +1669,7 @@ describe("getExactExtensionVersion", () => {
             name: "test-skill",
             owner: "@acme",
             type: "skill",
-            publisher_binding_id: "hbnd_test",
+            publisherBindingId: "hbnd_test",
             version: "1.0.0",
             status: "available",
             published: "2025-01-01T00:00:00Z",
@@ -1757,7 +1837,6 @@ describe("publishExtension", () => {
       expect(result.published).toBe(true);
       expect(result.visibility).toEqual(publishSuccessResponse.visibility);
       expect(result.integrity).toBe("sha512-abc123");
-      expect(result.status).toBe("available");
       expect(result.links).toEqual({ html: "https://agentxm.ai/acme/skills/test-skill" });
     }),
   );
@@ -1898,7 +1977,7 @@ describe("publishExtension", () => {
               title: "Forbidden",
               status: 403,
               detail: "Storage quota exceeded",
-              code: "publish/quota-exceeded",
+              code: "publish_quota_exceeded",
               details: {
                 retryable: false,
               },
@@ -1925,7 +2004,7 @@ describe("publishExtension", () => {
               title: "Conflict",
               status: 409,
               detail: "Version already exists",
-              code: "publish/publish-conflict",
+              code: "publish_publish_conflict",
             }),
             { status: 409 },
           ),
@@ -1941,7 +2020,7 @@ describe("publishExtension", () => {
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with malformed_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(400, "publish/ingest-malformed-archive", "Archive is malformed"),
+        typedErrorResponse(400, "publish_ingest_malformed_archive", "Archive is malformed"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
@@ -1954,7 +2033,7 @@ describe("publishExtension", () => {
   it.effect("fails with REGISTRY_PUBLISH_REJECTED on 400 with empty_archive", () =>
     Effect.gen(function* () {
       const httpClient = makeMockHttpClient(() =>
-        typedErrorResponse(400, "publish/empty-archive", "Archive is empty"),
+        typedErrorResponse(400, "publish_empty_archive", "Archive is empty"),
       );
       const client = createRemoteRegistryClient(BASE_URL, httpClient);
 
@@ -1975,7 +2054,7 @@ describe("publishExtension", () => {
               title: "Payload Too Large",
               status: 413,
               detail: "Archive too large",
-              code: "publish/ingest-archive-too-large",
+              code: "publish_ingest_archive_too_large",
             }),
             { status: 413 },
           ),
@@ -1999,7 +2078,7 @@ describe("publishExtension", () => {
               title: "Unsupported Media Type",
               status: 415,
               detail: "Unsupported content type",
-              code: "publish/ingest-unsupported-content-type",
+              code: "publish_ingest_unsupported_content_type",
             }),
             { status: 415 },
           ),
@@ -2023,7 +2102,7 @@ describe("publishExtension", () => {
               title: "Unprocessable Entity",
               status: 422,
               detail: "Integrity mismatch",
-              code: "publish/integrity-mismatch",
+              code: "publish_integrity_mismatch",
             }),
             { status: 422 },
           ),
@@ -2047,7 +2126,7 @@ describe("publishExtension", () => {
               title: "Unprocessable Entity",
               status: 422,
               detail: "Manifest name is invalid",
-              code: "publish/manifest-invalid-json",
+              code: "publish_manifest_invalid_json",
             }),
             { status: 422 },
           ),
@@ -2071,7 +2150,7 @@ describe("publishExtension", () => {
               title: "Too Many Requests",
               status: 429,
               detail: "Rate limited",
-              code: "publish/throttled",
+              code: "rate_limited",
               details: {
                 retryable: true,
                 retryAfterSeconds: 30,
@@ -2100,7 +2179,7 @@ describe("publishExtension", () => {
               title: "Service Unavailable",
               status: 503,
               detail: "Publishing disabled",
-              code: "publish/publish-disabled",
+              code: "publish_publish_disabled",
             }),
             { status: 503 },
           ),

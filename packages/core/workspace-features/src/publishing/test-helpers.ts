@@ -546,9 +546,8 @@ export const makeRemotePublishWorld = (options: RemotePublishWorldOptions = {}) 
       {
         ...candidate.target,
         integrity: `sha512-${createHash("sha512").update(request.body.body).digest("base64")}`,
-        sha256_hex: createHash("sha256").update(request.body.body).digest("hex"),
-        published_at: "2026-08-11T00:00:00.000Z",
-        publish_status: "available",
+        sha256Hex: createHash("sha256").update(request.body.body).digest("hex"),
+        publishedAt: "2026-08-11T00:00:00.000Z",
         visibility: reviewedVisibility,
         warnings: [],
         links: { html: `https://agentxm.ai/${formatFqn(candidate.target)}` },

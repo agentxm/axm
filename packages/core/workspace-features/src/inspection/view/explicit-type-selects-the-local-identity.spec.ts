@@ -39,7 +39,7 @@ const publishedIndex = (args: {
   type: args.type,
   name: args.name,
   description: "Review guidance",
-  publisher_binding_id: "hbnd_view_fixture",
+  publisherBindingId: "hbnd_view_fixture",
   visibility: "public",
   archival: null,
   deprecation: null,

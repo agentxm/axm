@@ -3,15 +3,19 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { ProblemDetails as RegistryProblemDetailsSchema } from "./__generated__/registry-client.js";
+import { PublishDetails } from "./__generated__/registry-client.js";
 
-const decodeRegistryProblemDetails = Schema.decodeUnknownSync(RegistryProblemDetailsSchema);
+// Retry advice lives in the problem's details whatever its code, so a code this
+// client does not know yet still yields the Registry's advice.
+const decodeRetryDetails = Schema.decodeUnknownSync(
+  Schema.Struct({ details: Schema.optionalKey(PublishDetails) }),
+);
 
 const retryAfterFromBody = (status: number, body: unknown): number | undefined => {
   if (status !== 429 && status !== 503) return undefined;
 
   try {
-    return decodeRegistryProblemDetails(body).details?.retryAfterSeconds;
+    return decodeRetryDetails(body).details?.retryAfterSeconds;
   } catch {
     return undefined;
   }

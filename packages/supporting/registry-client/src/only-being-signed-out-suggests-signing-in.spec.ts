@@ -49,7 +49,7 @@ describe("Forbidding rules render by code", () => {
       // A quota that is exhausted is its own category; every other forbidding
       // rule is a permission answer.
       expect(problem.category, code).toBe(
-        code === "publish/quota-exceeded" ? "quota" : "forbidden",
+        code === "publish_quota_exceeded" ? "quota" : "forbidden",
       );
       expect((problem.suggestions ?? []).length, code).toBeLessThanOrEqual(1);
       expect(JSON.stringify(problem.suggestions ?? []), code).not.toContain("axm login");

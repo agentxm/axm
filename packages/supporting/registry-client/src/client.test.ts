@@ -201,7 +201,9 @@ const remoteHttpLayer = Layer.succeed(
     Effect.succeed(
       HttpClientResponse.fromWeb(
         request,
-        new Response(JSON.stringify({ extensions: [], total: 0 }), { status: 200 }),
+        new Response(JSON.stringify({ extensions: [], cursor: null, hasMore: false }), {
+          status: 200,
+        }),
       ),
     ),
   ),
@@ -832,7 +834,6 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
 
           expect(result.visibility.value).toBe(preview.visibility.resolved?.value);
           expect(result.integrity).toBe(integrity);
-          expect(result.status).toBe("available");
         }).pipe(
           Effect.ensuring(
             Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
@@ -1678,7 +1679,8 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                       deprecation: null,
                     },
                   ],
-                  total: 1,
+                  cursor: null,
+                  hasMore: false,
                 }),
                 { status: 200 },
               ),
@@ -1700,7 +1702,8 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                       deprecation: null,
                     },
                   ],
-                  total: 1,
+                  cursor: null,
+                  hasMore: false,
                 }),
                 { status: 200 },
               ),
@@ -1719,7 +1722,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                   owner: "@test",
                   type: "skill",
                   name: "my-skill",
-                  publisher_binding_id: "hbnd_test",
+                  publisherBindingId: "hbnd_test",
                   archival: null,
                   deprecation: null,
                   versions: [
@@ -1782,9 +1785,8 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                     name: "my-skill",
                     version: "1.0.0",
                     integrity: "sha512-AAAA==",
-                    sha256_hex: "aaaa",
-                    published_at: "2025-01-01T00:00:00Z",
-                    publish_status: "available",
+                    sha256Hex: "aaaa",
+                    publishedAt: "2025-01-01T00:00:00Z",
                     visibility: {
                       value: "public",
                       disposition: "establish",
@@ -1812,7 +1814,6 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             name: "my-skill",
             version: "1.0.0",
             integrity: "sha512-AAAA==",
-            status: "available",
             visibility: {
               value: "public",
               disposition: "establish",
@@ -1889,9 +1890,8 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
                     name: "my-skill",
                     version: "1.0.0",
                     integrity: "sha512-AAAA==",
-                    sha256_hex: "aaaa",
-                    published_at: "2025-01-01T00:00:00Z",
-                    publish_status: "available",
+                    sha256Hex: "aaaa",
+                    publishedAt: "2025-01-01T00:00:00Z",
                     visibility: {
                       value: "public",
                       disposition: "establish",

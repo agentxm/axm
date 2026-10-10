@@ -20,7 +20,7 @@ describe("httpStatusToCategory", () => {
     [400, undefined, "validation"],
     [401, undefined, "auth"],
     [403, undefined, "forbidden"],
-    [403, "quota_exceeded", "quota"],
+    [403, "publish_quota_exceeded", "quota"],
     [404, undefined, "not_found"],
     [409, undefined, "conflict"],
     [410, undefined, "not_found"],
@@ -47,7 +47,7 @@ describe("registryErrorToProblem", () => {
       status: 400,
       detail: "The service is unavailable.",
       code: "service_unavailable",
-      request_id: "req_mismatch",
+      requestId: "req_mismatch",
     };
     const cause = new Error("generated failure");
 
@@ -100,7 +100,7 @@ describe("registryErrorToProblem", () => {
         title: "Too Many Requests",
         status: 429,
         detail: "Rate limited",
-        code: "publish/throttled",
+        code: "rate_limited",
         details: { retryable: true, retryAfterSeconds: 60 },
       },
       responseFor(429, { "retry-after": "30" }),

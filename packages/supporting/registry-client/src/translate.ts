@@ -55,7 +55,7 @@ export const httpStatusToCategory = (status: number, code?: string): RegistryErr
     case 401:
       return "auth";
     case 403:
-      return code === "quota_exceeded" || code === "publish/quota-exceeded" ? "quota" : "forbidden";
+      return code === "publish_quota_exceeded" ? "quota" : "forbidden";
     case 404:
     case 410:
       return "not_found";
@@ -178,16 +178,16 @@ const FORBIDDEN_RECOVERIES: Partial<
   delegated_permission_not_held: {
     description: "Ask an owner of this resource for the permission this needs.",
   },
-  "publish/handle-not-owned": {
+  publish_handle_not_owned: {
     description: "Publish under a handle you own, or ask its owner to add you.",
   },
-  "publish/insufficient-scope": {
+  publish_insufficient_scope: {
     description: "This credential cannot publish. Use your signed-in session.",
   },
-  "publish/resource-restriction": {
+  publish_resource_restriction: {
     description: "This credential is restricted to other extensions. Use your signed-in session.",
   },
-  "publish/publish-forbidden": {
+  publish_publish_forbidden: {
     description: "Ask an owner of this extension for publish permission.",
   },
 };
@@ -317,10 +317,7 @@ export const registryErrorToProblem = (
     ...problemSuggestions(status, problem, response, ctx?.nowMillis),
     ...(ctx?.suggestions ?? []),
   ];
-  const requestId =
-    validatedResponseRequestId(response) ??
-    getStringField(problem, "requestId") ??
-    getStringField(problem, "request_id");
+  const requestId = validatedResponseRequestId(response) ?? getStringField(problem, "requestId");
 
   return new RegistryProblem({
     category,

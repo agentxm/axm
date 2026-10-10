@@ -3,7 +3,10 @@
      re
    ◪ Skills
  ❯ ◉   code-review
+   ◯   changelog
    ◯ Subagents
    ◯   reviewer
-     Reviews a diff before you open a p…
-2 of 6 selected (1 hidden) · 2 shown
+   ◯   planner
+     code-review · Reviews a diff before
+     you open a pull request
+2 of 6 selected (1 hidden) · 4 shown

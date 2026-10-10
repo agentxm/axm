@@ -58,6 +58,37 @@ const agents = pickAsk({
   ],
 });
 
+/** A source's own skills, with the long names and descriptions real ones carry. */
+const sourced = (group: string, title: string, details: string): PickOption<string> => ({
+  title,
+  details: [details],
+  value: title,
+  group,
+});
+
+const skills = pickAsk({
+  question: "Select skills to install",
+  noun: { one: "skill", other: "skills" },
+  options: [
+    sourced(
+      "engineering",
+      "improve-codebase-architecture",
+      "Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill through whichever one you pick.",
+    ),
+    sourced(
+      "engineering",
+      "research",
+      "Investigate a question against high-trust primary sources and capture the findings as a Markdown file in the repo. Use when the user wants a topic researched, docs or API facts gathered, or reading legwork delegated to a background agent.",
+    ),
+    sourced("engineering", "pr", "Use when writing a PR body."),
+    sourced(
+      "productivity",
+      "handoff",
+      "Compact the current conversation into a handoff document for another agent to pick up.",
+    ),
+  ],
+});
+
 const key = (name: string, options?: { readonly ctrl?: boolean }): AskKey => ({
   name,
   ...(name.length === 1 && options?.ctrl !== true ? { char: name } : {}),
@@ -98,16 +129,43 @@ describe("pickRows", () => {
   });
 
   it("keeps a matching option's header and drops a group with no matches", () => {
-    const rows = pickRows(toolkit, "RE");
+    const rows = pickRows(toolkit, "REVIEW");
     expect(rows).toEqual([
-      { _tag: "Group", label: "Skills", members: [0, 1, 2, 3], shown: [0] },
+      { _tag: "Group", label: "Skills", members: [0, 1, 2, 3], shown: [0], folded: false },
       { _tag: "Option", index: 0, grouped: true },
-      { _tag: "Group", label: "Subagents", members: [4, 5], shown: [4] },
+      { _tag: "Group", label: "Subagents", members: [4, 5], shown: [4], folded: false },
       { _tag: "Option", index: 4, grouped: true },
     ]);
     expect(pickRows(toolkit, "plan")).toEqual([
-      { _tag: "Group", label: "Subagents", members: [4, 5], shown: [5] },
+      { _tag: "Group", label: "Subagents", members: [4, 5], shown: [5], folded: false },
       { _tag: "Option", index: 5, grouped: true },
+    ]);
+  });
+
+  it("keeps an option whose details or group carry what was typed", () => {
+    // Only triage's description speaks of severity; no title does.
+    expect(pickRows(toolkit, "severity")).toEqual([
+      { _tag: "Group", label: "Skills", members: [0, 1, 2, 3], shown: [1], folded: false },
+      { _tag: "Option", index: 1, grouped: true },
+    ]);
+    expect(pickRows(toolkit, "subag").map((row) => row._tag)).toEqual([
+      "Group",
+      "Option",
+      "Option",
+    ]);
+  });
+
+  it("keeps a folded group's header alone until something is typed", () => {
+    const folded = new Set(["Skills"]);
+    expect(pickRows(toolkit, "", folded).map((row) => row._tag)).toEqual([
+      "Group",
+      "Group",
+      "Option",
+      "Option",
+    ]);
+    expect(pickRows(toolkit, "triage", folded)).toEqual([
+      { _tag: "Group", label: "Skills", members: [0, 1, 2, 3], shown: [1], folded: false },
+      { _tag: "Option", index: 1, grouped: true },
     ]);
   });
 
@@ -126,6 +184,7 @@ describe("reducePick", () => {
       cursor: 0,
       picked: new Set([0, 1]),
       filter: "",
+      folded: new Set(),
     });
   });
 
@@ -173,9 +232,9 @@ describe("reducePick", () => {
   });
 
   it("toggles only the options of a group that the filter shows", () => {
-    // `re` leaves code-review under Skills; the caret moves to it, then up to
+    // `diff` leaves code-review under Skills; the caret moves to it, then up to
     // its header, which toggles code-review alone.
-    expect(picked(stateAfter(toolkit, [...typed("re"), key("up"), space]))).toEqual([1]);
+    expect(picked(stateAfter(toolkit, [...typed("diff"), key("up"), space]))).toEqual([1]);
   });
 
   it("toggles every option that shows with ctrl+a", () => {
@@ -220,6 +279,38 @@ describe("reducePick", () => {
     expect(replay(toolkit, [key("c", { ctrl: true })])).toEqual({ _tag: "Cancel" });
   });
 
+  it("folds the caret's group to its header with left and opens it with right", () => {
+    // From triage, two rows into Skills, the caret lands on the header.
+    const folded = stateAfter(toolkit, [key("down"), key("down"), key("left")]);
+    expect(folded.cursor).toBe(0);
+    expect([...folded.folded]).toEqual(["Skills"]);
+    // The header still toggles every option behind it.
+    expect(picked(stateAfter(toolkit, [key("left"), space]))).toEqual([0, 1, 2, 3]);
+    const opened = stateAfter(toolkit, [key("left"), key("right")]);
+    expect([...opened.folded]).toEqual([]);
+    expect(pickRows(toolkit, opened.filter, opened.folded)).toHaveLength(8);
+  });
+
+  it("leaves folds alone while a filter is typed and on a list without groups", () => {
+    expect([...stateAfter(toolkit, [...typed("plan"), key("left")]).folded]).toEqual([]);
+    expect(stateAfter(agents, [key("left")])).toEqual(initialPickState(agents));
+  });
+
+  it("moves a screenful with the page keys and to either end with home and end", () => {
+    const long = pickAsk({
+      question: "Select skills to install",
+      noun: { one: "skill", other: "skills" },
+      options: Array.from({ length: 40 }, (_, index) => ({
+        title: `skill-${String(index)}`,
+        value: index,
+      })),
+    });
+    expect(stateAfter(long, [key("pagedown")]).cursor).toBe(12);
+    expect(stateAfter(long, [key("pagedown"), key("pagedown"), key("pageup")]).cursor).toBe(12);
+    expect(stateAfter(long, [key("end")]).cursor).toBe(39);
+    expect(stateAfter(long, [key("end"), key("home")]).cursor).toBe(0);
+  });
+
   it("stops the caret at either end rather than wrapping", () => {
     expect(stateAfter(agents, [key("up")]).cursor).toBe(0);
     expect(stateAfter(agents, [key("down"), key("down"), key("down")]).cursor).toBe(2);
@@ -262,19 +353,69 @@ describe("pickDoc", () => {
       "   ◯ Subagents                     0 of 2",
       "   ◯   reviewer                    A second reader for risky changes",
       "   ◯   planner                     Breaks a goal into ordered tasks",
-      "2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm",
+      "2 of 6 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm",
+    ]);
+  });
+
+  it("names the first options behind a folded group's header", () => {
+    expect(paint(toolkit, stateAfter(toolkit, [key("left")]))).toEqual([
+      " ?   Which extensions should be installed?  type to filter",
+      " ❯ ◪ Skills                        2 of 4 · code-review, triage, changelog +1",
+      "   ◯ Subagents                     0 of 2",
+      "   ◯   reviewer                    A second reader for risky changes",
+      "   ◯   planner                     Breaks a goal into ordered tasks",
+      "2 of 6 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm",
     ]);
   });
 
   it("shows what was typed, counts only what shows, and says how to clear it", () => {
     expect(paint(toolkit, stateAfter(toolkit, typed("re")))).toEqual([
       " ?   Which extensions should be installed?  re",
-      "   ◪ Skills                        1 of 1 shown",
+      "   ◪ Skills                        1 of 2 shown",
       " ❯ ◉   code-review                 Reviews a diff before you open a pull request",
-      "   ◯ Subagents                     0 of 1 shown",
+      "   ◯   changelog                   Drafts release notes from merged work",
+      "   ◯ Subagents                     0 of 2 shown",
       "   ◯   reviewer                    A second reader for risky changes",
-      "2 of 6 selected (1 hidden) · 2 shown · ^a all shown · esc clears the filter",
+      "   ◯   planner                     Breaks a goal into ordered tasks",
+      "2 of 6 selected (1 hidden) · 4 shown · ^a all shown · esc clears the filter",
     ]);
+  });
+
+  it("opens shortened details at what was typed when the match would be cut off", () => {
+    const state = stateAfter(skills, typed("doc"));
+    expect(paint(skills, state).slice(1, 5)).toEqual([
+      "   ◯ engineering                   0 of 1 shown",
+      " ❯ ◯   research                    …topic researched, docs or API facts gathere…",
+      "   ◯ productivity                  0 of 1 shown",
+      "   ◯   handoff                     …into a handoff document for another agent t…",
+    ]);
+  });
+
+  it("starts every option's details at one column past the longest title", () => {
+    expect(paint(skills, initialPickState(skills), 100).slice(1, 5)).toEqual([
+      " ❯ ◯ engineering                       0 of 3",
+      "   ◯   improve-codebase-architecture   Scan a codebase for deepening opportunities, present them as…",
+      "   ◯   research                        Investigate a question against high-trust primary sources an…",
+      "   ◯   pr                              Use when writing a PR body.",
+    ]);
+  });
+
+  it("wraps the caret's description across the lines beneath the list", () => {
+    const state = stateAfter(skills, [key("down")]);
+    expect(paint(skills, state, 100).slice(-3)).toEqual([
+      "     improve-codebase-architecture · Scan a codebase for deepening opportunities, present them as a",
+      "     visual HTML report, then grill through whichever one you pick.",
+      "0 of 4 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm",
+    ]);
+    // A description two lines cannot hold with its name goes without the name.
+    expect(paint(skills, stateAfter(skills, [key("down"), key("down")])).slice(-3, -1)).toEqual([
+      "     Investigate a question against high-trust primary sources and capture the",
+      "     findings as a Markdown file in the repo. Use when the user wants a topic r…",
+    ]);
+    // A short terminal keeps one line for it rather than give up a row.
+    expect(paint(skills, state, 100, 12).at(-2)).toBe(
+      "     Scan a codebase for deepening opportunities, present them as a visual HTML report, then grill …",
+    );
   });
 
   it("pins the caret's group header above a window that has scrolled past it", () => {
@@ -284,14 +425,19 @@ describe("pickDoc", () => {
       "   ◪ Skills                        2 of 4",
       "     ↑ 2 more",
       " ❯ ◯   changelog                   Drafts release notes from merged work",
-      "     ↓ 4 more",
-      "2 of 6 selected · ↑↓ move · space toggle · ^a all · enter confirm",
+      "     ↓ 4 more · Subagents (2)",
+      "2 of 6 selected · ↑↓ move · ←→ fold · space toggle · ^a all · enter confirm",
     ]);
   });
 
   it("names the caret's description beneath a list too narrow to carry descriptions", () => {
     const state = stateAfter(toolkit, [key("down")]);
-    expect(paint(toolkit, state, 48).slice(-2)).toEqual([
+    expect(paint(toolkit, state, 48).slice(-3)).toEqual([
+      "     code-review · Reviews a diff before you",
+      "     open a pull request",
+      "2 of 6 selected · space · ^a all · enter",
+    ]);
+    expect(paint(toolkit, state, 48, 12).slice(-2)).toEqual([
       "     Reviews a diff before you open a pull requ…",
       "2 of 6 selected · space · ^a all · enter",
     ]);
@@ -303,9 +449,10 @@ describe("pickDoc", () => {
       " ❯ ◉   code-review              Reviews a diff before you open …",
       "   ◉   triage                   Sorts incoming issues by severi…",
     ]);
-    expect(paint(toolkit, state, 64).at(-2)).toBe(
+    expect(paint(toolkit, state, 64).slice(-3, -1)).toEqual([
       "     code-review · Reviews a diff before you open a pull request",
-    );
+      "",
+    ]);
   });
 
   it("shows a screenful of a long list however tall the terminal is", () => {
@@ -367,8 +514,15 @@ describe("pickDoc", () => {
       " > [-] Skills                      2 of 4",
       "   [x]   code-review               Reviews a diff before you open a pull request",
     ]);
-    expect(lines.at(-1)).toBe(
-      "2 of 6 selected - up/down move - space toggle - ^a all - enter confirm",
+    expect(lines.at(-1)).toBe("2 of 6 selected - space - ^a all - enter");
+    expect(
+      paintText(pickDoc(toolkit, initialPickState(toolkit), 24), {
+        width: 100,
+        colors: false,
+        glyphs: asciiGlyphs,
+      }).at(-1),
+    ).toBe(
+      "2 of 6 selected - up/down move - left/right fold - space toggle - ^a all - enter confirm",
     );
   });
 });

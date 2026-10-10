@@ -232,7 +232,7 @@ const paintTree = (
 const target = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
 const promptKey = (key: string, style: Style): string =>
-  key === "arrows" ? style.glyphs.arrows.key : key;
+  key === "arrows" ? style.glyphs.arrows.key : key === "sides" ? style.glyphs.arrows.sides : key;
 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.outcomes[tone];
@@ -385,7 +385,13 @@ const paintNode = (node: DocNode, style: Style, indent: number): ReadonlyArray<s
         }),
         ...(node.more === undefined || node.more <= 0
           ? []
-          : block(`${String(node.more)} more`, style, indent + 2, "", "dim")),
+          : block(
+              `${String(node.more)} more${node.below === undefined ? "" : ` (${plain(node.below)})`}`,
+              style,
+              indent + 2,
+              "",
+              "dim",
+            )),
         ...(node.hint === undefined
           ? []
           : block(

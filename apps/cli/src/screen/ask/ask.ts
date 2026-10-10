@@ -29,6 +29,13 @@ interface AskBase {
   readonly question: Text;
   readonly note?: Text;
   readonly label?: string;
+  /**
+   * What the question is asked about, such as how much a source offers. Where
+   * a question names it, the transcript keeps this line and the controls carry
+   * the question itself, rather than the question standing above its own
+   * short label.
+   */
+  readonly context?: Text;
 }
 
 /** One lettered choice: the key that picks it, the word that says what it means. */

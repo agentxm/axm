@@ -1,3 +1,20 @@
+## 0.44.0 (2026-10-10)
+
+### 🩹 Fixes
+
+- Say signing in from your terminal in `axm login`, matching the browser's approval page. The terminal asks you to open one link and check the code it shows, counts down as m:ss, and names the signed-in account by its email (the machine login result adds `email`). Canceled, expired and stopped sign-ins say what happened in plain words, and a plain `axm login` now picks up a sign-in that is still pending. ([75389c285](https://github.com/agentxm/axm/commit/75389c285))
+- Upgrade to Effect 4.0.2 and `@effect/openapi-generator` 4.0.2. The generated Registry client is unchanged. ([9c0d16d0c](https://github.com/agentxm/axm/commit/9c0d16d0c))
+
+### ⚠️ Breaking Changes
+
+- Preserve producer failure identity and request evidence through CLI settlement. Share a diagnostic ID across console, JSON, restricted local records and consent-controlled telemetry. Add local diagnostic review and hash-bound export, bounded publish failure groups and AXM TypeScript source attribution. Adopt Telemetry Ingest API 0.5.0. ([abdc20d59](https://github.com/agentxm/axm/commit/abdc20d59))
+- Adopt Registry API 0.2.0. Owner and type listings follow Registry cursor pages to the end. Registry problem codes reported in `metadata.response.problemCode` are now snake_case (for example `publish_quota_exceeded`, `publish_precondition_changed`), and token, identity, extension and publish responses are read with camelCase fields. Requires the Registry API 0.2.0 contract. The CLI now targets Telemetry Ingest API 0.6.0. ([104f306ed](https://github.com/agentxm/axm/commit/104f306ed))
+- Rationalize the pre-launch CLI contract: unify command vocabulary, registry selection, help metadata, inventory and machine-output schemas; add root activation; retire ambiguous and redundant inputs without compatibility aliases. ([f8f7b24d1](https://github.com/agentxm/axm/commit/f8f7b24d1))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.43.0 (2026-10-07)
 
 ### 🩹 Fixes

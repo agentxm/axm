@@ -328,6 +328,26 @@ disagreement fails before mutation; a later invocation reads the channel again.
 First-channel creation and retaining an already newer channel do not update an
 existing object and keep their existing conditional-create and no-op paths.
 
+## Edit-loop targets
+
+Some targets exist to shorten the loop while a change is being made. They are
+uncached, write no receipts, and are not evidence; the owning `test` or `e2e`
+target still decides acceptance.
+
+| Target            | What it runs                                                                     |
+| ----------------- | -------------------------------------------------------------------------------- |
+| `cli:test:screen` | The terminal screen, prompt, gallery, and renderer-conformance tests from source |
+| `cli:gallery`     | Painted gallery fixtures at a chosen size                                        |
+| `cli-e2e:preview` | The source CLI under a pseudo-terminal, printing the screen after a step script  |
+
+Every Vitest run ends with a plain `FAILED TESTS` block naming each failed
+test, its file, and the first line of why, so the last lines of a failing log
+say what failed. Workers receive the canonical temporary directory, because
+tests compare the directories they create with the canonical paths the product
+reports and macOS's default temporary directory is a symlink. A workstation
+keeps transformed modules on disk between runs and reports tests slower than
+five seconds instead of failing them; the timeout itself is shared with CI.
+
 ## Cache, freshness, and evidence
 
 Deterministic tasks may be cached only when their resolved inputs cover every

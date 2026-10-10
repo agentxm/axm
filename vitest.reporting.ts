@@ -58,6 +58,11 @@ export const makeTestReporting = ({
           resultsDir: `${outputDirectory}allure-results`,
         },
       ],
+      // Last, so a failing run ends with what failed rather than with a report path.
+      [
+        fileURLToPath(new URL("scripts/failure-summary-reporter.ts", import.meta.url)),
+        { repoRoot: fileURLToPath(new URL(".", import.meta.url)) },
+      ],
     ],
     outputFile: { junit: `${outputDirectory}junit.xml` },
   };

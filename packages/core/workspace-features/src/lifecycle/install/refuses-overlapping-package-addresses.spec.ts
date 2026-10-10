@@ -1,4 +1,5 @@
 import * as fs from "node:fs";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
@@ -22,14 +23,26 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
+type Scenario =
+  "case-collision" | "unowned-destination" | "unowned-link" | "unowned-staging" | "unowned-backup";
+
+/**
+ * Whether names that differ only by case are one entry where tests write, as
+ * on a default macOS volume. The case-collision scenario needs `Plugin` and
+ * `plugin` side by side, which such a filesystem cannot hold.
+ */
+const foldsCase = (() => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "axm-case-probe-"));
+  try {
+    fs.writeFileSync(path.join(directory, "Probe"), "");
+    return fs.existsSync(path.join(directory, "probe"));
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+})();
+
 describe("Retained package address admission", () => {
-  it.effect.each([
-    "case-collision",
-    "unowned-destination",
-    "unowned-link",
-    "unowned-staging",
-    "unowned-backup",
-  ] as const)("refuses %s before workspace mutation", (scenario) =>
+  const refuses = (scenario: Scenario) =>
     Effect.gen(function* () {
       const world = yield* Effect.acquireRelease(
         Effect.sync(() => makeInstallWorld()),
@@ -97,6 +110,16 @@ describe("Retained package address admission", () => {
           });
       }
       expect(world.workspace.snapshot()).toEqual(before);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+
+  it.effect.skipIf(foldsCase)("refuses case-collision before workspace mutation", () =>
+    refuses("case-collision"),
   );
+
+  it.effect.each([
+    "unowned-destination",
+    "unowned-link",
+    "unowned-staging",
+    "unowned-backup",
+  ] as const)("refuses %s before workspace mutation", refuses);
 });

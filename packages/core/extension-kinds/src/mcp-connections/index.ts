@@ -22,6 +22,8 @@ export {
   planMcpServerInstall,
   resolveMcpServerSourceRequest,
   type McpServerInstallIntent,
+  type McpServerInstallSourceRequest,
+  type ParsedMcpServerInstallRequest,
 } from "./lifecycle/install/plan.js";
 export {
   parseMcpServerUninstallRequest,

@@ -14,7 +14,10 @@ import {
   InstallExtensions,
   type InstallExtensionsCandidate,
   type InstallExtensionsRequest,
+  type InstallExtensionsSelection,
 } from "@agentxm/workspace-features/lifecycle";
+import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
+import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions/common";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   InstallSelectionCancelled,
@@ -44,6 +47,8 @@ import {
 } from "./confirmation-recovery.js";
 import { recordSkillInstalls } from "../../cli-runtime/index.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
+import { withWorkspace } from "../../runtime.js";
+import type { ExpectedCliError } from "../../cli-runtime/index.js";
 
 export interface InstallCommandArgs {
   /** Telemetry and machine-output command identity, e.g. `skills.install`. */
@@ -62,6 +67,18 @@ export interface InstallCommandArgs {
    * leaves this out reports the empty operation itself instead.
    */
   readonly noOpMessage?: string;
+  /**
+   * Present when the scope has no settings and no agents are known yet. The
+   * command then selects in the uninitialized scope, asks this question, and
+   * plans and applies in the workspace the chosen agents establish.
+   */
+  readonly firstInstall?: FirstInstallAgents;
+}
+
+/** The agent question a first install defers until its selection is made. */
+export interface FirstInstallAgents {
+  readonly scope: WorkspaceScope;
+  readonly agents: Effect.Effect<ReadonlyArray<ConfigurableAgentId>, ExpectedCliError>;
 }
 
 /** Print the resolution evidence and compatible packages a settling collected. */
@@ -93,10 +110,11 @@ const showDiagnostics = (candidate: InstallExtensionsCandidate) =>
 const settlingFailure = (failure: unknown) =>
   failure instanceof InstallSelectionCancelled ? failure : failureToAppError(failure);
 
-const body = (args: InstallCommandArgs) =>
+/** Plan a settled selection and carry it through to its reported outcome. */
+const complete = (args: InstallCommandArgs, selection: InstallExtensionsSelection) =>
   Effect.gen(function* () {
-    const candidate = yield* InstallExtensions.prepare(args.request).pipe(
-      Effect.mapError(settlingFailure),
+    const candidate = yield* InstallExtensions.plan(args.request, selection).pipe(
+      Effect.mapError(failureToAppError),
     );
     yield* showDiagnostics(candidate);
 
@@ -156,6 +174,26 @@ const body = (args: InstallCommandArgs) =>
               ...args.suggestions,
             ],
     });
+  });
+
+/**
+ * Selection comes first, so the question a first install asks about agents
+ * follows what the person chose and a source that offers nothing never asks it.
+ */
+const body = (args: InstallCommandArgs) =>
+  Effect.gen(function* () {
+    const selection = yield* InstallExtensions.select(args.request).pipe(
+      Effect.mapError(settlingFailure),
+    );
+    const firstInstall = args.firstInstall;
+    if (firstInstall === undefined) return yield* complete(args, selection);
+    const agents = yield* firstInstall.agents;
+    return yield* complete(args, selection).pipe(
+      withWorkspace({
+        scope: firstInstall.scope,
+        initialSettings: { agents: [...agents], instructionFiles: false },
+      }),
+    );
   });
 
 /** Run one install route end to end. */

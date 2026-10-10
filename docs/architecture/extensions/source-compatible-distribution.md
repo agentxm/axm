@@ -163,6 +163,12 @@ Agent selection during first install establishes the workspace's destinations.
 It does not create an ephemeral per-command subset that a later sync would undo.
 Existing workspaces retain their declared activation policy.
 
+Where neither a flag nor the project names an agent, first install asks which
+to configure after the person has selected what to install. Selection reads no
+agent configuration, so it settles in the uninitialized scope; planning runs in
+the workspace the chosen agents establish. A source that offers nothing, or a
+cancelled selection, never reaches the agent question.
+
 Management handoff is distinct from import, fork, and adopt. It reads supported
 project and user Skills lock records plus observed native entries, recovers
 known source intent, compares actual payloads, and transfers selected ownership

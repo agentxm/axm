@@ -88,7 +88,6 @@ describe("install argument grammar", () => {
           source: Option.some(source),
           selectors: { skill: [] },
           all: false,
-          force: false,
           preview: false,
           bind: [],
           bindEnv: [],

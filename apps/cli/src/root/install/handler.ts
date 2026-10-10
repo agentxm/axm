@@ -27,7 +27,7 @@ import {
 import { makeAppError } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
-import { runInstallCommand } from "../shared/install-command.js";
+import { runInstallCommand, type FirstInstallAgents } from "../shared/install-command.js";
 
 export interface InstallHandlerArgs {
   readonly agents?: ReadonlyArray<string>;
@@ -126,7 +126,7 @@ const validateGrammar = (args: InstallHandlerArgs) =>
 /** Reject grammar mistakes before workspace acquisition can mask the usage error. */
 export const validateInstallArgsBeforeWorkspace = validateGrammar;
 
-export const handleInstall = (args: InstallHandlerArgs) =>
+export const handleInstall = (args: InstallHandlerArgs, firstInstall?: FirstInstallAgents) =>
   Effect.gen(function* () {
     yield* validateGrammar(args);
     const requestedAgents = args.agents ?? [];
@@ -201,5 +201,6 @@ export const handleInstall = (args: InstallHandlerArgs) =>
       ],
       suggestions: [{ description: "Inspect workspace facts", cmd: "axm lint" }],
       noOpMessage: "No extensions installed.",
+      ...(firstInstall === undefined ? {} : { firstInstall }),
     });
   });

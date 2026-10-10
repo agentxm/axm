@@ -466,30 +466,98 @@ type CliWorkspaceOptions = Omit<WorkspaceStateOptions, "builtInSources" | "proje
   readonly projectRoot?: AbsolutePath;
 };
 
+const NO_AGENTS_DETECTED = "No coding agents were detected for this workspace";
+
+/**
+ * The refusal a first install ends with when it has no agents and cannot ask.
+ * A request that also left its selection open names both flags at once, so an
+ * unattended caller is not refused a second time for the selection.
+ */
+export const undetectedAgentsRefusal = (selectionOpen = false) =>
+  makeAppError({
+    code: "usage",
+    detail: NO_AGENTS_DETECTED,
+    recover: selectionOpen
+      ? "Retry with --agent <agent-id>, for example --agent claude-code, and name what to install with a selector flag or --all"
+      : "Retry with --agent <agent-id>, for example --agent claude-code",
+  });
+
+/** Whether this invocation can open the question a first install asks about agents. */
+export const canAskUndetectedAgents = Effect.gen(function* () {
+  const screen = yield* Effect.serviceOption(Screen);
+  const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+  if (Option.isNone(screen) || Option.isNone(interaction)) return false;
+  return yield* screen.value.canAsk.pipe(
+    Effect.mapError((cause) =>
+      makeAppError({
+        code: "internal",
+        detail: "Interaction configuration could not be read.",
+        cause,
+      }),
+    ),
+  );
+});
+
+const configurableAgents = (ids: ReadonlyArray<string>) =>
+  ids.flatMap((id) => (Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : []));
+
 /**
  * The agents a person chooses for a first install whose project names none.
- * Where no question can open the answer is nobody, and the install refuses
+ * Where no question can open, or the answer is nobody, the install refuses
  * with the flag that names them instead.
  */
-const askUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetection>) =>
+export const chooseUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetection>) =>
   Effect.gen(function* () {
     const screen = yield* Effect.serviceOption(Screen);
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
-    if (Option.isNone(screen) || Option.isNone(interaction)) return [];
-    const canAsk = yield* screen.value.canAsk.pipe(
+    if (Option.isNone(screen) || Option.isNone(interaction) || !(yield* canAskUndetectedAgents)) {
+      return yield* undetectedAgentsRefusal();
+    }
+    yield* screen.value.note(
+      headlineDoc("info", "No coding agents were detected in this project."),
+    );
+    const agents = configurableAgents(
+      yield* interaction.value.selectAgents(undetectedAgentOffer(detections)),
+    );
+    if (agents.length === 0) return yield* undetectedAgentsRefusal();
+    return agents;
+  });
+
+/**
+ * What an install knows about its scope's agents before a workspace opens: the
+ * scope already has settings, its project names agents, or it names none.
+ */
+export const observeFirstInstallAgents = (scope: WorkspaceScope, projectRoot?: AbsolutePath) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const project = projectRoot ?? (yield* ExecutionDirectory).path;
+    const root = scope === "user" ? yield* resolveUserWorkspaceRoot() : project;
+    const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
       Effect.mapError((cause) =>
         makeAppError({
           code: "internal",
-          detail: "Interaction configuration could not be read.",
+          detail: "Could not inspect workspace settings",
           cause,
         }),
       ),
     );
-    if (!canAsk) return [];
-    yield* screen.value.note(
-      headlineDoc("info", "No coding agents were detected in this project."),
+    if (exists) return { _tag: "Established" } as const;
+    const detections = yield* detectAgentScopeResults(project).pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Could not detect coding agents",
+          cause,
+        }),
+      ),
     );
-    return yield* interaction.value.selectAgents(undetectedAgentOffer(detections));
+    const agents = configurableAgents(
+      detections.flatMap(({ agent, project: detected }) => (detected ? [agent.id] : [])),
+    );
+    return agents.length > 0
+      ? ({ _tag: "Detected", agents } as const)
+      : ({ _tag: "Undetected", detections } as const);
   });
 
 export const withWorkspace =
@@ -508,42 +576,12 @@ export const withWorkspace =
         resolved.initialSettings !== undefined &&
         (resolved.initialSettings.agents?.length ?? 0) === 0
       ) {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root =
-          resolved.scope === "user" ? yield* resolveUserWorkspaceRoot() : resolved.projectRoot;
-        const exists = yield* fs.exists(path.join(root, "axm.json")).pipe(
-          Effect.mapError((cause) =>
-            makeAppError({
-              code: "internal",
-              detail: "Could not inspect workspace settings",
-              cause,
-            }),
-          ),
-        );
-        if (!exists) {
-          const detections = yield* detectAgentScopeResults(resolved.projectRoot).pipe(
-            Effect.mapError((cause) =>
-              makeAppError({
-                code: "internal",
-                detail: "Could not detect coding agents",
-                cause,
-              }),
-            ),
-          );
-          const configurable = (ids: ReadonlyArray<string>) =>
-            ids.flatMap((id) => (Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : []));
-          const detected = configurable(
-            detections.flatMap(({ agent, project }) => (project ? [agent.id] : [])),
-          );
+        const observed = yield* observeFirstInstallAgents(resolved.scope, resolved.projectRoot);
+        if (observed._tag !== "Established") {
           const agents =
-            detected.length > 0 ? detected : configurable(yield* askUndetectedAgents(detections));
-          if (agents.length === 0)
-            return yield* makeAppError({
-              code: "usage",
-              detail: "No coding agents were detected for this workspace",
-              recover: "Retry with --agent <agent-id>, for example --agent claude-code",
-            });
+            observed._tag === "Detected"
+              ? observed.agents
+              : yield* chooseUndetectedAgents(observed.detections);
           resolved.initialSettings = { ...resolved.initialSettings, agents };
         }
       }
@@ -556,8 +594,11 @@ export const withWorkspace =
       // than on every workspace failure it spans.
       const scopedFailure = (error: ExpectedCliError): ExpectedCliError =>
         failureForWorkspaceScope(error, resolved.scope, scopedRoutes);
+      // A workspace opened inside another shares its layer memoization, and
+      // services bound to the outer location would answer for this one. Each
+      // boundary builds its own.
       return yield* Effect.scoped(
-        Layer.build(wsLayer).pipe(
+        Layer.build(Layer.fresh(wsLayer)).pipe(
           // Building the workspace reads its settings and state before the
           // command runs, so a failure here is a configuration failure.
           recordingConfigurationFailure(scopedFailure),

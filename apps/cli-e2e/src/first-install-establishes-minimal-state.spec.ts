@@ -6,9 +6,9 @@ import { makeEnvironmentProcessFixture } from "./test-support/environment-proces
 
 export const specification = defineSpecification({
   requirement: "cli/install/first-install-establishes-minimal-state",
-  title: "First install establishes only selected management state",
+  title: "An unattended first install establishes only selected management state",
   statement:
-    "An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall ask which agents to configure where a prompt can open, after the person has selected what to install, and establish the ones chosen; a selection that is cancelled or finds nothing to install shall not ask. Where no prompt can open it shall refuse without writing state and permit retry with --agent, and a cancelled question shall write no state. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
+    "An explicit source install into an uninitialized scope where no prompt can open, or under preview, shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, instruction synchronization, or a recorded instruction-management choice. With no explicit or detected agents it shall refuse without writing state and permit retry with --agent where no prompt can open; a preview where one can shall ask which agents to configure after the person has selected what to install, shall not ask when that selection is cancelled or finds nothing to install, and shall write no state when the question is cancelled. Its report shall name native destinations accurately and, when a project install brings Rules or Knowledge while the instruction-management choice is unrecorded, shall name the command that settles it. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
@@ -19,11 +19,13 @@ export const specification = defineSpecification({
   derivedFrom: [],
   supersedes: [],
   assumptions: [],
-  openQuestions: [],
+  openQuestions: [
+    "Whether an unattended first install should instead take setup's unattended default and manage instruction files is undecided; it records no choice, so agents do not see Rules or Knowledge until setup settles it.",
+  ],
   limitations: [
     {
       limitation:
-        "The agent question, its place after the selection, and its cancellation are exercised in process against a scripted screen at apps/cli/src/root/install/first-install-order.test.ts and apps/cli/src/runtime.test.ts; the process examples here cover only the refusal where no prompt can open.",
+        "The agent question, its place after the selection, and its cancellation are exercised in process against a scripted screen at apps/cli/src/root/install/first-install-order.test.ts and apps/cli/src/root/shared/first-use.test.ts; the process examples here cover only the refusal where no prompt can open.",
       retirementCondition:
         "Add a first-install example that answers and cancels the agent question through a supported terminal process harness.",
     },
@@ -64,7 +66,8 @@ describe("First install", () => {
         const settings: unknown = JSON.parse(
           fs.readFileSync(path.join(workspace, "axm.json"), "utf8"),
         );
-        expect(settings).toMatchObject({ agents: ["claude-code"], instructionFiles: false });
+        expect(settings).toMatchObject({ agents: ["claude-code"] });
+        expect(settings).not.toHaveProperty("instructionFiles");
         expect(settings).toHaveProperty("skills.review");
         expect(settings).not.toHaveProperty("skills.axm");
         expect(fs.existsSync(path.join(workspace, "axm-lock.yaml"))).toBe(true);
@@ -106,12 +109,11 @@ describe("First install", () => {
             ? fixture.invoking
             : path.join(fixture.applicationHome, ".axm/workspace");
         const nativeRoot = scope === "project" ? fixture.invoking : fixture.applicationHome;
-        expect(JSON.parse(fs.readFileSync(path.join(workspace, "axm.json"), "utf8"))).toMatchObject(
-          {
-            agents: ["claude-code"],
-            instructionFiles: false,
-          },
+        const settings: unknown = JSON.parse(
+          fs.readFileSync(path.join(workspace, "axm.json"), "utf8"),
         );
+        expect(settings).toMatchObject({ agents: ["claude-code"] });
+        expect(settings).not.toHaveProperty("instructionFiles");
         expect(
           fs.readFileSync(path.join(nativeRoot, ".claude/skills/review/SKILL.md"), "utf8"),
         ).toBe(payload);
@@ -124,6 +126,41 @@ describe("First install", () => {
       }
     });
   }
+
+  it("names the command that settles instruction files when Knowledge arrives", async () => {
+    const fixture = makeEnvironmentProcessFixture();
+    try {
+      const source = path.join(fixture.root, "upstream", "handbook");
+      fs.mkdirSync(path.join(source, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(source, "knowledge.json"),
+        JSON.stringify({
+          owner: "@acme",
+          name: "handbook",
+          version: "1.0.0",
+          type: "knowledge",
+          format: { name: "okf", version: "0.2" },
+          bundleRoot: "src",
+          description: "Team handbook",
+        }),
+      );
+      fs.writeFileSync(
+        path.join(source, "src", "index.md"),
+        '---\nokf_version: "0.2"\n---\n# Handbook\n',
+      );
+      const args = ["--all", "--agent", "claude-code", "--non-interactive"];
+      const knowledge = await fixture.run(["install", source, ...args]);
+      expect(knowledge.exitCode, knowledge.stdout + knowledge.stderr).toBe(0);
+      expect(knowledge.stdout).toContain("axm setup");
+      expect(knowledge.stdout).toContain("Instruction files are not set up");
+      expect(fs.existsSync(path.join(fixture.invoking, "AGENTS.md"))).toBe(false);
+      const skill = await fixture.run(["install", writeSource(fixture.root), ...args]);
+      expect(skill.exitCode, skill.stdout + skill.stderr).toBe(0);
+      expect(skill.stdout).not.toContain("Instruction files are not set up");
+    } finally {
+      fixture.cleanup();
+    }
+  });
 
   it("refuses undetected first use without writing and permits an explicit retry", async () => {
     const fixture = makeEnvironmentProcessFixture();
@@ -245,7 +282,6 @@ describe("First portable plugin MCP install", () => {
         );
         expect(settings).toMatchObject({
           agents: [agent],
-          instructionFiles: false,
           mcpServers: {
             "work-context": {
               nativeComponent: { format: "agent-plugins", configPath: "mcp.json", name: "context" },

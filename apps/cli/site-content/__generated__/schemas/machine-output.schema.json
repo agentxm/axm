@@ -7168,6 +7168,7 @@
                     "type": "string",
                     "enum": [
                       "bundle-disabled",
+                      "instruction-files-not-configured",
                       "instruction-files-disabled",
                       "knowledge-instructions-disabled",
                       "workspace-excluded",

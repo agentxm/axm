@@ -331,7 +331,8 @@ export interface KnowledgeInventoryBundle {
 /** A workspace whose Knowledge bundles are authored in place, as `axm knowledge new` leaves them. */
 export const makeKnowledgeInventoryFixture = (options: {
   readonly bundles: ReadonlyArray<KnowledgeInventoryBundle>;
-  readonly instructionFiles?: boolean;
+  /** `"undecided"` leaves the workspace without a recorded instruction choice. */
+  readonly instructionFiles?: boolean | "undecided";
   readonly knowledgeInstructions?: boolean;
 }) => {
   const files: Record<string, string> = {};
@@ -357,10 +358,14 @@ export const makeKnowledgeInventoryFixture = (options: {
     settings: {
       agents: [],
       owner: "@acme",
-      instructionFiles:
-        options.instructionFiles === false
-          ? false
-          : { fileName: "AGENTS.md", gitignoreAliases: false },
+      ...(options.instructionFiles === "undecided"
+        ? {}
+        : {
+            instructionFiles:
+              options.instructionFiles === false
+                ? false
+                : { fileName: "AGENTS.md", gitignoreAliases: false },
+          }),
       knowledgeConfig: { instructions: options.knowledgeInstructions !== false },
       knowledge: Object.fromEntries(
         options.bundles.map((bundle) => [

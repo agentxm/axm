@@ -96,7 +96,8 @@ describe("Skills handoff command", () => {
         const settings: unknown = JSON.parse(
           fs.readFileSync(path.join(workspace, "axm.json"), "utf8"),
         );
-        expect(settings).toMatchObject({ agents: ["claude-code"], instructionFiles: false });
+        expect(settings).toMatchObject({ agents: ["claude-code"] });
+        expect(settings).not.toHaveProperty("instructionFiles");
         expect(settings).toHaveProperty("skills.review");
         expect(settings).not.toHaveProperty("skills.axm");
       } finally {

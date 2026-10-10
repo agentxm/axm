@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/knowledge/list/explains-instruction-entry-inclusion",
   title: "Knowledge list explains instruction entry inclusion",
   statement:
-    "When listing an installed or explicitly disabled Knowledge bundle, AXM shall report whether its entry is included in agent instructions and the effective reason for that decision.",
+    "When listing an installed or explicitly disabled Knowledge bundle, AXM shall report whether its entry is included in agent instructions and the effective reason for that decision, distinguishing a workspace that never chose whether to manage instruction files from one that disabled them.",
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
@@ -31,7 +31,7 @@ describe("Knowledge instruction inclusion", () => {
     readonly enabled: boolean;
     readonly workspaceEntry?: boolean;
     readonly manifestEntry?: boolean;
-    readonly instructionFiles: boolean;
+    readonly instructionFiles: boolean | "undecided";
     readonly knowledgeInstructions: boolean;
     readonly included: boolean;
     readonly reason: string;
@@ -70,6 +70,15 @@ describe("Knowledge instruction inclusion", () => {
       knowledgeInstructions: true,
       included: false,
       reason: "instruction-files-disabled",
+    },
+    {
+      label: "instruction files never configured",
+      enabled: true,
+      workspaceEntry: true,
+      instructionFiles: "undecided",
+      knowledgeInstructions: true,
+      included: false,
+      reason: "instruction-files-not-configured",
     },
     {
       label: "Knowledge instruction discovery disabled",

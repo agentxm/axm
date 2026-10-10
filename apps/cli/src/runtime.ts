@@ -570,21 +570,6 @@ export const withWorkspace =
         ...configured,
         projectRoot: configured.projectRoot ?? executionDirectory.path,
       } satisfies Omit<WorkspaceStateOptions, "builtInSources">;
-      // Only source installs and handoffs supply initial settings. Resolve their
-      // destinations before acquisition, and never alter existing membership.
-      if (
-        resolved.initialSettings !== undefined &&
-        (resolved.initialSettings.agents?.length ?? 0) === 0
-      ) {
-        const observed = yield* observeFirstInstallAgents(resolved.scope, resolved.projectRoot);
-        if (observed._tag !== "Established") {
-          const agents =
-            observed._tag === "Detected"
-              ? observed.agents
-              : yield* chooseUndetectedAgents(observed.detections);
-          resolved.initialSettings = { ...resolved.initialSettings, agents };
-        }
-      }
       const wsLayer = makeWorkspaceProgramLayer(resolved);
       const scopedRoutes = Option.match(yield* Effect.serviceOption(ScopedRoutes), {
         onNone: (): ReadonlySet<string> => new Set(),

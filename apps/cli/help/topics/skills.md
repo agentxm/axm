@@ -23,9 +23,13 @@ axm skills install https://example.com/review/SKILL.md --agent claude-code
 ```
 
 On first install, `--agent` establishes workspace destinations. Repeat it for
-each agent. Existing workspaces keep their configured destinations. This path
-does not require setup, Registry sign-in, bundled skills, or instruction-file
-synchronization. Use `--preview` to inspect the operation first.
+each agent. Existing workspaces keep their configured destinations. Where a
+prompt can open, a first install runs setup after you select what to install:
+it asks for agents and instruction files, shows setup's plan, and installs once
+you approve it. Unattended, it needs no setup, Registry sign-in, or bundled
+skills, and it records no instruction-file choice; `axm help getting-started`
+explains how setup settles that later. Use `--preview` to inspect the operation
+first.
 
 Plugin skills retain their package context, including inactive siblings and
 shared assets. A selected skill that relies on content outside its own directory

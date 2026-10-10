@@ -17,7 +17,7 @@ import {
   type InstallExtensionsSelection,
 } from "@agentxm/workspace-features/lifecycle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import type { ConfigurableAgentId } from "@agentxm/extension-model/unstable/extensions/common";
+import { SettingsReader, WorkspaceLocation } from "@agentxm/workspace-kernel/workspace-state";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   InstallSelectionCancelled,
@@ -49,8 +49,9 @@ import { recordSkillInstalls } from "../../cli-runtime/index.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { withWorkspace } from "../../runtime.js";
 import type { ExpectedCliError } from "../../cli-runtime/index.js";
+import { firstUseWorkspace, type FirstUse } from "./first-use.js";
 
-export interface InstallCommandArgs {
+export interface InstallCommandArgs<R = never> {
   /** Telemetry and machine-output command identity, e.g. `skills.install`. */
   readonly command: string;
   readonly request: InstallExtensionsRequest;
@@ -68,17 +69,17 @@ export interface InstallCommandArgs {
    */
   readonly noOpMessage?: string;
   /**
-   * Present when the scope has no settings and no agents are known yet. The
-   * command then selects in the uninitialized scope, asks this question, and
-   * plans and applies in the workspace the chosen agents establish.
+   * Present when the scope has no settings and establishing it asks something.
+   * The command then selects in the uninitialized scope, establishes the
+   * workspace, and plans and applies in it.
    */
-  readonly firstInstall?: FirstInstallAgents;
+  readonly firstInstall?: FirstInstall<R>;
 }
 
-/** The agent question a first install defers until its selection is made. */
-export interface FirstInstallAgents {
+/** The first use a first install defers until its selection is made. */
+export interface FirstInstall<R = never> {
   readonly scope: WorkspaceScope;
-  readonly agents: Effect.Effect<ReadonlyArray<ConfigurableAgentId>, ExpectedCliError>;
+  readonly establish: Effect.Effect<FirstUse, ExpectedCliError, R>;
 }
 
 /** Print the resolution evidence and compatible packages a settling collected. */
@@ -111,7 +112,7 @@ const settlingFailure = (failure: unknown) =>
   failure instanceof InstallSelectionCancelled ? failure : failureToAppError(failure);
 
 /** Plan a settled selection and carry it through to its reported outcome. */
-const complete = (args: InstallCommandArgs, selection: InstallExtensionsSelection) =>
+const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSelection) =>
   Effect.gen(function* () {
     const candidate = yield* InstallExtensions.plan(args.request, selection).pipe(
       Effect.mapError(failureToAppError),
@@ -154,6 +155,28 @@ const complete = (args: InstallCommandArgs, selection: InstallExtensionsSelectio
       return;
     }
 
+    // Rules and Knowledge reach agents through instruction files. A workspace
+    // that never settled that choice was established unattended, so say what
+    // settles it rather than leave the install looking finished. Setup has no
+    // instruction choice to offer the user scope.
+    const instructionChoiceOpen =
+      !args.preview &&
+      (yield* WorkspaceLocation).scope === "project" &&
+      candidate.types.some((type) => type === "knowledge" || type === "rule") &&
+      Option.isNone(
+        yield* (yield* SettingsReader).instructionsConfig.pipe(Effect.mapError(failureToAppError)),
+      );
+    const suggestions: ReadonlyArray<SuggestedAction> = instructionChoiceOpen
+      ? [
+          {
+            description:
+              "Instruction files are not set up, so agents do not see installed Rules or Knowledge yet; set them up",
+            cmd: "axm setup",
+          },
+          ...args.suggestions,
+        ]
+      : args.suggestions;
+
     yield* emitOperationResolution(resolution, {
       recovery,
       // An install that did not finish is repeated through the invocation the
@@ -161,7 +184,7 @@ const complete = (args: InstallCommandArgs, selection: InstallExtensionsSelectio
       // source selection can name them; settled units converge as no-ops.
       suggestions: ({ unsettled }) =>
         unsettled.length === 0 || !retryCanHelp(unsettled)
-          ? args.suggestions
+          ? suggestions
           : [
               retrySuggestion(
                 unsettled.length === 1
@@ -171,33 +194,31 @@ const complete = (args: InstallCommandArgs, selection: InstallExtensionsSelectio
                   ? narrowInstallSelection(recovery, unsettled)
                   : recovery,
               ),
-              ...args.suggestions,
+              ...suggestions,
             ],
     });
   });
 
 /**
- * Selection comes first, so the question a first install asks about agents
- * follows what the person chose and a source that offers nothing never asks it.
+ * Selection comes first, so what a first install asks to establish its
+ * workspace follows what the person chose and a source that offers nothing
+ * never asks it.
  */
-const body = (args: InstallCommandArgs) =>
+const body = <R>(args: InstallCommandArgs<R>) =>
   Effect.gen(function* () {
     const selection = yield* InstallExtensions.select(args.request).pipe(
       Effect.mapError(settlingFailure),
     );
     const firstInstall = args.firstInstall;
     if (firstInstall === undefined) return yield* complete(args, selection);
-    const agents = yield* firstInstall.agents;
+    const firstUse = yield* firstInstall.establish;
     return yield* complete(args, selection).pipe(
-      withWorkspace({
-        scope: firstInstall.scope,
-        initialSettings: { agents: [...agents], instructionFiles: false },
-      }),
+      withWorkspace(firstUseWorkspace(firstInstall.scope, firstUse)),
     );
   });
 
 /** Run one install route end to end. */
-export const runInstallCommand = (args: InstallCommandArgs) =>
+export const runInstallCommand = <R = never>(args: InstallCommandArgs<R>) =>
   withOperationLifecycle(
     {
       command: args.command,

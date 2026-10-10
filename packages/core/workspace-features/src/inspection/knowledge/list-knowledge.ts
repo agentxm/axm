@@ -49,6 +49,7 @@ const BundleSchema = Schema.Struct({
       included: Schema.Boolean,
       reason: Schema.Literals([
         "bundle-disabled",
+        "instruction-files-not-configured",
         "instruction-files-disabled",
         "knowledge-instructions-disabled",
         "workspace-excluded",
@@ -123,6 +124,7 @@ export const ListKnowledge = {
     const instructionFiles = yield* settings.instructionsConfig;
     const instructionFilesEnabled =
       Option.isSome(instructionFiles) && instructionFiles.value !== false;
+    const instructionFilesUndecided = Option.isNone(instructionFiles);
 
     const bundlesByName = new Map(bundles.map((bundle) => [bundle.name, bundle]));
     const inventoryNames = new Set(fullInventory.items.map((item) => item.name));
@@ -138,6 +140,7 @@ export const ListKnowledge = {
             ? resolveKnowledgeInstructionEntry({
                 bundleEnabled: item.enabled !== false,
                 instructionFilesEnabled,
+                instructionFilesUndecided,
                 knowledgeInstructionsEnabled: discoveryConfig.instructions,
                 ...(workspaceInstructionEntry === undefined ? {} : { workspaceInstructionEntry }),
                 ...(bundle?.manifest.instructionEntry === undefined
@@ -171,6 +174,7 @@ export const ListKnowledge = {
           instructionEntry: resolveKnowledgeInstructionEntry({
             bundleEnabled: true,
             instructionFilesEnabled,
+            instructionFilesUndecided,
             knowledgeInstructionsEnabled: discoveryConfig.instructions,
             ...(manifest.instructionEntry === undefined
               ? {}

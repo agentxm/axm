@@ -743,16 +743,29 @@ const configureProjectWorkspace = (args: {
   readonly localDir: string;
   readonly options: WorkspaceStateOptions;
   readonly existingSettings: Settings;
+  /**
+   * A workspace that exists keeps the membership and extensions it declares:
+   * setup settles only the instruction choice it has not made yet.
+   */
+  readonly completing?: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
     const workspaceRoot = yield* resolveNativeReferent(path.dirname(args.localDir));
     const nonInteractive = args.options.nonInteractive === true;
-    const selection = yield* selectSetupAgents({
-      options: args.options,
-      existingSettings: args.existingSettings,
-      workspaceRoot,
-    });
+    const completing = args.completing === true;
+    const selection: SetupAgentSelection = completing
+      ? {
+          selectedAgents: (args.existingSettings.agents ?? []).flatMap((id) =>
+            isKnownConfigurableAgentId(id) ? [AGENT_DESCRIPTORS[id]] : [],
+          ),
+          candidates: [],
+        }
+      : yield* selectSetupAgents({
+          options: args.options,
+          existingSettings: args.existingSettings,
+          workspaceRoot,
+        });
     const selectedAgents = selection.selectedAgents;
     const instructionSetup = yield* resolveInstructionSetup({
       options: args.options,
@@ -762,8 +775,9 @@ const configureProjectWorkspace = (args: {
     const agentIds = configuredAgentIds(selectedAgents);
     const settings: Settings = {
       ...args.existingSettings,
-      agents: agentIds,
-      skills: args.existingSettings.skills ?? DEFAULT_SETUP_SKILLS,
+      ...(completing
+        ? {}
+        : { agents: agentIds, skills: args.existingSettings.skills ?? DEFAULT_SETUP_SKILLS }),
       instructionFiles: instructionSetup.enabled
         ? {
             fileName: instructionSetup.fileName,
@@ -796,23 +810,27 @@ const configureProjectWorkspace = (args: {
       yield* interaction.value.presentSetupPlan([
         {
           target: SETTINGS_FILENAME,
-          action: "create",
+          action: completing ? "update" : "create",
           detail: { _tag: "settings", agentIds },
         },
-        {
-          target: LOCK_FILENAME,
-          action: (yield* fileExists(path.join(workspaceRoot, LOCK_FILENAME)))
-            ? "update"
-            : "create",
-          detail: { _tag: "acceptedResolution" },
-        },
-        ...(yield* setupSkillTargets(workspaceRoot, "project", agentIds)).map(
-          (target): SetupPlanRow => ({
-            target: path.relative(workspaceRoot, target.path),
-            action: "create",
-            detail: { _tag: "bundledSkill" },
-          }),
-        ),
+        ...(completing
+          ? []
+          : [
+              {
+                target: LOCK_FILENAME,
+                action: (yield* fileExists(path.join(workspaceRoot, LOCK_FILENAME)))
+                  ? "update"
+                  : "create",
+                detail: { _tag: "acceptedResolution" },
+              } satisfies SetupPlanRow,
+              ...(yield* setupSkillTargets(workspaceRoot, "project", agentIds)).map(
+                (target): SetupPlanRow => ({
+                  target: path.relative(workspaceRoot, target.path),
+                  action: "create",
+                  detail: { _tag: "bundledSkill" },
+                }),
+              ),
+            ]),
         ...(gitManaged
           ? [
               {
@@ -932,6 +950,11 @@ interface WorkspaceInitializationState {
   readonly settings: Settings;
   readonly initialized: boolean;
   readonly wouldInitialize: boolean;
+  /**
+   * The run settled the instruction choice of a workspace that already
+   * existed, or under a preview would settle it.
+   */
+  readonly completed: boolean;
   readonly cancelled: boolean;
   readonly agentCandidates: ReadonlyArray<SetupAgentCandidate>;
   readonly instructionPlan: ReadonlyArray<SetupPlanRow>;
@@ -944,10 +967,12 @@ const workspaceInitializationState = (
   agentCandidates: ReadonlyArray<SetupAgentCandidate> = [],
   cancelled = false,
   instructionPlan: ReadonlyArray<SetupPlanRow> = [],
+  completed = false,
 ): WorkspaceInitializationState => ({
   settings,
   initialized,
   wouldInitialize,
+  completed,
   cancelled,
   agentCandidates,
   instructionPlan,
@@ -1006,6 +1031,16 @@ export const ensureUserWorkspaceInitialized = (
   });
 
 /**
+ * Whether setup has an instruction choice to settle in a workspace that
+ * already exists. A workspace established by an unattended install records no
+ * choice; setup asks for it where a person can answer, resolves the documented
+ * default under preapproval or a preview, and otherwise leaves it open.
+ */
+const completesInstructionChoice = (settings: Settings, options: WorkspaceStateOptions): boolean =>
+  settings.instructionFiles === undefined &&
+  (options.nonInteractive !== true || options.yes === true || options.preview === true);
+
+/**
  * Ensure project workspace is initialized, returning local settings.
  *
  * Reads existing local settings or runs the initialization flow when missing.
@@ -1056,7 +1091,34 @@ export const ensureProjectWorkspaceInitialized = (
       );
     }
 
+    if (completesInstructionChoice(localSettingsResult.settings, options)) {
+      const completion = yield* configureProjectWorkspace({
+        localDir,
+        options,
+        existingSettings: localSettingsResult.settings,
+        completing: true,
+      });
+      return workspaceInitializationState(
+        completion.settings,
+        false,
+        completion.confirmed && options.preview === true,
+        [],
+        !completion.confirmed,
+        completion.confirmed ? completion.instructionPlan : [],
+        completion.confirmed && options.preview !== true,
+      );
+    }
+
     return workspaceInitializationState(localSettingsResult.settings, false, false);
+  });
+
+/** Whether this setup request would settle an existing project's instruction choice. */
+export const setupCompletesInstructionChoice = (options: WorkspaceStateOptions) =>
+  Effect.gen(function* () {
+    if (options.scope !== "project") return false;
+    const userHome = yield* resolveUserHome();
+    const settings = yield* readSettingsFromReadModel("project", options.projectRoot, userHome);
+    return Option.isSome(settings) && completesInstructionChoice(settings.value, options);
   });
 
 export const bootstrapWorkspace = (options: WorkspaceStateOptions) =>

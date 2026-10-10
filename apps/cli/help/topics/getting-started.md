@@ -41,9 +41,19 @@ initial agent membership. Project signals are preselected for project setup;
 workstation-only availability remains visible without being treated as project
 intent. If no agent is detected, setup offers a small catalog-driven starter
 set that you can revise before confirming. Running setup again is a no-op, even
-when different `--agent` flags are supplied. Read
-`axm help basic-usage` to learn what those files do and which ones must be
-checked in.
+when different `--agent` flags are supplied, with one exception described
+below. Read `axm help basic-usage` to learn what those files do and which ones
+must be checked in.
+
+Installing into a project that has no settings starts the same setup once you
+have selected what to install, so `axm install <source>` is also a way in. An
+install that cannot ask — in CI, or driven by an agent — establishes only the
+agents and the selection, and records no instruction-file choice. Rules and
+Knowledge reach agents through instruction files, so that install names
+`axm setup` as its next step. Setup then asks the instruction questions it
+would have asked, or takes the documented default under `--yes`, and leaves
+agent membership and installed extensions as they are. Follow it with
+`axm sync` to bring installed Rules and Knowledge into the instruction files.
 
 Setup may add AXM runtime and package-transaction entries to `.gitignore` in a
 Git-managed project. It does not edit `.gitattributes` or formatter

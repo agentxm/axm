@@ -217,7 +217,8 @@ ordered policy is:
 
 1. A disabled bundle contributes no row and has no active Concepts corpus.
 2. Absent or disabled top-level `instructionFiles` blocks instruction
-   projection.
+   projection. `axm knowledge list` reports the two apart, as
+   `instruction-files-not-configured` and `instruction-files-disabled`.
 3. `knowledgeConfig.instructions: false` suppresses every Knowledge row.
 4. `knowledge.<name>.instructionEntry`, when present, overrides the manifest.
 5. Otherwise the manifest's `instructionEntry` applies, defaulting to `true`.

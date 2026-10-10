@@ -17,7 +17,8 @@ import { failureToAppError } from "../../app-error/conversions.js";
 import { makeAppError } from "../../app-error/index.js";
 import { emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withRuntime } from "../../runtime.js";
+import { withFirstUse } from "../shared/first-use.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -96,10 +97,7 @@ export const handoffCommand = Command.make("handoff", config, (args) =>
     preview: args.preview,
     ...(Option.isSome(args.lock) ? { lockPath: args.lock.value } : {}),
   }).pipe(
-    withWorkspace({
-      scope: args.scope,
-      initialSettings: { agents: [...args.agent], instructionFiles: false },
-    }),
+    withFirstUse({ scope: args.scope, agents: args.agent, preview: args.preview }),
     withRuntime("skills handoff"),
   ),
 ).pipe(

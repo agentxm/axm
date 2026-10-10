@@ -23,7 +23,7 @@ import type {
   Tone,
   TreeItem,
 } from "../../screen/doc.js";
-import { unicodeGlyphs, type Glyphs } from "../../screen/glyphs.js";
+import { hintKeyName, unicodeGlyphs, type Glyphs } from "../../screen/glyphs.js";
 import type { PaintStyle, PaintWidth } from "../../screen/paint-text.js";
 import { layoutTable, type LayoutColumn, type TableLayout } from "../../screen/table-layout.js";
 import { displayWidth, padDisplay } from "../../screen/width.js";
@@ -231,8 +231,7 @@ const paintTree = (
 
 const target = (action: SuggestedAction): string => action.cmd ?? action.url ?? "";
 
-const promptKey = (key: string, style: Style): string =>
-  key === "arrows" ? style.glyphs.arrows.key : key === "sides" ? style.glyphs.arrows.sides : key;
+const promptKey = (key: string, style: Style): string => hintKeyName(key, style.glyphs);
 
 const statusGlyph = (tone: Tone, glyphs: Glyphs): string =>
   tone === "neutral" || tone === "dim" ? " " : glyphs.outcomes[tone];

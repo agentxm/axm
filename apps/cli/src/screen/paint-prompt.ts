@@ -24,6 +24,7 @@ import {
   withSupplement,
   type ResolvedStyle,
 } from "./paint-kit.js";
+import { hintKeyName, isHintKeyToken } from "./glyphs.js";
 import { displayWidth, truncateLine } from "./width.js";
 import { spansOf, truncateText, wrapText } from "./wrap-text.js";
 
@@ -344,17 +345,9 @@ const paintSkipped = (
 
 /** One key as the hint names it, with its word or, where the line is short, without. */
 const keyText = (key: PromptKey, style: ResolvedStyle, worded: boolean): string => {
-  const name =
-    key.key === "arrows"
-      ? style.glyphs.arrows.key
-      : key.key === "sides"
-        ? style.glyphs.arrows.sides
-        : key.key;
+  const name = hintKeyName(key.key, style.glyphs);
   return worded ? `${name} ${key.word}` : name;
 };
-
-/** The arrows, which a hint drops first: a list is known to take them. */
-const isArrowKey = (key: PromptKey): boolean => key.key === "arrows" || key.key === "sides";
 
 /**
  * The line beneath a list. The whole hint when it fits; then without the
@@ -370,12 +363,14 @@ const paintHint = (
   const short = [
     ...hint.status,
     ...hint.keys
-      .filter((key) => !isArrowKey(key))
+      .filter((key) => !isHintKeyToken(key.key, style.glyphs))
       .map((key) => keyText(key, style, key.key.length < NAMED_KEY_LENGTH)),
   ];
   const bare = [
     ...hint.status,
-    ...hint.keys.filter((key) => !isArrowKey(key)).map((key) => keyText(key, style, false)),
+    ...hint.keys
+      .filter((key) => !isHintKeyToken(key.key, style.glyphs))
+      .map((key) => keyText(key, style, false)),
   ];
   const joined = (parts: ReadonlyArray<string>): string => parts.join(style.glyphs.separator);
   const fitting =

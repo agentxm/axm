@@ -1,0 +1,90 @@
+{
+  "$schema": "https://axm.sh/schemas/hook.schema.json",
+  "owner": "@agentxm",
+  "type": "hook",
+  "name": "worktree-session-guard",
+  "version": "0.1.0",
+  "implementations": [
+    {
+      "id": "claude",
+      "protocol": "claude-code",
+      "bindings": [
+        {
+          "id": "warn-on-shared-worktree",
+          "event": "SessionStart",
+          "handler": {
+            "type": "command",
+            "runtime": "bash",
+            "entrypoint": "src/hook.sh",
+            "args": ["SessionStart"],
+            "timeoutMs": 5000
+          }
+        }
+      ]
+    },
+    {
+      "id": "codex",
+      "protocol": "codex",
+      "bindings": [
+        {
+          "id": "warn-on-shared-worktree",
+          "event": "SessionStart",
+          "handler": {
+            "type": "command",
+            "runtime": "bash",
+            "entrypoint": "src/hook.sh",
+            "args": ["SessionStart"],
+            "timeoutMs": 5000
+          }
+        }
+      ]
+    }
+  ],
+  "fixtures": [
+    {
+      "id": "claude-outside-worktree",
+      "implementation": "claude",
+      "binding": "warn-on-shared-worktree",
+      "input": "fixtures/outside-worktree.json",
+      "expect": {
+        "exitCode": 0,
+        "stdout": "fixtures/empty.txt",
+        "stderr": "fixtures/empty.txt"
+      }
+    },
+    {
+      "id": "claude-other-event",
+      "implementation": "claude",
+      "binding": "warn-on-shared-worktree",
+      "input": "fixtures/other-event.json",
+      "expect": {
+        "exitCode": 0,
+        "stdout": "fixtures/empty.txt",
+        "stderr": "fixtures/empty.txt"
+      }
+    },
+    {
+      "id": "codex-outside-worktree",
+      "implementation": "codex",
+      "binding": "warn-on-shared-worktree",
+      "input": "fixtures/outside-worktree.json",
+      "expect": {
+        "exitCode": 0,
+        "stdout": "fixtures/empty.txt",
+        "stderr": "fixtures/empty.txt"
+      }
+    },
+    {
+      "id": "codex-other-event",
+      "implementation": "codex",
+      "binding": "warn-on-shared-worktree",
+      "input": "fixtures/other-event.json",
+      "expect": {
+        "exitCode": 0,
+        "stdout": "fixtures/empty.txt",
+        "stderr": "fixtures/empty.txt"
+      }
+    }
+  ],
+  "description": "Warns an agent starting a session in a Git worktree where another agent session is already running"
+}

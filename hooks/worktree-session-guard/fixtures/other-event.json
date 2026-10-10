@@ -1,0 +1,5 @@
+{
+  "hook_event_name": "AxmUnrelatedEvent",
+  "session_id": "fixture-other-event",
+  "cwd": "/"
+}

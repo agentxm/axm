@@ -118,7 +118,7 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
           .ask(
             pickAsk({
               question,
-              note: offered(candidates, noun),
+              context: offered(candidates, noun),
               label: subject.label,
               noun,
               verb: "install",

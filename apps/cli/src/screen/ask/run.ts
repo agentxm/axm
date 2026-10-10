@@ -90,15 +90,23 @@ export const runAsk = <A>(
   surface: AskSurface,
 ): Effect.Effect<A, QuestionCancelled | OutputWriteFailed> =>
   Effect.gen(function* () {
-    const context: Doc = [
-      { _tag: "paragraph", text: ask.question },
-      ...(ask.note === undefined
-        ? []
-        : [{ _tag: "paragraph" as const, tone: "dim" as const, text: ask.note }]),
-    ];
+    const context: Doc =
+      ask.context === undefined
+        ? [
+            { _tag: "paragraph", text: ask.question },
+            ...(ask.note === undefined
+              ? []
+              : [{ _tag: "paragraph" as const, tone: "dim" as const, text: ask.note }]),
+          ]
+        : [{ _tag: "paragraph", text: ask.context }];
     yield* surface.transcript(context);
     return yield* withAskKind(ask, (kind) =>
-      runKind(kind, ask.label ?? ask.question, terminal, surface),
+      runKind(
+        kind,
+        ask.context === undefined ? (ask.label ?? ask.question) : ask.question,
+        terminal,
+        surface,
+      ),
     ).pipe(
       Effect.onExit((exit) =>
         Exit.isFailure(exit)

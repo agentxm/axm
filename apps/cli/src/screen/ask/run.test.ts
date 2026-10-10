@@ -236,6 +236,20 @@ describe("runAsk", () => {
     }),
   );
 
+  it.effect("commits a question's context and asks the question itself in the controls", () =>
+    Effect.gen(function* () {
+      const harness = yield* makeHarness;
+      for (const input of [press("space"), press("return")]) {
+        yield* Queue.offer(harness.keys, input);
+      }
+
+      yield* runAsk({ ...agents, context: "3 agents" }, harness.terminal, harness.surface);
+
+      expect(harness.transcript[0]).toEqual([{ _tag: "paragraph", text: "3 agents" }]);
+      expect(lastFrame(harness)[0]).toBe(" ?   Select agents to configure  type to filter");
+    }),
+  );
+
   it.effect("keeps a refused line open until a valid one is submitted", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness;

@@ -1,7 +1,6 @@
  ?   Instructions source
      AXM will sync its contents to the selected agents' instruction files.
-     ↑ 8 more
-     packages/indexer/AGENTS.md    existing
+     ↑ 9 more
      packages/ingest/AGENTS.md     existing
      packages/jobs/AGENTS.md       existing
      packages/ledger/AGENTS.md     existing
@@ -11,4 +10,5 @@
      packages/payments/AGENTS.md   existing
      packages/registry/AGENTS.md   existing
  ❯   packages/reports/AGENTS.md    existing
-     ↓ 6 more
+     packages/search/AGENTS.md     existing
+     ↓ 5 more

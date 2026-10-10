@@ -24,7 +24,10 @@ import { CliConfig, CliOutput, Flag, GlobalFlag } from "effect/cli";
 
 import { AppError, makeAppError } from "./app-error/index.js";
 
-import { detectAgentsForScope } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  detectAgentScopeResults,
+  type AgentScopeDetection,
+} from "@agentxm/workspace-kernel/agent-adapters";
 import { ConfigurableAgentIdSchema } from "@agentxm/extension-model/unstable/extensions/common";
 import * as Schema from "effect/Schema";
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
@@ -120,7 +123,11 @@ import { LatestReleaseCheckLive } from "@agentxm/cli-maintenance/self-update/com
 
 import { loadVersion } from "./version.js";
 import { ScopedRoutes, failureForWorkspaceScope } from "./root/shared/scoped-command.js";
-import { ScreenLoggerLive } from "./screen/index.js";
+import { Screen, ScreenLoggerLive, headlineDoc } from "./screen/index.js";
+import {
+  WorkspaceInitializationInteraction,
+  undetectedAgentOffer,
+} from "@agentxm/workspace-features/configuration";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
@@ -459,6 +466,32 @@ type CliWorkspaceOptions = Omit<WorkspaceStateOptions, "builtInSources" | "proje
   readonly projectRoot?: AbsolutePath;
 };
 
+/**
+ * The agents a person chooses for a first install whose project names none.
+ * Where no question can open the answer is nobody, and the install refuses
+ * with the flag that names them instead.
+ */
+const askUndetectedAgents = (detections: ReadonlyArray<AgentScopeDetection>) =>
+  Effect.gen(function* () {
+    const screen = yield* Effect.serviceOption(Screen);
+    const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
+    if (Option.isNone(screen) || Option.isNone(interaction)) return [];
+    const canAsk = yield* screen.value.canAsk.pipe(
+      Effect.mapError((cause) =>
+        makeAppError({
+          code: "internal",
+          detail: "Interaction configuration could not be read.",
+          cause,
+        }),
+      ),
+    );
+    if (!canAsk) return [];
+    yield* screen.value.note(
+      headlineDoc("info", "No coding agents were detected in this project."),
+    );
+    return yield* interaction.value.selectAgents(undetectedAgentOffer(detections));
+  });
+
 export const withWorkspace =
   (options: WorkspaceScope | CliWorkspaceOptions) =>
   <A, R>(program: Effect.Effect<A, ExpectedCliError, R>) =>
@@ -489,7 +522,7 @@ export const withWorkspace =
           ),
         );
         if (!exists) {
-          const detected = yield* detectAgentsForScope(resolved.projectRoot, "project").pipe(
+          const detections = yield* detectAgentScopeResults(resolved.projectRoot).pipe(
             Effect.mapError((cause) =>
               makeAppError({
                 code: "internal",
@@ -498,9 +531,13 @@ export const withWorkspace =
               }),
             ),
           );
-          const agents = detected.flatMap(({ id }) =>
-            Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : [],
+          const configurable = (ids: ReadonlyArray<string>) =>
+            ids.flatMap((id) => (Schema.is(ConfigurableAgentIdSchema)(id) ? [id] : []));
+          const detected = configurable(
+            detections.flatMap(({ agent, project }) => (project ? [agent.id] : [])),
           );
+          const agents =
+            detected.length > 0 ? detected : configurable(yield* askUndetectedAgents(detections));
           if (agents.length === 0)
             return yield* makeAppError({
               code: "usage",

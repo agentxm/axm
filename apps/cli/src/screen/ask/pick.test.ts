@@ -289,6 +289,20 @@ describe("pickDoc", () => {
     ]);
   });
 
+  it("names the caret's description beneath a list too narrow to carry descriptions", () => {
+    const state = stateAfter(toolkit, [key("down")]);
+    expect(paint(toolkit, state, 48).slice(-2)).toEqual([
+      "     Reviews a diff before you open a pull requ…",
+      "2 selected · space · ^a all · enter",
+    ]);
+  });
+
+  it("keeps the list as tall whether descriptions sit beside names or beneath them", () => {
+    const state = stateAfter(toolkit, [key("down")]);
+    expect(paint(toolkit, state, 80, 8)).toHaveLength(8);
+    expect(paint(toolkit, state, 48, 8)).toHaveLength(8);
+  });
+
   it("drops descriptions before names, and key words before keys, at narrow widths", () => {
     expect(paint(agents, initialPickState(agents), 36)).toEqual([
       " ?   Select agents to configure",

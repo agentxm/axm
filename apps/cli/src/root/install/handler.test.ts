@@ -18,6 +18,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import { getAppError, makeWorkspaceLifecycleTestContext } from "../../test-support/test-helpers.js";
+import { makeTestScreen } from "../../test-support/screen-test.js";
 import { handleInstall } from "./handler.js";
 
 describe("install argument grammar", () => {
@@ -59,6 +60,47 @@ describe("install argument grammar", () => {
         expect(getAppError(failure).detail).toContain("An install source is required");
         expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
         expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      }),
+    );
+  });
+
+  it.effect("ends a cancelled selection as the cancellation itself, before mutation", () => {
+    const source = path.join(tempDir, "upstream");
+    for (const name of ["review", "triage"]) {
+      fs.mkdirSync(path.join(source, name), { recursive: true });
+      fs.writeFileSync(
+        path.join(source, name, "SKILL.md"),
+        `---\nname: ${name}\ndescription: Example ${name} skill\n---\n# ${name}\n`,
+      );
+    }
+    const screen = makeTestScreen();
+    screen.state.script.answers.push({ _tag: "Cancel" });
+    const { provide } = makeWorkspaceLifecycleTestContext({
+      wsOptions: { projectRoot: tempDir },
+      screenLayer: screen.layer,
+    });
+    const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
+
+    return provide(
+      Effect.gen(function* () {
+        const failure = yield* handleInstall({
+          type: Option.some("skill"),
+          source: Option.some(source),
+          selectors: { skill: [] },
+          all: false,
+          force: false,
+          preview: false,
+          bind: [],
+          bindEnv: [],
+          localName: Option.none(),
+          bundled: false,
+        }).pipe(Effect.flip);
+
+        // The runtime settles this tag as a clean exit; an error envelope here
+        // would report a person's own cancellation as an internal failure.
+        expect(failure).toMatchObject({ _tag: "InstallSelectionCancelled" });
+        expect(screen.state.script.asks.map((ask) => ask.label)).toEqual(["Skills"]);
+        expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
       }),
     );
   });

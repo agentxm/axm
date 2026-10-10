@@ -23,6 +23,7 @@ export {
   initializeProjectWorkspace,
   ensureUserWorkspaceInitialized,
   ensureProjectWorkspaceInitialized,
+  undetectedAgentOffer,
   type SetupAgentCandidate,
 } from "./setup/initialization.js";
 

@@ -57,6 +57,7 @@ import {
   WorkspaceInitializationInteraction,
   type SetupPlanAction,
   type SetupPlanRow,
+  type WorkspaceInitializationInteractionService,
 } from "./initialization-interaction.js";
 import { protectWorkspacePath, recordFootprint } from "@agentxm/workspace-kernel/settlement";
 import {
@@ -128,6 +129,26 @@ const allAgentDescriptors = (
     (agent) => isConfigurableAgentId(agent.id) && !preferredSet.has(agent.id),
   );
   return [...preferred, ...remaining];
+};
+
+/**
+ * What a first install offers when its project names no coding agent: every
+ * configurable agent once, those found on the workstation first and suggested,
+ * or the popular agents suggested when the workstation has none either.
+ */
+export const undetectedAgentOffer = (detections: ReadonlyArray<AgentScopeDetection>) => {
+  const userDetectedIds = detections.flatMap(({ agent, user }) =>
+    user && isAutoSelectableAgent(agent) ? [agent.id] : [],
+  );
+  const suggestedIds = userDetectedIds.length === 0 ? [...POPULAR_AGENT_IDS] : userDetectedIds;
+  return {
+    allAgents: allAgentDescriptors(suggestedIds),
+    detectedIds: userDetectedIds,
+    projectDetectedIds: [],
+    userDetectedIds,
+    suggestedIds,
+    configuredIds: [],
+  } satisfies Parameters<WorkspaceInitializationInteractionService["selectAgents"]>[0];
 };
 
 /**

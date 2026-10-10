@@ -125,13 +125,19 @@ describe("chooseDoc", () => {
     ]);
   });
 
-  it("drops every option's details before it touches a title", () => {
+  it("drops every option's details before it touches a title, and names the caret's beneath", () => {
     expect(paint(48)).toEqual([
       " ?   Instructions source",
       " ❯   AGENTS.md",
       "     CLAUDE.md",
       "     Other…",
+      "     recommended · existing · 128 lines",
     ]);
+    expect(paint(48, 24, { index: 1 }).at(-1)).toBe("     existing · 64 lines");
+  });
+
+  it("shortens the caret's details at their end where the line is shorter still", () => {
+    expect(paint(30).at(-1)).toBe("     recommended · existing ·…");
   });
 
   it("shortens a title too long for the line in the middle", () => {

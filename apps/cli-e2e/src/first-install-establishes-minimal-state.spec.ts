@@ -8,7 +8,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/first-install-establishes-minimal-state",
   title: "First install establishes only selected management state",
   statement:
-    "An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall refuse without writing state and permit retry with --agent. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
+    "An explicit source install into an uninitialized scope shall establish the explicit or project-detected agent configuration and selected extension in the same operation, without Registry authentication, bundled extras, or instruction synchronization. With no explicit or detected agents it shall ask which agents to configure where a prompt can open and establish the ones chosen; where no prompt can open it shall refuse without writing state and permit retry with --agent, and a cancelled question shall write no state. Its report shall name native destinations accurately. Preview, malformed existing settings or resolution locks, and an unowned native collision shall preserve existing content without accepting partial workspace state.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
@@ -20,6 +20,14 @@ export const specification = defineSpecification({
   supersedes: [],
   assumptions: [],
   openQuestions: [],
+  limitations: [
+    {
+      limitation:
+        "The agent question and its cancellation are exercised in process against a scripted screen at apps/cli/src/runtime.test.ts; the process examples here cover only the refusal where no prompt can open.",
+      retirementCondition:
+        "Add a first-install example that answers and cancels the agent question through a supported terminal process harness.",
+    },
+  ],
 });
 
 const payload = "---\r\nname: review\r\ncustom: unchanged\r\n---\r\n# Review\r\n";

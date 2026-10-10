@@ -51,3 +51,14 @@ export const listWindow = (
 /** How many rows a window leaves out above itself, not counting a pinned row. */
 export const skippedAbove = (window: ListWindow): number =>
   window.start - (window.pinned === undefined ? 0 : 1);
+
+/**
+ * The lines a window over `count` rows takes: its rows, a pinned row, and the
+ * lines that name what it leaves out above and below.
+ */
+export const windowLines = (window: ListWindow, count: number): number =>
+  window.end -
+  window.start +
+  (window.pinned === undefined ? 0 : 1) +
+  (skippedAbove(window) > 0 ? 1 : 0) +
+  (window.end < count ? 1 : 0);

@@ -23,7 +23,10 @@ import {
   parseFqnOrThrow,
   toExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
-import type { PackRef } from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import {
+  sourceInheritedMembersNamed,
+  type PackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
@@ -352,12 +355,11 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
       (pack.refType === "git-hosted" || pack.refType === "local") &&
       pack.sourceMembers.length > 0
     ) {
-      const matches = pack.sourceMembers.filter(
-        (candidate) =>
-          candidate.type === expectedType &&
-          candidate.owner === parsed.owner &&
-          candidate.name === parsed.name,
-      );
+      const matches = sourceInheritedMembersNamed(pack, {
+        type: expectedType,
+        owner: parsed.owner,
+        name: parsed.name,
+      });
       const candidate = matches[0];
       if (candidate === undefined || matches.length !== 1) {
         return yield* new PackDependencyInvalid({

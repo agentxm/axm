@@ -92,6 +92,9 @@ type configuration may set a normalized, workspace-relative `dir`; absent
 overrides default to `skills/`, `rules/`, `knowledge/`, `subagents/`, `hooks/`,
 `mcps/`, and `packs/`. These roots must stay within the project and must not
 overlap each other, `agent_extensions/`, `.axm/`, or agent projection roots.
+The same roots are what the project offers when another workspace installs
+from it as a source; see
+[source-compatible distribution](../extensions/source-compatible-distribution.md#discovery-semantics).
 The configured owner is required for project settings, and an authored entry
 uses the exact source selector `workspace`. Its settings key and manifest name
 must agree.

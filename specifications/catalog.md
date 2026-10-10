@@ -1430,6 +1430,23 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/retains-all-native-kinds-from-git.spec.ts)
 
+##### Installation selects the requested extensions from what a source offers
+
+- Requirement: `cli/install/selects-requested-source-extensions`
+- Owner: `workspace-features`
+- Statement: For an installable source, a request that names one or more of its extensions shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches, with external skills also selectable by exact source-relative path, including distinct same-name candidates; a source shall offer the extensions it authors and not the packages it holds from other publishers, which shall remain installable by name; a request that selects all shall install, without opening a selection interaction, every offered Pack and every other offered extension that no Pack among them brings, across the types the request covers; a request that both names extensions and selects all, and an unattended request that does neither, shall fail as usage guidance; a request that leaves the choice open where a selection interaction is available shall ask once across every type the source offers; and an extension chosen both directly and through a Pack shall keep both routes as one unit. One policy decides this for every installable type.
+- Class: functional
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: decision-table, example
+- Derived from: `packages/core/workspace-features/src/lifecycle/install/selection.ts`, `packages/core/workspace-features/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
+- Supersedes: `cli/skills/install/selects-requested-source-skills`
+- Assumptions: Discovery decides which of a source's packages it offers and which it holds from other publishers, under extension-discovery/workspace-sources-offer-their-authored-roots; selection takes that standing as given.
+- Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?
+- Limitation: The source populations are local native trees with unique and same-name skills, two uniquely named subagents, and one mixed local source holding a Pack, its member, a rule, and an acquired skill. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
+- Source: [`packages/core/workspace-features/src/lifecycle/install/selects-requested-source-extensions.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/selects-requested-source-extensions.spec.ts)
+
 ##### Browser sign-in uses the selected Registry's paired web origin
 
 - Requirement: `cli/login/uses-matching-hosted-authorization-origin`
@@ -1572,21 +1589,6 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts)
 
-##### Installation selects the requested extensions from a source
-
-- Requirement: `cli/skills/install/selects-requested-source-skills`
-- Owner: `workspace-features`
-- Statement: For an installable source containing several extensions of one type, a request that names one or more of them shall install exactly the discovered extensions its names or patterns match, in source order, and shall fail as not found without installing anything when no name matches; external skills shall also be selectable by exact source-relative path, including distinct same-name candidates; a request that selects all of them shall install every discovered extension without opening a selection interaction; and an unattended request that neither names nor selects all shall fail as usage guidance. One policy decides this for every installable type; skills and subagents are the examples here.
-- Class: functional
-- Role: experience
-- Product goals: `extension-adoption`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
-- Methods: decision-table, example
-- Derived from: `packages/core/workspace-features/src/lifecycle/install/selection.ts`, `packages/core/workspace-features/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
-- Open questions: Must a request containing both matched and unmatched names install its matches, as it does today, or fail as a whole?; How should an all selection and a name selection be combined or refused when both are supplied?
-- Limitation: The source populations are local native trees with unique and same-name skills, and two uniquely named subagents. These examples do not establish discovery or selection through remote Git/Registry providers, native ownership conflicts, invalid sibling packages, or an actual interactive terminal session, and the remaining installable types are covered by the shared policy's ordinary tests rather than by an example here. Retires when: Add distinct source-provider and interaction evidence when those selection conditions are allocated; keep unresolved selector policies explicit until decided.
-- Source: [`packages/core/workspace-features/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/selects-requested-source-skills.spec.ts)
-
 ##### Uninstall removes direct intent and keeps state another desired route still reaches
 
 - Requirement: `cli/uninstall/removes-direct-route-and-recomputes-reachability`
@@ -1721,6 +1723,23 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts)
+
+#### Human factors
+
+##### Choosing what to install from a source is one question
+
+- Requirement: `cli/install/source-selection-is-one-question`
+- Owner: `cli`
+- Statement: Where a prompt can open and an install request leaves open what to take from a source, AXM shall state how many extensions of each type the source offers and then ask one question that lists them all under a heading for each type, Packs first, shall show the extensions a picked Pack brings as included without counting them among those picked, shall accept an answer only when at least one extension is picked, and shall change no workspace state when the question is cancelled.
+- Class: human-factors
+- Role: experience
+- Product goals: `extension-adoption`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `cli/install/selects-requested-source-extensions`, `cli/interactions-retain-context-and-disposition`
+- Open questions: How should the question show an extension the workspace already desires, directly or through a Pack?
+- Limitation: The question is answered through the scripted terminal, which replays keys through the production reducer and view; the example does not establish the rendering in a real terminal emulator or from a remote Git source. Retires when: Add process-boundary evidence when an interactive terminal harness is allocated to the install route.
+- Source: [`apps/cli/src/root/install/source-selection-is-one-question.spec.ts`](../apps/cli/src/root/install/source-selection-is-one-question.spec.ts)
 
 ### Goal: knowledge-access
 
@@ -3716,14 +3735,14 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/share-prints-live-install-command`
 - Owner: `workspace-features`
-- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when an ecosystem is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
+- Statement: Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify the distributable extensions the checkout offers, and never a package it holds from another publisher, with existing skills named by their source-relative paths, without requiring AXM setup; when an ecosystem is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
 - Boundary: process; selection: per-change
 - Boundary rationale: The examples read real workspace files, inspect a real Git remote, and use the production repository finder while comparing the checkout before and after the query.
 - Methods: example, snapshot
-- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`, `extension-discovery/workspace-sources-offer-their-authored-roots`
 - Source: [`packages/core/workspace-features/src/sharing/share-workspace.spec.ts`](../packages/core/workspace-features/src/sharing/share-workspace.spec.ts)
 
 ##### Upgrade discloses the installer it resolved and the version it selected before mutating
@@ -6450,6 +6469,21 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Boundary: memory; selection: per-change
 - Methods: decision-table
 - Source: [`packages/core/extension-model/src/unstable/extensions/publication-policy-has-explicit-selection-fields.spec.ts`](../packages/core/extension-model/src/unstable/extensions/publication-policy-has-explicit-selection-fields.spec.ts)
+
+##### A workspace source offers what its authored roots hold
+
+- Requirement: `extension-discovery/workspace-sources-offer-their-authored-roots`
+- Owner: `workspace-kernel`
+- Statement: When a source root carries AXM workspace settings and is not itself a package, discovery shall offer exactly the packages directly inside the root's authored type directories, each the configured directory or else the default, shall not offer a package anywhere else beneath that root, and shall refuse the source when its settings place an authored directory where a workspace cannot keep one; for any source root that is not itself a package, discovery shall report the packages beneath the root's install root as held rather than offered, at whatever depth they sit, and shall keep a package the source also authors as the source's own; a directory named as the source root shall be classified by its own contents, and a root without workspace settings shall keep ordinary repository discovery.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `extension-adoption`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
+- Assumptions: A source root carries workspace settings when `axm.json` sits directly in it, and keeps the packages it acquired beneath `agent_extensions/` directly in it.
+- Open questions: Should a workspace source offer a package that sits in an authored root but that its settings do not declare, as it does today, or only its declared entries?; Should a workspace beneath the source root, with settings of its own, contribute what it authors to the enclosing source's offer?
+- Source: [`packages/core/workspace-kernel/src/sources/workspace-sources-offer-their-authored-roots.spec.ts`](../packages/core/workspace-kernel/src/sources/workspace-sources-offer-their-authored-roots.spec.ts)
 
 ##### Distributed Hook extensions preserve all runtime resources
 

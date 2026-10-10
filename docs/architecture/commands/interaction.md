@@ -78,9 +78,11 @@ expose neither flag, because they neither assess nor confirm.
 Two kinds of question exist, and they answer to different inputs.
 
 A **selection** gathers input the command has no other source for: which
-coding agents to configure during setup, which skills or subagents to install
-from a package that offers several, or the answers workspace initialization
-collects. Selection is replaced by flags and arguments, never by `--yes`. A
+coding agents to configure during setup, which extensions to install from a
+source that offers several, or the answers workspace initialization collects.
+An install asks that once, across every type the source offers
+(`cli/install/source-selection-is-one-question`). Selection is replaced by
+flags and arguments, never by `--yes`. A
 command whose inputs resolve to documented defaults uses them in preview and
 in unattended apply alike; a command whose inputs require an explicit choice
 fails naming the missing flag when no prompt can open.

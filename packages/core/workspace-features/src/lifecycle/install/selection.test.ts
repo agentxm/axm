@@ -3,9 +3,21 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 
-import { ExtensionNameSchema, HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import {
+  ExtensionNameSchema,
+  HandleSchema,
+  PackMemberConstraintMapSchema,
+} from "@agentxm/extension-model/unstable/extensions";
+import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { McpServerExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
+import type {
+  LocalPackRef,
+  RegistryPackRef,
+  SourceInheritedPackMemberRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
+import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
 import type { RuleExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/rule";
 import type { SkillExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
@@ -16,7 +28,7 @@ import {
   InstallSelectionInteraction,
   InstallSelectionUnavailable,
 } from "@agentxm/workspace-kernel/operations";
-import { selectInstallRefs } from "./selection.js";
+import { selectAcrossSourceTypes, selectInstallRefs } from "./selection.js";
 
 const localRef = (value: string) => {
   const name = Schema.decodeUnknownSync(ExtensionNameSchema)(value);
@@ -48,6 +60,48 @@ const mcpServer = (value: string): McpServerExtensionRef => {
   const base = localRef(value);
   return { ...base, type: "mcp-server", server: { name: base.name } };
 };
+
+const pack = (
+  value: string,
+  dependencies: Readonly<Record<string, string>>,
+  sourceMembers: ReadonlyArray<SourceInheritedPackMemberRef>,
+): LocalPackRef => {
+  const base = localRef(value);
+  return {
+    ...base,
+    type: "pack",
+    version: Schema.decodeUnknownSync(VersionSchema)("1.0.0"),
+    pack: {
+      name: base.name,
+      description: `The ${value} pack`,
+      dependencies: Schema.decodeUnknownSync(PackMemberConstraintMapSchema)(dependencies),
+    },
+    sourceMembers,
+  };
+};
+const registrySource = {
+  type: "registry" as const,
+  name: "example",
+  location: new URL("https://registry.example/"),
+  owner: Option.none(),
+};
+/** A release a Registry resolved, which has no place in a source tree. */
+const registryRef = (value: string) => ({
+  refType: "registry" as const,
+  source: registrySource,
+  owner: Schema.decodeUnknownSync(HandleSchema)("@publisher"),
+  name: Schema.decodeUnknownSync(ExtensionNameSchema)(value),
+  version: Schema.decodeUnknownSync(VersionSchema)("1.0.0"),
+  integrity: Option.none(),
+  publisherBindingId: "hbnd_fixture",
+  packages: [],
+});
+/** A package the source installed from another publisher, kept under its install root. */
+const acquired = <Ref extends ExtensionRef>(ref: Ref, plural: string): Ref => ({
+  ...ref,
+  sourceRelativePath: `agent_extensions/registry.example/@publisher/${plural}/${ref.name}`,
+  heldBySource: true,
+});
 
 const first = rule("safe-shell");
 const second = rule("commit-style");
@@ -286,12 +340,14 @@ describe("install source selection", () => {
                 name: "inspect-patch",
                 description: Option.some("Reads a patch"),
                 group: Option.none(),
+                brings: [],
               },
               {
                 type: "skill",
                 name: "draft-release",
                 description: Option.none(),
                 group: Option.none(),
+                brings: [],
               },
             ]);
             return Effect.succeed([candidates[1]].filter((value) => value !== undefined));
@@ -389,6 +445,274 @@ describe("install source selection", () => {
         Effect.flip,
       );
       expect(failure).toBe(interactionFailure);
+    }),
+  );
+
+  it.effect("neither --all nor the question takes what the source acquired, but a name does", () =>
+    Effect.gen(function* () {
+      const own = skill("inspect-patch", Option.none());
+      const held = acquired(skill("audit-skill", Option.none()), "skills");
+      const all = yield* selectInstallRefs([own, held], {
+        type: "skill",
+        selectors: [],
+        all: true,
+        nonInteractive: true,
+      }).pipe(neverPrompts("--all selection must not prompt"));
+      expect(all).toEqual([own]);
+
+      const asked = yield* selectInstallRefs([own, held], {
+        type: "skill",
+        selectors: [],
+        all: false,
+        nonInteractive: false,
+      }).pipe(
+        Effect.provideService(InstallSelectionInteraction, {
+          select: (candidates) => {
+            expect(candidates.map(({ name }) => name)).toEqual(["inspect-patch"]);
+            return Effect.succeed(candidates);
+          },
+        }),
+      );
+      expect(asked).toEqual([own]);
+
+      const named = yield* selectInstallRefs([own, held], {
+        type: "skill",
+        selectors: ["audit-skill"],
+        ...unattended,
+      }).pipe(neverPrompts("A named extension must not prompt"));
+      expect(named).toEqual([held]);
+    }),
+  );
+
+  it.effect("refuses --all for a type the source only holds from other publishers", () =>
+    Effect.gen(function* () {
+      const failure = yield* selectInstallRefs(
+        [acquired(skill("audit-skill", Option.none()), "skills")],
+        { type: "skill", selectors: [], all: true, nonInteractive: true },
+      ).pipe(neverPrompts("--all selection must not prompt"), Effect.flip);
+      expect(failure).toBeInstanceOf(ExtensionLifecycleFailed);
+      expect(failure).toMatchObject({
+        category: "not_found",
+        detail:
+          "The source offers no skills of its own; it holds audit-skill from other publishers",
+        recover: "Name one with --skill to install this source's copy",
+      });
+    }),
+  );
+
+  describe("across every type a source offers", () => {
+    const review = skill("review", Option.some("Reviews a change"));
+    const lint = skill("lint", Option.none());
+    const style = rule("style");
+    const held = acquired(skill("audit-skill", Option.none()), "skills");
+    const kit = pack(
+      "kit",
+      { "@publisher/skills/review": "^1.0.0", "@publisher/skills/audit-skill": "^1.0.0" },
+      [review, lint, held],
+    );
+    const everything: ReadonlyArray<ExtensionRef> = [review, lint, held, style, kit];
+
+    it.effect("asks once, Packs first, naming what each Pack brings", () =>
+      Effect.gen(function* () {
+        let asked = 0;
+        const takes = yield* selectAcrossSourceTypes(everything, { all: false }).pipe(
+          Effect.provideService(InstallSelectionInteraction, {
+            select: (candidates) => {
+              asked += 1;
+              expect(candidates.map(({ type, name }) => `${type}:${name}`)).toEqual([
+                "pack:kit",
+                "skill:review",
+                "skill:lint",
+                "rule:style",
+              ]);
+              expect(candidates[0]).toMatchObject({
+                description: Option.some("The kit pack"),
+                brings: [
+                  { type: "skill", name: "review" },
+                  { type: "skill", name: "audit-skill" },
+                ],
+              });
+              return Effect.succeed(
+                candidates.filter(({ name }) => name === "kit" || name === "style"),
+              );
+            },
+          }),
+        );
+        expect(asked).toBe(1);
+        expect(everything.filter(takes)).toEqual([style, kit]);
+      }),
+    );
+
+    it.effect("--all takes every Pack and every extension no Pack brings", () =>
+      Effect.gen(function* () {
+        const takes = yield* selectAcrossSourceTypes(everything, { all: true }).pipe(
+          neverPrompts("--all selection must not prompt"),
+        );
+        expect(everything.filter(takes)).toEqual([lint, style, kit]);
+      }),
+    );
+
+    it.effect("takes nothing from a source that offers nothing of its own", () =>
+      Effect.gen(function* () {
+        const takes = yield* selectAcrossSourceTypes([held], { all: false }).pipe(
+          neverPrompts("Nothing is offered, so nothing is asked"),
+        );
+        expect([held].filter(takes)).toEqual([]);
+      }),
+    );
+  });
+
+  it.effect("says what each type's manifest says it is for", () =>
+    Effect.gen(function* () {
+      const server: McpServerExtensionRef = {
+        ...mcpServer("files"),
+        server: { name: mcpServer("files").name, description: "Reads files" },
+      };
+      const guard: HookExtensionRef = {
+        ...localRef("guard"),
+        type: "hook",
+        hook: { name: localRef("guard").name, description: "Guards the shell" },
+      };
+      const notes: KnowledgeExtensionRef = {
+        ...localRef("notes"),
+        type: "knowledge",
+        knowledge: { name: localRef("notes").name, description: "Team notes" },
+      };
+      const style: RuleExtensionRef = {
+        ...rule("style"),
+        rule: { name: rule("style").name, description: "House style" },
+      };
+      yield* selectAcrossSourceTypes([server, guard, notes, style, first], { all: false }).pipe(
+        Effect.provideService(InstallSelectionInteraction, {
+          select: (candidates) => {
+            expect(candidates.map(({ name, description }) => [name, description])).toEqual([
+              ["files", Option.some("Reads files")],
+              ["guard", Option.some("Guards the shell")],
+              ["notes", Option.some("Team notes")],
+              ["style", Option.some("House style")],
+              ["safe-shell", Option.none()],
+            ]);
+            return Effect.succeed([]);
+          },
+        }),
+      );
+    }),
+  );
+
+  it.effect("reads a skill's folder from a Git source, and none from a Registry release", () =>
+    Effect.gen(function* () {
+      const fromGit = (sourcePath: string): SkillExtensionRef => {
+        const base = localRef(sourcePath.split("/").at(-1) ?? "");
+        return {
+          type: "skill",
+          refType: "git-hosted",
+          source: {
+            type: "git",
+            url: new URL("https://example.com/skills.git"),
+            ref: Option.none(),
+            subPath: Option.none(),
+          },
+          owner: base.owner,
+          name: base.name,
+          location: base.location,
+          gitCommitSha: "0".repeat(40),
+          gitTreeSha: "1".repeat(40),
+          sourcePath,
+          skill: { name: base.name, description: Option.none(), metadata: Option.none() },
+        };
+      };
+      const released = (value: string): SkillExtensionRef => {
+        const base = registryRef(value);
+        return {
+          ...base,
+          type: "skill",
+          skill: { name: base.name, description: Option.none(), metadata: Option.none() },
+        };
+      };
+      const groupsOf = (refs: ReadonlyArray<SkillExtensionRef>) =>
+        Effect.gen(function* () {
+          let groups: ReadonlyArray<Option.Option<string>> = [];
+          yield* selectInstallRefs(refs, {
+            type: "skill",
+            selectors: [],
+            all: false,
+            nonInteractive: false,
+          }).pipe(
+            Effect.provideService(InstallSelectionInteraction, {
+              select: (candidates) => {
+                groups = candidates.map(({ group }) => group);
+                return Effect.succeed([]);
+              },
+            }),
+          );
+          return groups;
+        });
+      expect(
+        yield* groupsOf([fromGit("skills/engineering/tdd"), fromGit("skills/writing/handoff")]),
+      ).toEqual([Option.some("engineering"), Option.some("writing")]);
+      expect(yield* groupsOf([released("tdd"), released("handoff")])).toEqual([
+        Option.none(),
+        Option.none(),
+      ]);
+    }),
+  );
+
+  it.effect("refuses to ask about a type the source only holds from other publishers", () =>
+    Effect.gen(function* () {
+      const failure = yield* selectInstallRefs(
+        [acquired(skill("audit-skill", Option.none()), "skills")],
+        { type: "skill", selectors: [], all: false, nonInteractive: false },
+      ).pipe(neverPrompts("Nothing is offered, so nothing is asked"), Effect.flip);
+      expect(failure).toMatchObject({ category: "not_found" });
+    }),
+  );
+
+  it.effect("names a Pack's members as declared where its source view does not hold them", () =>
+    Effect.gen(function* () {
+      const review = skill("review", Option.none());
+      const [range] = Object.values(
+        Schema.decodeUnknownSync(PackMemberConstraintMapSchema)({
+          "@publisher/skills/review": "^1.0.0",
+        }),
+      );
+      if (range === undefined) throw new Error("Expected one decoded constraint");
+      // A map built past the schema: a key that is no identity, and a Pack.
+      const local: LocalPackRef = {
+        ...pack("kit", {}, [review]),
+        pack: {
+          name: pack("kit", {}, []).name,
+          dependencies: {
+            "@publisher/skills/review": range,
+            "@publisher/skills/elsewhere": range,
+            "not-an-identity": range,
+            "@publisher/packs/other": range,
+          },
+        },
+      };
+      const base = registryRef("released-kit");
+      const released: RegistryPackRef = {
+        ...base,
+        type: "pack",
+        pack: { name: base.name, dependencies: { "@publisher/skills/review": range } },
+      };
+      yield* selectAcrossSourceTypes([review, local, released], { all: false }).pipe(
+        Effect.provideService(InstallSelectionInteraction, {
+          select: (candidates) => {
+            expect(candidates.map(({ name, brings }) => [name, brings])).toEqual([
+              [
+                "kit",
+                [
+                  { type: "skill", name: "review" },
+                  { type: "skill", name: "elsewhere" },
+                ],
+              ],
+              ["released-kit", [{ type: "skill", name: "review" }]],
+              ["review", []],
+            ]);
+            return Effect.succeed([]);
+          },
+        }),
+      );
     }),
   );
 });

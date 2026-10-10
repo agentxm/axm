@@ -19,7 +19,7 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 export { LOCK_FILENAME } from "./constants.js";
 export const RUNTIME_DIRECTORY = AXM_DIR_NAME;
 
-const DEFAULT_AUTHORED_DIRECTORIES = {
+export const DEFAULT_AUTHORED_DIRECTORIES = {
   skill: "skills",
   "mcp-server": "mcps",
   subagent: "subagents",
@@ -209,15 +209,20 @@ const validateExistingAuthoredRoot = (
     }
   });
 
-export const resolveProjectWorkspaceLayout = (
+/**
+ * Where a project keeps the packages it authors, one root per extension type.
+ * Each configured directory is a normalized path inside the project, and no
+ * root may overlap another, the install root, runtime state, or an agent's
+ * projection root. This reads no files, so it holds for a project AXM is only
+ * looking at as well as for the one it is managing.
+ */
+export const resolveAuthoredDirectories = (
+  path: Path.Path,
   projectRoot: AbsolutePath,
-  settings: Settings,
-): Effect.Effect<ProjectWorkspaceLayout, WorkspaceLayoutError, FileSystem.FileSystem | Path.Path> =>
+  configured: (type: ExtensionType) => string,
+): Effect.Effect<ReadonlyMap<ExtensionType, AbsolutePath>, WorkspaceLayoutError> =>
   Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const statePaths = resolveProjectWorkspaceStatePaths(path, projectRoot);
-    const { runtimeDir, acquiredRoot } = statePaths;
+    const { runtimeDir, acquiredRoot } = resolveProjectWorkspaceStatePaths(path, projectRoot);
     const agentRoots = Object.values(AGENT_DESCRIPTORS).flatMap((agent) =>
       agent.rootDir === undefined ? [] : [path.join(projectRoot, agent.rootDir)],
     );
@@ -229,7 +234,7 @@ export const resolveProjectWorkspaceLayout = (
         path,
         projectRoot,
         extensionType,
-        configuredAuthoredDirectory(settings, extensionType),
+        configured(extensionType),
         reservedRoots,
       );
       for (const [otherType, otherRoot] of roots) {
@@ -239,8 +244,25 @@ export const resolveProjectWorkspaceLayout = (
           );
         }
       }
-      yield* validateExistingAuthoredRoot(fs, path, projectRoot, extensionType, root);
       roots.set(extensionType, root);
+    }
+    return roots;
+  });
+
+export const resolveProjectWorkspaceLayout = (
+  projectRoot: AbsolutePath,
+  settings: Settings,
+): Effect.Effect<ProjectWorkspaceLayout, WorkspaceLayoutError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const statePaths = resolveProjectWorkspaceStatePaths(path, projectRoot);
+    const { runtimeDir, acquiredRoot } = statePaths;
+    const roots = yield* resolveAuthoredDirectories(path, projectRoot, (type) =>
+      configuredAuthoredDirectory(settings, type),
+    );
+    for (const [extensionType, root] of roots) {
+      yield* validateExistingAuthoredRoot(fs, path, projectRoot, extensionType, root);
     }
 
     const authoredRoot = (type: ExtensionType): AbsolutePath => {

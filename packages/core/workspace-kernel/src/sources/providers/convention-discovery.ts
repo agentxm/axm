@@ -20,6 +20,7 @@ import { getCommitSha, getTreeSha } from "../git/operations.js";
 import {
   discoverExtensionPackages,
   type DiscoveredExtensionPackage,
+  type SourceStanding,
 } from "../package-discovery.js";
 import type { GitOperationFailed, SourceError } from "../errors.js";
 
@@ -44,6 +45,7 @@ type LocalSourceRefDetails = {
   readonly sourcePath: string;
   readonly sourceRelativePath: string;
   readonly location: string;
+  readonly heldBySource?: true;
 };
 
 type GitSourceRefDetails = {
@@ -53,6 +55,7 @@ type GitSourceRefDetails = {
   readonly location: string;
   readonly gitTreeSha: string;
   readonly gitCommitSha: string;
+  readonly heldBySource?: true;
 };
 
 // Git metadata probes stay serial because they spawn subprocesses and no
@@ -95,10 +98,12 @@ const sourceRefDetails = (
   basePath: string,
   directory: string,
   packageDirectory: string,
+  standing: SourceStanding,
 ) =>
   Effect.gen(function* () {
     const sourcePath = yield* relativeDir(basePath, directory);
     const location = toFileLocation(directory);
+    const held = standing === "held" ? { heldBySource: true as const } : {};
     switch (source.type) {
       case "local":
         return {
@@ -107,6 +112,7 @@ const sourceRefDetails = (
           sourcePath,
           sourceRelativePath: sourcePath.split((yield* Path.Path).sep).join("/") || ".",
           location,
+          ...held,
         } satisfies LocalSourceRefDetails;
       case "git":
         return {
@@ -116,6 +122,7 @@ const sourceRefDetails = (
           location,
           gitTreeSha: yield* gitTreeShaFor(basePath, packageDirectory),
           gitCommitSha: yield* getCommitSha(basePath),
+          ...held,
         } satisfies GitSourceRefDetails;
     }
   });
@@ -142,6 +149,7 @@ const refForCandidate = (
       basePath,
       candidate.directory,
       packageDirectory,
+      candidate.standing,
     );
     if (candidate.kind === "plugin-mcp") {
       const packagePath =
@@ -243,7 +251,10 @@ const refForCandidate = (
           ...details,
           owner: identity.owner,
           name: identity.name,
-          server: { name: identity.name },
+          server: {
+            name: identity.name,
+            ...(manifest.description === undefined ? {} : { description: manifest.description }),
+          },
         } satisfies McpServerExtensionRef);
       case "subagent":
         return Option.some<ExtensionRef>({
@@ -262,7 +273,10 @@ const refForCandidate = (
           ...details,
           owner: identity.owner,
           name: identity.name,
-          rule: { name: identity.name },
+          rule: {
+            name: identity.name,
+            ...(manifest.description === undefined ? {} : { description: manifest.description }),
+          },
         } satisfies RuleExtensionRef);
       case "hook":
         return Option.some<ExtensionRef>({
@@ -270,7 +284,10 @@ const refForCandidate = (
           ...details,
           owner: identity.owner,
           name: identity.name,
-          hook: { name: identity.name },
+          hook: {
+            name: identity.name,
+            ...(manifest.description === undefined ? {} : { description: manifest.description }),
+          },
         } satisfies HookExtensionRef);
       case "knowledge":
         return Option.some<ExtensionRef>({
@@ -278,7 +295,10 @@ const refForCandidate = (
           ...details,
           owner: identity.owner,
           name: identity.name,
-          knowledge: { name: identity.name },
+          knowledge: {
+            name: identity.name,
+            ...(manifest.description === undefined ? {} : { description: manifest.description }),
+          },
         } satisfies KnowledgeExtensionRef);
       case "pack":
         return Option.some<ExtensionRef>({
@@ -289,6 +309,7 @@ const refForCandidate = (
           version: manifest.version,
           pack: {
             name: identity.name,
+            ...(manifest.description === undefined ? {} : { description: manifest.description }),
             dependencies: manifest.dependencies,
           },
           sourceMembers: [],

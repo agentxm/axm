@@ -53,21 +53,35 @@ const writeManifest = (root: string, directory: string, fileName: string, manife
   fs.writeFileSync(path.join(packageDirectory, fileName), `${JSON.stringify(manifest, null, 2)}\n`);
 };
 
-const writeEveryManifest = (root: string): void => {
-  writeManifest(root, "skill", "skill.json", {
+/** Where a workspace keeps each of the fixture's packages when it authors them. */
+const AUTHORED_PLACES: Readonly<Record<string, string>> = {
+  skill: "skills/review",
+  mcp: "mcps/browser",
+  subagent: "subagents/researcher",
+  rule: "rules/policy",
+  hook: "hooks/audit",
+  knowledge: "knowledge/handbook",
+  pack: "packs/starter",
+};
+
+const writeEveryManifest = (
+  root: string,
+  place: (directory: string) => string = (directory) => directory,
+): void => {
+  writeManifest(root, place("skill"), "skill.json", {
     owner: "@acme",
     type: "skill",
     name: "review",
     version: "1.0.0",
   });
-  writeManifest(root, "mcp", "mcp.json", {
+  writeManifest(root, place("mcp"), "mcp.json", {
     owner: "@acme",
     type: "mcp-server",
     name: "browser",
     version: "1.0.0",
     server: { name: "io.acme/browser", description: "Browser tools", version: "1.0.0" },
   });
-  writeManifest(root, "subagent", "subagent.json", {
+  writeManifest(root, place("subagent"), "subagent.json", {
     owner: "@acme",
     type: "subagent",
     name: "researcher",
@@ -75,13 +89,13 @@ const writeEveryManifest = (root: string): void => {
     description: "Research supplied evidence",
     core: { instructions: "src/researcher.md" },
   });
-  writeManifest(root, "rule", "rule.json", {
+  writeManifest(root, place("rule"), "rule.json", {
     owner: "@acme",
     type: "rule",
     name: "policy",
     version: "1.0.0",
   });
-  writeManifest(root, "hook", "hook.json", {
+  writeManifest(root, place("hook"), "hook.json", {
     owner: "@acme",
     type: "hook",
     name: "audit",
@@ -100,7 +114,7 @@ const writeEveryManifest = (root: string): void => {
       },
     ],
   });
-  writeManifest(root, "knowledge", "knowledge.json", {
+  writeManifest(root, place("knowledge"), "knowledge.json", {
     owner: "@acme",
     type: "knowledge",
     name: "handbook",
@@ -108,7 +122,7 @@ const writeEveryManifest = (root: string): void => {
     format: { name: "okf", version: "0.2" },
     bundleRoot: "src",
   });
-  writeManifest(root, "pack", "pack.json", {
+  writeManifest(root, place("pack"), "pack.json", {
     owner: "@acme",
     type: "pack",
     name: "starter",
@@ -183,7 +197,7 @@ describe("Git and path manifest discovery", () => {
     Effect.gen(function* () {
       const root = fs.mkdtempSync(path.join(os.tmpdir(), "axm-distribution-opt-out-"));
       roots.push(root);
-      writeEveryManifest(root);
+      writeEveryManifest(root, (directory) => AUTHORED_PLACES[directory] ?? directory);
       fs.writeFileSync(
         path.join(root, "axm.json"),
         `${JSON.stringify({

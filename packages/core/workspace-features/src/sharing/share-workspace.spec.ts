@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/share-prints-live-install-command",
   title: "Share prints live install and package recommendation output without writing",
   statement:
-    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify distributable extensions and existing skills by their source-relative paths, without requiring AXM setup; when an ecosystem is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
+    "Share shall refuse a checkout without an origin remote and otherwise shall report origin availability and print one install command whose typed selectors identify the distributable extensions the checkout offers, and never a package it holds from another publisher, with existing skills named by their source-relative paths, without requiring AXM setup; when an ecosystem is selected, it shall emit that ecosystem's portable agent extension recommendations with their Git source pinned to the sole tag at HEAD, without writing workspace state.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -30,7 +30,10 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The examples read real workspace files, inspect a real Git remote, and use the production repository finder while comparing the checkout before and after the query.",
   methods: ["example", "snapshot"],
-  derivedFrom: ["extension-discovery/all-manifest-kinds-from-git-and-path"],
+  derivedFrom: [
+    "extension-discovery/all-manifest-kinds-from-git-and-path",
+    "extension-discovery/workspace-sources-offer-their-authored-roots",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -77,9 +80,11 @@ const makeWorkspace = (withOrigin: boolean) => {
     path.join(root, "axm-lock.yaml"),
     JSON.stringify({ lockfileVersion: 11, packages: {}, skills: {} }),
   );
-  writeSkill(root, "extensions/shared", "shared");
-  writeSkill(root, "extensions/private", "private");
-  writeSkill(root, "extensions/undeclared", "undeclared");
+  writeSkill(root, "skills/shared", "shared");
+  writeSkill(root, "skills/private", "private");
+  writeSkill(root, "skills/undeclared", "undeclared");
+  // A copy the workspace installed from another publisher is not its own to share.
+  writeSkill(root, "agent_extensions/registry.example/@other/skills/held", "held");
   git(root, ["init", "--quiet", "--initial-branch=main"]);
   git(root, ["config", "user.email", "test@example.com"]);
   git(root, ["config", "user.name", "Test"]);
@@ -112,18 +117,22 @@ describe("Share workspace", () => {
         type: "*",
       }).pipe(Effect.provide(NodeServices.layer));
 
+      expect(discovered.map((candidate) => candidate.standing)).toContain("held");
       expect(result.extensions).toEqual(
-        discovered.map((candidate) => ({
-          type: candidate.kind === "manifest" ? candidate.identity.type : "skill",
-          name: candidate.kind === "manifest" ? candidate.identity.name : candidate.name,
-          selector:
-            candidate.kind === "manifest"
-              ? candidate.identity.name
-              : candidate.sourcePath === "."
-                ? candidate.name
-                : candidate.sourcePath,
-        })),
+        discovered
+          .filter((candidate) => candidate.standing === "offered")
+          .map((candidate) => ({
+            type: candidate.kind === "manifest" ? candidate.identity.type : "skill",
+            name: candidate.kind === "manifest" ? candidate.identity.name : candidate.name,
+            selector:
+              candidate.kind === "manifest"
+                ? candidate.identity.name
+                : candidate.sourcePath === "."
+                  ? candidate.name
+                  : candidate.sourcePath,
+          })),
       );
+      expect(result.installCommand).not.toContain("held");
       expect(result).toMatchObject({
         command: "share",
         availability: "available",
@@ -146,7 +155,8 @@ describe("Share workspace", () => {
       roots.push(root);
       fs.rmSync(path.join(root, "axm.json"));
       fs.rmSync(path.join(root, "axm-lock.yaml"));
-      fs.rmSync(path.join(root, "extensions"), { recursive: true });
+      fs.rmSync(path.join(root, "skills"), { recursive: true });
+      fs.rmSync(path.join(root, "agent_extensions"), { recursive: true });
       for (const directory of [".agents/skills/review", "nested/skills/review"]) {
         fs.mkdirSync(path.join(root, directory), { recursive: true });
         fs.writeFileSync(

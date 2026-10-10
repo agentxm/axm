@@ -90,6 +90,23 @@ Ordinary repository discovery recognizes root skills, `skills/`,
 It stops below an identified skill so bundled examples and evaluation fixtures
 do not become unintended installable members. Explicit paths remain addressable.
 
+A source root that carries AXM workspace settings has already said where it
+authors. Discovery then reads the packages directly inside that workspace's
+authored type directories, configured or default, and nothing else beneath the
+root, so the publisher's own workspace and a consumer see the same set. Settings
+that place an authored directory where a workspace could not keep one refuse
+the source rather than fall back to the walk. A root that is itself a package
+keeps that package's layout even when settings sit beside it, and a directory
+named as the source root is classified by its own contents, so an example or a
+fixture stays reachable by its path.
+
+Whatever sits beneath a source root's install root is a copy the source
+acquired from another publisher. Discovery reports those packages as held
+rather than offered, at whatever depth their source address places them. That
+standing travels with each discovered package, so no consumer re-derives it
+from a path: selection and sharing leave held packages out, while naming one,
+or a Pack that depends on it, still reaches it.
+
 An explicitly selected package uses its declared format:
 
 - Agent Plugins 1.0 discovers immediate `skills/` children and root `mcp.json`.

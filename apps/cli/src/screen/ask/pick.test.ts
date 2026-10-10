@@ -89,6 +89,19 @@ const skills = pickAsk({
   ],
 });
 
+/** A source's pack beside the two skills it brings and one it does not. */
+const bundled = pickAsk({
+  question: "Select extensions to install",
+  noun: { one: "extension", other: "extensions" },
+  verb: "install",
+  options: [
+    { title: "kit", value: "kit", group: "Packs", brings: [1, 2] },
+    { title: "review", value: "review", group: "Skills" },
+    { title: "lint", value: "lint", group: "Skills" },
+    { title: "notes", value: "notes", group: "Skills" },
+  ],
+});
+
 const key = (name: string, options?: { readonly ctrl?: boolean }): AskKey => ({
   name,
   ...(name.length === 1 && options?.ctrl !== true ? { char: name } : {}),
@@ -242,6 +255,14 @@ describe("reducePick", () => {
     expect(picked(stateAfter(toolkit, [all]))).toEqual([0, 1, 2, 3, 4, 5]);
     expect(picked(stateAfter(toolkit, [all, all]))).toEqual([]);
     expect(picked(stateAfter(toolkit, [...typed("plan"), all]))).toEqual([0, 1, 5]);
+  });
+
+  it("takes with ctrl+a only what no other option showing brings", () => {
+    const all = key("a", { ctrl: true });
+    expect(picked(stateAfter(bundled, [all]))).toEqual([0, 3]);
+    expect(picked(stateAfter(bundled, [all, all]))).toEqual([]);
+    // With its bringer filtered away, a brought option is taken in its own right.
+    expect(picked(stateAfter(bundled, [...typed("lint"), all]))).toEqual([2]);
   });
 
   it("narrows the list as text is typed and moves the caret to the first match", () => {
@@ -496,6 +517,31 @@ describe("pickDoc", () => {
     expect(paint(install, stateAfter(install, [space, key("down"), space])).at(-1)).toBe(
       "2 of 3 selected · ↑↓ move · space toggle · ^a all · enter install 2",
     );
+  });
+
+  it("marks what a picked option brings as partly picked, and counts it apart", () => {
+    // The caret opens on the Packs header; one step down is the pack itself.
+    const withPack = stateAfter(bundled, [key("down"), space]);
+    expect(paint(bundled, withPack, 100)).toEqual([
+      " ?   Select extensions to install  type to filter",
+      "   ◉ Packs                         1 of 1",
+      " ❯ ◉   kit",
+      "   ◯ Skills                        0 of 3",
+      "   ◪   review",
+      "   ◪   lint",
+      "   ◯   notes",
+      "1 of 4 selected · 2 included · ↑↓ move · ←→ fold · space toggle · ^a all · enter install 3",
+    ]);
+    // Picking a brought option takes it in its own right as well.
+    const both = stateAfter(bundled, [key("down"), space, key("down"), key("down"), space]);
+    expect(picked(both)).toEqual([0, 1]);
+    expect(paint(bundled, both, 100).at(-1)).toBe(
+      "2 of 4 selected · 1 included · ↑↓ move · ←→ fold · space toggle · ^a all · enter install 3",
+    );
+    expect(pickKind(bundled).reduce(both, key("return"))).toMatchObject({
+      _tag: "Submit",
+      value: ["kit", "review"],
+    });
   });
 
   it("names a refusal beneath the hint", () => {

@@ -36,7 +36,7 @@ export const helpCommand = commandHelpDoc({
       aliases: [],
       type: "boolean",
       required: false,
-      description: "Install every matching extension without prompting",
+      description: "Install everything the source offers without prompting",
       default: false,
     },
     {

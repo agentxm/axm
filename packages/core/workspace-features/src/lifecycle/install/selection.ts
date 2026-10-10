@@ -3,9 +3,13 @@
  *
  * The command grammar names selectors by extension type. This module owns the
  * one selection policy every installable type shares: explicit selectors win
- * and must match something, --all accepts the complete set, an unattended
- * request must be explicit, and an interactive request asks through one
- * interaction port.
+ * and must match something, --all accepts what the source offers, an
+ * unattended request must be explicit, and an interactive request asks once
+ * through one interaction port.
+ *
+ * A source offers what it authors. Packages it acquired from other publishers
+ * stay installable by name, and arrive with a Pack that depends on them, but
+ * neither --all nor the question takes them.
  */
 
 import * as Effect from "effect/Effect";
@@ -20,26 +24,46 @@ import { expandGlobs } from "@agentxm/extension-model/unstable/extensions/name-p
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   extensionRefName,
+  sourceHolds,
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  sourceInheritedMembersNamed,
+  type PackRef,
+} from "@agentxm/extension-model/unstable/extensions/refs/pack";
+import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
 
 import {
   InstallSelectionInteraction,
   installRefused,
   type ExtensionLifecycleFailed,
   type InstallSelectionCancelled,
+  type InstallSelectionCandidate,
+  type InstallSelectionMember,
   type InstallSelectionUnavailable,
 } from "@agentxm/workspace-kernel/operations";
 
 export type InstallSelectionFailure =
   ExtensionLifecycleFailed | InstallSelectionCancelled | InstallSelectionUnavailable;
 
-const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> =>
-  ref.type === "skill"
-    ? ref.skill.description
-    : ref.type === "subagent"
-      ? ref.subagent.description
-      : Option.none();
+const extensionRefDescription = (ref: ExtensionRef): Option.Option<string> => {
+  switch (ref.type) {
+    case "skill":
+      return ref.skill.description;
+    case "subagent":
+      return ref.subagent.description;
+    case "mcp-server":
+      return Option.fromUndefinedOr(ref.server.description);
+    case "rule":
+      return Option.fromUndefinedOr(ref.rule.description);
+    case "hook":
+      return Option.fromUndefinedOr(ref.hook.description);
+    case "knowledge":
+      return Option.fromUndefinedOr(ref.knowledge.description);
+    case "pack":
+      return Option.fromUndefinedOr(ref.pack.description);
+  }
+};
 
 /**
  * The folder a source keeps a skill's own folder in. A source that sorts its
@@ -61,17 +85,18 @@ const extensionRefFolder = (ref: ExtensionRef): Option.Option<string> => {
 };
 
 /**
- * The heading each ref is offered under: its folder, when every ref has one
- * and they do not all share it. One heading over everything says nothing.
+ * How to read the heading a ref is offered under: its folder, when every ref
+ * has one and they do not all share it. One heading over everything says
+ * nothing.
  */
-const extensionRefGroups = (
+const extensionRefGrouping = (
   refs: ReadonlyArray<ExtensionRef>,
-): ReadonlyArray<Option.Option<string>> => {
+): ((ref: ExtensionRef) => Option.Option<string>) => {
   const folders = refs.map(extensionRefFolder);
   const distinct = new Set(folders.flatMap((folder) => Option.toArray(folder)));
   return folders.every(Option.isSome) && distinct.size > 1
-    ? folders
-    : refs.map(() => Option.none());
+    ? extensionRefFolder
+    : () => Option.none();
 };
 
 /** The flag that names one of this type's extensions on an install command. */
@@ -131,7 +156,15 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
       return selected;
     }
 
-    if (request.all) return refs;
+    const offered = refs.filter((ref) => !sourceHolds(ref));
+    if (offered.length === 0 && (request.all || !request.nonInteractive)) {
+      return yield* installRefused({
+        category: "not_found",
+        detail: `The source offers no ${plural} of its own; it holds ${available.join(", ")} from other publishers`,
+        recover: `Name one with ${selectorFlag(request.type)} to install this source's copy`,
+      });
+    }
+    if (request.all) return offered;
     if (request.nonInteractive) {
       return yield* installRefused({
         category: "usage",
@@ -140,15 +173,91 @@ export const selectInstallRefs = <Ref extends ExtensionRef>(
       });
     }
 
+    const selected = yield* askFor(offered);
+    return offered.filter((ref) => isSelected(selected, ref));
+  });
+
+// -----------------------------------------------------------------------------
+// Everything one source offers
+// -----------------------------------------------------------------------------
+
+/**
+ * The extensions one Pack installs with it, as the candidates beside it would
+ * be named. A member the Pack inherits from its own source view is matched by
+ * the rule its resolution uses; any other member is named as it is declared.
+ */
+const packMembers = (pack: PackRef): ReadonlyArray<InstallSelectionMember> =>
+  Object.keys(pack.pack.dependencies).flatMap((fqn) => {
+    const parsed = parseExtensionFqnParts(fqn);
+    if (parsed === undefined || parsed.type === "pack") return [];
+    const inherited =
+      pack.refType === "git-hosted" || pack.refType === "local"
+        ? sourceInheritedMembersNamed(pack, {
+            type: parsed.type,
+            owner: parsed.owner,
+            name: parsed.name,
+          })
+        : [];
+    const [member] = inherited;
+    return [
+      {
+        type: parsed.type,
+        name:
+          inherited.length === 1 && member !== undefined ? extensionRefName(member) : parsed.name,
+      },
+    ];
+  });
+
+const candidatesFor = (
+  refs: ReadonlyArray<ExtensionRef>,
+): ReadonlyArray<InstallSelectionCandidate> => {
+  const groupOf = extensionRefGrouping(refs);
+  return refs.map((ref) => ({
+    type: ref.type,
+    name: extensionRefName(ref),
+    description: extensionRefDescription(ref),
+    group: groupOf(ref),
+    brings: ref.type === "pack" ? packMembers(ref) : [],
+  }));
+};
+
+const isSelected = (selected: ReadonlyArray<InstallSelectionMember>, ref: ExtensionRef): boolean =>
+  selected.some(({ type, name }) => type === ref.type && name === extensionRefName(ref));
+
+const askFor = (refs: ReadonlyArray<ExtensionRef>) =>
+  Effect.gen(function* () {
     const interaction = yield* InstallSelectionInteraction;
-    const groups = extensionRefGroups(refs);
-    const candidates = refs.map((ref, index) => ({
-      type: request.type,
-      name: extensionRefName(ref),
-      description: extensionRefDescription(ref),
-      group: groups[index] ?? Option.none(),
-    }));
-    const selected = yield* interaction.select(candidates);
-    const names = selected.map(({ name }) => name);
-    return refs.filter((ref) => names.includes(extensionRefName(ref)));
+    return yield* interaction.select(candidatesFor(refs));
+  });
+
+/**
+ * Choose among everything a source offers when the request named nothing, and
+ * answer which of its refs the install takes. `--all` takes every Pack and
+ * every extension no Pack brings, so nothing is desired both directly and
+ * through a Pack unless a person chose it twice; otherwise one question
+ * covers every type, Packs first because they are the source's own answer to
+ * what belongs together.
+ */
+export const selectAcrossSourceTypes = (
+  refs: ReadonlyArray<ExtensionRef>,
+  request: Pick<InstallSelectionRequest, "all">,
+): Effect.Effect<
+  (ref: ExtensionRef) => boolean,
+  InstallSelectionCancelled | InstallSelectionUnavailable,
+  InstallSelectionInteraction
+> =>
+  Effect.gen(function* () {
+    const offered = refs.filter((ref) => !sourceHolds(ref));
+    const listed = [
+      ...offered.filter((ref) => ref.type === "pack"),
+      ...offered.filter((ref) => ref.type !== "pack"),
+    ];
+    if (listed.length === 0) return (_ref: ExtensionRef) => false;
+    if (request.all) {
+      const brought = listed.flatMap((ref) => (ref.type === "pack" ? packMembers(ref) : []));
+      return (ref: ExtensionRef) =>
+        offered.includes(ref) && (ref.type === "pack" || !isSelected(brought, ref));
+    }
+    const selected = yield* askFor(listed);
+    return (ref: ExtensionRef) => offered.includes(ref) && isSelected(selected, ref);
   });

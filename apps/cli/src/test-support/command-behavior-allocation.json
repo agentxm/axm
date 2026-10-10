@@ -7125,20 +7125,20 @@
         },
         {
           "parameters": ["flag:skill"],
-          "requirements": ["cli/skills/install/selects-requested-source-skills"],
+          "requirements": ["cli/install/selects-requested-source-extensions"],
           "when": "An installable source is supplied, every supplied --skill value is an existing exact name, and --all is absent.",
           "openTopics": ["install-name-selection"],
           "details": [
-            "Repeatable exact-name selection is owned here; glob grammar, partially or wholly unmatched requests and combination with --all remain unresolved in the owner and shared topic."
+            "Repeatable exact-name selection is owned here, and combination with --all is refused as usage; glob grammar and partially or wholly unmatched requests remain unresolved in the owner and shared topic."
           ]
         },
         {
           "parameters": ["flag:all"],
-          "requirements": ["cli/skills/install/selects-requested-source-skills"],
+          "requirements": ["cli/install/selects-requested-source-extensions"],
           "when": "An installable source is supplied, --all is present, and --skill is absent.",
           "openTopics": ["install-all-selection"],
           "details": [
-            "Explicit all selects every discovered skill without a selection prompt; omission of both selectors and combination with --skill remain unresolved."
+            "Explicit all selects every skill the source offers without a selection prompt, leaving the packages it holds from other publishers; combination with --skill is refused as usage."
           ]
         },
         {

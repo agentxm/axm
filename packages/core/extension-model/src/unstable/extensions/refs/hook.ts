@@ -25,7 +25,11 @@ type HookExtensionRefBase<TRefType, TSource> = ExtensionRefBase<
   Extract<TRefType, "git-hosted" | "registry" | "local" | "workspace">,
   Extract<TSource, GitBasedSource | RegistrySource | LocalSource | WorkspaceSource>
 > & {
-  readonly hook: { readonly name: ExtensionName };
+  readonly hook: {
+    readonly name: ExtensionName;
+    /** What the package's manifest says it is for, where discovery read one. */
+    readonly description?: string;
+  };
   /** Override platform capability degradation for this extension. */
   readonly fallback?: "auto" | "none";
 };

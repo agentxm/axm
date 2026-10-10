@@ -150,6 +150,8 @@ export {
 
 // Layout and paths
 export {
+  DEFAULT_AUTHORED_DIRECTORIES,
+  resolveAuthoredDirectories,
   resolveProjectWorkspaceLayout,
   resolveProjectWorkspaceStatePaths,
   resolveUserWorkspaceLayout,

@@ -28,6 +28,7 @@ const candidate = (name: string): InstallSelectionCandidate => ({
   name,
   description: Option.some(`Description for ${name}`),
   group: Option.none(),
+  brings: [],
 });
 
 const first = candidate("inspect-patch");
@@ -179,6 +180,7 @@ describe("InstallSelectionLive", () => {
           name: "filesystem",
           description: Option.none(),
           group: Option.none(),
+          brings: [],
         },
       ]);
       expect(test.state.script.guards).toEqual([
@@ -188,6 +190,59 @@ describe("InstallSelectionLive", () => {
             "Name the MCP servers with --mcp-server, take them all with --all, or rerun without --json.",
         },
       ]);
+    }).pipe(Effect.provide(test.layer));
+  });
+
+  it.effect("asks once across types, under a heading each, saying what a Pack brings", () => {
+    const test = harness();
+    test.state.script.answers.push({ _tag: "Pick", titles: ["kit"] });
+    const kit: InstallSelectionCandidate = {
+      type: "pack",
+      name: "kit",
+      description: Option.some("Everything for review"),
+      group: Option.none(),
+      brings: [
+        { type: "skill", name: "inspect-patch" },
+        { type: "knowledge", name: "elsewhere" },
+      ],
+    };
+    return Effect.gen(function* () {
+      const interaction = yield* InstallSelectionInteraction;
+      const selected = yield* interaction.select([kit, first, second]);
+
+      expect(selected).toEqual([kit]);
+      expect(test.state.script.guards).toEqual([
+        {
+          message: "Select extensions to install",
+          guidance:
+            "Name the extensions with their per-type flags, take them all with --all, or rerun without --json.",
+        },
+      ]);
+      expect(test.state.script.asks).toHaveLength(1);
+      expect(test.state.script.asks[0]).toMatchObject({
+        _tag: "Pick",
+        min: 1,
+        context: "1 pack, 2 skills",
+        noun: { one: "extension", other: "extensions" },
+        options: [
+          {
+            title: "kit",
+            group: "Packs",
+            // The member the list offers is linked; the one it does not is only named.
+            brings: [1],
+            details: [
+              "brings skill inspect-patch, knowledge bundle elsewhere",
+              "Everything for review",
+            ],
+          },
+          {
+            title: "inspect-patch",
+            group: "Skills",
+            details: ["in pack kit", "Description for inspect-patch"],
+          },
+          { title: "draft-release", group: "Skills", details: ["Description for draft-release"] },
+        ],
+      });
     }).pipe(Effect.provide(test.layer));
   });
 });

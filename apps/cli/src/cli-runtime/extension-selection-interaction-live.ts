@@ -2,9 +2,10 @@
  * Asking a person which of a source's extensions to install.
  *
  * The lifecycle decides that a choice is needed and what the candidates are;
- * this is how the terminal asks for it — a pick that requires at least one
- * answer, and a cancellation the runtime reports as a clean exit rather than
- * a failure.
+ * this is how the terminal asks for it — one pick over everything the source
+ * offers, under a heading for each type where there are several, that requires
+ * at least one answer, and a cancellation the runtime reports as a clean exit
+ * rather than a failure.
  */
 
 import * as Effect from "effect/Effect";
@@ -14,6 +15,7 @@ import * as Option from "effect/Option";
 import {
   extensionTypePluralLabels,
   extensionTypePluralSentenceLabels,
+  extensionTypeSentenceLabels,
   extensionTypeToPlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import {
@@ -53,29 +55,87 @@ const selectionUnavailable = (error: AskFailure) => {
   });
 };
 
-/** One candidate as the list offers it: its name, and what it does when it says. */
-const candidateOption = (
-  candidate: InstallSelectionCandidate,
-): PickOption<InstallSelectionCandidate> => ({
-  title: candidate.name,
-  value: candidate,
-  ...(Option.isSome(candidate.description) ? { details: [candidate.description.value] } : {}),
-  ...(Option.isSome(candidate.group) ? { group: candidate.group.value } : {}),
+const sameCandidate =
+  (member: { readonly type: string; readonly name: string }) =>
+  (candidate: InstallSelectionCandidate): boolean =>
+    candidate.type === member.type && candidate.name === member.name;
+
+/** The types the candidates span, in the order the list reaches them. */
+const typesOf = (candidates: ReadonlyArray<InstallSelectionCandidate>) => [
+  ...new Set(candidates.map(({ type }) => type)),
+];
+
+const typeNoun = (type: InstallSelectionCandidate["type"]) => ({
+  one: extensionTypeSentenceLabels[type],
+  other: extensionTypePluralSentenceLabels[extensionTypeToPlural[type]],
 });
+
+/** What a candidate brings, or what brings it, said as one fact about it. */
+const membership = (
+  candidate: InstallSelectionCandidate,
+  candidates: ReadonlyArray<InstallSelectionCandidate>,
+): ReadonlyArray<string> => {
+  const brought = candidate.brings.map((member) => `${typeNoun(member.type).one} ${member.name}`);
+  const bringers = candidates
+    .filter((other) => other.brings.some((member) => sameCandidate(member)(candidate)))
+    .map((other) => `${typeNoun(other.type).one} ${other.name}`);
+  return [
+    ...(brought.length === 0 ? [] : [`brings ${brought.join(", ")}`]),
+    ...(bringers.length === 0 ? [] : [`in ${bringers.join(", ")}`]),
+  ];
+};
+
+/**
+ * One candidate as the list offers it: its name, what brings it or what it
+ * brings, and what it does when it says. A list spanning several types puts
+ * each type under its own heading; one type keeps the source's own folders.
+ */
+const candidateOption =
+  (candidates: ReadonlyArray<InstallSelectionCandidate>, byType: boolean) =>
+  (candidate: InstallSelectionCandidate): PickOption<InstallSelectionCandidate> => {
+    const details = [
+      ...membership(candidate, candidates),
+      ...Option.toArray(candidate.description),
+    ];
+    const group = byType
+      ? Option.some(extensionTypePluralLabels[extensionTypeToPlural[candidate.type]])
+      : candidate.group;
+    const brings = candidate.brings.flatMap((member) => {
+      const index = candidates.findIndex(sameCandidate(member));
+      return index < 0 ? [] : [index];
+    });
+    return {
+      title: candidate.name,
+      value: candidate,
+      ...(details.length === 0 ? {} : { details }),
+      ...(Option.isSome(group) ? { group: group.value } : {}),
+      ...(brings.length === 0 ? {} : { brings }),
+    };
+  };
 
 /** The headings a note names one by one; past these it only counts them. */
 const NAMED_GROUPS = 4;
 
+const counted = (count: number, noun: { readonly one: string; readonly other: string }): string =>
+  `${String(count)} ${count === 1 ? noun.one : noun.other}`;
+
 /**
- * How many candidates the source offers, and the headings it sorts them
- * under with how many each holds — a list shows only its first screenful, so
- * this is where a person learns what else is in it.
+ * What the source offers, said before anything is asked: how many of each
+ * type, or for one type how many and the headings the source sorts them under
+ * with how many each holds — a list shows only its first screenful, so this is
+ * where a person learns what else is in it.
  */
-const offered = (
-  candidates: ReadonlyArray<InstallSelectionCandidate>,
-  noun: { readonly one: string; readonly other: string },
-): string => {
-  const count = `${String(candidates.length)} ${candidates.length === 1 ? noun.one : noun.other}`;
+const offered = (candidates: ReadonlyArray<InstallSelectionCandidate>): string => {
+  const types = typesOf(candidates);
+  const [only] = types;
+  if (types.length !== 1 || only === undefined) {
+    return types
+      .map((type) =>
+        counted(candidates.filter((candidate) => candidate.type === type).length, typeNoun(type)),
+      )
+      .join(", ");
+  }
+  const count = counted(candidates.length, typeNoun(only));
   const sizes = new Map<string, number>();
   for (const group of candidates.flatMap((candidate) => Option.toArray(candidate.group))) {
     sizes.set(group, (sizes.get(group) ?? 0) + 1);
@@ -88,20 +148,24 @@ const offered = (
 };
 
 /**
- * How the pick names what it offers. The lifecycle offers one type at a time,
- * so the first candidate's type names the whole list and the flag that would
- * have selected from it without a prompt.
+ * How the pick names what it offers: the one type the candidates share, with
+ * the flag that would have selected from it without a prompt, or extensions
+ * of several types, each named by its own flag.
  */
 const selectionSubject = (candidates: ReadonlyArray<InstallSelectionCandidate>) => {
-  const [first] = candidates;
-  if (first === undefined) {
-    return { label: "Extensions", other: "extensions", flag: "their per-type flags" };
+  const types = typesOf(candidates);
+  const [only] = types;
+  if (types.length !== 1 || only === undefined) {
+    return {
+      label: "Extensions",
+      noun: { one: "extension", other: "extensions" },
+      flag: "their per-type flags",
+    };
   }
-  const plural = extensionTypeToPlural[first.type];
   return {
-    label: extensionTypePluralLabels[plural],
-    other: extensionTypePluralSentenceLabels[plural],
-    flag: `--${EXTENSION_TYPE_PRESENTATION[first.type].selectorFlag}`,
+    label: extensionTypePluralLabels[extensionTypeToPlural[only]],
+    noun: typeNoun(only),
+    flag: `--${EXTENSION_TYPE_PRESENTATION[only].selectorFlag}`,
   };
 };
 
@@ -112,22 +176,21 @@ export const InstallSelectionLive = Layer.effect(InstallSelectionInteraction)(
     return {
       select: (candidates: ReadonlyArray<InstallSelectionCandidate>) => {
         const subject = selectionSubject(candidates);
-        const question = `Select ${subject.other} to install`;
-        const noun = { one: subject.other.replace(/s$/, ""), other: subject.other };
+        const question = `Select ${subject.noun.other} to install`;
         return screen
           .ask(
             pickAsk({
               question,
-              context: offered(candidates, noun),
+              context: offered(candidates),
               label: subject.label,
-              noun,
+              noun: subject.noun,
               verb: "install",
               min: 1,
-              options: candidates.map(candidateOption),
+              options: candidates.map(candidateOption(candidates, typesOf(candidates).length > 1)),
             }),
             {
               message: question,
-              guidance: `Name the ${subject.other} with ${subject.flag}, take them all with --all, or rerun without --json.`,
+              guidance: `Name the ${subject.noun.other} with ${subject.flag}, take them all with --all, or rerun without --json.`,
             },
           )
           .pipe(

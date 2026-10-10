@@ -11,14 +11,13 @@ export interface Glyphs {
     readonly unselected: string;
     readonly partial: string;
   };
-  readonly arrows: {
-    readonly up: string;
-    readonly down: string;
-    /** The up and down arrows as a hint names them. */
-    readonly key: string;
-    /** The left and right arrows as a hint names them. */
-    readonly sides: string;
-  };
+  readonly arrows: { readonly up: string; readonly down: string };
+  /**
+   * The keys a hint names by a token rather than as typed, and how the set
+   * draws each: `arrows` for up and down, `sides` for left and right. This is
+   * the one list of those tokens; painters and their checks read it.
+   */
+  readonly hintKeys: Readonly<Record<string, string>>;
   readonly spinner: ReadonlyArray<string>;
   readonly tree: {
     readonly branch: string;
@@ -53,7 +52,8 @@ export const unicodeGlyphs: Glyphs = {
     unselected: "◯",
     partial: "◪",
   },
-  arrows: { up: "↑", down: "↓", key: "↑↓", sides: "←→" },
+  arrows: { up: "↑", down: "↓" },
+  hintKeys: { arrows: "↑↓", sides: "←→" },
   spinner: ["◒", "◓"],
   tree: { branch: "├─ ", last: "└─ ", pipe: "│  ", space: "   " },
   separator: " · ",
@@ -83,9 +83,18 @@ export const asciiGlyphs: Glyphs = {
     unselected: "[ ]",
     partial: "[-]",
   },
-  arrows: { up: "^", down: "v", key: "up/down", sides: "left/right" },
+  arrows: { up: "^", down: "v" },
+  hintKeys: { arrows: "up/down", sides: "left/right" },
   spinner: [".."],
   tree: { branch: "|- ", last: "`- ", pipe: "|  ", space: "   " },
   separator: " - ",
   ellipsis: "...",
 };
+
+/** Whether a hint's key is a token a set draws, rather than a key shown as typed. */
+export const isHintKeyToken = (key: string, glyphs: Glyphs): boolean =>
+  Object.hasOwn(glyphs.hintKeys, key);
+
+/** A hint's key as the set shows it: a token's drawing, or the key as typed. */
+export const hintKeyName = (key: string, glyphs: Glyphs): string =>
+  isHintKeyToken(key, glyphs) ? (glyphs.hintKeys[key] ?? key) : key;

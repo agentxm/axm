@@ -10,8 +10,14 @@ import { displayWidth } from "./width.js";
  * one cell outside an East Asian context, which is what UAX #11 prescribes and
  * what terminals default to, and two cells in a CJK-configured terminal.
  *
- * A glyph missing from this table fails the coverage test below, so a new
- * glyph cannot enter either set without its width class being recorded here.
+ * Where an Ambiguous glyph is drawn two cells wide, a mark is absorbed by its
+ * own gutter, while a glyph inside a line's content pushes the rest of the line
+ * right. `"ambiguous-inline"` records class A for a character the design
+ * accepts that for; plain `"ambiguous"` is accepted in the gutter alone.
+ *
+ * This table is the one place a new glyph is recorded: a glyph missing from it
+ * fails the coverage test below, and an Ambiguous one used inline fails until
+ * its entry says the design accepts it there.
  */
 const eastAsianWidth = {
   "✔": "neutral", // ✔ HEAVY CHECK MARK
@@ -25,17 +31,19 @@ const eastAsianWidth = {
   "▲": "ambiguous", // ▲ BLACK UP-POINTING TRIANGLE
   "●": "ambiguous", // ● BLACK CIRCLE
   "◯": "ambiguous", // ◯ LARGE CIRCLE
-  "·": "ambiguous", // · MIDDLE DOT
-  "├": "ambiguous", // ├ BOX DRAWINGS LIGHT VERTICAL AND RIGHT
-  "─": "ambiguous", // ─ BOX DRAWINGS LIGHT HORIZONTAL
-  "└": "ambiguous", // └ BOX DRAWINGS LIGHT UP AND RIGHT
-  "│": "ambiguous", // │ BOX DRAWINGS LIGHT VERTICAL
-  "←": "ambiguous", // ← LEFTWARDS ARROW
-  "→": "ambiguous", // → RIGHTWARDS ARROW
-  "↑": "ambiguous", // ↑ UPWARDS ARROW
-  "↓": "ambiguous", // ↓ DOWNWARDS ARROW
-  "…": "ambiguous", // … HORIZONTAL ELLIPSIS
-} as const satisfies Readonly<Record<string, "neutral" | "ambiguous">>;
+  "·": "ambiguous-inline", // · MIDDLE DOT
+  "├": "ambiguous-inline", // ├ BOX DRAWINGS LIGHT VERTICAL AND RIGHT
+  "─": "ambiguous-inline", // ─ BOX DRAWINGS LIGHT HORIZONTAL
+  "└": "ambiguous-inline", // └ BOX DRAWINGS LIGHT UP AND RIGHT
+  "│": "ambiguous-inline", // │ BOX DRAWINGS LIGHT VERTICAL
+  "←": "ambiguous-inline", // ← LEFTWARDS ARROW
+  "→": "ambiguous-inline", // → RIGHTWARDS ARROW
+  "↑": "ambiguous-inline", // ↑ UPWARDS ARROW
+  "↓": "ambiguous-inline", // ↓ DOWNWARDS ARROW
+  "…": "ambiguous-inline", // … HORIZONTAL ELLIPSIS
+} as const satisfies Readonly<Record<string, WidthClass>>;
+
+type WidthClass = "neutral" | "ambiguous" | "ambiguous-inline";
 
 const isSevenBit = (glyph: string): boolean => /^[\x20-\x7e]*$/u.test(glyph);
 
@@ -43,10 +51,14 @@ const isSevenBit = (glyph: string): boolean => /^[\x20-\x7e]*$/u.test(glyph);
 const characters = (glyph: string): ReadonlyArray<string> =>
   [...glyph].filter((character) => character !== " ");
 
-const widthClass = (character: string): "neutral" | "ambiguous" | undefined =>
+const recordedWidths: Readonly<Record<string, WidthClass>> = eastAsianWidth;
+
+const widthClass = (character: string): WidthClass | undefined =>
   isSevenBit(character)
     ? "neutral"
-    : (eastAsianWidth as Readonly<Record<string, "neutral" | "ambiguous">>)[character];
+    : Object.hasOwn(recordedWidths, character)
+      ? recordedWidths[character]
+      : undefined;
 
 /** The marks a set paints in the gutter, where a wider render shifts only its own row. */
 const gutterMarks = (glyphs: Glyphs): ReadonlyArray<string> => [
@@ -61,6 +73,7 @@ const inlineGlyphs = (glyphs: Glyphs): ReadonlyArray<string> => [
   glyphs.separator,
   glyphs.ellipsis,
   ...Object.values(glyphs.arrows),
+  ...Object.values(glyphs.hintKeys),
 ];
 
 const sets = [
@@ -108,15 +121,15 @@ describe("glyph width", () => {
     expect(new Set(unicodeGlyphs.spinner.map(displayWidth)).size).toBe(1);
   });
 
-  it("records every accepted ambiguous-width inline glyph", () => {
-    // Where an Ambiguous glyph is drawn two cells wide, a mark is absorbed by
-    // its own gutter, while an inline glyph pushes the rest of its line right.
-    // These are the inline roles the design accepts that for; a new one has to
-    // be added here deliberately.
-    const ambiguous = inlineGlyphs(unicodeGlyphs).filter((glyph) =>
-      characters(glyph).some((character) => widthClass(character) === "ambiguous"),
-    );
-    expect(ambiguous).toEqual(["├─ ", "└─ ", "│  ", " · ", "…", "↑", "↓", "↑↓", "←→"]);
+  it("paints inline only the ambiguous-width glyphs the design accepts there", () => {
+    for (const glyph of inlineGlyphs(unicodeGlyphs)) {
+      for (const character of characters(glyph)) {
+        expect(
+          widthClass(character),
+          `${character} is Ambiguous and painted inside a line: record it as "ambiguous-inline" once the design accepts that`,
+        ).not.toBe("ambiguous");
+      }
+    }
     for (const glyph of inlineGlyphs(asciiGlyphs)) expect(isSevenBit(glyph), glyph).toBe(true);
   });
 

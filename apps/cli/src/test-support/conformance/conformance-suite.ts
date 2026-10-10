@@ -9,7 +9,7 @@
 import { plain, type Doc, type DocNode, type Text, type TreeItem } from "../../screen/doc.js";
 import { stripTerminalFormatting } from "../../screen/width.js";
 import type { PaintStyle } from "../../screen/paint-text.js";
-import { asciiGlyphs } from "../../screen/glyphs.js";
+import { asciiGlyphs, isHintKeyToken, unicodeGlyphs } from "../../screen/glyphs.js";
 import { displayWidth } from "../../screen/width.js";
 
 export interface Painter {
@@ -74,9 +74,9 @@ const forEachText = (doc: Doc, visit: (value: Text, copyable: boolean) => void):
         pushText(node.filter);
         node.hint?.status.forEach((status) => visit(status, false));
         node.hint?.keys.forEach((key) => {
-          // `arrows` and `sides` are semantic tokens: each painter chooses its
-          // own visible arrow label rather than printing the token itself.
-          if (key.key !== "arrows" && key.key !== "sides") visit(key.key, false);
+          // A token such as `arrows` is semantic: each painter draws it from
+          // its glyph set rather than printing the token itself.
+          if (!isHintKeyToken(key.key, unicodeGlyphs)) visit(key.key, false);
           visit(key.word, false);
         });
         return;

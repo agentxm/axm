@@ -42,10 +42,21 @@
     "sync:registry-spec": {
       "cache": false,
       "inputs": ["{projectRoot}/scripts/sync-registry-spec.ts"],
-      "outputs": ["{projectRoot}/specs/registry-openapi.json"],
+      "outputs": [
+        "{projectRoot}/specs/registry-openapi.json",
+        "{projectRoot}/specs/registry-openapi.sha256"
+      ],
       "executor": "nx:run-commands",
       "options": {
         "command": "bun scripts/sync-registry-spec.ts",
+        "cwd": "packages/supporting/registry-client"
+      }
+    },
+    "check:registry-spec": {
+      "cache": false,
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "bun scripts/sync-registry-spec.ts --check",
         "cwd": "packages/supporting/registry-client"
       }
     },

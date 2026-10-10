@@ -18,3 +18,6 @@ agent_extensions/
 
 # Benchmark reports retain the runner's exact evidence bytes.
 benchmarks/evidence/**/*.json
+
+# The Registry contract snapshot keeps the canonical bytes its recorded digest covers.
+packages/supporting/registry-client/specs/registry-openapi.json

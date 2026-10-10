@@ -49,6 +49,18 @@
       "dependsOn": ["...", "build:diagnostic-sources"],
       "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]
     },
+    "test:screen": {
+      "executor": "nx:run-commands",
+      "cache": false,
+      "dependsOn": ["generate", "build:diagnostic-sources"],
+      "options": {
+        "command": "vitest run --config apps/cli/vitest.screen.config.ts",
+        "cwd": ".",
+        "env": {
+          "NODE_OPTIONS": "--conditions=axm-source"
+        }
+      }
+    },
     "typecheck": {
       "dependsOn": ["...", "build:diagnostic-sources"],
       "inputs": ["...", { "dependentTasksOutputFiles": "**/diagnostic-sources.ts" }]

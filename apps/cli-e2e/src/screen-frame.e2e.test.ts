@@ -1,8 +1,8 @@
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Terminal } from "@xterm/headless";
 import { describe, expect, it } from "vitest";
-import { Keys, ptyIsSupported, runUnderPty, type PtyRunResult } from "./pty.js";
+import { Keys, ptyIsSupported, runUnderPty } from "./pty.js";
+import { replay } from "./pty-replay.js";
 
 const fixturePath = fileURLToPath(new URL("./fixtures/screen-log-frame.mjs", import.meta.url));
 const subject = { runtime: "bun-script", path: fixturePath } as const;
@@ -11,40 +11,6 @@ const env = {
   TERM: "xterm-256color",
   CI: "",
   NO_COLOR: "1",
-};
-const write = (terminal: Terminal, bytes: string) =>
-  new Promise<void>((resolve) => terminal.write(bytes, resolve));
-
-/** Replay the actual PTY bytes, including resize points, into screen and scrollback. */
-const replay = async (result: PtyRunResult, columns: number, rows: number) => {
-  const terminal = new Terminal({
-    cols: columns,
-    rows,
-    scrollback: 10_000,
-    allowProposedApi: true,
-  });
-  try {
-    let consumed = 0;
-    for (const step of result.actions) {
-      if ("resize" in step.action)
-        terminal.resize(step.action.resize.columns, step.action.resize.rows);
-      await write(terminal, step.bytes);
-      consumed += step.bytes.length;
-    }
-    await write(terminal, result.output.slice(consumed));
-    const buffer = terminal.buffer.active;
-    const lines: Array<string> = [];
-    for (let index = 0; index < buffer.length; index += 1) {
-      const line = buffer.getLine(index);
-      if (line === undefined) continue;
-      const text = line.translateToString(true);
-      if (line.isWrapped && lines.length > 0) lines[lines.length - 1] += text;
-      else lines.push(text);
-    }
-    return lines.join("\n");
-  } finally {
-    terminal.dispose();
-  }
 };
 
 const expectHistory = (text: string) => {

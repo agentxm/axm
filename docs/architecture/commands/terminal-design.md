@@ -363,6 +363,14 @@ removed. A design change is reviewed by its snapshot diff.
 pnpm exec nx run cli:gallery -- --name <fixture> --width <columns> --rows <rows>
 ```
 
+`cli:test:screen` runs the screen's own tests, the gallery, and renderer
+conformance from source in a few seconds, for the edit loop of terminal work.
+It waits on no build and writes no receipts; `cli:test` remains the evidence.
+
+```bash
+pnpm exec nx run cli:test:screen
+```
+
 ## Terminal evidence
 
 The gallery paints pure functions, so it reaches every state a scene or prompt
@@ -384,6 +392,18 @@ stays a reviewed expectation of the matrix below rather than an automated one.
 
 ```bash
 pnpm exec nx run cli-e2e:e2e-main
+```
+
+The same harness shows a change while it is being made. `cli-e2e:preview` runs
+the CLI from source under a pseudo-terminal of a given size, replays a step
+script — `await:<text>`, `type:<text>`, `size:<columns>x<rows>`, and keys by
+name such as `down*3` — and prints the replayed screen after the last step, or
+after every step with `--frames`. The run gets an empty home and workspace
+unless they are named. It is a review aid, not evidence: nothing asserts on it.
+
+```bash
+pnpm exec nx run cli-e2e:preview -- --size 100x40 \
+  --steps "await:type to filter,down*2,space" -- skills install <source> --agent claude-code
 ```
 
 ## Supported terminals

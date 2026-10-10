@@ -237,7 +237,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
       status: 400,
       detail: "The service is unavailable.",
       code: "service_unavailable",
-      request_id: "req_mismatch",
+      requestId: "req_mismatch",
     };
     const cause = new Error("generated failure");
 
@@ -286,7 +286,7 @@ describe("registry-client failure conversion (golden pairs)", () => {
           title: "Too Many Requests",
           status: 429,
           detail: "Rate limited",
-          code: "publish/throttled",
+          code: "rate_limited",
           details: { retryable: true, retryAfterSeconds: 60 },
         },
         responseFor(429, { "retry-after": "30" }),

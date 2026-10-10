@@ -616,13 +616,13 @@ export const AuthClientLive = Layer.effect(
           tokenType: decoded.token.type,
           authority: decoded.token.authority,
           permissions: readTokenPermissions(decoded.token.permissions),
-          resourceRestrictions: decoded.token.resource_restrictions ?? null,
-          expiresAt: decoded.token.expires_at,
-          approvedAt: decoded.token.approved_at,
+          resourceRestrictions: decoded.token.resourceRestrictions ?? null,
+          expiresAt: decoded.token.expiresAt,
+          approvedAt: decoded.token.approvedAt,
           trustedPublisher:
-            decoded.token.trusted_publisher === null
+            decoded.token.trustedPublisher === null
               ? null
-              : { name: decoded.token.trusted_publisher.name },
+              : { name: decoded.token.trustedPublisher.name },
         } satisfies MeResponse;
       },
     );
@@ -635,7 +635,7 @@ export const AuthClientLive = Layer.effect(
             payload: {
               name: params.name,
               permissions: params.permissions,
-              expires_in: params.expiresIn,
+              expiresIn: params.expiresIn,
             },
           })
           .pipe(
@@ -649,8 +649,8 @@ export const AuthClientLive = Layer.effect(
           token: decoded.token,
           name: decoded.name,
           permissions: decoded.permissions,
-          createdAt: decoded.created_at,
-          expiresAt: decoded.expires_at,
+          createdAt: decoded.createdAt,
+          expiresAt: decoded.expiresAt,
         } satisfies CreatedTokenResponse;
       },
     );
@@ -677,11 +677,11 @@ export const AuthClientLive = Layer.effect(
             name: token.name,
             type: token.type,
             permissions: token.permissions,
-            createdAt: token.created_at,
-            expiresAt: token.expires_at,
-            lastUsedAt: token.last_used_at,
+            createdAt: token.createdAt,
+            expiresAt: token.expiresAt,
+            lastUsedAt: token.lastUsedAt,
           })),
-          hasMore: decoded.has_more,
+          hasMore: decoded.hasMore,
           cursor: decoded.cursor,
         } satisfies TokenListResponse;
       },

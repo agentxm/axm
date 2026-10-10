@@ -105,7 +105,7 @@ const responseError = (status: number, args?: { retryAfter?: string; bodyDelay?:
     title: "Retry later",
     status,
     detail: "The Registry is temporarily unavailable.",
-    code: "registry/retry-later",
+    code: "service_unavailable",
     details: {
       retryable: true,
       ...(args?.bodyDelay === undefined ? {} : { retryAfterSeconds: args.bodyDelay }),

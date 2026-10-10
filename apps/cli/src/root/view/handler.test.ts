@@ -150,7 +150,7 @@ describe("view handler", () => {
                 name: "code-review",
                 owner: "@test",
                 type: "skill",
-                publisher_binding_id: "hbnd_test",
+                publisherBindingId: "hbnd_test",
                 description: "Review code",
                 visibility: "public",
                 archival: null,

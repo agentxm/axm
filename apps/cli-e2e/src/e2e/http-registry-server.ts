@@ -183,7 +183,7 @@ const PROBLEM_CODE_BY_STATUS: Readonly<Record<number, string>> = {
   401: "unauthorized",
   404: "not_found",
   405: "method_not_allowed",
-  409: "version_exists",
+  409: "publish_publish_conflict",
   500: "internal_error",
 };
 
@@ -479,9 +479,9 @@ export const startHttpRegistry = async (
             name: trustedPublishing.publisherName,
             permissions: { owners: [TEST_OWNER], extensions: [], permission: "publish" },
             authority: "limited",
-            expires_at: "2099-01-01T00:15:00.000Z",
-            approved_at: null,
-            trusted_publisher: {
+            expiresAt: "2099-01-01T00:15:00.000Z",
+            approvedAt: null,
+            trustedPublisher: {
               id: "tpub_01h455vb4pexka56gq5w2r7cpc",
               name: trustedPublishing.publisherName,
             },
@@ -546,9 +546,9 @@ export const startHttpRegistry = async (
             name: null,
             permissions: null,
             authority: "account",
-            expires_at: "2099-01-01T00:00:00.000Z",
-            approved_at: null,
-            trusted_publisher: null,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+            approvedAt: null,
+            trustedPublisher: null,
           },
         });
         return;
@@ -850,9 +850,8 @@ export const startHttpRegistry = async (
           name,
           version,
           integrity,
-          sha256_hex: crypto.createHash("sha256").update(archive).digest("hex"),
-          published_at: published,
-          publish_status: "available",
+          sha256Hex: crypto.createHash("sha256").update(archive).digest("hex"),
+          publishedAt: published,
           visibility:
             existingVisibility === undefined
               ? {
@@ -1080,9 +1079,9 @@ export const startHttpRegistry = async (
           type,
           version: stored.version,
           published: stored.published,
+          publisherBindingId: "hbnd_e2e",
           integrity: stored.integrity,
-          yanked_at: stored.yankedAt,
-          visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
+          yankedAt: stored.yankedAt,
         });
         return;
       }
@@ -1121,7 +1120,7 @@ export const startHttpRegistry = async (
           name,
           owner,
           type,
-          publisher_binding_id: "hbnd_e2e",
+          publisherBindingId: "hbnd_e2e",
           visibility: extensionVisibilities.get(key(owner, plural, name)) ?? "public",
           archival: null,
           deprecation: null,
@@ -1130,7 +1129,7 @@ export const startHttpRegistry = async (
             published: entry.published,
             integrity: entry.integrity,
             ...(entry.dependencies === undefined ? {} : { dependencies: entry.dependencies }),
-            yanked_at: entry.yankedAt,
+            yankedAt: entry.yankedAt,
           })),
         });
         return;

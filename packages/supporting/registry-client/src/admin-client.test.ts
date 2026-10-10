@@ -22,7 +22,7 @@ describe("Registry admin failure mapping", () => {
       status: 503,
       detail: "Try the lifecycle operation again shortly.",
       code: "registry_overloaded",
-      request_id: "req_admin_123",
+      requestId: "req_admin_123",
     };
     const layer = Layer.mergeAll(
       Layer.succeed(

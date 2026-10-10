@@ -30,75 +30,82 @@ class ClientGenerationFailed extends Data.TaggedError("ClientGenerationFailed")<
 }> {}
 
 // Regular files avoid captured-pipe dependencies and keep all subprocess output scoped.
-const result = {
-  stdout: await Effect.runPromise(
-    Effect.scoped(
-      Effect.gen(function* () {
-        const files = yield* FileSystem.FileSystem;
-        const paths = yield* Path.Path;
-        const temporary = yield* files.makeTempDirectoryScoped({ prefix: "axm-openapi-client-" });
-        const stdoutPath = paths.join(temporary, "stdout");
-        const stderrPath = paths.join(temporary, "stderr");
-        const stdout = yield* Effect.acquireRelease(
-          Effect.try({
-            try: () => fs.openSync(stdoutPath, "wx", 0o600),
-            catch: (cause) =>
-              new ClientGenerationFailed({ detail: "Could not open generator output", cause }),
-          }),
-          (fd) =>
-            Effect.try({
-              try: () => fs.closeSync(fd),
-              catch: (cause) =>
-                new ClientGenerationFailed({ detail: "Could not close generator output", cause }),
-            }).pipe(Effect.ignore),
-        );
-        const stderr = yield* Effect.acquireRelease(
-          Effect.try({
-            try: () => fs.openSync(stderrPath, "wx", 0o600),
-            catch: (cause) =>
-              new ClientGenerationFailed({ detail: "Could not open generator errors", cause }),
-          }),
-          (fd) =>
-            Effect.try({
-              try: () => fs.closeSync(fd),
-              catch: (cause) =>
-                new ClientGenerationFailed({ detail: "Could not close generator errors", cause }),
-            }).pipe(Effect.ignore),
-        );
-        const child = yield* Effect.try({
-          try: () =>
-            childProcess.spawnSync(
-              "pnpm",
-              ["exec", "openapigen", "--spec", SPEC_PATH, "--name", CLIENT_NAME],
-              {
-                cwd: CORE_ROOT,
-                stdio: ["ignore", stdout, stderr],
-                timeout: 30_000,
-              },
-            ),
+const result = await Effect.runPromise(
+  Effect.scoped(
+    Effect.gen(function* () {
+      const files = yield* FileSystem.FileSystem;
+      const paths = yield* Path.Path;
+      const temporary = yield* files.makeTempDirectoryScoped({ prefix: "axm-openapi-client-" });
+      const stdoutPath = paths.join(temporary, "stdout");
+      const stderrPath = paths.join(temporary, "stderr");
+      const stdout = yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => fs.openSync(stdoutPath, "wx", 0o600),
           catch: (cause) =>
-            new ClientGenerationFailed({ detail: "Could not run OpenAPI generator", cause }),
+            new ClientGenerationFailed({ detail: "Could not open generator output", cause }),
+        }),
+        (fd) =>
+          Effect.try({
+            try: () => fs.closeSync(fd),
+            catch: (cause) =>
+              new ClientGenerationFailed({ detail: "Could not close generator output", cause }),
+          }).pipe(Effect.ignore),
+      );
+      const stderr = yield* Effect.acquireRelease(
+        Effect.try({
+          try: () => fs.openSync(stderrPath, "wx", 0o600),
+          catch: (cause) =>
+            new ClientGenerationFailed({ detail: "Could not open generator errors", cause }),
+        }),
+        (fd) =>
+          Effect.try({
+            try: () => fs.closeSync(fd),
+            catch: (cause) =>
+              new ClientGenerationFailed({ detail: "Could not close generator errors", cause }),
+          }).pipe(Effect.ignore),
+      );
+      const child = yield* Effect.try({
+        try: () =>
+          childProcess.spawnSync(
+            "pnpm",
+            ["exec", "openapigen", "--spec", SPEC_PATH, "--name", CLIENT_NAME],
+            {
+              cwd: CORE_ROOT,
+              stdio: ["ignore", stdout, stderr],
+              timeout: 30_000,
+            },
+          ),
+        catch: (cause) =>
+          new ClientGenerationFailed({ detail: "Could not run OpenAPI generator", cause }),
+      });
+      const errorBytes = Number((yield* files.stat(stderrPath)).size);
+      if (errorBytes > 16 * 1024 * 1024)
+        return yield* new ClientGenerationFailed({
+          detail: "Generator errors exceed sixteen mebibytes",
         });
-        const errorBytes = Number((yield* files.stat(stderrPath)).size);
-        if (errorBytes > 16 * 1024 * 1024)
-          return yield* new ClientGenerationFailed({
-            detail: "Generator errors exceed sixteen mebibytes",
-          });
-        if (child.error !== undefined || child.status !== 0)
-          return yield* new ClientGenerationFailed({
-            detail: "OpenAPI generator failed",
-            cause: child.error ?? (yield* files.readFileString(stderrPath)),
-          });
-        const size = Number((yield* files.stat(stdoutPath)).size);
-        if (size === 0 || size > 16 * 1024 * 1024)
-          return yield* new ClientGenerationFailed({
-            detail: "Generator output is empty or exceeds sixteen mebibytes",
-          });
-        return yield* files.readFileString(stdoutPath);
-      }),
-    ).pipe(Effect.provide(NodeServices.layer)),
-  ),
-};
+      if (child.error !== undefined || child.status !== 0)
+        return yield* new ClientGenerationFailed({
+          detail: "OpenAPI generator failed",
+          cause: child.error ?? (yield* files.readFileString(stderrPath)),
+        });
+      const size = Number((yield* files.stat(stdoutPath)).size);
+      if (size === 0 || size > 16 * 1024 * 1024)
+        return yield* new ClientGenerationFailed({
+          detail: "Generator output is empty or exceeds sixteen mebibytes",
+        });
+      return {
+        stdout: yield* files.readFileString(stdoutPath),
+        warnings: (yield* files.readFileString(stderrPath)).trim(),
+      };
+    }),
+  ).pipe(Effect.provide(NodeServices.layer)),
+);
+
+// The generator reports schemas it could not represent faithfully on stderr
+// while still succeeding; show them so a contract change cannot hide behind one.
+if (result.warnings.length > 0) {
+  console.warn(`generate-registry-client: OpenAPI generator warnings:\n${result.warnings}`);
+}
 
 const header = `/**
  * @generated by registry-client:generate:registry-client (openapigen)
@@ -128,12 +135,7 @@ const swapDateTimeSchema = (source: string): string => {
   ) {
     console.error(
       "generate-registry-client: IsoDateTimeString anchors not found in generated output; " +
-        "update swapDateTimeSchema for the new generated shape. This post-processor " +
-        "(and patches/@effect__openapi-generator@*.patch) exist while these upstream " +
-        "issues are open: https://github.com/Effect-TS/effect/issues/6368 " +
-        "https://github.com/Effect-TS/effect/issues/6373 " +
-        "https://github.com/Effect-TS/effect/pull/6403 " +
-        "https://github.com/Effect-TS/effect/pull/6404",
+        "update swapDateTimeSchema for the new generated shape.",
     );
     process.exit(1);
   }
@@ -149,51 +151,24 @@ const swapDateTimeSchema = (source: string): string => {
 
 /**
  * The component swap above only covers fields routed through the shared
- * IsoDateTimeString component. Spec fields that inline `format: "date-time"`
- * are emitted as plain string schemas, so map those to the kernel schema as
- * well, and fail loudly on any date-time-formatted string shape this mapping
- * does not recognize.
+ * IsoDateTimeString component. Fail loudly when any other schema still
+ * carries `format: "date-time"`, so it cannot silently decode as a plain
+ * string. The generator emits quoted annotation keys, which the guard accepts
+ * along with unquoted ones.
  */
-const inlineDateTimeStringPatterns: ReadonlyArray<RegExp> = [
-  /Schema\.String\.annotate\(\{\s*format:\s*"date-time"\s*\}\)/g,
-  /Schema\.String\.check\(Schema\.isMinLength\(1,\s*\{\s*format:\s*"date-time"\s*\}\)\)/g,
-];
-
-const mapInlineDateTimeSchemas = (source: string): string => {
-  const mapped = inlineDateTimeStringPatterns.reduce(
-    (current, pattern) => current.replace(pattern, "DateTimeUtcSchema"),
-    source,
-  );
-  if (/format:\s*"date-time"/.test(mapped)) {
+const rejectUnmappedDateTimeSchemas = (source: string): string => {
+  if (/"?format"?\s*:\s*"date-time"/.test(source)) {
     console.error(
-      "generate-registry-client: unrecognized date-time schema shape in generated output; " +
-        "extend inlineDateTimeStringPatterns so the field maps to DateTimeUtcSchema.",
+      "generate-registry-client: a date-time schema outside the IsoDateTimeString component " +
+        "remains in generated output; route it through IsoDateTimeString in the contract or " +
+        "map it to DateTimeUtcSchema here.",
     );
     process.exit(1);
   }
-  return mapped;
+  return source;
 };
 
-/**
- * The SSE decoder supplies an explicit `id: undefined` when a frame has no
- * id. JSON Schema optional properties currently render as `optionalKey`,
- * which accepts an absent property but rejects that wire value. Narrow this
- * rewrite to SSE event structs so generated clients accept both forms.
- */
-const fixSseOptionalIds = (source: string): string => {
-  const pattern = /"id": Schema\.optionalKey\(Schema\.String\),(?=\s+"event":)/g;
-  const matches = source.match(pattern);
-  if (source.includes("const sseEventRequest") && matches === null) {
-    console.error(
-      "generate-registry-client: SSE optional-id anchor not found; re-evaluate the generated event schema.",
-    );
-    process.exit(1);
-  }
-  return source.replace(pattern, '"id": Schema.optional(Schema.String),');
-};
-
-const source =
-  header + fixSseOptionalIds(mapInlineDateTimeSchemas(swapDateTimeSchema(result.stdout)));
+const source = header + rejectUnmappedDateTimeSchemas(swapDateTimeSchema(result.stdout));
 
 const formatted = await Effect.runPromise(
   Effect.tryPromise({

@@ -67,7 +67,7 @@ describe("Registry management authentication failures", () => {
     const httpClient = HttpClient.make((request) =>
       Effect.sync(() => {
         requests.push({ method: request.method, url: request.url });
-        return HttpClientResponse.fromWeb(request, registryProblem("auth", 401));
+        return HttpClientResponse.fromWeb(request, registryProblem("unauthorized", 401));
       }),
     );
     const world = makePublishWorld({

@@ -68,10 +68,11 @@ describe("Refusals of a trusted publisher's workload token", () => {
   it.effect.each([
     "insufficient_scope",
     "resource_restriction",
-    "publish/insufficient-scope",
-    "publish/resource-restriction",
-    "publish/handle-not-owned",
-    "publish/publish-forbidden",
+    "publish_insufficient_scope",
+    "publish_resource_restriction",
+    "publish_handle_not_owned",
+    "publish_publish_forbidden",
+    "publish_plan_limit_reached",
   ])("%s names the trusted publisher's permissions", (code) =>
     Effect.gen(function* () {
       const github = yield* rendered(code, true);
@@ -80,12 +81,12 @@ describe("Refusals of a trusted publisher's workload token", () => {
 
       // Another credential's refusal keeps the Registry's own recovery.
       const other = yield* rendered(code, false);
-      expect(other.step).not.toContainEqual(TRUSTED_PUBLISHER_RECOVERY);
-      expect(other.command).not.toContainEqual(TRUSTED_PUBLISHER_RECOVERY);
+      expect(other.step ?? []).not.toContainEqual(TRUSTED_PUBLISHER_RECOVERY);
+      expect(other.command ?? []).not.toContainEqual(TRUSTED_PUBLISHER_RECOVERY);
     }),
   );
 
-  it.effect.each(["publish/quota-exceeded", "credential_not_admitted", "identity_suspended"])(
+  it.effect.each(["publish_quota_exceeded", "credential_not_admitted", "identity_suspended"])(
     "%s keeps the Registry's own recovery",
     (code) =>
       Effect.gen(function* () {

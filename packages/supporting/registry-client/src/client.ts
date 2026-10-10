@@ -162,7 +162,6 @@ export interface ExactExtensionVersion {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly integrity: string;
-  readonly status: "available";
 }
 
 // -----------------------------------------------------------------------------
@@ -282,7 +281,6 @@ export interface PublishExtensionResponse {
   readonly name: ExtensionName;
   readonly version: Version;
   readonly integrity: string;
-  readonly status: "pending" | "available" | "failed";
   readonly visibility: PublishVisibility;
   readonly links?: ExtensionLinks;
   readonly warnings: ReadonlyArray<RegistryPublishWarning>;

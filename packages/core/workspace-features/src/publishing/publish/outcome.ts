@@ -102,7 +102,7 @@ export const interruptedPublishResults = (
         action: "error",
         phase: "upload_execution",
         reason:
-          publishFailureProblemCode(failure) === "publish/precondition-changed"
+          publishFailureProblemCode(failure) === "publish_precondition_changed"
             ? "publish_precondition_changed"
             : "upload_failed",
         status: "failed",

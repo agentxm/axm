@@ -240,7 +240,7 @@ export const publishedSkillIndex = (index: PublishedSkillIndex): unknown => ({
   type: "skill",
   name: "review",
   description: "Review guidance",
-  publisher_binding_id: "hbnd_inspection_fixture",
+  publisherBindingId: "hbnd_inspection_fixture",
   visibility: "public",
   archival: index.archival ?? null,
   deprecation: index.deprecation ?? null,

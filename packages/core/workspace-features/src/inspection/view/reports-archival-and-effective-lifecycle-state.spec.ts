@@ -40,7 +40,7 @@ describe("Extension archival details", () => {
         owner: "@acme",
         type: "skill",
         name: "review",
-        publisher_binding_id: "hbnd_read_fixture",
+        publisherBindingId: "hbnd_read_fixture",
         visibility: "public",
         archival: {
           archivedAt: "2026-09-19T00:00:00.000Z",

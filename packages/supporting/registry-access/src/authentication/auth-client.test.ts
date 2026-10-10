@@ -17,6 +17,8 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { expect } from "vitest";
 
@@ -29,6 +31,7 @@ import {
   pollOnce,
 } from "./auth-client.js";
 import {
+  GeneratedRegistryClient,
   isRegistryClientFailure,
   RegistryUrl,
   type RegistryClientFailure,
@@ -106,12 +109,13 @@ const internalErrorResponse = {
 
 /** Build an RFC 9457 DecodeErrorResponse-compatible JSON error body. */
 const makeDecodeError = (code: string, status: number) => ({
-  kind: "DecodeErrorResponse",
   type: "urn:ietf:params:problem:decode-error",
   title: "Decode Error",
   status,
   detail: `Decode error: ${code}`,
   code,
+  requestId: "req_decode_error",
+  errors: [],
 });
 
 /** Build a valid AuthGetMe200-compatible JSON response body. */
@@ -127,9 +131,9 @@ const makeMeResponse = (token?: Readonly<Record<string, unknown>>) => ({
     name: null,
     permissions: null,
     authority: "account",
-    expires_at: new Date(Date.now() + 3600 * 1000).toISOString(),
-    approved_at: new Date(Date.now() - 60 * 1000).toISOString(),
-    trusted_publisher: null,
+    expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
+    approvedAt: new Date(Date.now() - 60 * 1000).toISOString(),
+    trustedPublisher: null,
     ...token,
   },
 });
@@ -1009,8 +1013,8 @@ describe("AuthClient.getMe", () => {
             makeMeResponse({
               type: "oidc",
               authority: "limited",
-              approved_at: null,
-              trusted_publisher: { id: "tpub_01h455vb4pexka56gq5w2r7cpc", name: "release" },
+              approvedAt: null,
+              trustedPublisher: { id: "tpub_01h455vb4pexka56gq5w2r7cpc", name: "release" },
             }),
           ),
           { status: 200, headers: { "content-type": "application/json" } },
@@ -1094,6 +1098,79 @@ describe("AuthClient.getMe", () => {
       const client = yield* AuthClient;
       const error = asRegistryFailure(yield* client.getMe("axm_ses_bad").pipe(Effect.flip));
       expect(error.category).toBe("network");
+    }).pipe(Effect.provide(layer));
+  });
+});
+
+describe("AuthClient tokens on the wire", () => {
+  const permissions = { permission: "publish", owners: ["@alice"], extensions: [] } as const;
+
+  it.effect("creates a token with a body the contract accepts strictly", () => {
+    const sent: Array<unknown> = [];
+    const layer = makeTestLayer((request) => {
+      if (request.body._tag === "Uint8Array") {
+        sent.push(JSON.parse(new TextDecoder().decode(request.body.body)));
+      }
+      return Response.json(
+        {
+          id: "tok_01h455vb4pexka56gq5w2r7cpc",
+          token: "axm_pat_created",
+          name: "ci",
+          permissions,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          expiresAt: "2026-02-01T00:00:00.000Z",
+        },
+        { status: 201 },
+      );
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const created = yield* client.createToken({ name: "ci", expiresIn: 86_400, permissions });
+
+      expect(sent).toEqual([{ name: "ci", permissions, expiresIn: 86_400 }]);
+      expect(() =>
+        Schema.decodeUnknownSync(GeneratedRegistryClient.TokensCreateRequestJson)(sent[0], {
+          onExcessProperty: "error",
+        }),
+      ).not.toThrow();
+      expect(created.token).toBe("axm_pat_created");
+      expect(DateTime.formatIso(created.createdAt)).toBe("2026-01-01T00:00:00.000Z");
+      expect(DateTime.formatIso(created.expiresAt)).toBe("2026-02-01T00:00:00.000Z");
+    }).pipe(Effect.provide(layer));
+  });
+
+  it.effect("lists tokens by cursor and reads the camelCase page", () => {
+    const queries: Array<Record<string, string>> = [];
+    const layer = makeTestLayer((request) => {
+      const url = Option.getOrThrow(HttpClientRequest.toUrl(request));
+      queries.push(Object.fromEntries(url.searchParams));
+      return Response.json({
+        tokens: [
+          {
+            id: "tok_01h455vb4pexka56gq5w2r7cpc",
+            name: "ci",
+            type: "pat",
+            permissions,
+            createdAt: "2026-01-01T00:00:00.000Z",
+            expiresAt: "2026-02-01T00:00:00.000Z",
+            lastUsedAt: null,
+          },
+        ],
+        cursor: "next-page",
+        hasMore: true,
+      });
+    });
+
+    return Effect.gen(function* () {
+      const client = yield* AuthClient;
+      const page = yield* client.listTokens({ limit: 10, cursor: "this-page" });
+
+      expect(queries).toEqual([{ limit: "10", cursor: "this-page" }]);
+      expect(page.hasMore).toBe(true);
+      expect(page.cursor).toBe("next-page");
+      expect(page.tokens.map((token) => token.name)).toEqual(["ci"]);
+      expect(page.tokens[0]?.lastUsedAt).toBeNull();
     }).pipe(Effect.provide(layer));
   });
 });

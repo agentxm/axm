@@ -90,7 +90,7 @@ const indexBody = (file: string): unknown => {
     owner: parsed["owner"],
     type: parsed["type"],
     name: parsed["name"],
-    publisher_binding_id: parsed["publisherBindingId"],
+    publisherBindingId: parsed["publisherBindingId"],
     visibility: "public",
     archival: parsed["archival"],
     deprecation: parsed["deprecation"],
@@ -182,7 +182,7 @@ export const startLifecycleRegistry = async (
             const index = indexBody(indexPath);
             if (!isRecord(index) || !Array.isArray(index["versions"]))
               throw new Error("Invalid fixture index.");
-            const publisherBindingId = index["publisher_binding_id"];
+            const publisherBindingId = index["publisherBindingId"];
             if (
               item.expectedPublisherBinding !== undefined &&
               item.expectedPublisherBinding !== publisherBindingId
@@ -292,9 +292,9 @@ export const startLifecycleRegistry = async (
               type: plural === "skills" ? "skill" : "pack",
               version,
               published: selected["published"],
+              publisherBindingId: index["publisherBindingId"],
               integrity: selected["integrity"],
-              yanked_at: selected["yanked_at"],
-              visibility: "public",
+              yankedAt: selected["yankedAt"],
             }),
             "application/json",
           );

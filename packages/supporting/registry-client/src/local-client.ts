@@ -816,7 +816,6 @@ export const createLocalRegistryClient = (
             name: args.name,
             version: args.version,
             integrity: version.integrity,
-            status: "available" as const,
           });
     }),
 
@@ -1030,7 +1029,6 @@ export const createLocalRegistryClient = (
             name: args.name,
             version: args.version,
             integrity: args.metadata.integrity,
-            status: "available",
             visibility: resolvedVisibility,
             warnings: [],
           } as const;

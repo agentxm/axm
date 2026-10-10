@@ -1,5 +1,5 @@
 import * as fs from "node:fs";
-import * as path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
@@ -32,10 +32,7 @@ const getStringArray = (
 };
 
 const expectedCodeForStatus = (status: number, problemCode: string) => {
-  if (
-    status === 403 &&
-    (problemCode === "quota_exceeded" || problemCode === "publish/quota-exceeded")
-  ) {
+  if (status === 403 && problemCode === "publish_quota_exceeded") {
     return "quota";
   }
   return httpStatusToCategory(status);
@@ -55,8 +52,13 @@ const statusForErrorSchema = (schemaName: string): number | undefined => {
     case "NotFoundError":
       return 404;
     case "ConflictError":
+    case "LifecycleBlockedError":
+    case "ExtensionNameHeldError":
       return 409;
+    case "PreconditionFailedError":
+      return 412;
     case "PayloadTooLargeError":
+    case "PublishPreviewBatchTooLargeHttpError":
       return 413;
     case "UnsupportedMediaTypeError":
       return 415;
@@ -82,7 +84,7 @@ describe("registry OpenAPI error code contract", () => {
     Effect.gen(function* () {
       const requests: Array<string> = [];
       const problem = {
-        type: "https://registry.agentxm.ai/problems/service_unavailable",
+        type: "https://registry.agentxm.ai/v1/problems/service_unavailable",
         title: "Service Unavailable",
         status: 503,
         detail: "The Registry is temporarily unavailable.",
@@ -118,7 +120,7 @@ describe("registry OpenAPI error code contract", () => {
   );
 
   it("maps every emitted Problem Details code enum through registry classification", () => {
-    const openApiPath = path.join(process.cwd(), "specs/registry-openapi.json");
+    const openApiPath = fileURLToPath(new URL("../specs/registry-openapi.json", import.meta.url));
     const document: unknown = JSON.parse(fs.readFileSync(openApiPath, "utf8"));
 
     expect(isRecord(document)).toBe(true);

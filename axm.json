@@ -30,5 +30,11 @@
       "source": "workspace",
       "distribute": false
     }
+  },
+  "hooks": {
+    "worktree-session-guard": {
+      "source": "workspace",
+      "enabled": false
+    }
   }
 }

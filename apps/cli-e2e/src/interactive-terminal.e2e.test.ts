@@ -261,7 +261,7 @@ describe.skipIf(!ptyIsSupported)("axm prompts under a pseudo-terminal", () => {
       expect(filtered?.emitted).toContain("Agents  clau");
       expect(result.transcript.split("Select agents to configure")).toHaveLength(2);
       expect(filtered?.emitted).toContain("Claude Code");
-      expect(filtered?.emitted).toMatch(/\d+ of \d+ shown · esc/u);
+      expect(filtered?.emitted).toMatch(/\d+ of \d+ selected.* · \d+ shown/u);
       if (columns >= 80) expect(filtered?.emitted).toContain("esc clears the filter");
 
       // Space toggles the row the cursor sits on.

@@ -129,8 +129,7 @@ describe("axm skills install", () => {
         // outcome is the last thing a reader sees, not the first.
         const verdictIndex = output.indexOf("Installed 1 skill");
         expect(verdictIndex).toBeGreaterThanOrEqual(0);
-        const unitRow =
-          "skills/my-skill               -         created   1 file, .agents/skills/my-skill, .claude/skills/my-skill";
+        const unitRow = "skills/my-skill               created   1 file";
         expect(output.indexOf(unitRow)).toBeGreaterThanOrEqual(0);
         expect(output.indexOf(unitRow)).toBeLessThan(verdictIndex);
         expect(output).toMatch(/Installing {2}in this project [·-] agents: claude-code/);

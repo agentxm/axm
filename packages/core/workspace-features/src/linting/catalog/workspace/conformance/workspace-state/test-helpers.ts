@@ -21,7 +21,6 @@ import { agentsDetectedDeclaredRule } from "../../agents-detected-declared.js";
 import { agentsProjectionsStaleRule } from "../../agents-projections-stale.js";
 import { axmSkillDeclaredRule } from "../../axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "../../axm-skill-compatible.js";
-import { hookOwnershipAmbiguousRule } from "../../hook-ownership-ambiguous.js";
 import { knowledgeStateValidRule } from "../../knowledge-state-valid.js";
 import { managedFileUnownedRule } from "../../managed-file-unowned.js";
 import { installedButNotConfiguredRule } from "../../installed-but-not-configured.js";
@@ -151,7 +150,7 @@ export const agentsProjectionsStaleConformance: WorkspaceRuleConformanceCase = {
 
 const ownershipContext = (
   issues: ReadonlyArray<{
-    readonly kind: "hook-ownership-ambiguous" | "managed-file-unowned";
+    readonly kind: "managed-file-unowned";
     readonly path: string;
     readonly detail: string;
   }>,
@@ -162,26 +161,6 @@ const ownershipContext = (
         ({ ...context, ownership: Effect.succeed(issues) }) satisfies WorkspaceRuleContext,
     ),
   );
-
-export const hookOwnershipAmbiguousConformance: WorkspaceRuleConformanceCase = {
-  rule: hookOwnershipAmbiguousRule,
-  satisfied: () => ownershipContext([]),
-  violated: () =>
-    ownershipContext([
-      {
-        kind: "hook-ownership-ambiguous",
-        path: "/workspace/.claude/settings.json",
-        detail: "Hook command targets agent_extensions/ without x-axm ownership metadata.",
-      },
-    ]),
-  expectedFindings: [
-    {
-      message: "Hook command targets agent_extensions/ without x-axm ownership metadata.",
-      location: { file: ".claude/settings.json" },
-    },
-  ],
-  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
-};
 
 export const managedFileUnownedConformance: WorkspaceRuleConformanceCase = {
   rule: managedFileUnownedRule,

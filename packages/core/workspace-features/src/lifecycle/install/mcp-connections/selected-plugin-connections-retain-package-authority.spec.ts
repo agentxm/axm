@@ -131,10 +131,10 @@ describe("Selected plugin MCP connections", () => {
                   type: "http",
                   url: "https://example.test/sse",
                   headers: { "X-Tenant": "public" },
-                  "x-axm": { source: transport === "local" ? "local" : "git" },
                 },
               },
             });
+            expect(JSON.stringify(native)).not.toContain("x-axm");
             expect(JSON.stringify(native)).not.toContain("future-runtime");
             expect(yield* fs.readFileString(path.join(source, "mcp.json"))).toBe(mcp);
             yield* applyInstall(

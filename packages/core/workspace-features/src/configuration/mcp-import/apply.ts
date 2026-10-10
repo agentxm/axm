@@ -1,7 +1,8 @@
 import { createHash } from "node:crypto";
+import { inspectDesiredMcpServer } from "@agentxm/workspace-kernel/projection";
 /**
  * Inline MCP adoption policy: discover import sources from configured agents'
- * native MCP configs, rewrite adopted entries with AXM management metadata,
+ * native MCP configs, preserve imported native meaning without ownership stamps,
  * remove entries converted into managed packages, and apply an inline import
  * as one validated workspace transaction. Prompting, planning, and rendering
  * stay with the application.
@@ -22,10 +23,7 @@ import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import {
-  AXM_MCP_METADATA_KEY,
-  buildAxmMcpMetadataFromSettingsSource,
   isConfigurableAgentId,
-  isAxmManagedMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
   readNativeMcpValues,
@@ -283,12 +281,9 @@ const adoptNativeMcpEntry = (
       serverName: adoption.name,
       serversPath: adoption.serversPath,
       target: adoption.target,
-      nativeInsertionEligible: false,
+
       adoption: { filePath: adoption.filePath, expectedEntry: adoption.expectedEntry },
-      entry: {
-        ...entry.value,
-        [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource("inline", adoption.name),
-      },
+      entry: entry.value,
     };
     const proposedRaw = yield* validateAgentMcpConfigWrite(write).pipe(
       Effect.mapError(nativeFailureToConfigurationFailed),
@@ -337,7 +332,7 @@ const validateAdoption = (
           serversPath: adoption.serversPath,
           serverName: adoption.name,
         }).pipe(Effect.mapError(readFailureToConfigurationFailed));
-    if (Option.isNone(entry) || !isAxmManagedMcpEntry(entry.value)) {
+    if (Option.isNone(entry)) {
       return yield* new WorkspaceConfigurationFailed({
         category: "validation",
         detail: `Failed to validate adopted MCP server ${adoption.name}`,
@@ -378,7 +373,7 @@ export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandi
         workspaceRoot: location.baseDir,
         scope: location.scope,
         serverName: candidate.name,
-        nativeInsertionEligible: false,
+
         entry: settingsEntry(candidate),
         adoptions: candidate.adoptions,
       }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
@@ -405,10 +400,8 @@ export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandi
           configuredConsumers: write.agentIds,
           potentialReaders: [],
           policyReasons: [],
-          ownership: "owned",
-          proof: candidate.adoptions.some((adoption) => adoption.filePath === write.path)
-            ? "explicit-adoption"
-            : "proven-absence-or-managed-entry",
+          ownership: "declared",
+          proof: "effective-native-declaration",
           state: "updated",
           mechanism: "structured-entry",
           availability: write.agentIds.map((agentId) => ({
@@ -424,7 +417,7 @@ export const prepareMcpImportTargets = (candidates: ReadonlyArray<McpImportCandi
 
 /**
  * Adopt the losslessly importable candidates as inline settings entries and
- * mark their native entries as AXM-managed, in one validated workspace
+ * project their declared native values, in one validated workspace
  * transaction.
  */
 export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) => {
@@ -466,7 +459,7 @@ export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) =>
             workspaceRoot: location.baseDir,
             scope: location.scope,
             serverName: candidate.name,
-            nativeInsertionEligible: false,
+
             entry: settingsEntry(candidate),
           }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
           for (const outcome of outcomes) {
@@ -491,6 +484,20 @@ export const applyMcpImport = (candidates: ReadonlyArray<McpImportCandidate>) =>
                 detail: `Failed to validate imported MCP server ${candidate.name}`,
               });
             }
+            const inspection = yield* inspectDesiredMcpServer({
+              workspaceRoot: location.baseDir,
+              nativeDirectoryInputs: location.nativeDirectoryInputs,
+              scope: location.scope,
+              agentIds,
+              node: { name: candidate.name, authority: "inline", enabled: candidate.enabled },
+              entry: settingsEntry(candidate),
+              canonicalPaths: [],
+            }).pipe(Effect.mapError(nativeFailureToConfigurationFailed));
+            if (!inspection.current)
+              return yield* new WorkspaceConfigurationFailed({
+                category: "validation",
+                detail: `Imported MCP server ${candidate.name} failed native value readback`,
+              });
           }
           yield* Effect.forEach(adoptions, validateAdoption, {
             concurrency: 1,

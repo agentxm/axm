@@ -231,7 +231,8 @@ describe("Windows workspace mutation contract", () => {
           { cwd: workspace.path, env },
         ),
       );
-      expect(fs.existsSync(hermesConfig)).toBe(false);
+      expect(fs.existsSync(hermesConfig)).toBe(true);
+      expect(YAML.parse(fs.readFileSync(hermesConfig, "utf8"))).toEqual({ mcp_servers: {} });
 
       const install = expectSuccess(
         await runCli(

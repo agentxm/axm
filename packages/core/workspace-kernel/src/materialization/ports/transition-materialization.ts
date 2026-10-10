@@ -11,7 +11,11 @@ import type {
 } from "../../workspace-state/index.js";
 import type { ProjectionPlan, AgentOutputAuthority } from "../../projection/index.js";
 
+import type { HookNativeDeclaration } from "../../agent-adapters/index.js";
+
 export interface NativeProjectionOptions {
+  /** Explicit disable/uninstall selection; absence from desired state never supplies this. */
+  readonly hookWithdrawals?: ReadonlyArray<HookNativeDeclaration>;
   readonly priorAuthority?: AgentOutputAuthority;
   readonly nativeInsertionEligibleNames?: ReadonlySet<string>;
   readonly nativeInsertionEligibleAgentIds?: ReadonlySet<string>;
@@ -101,6 +105,8 @@ export interface UninstallMaterialization<TTarget extends ExtensionTarget, TFact
   }) => Effect.Effect<boolean, E, R>;
   readonly materializeUninstall: (args: {
     readonly target: TTarget;
+    /** Loss of a Pack route does not authorize native registration removal. */
+    readonly nativeCleanup?: "selected" | "retain";
   }) => Effect.Effect<TFacts, E, R>;
   /** Restore output from verified retained canonical content without resolving a source. */
   readonly materializeRetained: (args: { readonly target: TTarget }) => Effect.Effect<TFacts, E, R>;

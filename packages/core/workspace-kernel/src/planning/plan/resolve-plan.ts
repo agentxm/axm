@@ -301,7 +301,9 @@ const outcomesFor = (
             writesUnit(unit) && (unit.ownership === "unowned" || unit.ownership === "unverified"),
         );
         const verified = units.filter(
-          (unit) => unit.ownership === "owned" && unit.state === "unchanged",
+          (unit) =>
+            (unit.ownership === "owned" || unit.ownership === "declared") &&
+            unit.state === "unchanged",
         );
         const supportedByOwner =
           verified.length > 0 ||
@@ -310,7 +312,7 @@ const outcomesFor = (
               unit.state === "created" ||
               unit.state === "updated" ||
               ((unit.state === "unchanged" || unit.state === "retained") &&
-                unit.ownership === "owned"),
+                (unit.ownership === "owned" || unit.ownership === "declared")),
           );
         if (planned.outcome !== "projected" && !supportedByOwner && obstruction === undefined)
           return planned;

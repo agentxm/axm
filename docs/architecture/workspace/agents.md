@@ -104,7 +104,9 @@ unmapped events must not silently acquire a command representation.
 - Detection, support, and configuration remain distinct facts.
 - Every managed native output belongs to one configured scope and identifiable
   desired capability.
-- Adding or removing a target preserves unowned native content.
+- Adding or removing a target preserves unrelated native content. Removing
+  membership retains MCP entries and Hook registrations, which may still execute.
+  See [native declaration authority](managed-file-ownership.md#native-declaration-authority).
 - Unsupported realization blocks the affected capability instead of silently
   weakening it.
 - Removing an agent removes only outputs AXM can still prove it owns.

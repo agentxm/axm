@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   requirement: "cli/uninstall/reports-removed-and-retained-state",
   title: "Uninstall reports exact removed and retained state",
   statement:
-    "Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their owned entry or region changes.",
+    "Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their selected entry or owned region changes. Native withdrawal is bounded to configured agents in the selected scope; registrations for departing agents and registrations losing their last Pack route remain and are reported as retained without claiming execution stopped. Canonical deletion shall refuse retained native references to package code until the operator explicitly withdraws those registrations.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -69,7 +69,7 @@ describe("Uninstall effect reporting", () => {
               candidate,
               preapprovedPlanExecution,
             );
-            expect(deriveOperationOutcome(applied)).toBe("applied");
+            expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
             expect(applied.units.flatMap((unit) => unit.artifact?.references ?? [])).toContainEqual(
               expected,
             );
@@ -87,7 +87,7 @@ describe("Uninstall effect reporting", () => {
   );
 
   it.effect(
-    "removes the advertised MCP entry from a formerly configured agent and preserves unowned entries",
+    "retains the MCP entry of a formerly configured agent and reports that execution may remain active",
     () => {
       const world = makeInstallWorld();
       cleanups.push(world.cleanup);
@@ -122,26 +122,29 @@ describe("Uninstall effect reporting", () => {
               previewPlanExecution,
             );
             expect(world.workspace.snapshot()).toEqual(before);
-            expect(preview.units.flatMap((unit) => unit.artifact?.targets ?? [])).toContainEqual(
-              expect.objectContaining({
-                path: ".mcp.json",
-                change: "updated",
-                entryName: "context",
-              }),
+            const retained = {
+              path: ".mcp.json",
+              state: "retained",
+              reason:
+                "Native registration is outside configured agents; execution may remain active.",
+            };
+            expect(preview.units.flatMap((unit) => unit.artifact?.references ?? [])).toContainEqual(
+              retained,
             );
+            expect(
+              preview.units
+                .flatMap((unit) => unit.artifact?.targets ?? [])
+                .some((target) => target.path === ".mcp.json"),
+            ).toBe(false);
             const applied = yield* UninstallExtensions.previewOrApply(
               candidate,
               preapprovedPlanExecution,
             );
-            expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(world.workspace.readFile(".mcp.json")).not.toContain('"context"');
+            expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
+            expect(world.workspace.readFile(".mcp.json")).toContain('"context"');
             expect(world.workspace.readFile(".mcp.json")).toContain('"personal"');
-            expect(applied.units.flatMap((unit) => unit.artifact?.targets ?? [])).toContainEqual(
-              expect.objectContaining({
-                path: ".mcp.json",
-                change: "updated",
-                entryName: "context",
-              }),
+            expect(applied.units.flatMap((unit) => unit.artifact?.references ?? [])).toContainEqual(
+              retained,
             );
           }),
         )
@@ -193,7 +196,7 @@ describe("Uninstall effect reporting", () => {
             candidate,
             preapprovedPlanExecution,
           );
-          expect(deriveOperationOutcome(applied)).toBe("applied");
+          expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
           expect(applied.units.flatMap((unit) => unit.artifact?.references ?? [])).toEqual(
             references,
           );
@@ -252,7 +255,7 @@ describe("Uninstall effect reporting", () => {
                 candidate,
                 preapprovedPlanExecution,
               );
-              expect(deriveOperationOutcome(applied)).toBe("applied");
+              expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
               for (const target of paths)
                 expect(
                   fs.existsSync(

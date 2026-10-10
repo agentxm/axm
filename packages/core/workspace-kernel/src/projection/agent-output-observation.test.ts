@@ -94,7 +94,7 @@ const fixture = (directory = "skills") =>
       desiredAgentIds: new Set<string>(),
       expectedNames,
       expectedHooks: [],
-      expectedMcpEntries: {},
+      declaredMcpNames: new Set<string>(),
       expectedSkillSources: { other: [path.join(layout.authoredRoot("skill"), "other/src")] },
       expectedSubagentFiles: {},
       authoredSkills: { layout, entries: settings.skills ?? {} },
@@ -154,7 +154,7 @@ describe("authored skill exclusion", () => {
           name: "audit",
           ref: "@acme/hooks/audit",
           scope: "user" as const,
-          root: "agent_extensions/registry.agentxm.ai/@acme/hooks/audit",
+          root: path.join(root, "agent_extensions/registry.agentxm.ai/@acme/hooks/audit"),
         };
         yield* write(
           ".claude/settings.json",
@@ -165,7 +165,7 @@ describe("authored skill exclusion", () => {
                   hooks: [
                     {
                       type: "command",
-                      command: "echo audit",
+                      command: `bash '${owner.root}/src/hook.sh'`,
                       "x-axm": {
                         v: 1,
                         managed: true,
@@ -193,7 +193,7 @@ describe("authored skill exclusion", () => {
         expect(hooks).toHaveLength(1);
         expect(hooks[0]).toMatchObject({
           path: `${root}/.claude/settings.json#audit`,
-          ownership: "owned",
+          ownership: "declared",
         });
         expect(hooks[0]?.claimantAgentIds).toContain("claude-code");
         expect(hooks[0]?.claimantAgentIds).toContain("gemini-cli");

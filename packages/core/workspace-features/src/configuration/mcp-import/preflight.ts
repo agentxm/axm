@@ -8,7 +8,6 @@ import type {
   McpEntryDialect,
 } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
-  isAxmManagedMcpEntry,
   normalizeNativeMcpEnvValue,
   renderEnvValue,
   McpConnectionSchema,
@@ -78,8 +77,6 @@ const normalizeServer = (args: {
     _tag: "conflict",
     finding: { name: args.name, reason },
   });
-  if (isAxmManagedMcpEntry(config))
-    return { _tag: "skip", finding: { name: args.name, reason: "Already managed by AXM" } };
   const supported = new Set<string>(["description"]);
   let enabled = true;
   const activations = dialect.activationField.accepted.filter((field) => field !== null);

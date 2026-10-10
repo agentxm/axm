@@ -1007,6 +1007,7 @@ export interface UninstallOperationArgs<
 > extends StepFailureAdapter<F> {
   readonly artifact?: JobStepArtifact;
   readonly target: TTarget;
+  readonly nativeCleanup?: "selected" | "retain";
   /** Aggregate projections owned by the enclosing removal closure. */
   readonly enclosingClosure?: { readonly projections: ReadonlyArray<ExtensionRef["type"]> };
   /**
@@ -1223,7 +1224,10 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
         if (configured) {
           // Configured extensions may still own native agent projections even
           // when they have no canonical managed package on disk.
-          const withdrawn = yield* manager.materializeUninstall({ target: args.target });
+          const withdrawn = yield* manager.materializeUninstall({
+            target: args.target,
+            nativeCleanup: args.nativeCleanup ?? "selected",
+          });
           const unmaterialization = Option.some(withdrawn);
           yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
           yield* retireMaterialization(manager, {
@@ -1252,7 +1256,10 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
       }
 
       const unmaterialization = Option.some(
-        yield* manager.materializeUninstall({ target: args.target }),
+        yield* manager.materializeUninstall({
+          target: args.target,
+          nativeCleanup: args.nativeCleanup ?? "selected",
+        }),
       );
       yield* (yield* SettingsWriter).removeEntry(args.target.type, args.target.name);
       yield* retireMaterialization(manager, {
@@ -1304,7 +1311,15 @@ const runUninstallOperation = <TTarget extends ExtensionTarget, TMaterialization
             }
           }
           const installed = yield* manager.isInstalled({ target: args.target });
-          if (outcome.expectedInstalled !== undefined && installed !== outcome.expectedInstalled) {
+          // Uninstall can retain unselected native MCP entries. Their presence
+          // does not invalidate the selected declaration and canonical retirement.
+          const nativePresenceMayRemain =
+            args.target.type === "mcp-server" && outcome.expectedInstalled === false;
+          if (
+            !nativePresenceMayRemain &&
+            outcome.expectedInstalled !== undefined &&
+            installed !== outcome.expectedInstalled
+          ) {
             return yield* new LifecyclePostconditionViolated({
               postcondition: "uninstall-observed-state",
               targetType: args.target.type,

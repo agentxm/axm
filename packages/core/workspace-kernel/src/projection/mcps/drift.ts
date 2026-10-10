@@ -5,13 +5,12 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { isAxmManagedMcpEntry, type ExpectedAgentEntry } from "../../agent-adapters/index.js";
+import type { ExpectedAgentEntry } from "../../agent-adapters/index.js";
 
 export type DriftReport =
   | { readonly _tag: "absent" }
   | { readonly _tag: "match" }
-  | { readonly _tag: "drift"; readonly fields: ReadonlyArray<string> }
-  | { readonly _tag: "unmanaged" };
+  | { readonly _tag: "drift"; readonly fields: ReadonlyArray<string> };
 
 const normalizeForCompare = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(normalizeForCompare);
@@ -32,7 +31,6 @@ export const diffAgentEntry = (
   actual: Readonly<Record<string, unknown>> | undefined,
 ): DriftReport => {
   if (actual === undefined) return { _tag: "absent" };
-  if (!isAxmManagedMcpEntry(actual)) return { _tag: "unmanaged" };
   if (expected._tag !== "projected") {
     return { _tag: "drift", fields: ["transport"] };
   }

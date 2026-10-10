@@ -1,3 +1,4 @@
+import { nativePackageReferences } from "@agentxm/workspace-kernel/projection";
 import {
   type PackManagerService,
   PackManager,
@@ -263,7 +264,19 @@ export const PackManagerLive = Layer.effect(
         name: target.name,
       });
       const packDir = removableAcceptedCanonicalPath(canonical);
-      if (Option.isSome(packDir)) yield* retireCanonicalDirectory(packDir.value);
+      if (Option.isSome(packDir)) {
+        const retained = yield* nativePackageReferences({
+          workspaceRoot: location.baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          scope: location.scope,
+          packageRoot: packDir.value,
+        });
+        if (retained.length > 0)
+          return yield* new PackDefinitionInvalid({
+            detail: `Cannot remove Pack package while native registrations still reference it at ${retained.join(", ")}. Remove those exact registrations explicitly, then retry uninstall.`,
+          });
+        yield* retireCanonicalDirectory(packDir.value);
+      }
       return noContent;
     });
 

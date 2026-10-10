@@ -39,12 +39,10 @@ import { configuredButNotInstalledRule } from "./workspace/configured-but-not-in
 import { mcpServerNoSecretLiteralRule } from "./workspace/mcps-no-secret-literal.js";
 import { mcpServerTransportExclusivityRule } from "./workspace/mcps-transport-exclusivity.js";
 import { mcpServerAgentDriftRule } from "./workspace/mcps-agent-drift.js";
-import { mcpServerAgentOrphanedRule } from "./workspace/mcps-agent-orphaned.js";
 import { desiredStateReconcilableRule } from "./workspace/desired-state-reconcilable.js";
 import { knowledgeStateValidRule } from "./workspace/knowledge-state-valid.js";
 import { axmSkillDeclaredRule } from "./workspace/axm-skill-declared.js";
 import { axmSkillCompatibleRule } from "./workspace/axm-skill-compatible.js";
-import { hookOwnershipAmbiguousRule } from "./workspace/hook-ownership-ambiguous.js";
 import { managedFileUnownedRule } from "./workspace/managed-file-unowned.js";
 import { installedButNotConfiguredRule } from "./workspace/installed-but-not-configured.js";
 import { deprecatedInstalledRule } from "./workspace/deprecated-installed.js";
@@ -107,7 +105,6 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   instructionsTargetStaleRule,
   projectionOwnershipValidRule,
   projectionContributorsRenderedRule,
-  hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
   deprecatedInstalledRule,
@@ -117,7 +114,6 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   userOutputsHaveSettingsRule,
   agentContentHasSettingsRule,
   mcpServerAgentDriftRule,
-  mcpServerAgentOrphanedRule,
   skillsArtifactsCorrectRule,
 ];
 
@@ -142,7 +138,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   instructionsGitignoreCurrentRule,
   projectionOwnershipValidRule,
   projectionContributorsRenderedRule,
-  hookOwnershipAmbiguousRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
   deprecatedInstalledRule,
@@ -159,7 +154,6 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   mcpServerTransportExclusivityRule,
   mcpServerNoSecretLiteralRule,
   mcpServerAgentDriftRule,
-  mcpServerAgentOrphanedRule,
   skillsLockfileAlignedRule,
   skillsIntegrityValidRule,
   skillsArtifactsCorrectRule,

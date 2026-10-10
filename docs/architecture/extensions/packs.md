@@ -49,8 +49,11 @@ the ordinary canonical content and projections of its members.
 
 Pack disablement is therefore not uninstall. It preserves the Pack as managed
 state and removes only the dependency contribution associated with that Pack
-while it is disabled. Exclusive acquired members become unreachable and are
-retired; remaining direct or enabled-Pack routes preserve their members.
+while it is disabled. Explicit disable captures native selections before
+suspending reachability. Exclusive acquired members become unreachable and are
+retired when safe; remaining direct or enabled-Pack routes preserve their members.
+A member package retained while native registrations referenced its code can be
+retired by a later sync after those registrations have been explicitly withdrawn.
 
 ## Ownership and coexistence
 
@@ -61,7 +64,11 @@ desired. AXM preserves it until an explicit authoring operation removes it.
 Registry, Git, and path Packs retain accepted dependency authority separately
 from physical health. AXM removes proven-unreachable managed state, but
 preserves and reports physical content whose ownership or integrity it cannot
-establish. See [Pack retirement](../decisions/pack-retirement-when-the-package-cannot-be-read.md).
+establish. MCP and Hook member registrations follow
+[native declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority):
+losing their last Pack route does not select them for cleanup, and retained
+executable references can block canonical package deletion.
+See [Pack retirement](../decisions/pack-retirement-when-the-package-cannot-be-read.md).
 
 ## Invariants
 

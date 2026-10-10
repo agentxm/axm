@@ -13,8 +13,6 @@ import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
   retireCopiedDirectory,
-  resolveNativeReadLocation,
-  type NativeDirectoryInputs,
   type NativeLocationOutcome,
 } from "../locations/index.js";
 import type * as Config from "effect/Config";
@@ -29,18 +27,10 @@ import {
   observeAgentOutputs,
   captureAgentOutputAuthority,
   type AgentOutputAuthority,
-  safeReadFileString,
   type AgentOutputInventory,
   type AgentOutputObservation,
 } from "../projection/index.js";
-import {
-  NativeWriteAuthority,
-  readManagedHookGroups,
-  reconcileNativeHookConfig,
-  pruneManagedMcpServersForAgents,
-} from "../agent-adapters/index.js";
-import type { NativeConfigReadLocation } from "@agentxm/extension-model/unstable/agent-capabilities";
-import { AGENTS as CAPABILITY_AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
+import { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
 import { DesiredStateReader, SettingsReader, WorkspaceLocation } from "../workspace-state/index.js";
 import { protectWorkspacePath, recordFootprint, retireWorkspacePath } from "../settlement/index.js";
@@ -142,115 +132,6 @@ const removeOwnedFile = (
     ),
   );
 
-const uniqueContainers = (
-  outputs: ReadonlyArray<AgentOutputObservation>,
-): ReadonlyArray<AgentOutputObservation> =>
-  outputs.filter(
-    (output, index) =>
-      outputs.findIndex(
-        (candidate) =>
-          candidate.extensionType === output.extensionType &&
-          candidate.containerPath === output.containerPath,
-      ) === index,
-  );
-
-const desiredNamesForContainer = (
-  output: AgentOutputObservation,
-  args: ReconcileAgentOutputsArgs,
-): ReadonlySet<string> =>
-  output.claimantAgentIds.some((agentId) => args.desiredAgentIds.has(agentId))
-    ? args.expectedNames[output.extensionType]
-    : new Set(
-        [...args.expectedNames[output.extensionType]].filter(
-          (name) =>
-            args.subjects !== undefined &&
-            !args.subjects.some(
-              (subject) => subject.type === output.extensionType && subject.name === name,
-            ),
-        ),
-      );
-
-const pruneHookContainer = (
-  fs: FileSystem.FileSystem,
-  path: Path.Path,
-  output: AgentOutputObservation,
-  args: ReconcileAgentOutputsArgs & { readonly authority: AgentOutputAuthority },
-  workspaceRoot: string,
-  scope: "project" | "user",
-  ownerRoot: string,
-  inputs: NativeDirectoryInputs,
-): Effect.Effect<
-  ReadonlyArray<NativeLocationOutcome>,
-  WorkspaceSyncCleanupFailure,
-  NativeWriteAuthority | FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const targets = [];
-    const roots = nativeAuthorityRoots(path, { workspaceRoot, scope }, inputs);
-    for (const agent of CAPABILITY_AGENTS) {
-      if (!output.claimantAgentIds.includes(agent.id)) continue;
-      const native = agent.capabilities.hook.native;
-      if (!("locations" in native)) continue;
-      const locations: ReadonlyArray<NativeConfigReadLocation> = native.locations;
-      for (const file of locations) {
-        if (file.scope !== scope || (file.format !== "json" && file.format !== "jsonc")) continue;
-        const settingsKey = file.keyPath?.[0];
-        if (file.keyPath?.length !== 1 || settingsKey === undefined) continue;
-        const declared = resolveNativeReadLocation(
-          path,
-          agent.id,
-          file,
-          { workspaceRoot, scope },
-          inputs,
-        );
-        if (declared === undefined) continue;
-        const alias = declared.path;
-        const { address: resolved } = yield* assertNativeMutationWithinRoots(
-          roots,
-          alias,
-          "content",
-          ownerRoot,
-        ).pipe(
-          Effect.mapError((cause) => cleanupFailure("Cannot resolve hook cleanup location", cause)),
-        );
-        if ((resolved.referentPath ?? resolved.entryPath) === output.containerPath)
-          targets.push({ agentId: agent.id, settingsKey, alias, format: file.format });
-      }
-    }
-    const target = targets[0];
-    if (target === undefined) return [];
-    if (targets.some(({ settingsKey }) => settingsKey !== target.settingsKey))
-      return yield* cleanupFailure(
-        "Shared hooks configuration has incompatible ownership keys",
-        output.containerPath,
-      );
-    const raw = yield* safeReadFileString(fs, output.containerPath);
-    const desired = desiredNamesForContainer(output, args);
-    const ownership = args.authority.expectedHooks;
-    const rendered = yield* readManagedHookGroups(
-      output.containerPath,
-      target.settingsKey,
-      raw,
-      ownership.filter((owner) => desired.has(owner.name)),
-    ).pipe(Effect.mapError((cause) => cleanupFailure("Cannot inspect owned hook entries", cause)));
-    const result = yield* reconcileNativeHookConfig({
-      workspaceRoot,
-      nativeDirectoryInputs: inputs,
-      ownerRoot,
-      scope,
-      path: output.containerPath,
-      aliases: targets.map(({ alias }) => alias),
-      consumers: output.claimantAgentIds.filter((id) => args.desiredAgentIds.has(id)),
-      configuredAgentIds: [...args.desiredAgentIds],
-      settingsKey: target.settingsKey,
-      format: targets.some(({ format }) => format === "json") ? "json" : "jsonc",
-      rendered,
-      ownership,
-      nativeInsertionEligibleNames: new Set(),
-    }).pipe(Effect.mapError((cause) => cleanupFailure("Cannot retire owned hook entries", cause)));
-    return [result.nativeLocation];
-  });
-
 /** Converge all AXM-owned per-agent outputs on desired workspace state. */
 export const reconcileAgentOutputs = (
   args: ReconcileAgentOutputsArgs,
@@ -275,6 +156,7 @@ export const reconcileAgentOutputs = (
       ));
     const authorizedArgs = { ...args, authority };
     const before = yield* inventory(authorizedArgs);
+    const location = yield* WorkspaceLocation;
     const selected = (output: AgentOutputObservation) =>
       args.subjects === undefined ||
       args.subjects.some(
@@ -282,44 +164,48 @@ export const reconcileAgentOutputs = (
           subject.type === output.extensionType &&
           subject.name === (output.extensionName ?? output.entryName),
       );
-    const candidates = before.ownedResidue.filter(selected);
-    // Preserve every unselected entry in shared containers, including other residue.
-    const scopedArgs =
-      args.subjects === undefined
-        ? authorizedArgs
-        : {
-            ...authorizedArgs,
-            expectedNames: {
-              skill: new Set([
-                ...args.expectedNames.skill,
-                ...before.outputs
-                  .filter((output) => output.extensionType === "skill" && !selected(output))
-                  .map((output) => output.extensionName ?? output.entryName),
-              ]),
-              subagent: new Set([
-                ...args.expectedNames.subagent,
-                ...before.outputs
-                  .filter((output) => output.extensionType === "subagent" && !selected(output))
-                  .map((output) => output.extensionName ?? output.entryName),
-              ]),
-              "mcp-server": new Set([
-                ...args.expectedNames["mcp-server"],
-                ...before.outputs
-                  .filter((output) => output.extensionType === "mcp-server" && !selected(output))
-                  .map((output) => output.extensionName ?? output.entryName),
-              ]),
-              hook: new Set([
-                ...args.expectedNames.hook,
-                ...before.outputs
-                  .filter((output) => output.extensionType === "hook" && !selected(output))
-                  .map((output) => output.extensionName ?? output.entryName),
-              ]),
-            },
-          };
-    const preservedPaths = [...new Set(before.unownedFootprints.map(({ path }) => path))].sort();
+    const candidates = before.ownedResidue.filter(
+      (output) =>
+        selected(output) &&
+        output.extensionType !== "mcp-server" &&
+        output.extensionType !== "hook",
+    );
+    const retainedNative = before.outputs.filter(
+      (output) =>
+        selected(output) &&
+        (output.extensionType === "mcp-server" || output.extensionType === "hook"),
+    );
+    const nativeRetentions = retainedNative.flatMap(
+      (output): ReadonlyArray<NativeLocationOutcome> =>
+        output.nativeAddress === undefined
+          ? []
+          : [
+              {
+                scope: location.scope,
+                address: output.nativeAddress,
+                aliases: [output.containerPath],
+                configuredConsumers: output.claimantAgentIds.filter((agentId) =>
+                  args.desiredAgentIds.has(agentId),
+                ),
+                potentialReaders: output.claimantAgentIds.filter(
+                  (agentId) => !args.desiredAgentIds.has(agentId),
+                ),
+                policyReasons: [],
+                ownership: output.ownership,
+                ...(output.proof === undefined ? {} : { proof: output.proof }),
+                state: "retained",
+                mechanism: "structured-entry",
+                availability: [],
+                reason:
+                  "Native registrations remain in place; absence from declarations or agent membership does not authorize cleanup or stop execution.",
+              },
+            ],
+    );
+    const preservedPaths = [
+      ...new Set([...before.unownedFootprints, ...retainedNative].map(({ path }) => path)),
+    ].sort();
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const location = yield* WorkspaceLocation;
     const agents = yield* (yield* CodingAgentRepository).all;
     const observedArtifacts = yield* Effect.forEach(
       ["skill", "subagent"] as const,
@@ -370,53 +256,24 @@ export const reconcileAgentOutputs = (
         cleanupFailure("Cannot observe native artifact reconciliation", cause),
       ),
     );
-    const retainedLocations = observedArtifacts.flat().filter((unit) => unit.state === "retained");
+    const retainedLocations = [
+      ...nativeRetentions,
+      ...observedArtifacts.flat().filter((unit) => unit.state === "retained"),
+    ];
     if (args.dryRun === true) {
       return {
         removedPaths: [...new Set(candidates.map(({ path }) => path))].sort(),
         preservedPaths,
-        nativeLocations: combineNativeLocationOutcomes(observedArtifacts.flat()),
+        nativeLocations: combineNativeLocationOutcomes([
+          ...nativeRetentions,
+          ...observedArtifacts.flat(),
+        ]),
       };
     }
     const nativeLocations: NativeLocationOutcome[] = [...retainedLocations];
     const artifactBefore = observedArtifacts.map((locations) =>
       locations.filter((unit) => unit.state === "removed"),
     );
-    const mcpContainers = uniqueContainers(
-      candidates.filter(({ extensionType }) => extensionType === "mcp-server"),
-    );
-    if (mcpContainers.length > 0) {
-      const outcomes = yield* pruneManagedMcpServersForAgents(
-        [...new Set(mcpContainers.flatMap((output) => output.claimantAgentIds))],
-        {
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          workspaceRoot: location.baseDir,
-          scope: location.scope,
-          declaredServerNames: scopedArgs.expectedNames["mcp-server"],
-          expectedManagedEntries: authority.expectedMcpEntries,
-          configuredConsumerIds: args.desiredAgentIds,
-          containerDesiredNames: new Map(
-            mcpContainers.map((output) => [
-              output.containerPath,
-              desiredNamesForContainer(output, scopedArgs),
-            ]),
-          ),
-        },
-      ).pipe(
-        Effect.mapError((error) =>
-          cleanupFailure("Failed to reconcile managed MCP containers", error),
-        ),
-      );
-      nativeLocations.push(
-        ...outcomes.flatMap((outcome) =>
-          "targets" in outcome
-            ? (outcome.targets ?? []).flatMap((target) =>
-                target.nativeLocation === undefined ? [] : [target.nativeLocation],
-              )
-            : [],
-        ),
-      );
-    }
     for (const output of candidates) {
       if (output.extensionType === "skill" || output.extensionType === "subagent") {
         yield* removeOwnedFile(
@@ -438,23 +295,6 @@ export const reconcileAgentOutputs = (
         ),
       )),
     );
-    for (const output of uniqueContainers(
-      candidates.filter(({ extensionType }) => extensionType === "hook"),
-    )) {
-      nativeLocations.push(
-        ...(yield* pruneHookContainer(
-          fs,
-          path,
-          output,
-          scopedArgs,
-          location.baseDir,
-          location.scope,
-          path.dirname(location.runtimeDir),
-          location.nativeDirectoryInputs,
-        )),
-      );
-    }
-
     const after = yield* inventory(authorizedArgs);
     // Membership changes must verify entries retained for remaining consumers,
     // including read-only additional paths, before publishing the transition.

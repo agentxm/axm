@@ -52,7 +52,7 @@ closure-local, rollback-safe, and truthful about partial convergence.
 ## Non-responsibilities
 
 Sync does not change authored configuration, advance a satisfying accepted
-resolution, publish content, claim unowned native content, or remove
+resolution, publish content, claim file artifacts without ownership evidence, or remove
 workspace-authored inventory merely because it is not desired. It does not
 choose between conflicting explicit choices.
 
@@ -92,8 +92,10 @@ resolution.
 
 ## Output reconciliation
 
-Every projection adapter and workspace-surface writer applies the same family
-of decisions at its smallest independently mutable ownership unit:
+Native MCP and Hook configuration follows
+[native declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority).
+File projection adapters and workspace-surface writers apply the following
+decisions at their smallest independently mutable ownership unit:
 
 | Observed native unit                                | Sync behavior                                         |
 | --------------------------------------------------- | ----------------------------------------------------- |
@@ -115,7 +117,7 @@ unit and observed status without presenting participant identities as the
 proven cause of divergence.
 
 Path, name, matching bytes, or ownership of a surrounding file never prove
-ownership of the unit. AXM does not adopt equivalent native content. Manual
+ownership of a file artifact. AXM does not adopt equivalent file content. Manual
 preservation, relocation, or removal owns recovery from an unowned collision.
 
 ## Semantic mutation closures

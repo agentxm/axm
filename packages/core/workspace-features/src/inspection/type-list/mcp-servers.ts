@@ -89,7 +89,6 @@ export interface McpServerListRow extends TypeListRow {
 /** Any agent that drifted or lost the projection makes the row not simply enabled. */
 const projectionStatus = (inspections: ReadonlyArray<AgentMcpServerInspection>): string => {
   if (inspections.some((inspection) => inspection.status === "drift")) return "drift";
-  if (inspections.some((inspection) => inspection.status === "unmanaged")) return "drift";
   if (inspections.some((inspection) => inspection.status === "absent")) return "missing";
   return "enabled";
 };

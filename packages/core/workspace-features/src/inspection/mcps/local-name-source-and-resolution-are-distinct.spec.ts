@@ -82,13 +82,12 @@ describe("List locally named MCP connections as a machine document", () => {
 
 /**
  * One projected MCP entry exactly as reconciliation leaves it in an agent's
- * own configuration file, management marker included.
+ * own configuration file, with no AXM ownership property.
  */
 const projectedNativeConfig = `${JSON.stringify(
   {
     mcpServers: {
       demo: {
-        "x-axm": { v: 1, managed: true, ext: "@workspace/mcps/demo", source: "inline" },
         type: "stdio",
         command: "node",
         args: ["server.js"],

@@ -1477,7 +1477,7 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a MCP server",
+            "description": "Uninstall a MCP server and explicitly withdraw its selected native registrations",
             "arguments": [
               {
                 "name": "name",
@@ -3816,7 +3816,7 @@
           {
             "name": "uninstall",
             "aliases": [],
-            "description": "Uninstall a hooks package",
+            "description": "Uninstall a hooks package and explicitly withdraw its selected native registrations",
             "arguments": [
               {
                 "name": "name",
@@ -7424,7 +7424,7 @@
           {
             "name": "remove",
             "aliases": [],
-            "description": "Remove coding-agent harnesses and clean up AXM-managed artifacts",
+            "description": "Remove coding-agent membership and owned files; retain native MCP and Hook registrations",
             "arguments": [
               {
                 "name": "id",
@@ -7467,7 +7467,7 @@
               },
               {
                 "command": "axm agents remove cursor --preview",
-                "description": "Preview managed artifact cleanup"
+                "description": "Preview membership, file cleanup, and retained native registrations"
               }
             ],
             "subcommands": []

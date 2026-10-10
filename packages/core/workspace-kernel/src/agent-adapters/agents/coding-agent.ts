@@ -18,7 +18,6 @@ import type * as Path from "effect/Path";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
-import type { AxmMcpMetadata } from "../mcps/entry-semantics.js";
 import type { CodingAgentFailure } from "../errors.js";
 import type { NativeWriteAuthority } from "../native-write-authority.js";
 import type { SubagentRenderInput } from "../subagents/rendering/types.js";
@@ -73,11 +72,11 @@ export interface AddMcpServerArgs {
  */
 export interface RemoveMcpServerArgs {
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly expectedManagedEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
   readonly workspaceRoot: string;
   readonly scope?: WorkspaceScope;
   readonly serverName: string;
   readonly disableOnly?: boolean;
+  readonly dryRun?: boolean;
 }
 
 // ---------------------------------------------------------------------------

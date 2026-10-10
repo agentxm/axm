@@ -80,8 +80,8 @@ The lockfile does not:
 - prove that canonical content or a managed output is currently present;
 - record command history, completion timestamps, or source-free realization;
 - serve as an append-only audit log; or
-- authorize overwrite or removal without the applicable ownership and desired-
-  graph evidence.
+- authorize overwrite or removal without the applicable declaration or scoped
+  ownership authority.
 
 An acquired Pack row records its complete dependency declarations, including
 version ranges and explicit Registry authorities, alongside its manifest version
@@ -96,8 +96,11 @@ workspace-authored content, and bundled content have no artificial external-
 resolution rows.
 
 A package remains retained while any selected binding or desired direct or Pack
-route requires it. Removing one selection retires only its native outputs and
-unused binding. The last consumer releases the package and its accepted metadata.
+route requires it. Explicit uninstall withdraws only the selected native units
+and unused binding. Reachability changes alone retain native MCP and Hook
+registrations. Package deletion refuses while retained native registrations
+reference its code; the caller must explicitly clean those references before
+releasing the last package consumer.
 
 ## Planning and materialization
 

@@ -64,8 +64,11 @@ for each configured agent at install and reconciliation time because the
 workspace knows the target, layout, writer, and accepted capability input.
 Rendered projections are disposable and may be reformatted by workspace tools;
 byte identity is not their ownership test. Disposable describes their role
-relative to canonical content, not permission to replace an unowned native
-unit; the type's ownership evidence still governs mutation.
+relative to canonical content. Effective MCP declarations authorize complete
+named-entry replacement; Hook declarations select parsed command registrations
+below their canonical script roots. Other artifact types retain their scoped
+ownership requirements. [Managed-file ownership](../workspace/managed-file-ownership.md)
+defines these mutation boundaries.
 
 Rendering is deterministic for the same canonical extension content, targeting
 rules, writer version, and accepted capability facts. A capability-catalog

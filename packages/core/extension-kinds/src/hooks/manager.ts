@@ -58,12 +58,13 @@ import {
   evaluateHookAgentOutcome,
   type ProjectionUnitObservation,
   captureAgentOutputAuthority,
+  nativePackageReferences,
   observeProjectionPlans,
 } from "@agentxm/workspace-kernel/projection";
 import {
   reconcileNativeHookConfig,
   renderNativeHookGroup,
-  type HookOwnership,
+  type HookNativeDeclaration,
 } from "@agentxm/workspace-kernel/agent-adapters";
 import {
   AGENTS as CAPABILITY_AGENTS,
@@ -233,11 +234,7 @@ const appendCommandHookBinding = (
   agent: CapabilityAgent,
   writer: HookEntryDialect,
   binding: HookBinding,
-  implementationIds: ReadonlyArray<string>,
   hookName: string,
-  hookRef: string,
-  sourceRoot: string,
-  scope: "project" | "user",
   command: string,
 ): Effect.Effect<void, HookDefinitionInvalid> =>
   Effect.gen(function* () {
@@ -250,17 +247,6 @@ const appendCommandHookBinding = (
       matcher: binding.matcher,
       timeoutMs: binding.handler.timeoutMs,
       name: binding.handler.name ?? `${hookName}:${binding.id}`,
-      metadata: {
-        v: 1,
-        managed: true,
-        unit: `hook:${hookName}`,
-        source: "extension",
-        ref: hookRef,
-        root: sourceRoot,
-        scope,
-        implementationIds,
-        binding: binding.id,
-      },
     });
     groups.push(group);
     hooks[binding.event] = groups;
@@ -572,7 +558,6 @@ export const HookManagerLive = Layer.effect(
     const renderInstalledHookGroups = (
       target: HookWriterTarget,
       contributors: ReadonlyArray<RenderedHookContributor>,
-      physicalReaders: ReadonlyArray<HookWriterTarget>,
     ) =>
       Effect.gen(function* () {
         const hooks: Record<string, unknown> = {};
@@ -589,24 +574,6 @@ export const HookManagerLive = Layer.effect(
             return yield* new HookDefinitionInvalid({
               detail: `Hook ${rendered.name} has no unique compatible implementation for ${target.agent.id}`,
             });
-          // A shared physical entry carries every reader's implementation identity. The
-          // caller still compares each reader's complete native rendering before writing.
-          const implementationIds = new Set<string>();
-          for (const reader of physicalReaders) {
-            if (!isConfigurableAgentId(reader.agent.id))
-              return yield* new HookDefinitionInvalid({
-                detail: `Unsupported Hook protocol ${reader.agent.id}`,
-              });
-            const resolution = resolveHookImplementation(rendered.manifest, reader.agent.id, {
-              scope: location.scope,
-              platform: platform(),
-            });
-            if (resolution.status === "unsupported" || resolution.status === "ambiguous")
-              return yield* new HookDefinitionInvalid({
-                detail: `Hook ${rendered.name} has no unique compatible implementation for ${reader.agent.id}`,
-              });
-            implementationIds.add(resolution.implementation.id);
-          }
           const entry = (yield* settings.entries("hook"))[rendered.name];
           const values = rendered.configuration ?? entry?.configuration;
           const configuration = resolveHookConfiguration(rendered.manifest, values);
@@ -627,11 +594,7 @@ export const HookManagerLive = Layer.effect(
               target.agent,
               target.writer,
               binding,
-              [...implementationIds].sort(),
               rendered.manifest.name,
-              rendered.marker,
-              rendered.root,
-              location.scope,
               command,
             );
           }
@@ -642,8 +605,7 @@ export const HookManagerLive = Layer.effect(
     const reconcileNativeHookTarget = (args: {
       readonly targets: ReadonlyArray<HookWriterTarget>;
       readonly input: ProjectionRenderInput<RenderedHookContributor>;
-      readonly ownership: ReadonlyArray<HookOwnership>;
-      readonly nativeInsertionEligibleNames: ReadonlySet<string>;
+      readonly ownership: ReadonlyArray<HookNativeDeclaration>;
       readonly configuredAgentIds: ReadonlyArray<string>;
       readonly dryRun?: boolean;
     }) =>
@@ -653,17 +615,9 @@ export const HookManagerLive = Layer.effect(
           return yield* new HookDefinitionInvalid({
             detail: "Hook location has no configured reader",
           });
-        const rendered = yield* renderInstalledHookGroups(
-          target,
-          args.input.contributors,
-          args.targets,
-        );
+        const rendered = yield* renderInstalledHookGroups(target, args.input.contributors);
         for (const consumer of args.targets.slice(1)) {
-          const other = yield* renderInstalledHookGroups(
-            consumer,
-            args.input.contributors,
-            args.targets,
-          );
+          const other = yield* renderInstalledHookGroups(consumer, args.input.contributors);
           if (
             consumer.settingsKey !== target.settingsKey ||
             JSON.stringify(rendered) !== JSON.stringify(other)
@@ -688,8 +642,7 @@ export const HookManagerLive = Layer.effect(
           ...(target.writer.serializer === "flat-command-stdin"
             ? { configVersion: 1 as const }
             : {}),
-          ownership: args.ownership,
-          nativeInsertionEligibleNames: args.nativeInsertionEligibleNames,
+          declarations: args.ownership,
           ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
         }).pipe(
           Effect.catchTag("NativeLocationError", (cause) =>
@@ -713,7 +666,7 @@ export const HookManagerLive = Layer.effect(
           unitId: "hook:agent-hook-entries",
           nativeLocations: [outcome.nativeLocation],
           path: path.relative(baseDir, target.configPath),
-          present: outcome.ownedNames.length > 0,
+          present: outcome.declaredNames.length > 0,
           current: !outcome.changed,
           expectedContributors: args.input.contributors
             .filter(({ name }) => outcome.expectedNames.includes(name))
@@ -748,7 +701,19 @@ export const HookManagerLive = Layer.effect(
           },
           locked,
         });
+        const disabledNames = new Set(
+          graph.nodes
+            .filter((node) => node.type === "hook" && !node.enabled)
+            .map((node) => node.name),
+        );
+        const disabledWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
+          ({ name }) => disabledNames.has(name),
+        );
         const contributors = [...retained, ...prospective]
+          .filter(
+            ({ name }) =>
+              !options?.hookWithdrawals?.some((declaration) => declaration.name === name),
+          )
           .map((contributor) => {
             const configuration = options?.hookConfigurations?.get(contributor.name);
             return configuration === undefined ? contributor : { ...contributor, configuration };
@@ -808,26 +773,16 @@ export const HookManagerLive = Layer.effect(
               })),
             ),
           );
-        const acceptedOwnership = (yield* captureAgentOutputAuthority()).expectedHooks;
-        const ownership: ReadonlyArray<HookOwnership> = [
-          ...acceptedOwnership,
-          ...(options?.priorAuthority?.expectedHooks ?? []),
+        const ownership: ReadonlyArray<HookNativeDeclaration> = [
+          ...disabledWithdrawals,
+          ...(options?.hookWithdrawals ?? []),
           ...contributors.map(({ name, marker, root }) => ({
             name,
             ref: marker,
-            root,
+            root: path.resolve(baseDir, root),
             scope: location.scope,
           })),
-        ].filter(
-          (owner, index, owners) =>
-            owners.findIndex(
-              (candidate) =>
-                candidate.name === owner.name &&
-                candidate.ref === owner.ref &&
-                candidate.root === owner.root &&
-                candidate.scope === owner.scope,
-            ) === index,
-        );
+        ];
         const groups = new Map<string, HookWriterTarget[]>();
         for (const target of targets) {
           const group = groups.get(target.configPath) ?? [];
@@ -854,18 +809,7 @@ export const HookManagerLive = Layer.effect(
                 });
               }
             }
-            const newPhysicalRoute =
-              options?.nativeInsertionEligibleAgentIds !== undefined &&
-              group.every(({ agent }) => options.nativeInsertionEligibleAgentIds?.has(agent.id));
-            const nativeArgs = {
-              targets: group,
-              ownership,
-              configuredAgentIds: configuredAgents,
-              nativeInsertionEligibleNames: new Set([
-                ...(options?.nativeInsertionEligibleNames ?? []),
-                ...(newPhysicalRoute ? selected.contributors.map(({ name }) => name) : []),
-              ]),
-            };
+            const nativeArgs = { targets: group, ownership, configuredAgentIds: configuredAgents };
             const plan = yield* planAggregateProjection({
               unitId: "hook:agent-hook-entries",
               targetFile: target.configPath,
@@ -1012,7 +956,6 @@ export const HookManagerLive = Layer.effect(
 
     const projectionPlans: HookManagerService["projectionPlans"] = (options) =>
       makeHookProjectionPlans([], options);
-    const applyHookProjections = projectionPlans().pipe(Effect.flatMap(applyProjectionPlans));
 
     const materializeInstall: HookManagerService["materializeInstall"] = Effect.fn(
       "HookManager.materializeInstall",
@@ -1043,8 +986,7 @@ export const HookManagerLive = Layer.effect(
       } satisfies HookMaterializationFacts;
     });
 
-    // Canonical removal only. The shared operation flow re-renders the hook
-    // units after settings and lock removal, once the target has left the graph.
+    // Explicit lifecycle removal selects native registrations before discarding their package.
     const withdrawn: HookMaterializationFacts = {
       observation: NO_MATERIALIZATION_OBSERVATION,
       treeIntegrity: Option.none(),
@@ -1052,7 +994,13 @@ export const HookManagerLive = Layer.effect(
     };
     const materializeUninstall: HookManagerService["materializeUninstall"] = Effect.fn(
       "HookManager.materializeUninstall",
-    )(function* ({ target }) {
+    )(function* ({ target, nativeCleanup }) {
+      if (nativeCleanup !== "retain") {
+        const hookWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
+          ({ name }) => name === target.name,
+        );
+        yield* projectionPlans({ hookWithdrawals }).pipe(Effect.flatMap(applyProjectionPlans));
+      }
       const canonical = yield* provide(
         acceptedCanonicalObservation({
           type: "hook",
@@ -1061,15 +1009,29 @@ export const HookManagerLive = Layer.effect(
       );
       const packageRoot = removableAcceptedCanonicalPath(canonical);
       if (Option.isSome(packageRoot)) {
+        const retained = yield* nativePackageReferences({
+          workspaceRoot: baseDir,
+          nativeDirectoryInputs: location.nativeDirectoryInputs,
+          scope: location.scope,
+          packageRoot: packageRoot.value,
+        });
+        if (retained.length > 0)
+          return yield* new HookDefinitionInvalid({
+            detail: `Cannot remove Hook package while native registrations still reference it at ${retained.join(", ")}. Remove those exact registrations explicitly, then retry uninstall.`,
+          });
         yield* retireCanonicalDirectory(packageRoot.value);
       }
       return withdrawn;
     });
-    // Deactivation retains canonical content; the caller updates settings
-    // first, so re-rendering the whole unit set drops this hook's entries.
     const materializeDeactivate: HookManagerService["materializeDeactivate"] = Effect.fn(
       "HookManager.materializeDeactivate",
-    )(() => applyHookProjections.pipe(Effect.as(withdrawn)));
+    )(function* ({ target }) {
+      const hookWithdrawals = (yield* captureAgentOutputAuthority()).expectedHooks.filter(
+        ({ name }) => name === target.name,
+      );
+      yield* projectionPlans({ hookWithdrawals }).pipe(Effect.flatMap(applyProjectionPlans));
+      return withdrawn;
+    });
 
     return {
       projectionPlans,

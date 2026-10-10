@@ -39,22 +39,6 @@ export class McpConfigIoFailed extends Data.TaggedError("McpConfigIoFailed")<{
 }> {}
 
 /** The named server entry exists but is not AXM-managed; AXM will not touch it. */
-export class McpEntryUnmanaged extends Data.TaggedError("McpEntryUnmanaged")<{
-  readonly serverName: string;
-  readonly configPath: string;
-}> {}
-
-/** The server's AXM ownership markers cannot be reconciled. */
-export class McpOwnershipMarkerInvalid extends Data.TaggedError("McpOwnershipMarkerInvalid")<{
-  readonly serverName: string;
-  readonly state: "malformed" | "unsupported-version";
-  readonly operation: "modify" | "inspect";
-}> {}
-
-/**
- * An MCP definition, resolution, or install input did not validate. `detail`
- * carries the site's fact sentence verbatim.
- */
 export class McpDefinitionInvalid extends Data.TaggedError("McpDefinitionInvalid")<{
   readonly detail: string;
   readonly cause?: unknown;
@@ -96,8 +80,6 @@ export class WriteBackupRetained extends Data.TaggedError("WriteBackupRetained")
 export type NativeFormatFailure =
   | McpConfigInvalid
   | McpConfigIoFailed
-  | McpEntryUnmanaged
-  | McpOwnershipMarkerInvalid
   | McpDefinitionInvalid
   | McpSharedTargetConflict
   | HookConfigInvalid

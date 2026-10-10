@@ -483,7 +483,7 @@ describe("axm lint handler", () => {
         yield* lint({}).pipe(Effect.exit);
         const reportMessages = printed(rendererState, "stdout");
         expect(reportMessages).toContain("workspace/mcps-agent-drift");
-        expect(reportMessages).toContain("workspace/mcps-agent-orphaned");
+        expect(reportMessages).not.toContain("workspace/mcps-agent-orphaned");
 
         const config = JSON.parse(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8"));
         expect(config.mcpServers.demo.command).toBe("python");

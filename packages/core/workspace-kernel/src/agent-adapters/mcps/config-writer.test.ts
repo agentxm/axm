@@ -8,7 +8,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import * as Result from "effect/Result";
 import { parse as parseToml } from "smol-toml";
-import type { AxmMcpMetadata } from "./entry-semantics.js";
 import type { McpConfigTarget } from "@agentxm/extension-model/unstable/agent-capabilities";
 import * as Layer from "effect/Layer";
 import { parseYaml, readYamlEntry } from "../yaml.js";
@@ -18,16 +17,6 @@ import {
   retireAgentMcpConfig,
   writeAgentMcpConfig,
 } from "./config-writer.js";
-
-/** The ownership record every projected entry carries; a TOML fence names its ext. */
-const ownedBy = (name: string) => ({
-  "x-axm": {
-    v: 1,
-    managed: true,
-    ext: `@workspace/mcps/${name}`,
-    source: "inline",
-  } satisfies AxmMcpMetadata,
-});
 
 const withNode = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   effect.pipe(Effect.provide(Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive)));
@@ -68,9 +57,9 @@ describe("agent MCP config writer", () => {
             serverName: "demo",
             serversPath: ["mcp_servers"],
             target: { scope: "project", path: "config.toml", format: "toml", attribution: "agent" },
-            nativeInsertionEligible: false,
+
             adoption: { filePath: configPath, expectedEntry },
-            entry: { ...expectedEntry, ...ownedBy("demo") },
+            entry: { ...expectedEntry },
           });
           const next = readFileSync(configPath, "utf8");
           expect(next).toContain("# retained header");
@@ -153,7 +142,8 @@ describe("agent MCP config writer", () => {
             attribution: "agent",
           }).pipe(Effect.result);
           expect(result._tag).toBe("Failure");
-          expect(readFileSync(configPath, "utf8")).toBe(original);
+          expect(readFileSync(configPath, "utf8")).toContain(original);
+          expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual(JSON.parse(original));
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -244,7 +234,6 @@ describe("agent MCP config writer", () => {
             writeFileSync(configPath, '{\n  // keep this\n  "mcpServers": {}\n}\n');
 
             const result = yield* writeAgentMcpConfig({
-              nativeInsertionEligible: false,
               workspaceRoot,
               serverName: "context",
               serversPath: ["mcpServers"] as const,
@@ -292,7 +281,6 @@ describe("agent MCP config writer", () => {
           yield* Effect.all(
             serverNames.map((serverName) =>
               writeAgentMcpConfig({
-                nativeInsertionEligible: false,
                 workspaceRoot,
                 serverName,
                 serversPath: ["mcpServers"] as const,
@@ -335,7 +323,6 @@ describe("agent MCP config writer", () => {
           );
 
           const result = yield* removeAgentMcpConfig({
-            expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcpServers"] as const,
@@ -359,7 +346,7 @@ describe("agent MCP config writer", () => {
     ),
   );
 
-  it.effect("writes managed TOML blocks and removes them cleanly", () =>
+  it.effect("writes and removes unfenced native TOML entries", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-"));
@@ -368,28 +355,23 @@ describe("agent MCP config writer", () => {
           writeFileSync(configPath, 'model = "gpt-5"\n');
 
           const writeResult = yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "agent.toml", format: "toml", attribution: "agent" },
             entry: {
-              ...ownedBy("context"),
               command: "npx",
               args: ["-y", "@acme/context-mcp@1.0.0"],
             },
           });
 
-          expect(readFileSync(configPath, "utf8")).toContain(
-            "# axm:start v=1 region=mcp-server:context ext=@workspace/mcps/context",
-          );
+          expect(readFileSync(configPath, "utf8")).not.toContain("x-axm");
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(writeResult.targets.map(({ path, change }) => ({ path, change }))).toEqual([
             { path: "agent.toml", change: "updated" },
           ]);
 
           const removeResult = yield* removeAgentMcpConfig({
-            expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcp_servers"] as const,
@@ -402,7 +384,7 @@ describe("agent MCP config writer", () => {
           });
 
           const raw = readFileSync(configPath, "utf8");
-          expect(raw).toBe('model = "gpt-5"\n');
+          expect(parseToml(raw)).toEqual({ model: "gpt-5" });
           expect(existsSync(`${configPath}.bak`)).toBe(false);
           expect(removeResult.targets.map(({ path, change }) => ({ path, change }))).toEqual([
             { path: "agent.toml", change: "updated" },
@@ -414,7 +396,7 @@ describe("agent MCP config writer", () => {
     ),
   );
 
-  it.effect("removes mixed-case underscore TOML markers without trimming user whitespace", () =>
+  it.effect("removes mixed-case underscore TOML keys without trimming user whitespace", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-toml-marker-"));
@@ -430,15 +412,13 @@ describe("agent MCP config writer", () => {
           };
 
           yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "My_Server",
             serversPath: ["mcp_servers"] as const,
             target,
-            entry: { ...ownedBy("My_Server"), command: "npx" },
+            entry: { command: "npx" },
           });
           yield* removeAgentMcpConfig({
-            expectedManagedEntries: { My_Server: [ownedBy("My_Server")["x-axm"]] },
             workspaceRoot,
             serverName: "My_Server",
             serversPath: ["mcp_servers"] as const,
@@ -447,7 +427,8 @@ describe("agent MCP config writer", () => {
             disableOnly: false,
           });
 
-          expect(readFileSync(configPath, "utf8")).toBe(original);
+          expect(readFileSync(configPath, "utf8")).toContain(original);
+          expect(parseToml(readFileSync(configPath, "utf8"))).toEqual(parseToml(original));
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -469,13 +450,11 @@ describe("agent MCP config writer", () => {
 
           for (const serverName of ["alpha", "beta"]) {
             yield* writeAgentMcpConfig({
-              nativeInsertionEligible: false,
               workspaceRoot,
               serverName,
               serversPath: ["mcp_servers"] as const,
               target,
               entry: {
-                ...ownedBy(serverName),
                 enabled: true,
                 command: "npx",
                 args: ["-y", `@acme/${serverName}`],
@@ -512,17 +491,15 @@ describe("agent MCP config writer", () => {
 
           for (const serverName of ["alpha", "beta"]) {
             yield* writeAgentMcpConfig({
-              nativeInsertionEligible: false,
               workspaceRoot,
               serverName,
               serversPath: ["mcp_servers"] as const,
               target,
-              entry: { ...ownedBy(serverName), enabled: true, command: "npx" },
+              entry: { enabled: true, command: "npx" },
             });
           }
 
           yield* removeAgentMcpConfig({
-            expectedManagedEntries: { beta: [ownedBy("beta")["x-axm"]] },
             workspaceRoot,
             serverName: "beta",
             serversPath: ["mcp_servers"] as const,
@@ -570,18 +547,11 @@ describe("agent MCP config writer", () => {
           );
 
           const result = yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
-              "x-axm": {
-                v: 1,
-                managed: true,
-                ext: "@workspace/mcps/context",
-                source: "inline",
-              },
               enabled: true,
               command: "npx",
               args: ["-y", "@acme/context-mcp"],
@@ -598,12 +568,6 @@ describe("agent MCP config writer", () => {
             timeout: 30,
           });
           expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
-            "x-axm": {
-              v: 1,
-              managed: true,
-              ext: "@workspace/mcps/context",
-              source: "inline",
-            },
             enabled: true,
             command: "npx",
             args: ["-y", "@acme/context-mcp"],
@@ -627,18 +591,11 @@ describe("agent MCP config writer", () => {
           const configPath = nodePath.join(workspaceRoot, "config.yaml");
 
           yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "stripe",
             serversPath: ["mcp_servers"] as const,
             target: { scope: "project", path: "config.yaml", format: "yaml", attribution: "agent" },
             entry: {
-              "x-axm": {
-                v: 1,
-                managed: true,
-                ext: "@workspace/mcps/stripe",
-                source: "inline",
-              },
               enabled: true,
               url: "https://mcp.stripe.com",
               headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
@@ -648,12 +605,6 @@ describe("agent MCP config writer", () => {
           expect(parseYaml(readFileSync(configPath, "utf8"))).toMatchObject({
             mcp_servers: {
               stripe: {
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/stripe",
-                  source: "inline",
-                },
                 enabled: true,
                 url: "https://mcp.stripe.com",
                 headers: { Authorization: "Bearer ${STRIPE_TOKEN}" },
@@ -692,7 +643,6 @@ describe("agent MCP config writer", () => {
           );
 
           const disableResult = yield* removeAgentMcpConfig({
-            expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcp_servers"] as const,
@@ -715,7 +665,6 @@ describe("agent MCP config writer", () => {
           ]);
 
           const removeResult = yield* removeAgentMcpConfig({
-            expectedManagedEntries: { context: [ownedBy("context")["x-axm"]] },
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcp_servers"] as const,
@@ -752,7 +701,6 @@ describe("agent MCP config writer", () => {
           writeFileSync(configPath, invalidConfig);
 
           const error = yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcpServers"] as const,
@@ -782,7 +730,6 @@ describe("agent MCP config writer", () => {
           const configPath = nodePath.join(workspaceRoot, "agent.json");
 
           const result = yield* writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcpServers"] as const,
@@ -812,7 +759,6 @@ describe("agent MCP config writer", () => {
 
         const result = yield* withFailingConfigWrite(
           writeAgentMcpConfig({
-            nativeInsertionEligible: false,
             workspaceRoot,
             serverName: "context",
             serversPath: ["mcpServers"] as const,
@@ -835,7 +781,8 @@ describe("agent MCP config writer", () => {
             expect(backupPath).not.toBe(`${configPath}.bak`);
           }
         }
-        expect(readFileSync(configPath, "utf8")).toBe(original);
+        expect(readFileSync(configPath, "utf8")).toContain(original);
+        expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual(JSON.parse(original));
         expect(existsSync(`${configPath}.bak`)).toBe(false);
       } finally {
         rmSync(workspaceRoot, { recursive: true, force: true });

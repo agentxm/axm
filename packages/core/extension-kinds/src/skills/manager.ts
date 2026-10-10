@@ -216,7 +216,7 @@ export const SkillManagerLive = Layer.effect(
         },
         expectedSkillSources: { [ref.skill.name]: sourcePaths },
         expectedSubagentFiles: {},
-        expectedMcpEntries: {},
+        declaredMcpNames: new Set(),
         expectedHooks: [],
         authoredSkills: { layout: currentLayout(), entries: yield* settings.entries("skill") },
       }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));
@@ -359,7 +359,7 @@ export const SkillManagerLive = Layer.effect(
           expectedSkillSources:
             canonicalSkillSrcPath === undefined ? {} : { [target.name]: [canonicalSkillSrcPath] },
           expectedSubagentFiles: {},
-          expectedMcpEntries: {},
+          declaredMcpNames: new Set(),
           expectedHooks: [],
           authoredSkills: { layout, entries: yield* settings.entries("skill") },
         }).pipe(Effect.provideService(CodingAgentRepository, agentRepo));

@@ -43,8 +43,6 @@ export {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
   SubagentIoFailed,
   WriteBackupRetained,
@@ -120,11 +118,6 @@ export {
   type ManagedRegionState,
 } from "./managed-regions.js";
 export {
-  managedKeyedBlockNames,
-  reconcileKeyedBlock,
-  type KeyedBlockReconciliation,
-} from "./managed-regions-keyed-block.js";
-export {
   reconcilePatternList,
   type PatternListReconciliation,
 } from "./managed-regions-pattern-list.js";
@@ -164,15 +157,6 @@ export {
 
 // MCP native format
 export {
-  AXM_MCP_METADATA_KEY,
-  AxmMcpMetadataSchema,
-  isAxmManagedMcpEntry,
-  readAxmMcpMetadata,
-  matchesAcceptedMcpOwnership,
-  type AxmMcpMetadata,
-} from "./mcps/entry-semantics.js";
-export { buildAxmMcpMetadata, buildAxmMcpMetadataFromSettingsSource } from "./mcps/metadata.js";
-export {
   projectExpectedEntry,
   renderEnvValue,
   normalizeNativeMcpEnvValue,
@@ -200,9 +184,6 @@ export {
 } from "./mcps/config-writer.js";
 export {
   decodeJsonMcpConfig,
-  hasTomlMcpEntry,
-  managedNativeMcpEntryNames,
-  parseTomlMcpEntry,
   readNativeMcpConfig,
   readNativeMcpEntry,
   readNativeMcpServers,
@@ -244,14 +225,12 @@ export {
   declaredMcpWriterTargets,
   groupConfiguredMcpTargets,
   resolveConfiguredMcpTargets,
-  newlyConfiguredMcpRoutePaths,
   isConfigurableAgentId,
   isConfiguredMcpCapability,
   type ConfiguredMcpCapability,
   type McpTargetGroup,
 } from "./mcps/targeting.js";
 export {
-  pruneManagedMcpServersForAgents,
   removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
   syncManifestMcpServerToAgents,
@@ -261,7 +240,6 @@ export {
   type ValidatePluginMcpServerTargetsArgs,
   validateManifestMcpServerTargets,
   validateInlineMcpServerTargets,
-  type PruneManagedMcpServersArgs,
   type SyncInlineMcpServerArgs,
   type SyncManifestMcpServerArgs,
   type ValidateManifestMcpServerTargetsArgs,
@@ -270,21 +248,15 @@ export {
 // Hook-group editing
 export { reconcileNativeHookConfig, type NativeHookConfigArgs } from "./hooks/native-config.js";
 export {
-  ambiguousHookCommands,
-  isManagedHookEntry,
-  isOwnedHookEntry,
-  managedHookCommands,
-  managedHookUnits,
-  pruneManagedHooksFromJson,
-  readAmbiguousHookCommands,
-  readManagedHookCommands,
-  readManagedHookUnits,
-  readManagedHookGroups,
-  stripManagedHookGroups,
-  stripManagedHooksFromJson,
+  isDeclaredHookEntry,
+  declaredHookUnits,
+  readDeclaredHookCommands,
+  readDeclaredHookUnits,
+  readDeclaredHookGroups,
+  selectDeclaredHookGroups,
   updateHooksJson,
-  type ManagedHookUnit,
-  type HookOwnership,
+  type DeclaredHookUnit,
+  type HookNativeDeclaration,
 } from "./hooks/managed-groups.js";
 
 // Codec wrappers used by the native writers
@@ -297,14 +269,7 @@ export {
   stringifyTomlLines,
   stringifyTomlValue,
 } from "./toml.js";
-export {
-  deleteYamlEntry,
-  managedYamlNames,
-  parseYaml,
-  readYamlEntry,
-  setYamlEntry,
-  setYamlScalar,
-} from "./yaml.js";
+export { deleteYamlEntry, parseYaml, readYamlEntry, setYamlEntry, setYamlScalar } from "./yaml.js";
 
 // Transient backup for native rewrites
 export {

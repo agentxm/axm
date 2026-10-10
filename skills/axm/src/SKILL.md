@@ -204,7 +204,19 @@ unless a live result says authentication is required. If the request contains
 a literal credential, never echo it in a response, quote, command, finding, or
 report; refer to it only as “the supplied credential.”
 
-An unowned-file collision reported by AXM blocks the affected closure. Preserve
+Validated effective MCP declarations authorize full replacement of their exact
+named native entries without an adoption or ownership approval. Hook declarations
+select direct runtime invocations under the exact canonical package root; never
+select by event, array index or a broad substring. Use preview to review the
+selected scope, agents, entry replacements and retained state; do not inject
+ownership metadata. Absence, renaming, departing agents and lost Pack routes
+retain native registrations and do not establish stopped execution. Explicit
+disable/uninstall selects configured-agent registrations before discarding
+intent; after intent is gone, cleanup requires exact native-file selection.
+Retained executable references block canonical package deletion. Verify selected
+agents' projection capability and actual connection or Hook invocation separately.
+
+For other artifact types, an unowned-file collision reported by AXM blocks the affected closure. Preserve
 the artifact and require explicit ownership resolution before apply; do not
 replace that supplied blocker with incidental state from a planning workspace.
 

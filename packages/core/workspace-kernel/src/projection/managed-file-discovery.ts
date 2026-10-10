@@ -19,7 +19,7 @@ import {
 import * as Option from "effect/Option";
 
 export interface WorkspaceOwnershipIssue {
-  readonly kind: "hook-ownership-ambiguous" | "managed-file-unowned";
+  readonly kind: "managed-file-unowned";
   readonly path: string;
   readonly detail: string;
 }

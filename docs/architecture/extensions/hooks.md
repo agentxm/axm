@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: How native Hook implementations, consumer configuration, owned activation, and execution evidence remain separate.
+description: How native Hook implementations, consumer configuration, declaration-selected activation, and execution evidence remain separate.
 depends-on:
   - ./overview.md
   - ./targeting.md
@@ -38,25 +38,21 @@ Project and user activation use their respective native locations. Authoring
 and native import create inactive packages so that creating or converting
 executable content does not also activate it.
 
-## Ownership and coexistence
+## Declaration authority and coexistence
 
-Native registrations form an aggregate ownership unit under the shared
-[output reconciliation contract](../workspace/overview.md#output-reconciliation).
-Its contributors are all active Hooks reached through the desired graph for
-that physical native target. Removing one acquisition route retains a Hook
-while another route reaches it; one rendered contribution represents the Hook.
+All active Hooks reached through the effective desired graph contribute to a
+physical target. Registration selection, update, duplicate handling, retention,
+disable and explicit uninstall follow
+[native declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority).
+Selected direct runtime invocations identify the package's exact canonical
+script root. AXM emits no ownership property. Unrelated commands, groups and
+settings remain outside the declaration's authority. Several configured readers
+share a write only when their complete native renderings and grammars agree.
 
-Each owned entry identifies its package, scope, canonical source root, binding,
-and selected implementations. Command text or an executable's location alone
-does not prove ownership. Reconciliation preserves foreign entries, their
-relative order, and unrelated settings. Several configured readers can share
-one physical registration only when their complete native renderings agree.
-
-Changing configuration or implementation replaces the affected owned
-registrations. Disabling a Hook withdraws activation while retaining its
-package and preferences. Final removal withdraws only registrations whose
-ownership is proven. Preview performs the same selection and validation without
-executing package code or writing the proposed state.
+Preview uses the same selection and validation without executing package code
+or writing state. Removing intent alone retains registrations and may leave
+execution active. Canonical package deletion refuses retained executable
+references rather than leaving broken commands.
 
 ## Evidence and inspection
 

@@ -164,11 +164,10 @@ export class SkillManager extends ServiceMap.Service<SkillManager, SkillManagerS
  * @experimental This API is unstable and may change without notice.
  */
 export interface InstallMcpServerOperationArgs {
+  /** Eligibility for canonical package parent cleanup only; never native entry authority. */
+  readonly nativeInsertionEligible?: boolean;
   /** Explicit authoring/install authority to select a unique distribution. Never set by sync. */
   readonly authorizeDistributionSelection?: boolean;
-  readonly nativeInsertionEligible?: boolean;
-  /** Physical routes newly authorized by a captured membership transition. */
-  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
   readonly ref: McpServerExtensionRef;
   /**
    * The source identity the connection's credentials and lock rows are keyed

@@ -108,12 +108,14 @@ export const removeCommand = Command.make(
 ).pipe(
   withArgvTracking(removeConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
-  Command.withDescription("Remove coding-agent harnesses and clean up AXM-managed artifacts"),
+  Command.withDescription(
+    "Remove coding-agent membership and owned files; retain native MCP and Hook registrations",
+  ),
   Command.withExamples([
     { command: "axm agents remove cursor", description: "Remove Cursor from this workspace" },
     {
       command: "axm agents remove cursor --preview",
-      description: "Preview managed artifact cleanup",
+      description: "Preview membership, file cleanup, and retained native registrations",
     },
   ]),
 );

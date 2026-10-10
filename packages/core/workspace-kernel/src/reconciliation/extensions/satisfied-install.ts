@@ -117,7 +117,8 @@ export const observeSatisfiedInstall = (args: {
         !observation.agentOutcomes.every((outcome) => outcome.outcome === "current") ||
         !observation.nativeLocations.every(
           (unit) =>
-            (unit.state === "unchanged" && unit.ownership === "owned") ||
+            (unit.state === "unchanged" &&
+              (unit.ownership === "owned" || unit.ownership === "declared")) ||
             (unit.state === "absent" &&
               unit.configuredConsumers.length === 0 &&
               !unit.policyReasons.includes("workspace-shared-skills")),

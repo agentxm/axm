@@ -173,8 +173,8 @@ export const observeMaterializationCurrency = <E>({
             : Effect.succeed({ current: false, nativeLocations: [] });
         }
         if (node.type === "mcp-server") {
-          // Disabled connections retain canonical content but need no invocation.
-          // The agent-output closure withdraws owned entries using enabled names.
+          // Disabled connections retain canonical content. The materialize planner
+          // separately reconciles their exact native targets without needing a source.
           if (!node.enabled) return Effect.succeed({ current: true, nativeLocations: [] });
           // Every MCP connection, however it entered desired state, is judged
           // by the decoded native entries against the plan the writer renders.

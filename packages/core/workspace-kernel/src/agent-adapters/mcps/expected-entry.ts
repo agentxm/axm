@@ -13,8 +13,6 @@ import {
   type McpDistribution,
   type McpValue,
 } from "./connection.js";
-import { buildAxmMcpMetadataFromSettingsSource } from "./metadata.js";
-import { AXM_MCP_METADATA_KEY } from "./entry-semantics.js";
 
 /** Desired preferences plus the invocation resolved once before native projection. */
 export interface McpServerDeclaration {
@@ -155,12 +153,7 @@ export const projectExpectedEntry = (args: ProjectExpectedEntryArgs): ExpectedAg
   if (findings.length > 0)
     return { _tag: "unsupported", reason: findings.map(({ message }) => message).join("; ") };
   const expansion = args.envExpansion ?? noExpansion;
-  const entry: Record<string, unknown> = {
-    [AXM_MCP_METADATA_KEY]: buildAxmMcpMetadataFromSettingsSource(
-      args.entry.source ?? "inline",
-      args.serverName,
-    ),
-  };
+  const entry: Record<string, unknown> = {};
   const activation = args.activationField.required;
   if (activation !== null)
     entry[activation.name] =

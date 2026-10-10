@@ -32,9 +32,11 @@ already converged. Both preview forms are read-only.
 ## Managed ownership versions
 
 Comment-bearing managed units use `axm:start`, `axm:end`, `axm:file`, or
-`axm:point` with an explicit `v=1`. JSON and YAML keyed entries carry the same
-version in `x-axm.v`. The version tells AXM which ownership grammar is safe to
-interpret; it is not an extension version.
+`axm:point` with an explicit `v=1`. The version identifies the safe ownership
+grammar for file artifacts, not an extension version. Native MCP and Hook
+configuration instead uses validated effective declarations: see `axm help mcps`
+and `axm help hooks`. These entries require no ownership properties or fences;
+absence from desired state retains their native configuration.
 
 An unknown marker version is reported as `unsupported-version`. `axm lint` and
 `axm sync --preview` instruct you to upgrade AXM, and sync performs no writes
@@ -234,7 +236,8 @@ the invalid fields. Those diagnoses do not claim an unsupported version.
 AXM stops an affected semantic closure when a configured Pack's routes are
 unresolved (its authored manifest is absent, unreadable, or invalid, or its
 accepted dependency declaration is unavailable), when an accepted resolution is invalid or
-incompatible, or when a target is unowned or ambiguously owned. A problem
+incompatible, or when a file-artifact target requires ownership evidence and is
+unowned or ambiguously owned. A problem
 confined to one identified extension stops that extension's closure alone;
 independent ready closures still apply. Nothing is removed on the strength of
 an unresolved Pack: an unknown membership never proves an extension absent.

@@ -165,21 +165,27 @@ Packs support the same lifecycle verbs as other extension types:
   created or updated and every exclusive package that will be deleted.
 - `axm packs update [--preview]` re-resolves every enabled pack's configured
   version constraint and reconciles additions, removals, and shared members.
-- `axm packs disable <name> [--preview]` keeps the settings entry, accepted
-  lock data, and canonical packages, but removes active artifacts and
-  Knowledge discovery contributed only by that pack.
-- `axm packs enable <name> [--preview]` restores the pack and its exclusive
-  members from retained accepted content without advancing locked versions.
+- `axm packs disable <name> [--preview]` keeps the Pack's settings entry,
+  accepted resolution, and canonical package while suspending its contribution.
+  It explicitly withdraws or natively disables exclusive MCP and Hook units,
+  removes exclusive owned outputs, and retires unreachable member packages
+  when safe. Other desired routes retain shared members.
+- `axm packs enable <name> [--preview]` restores the Pack's contributions using
+  its accepted dependency declaration. Members whose canonical content was
+  retired may require acquisition from their sources.
 - `axm packs uninstall <name> [--preview]` removes the pack and only members
-  whose final origin disappears.
+  whose final origin disappears. Native MCP and Hook registrations remain;
+  this does not prove execution stopped. If they still invoke member package
+  code, disable those members explicitly before retrying package removal.
 - `axm packs unpack <name> [--preview]` promotes each member to direct settings
   provenance and then removes the pack.
 
 Each verb applies one pack and its complete member graph as a single
 transaction. If a pack or member cannot reach its promised postcondition, AXM
-rolls back the whole graph. Disabling retains canonical content and accepted
-resolution for offline re-enable; unpack preserves members by promoting
-their provenance in the same transaction that removes the pack.
+rolls back the whole graph. Member code referenced by a native registration
+may remain until a subsequent sync after explicit withdrawal. Unpack preserves
+members by promoting their provenance in the same transaction that removes
+the Pack.
 
 Direct intent has precedence over membership: an explicit member
 `enabled: false` stays disabled even when an enabled pack requires it. A direct

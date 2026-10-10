@@ -32,7 +32,7 @@ export const specification = defineSpecification({
   requirement: "cli/mcps/projects-to-every-configured-agent",
   title: "MCP servers reach every configured agent that can represent them",
   statement:
-    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.",
+    "When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall disable or remove only selected named entries when desired state explicitly disables them or a targeted withdrawal captures the declaration before removing it. Removing a declaration or agent, renaming, and lost Pack reachability alone shall preserve native registrations. Declaration authority shall create missing entries, leave equal decoded entries unchanged, and completely replace different or previously marked entries without adoption.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -241,7 +241,7 @@ describe("MCP servers project to every configured agent", () => {
   );
 
   it.effect(
-    "explicit withdrawal captures ownership and removes the server from every agent it reached",
+    "explicit withdrawal captures the declaration and removes the selected server from configured agents",
     () => {
       const workspace = workspaceWithAgents(bothAgents, addedEntry);
       return workspace
@@ -253,7 +253,7 @@ describe("MCP servers project to every configured agent", () => {
             }
 
             const withdrawn = yield* withdrawMcpServer("demo");
-            expect(deriveOperationOutcome(withdrawn)).toBe("applied");
+            expect(deriveOperationOutcome(withdrawn), JSON.stringify(withdrawn)).toBe("applied");
             yield* applySync();
 
             for (const file of NATIVE_CONFIGS) {
@@ -266,43 +266,40 @@ describe("MCP servers project to every configured agent", () => {
     },
   );
 
-  it.effect(
-    "preserves native entries when an external edit discards their only accepted authority",
-    () => {
-      const workspace = workspaceWithAgents(bothAgents, addedEntry);
-      return workspace
-        .provide(
-          Effect.gen(function* () {
-            yield* applySync();
-            workspace.writeSettings({ owner: "@acme", agents: bothAgents, mcpServers: {} });
-            const before = workspace.snapshot();
-            yield* applySync();
-            expect(workspace.snapshot()).toEqual(before);
-            const location = yield* WorkspaceLocation;
-            const graph = yield* (yield* DesiredStateReader).graph();
-            const outputs = yield* observeAgentOutputs({
-              workspaceRoot: location.baseDir,
-              scope: location.scope,
-              nativeDirectoryInputs: location.nativeDirectoryInputs,
-              desiredAgentIds: new Set(bothAgents),
-              expectedNames: expectedProjectionNames(graph),
-              ...(yield* captureAgentOutputAuthority()),
-              authoredSkills: { layout: yield* Ref.get(location.layout), entries: {} },
-            });
-            expect(
-              outputs.outputs
-                .filter(
-                  (output) => output.extensionType === "mcp-server" && output.entryName === "demo",
-                )
-                .map((output) => output.ownership),
-            ).toEqual(["unowned", "unowned"]);
-            for (const file of NATIVE_CONFIGS)
-              expect(nativeHasServer(workspace, file, "demo")).toBe(true);
-          }),
-        )
-        .pipe(Effect.provide(NodeServices.layer));
-    },
-  );
+  it.effect("preserves native entries when an external edit removes the declaration", () => {
+    const workspace = workspaceWithAgents(bothAgents, addedEntry);
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          workspace.writeSettings({ owner: "@acme", agents: bothAgents, mcpServers: {} });
+          const before = workspace.snapshot();
+          yield* applySync();
+          expect(workspace.snapshot()).toEqual(before);
+          const location = yield* WorkspaceLocation;
+          const graph = yield* (yield* DesiredStateReader).graph();
+          const outputs = yield* observeAgentOutputs({
+            workspaceRoot: location.baseDir,
+            scope: location.scope,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            desiredAgentIds: new Set(bothAgents),
+            expectedNames: expectedProjectionNames(graph),
+            ...(yield* captureAgentOutputAuthority()),
+            authoredSkills: { layout: yield* Ref.get(location.layout), entries: {} },
+          });
+          expect(
+            outputs.outputs
+              .filter(
+                (output) => output.extensionType === "mcp-server" && output.entryName === "demo",
+              )
+              .map((output) => output.ownership),
+          ).toEqual(["unowned", "unowned"]);
+          for (const file of NATIVE_CONFIGS)
+            expect(nativeHasServer(workspace, file, "demo")).toBe(true);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
 
   /** A Pack whose only member is a Registry MCP server the workspace never declares itself. */
   const packSuppliedWorkspace = (agents: ReadonlyArray<string>) => {

@@ -20,9 +20,9 @@ each keeps its local name, inputs, activation, projection, and secret
 namespace. Every connection reaches every configured agent that can represent
 it; see [Agent targeting is workspace membership](agent-targeting-is-workspace-membership.md).
 
-Keep the existing version-1 native ownership metadata. Published package
-identity remains in its provenance fields, while the containing native key or
-region identifies the local connection.
+The containing native key identifies the local connection. Validated effective
+declarations authorize its complete entry without native ownership metadata;
+see [native declaration authority](../workspace/managed-file-ownership.md#native-declaration-authority).
 
 ## Context
 

@@ -25,20 +25,12 @@ import {
   decodeMcpServerManifestAt,
   readPluginMcpDefinition,
   resolveConfiguredMcpTargets,
-  hasTomlMcpEntry,
-  isAxmManagedMcpEntry,
-  managedNativeMcpEntryNames,
-  matchesAcceptedMcpOwnership,
   readNativeMcpValues,
-  type AxmMcpMetadata,
   McpDefinitionInvalid,
-  McpOwnershipMarkerInvalid,
-  parseTomlMcpEntry,
   planMcpServerTargets,
   unresolvedMcpAgentTargets,
   readNativeMcpConfig,
   readNativeMcpEntry,
-  reconcileKeyedBlock,
   resolveAgentMcpConfigTargetPath,
   type ExpectedAgentEntry,
   type McpAgentTargetPlan,
@@ -52,7 +44,7 @@ import {
 import { diffAgentEntry } from "./drift.js";
 
 export type AgentMcpInspectionStatus =
-  "unsupported" | "unverified" | "blocked" | "absent" | "match" | "drift" | "unmanaged";
+  "unsupported" | "unverified" | "blocked" | "absent" | "match" | "drift";
 
 export interface AgentMcpServerInspection {
   readonly agentId: string;
@@ -69,6 +61,7 @@ export interface AgentMcpServerInspection {
 /** The desired-state facts an inspection reads for one MCP connection. */
 export interface DesiredMcpServerSubject {
   readonly name: string;
+  readonly enabled?: boolean;
   /** Absent means sourced: the graph marks only inline nodes. */
   readonly authority?: "inline" | "sourced" | undefined;
 }
@@ -106,8 +99,8 @@ export interface DesiredMcpServerInspection {
   readonly conflict: Option.Option<string>;
 }
 
-export interface ManagedAgentMcpServer {
-  readonly ownership: "owned" | "unowned";
+export interface NativeAgentMcpServer {
+  readonly ownership: "declared" | "unowned";
   readonly agentId: string;
   readonly serverName: string;
   readonly keyPath: readonly [string, ...string[]];
@@ -116,15 +109,15 @@ export interface ManagedAgentMcpServer {
   readonly target: McpConfigTarget;
 }
 
-export interface CollectManagedAgentMcpServersArgs {
-  readonly expectedOwnershipByName: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+export interface CollectNativeAgentMcpServersArgs {
+  readonly declaredMcpNames: ReadonlySet<string>;
   readonly workspaceRoot: string;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: "project" | "user";
   readonly agentIds: ReadonlyArray<string>;
 }
 
-type McpInspectionExpectation = ExpectedAgentEntry | { readonly _tag: "managed" };
+type McpInspectionExpectation = ExpectedAgentEntry;
 
 /** What an inspection status means as a configured-agent outcome. */
 export const mcpInspectionOutcome = (args: {
@@ -163,9 +156,7 @@ export const mcpInspectionOutcome = (args: {
             ? `The expected ${inspection.agentId} projection is stale${
                 inspection.fields.length === 0 ? "" : ` (${inspection.fields.join(", ")})`
               }.`
-            : inspection.status === "unmanaged"
-              ? `${inspection.agentId} holds an entry AXM does not own under this name.`
-              : `MCP projection status is ${inspection.status}.`),
+            : `MCP projection status is ${inspection.status}.`),
     ...(inspection.path.length === 0 ? {} : { path: inspection.path }),
   };
 };
@@ -197,45 +188,6 @@ const inspectActual = (args: {
     const raw = yield* readNativeMcpConfig(args.configPath);
     if (Option.isNone(raw)) return { status: "absent", fields: [] };
 
-    if (args.target.format === "toml") {
-      const actualBlock = reconcileKeyedBlock({
-        content: raw.value,
-        region: `mcp-server:${args.serverName}`,
-        owner: "",
-        rendered: "",
-      });
-      if (
-        actualBlock.state.state === "malformed" ||
-        actualBlock.state.state === "unsupported-version"
-      ) {
-        return yield* new McpOwnershipMarkerInvalid({
-          serverName: args.serverName,
-          state: actualBlock.state.state,
-          operation: "inspect",
-        });
-      }
-      if (actualBlock.body === undefined) {
-        if (!hasTomlMcpEntry(raw.value, args.serversPath, args.serverName)) {
-          return { status: "absent", fields: [] };
-        }
-        const unfenced = parseTomlMcpEntry(raw.value, args.serversPath, args.serverName);
-        return isAxmManagedMcpEntry(unfenced)
-          ? { status: "drift", fields: ["ownership-marker"], actual: unfenced }
-          : { status: "unmanaged", fields: [], actual: unfenced };
-      }
-      const actual = parseTomlMcpEntry(actualBlock.body, args.serversPath, args.serverName);
-      if (args.expected._tag === "managed") {
-        return isAxmManagedMcpEntry(actual)
-          ? { status: "match", fields: [], actual }
-          : { status: "drift", fields: ["x-axm"], actual };
-      }
-      const drift = diffAgentEntry(args.expected, actual);
-      if (drift._tag === "match") return { status: "match", fields: [], actual };
-      if (drift._tag === "unmanaged") return { status: "unmanaged", fields: [], actual };
-      if (drift._tag === "drift") return { status: "drift", fields: drift.fields, actual };
-      return { status: "absent", fields: [] };
-    }
-
     const actual = yield* readNativeMcpEntry({
       format: args.target.format,
       configPath: args.configPath,
@@ -244,12 +196,6 @@ const inspectActual = (args: {
       serverName: args.serverName,
     });
     if (Option.isNone(actual)) return { status: "absent", fields: [] };
-    if (!isAxmManagedMcpEntry(actual.value)) {
-      return { status: "unmanaged", fields: [], actual: actual.value };
-    }
-    if (args.expected._tag === "managed") {
-      return { status: "match", fields: [], actual: actual.value };
-    }
     const drift = diffAgentEntry(args.expected, actual.value);
     if (drift._tag === "match") return { status: "match", fields: [], actual: actual.value };
     if (drift._tag === "drift") {
@@ -353,63 +299,33 @@ const inspectPlannedAgent = (
     }
   });
 
-/**
- * Presence-only inspection for a sourced connection whose manifest is not
- * available: the expected entry cannot be rendered, so an AXM-managed entry
- * under the name is all that can be checked.
- */
-const inspectManagedPresence = (
-  args: InspectDesiredMcpServerArgs,
-): Effect.Effect<
-  ReadonlyArray<AgentMcpServerInspection>,
-  McpInspectionError,
-  FileSystem.FileSystem | Path.Path
-> =>
-  Effect.gen(function* () {
-    const groups = yield* resolveConfiguredMcpTargets(args);
-    const inspections: Array<AgentMcpServerInspection> = [];
-    for (const agentId of args.agentIds) {
-      for (const unresolved of unresolvedMcpAgentTargets(agentId, args.scope, groups)) {
-        inspections.push(
-          terminalInspection({ agentId, status: unresolved._tag, reason: unresolved.reason }),
-        );
-      }
-      for (const member of groups.flatMap((group) =>
-        group.members.filter((candidate) => candidate.agentId === agentId),
-      )) {
-        const { config, target } = member;
-        const absolutePath = target.path;
-        if (args.state === "projected") {
-          inspections.push({
-            agentId,
-            path: target.path,
-            absolutePath,
-            status: "match",
-            fields: [],
-            warnings: [],
-          });
-          continue;
-        }
-        const actual = yield* inspectActual({
-          target,
-          configPath: absolutePath,
-          serversPath: config.serversPath,
-          serverName: args.node.name,
-          expected: { _tag: "managed" },
-        });
-        inspections.push({
-          agentId,
-          path: target.path,
-          absolutePath,
-          status: actual.status,
-          fields: actual.fields,
-          warnings: [],
-          ...(actual.actual === undefined ? {} : { actual: actual.actual }),
-        });
-      }
-    }
-    return inspections;
-  });
+/** Without a source manifest, native presence cannot prove projected currency. */
+const inspectUnavailableSource = (args: InspectDesiredMcpServerArgs) =>
+  resolveConfiguredMcpTargets(args).pipe(
+    Effect.map((groups) =>
+      args.agentIds.flatMap((agentId) => {
+        const unresolved = unresolvedMcpAgentTargets(agentId, args.scope, groups);
+        return [
+          ...unresolved.map((target) =>
+            terminalInspection({ agentId, status: target._tag, reason: target.reason }),
+          ),
+          ...groups.flatMap((group) =>
+            group.members
+              .filter((member) => member.agentId === agentId)
+              .map((member) =>
+                terminalInspection({
+                  agentId,
+                  status: "unverified",
+                  reason:
+                    "The canonical MCP manifest is unavailable; expected native values cannot be verified.",
+                  target: member.target,
+                }),
+              ),
+          ),
+        ];
+      }),
+    ),
+  );
 
 const findManifestRoot = (
   workspaceRoot: string,
@@ -437,6 +353,86 @@ const inspectedDeclaration = (
   return node.authority === "inline" ? undefined : { kind: "configuration", enabled: true };
 };
 
+/** Disabled declarations select withdrawal without depending on runnable source content. */
+const inspectDisabledMcpServer = (args: InspectDesiredMcpServerArgs) =>
+  Effect.gen(function* () {
+    const groups = yield* resolveConfiguredMcpTargets(args);
+    const inspections: AgentMcpServerInspection[] = [];
+    const nativeLocations: NativeLocationOutcome[] = [];
+    for (const agentId of args.agentIds) {
+      inspections.push(
+        ...unresolvedMcpAgentTargets(agentId, args.scope, groups).map((target) =>
+          terminalInspection({ agentId, status: target._tag, reason: target.reason }),
+        ),
+      );
+    }
+    for (const group of groups) {
+      const raw = yield* readNativeMcpConfig(group.path);
+      for (const member of group.members.filter((member) => member.configured)) {
+        const actual = Option.isNone(raw)
+          ? Option.none<Readonly<Record<string, unknown>>>()
+          : yield* readNativeMcpEntry({
+              format: member.target.format,
+              configPath: group.path,
+              raw: raw.value,
+              serversPath: member.config.serversPath,
+              serverName: args.node.name,
+            });
+        const activation = member.config.activationField.required;
+        const absent = Option.isNone(actual);
+        const disabled =
+          absent || (activation !== null && actual.value[activation.name] === activation.disabled);
+        inspections.push({
+          agentId: member.agentId,
+          path: member.target.path,
+          absolutePath: group.path,
+          status: disabled ? "match" : "drift",
+          fields: disabled ? [] : ["activation"],
+          warnings: [],
+          reason: disabled
+            ? "The declared MCP connection is absent or disabled."
+            : "The declared disabled MCP connection is still active.",
+          ...(Option.isSome(actual) ? { actual: actual.value } : {}),
+        });
+        if (absent) continue;
+        nativeLocations.push({
+          scope: args.scope,
+          address: {
+            kind: "key-path",
+            path: group.path,
+            keys: [...member.config.serversPath, args.node.name],
+          },
+          aliases: [],
+          configuredConsumers: [member.agentId],
+          potentialReaders: group.members
+            .filter((reader) => !reader.configured)
+            .map((reader) => reader.agentId),
+          policyReasons: [],
+          ownership: "declared",
+          proof: "effective-native-declaration",
+          state: disabled ? "unchanged" : activation === null ? "removed" : "updated",
+          mechanism: "structured-entry",
+          availability: [
+            {
+              agentId: member.agentId,
+              state: "unverified",
+              reason: "Native configuration is observed; host execution is unverified.",
+            },
+          ],
+        });
+      }
+    }
+    return {
+      inspections,
+      nativeLocations: combineNativeLocationOutcomes(nativeLocations),
+      outcomes: inspections.map((inspection) =>
+        mcpInspectionOutcome({ name: args.node.name, inspection, state: args.state ?? "current" }),
+      ),
+      current: mcpInspectionsCurrent(inspections),
+      conflict: Option.none<string>(),
+    };
+  });
+
 /**
  * Inspect one desired MCP connection on every configured agent.
  *
@@ -452,6 +448,7 @@ const inspectDesiredMcpServerUncached = (
   FileSystem.FileSystem | Path.Path
 > =>
   Effect.gen(function* () {
+    if (args.node.enabled === false) return yield* inspectDisabledMcpServer(args);
     const state = args.state ?? "current";
     const declaration = inspectedDeclaration(args.node, args.entry);
     if (declaration === undefined) {
@@ -466,7 +463,7 @@ const inspectDesiredMcpServerUncached = (
     const observed = yield* Effect.gen(function* () {
       if (!inline && Option.isNone(manifestRoot))
         return {
-          inspections: yield* inspectManagedPresence(args),
+          inspections: yield* inspectUnavailableSource(args),
           nativeLocations: [],
           conflict: Option.none<string>(),
         };
@@ -527,18 +524,7 @@ const inspectDesiredMcpServerUncached = (
             members.length > 0 && members.every((inspection) => inspection.status === "absent");
           const current =
             members.length > 0 && members.every((inspection) => inspection.status === "match");
-          const blocked = members.some(
-            (inspection) => inspection.status === "unmanaged" || inspection.status === "blocked",
-          );
-          const owned =
-            members.length > 0 &&
-            members.every(
-              (inspection) =>
-                inspection.status === "match" ||
-                (inspection.status === "drift" &&
-                  inspection.actual !== undefined &&
-                  isAxmManagedMcpEntry(inspection.actual)),
-            );
+          const blocked = members.some((inspection) => inspection.status === "blocked");
           return {
             scope: args.scope,
             address: {
@@ -571,9 +557,14 @@ const inspectDesiredMcpServerUncached = (
               ),
             ].sort(),
             policyReasons: [],
-            ownership: absent ? "absent" : owned ? "owned" : blocked ? "unowned" : "unverified",
-            ...(owned ? { proof: "managed-mcp-entry" } : {}),
+            ownership: "declared",
+            proof: "effective-native-declaration",
             state: blocked ? "blocked" : absent ? "created" : current ? "unchanged" : "updated",
+            reason: current
+              ? "Decoded native entry matches the declaration."
+              : absent
+                ? "Create the complete declared native entry."
+                : `Replace the complete native entry; differing fields: ${[...new Set(members.flatMap((member) => member.fields))].sort().join(", ")}.`,
             mechanism: "structured-entry",
             availability: write.agentIds.map((agentId) => ({
               agentId,
@@ -595,11 +586,11 @@ const inspectDesiredMcpServerUncached = (
     };
   });
 
-/** Every marker-bearing native entry, classified against accepted ownership, by agent. */
-export const collectManagedAgentMcpServers = (
-  args: CollectManagedAgentMcpServersArgs,
+/** Every native entry, classified against effective declarations, by agent. */
+export const collectNativeAgentMcpServers = (
+  args: CollectNativeAgentMcpServersArgs,
 ): Effect.Effect<
-  ReadonlyArray<ManagedAgentMcpServer>,
+  ReadonlyArray<NativeAgentMcpServer>,
   McpInspectionError,
   FileSystem.FileSystem | Path.Path
 > =>
@@ -619,7 +610,7 @@ export const collectManagedAgentMcpServers = (
               readonly values: Readonly<Record<string, unknown>>;
             }
           >();
-          const results: Array<ManagedAgentMcpServer> = [];
+          const results: Array<NativeAgentMcpServer> = [];
           for (const member of group.members.filter((candidate) => candidate.configured)) {
             const key = JSON.stringify([member.target.format, member.config.serversPath]);
             let container = containers.get(key);
@@ -630,10 +621,8 @@ export const collectManagedAgentMcpServers = (
                 raw: raw.value,
                 serversPath: member.config.serversPath,
               };
-              container = {
-                names: yield* managedNativeMcpEntryNames(read),
-                values: yield* readNativeMcpValues(read),
-              };
+              const values = yield* readNativeMcpValues(read);
+              container = { names: Object.keys(values), values };
               containers.set(key, container);
             }
             for (const serverName of container.names) {
@@ -650,12 +639,7 @@ export const collectManagedAgentMcpServers = (
               )
                 continue;
               results.push({
-                ownership: matchesAcceptedMcpOwnership(
-                  container.values[serverName],
-                  args.expectedOwnershipByName[serverName] ?? [],
-                )
-                  ? "owned"
-                  : "unowned",
+                ownership: args.declaredMcpNames.has(serverName) ? "declared" : "unowned",
                 agentId: member.agentId,
                 serverName,
                 keyPath: [...member.config.serversPath, serverName],

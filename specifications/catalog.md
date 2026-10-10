@@ -747,7 +747,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Owner: `cli`
-- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned outputs no remaining configured agent reaches in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.
+- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches, retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -794,7 +794,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/mcps/projects-to-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall remove proven owned entries from every agent it reached when desired state disables it or a withdrawal captures ownership before removing the declaration. If an external edit removes the only ownership authority, reconciliation shall preserve the unproven native entry.
+- Statement: When an MCP server is desired and enabled, however it entered the workspace — added, authored inline, adopted from one agent's own native configuration, or supplied by an installed Pack — reconciliation shall write it to the native configuration of every configured agent that can represent it, shall account for every configured agent and distinguish unsupported native scope from known native support whose AXM writer or destination is unverified rather than omitting either, shall judge whether each agent's entry is current from its decoded native value and report a hand-edited entry as stale under one reason code in every inspection surface, shall repair it without further change on the next run, shall write no server that is configured as disabled, and shall disable or remove only selected named entries when desired state explicitly disables them or a targeted withdrawal captures the declaration before removing it. Removing a declaration or agent, renaming, and lost Pack reachability alone shall preserve native registrations. Declaration authority shall create missing entries, leave equal decoded entries unchanged, and completely replace different or previously marked entries without adoption.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -3088,7 +3088,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/preview-is-pure`
 - Owner: `workspace-features`
-- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native ownership units, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.
+- Statement: When sync runs in preview mode against a workspace whose managed state has drifted from desired state, it shall report the reconciliation it would apply with a previewed outcome, including the physical native units and their authority, their configured consumers, aliases and proposed changes before first acquisition when source content is known, and shall not change settings, the lockfile, canonical content, or agent projections. Combining dependent work into one closure shall preserve those native unit details without multiplying shared physical units. Applying a prepared reconciliation under changed captured native routing inputs shall refuse the stale candidate without writes and require a fresh proposal for the new locations.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -3101,7 +3101,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/sync/realizes-desired-state`
 - Owner: `workspace-features`
-- Statement: Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.
+- Statement: Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned file outputs when reachability and ownership are established, retain native MCP and Hook registrations after lost reachability, and retain canonical content and accepted source integrity while native registrations reference its code, preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
@@ -3154,7 +3154,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/uninstall/preserves-unrelated-and-unowned-state`
 - Owner: `workspace-features`
-- Statement: When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned agent configuration, and the original local or workspace-authored source package.
+- Statement: When an extension is uninstalled, AXM shall preserve unrelated workspace files, unowned file artifacts, unselected native configuration, and the original local or workspace-authored source package. Explicit native cleanup shall withdraw only the captured MCP name or Hook registrations in configured agents and the selected scope.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
@@ -3163,7 +3163,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
-- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
 - Additional evidence: process via [`apps/cli-e2e/src/root-install.e2e.test.ts`](../apps/cli-e2e/src/root-install.e2e.test.ts) — Runs the real CLI process against the built artifact, proving argv parsing, registry acquisition, exit codes, and on-disk workspace state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/preserves-unrelated-and-unowned-state.spec.ts)
 
@@ -3724,7 +3724,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/activation-follows-desired-state`
 - Owner: `workspace-features`
-- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members, and retaining members reached elsewhere, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.
+- Statement: When a desired leaf extension is disabled or enabled, including one reached only through a Pack, AXM shall record an activation preference that takes precedence over inherited activation, realize its resulting agent surfaces, and preserve its canonical content and accepted resolution; Pack activation shall preserve the Pack itself while realizing or withdrawing its dependency route, retiring exclusively unreachable acquired members when no retained native registrations reference their code, and retaining members reached elsewhere or needed by native references, and enabling a Pack whose member would have an effective constraint no version satisfies shall change nothing and report that conflict; enabling a Subagent with configured targets shall require at least one compatible native implementation, report unsupported targets without a role-Skill fallback, and preserve separately authored Skills; re-enabling a Skill shall restore its entry document byte for byte for every agent surface, whichever entry-document format the Skill was authored in. Activation shall preserve present acquired drift, refuse to enable it, and direct restoration through explicit install; a missing acquired Pack manifest shall not prevent unrelated activation when accepted dependencies establish its graph.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -4578,11 +4578,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
 - Source: [`packages/core/workspace-features/src/sync/preserves-undeclared-authored-packages.spec.ts`](../packages/core/workspace-features/src/sync/preserves-undeclared-authored-packages.spec.ts)
 
-##### Sync never removes agent-native content without AXM ownership proof
+##### Sync preserves content outside declaration or ownership authority
 
 - Requirement: `cli/sync/preserves-unowned-agent-content`
 - Owner: `workspace-features`
-- Statement: When sync retires agent-native content that desired state no longer reaches, it shall remove only content AXM can prove it owns and shall leave hand-authored neighbors in the same agent directory untouched; and when a desired projection would overwrite agent-native content AXM cannot prove it owns, sync shall block that projection and leave the content untouched.
+- Statement: For file artifacts outside native MCP and Hook declaration authority, sync shall retire or overwrite only content with AXM ownership proof and preserve hand-authored neighbors. For native MCP entries and Hook registrations, validated effective declarations shall authorize their exact units without a marker or adoption gate; sync shall preserve unselected native units and shall not prune registrations solely because their declarations disappear.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4675,7 +4675,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/uninstall/reports-removed-and-retained-state`
 - Owner: `workspace-features`
-- Statement: Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their owned entry or region changes.
+- Statement: Uninstall preview and application of the same candidate shall identify the actual settings, accepted-resolution and owned projection units changed, acquired content removed, and authored or still-required content retained, with explicit retention reasons; absent and unverified content shall be distinguished from retained content, and shared native files shall not be reported as deleted when only their selected entry or owned region changes. Native withdrawal is bounded to configured agents in the selected scope; registrations for departing agents and registrations losing their last Pack route remain and are reported as retained without claiming execution stopped. Canonical deletion shall refuse retained native references to package code until the operator explicitly withdraws those registrations.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -6418,7 +6418,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `workspace/mcps/removes-shared-native-containers-once`
 - Owner: `workspace-kernel`
-- Statement: AXM shall preflight all co-reader native container contracts before withdrawing MCP entries, mutate each shared physical file once, and preserve alias routes and exact eligible insertion baselines.
+- Statement: AXM shall preflight all co-reader native container contracts before withdrawing MCP entries, mutate each shared physical file once, and preserve alias routes, unselected values, and native containers without ownership receipts.
 - Class: functional
 - Role: supporting
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
@@ -6427,11 +6427,11 @@ Configured extensions realize correctly and completely for every configured codi
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/projection/mcps/removes-shared-native-containers-once.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/removes-shared-native-containers-once.spec.ts)
 
-##### Shared MCP writes require compatible readers and proven authority
+##### Shared MCP declarations authorize entries under compatible readers
 
 - Requirement: `workspace/mcps/shared-native-writes-require-compatible-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.
+- Statement: AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; alias escapes and stale import candidates shall leave native files unchanged.
 - Class: functional
 - Role: supporting
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`, `safe-repetition`
@@ -7069,7 +7069,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Atomic file publication and independent receipt reads expose original bytes and container identities.
 - Methods: example, decision-table
 - Derived from: `settings-contract/saving-settings-preserves-authored-formatting`
-- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/withdraws-new-settings-entries-exactly.spec.ts)
 
 ##### External skill metadata describes content without gating acquisition
@@ -7137,11 +7137,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `workspace-inventory/leftover-follows-desired-state-reachability`, `workspace/desired-state/effective-constraint-has-one-owner`, `cli/pack-member-configuration-does-not-create-acquisition-intent`
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/uncertainty-never-proves-absence.spec.ts)
 
-##### Native Hook writes preserve exact scoped authority and foreign content
+##### Native Hook declarations select canonical script registrations
 
 - Requirement: `workspace/hooks/native-writes-preserve-scoped-authority`
 - Owner: `workspace-kernel`
-- Statement: AXM shall mutate Hook entries only under exact accepted identity, scope, and canonical source-root ownership, shall preserve foreign entries and their untouched bytes, and shall refuse escaping aliases or a whole-file grammar conflict before writing native configuration.
+- Statement: AXM shall replace only command registrations whose parsed runtime script belongs to the declared canonical Hook package in the selected scope, shall preserve unrelated registrations and their ordering and untouched bytes, and shall refuse escaping aliases, overlapping declarations, or a whole-file grammar conflict before writing native configuration.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
@@ -7201,7 +7201,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Temporary files expose real replacement identities and receipt store behavior; digest witnesses exercise exact byte inverses.
 - Methods: example
-- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
 - Source: [`packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts`](../packages/core/workspace-kernel/src/locations/container-receipts-require-continuous-identity.spec.ts)
 
 ##### Physical location identity distinguishes an entry from its referent
@@ -7254,8 +7254,23 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: platform; selection: per-change
 - Boundary rationale: Separate file publications and receipt reads expose exact lockfile bytes and physical identity.
 - Methods: example, decision-table
-- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/withdraws-new-resolutions-exactly.spec.ts)
+
+##### Explicit MCP cleanup preserves the native container and unselected state
+
+- Requirement: `workspace/mcps/explicit-cleanup-preserves-unselected-state`
+- Owner: `workspace-kernel`
+- Statement: Explicit MCP cleanup shall remove only the selected native key, preserve other values and the native file, and require no ownership receipt or historical insertion baseline. Removing intent alone shall not select a key for cleanup.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Real native files expose complete-entry removal, retained containers, and receipt creation.
+- Methods: decision-table
+- Supersedes: `workspace/mcps/withdraws-eligible-native-insertions-exactly`
+- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and preserve native containers and unrelated content, and restore owned file artifacts across process exit.
+- Source: [`packages/core/workspace-kernel/src/projection/mcps/explicit-cleanup-preserves-unselected-state.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/explicit-cleanup-preserves-unselected-state.spec.ts)
 
 ##### External MCP connections retain their exact accepted source resolution
 
@@ -7268,20 +7283,6 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary: memory; selection: per-change
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts)
-
-##### Withdrawing a newly inserted MCP entry restores its exact native baseline
-
-- Requirement: `workspace/mcps/withdraws-eligible-native-insertions-exactly`
-- Owner: `workspace-kernel`
-- Statement: When a new MCP entry is inserted into a native location and precisely that entry is withdrawn without intervening intent, source, or foreign changes, AXM shall restore the original file bytes or original absence and retire only its proven empty created parents; a formatting change for which AXM cannot preserve the foreign baseline shall be refused before mutation.
-- Class: functional
-- Role: supporting
-- Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: platform; selection: per-change
-- Boundary rationale: Native formats and filesystem identity are observed through real temporary files and the live receipt authority.
-- Methods: example, decision-table
-- Additional evidence: process via [`apps/cli-e2e/src/native-round-trip.e2e.test.ts`](../apps/cli-e2e/src/native-round-trip.e2e.test.ts) — Independent built CLI invocations must preserve durable cleanup authority and restore actual bytes, symlink text, and preexisting empty directories across process exit.
-- Source: [`packages/core/workspace-kernel/src/projection/mcps/withdraws-eligible-native-insertions-exactly.spec.ts`](../packages/core/workspace-kernel/src/projection/mcps/withdraws-eligible-native-insertions-exactly.spec.ts)
 
 ##### Native Rule and Knowledge regions retain source and scoped authority
 

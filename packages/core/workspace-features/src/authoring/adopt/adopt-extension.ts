@@ -506,11 +506,10 @@ export const prepareAdoptExtension: (
         return adoptStep(yield* McpServerManager, {
           ...common,
           target: { type: "mcp-server", name },
-          materializeInstall: (ref, options) =>
+          materializeInstall: (ref) =>
             materializeAuthoredMcpServer({
               ref,
               nonInteractive: request.nonInteractive,
-              nativeInsertionEligible: options.nativeInsertionEligible,
             }),
           buildArtifact: ({ change, materialization }) =>
             authoredNativeArtifact({

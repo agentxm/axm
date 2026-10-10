@@ -15,10 +15,10 @@ import { NativeWriteAuthority } from "../native-write-authority.js";
 import { preflightNativeConfigReaders } from "../native-config-readers.js";
 import { parseNativeConfigRoot } from "../native-config-syntax.js";
 import {
-  isOwnedHookEntry,
-  readManagedHookUnits,
+  isDeclaredHookEntry,
+  readDeclaredHookUnits,
   updateHooksJson,
-  type HookOwnership,
+  type HookNativeDeclaration,
 } from "./managed-groups.js";
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -26,15 +26,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const hooksForOwner = (
   hooks: Readonly<Record<string, unknown>>,
-  owner: HookOwnership,
+  owner: HookNativeDeclaration,
 ): Record<string, unknown> => {
   const selected: Record<string, unknown> = {};
   for (const [event, groups] of Object.entries(hooks)) {
     if (!Array.isArray(groups)) continue;
     const matching = groups.flatMap((group): ReadonlyArray<Record<string, unknown>> => {
       if (!isRecord(group)) return [];
-      if (!Array.isArray(group["hooks"])) return isOwnedHookEntry(group, [owner]) ? [group] : [];
-      const entries = group["hooks"].filter((entry) => isOwnedHookEntry(entry, [owner]));
+      if (!Array.isArray(group["hooks"])) return isDeclaredHookEntry(group, [owner]) ? [group] : [];
+      const entries = group["hooks"].filter((entry) => isDeclaredHookEntry(entry, [owner]));
       return entries.length === 0 ? [] : [{ ...group, hooks: entries }];
     });
     if (matching.length > 0) selected[event] = matching;
@@ -55,9 +55,7 @@ export interface NativeHookConfigArgs {
   readonly format: "json" | "jsonc";
   readonly configVersion?: 1;
   readonly rendered: Readonly<Record<string, unknown>>;
-  readonly ownership: ReadonlyArray<HookOwnership>;
-  /** Captured intent/route transition authority, never inferred from missing native bytes. */
-  readonly nativeInsertionEligibleNames: ReadonlySet<string>;
+  readonly declarations: ReadonlyArray<HookNativeDeclaration>;
   readonly dryRun?: boolean;
 }
 
@@ -89,7 +87,15 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         if ((resolved.referentPath ?? resolved.entryPath) !== physical)
           return yield* new HookConfigInvalid({ detail: "Hook alias changed after planning" });
       }
-      for (const source of args.ownership) {
+      for (const source of args.declarations) {
+        if (!path.isAbsolute(source.root))
+          return yield* new HookConfigInvalid({
+            detail: "Hook declaration requires an absolute canonical package root",
+          });
+        if (source.scope !== args.scope)
+          return yield* new HookConfigInvalid({
+            detail: "Hook declaration scope does not match its native target",
+          });
         yield* assertNoPhysicalOverlap(path.resolve(args.workspaceRoot, source.root), physical);
       }
       const read = () =>
@@ -114,7 +120,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
         args.settingsKey,
         raw,
         { ...args.rendered },
-        args.ownership,
+        args.declarations,
         args.format,
         args.configVersion,
       );
@@ -136,7 +142,12 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
             }),
         ),
       );
-      const observed = yield* readManagedHookUnits(physical, args.settingsKey, raw, args.ownership);
+      const observed = yield* readDeclaredHookUnits(
+        physical,
+        args.settingsKey,
+        raw,
+        args.declarations,
+      );
       const foreignOnly =
         observed.length === 0 &&
         (yield* parseNativeConfigRoot({ format: args.format, configPath: physical, raw }).pipe(
@@ -148,7 +159,7 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
               }),
           ),
         ))[args.settingsKey] !== undefined;
-      const expected = args.ownership.filter(
+      const expected = args.declarations.filter(
         (owner) => Object.keys(hooksForOwner(args.rendered, owner)).length > 0,
       );
       const observedNames: string[] = [];
@@ -170,137 +181,49 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
       }
       let current = before;
       if (args.dryRun !== true && planned !== raw) {
-        const unitFor = (owner: HookOwnership) =>
-          JSON.stringify(["hook", args.settingsKey, owner.scope, owner.ref, owner.root]);
-        const withdrawn = args.ownership.filter(
-          (owner) => !expected.includes(owner) && observed.some(({ name }) => name === owner.name),
+        yield* authority.protect(physical);
+        yield* authority.createParentDirectories(physical);
+        yield* fs.writeFileString(physical, planned).pipe(
+          Effect.mapError(
+            (cause) =>
+              new HookIoFailed({
+                detail: `Cannot write hooks configuration: ${physical}`,
+                cause,
+              }),
+          ),
         );
-        const batchInverse =
-          withdrawn.length > 1
-            ? yield* authority.resolveInsertions({
-                path: physical,
-                aliases: args.aliases,
-                units: withdrawn.map(unitFor),
-                raw,
-              })
-            : Option.none();
-        let batchRestored = false;
-        if (Option.isSome(batchInverse)) {
-          const first = withdrawn[0];
-          if (first !== undefined) {
-            const receipt = { path: physical, aliases: args.aliases, unit: unitFor(first) };
-            if (batchInverse.value.kind === "remove-file") {
-              batchRestored = yield* authority.retireInsertion({ ...receipt, raw, empty: true });
-              if (batchRestored) current = Option.none();
-            } else {
-              const capture = yield* authority.captureInsertion({
-                ...receipt,
-                beforeRaw: before,
-                eligible: false,
-              });
-              yield* authority.protect(physical);
-              yield* fs.writeFileString(physical, batchInverse.value.text).pipe(
-                Effect.mapError(
-                  (cause) =>
-                    new HookIoFailed({
-                      detail: `Cannot restore hooks baseline: ${physical}`,
-                      cause,
-                    }),
-                ),
-              );
-              yield* authority.record({ path: physical, change: "modified" });
-              yield* authority.recordInsertion({
-                capture,
-                afterRaw: batchInverse.value.text,
-                createdDirectories: [],
-              });
-              for (const owner of withdrawn)
-                yield* authority.forgetInsertion({ ...receipt, unit: unitFor(owner) });
-              current = Option.some(batchInverse.value.text);
-              batchRestored = true;
-            }
-          }
-        }
-        for (const owner of args.ownership.filter(
-          (owner) => !batchRestored || !withdrawn.includes(owner),
-        )) {
-          const ownerHooks = hooksForOwner(args.rendered, owner);
-          const oldRaw = Option.getOrElse(current, () => "");
-          let next = yield* updateHooksJson(
-            physical,
-            args.settingsKey,
-            oldRaw,
-            ownerHooks,
-            [owner],
-            args.format,
-            args.configVersion,
-          );
-          if (next === oldRaw) continue;
-          const unit = unitFor(owner);
-          const receipt = { path: physical, aliases: args.aliases, unit };
-          const withdrawing = Object.keys(ownerHooks).length === 0;
-          const inverse = withdrawing
-            ? yield* authority.resolveInsertion({ ...receipt, raw: oldRaw })
-            : Option.none();
-          if (Option.isSome(inverse) && inverse.value.kind === "remove-file") {
-            if (yield* authority.retireInsertion({ ...receipt, raw: oldRaw, empty: true })) {
-              current = Option.none();
-              continue;
-            }
-          }
-          if (Option.isSome(inverse) && inverse.value.kind === "restore-text")
-            next = inverse.value.text;
-          const capture = yield* authority.captureInsertion({
-            ...receipt,
-            beforeRaw: current,
-            eligible: !withdrawing && args.nativeInsertionEligibleNames.has(owner.name),
-          });
-          yield* authority.protect(physical);
-          const createdDirectories = yield* authority.createParentDirectories(physical);
-          yield* fs.writeFileString(physical, next).pipe(
-            Effect.mapError(
-              (cause) =>
-                new HookIoFailed({
-                  detail: `Cannot write hooks configuration: ${physical}`,
-                  cause,
-                }),
-            ),
-          );
-          yield* authority.record({
-            path: physical,
-            change: Option.isNone(current) ? "created" : "modified",
-          });
-          yield* authority.recordInsertion({ capture, afterRaw: next, createdDirectories });
-          if (withdrawing) yield* authority.forgetInsertion(receipt);
-          current = Option.some(next);
-        }
-        const after = yield* read();
-        const remaining = yield* updateHooksJson(
-          physical,
-          args.settingsKey,
-          Option.getOrElse(after, () => ""),
-          { ...args.rendered },
-          args.ownership,
-          args.format,
-          args.configVersion,
-        );
-        if (remaining !== Option.getOrElse(after, () => ""))
+        yield* authority.record({
+          path: physical,
+          change: Option.isNone(before) ? "created" : "modified",
+        });
+        current = yield* read();
+        if (Option.getOrElse(current, () => "") !== planned)
           return yield* new HookConfigInvalid({
             detail: `Hook configuration failed readback: ${physical}`,
           });
-        current = after;
       }
       const changed = planned !== raw;
-      const owned = observed.length > 0 || (args.dryRun !== true && expected.length > 0);
+      const [firstRoot, ...otherRoots] = [
+        ...new Set(args.declarations.map(({ root }) => root)),
+      ].sort();
+      const selected = firstRoot !== undefined;
       const finalPresent = args.dryRun === true ? expected.length > 0 : Option.isSome(current);
       return {
         changed,
         observedNames,
-        ownedNames: observed.map((unit) => unit.name),
+        declaredNames: observed.map((unit) => unit.name),
         expectedNames: expected.map((owner) => owner.name),
         nativeLocation: {
           scope: args.scope,
-          address: { kind: "key-path", path: physical, keys: [args.settingsKey] },
+          address:
+            firstRoot === undefined
+              ? { kind: "key-path", path: physical, keys: [args.settingsKey] }
+              : {
+                  kind: "hook-registrations",
+                  path: physical,
+                  settingsKey: args.settingsKey,
+                  scriptRoots: [firstRoot, ...otherRoots],
+                },
           aliases: [...new Set([...args.aliases, ...readers.map(({ alias }) => alias)])].sort(),
           configuredConsumers: [...args.consumers].sort(),
           potentialReaders: [
@@ -309,8 +232,8 @@ export const reconcileNativeHookConfig = (args: NativeHookConfigArgs) =>
             ),
           ].sort(),
           policyReasons: [],
-          ownership: owned ? "owned" : foreignOnly ? "unowned" : "absent",
-          ...(owned ? { proof: "exact-hook-identity-scope-and-source-root" } : {}),
+          ownership: selected ? "declared" : foreignOnly ? "unowned" : "absent",
+          ...(selected ? { proof: "effective-native-declaration" } : {}),
           state: !changed
             ? expected.length > 0
               ? "unchanged"

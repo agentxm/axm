@@ -37,10 +37,7 @@ export interface NativeRegionSource {
 }
 
 const isRegionName = (region: string): region is RegionName =>
-  region === "rules" ||
-  region === "knowledge" ||
-  region === "instruction-aliases" ||
-  region.startsWith("mcp-server:");
+  region === "rules" || region === "knowledge" || region === "instruction-aliases";
 
 /** Exact owner-region content for transient retention; sibling regions are independent. */
 export const nativeManagedRegionContent = (args: {

@@ -22,6 +22,7 @@ import {
   readCopiedDirectory,
   resolveNativeReadLocation,
   type NativeDirectoryInputs,
+  type OwnershipUnitAddress,
 } from "../locations/index.js";
 import {
   resolveWorkspaceExtensionRef,
@@ -45,30 +46,29 @@ import {
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
 import { managedFileMarker, managedFileFormatForPath } from "./managed-file-banner.js";
-import { collectManagedAgentMcpServers } from "./mcps/inspection.js";
+import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
 import {
-  readAmbiguousHookCommands,
-  readManagedHookUnits,
-  type AxmMcpMetadata,
-  type HookOwnership,
+  readDeclaredHookUnits,
+  parseNativeConfigRoot,
+  type HookNativeDeclaration,
 } from "../agent-adapters/index.js";
 
 export type AgentOutputOwnershipProof =
   | "canonical-source-link"
   | "copied-directory-receipt"
   | "managed-banner"
-  | "managed-mcp-entry"
-  | "managed-hook-group";
+  | "effective-native-declaration";
 
 export interface AgentOutputObservation {
   readonly extensionType: PerAgentType;
   readonly containerPath: string;
   readonly path: string;
   readonly entryName: string;
+  readonly nativeAddress?: OwnershipUnitAddress;
   /** Owning or uniquely expected package identity when its native name differs. */
   readonly extensionName?: string;
   readonly claimantAgentIds: ReadonlyArray<string>;
-  readonly ownership: "owned" | "unowned";
+  readonly ownership: "owned" | "declared" | "unowned";
   readonly proof?: AgentOutputOwnershipProof;
   readonly desired: boolean;
 }
@@ -85,8 +85,8 @@ export interface ObserveAgentOutputsArgs {
   readonly scope: WorkspaceScope;
   readonly desiredAgentIds: ReadonlySet<string>;
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
-  readonly expectedHooks: ReadonlyArray<HookOwnership>;
-  readonly expectedMcpEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
+  readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: Readonly<Record<string, ReadonlyArray<string>>>;
   readonly expectedSubagentFiles: Readonly<
     Record<string, ReadonlyArray<{ readonly ext: string; readonly src: string }>>
@@ -353,27 +353,29 @@ export const observeAgentOutputs = (
     }
 
     const capabilityAgentIds = CAPABILITY_AGENTS.map(({ id }) => id);
-    const managedMcpServers = yield* collectManagedAgentMcpServers({
+    const managedMcpServers = yield* collectNativeAgentMcpServers({
       workspaceRoot: args.workspaceRoot,
       nativeDirectoryInputs: args.nativeDirectoryInputs,
       scope: args.scope,
       agentIds: capabilityAgentIds,
-      expectedOwnershipByName: args.expectedMcpEntries,
+      declaredMcpNames: args.declaredMcpNames,
     }).pipe(Effect.catch(() => Effect.succeed([])));
     const mcpGroups = new Map<
       string,
       {
         readonly path: string;
         readonly name: string;
+        readonly keys: readonly [string, ...string[]];
         readonly claimants: Set<string>;
-        readonly ownership: "owned" | "unowned";
+        readonly ownership: "owned" | "declared" | "unowned";
       }
     >();
     for (const server of managedMcpServers) {
-      const key = `${server.absolutePath}\u0000${server.serverName}`;
+      const key = JSON.stringify([server.absolutePath, server.keyPath]);
       const group = mcpGroups.get(key) ?? {
         path: server.absolutePath,
         name: server.serverName,
+        keys: server.keyPath,
         claimants: new Set<string>(),
         ownership: server.ownership,
       };
@@ -387,9 +389,12 @@ export const observeAgentOutputs = (
         containerPath: group.path,
         path: `${group.path}#${group.name}`,
         entryName: group.name,
+        nativeAddress: { kind: "key-path", path: group.path, keys: group.keys },
         claimantAgentIds: claimants,
         ownership: group.ownership,
-        ...(group.ownership === "owned" ? { proof: "managed-mcp-entry" as const } : {}),
+        ...(group.ownership === "declared"
+          ? { proof: "effective-native-declaration" as const }
+          : {}),
         desired:
           containerIsDesired(claimants, args.desiredAgentIds) &&
           args.expectedNames["mcp-server"].has(group.name),
@@ -444,41 +449,57 @@ export const observeAgentOutputs = (
       if (!exists) continue;
       const raw = yield* safeReadFileString(fs, group.path);
       const claimants = [...group.claimants].sort();
-      const units = yield* readManagedHookUnits(
+      const units = yield* readDeclaredHookUnits(
         group.path,
         group.settingsKey,
         raw,
         args.expectedHooks,
       ).pipe(Effect.catch(() => Effect.succeed([])));
+      if (units.length === 0) {
+        const document = yield* parseNativeConfigRoot({
+          format: "jsonc",
+          configPath: group.path,
+          raw,
+        }).pipe(Effect.option);
+        const registrations = Option.isSome(document)
+          ? document.value[group.settingsKey]
+          : undefined;
+        if (
+          typeof registrations === "object" &&
+          registrations !== null &&
+          Object.values(registrations).some((value) => Array.isArray(value) && value.length > 0)
+        )
+          outputs.push({
+            extensionType: "hook",
+            containerPath: group.path,
+            path: `${group.path}#${group.settingsKey}`,
+            entryName: group.settingsKey,
+            nativeAddress: { kind: "key-path", path: group.path, keys: [group.settingsKey] },
+            claimantAgentIds: claimants,
+            ownership: "unowned",
+            desired: false,
+          });
+      }
       for (const unit of units) {
+        const declaration = args.expectedHooks.find(({ name }) => name === unit.name);
+        if (declaration === undefined) continue;
         outputs.push({
           extensionType: "hook",
           containerPath: group.path,
           path: `${group.path}#${unit.name}`,
           entryName: unit.name,
+          nativeAddress: {
+            kind: "hook-registrations",
+            path: group.path,
+            settingsKey: group.settingsKey,
+            scriptRoots: [declaration.root],
+          },
           claimantAgentIds: claimants,
-          ownership: "owned",
-          proof: "managed-hook-group",
+          ownership: "declared",
+          proof: "effective-native-declaration",
           desired:
             containerIsDesired(claimants, args.desiredAgentIds) &&
             args.expectedNames.hook.has(unit.name),
-        });
-      }
-      const ambiguous = yield* readAmbiguousHookCommands(
-        group.path,
-        group.settingsKey,
-        raw,
-        args.expectedHooks,
-      ).pipe(Effect.catch(() => Effect.succeed([])));
-      for (const command of ambiguous) {
-        outputs.push({
-          extensionType: "hook",
-          containerPath: group.path,
-          path: group.path,
-          entryName: command,
-          claimantAgentIds: claimants,
-          ownership: "unowned",
-          desired: false,
         });
       }
     }
@@ -498,16 +519,16 @@ export const observeAgentOutputs = (
  * reporter must not need a desired graph, because the workspaces most in need
  * of the answer are the ones whose desired state cannot be resolved. Every
  * expected-name set is therefore empty, and the answer is only about proof —
- * a file that sits where AXM writes but carries no ownership marker, and a
- * hook command pointed at an AXM canonical path without one.
+ * file artifacts that lack their required ownership evidence. Native MCP
+ * and Hook declarations do not use file ownership markers.
  */
 export const observeWorkspaceOwnershipIssues = (args: {
   readonly workspaceRoot: string;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly scope: WorkspaceScope;
   readonly configuredAgentIds: ReadonlySet<string>;
-  readonly expectedHooks: ReadonlyArray<HookOwnership>;
-  readonly expectedMcpEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
+  readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
+  readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: ObserveAgentOutputsArgs["expectedSkillSources"];
   readonly expectedSubagentFiles: ObserveAgentOutputsArgs["expectedSubagentFiles"];
   readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
@@ -528,22 +549,20 @@ export const observeWorkspaceOwnershipIssues = (args: {
       hook: new Set<string>(),
     },
     expectedHooks: args.expectedHooks,
-    expectedMcpEntries: args.expectedMcpEntries,
+    declaredMcpNames: args.declaredMcpNames,
     expectedSkillSources: args.expectedSkillSources,
     expectedSubagentFiles: args.expectedSubagentFiles,
     authoredSkills: args.authoredSkills,
   }).pipe(
     Effect.map((observed) =>
-      observed.unownedFootprints.map((output) => ({
-        kind:
-          output.extensionType === "hook"
-            ? ("hook-ownership-ambiguous" as const)
-            : ("managed-file-unowned" as const),
-        path: output.path,
-        detail:
-          output.extensionType === "hook"
-            ? `Hook command targets an AXM-managed extension path without x-axm ownership metadata: ${output.entryName}`
-            : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
-      })),
+      observed.unownedFootprints
+        .filter(
+          (output) => output.extensionType !== "mcp-server" && output.extensionType !== "hook",
+        )
+        .map((output) => ({
+          kind: "managed-file-unowned" as const,
+          path: output.path,
+          detail: `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
+        })),
     ),
   );

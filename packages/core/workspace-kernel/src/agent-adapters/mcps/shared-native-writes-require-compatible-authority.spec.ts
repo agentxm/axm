@@ -5,14 +5,13 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import {
-  newlyConfiguredMcpRoutePaths,
   configuredMcpCapability,
   declaredMcpWriterTargets,
   resolveSharedMcpTarget,
   syncInlineMcpServerToAgents,
   removeAgentMcpConfig,
   decodeJsonMcpConfig,
-  type AxmMcpMetadata,
+  readNativeMcpValues,
   validateAgentMcpConfigWrite,
   validateInlineMcpServerTargets,
   writeAgentMcpConfig,
@@ -21,9 +20,9 @@ import { makeRecordingNativeWriteAuthority } from "../testing.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/mcps/shared-native-writes-require-compatible-authority",
-  title: "Shared MCP writes require compatible readers and proven authority",
+  title: "Shared MCP declarations authorize entries under compatible readers",
   statement:
-    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and the target entry is absent, proven owned, or explicitly adopted from an unchanged observed declaration; alias escapes and stale adoption shall leave native files unchanged.",
+    "AXM shall write each physical MCP file once only when its complete format, declared servers-container path, and rendered entry satisfy the configured applicable native readers, with other catalog readers reported only as potential readers, and a validated declaration authorizes creation or complete replacement of its named entry independently of native ownership metadata; alias escapes and stale import candidates shall leave native files unchanged.",
   class: "functional",
   role: "supporting",
   goals: ["agent-interoperability", "workspace-intent-fidelity", "safe-repetition"],
@@ -39,17 +38,93 @@ export const specification = defineSpecification({
 
 const managedEntry = {
   command: "node",
-  "x-axm": { v: 1, managed: true, ext: "@workspace/mcps/context", source: "inline" },
 };
 
-const acceptedOwner = {
-  v: 1,
-  managed: true,
-  ext: "@workspace/mcps/context",
-  source: "inline",
-} satisfies AxmMcpMetadata;
-
 describe("authority at shared MCP files", () => {
+  it.effect.each(["json", "jsonc", "toml", "yaml", "starlark", "vscode-settings"] as const)(
+    "reprojects a previously marked entry completely in %s and repeats without writes",
+    (format) =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, `native.${format}`);
+        const raw =
+          format === "toml"
+            ? '# keep comment\n[mcpServers.context]\ncommand = "old"\nargs = ["stale"]\n[mcpServers.context.x-axm]\ninvalid = true\n[mcpServers.foreign]\ncommand = "keep"\n'
+            : format === "yaml"
+              ? "# keep comment\nmcpServers:\n  context:\n    command: old\n    args: [stale]\n    x-axm: { invalid: true }\n  foreign:\n    command: keep\n"
+              : '{"mcpServers":{"context":{"command":"old","args":["stale"],"x-axm":{"invalid":true}},"foreign":{"command":"keep"}}}';
+        yield* fs.writeFileString(file, raw);
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const args = {
+          workspaceRoot: root,
+          serverName: "context",
+          serversPath: ["mcpServers"] as const,
+          target: { scope: "project" as const, path: file, format, attribution: "agent" as const },
+          entry: { command: "new" },
+        };
+        yield* writeAgentMcpConfig(args).pipe(Effect.provide(authority.layer));
+        const updated = yield* fs.readFileString(file);
+        expect(
+          yield* readNativeMcpValues({
+            configPath: file,
+            raw: updated,
+            format,
+            serversPath: args.serversPath,
+          }),
+        ).toEqual({
+          context: { command: "new" },
+          foreign: { command: "keep" },
+        });
+        expect(updated).not.toContain("x-axm");
+        if (format === "toml" || format === "yaml") expect(updated).toContain("# keep comment");
+        yield* writeAgentMcpConfig(args).pipe(Effect.provide(authority.layer));
+        expect(yield* fs.readFileString(file)).toBe(updated);
+        expect((yield* authority.observed).records).toHaveLength(1);
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect.each([
+    'mcpServers = { context = { command = "old", env = { A = "stale" } }, other = { command = "keep" } }\n',
+    '[mcpServers]\ncontext = { command = "old", env = { A = "stale" } }\nother = { command = "keep" }\n',
+    'mcpServers.context.command = "old"\nmcpServers.context.env.A = "stale"\n[mcpServers.other]\ncommand = "keep"\n',
+    '[mcpServers.context]\ncommand = "old"\n[mcpServers.context.env]\nA = "stale"\n[mcpServers.other]\ncommand = "keep"\n',
+    'mcpServers = { context.command = "old", context.env.A = "stale", other.command = "keep" }\n',
+  ])("replaces complete unfenced TOML values across equivalent layouts: %s", (raw) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = `${root}/native.toml`;
+      yield* fs.writeFileString(file, raw);
+      const authority = yield* makeRecordingNativeWriteAuthority;
+      const args = {
+        workspaceRoot: root,
+        serverName: "context",
+        serversPath: ["mcpServers"] as const,
+        target: {
+          scope: "project" as const,
+          path: file,
+          format: "toml" as const,
+          attribution: "agent" as const,
+        },
+        entry: { command: "new", env: { B: "current" } },
+      };
+      yield* writeAgentMcpConfig(args).pipe(Effect.provide(authority.layer));
+      expect(
+        yield* readNativeMcpValues({
+          configPath: file,
+          raw: yield* fs.readFileString(file),
+          format: "toml",
+          serversPath: args.serversPath,
+        }),
+      ).toEqual({ context: args.entry, other: { command: "keep" } });
+      const next = yield* fs.readFileString(file);
+      yield* writeAgentMcpConfig(args).pipe(Effect.provide(authority.layer));
+      expect(yield* fs.readFileString(file)).toBe(next);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect(
     "keeps Coder workspace MCP output owned through repeat, update, disable and removal",
     () =>
@@ -70,7 +145,7 @@ describe("authority at shared MCP files", () => {
             nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             scope: "project",
             serverName: "context",
-            nativeInsertionEligible: true,
+
             entry: {
               kind: "inline",
               connection: { transport: "stdio", command: "node", args: ["context.js"], env: {} },
@@ -97,7 +172,7 @@ describe("authority at shared MCP files", () => {
             unrelated: true,
             mcpServers: {
               foreign,
-              context: { command: "node", args: ["next.js"], "x-axm": acceptedOwner },
+              context: { command: "node", args: ["next.js"] },
             },
           });
           const removal = {
@@ -106,7 +181,6 @@ describe("authority at shared MCP files", () => {
             serverName: "context",
             serversPath: ["mcpServers"],
             activationField: { required: null, accepted: [null] },
-            expectedManagedEntries: { context: [acceptedOwner] },
           } as const;
           yield* removeAgentMcpConfig({ ...removal, disableOnly: true });
           expect(
@@ -159,7 +233,7 @@ describe("authority at shared MCP files", () => {
             nativeDirectoryInputs: { skillsDirectoryOverrides: {}, xdgConfigRoot: xdg },
             scope,
             serverName: "context",
-            nativeInsertionEligible: true,
+
             entry: {
               kind: "inline",
               connection: {
@@ -192,7 +266,6 @@ describe("authority at shared MCP files", () => {
                   type: "remote",
                   disabled: true,
                   headers: { Authorization: "Bearer {env:TOKEN}", "X-Secondary": "{env:SECOND}" },
-                  "x-axm": acceptedOwner,
                 },
               },
             },
@@ -216,7 +289,7 @@ describe("authority at shared MCP files", () => {
           serverName: "context",
           serversPath: ["mcp", "servers"],
           entry: managedEntry,
-          nativeInsertionEligible: true,
+
           target: { scope: "project", path: "native.json", format: "json", attribution: "agent" },
         }).pipe(Effect.result, Effect.provide(authority.layer));
         expect(result._tag).toBe("Failure");
@@ -239,7 +312,7 @@ describe("authority at shared MCP files", () => {
         serverName: "context",
         serversPath: ["mcpServers"] as const,
         entry: managedEntry,
-        nativeInsertionEligible: true,
+
         target: { scope: "project", path: "native.yaml", format: "yaml", attribution: "agent" },
       }).pipe(Effect.provide(authority.layer), Effect.result);
       expect(result._tag).toBe("Failure");
@@ -249,64 +322,32 @@ describe("authority at shared MCP files", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it.effect(
-    "requires the accepted owner for removal and explicit previous owner for replacement",
-    () =>
-      Effect.gen(function* () {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* fs.makeTempDirectoryScoped();
-        const target = {
-          scope: "project",
-          path: "native.json",
-          format: "json",
-          attribution: "agent",
-        } as const;
-        const file = path.join(root, target.path);
-        const raw = JSON.stringify({ mcpServers: { context: managedEntry }, foreign: true });
-        yield* fs.writeFileString(file, raw);
-        const nextOwner = {
-          v: 1,
-          managed: true,
-          ext: "@someone/mcps/replacement",
-          source: "registry",
-          ref: "@someone/mcps/replacement",
-        } satisfies AxmMcpMetadata;
-        const authority = yield* makeRecordingNativeWriteAuthority;
-        yield* Effect.gen(function* () {
-          const refused = yield* removeAgentMcpConfig({
-            workspaceRoot: root,
-            target,
-            serverName: "context",
-            serversPath: ["mcpServers"] as const,
-            disableOnly: false,
-            activationField: { required: null, accepted: [null] },
-            expectedManagedEntries: { context: [nextOwner] },
-          }).pipe(Effect.result);
-          expect(refused._tag).toBe("Failure");
-          expect(yield* fs.readFileString(file)).toBe(raw);
-          const replacement = {
-            workspaceRoot: root,
-            target,
-            serverName: "context",
-            serversPath: ["mcpServers"] as const,
-            nativeInsertionEligible: false,
-            entry: { command: "replacement", "x-axm": nextOwner },
-          } as const;
-          expect((yield* writeAgentMcpConfig(replacement).pipe(Effect.result))._tag).toBe(
-            "Failure",
-          );
-          expect(yield* fs.readFileString(file)).toBe(raw);
-          const result = yield* writeAgentMcpConfig({
-            ...replacement,
-            previousManagedEntries: [acceptedOwner],
-          });
-          expect(result.targets[0]?.nativeLocation?.state).toBe("updated");
-          const rewritten = yield* fs.readFileString(file);
-          expect(rewritten).toContain('"foreign":true');
-          expect(rewritten).toContain("@someone/mcps/replacement");
-        }).pipe(Effect.provide(authority.layer));
-      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  it.effect("explicit name selection removes even an unmarked or formerly marked entry", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = `${root}/native.json`;
+      yield* fs.writeFileString(
+        file,
+        JSON.stringify({
+          mcpServers: { context: managedEntry, other: { command: "keep" } },
+          foreign: true,
+        }),
+      );
+      const authority = yield* makeRecordingNativeWriteAuthority;
+      yield* removeAgentMcpConfig({
+        workspaceRoot: root,
+        target: { scope: "project", path: file, format: "json", attribution: "agent" },
+        serverName: "context",
+        serversPath: ["mcpServers"],
+        disableOnly: false,
+        activationField: { required: null, accepted: [null] },
+      }).pipe(Effect.provide(authority.layer));
+      expect(JSON.parse(yield* fs.readFileString(file))).toEqual({
+        mcpServers: { other: { command: "keep" } },
+        foreign: true,
+      });
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
   it.effect(
@@ -331,7 +372,6 @@ describe("authority at shared MCP files", () => {
             serverName: "context",
             serversPath: ["mcpServers"] as const,
             entry: managedEntry,
-            nativeInsertionEligible: false,
           } as const;
           const inserted = yield* writeAgentMcpConfig(args);
           expect(inserted.targets[0]?.change).toBe("updated");
@@ -355,7 +395,7 @@ describe("authority at shared MCP files", () => {
     { format: "yaml", raw: "# keep\nmcpServers:\n  context:\n    command: foreign\n" },
     { format: "toml", raw: '[mcpServers.context]\ncommand = "foreign"\n' },
   ] as const) {
-    it.effect(`preserves an occupied unowned ${row.format} entry`, () =>
+    it.effect(`replaces an occupied ${row.format} entry`, () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
@@ -364,17 +404,22 @@ describe("authority at shared MCP files", () => {
         yield* fs.writeFileString(file, row.raw);
         const authority = yield* makeRecordingNativeWriteAuthority;
         const result = yield* writeAgentMcpConfig({
-          nativeInsertionEligible: false,
           workspaceRoot: root,
           serverName: "context",
           serversPath: ["mcpServers"] as const,
           target: { scope: "project", path: "native", format: row.format, attribution: "agent" },
           entry: managedEntry,
         }).pipe(Effect.provide(authority.layer), Effect.result);
-        expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") expect(result.failure._tag).toBe("McpEntryUnmanaged");
-        expect(yield* fs.readFileString(file)).toBe(row.raw);
-        expect((yield* authority.observed).records).toEqual([]);
+        expect(result._tag).toBe("Success");
+        expect(
+          yield* readNativeMcpValues({
+            configPath: file,
+            raw: yield* fs.readFileString(file),
+            format: row.format,
+            serversPath: ["mcpServers"],
+          }),
+        ).toEqual({ context: managedEntry });
+        expect((yield* authority.observed).records).toHaveLength(1);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
@@ -388,7 +433,6 @@ describe("authority at shared MCP files", () => {
       const authority = yield* makeRecordingNativeWriteAuthority;
       const expectedEntry = { command: "node" };
       const write = writeAgentMcpConfig({
-        nativeInsertionEligible: false,
         workspaceRoot: root,
         serverName: "context",
         serversPath: ["mcpServers"] as const,
@@ -408,7 +452,7 @@ describe("authority at shared MCP files", () => {
       );
       yield* write.pipe(Effect.provide(authority.layer));
       expect(yield* fs.readFileString(file)).toContain('"foreign":true');
-      expect((yield* authority.observed).records).toHaveLength(1);
+      expect((yield* authority.observed).records).toHaveLength(0);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
@@ -439,7 +483,6 @@ describe("authority at shared MCP files", () => {
           yield* fs.symlink("replacement.json", alias);
         }
         const result = yield* writeAgentMcpConfig({
-          nativeInsertionEligible: false,
           workspaceRoot: root,
           serverName: "context",
           serversPath: ["mcpServers"] as const,
@@ -472,7 +515,7 @@ describe("authority at shared MCP files", () => {
       const authority = yield* makeRecordingNativeWriteAuthority;
       const outcomes = yield* syncInlineMcpServerToAgents(["claude-code", "cursor"], {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        nativeInsertionEligible: false,
+
         workspaceRoot: root,
         serverName: "context",
         entry: {
@@ -501,7 +544,7 @@ describe("authority at shared MCP files", () => {
         const agentIds = configured ? ["claude-code", "opencode"] : ["claude-code"];
         const args = {
           nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-          nativeInsertionEligible: false,
+
           workspaceRoot: root,
           serverName: "context",
           entry: {
@@ -577,7 +620,6 @@ describe("authority at shared MCP files", () => {
       const file = path.join(root, "native.json");
       yield* fs.writeFileString(file, raw);
       const result = yield* validateAgentMcpConfigWrite({
-        nativeInsertionEligible: false,
         workspaceRoot: root,
         serverName: "context",
         serversPath: ["mcpServers"] as const,
@@ -599,7 +641,6 @@ describe("authority at shared MCP files", () => {
       yield* fs.writeFileString(file, "{}\n");
       yield* fs.symlink(file, path.join(root, "alias.json"));
       const result = yield* validateAgentMcpConfigWrite({
-        nativeInsertionEligible: false,
         workspaceRoot: root,
         serverName: "context",
         serversPath: ["mcpServers"] as const,
@@ -640,7 +681,7 @@ describe("authority at shared MCP files", () => {
               workspaceRoot: root,
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
               serverName: "context",
-              nativeInsertionEligible: true,
+
               entry,
             },
           ).pipe(Effect.provide(authority.layer));
@@ -648,7 +689,7 @@ describe("authority at shared MCP files", () => {
           expect((yield* authority.observed).records).toHaveLength(1);
           const native = yield* fs.readFileString(path.join(root, ".mcp.json"));
           expect(native).toContain("${TOKEN}");
-          expect(native).toContain('"x-axm"');
+          expect(native).not.toContain('"x-axm"');
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
@@ -667,7 +708,7 @@ describe("authority at shared MCP files", () => {
             workspaceRoot: root,
             nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
             serverName: "context",
-            nativeInsertionEligible: true,
+
             entry: {
               kind: "inline",
               connection: {
@@ -688,27 +729,5 @@ describe("authority at shared MCP files", () => {
         expect((yield* authority.observed).records).toHaveLength(0);
         expect(yield* fs.exists(path.join(root, ".mcp.json"))).toBe(false);
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("new membership authorizes only newly reached physical files", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const args = {
-        workspaceRoot: root,
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        scope: "project" as const,
-        previousAgentIds: ["claude-code"],
-        agentIds: ["claude-code", "cursor"],
-      };
-      expect([...(yield* newlyConfiguredMcpRoutePaths(args))]).toEqual([
-        path.join(root, ".cursor/mcp.json"),
-      ]);
-      yield* fs.makeDirectory(path.join(root, ".cursor"));
-      yield* fs.writeFileString(path.join(root, ".mcp.json"), "{}");
-      yield* fs.symlink("../.mcp.json", path.join(root, ".cursor/mcp.json"));
-      expect([...(yield* newlyConfiguredMcpRoutePaths(args))]).toEqual([]);
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

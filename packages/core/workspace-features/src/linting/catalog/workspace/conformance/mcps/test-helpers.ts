@@ -7,11 +7,9 @@ import type {
   ActualMcpServer,
   InstalledMcpServer,
   McpServerEntry,
-  UnmanagedMcpServer,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceRuleContext } from "../../../../workspace-context.js";
 import { mcpServerAgentDriftRule } from "../../mcps-agent-drift.js";
-import { mcpServerAgentOrphanedRule } from "../../mcps-agent-orphaned.js";
 import {
   contextFor,
   validLockfile,
@@ -28,12 +26,6 @@ const inlineDemo = {
 } satisfies McpServerEntry;
 
 const managedDemoConfig = (command: string): Readonly<Record<string, unknown>> => ({
-  "x-axm": {
-    v: 1,
-    managed: true,
-    ext: "@workspace/mcps/demo",
-    source: "inline",
-  },
   type: "stdio",
   command,
   args: ["server.js"],
@@ -118,71 +110,4 @@ export const mcpAgentDriftConformance: WorkspaceRuleConformanceCase = {
       settings: validSettings({ agents: ["cursor"] }),
       lockfile: validLockfile,
     }),
-};
-
-const actualSharedDemo = (managed: boolean): ActualMcpServer => ({
-  key: demoKey,
-  origin: { _tag: "workspace-mcp-config" },
-  contentRoot: null,
-  packageRoot: null,
-  configFile: ".mcp.json",
-  config: managed ? managedDemoConfig("node") : { type: "stdio", command: "node" },
-});
-
-const unmanagedSharedDemo = (managed: boolean): UnmanagedMcpServer => ({
-  key: demoKey,
-  actual: actualSharedDemo(managed),
-});
-
-const orphanContext = (managed?: boolean) =>
-  contextFor({
-    settings: validSettings({ agents: ["claude-code"] }),
-    lockfile: validLockfile,
-  }).pipe(
-    Effect.map(
-      (context) =>
-        ({
-          ...context,
-          agentOutputs: Effect.succeed({
-            outputs:
-              managed === undefined
-                ? []
-                : [
-                    {
-                      extensionType: "mcp-server",
-                      containerPath: ".mcp.json",
-                      path: ".mcp.json",
-                      entryName: "demo",
-                      claimantAgentIds: ["claude-code"],
-                      ownership: "unowned",
-                      desired: false,
-                    },
-                  ],
-            ownedResidue: [],
-            unownedFootprints: [],
-          }),
-          workspace: {
-            ...context.workspace,
-            mcpServers: {
-              ...context.workspace.mcpServers,
-              unmanaged: Effect.succeed(
-                managed === undefined ? [] : [unmanagedSharedDemo(managed)],
-              ),
-            },
-          },
-        }) satisfies WorkspaceRuleContext,
-    ),
-  );
-
-export const mcpAgentOrphanedConformance: WorkspaceRuleConformanceCase = {
-  rule: mcpServerAgentOrphanedRule,
-  satisfied: () => orphanContext(),
-  violated: () => orphanContext(true),
-  expectedFindings: [
-    {
-      message: "MCP server 'demo' has an orphaned AXM-marked shared config.",
-      location: { file: ".mcp.json" },
-    },
-  ],
-  inapplicable: () => orphanContext(false),
 };

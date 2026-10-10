@@ -31,7 +31,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/realizes-desired-state",
   title: "Sync realizes desired additions and removes what desired state no longer includes",
   statement:
-    "Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned outputs when reachability and ownership are established while preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.",
+    "Sync shall realize desired installations and activation, accepting a first resolution when absent and restoring missing content only from its accepted identity, shall remove unreachable accepted records, verified acquired installations and obsolete owned file outputs when reachability and ownership are established, retain native MCP and Hook registrations after lost reachability, and retain canonical content and accepted source integrity while native registrations reference its code, preserving authored and unowned content, shall keep the owned outputs of every desired extension whose own closure is blocked in a run that commits others, and shall report convergence only when every required postcondition in its scope is satisfied.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
@@ -187,11 +187,30 @@ describe("Sync realizes desired workspace state", () => {
                 );
                 expect(workspace.exists(canonical)).toBe(true);
                 if (!enabled) expect(workspace.exists(`.claude/skills/${name}`)).toBe(false);
+                const retainedNative =
+                  enabled && (type === "hook" || type === "mcp-server")
+                    ? {
+                        file: type === "hook" ? ".claude/settings.json" : ".mcp.json",
+                        raw: workspace.readFile(
+                          type === "hook" ? ".claude/settings.json" : ".mcp.json",
+                        ),
+                      }
+                    : undefined;
                 workspace.writeSettings(settings);
+                if (type === "hook" && enabled) {
+                  expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+                  expect(workspace.exists(canonical)).toBe(true);
+                  expect(workspace.readFile("axm-lock.yaml")).toContain('"review"');
+                  expect(workspace.readFile(".claude/settings.json")).toBe(retainedNative?.raw);
+                  // A bounded manual cleanup of the sole fixture registration releases its code.
+                  workspace.writeFile(".claude/settings.json", "{}\n");
+                }
                 const retired = expectResolved(yield* applySync());
                 expect(deriveOperationOutcome(retired)).toBe("applied");
                 expect(workspace.exists(canonical)).toBe(false);
-                expect(workspace.readFile("axm-lock.yaml")).not.toContain("workspaceName: review");
+                if (type === "mcp-server" && retainedNative !== undefined)
+                  expect(workspace.readFile(retainedNative.file)).toBe(retainedNative.raw);
+                expect(workspace.readFile("axm-lock.yaml")).not.toContain('"review"');
                 expect((yield* applySync())._tag).toBe("AlreadyReconciled");
               }),
             )

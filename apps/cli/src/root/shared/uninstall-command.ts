@@ -173,7 +173,11 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
   ).pipe(
     withArgvTracking(config),
     withCommandCapabilities(previewableCapabilities("workspace")),
-    Command.withDescription(`Uninstall a ${noun.singular}`),
+    Command.withDescription(
+      type === "mcp-server" || type === "hook"
+        ? `Uninstall a ${noun.singular} and explicitly withdraw its selected native registrations`
+        : `Uninstall a ${noun.singular}`,
+    ),
     Command.withExamples([
       {
         command: `axm ${route} uninstall ${exampleName}`,

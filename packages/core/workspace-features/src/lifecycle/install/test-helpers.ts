@@ -99,10 +99,10 @@ export const localLifecycleRows: ReadonlyArray<LocalLifecycleRow> = [
     writePackage: writeLocalHookPackage,
     canonicalFile: () => "src/hook.sh",
     expectRealized: (workspace, name) => {
-      expect(workspace.readFile(".claude/settings.json")).toContain(`hook:${name}`);
+      expect(workspace.readFile(".claude/settings.json")).toContain(`/${name}/src/hook.sh`);
     },
     expectUnrealized: (workspace, name) => {
-      expectFileLacksMarker(workspace, ".claude/settings.json", `hook:${name}`);
+      expectFileLacksMarker(workspace, ".claude/settings.json", `/${name}/src/hook.sh`);
     },
   },
   {

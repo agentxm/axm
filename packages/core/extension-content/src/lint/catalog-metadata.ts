@@ -577,12 +577,6 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: workspaceView,
   },
   {
-    id: "workspace/hook-ownership-ambiguous",
-    defaultSeverity: "warning",
-    group: "workspace",
-    views: workspaceView,
-  },
-  {
     id: "workspace/managed-file-unowned",
     defaultSeverity: "warning",
     group: "workspace",
@@ -674,12 +668,6 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
   },
   {
     id: "workspace/mcps-agent-drift",
-    defaultSeverity: "warning",
-    group: "workspace",
-    views: workspaceView,
-  },
-  {
-    id: "workspace/mcps-agent-orphaned",
     defaultSeverity: "warning",
     group: "workspace",
     views: workspaceView,

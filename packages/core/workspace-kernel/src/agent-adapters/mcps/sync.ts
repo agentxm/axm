@@ -32,7 +32,6 @@ import {
   type RemoveAgentMcpConfigsArgs,
 } from "./config-writer.js";
 import {
-  managedNativeMcpEntryNames,
   readNativeMcpConfig,
   readNativeMcpValues,
   resolveAgentMcpConfigTargetPath,
@@ -56,7 +55,6 @@ import { decodeMcpServerManifestAt } from "./manifest.js";
 import { readPluginMcpDefinition, type PluginMcpDefinition } from "./plugin-definition.js";
 import type { NativeMcpComponent } from "@agentxm/extension-model/unstable/extensions/refs/mcp-server";
 import { resolveSharedMcpContainer } from "./shared-target.js";
-import { matchesAcceptedMcpOwnership, type AxmMcpMetadata } from "./entry-semantics.js";
 
 /** Readback proves native content; running-agent selection remains unobservable here. */
 const describePhysicalConsumers = (args: {
@@ -140,24 +138,8 @@ export interface SyncInlineMcpServerArgs {
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly serverName: string;
   readonly entry: McpServerDeclaration;
-  readonly nativeInsertionEligible: boolean;
-  /** Captured newly configured physical routes; existing routes require durable ownership. */
-  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-  readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
-  readonly scope?: "project" | "user";
-}
 
-export interface PruneManagedMcpServersArgs {
-  readonly expectedManagedEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
-  readonly configuredConsumerIds?: ReadonlySet<string>;
-  readonly workspaceRoot: string;
-  readonly nativeDirectoryInputs: NativeDirectoryInputs;
-  readonly declaredServerNames: ReadonlySet<string>;
   readonly scope?: "project" | "user";
-  /** Inspect and report stale targets without changing agent configuration. */
-  readonly dryRun?: boolean;
-  /** A bounded cleanup may assign different desired names to each physical container. */
-  readonly containerDesiredNames?: ReadonlyMap<string, ReadonlySet<string>>;
 }
 
 export interface SyncManifestMcpServerArgs extends Omit<
@@ -165,10 +147,6 @@ export interface SyncManifestMcpServerArgs extends Omit<
   "owner" | "resolvedVersion"
 > {
   readonly agentIds: ReadonlyArray<string>;
-  readonly nativeInsertionEligible: boolean;
-  /** Captured newly configured physical routes; existing routes require durable ownership. */
-  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-  readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
 }
 
 export interface ValidateManifestMcpServerTargetsArgs {
@@ -182,10 +160,6 @@ export interface ValidateManifestMcpServerTargetsArgs {
   readonly bindings?: ReadonlyArray<McpBinding>;
   readonly auth?: McpAuth;
   readonly enabled: boolean;
-  readonly nativeInsertionEligible: boolean;
-  /** Captured newly configured physical routes; existing routes require durable ownership. */
-  readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-  readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
 }
 
 /** A plan whose readers all accept their shared entries, or the conflict that stops it. */
@@ -212,9 +186,6 @@ const validatePlannedWrites = (
   writes: ReadonlyArray<McpTargetWrite>,
   authority: {
     readonly nativeDirectoryInputs: NativeDirectoryInputs;
-    readonly nativeInsertionEligible: boolean;
-    readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-    readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
   },
   adoptions?: ReadonlyArray<{
     readonly filePath: string;
@@ -265,12 +236,7 @@ const validatePlannedWrites = (
         serversPath: write.config.serversPath,
         target: write.target,
         entry: write.entry,
-        nativeInsertionEligible:
-          authority.nativeInsertionEligible ||
-          authority.nativeInsertionEligiblePaths?.has(write.path) === true,
-        ...(authority.previousManagedEntries === undefined
-          ? {}
-          : { previousManagedEntries: authority.previousManagedEntries }),
+
         ...(adoption === undefined ? {} : { adoption }),
       });
       yield* preflightNativeConfigReaders({
@@ -337,9 +303,6 @@ const applyPlannedWrites = (
   writes: ReadonlyArray<McpTargetWrite>,
   authority: {
     readonly nativeDirectoryInputs: NativeDirectoryInputs;
-    readonly nativeInsertionEligible: boolean;
-    readonly nativeInsertionEligiblePaths?: ReadonlySet<string>;
-    readonly previousManagedEntries?: ReadonlyArray<AxmMcpMetadata>;
   },
 ): Effect.Effect<
   ReadonlyMap<string, ReadonlyArray<McpServerSyncTarget>>,
@@ -357,12 +320,7 @@ const applyPlannedWrites = (
         serversPath: write.config.serversPath,
         target: write.target,
         entry: write.entry,
-        nativeInsertionEligible:
-          authority.nativeInsertionEligible ||
-          authority.nativeInsertionEligiblePaths?.has(write.path) === true,
-        ...(authority.previousManagedEntries === undefined
-          ? {}
-          : { previousManagedEntries: authority.previousManagedEntries }),
+
         aliases: [
           ...new Set(
             write.declaredTargets.map((target) =>
@@ -484,15 +442,8 @@ const planMcpRemovals = (
     readonly nativeDirectoryInputs: NativeDirectoryInputs;
     readonly scope: "project" | "user";
     readonly disableOnly: boolean;
-    readonly expectedManagedEntries: Readonly<Record<string, ReadonlyArray<AxmMcpMetadata>>>;
     readonly configuredConsumerIds?: ReadonlySet<string>;
-    readonly selection:
-      | { readonly kind: "remove"; readonly serverName: string }
-      | {
-          readonly kind: "prune";
-          readonly declaredServerNames: ReadonlySet<string>;
-          readonly containerDesiredNames?: ReadonlyMap<string, ReadonlySet<string>>;
-        };
+    readonly selection: { readonly kind: "remove"; readonly serverName: string };
   },
 ) =>
   Effect.gen(function* () {
@@ -505,12 +456,6 @@ const planMcpRemovals = (
     });
     const plans: Array<McpRemovalGroup> = [];
     for (const group of groups) {
-      if (
-        args.selection.kind === "prune" &&
-        args.selection.containerDesiredNames !== undefined &&
-        !args.selection.containerDesiredNames.has(group.path)
-      )
-        continue;
       if (group.unverifiedReaders.length > 0)
         return yield* new McpSharedTargetConflict({ reason: group.unverifiedReaders.join("; ") });
       const consumers = group.members.filter((member) =>
@@ -519,7 +464,7 @@ const planMcpRemovals = (
           : args.configuredConsumerIds.has(member.agentId),
       );
       // With no remaining consumers, withdrawal still needs one declared parser
-      // for the owned container; potential readers do not add new constraints.
+      // for the selected container; potential readers do not add new constraints.
       const withdrawalWriter = [...group.members]
         .filter((member) => member.configured)
         .sort((left, right) => left.agentId.localeCompare(right.agentId))
@@ -554,76 +499,16 @@ const planMcpRemovals = (
         writerFormat: shared.target.format,
         raw: Option.getOrElse(raw, () => ""),
       });
-      const candidates =
-        args.selection.kind === "remove"
-          ? [args.selection.serverName]
-          : Option.isNone(raw)
-            ? []
-            : (yield* managedNativeMcpEntryNames({
-                configPath: group.path,
-                raw: raw.value,
-                format: shared.target.format,
-                serversPath: shared.config.serversPath,
-              })).filter(
-                (name) =>
-                  !(
-                    args.selection.kind === "prune" &&
-                    (
-                      args.selection.containerDesiredNames?.get(group.path) ??
-                      args.selection.declaredServerNames
-                    ).has(name)
-                  ),
-              );
-      const values = Option.isNone(raw)
-        ? {}
-        : yield* readNativeMcpValues({
-            configPath: group.path,
-            raw: raw.value,
-            format: shared.target.format,
-            serversPath: shared.config.serversPath,
-          });
-      const names = candidates.filter(
-        (name) =>
-          !Object.hasOwn(values, name) ||
-          matchesAcceptedMcpOwnership(values[name], args.expectedManagedEntries[name] ?? []),
-      );
+      const names = [args.selection.serverName];
       const configuredConsumers = shared.agentIds.filter(
         (agentId) =>
           agentIds.includes(agentId) &&
           (args.configuredConsumerIds === undefined || args.configuredConsumerIds.has(agentId)),
       );
-      const retained = candidates
-        .filter((name) => !names.includes(name))
-        .map((name): McpServerSyncTarget => ({
-          path: group.path,
-          change: "unchanged",
-          nativeLocation: {
-            scope: args.scope,
-            address: {
-              kind: "key-path",
-              path: group.path,
-              keys: [...shared.config.serversPath, name],
-            },
-            aliases,
-            configuredConsumers,
-            potentialReaders: [],
-            policyReasons: [],
-            ownership: "unowned",
-            state: "retained",
-            mechanism: "structured-entry",
-            availability: configuredConsumers.map((agentId) => ({
-              agentId,
-              state: "unverified",
-              reason: "Native configuration selection is not observable",
-            })),
-            reason: "Native entry does not match an accepted workspace ownership identity",
-          },
-        }));
       const removal: RemoveAgentMcpConfigsArgs = {
         workspaceRoot: args.workspaceRoot,
         serverNames: names,
         serversPath: shared.config.serversPath,
-        expectedManagedEntries: args.expectedManagedEntries,
         target: shared.target,
         activationField: shared.config.activationField,
         disableOnly: args.disableOnly,
@@ -634,7 +519,7 @@ const planMcpRemovals = (
         path: group.path,
         agentIds: shared.agentIds.filter((agentId) => agentIds.includes(agentId)),
         configuredConsumers,
-        retained,
+        retained: [],
         declaredTargets,
         removal,
       });
@@ -680,31 +565,26 @@ const applyMcpRemovals = (
     const byAgent = new Map<string, Array<McpServerSyncTarget>>();
     for (const plan of planned.plans) {
       const changed: Array<McpServerSyncTarget> = [...plan.retained];
-      if (dryRun) {
-        if (plan.removal.serverNames.length > 0)
-          changed.push({ path: plan.path, change: "updated" });
-      } else {
-        for (const declared of plan.declaredTargets) {
-          if (
-            (yield* resolveAgentMcpConfigTargetPath(plan.removal.workspaceRoot, declared)) !==
-            plan.path
-          )
-            return yield* new McpConfigInvalid({
-              detail: `MCP location changed before removal: ${declared.path}`,
-            });
-        }
-        const result = yield* removeAgentMcpConfigs(plan.removal);
-        changed.push(
-          ...(yield* describePhysicalConsumers({
-            nativeDirectoryInputs: plan.nativeDirectoryInputs,
-            workspaceRoot: plan.removal.workspaceRoot,
-            scope: plan.removal.target.scope,
-            physicalPath: plan.path,
-            agentIds: plan.configuredConsumers,
-            targets: result.targets,
-          })),
-        );
+      for (const declared of plan.declaredTargets) {
+        if (
+          (yield* resolveAgentMcpConfigTargetPath(plan.removal.workspaceRoot, declared)) !==
+          plan.path
+        )
+          return yield* new McpConfigInvalid({
+            detail: `MCP location changed before removal: ${declared.path}`,
+          });
       }
+      const result = yield* removeAgentMcpConfigs({ ...plan.removal, dryRun });
+      changed.push(
+        ...(yield* describePhysicalConsumers({
+          nativeDirectoryInputs: plan.nativeDirectoryInputs,
+          workspaceRoot: plan.removal.workspaceRoot,
+          scope: plan.removal.target.scope,
+          physicalPath: plan.path,
+          agentIds: plan.configuredConsumers,
+          targets: result.targets,
+        })),
+      );
       for (const agentId of plan.agentIds) {
         const existing = byAgent.get(agentId) ?? [];
         byAgent.set(agentId, [...existing, ...changed]);
@@ -716,36 +596,6 @@ const applyMcpRemovals = (
         byAgent.get(agentId) ?? [],
       ),
     );
-  });
-
-/** Group every consumer before pruning each physical native container. */
-export const pruneManagedMcpServersForAgents = (
-  agentIds: ReadonlyArray<string>,
-  args: PruneManagedMcpServersArgs,
-): Effect.Effect<
-  ReadonlyArray<McpServerSyncOutcome>,
-  CodingAgentFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
-> =>
-  Effect.gen(function* () {
-    const plans = yield* planMcpRemovals(agentIds, {
-      nativeDirectoryInputs: args.nativeDirectoryInputs,
-      workspaceRoot: args.workspaceRoot,
-      scope: args.scope ?? "project",
-      disableOnly: false,
-      expectedManagedEntries: args.expectedManagedEntries,
-      ...(args.configuredConsumerIds === undefined
-        ? {}
-        : { configuredConsumerIds: args.configuredConsumerIds }),
-      selection: {
-        kind: "prune",
-        declaredServerNames: args.declaredServerNames,
-        ...(args.containerDesiredNames === undefined
-          ? {}
-          : { containerDesiredNames: args.containerDesiredNames }),
-      },
-    });
-    return yield* applyMcpRemovals(agentIds, plans, args.dryRun ?? false);
   });
 
 const manifestDeclaration = (args: {
@@ -915,7 +765,7 @@ export const syncManifestMcpServerToAgents = (
     });
   });
 
-/** Withdraw one managed entry after all configured physical consumers agree. */
+/** Withdraw one selected entry after all configured physical consumers agree. */
 export const removeMcpServerFromAgents = (
   agentIds: ReadonlyArray<string>,
   args: RemoveMcpServerArgs,
@@ -930,8 +780,7 @@ export const removeMcpServerFromAgents = (
       workspaceRoot: args.workspaceRoot,
       scope: args.scope ?? "project",
       disableOnly: args.disableOnly ?? false,
-      expectedManagedEntries: args.expectedManagedEntries,
       selection: { kind: "remove", serverName: args.serverName },
     });
-    return yield* applyMcpRemovals(agentIds, plans, false);
+    return yield* applyMcpRemovals(agentIds, plans, args.dryRun === true);
   });

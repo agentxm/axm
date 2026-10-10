@@ -11,10 +11,8 @@ import { CONFIGURABLE_AGENT_IDS } from "@agentxm/extension-model/unstable/agent-
 import * as Layer from "effect/Layer";
 import type { McpServerEntry } from "../../workspace-state/index.js";
 import {
-  buildAxmMcpMetadataFromSettingsSource,
   configuredMcpCapability,
   declaredMcpWriterTargets,
-  pruneManagedMcpServersForAgents,
   readYamlEntry,
   removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
@@ -23,20 +21,14 @@ import {
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import { inspectDesiredMcpServer } from "./inspection.js";
 
-const expectedInline = (...names: ReadonlyArray<string>) =>
-  Object.fromEntries(
-    names.map((name) => [name, [buildAxmMcpMetadataFromSettingsSource("inline", name)]]),
-  );
-
 /** One agent's outcome from the shared writer. */
 const syncInlineMcpServerToAgent = (
   agentId: string,
-  args: Omit<SyncInlineMcpServerArgs, "nativeInsertionEligible" | "nativeDirectoryInputs">,
+  args: Omit<SyncInlineMcpServerArgs, "nativeDirectoryInputs">,
 ) =>
   syncInlineMcpServerToAgents([agentId], {
     nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
     ...args,
-    nativeInsertionEligible: false,
   }).pipe(
     Effect.flatMap((outcomes) =>
       outcomes[0] === undefined
@@ -119,7 +111,7 @@ const withHome = <A, E, R>(home: string, effect: Effect.Effect<A, E, R>) =>
   );
 
 describe("mcp-sync helpers", () => {
-  it.effect("reports malformed Hermes YAML while pruning managed entries", () =>
+  it.effect("reports malformed Hermes YAML before explicit cleanup", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-prune-invalid-yaml-"));
@@ -131,12 +123,12 @@ describe("mcp-sync helpers", () => {
 
           const error = yield* withHome(
             workspaceRoot,
-            pruneManagedMcpServersForAgents(["hermes"], {
+            removeMcpServerFromAgents(["hermes"], {
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-              expectedManagedEntries: expectedInline("stale"),
+
               workspaceRoot,
               scope: "user",
-              declaredServerNames: new Set(),
+              serverName: "context",
             }),
           ).pipe(Effect.flip);
 
@@ -177,6 +169,24 @@ describe("mcp-sync helpers", () => {
                     entry,
                   });
                   expect(inspection[0]?.status, testCase.agentId).toBe("match");
+                  const disabledArgs = {
+                    nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+                    workspaceRoot,
+                    scope: testCase.scope,
+                    agentIds: [testCase.agentId],
+                    node: { name: "example-server", authority: "inline" as const, enabled: false },
+                    entry: { ...entry, enabled: false },
+                    canonicalPaths: [],
+                  };
+                  expect((yield* inspectDesiredMcpServer(disabledArgs)).current).toBe(false);
+                  yield* removeMcpServerFromAgents([testCase.agentId], {
+                    nativeDirectoryInputs: disabledArgs.nativeDirectoryInputs,
+                    workspaceRoot,
+                    scope: testCase.scope,
+                    serverName: "example-server",
+                    disableOnly: true,
+                  });
+                  expect((yield* inspectDesiredMcpServer(disabledArgs)).current).toBe(true);
                 }),
               );
             } finally {
@@ -186,57 +196,60 @@ describe("mcp-sync helpers", () => {
         ),
     );
 
-  fastCheckIt.prop(
-    {
-      testCase: FastCheck.constantFrom(...configurableMcpCases),
-      serverName: FastCheck.tuple(
-        FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz"),
-        FastCheck.array(FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-_"), {
-          maxLength: 30,
-        }),
-      ).map(([first, rest]) => `${first}${rest.join("")}`),
-    },
-    { numRuns: 100, seed: 0x41584d },
-  )(
-    "preserves write-inspect agreement for arbitrary canonical server names",
-    ({ testCase, serverName }) =>
-      // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
-      Effect.runPromise(
-        withNode(
-          Effect.gen(function* () {
-            const workspaceRoot = mkdtempSync(
-              nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
-            );
-            try {
-              const entry = entryForTransports(testCase.transports);
-              yield* withHome(
-                workspaceRoot,
-                Effect.gen(function* () {
-                  const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
-                    workspaceRoot,
-                    serverName,
-                    scope: testCase.scope,
-                    entry,
-                  });
-                  expect(outcome._tag).toBe("success");
-                  const inspections = yield* inspectInlineAcrossAgents({
-                    workspaceRoot,
-                    scope: testCase.scope,
-                    agentIds: [testCase.agentId],
-                    serverName,
-                    entry,
-                  });
-                  expect(inspections[0]?.status).toBe("match");
-                }),
-              );
-            } finally {
-              rmSync(workspaceRoot, { recursive: true, force: true });
-            }
+  // Filesystem cases took 20 s locally and exceeded 30 s under CI load.
+  // Keep 100 generated cases, with a separate bounded deadline per batch.
+  for (const batch of [0, 1, 2, 3])
+    fastCheckIt.prop(
+      {
+        testCase: FastCheck.constantFrom(...configurableMcpCases),
+        serverName: FastCheck.tuple(
+          FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz"),
+          FastCheck.array(FastCheck.constantFrom(..."abcdefghijklmnopqrstuvwxyz0123456789-_"), {
+            maxLength: 30,
           }),
+        ).map(([first, rest]) => `${first}${rest.join("")}`),
+      },
+      { numRuns: 25, seed: 0x41584d + batch },
+    )(
+      `preserves write-inspect agreement for arbitrary canonical server names (batch ${batch + 1})`,
+      ({ testCase, serverName }) =>
+        // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
+        Effect.runPromise(
+          withNode(
+            Effect.gen(function* () {
+              const workspaceRoot = mkdtempSync(
+                nodePath.join(tmpdir(), `axm-mcp-${testCase.agentId}-`),
+              );
+              try {
+                const entry = entryForTransports(testCase.transports);
+                yield* withHome(
+                  workspaceRoot,
+                  Effect.gen(function* () {
+                    const outcome = yield* syncInlineMcpServerToAgent(testCase.agentId, {
+                      workspaceRoot,
+                      serverName,
+                      scope: testCase.scope,
+                      entry,
+                    });
+                    expect(outcome._tag).toBe("success");
+                    const inspections = yield* inspectInlineAcrossAgents({
+                      workspaceRoot,
+                      scope: testCase.scope,
+                      agentIds: [testCase.agentId],
+                      serverName,
+                      entry,
+                    });
+                    expect(inspections[0]?.status).toBe("match");
+                  }),
+                );
+              } finally {
+                rmSync(workspaceRoot, { recursive: true, force: true });
+              }
+            }),
+          ),
         ),
-      ),
-    30_000,
-  );
+      30_000,
+    );
 
   it.effect("refuses to write over a malformed native JSON config", () =>
     withNode(
@@ -354,7 +367,7 @@ describe("mcp-sync helpers", () => {
           try {
             const outcomes = yield* syncInlineMcpServerToAgents(agentIds, {
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-              nativeInsertionEligible: false,
+
               workspaceRoot,
               serverName: "linear",
               scope: "project",
@@ -413,7 +426,7 @@ describe("mcp-sync helpers", () => {
           try {
             yield* syncInlineMcpServerToAgents(agentIds, {
               nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-              nativeInsertionEligible: false,
+
               workspaceRoot,
               serverName: "linear",
               scope: "project",
@@ -620,7 +633,7 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect("prunes stale AXM-managed MCP servers from agent config", () =>
+  it.effect("removes only the explicitly selected MCP server from agent config", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-"));
@@ -661,12 +674,12 @@ describe("mcp-sync helpers", () => {
             },
           });
 
-          const [outcome] = yield* pruneManagedMcpServersForAgents(["claude-code"], {
+          const [outcome] = yield* removeMcpServerFromAgents(["claude-code"], {
             nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-            expectedManagedEntries: expectedInline("stale", "stale-two"),
+
             workspaceRoot,
             scope: "project",
-            declaredServerNames: new Set(["linear"]),
+            serverName: "stale",
           });
 
           expect(outcome).toMatchObject({
@@ -677,18 +690,13 @@ describe("mcp-sync helpers", () => {
                 change: "updated",
                 nativeLocation: { address: { keys: ["mcpServers", "stale"] } },
               },
-              {
-                path: `${workspaceRoot}/.mcp.json`,
-                change: "updated",
-                nativeLocation: { address: { keys: ["mcpServers", "stale-two"] } },
-              },
             ],
           });
           const fs = yield* FileSystem.FileSystem;
           const config = yield* fs.readFileString(`${workspaceRoot}/.mcp.json`);
           expect(config).toContain('"linear"');
           expect(config).not.toContain('"stale"');
-          expect(config).not.toContain('"stale-two"');
+          expect(config).toContain('"stale-two"');
         } finally {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
@@ -696,7 +704,7 @@ describe("mcp-sync helpers", () => {
     ),
   );
 
-  it.effect("syncs, disables, removes, and prunes Hermes YAML MCP entries", () =>
+  it.effect("syncs, disables, and explicitly removes Hermes YAML MCP entries", () =>
     withNode(
       Effect.gen(function* () {
         const workspaceRoot = mkdtempSync(nodePath.join(tmpdir(), "axm-mcp-sync-hermes-"));
@@ -747,24 +755,12 @@ describe("mcp-sync helpers", () => {
               const fs = yield* FileSystem.FileSystem;
               let raw = yield* fs.readFileString(configPath);
               expect(readYamlEntry(raw, ["mcp_servers"], "context")).toMatchObject({
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/context",
-                  source: "inline",
-                },
                 enabled: true,
                 command: "npx",
                 args: ["-y", "@acme/context-mcp"],
                 env: { REGION: "us-east-1" },
               });
               expect(readYamlEntry(raw, ["mcp_servers"], "stripe")).toMatchObject({
-                "x-axm": {
-                  v: 1,
-                  managed: true,
-                  ext: "@workspace/mcps/stripe",
-                  source: "inline",
-                },
                 enabled: true,
                 url: "https://mcp.stripe.com",
               });
@@ -774,7 +770,7 @@ describe("mcp-sync helpers", () => {
 
               const [disableOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
                 nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-                expectedManagedEntries: expectedInline("context", "stripe"),
+
                 workspaceRoot,
                 serverName: "context",
                 scope: "user",
@@ -791,7 +787,7 @@ describe("mcp-sync helpers", () => {
 
               const [removeOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
                 nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-                expectedManagedEntries: expectedInline("context", "stripe"),
+
                 workspaceRoot,
                 serverName: "stripe",
                 scope: "user",
@@ -814,12 +810,12 @@ describe("mcp-sync helpers", () => {
                   enabled: true,
                 },
               });
-              const [pruneOutcome] = yield* pruneManagedMcpServersForAgents(["hermes"], {
+              const [pruneOutcome] = yield* removeMcpServerFromAgents(["hermes"], {
                 nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-                expectedManagedEntries: expectedInline("stale"),
+
                 workspaceRoot,
                 scope: "user",
-                declaredServerNames: new Set(["context"]),
+                serverName: "stale",
               });
               expect(pruneOutcome).toMatchObject({
                 _tag: "success",

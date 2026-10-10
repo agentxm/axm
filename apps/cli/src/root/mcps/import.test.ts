@@ -132,12 +132,6 @@ describe("mcps import output", () => {
           command: "node",
           args: ["server.js"],
           env: { DEMO_TOKEN: "${DEMO_TOKEN}" },
-          "x-axm": {
-            v: 1,
-            managed: true,
-            ext: "@workspace/mcps/demo",
-            source: "inline",
-          },
         });
         const settings = JSON.parse(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8"));
         expect(settings.mcpServers.demo.connection.env).toEqual({
@@ -149,7 +143,7 @@ describe("mcps import output", () => {
     );
   });
 
-  it.effect("adopts a JSONC entry without discarding nearby comments", () => {
+  it.effect("imports a JSONC entry without discarding nearby comments", () => {
     const { provide, rendererState } = makeLayers({ machine: true });
     writeWorkspaceFiles(path.join(tempDir, ".axm"));
     fs.writeFileSync(
@@ -172,14 +166,14 @@ describe("mcps import output", () => {
         });
         const updated = fs.readFileSync(configPath, "utf8");
         expect(updated).toContain("// Keep this user comment");
-        expect(updated).toContain('"x-axm"');
+        expect(updated).not.toContain('"x-axm"');
         const servers = yield* readNativeMcpServers({
           format: "jsonc",
           configPath,
           raw: updated,
           serversPath: ["mcp"] as const,
         });
-        expect(servers).toMatchObject({ demo: { "x-axm": { source: "inline" } } });
+        expect(servers).toMatchObject({ demo: { command: "node", args: ["server.js"] } });
       }),
     );
   });
@@ -209,7 +203,7 @@ describe("mcps import output", () => {
     );
   });
 
-  it.effect("adopts a home-relative YAML target in user scope", () => {
+  it.effect("imports a home-relative YAML target in user scope", () => {
     const homeDir = path.join(tempDir, "home");
     process.env["HOME"] = homeDir;
     writeWorkspaceFiles(path.join(homeDir, ".axm"), { scope: "user", agents: ["hermes"] });
@@ -233,7 +227,7 @@ describe("mcps import output", () => {
         });
         const updated = fs.readFileSync(configPath, "utf8");
         expect(updated).toContain("# Keep this user comment");
-        expect(updated).toContain("x-axm:");
+        expect(updated).not.toContain("x-axm:");
         expect(fs.existsSync(path.join(tempDir, ".hermes", "config.yaml"))).toBe(false);
       }),
     );
@@ -447,12 +441,6 @@ describe("mcps import output", () => {
           command: "node",
           args: ["server.js"],
           env: { DEMO_TOKEN: "${DEMO_TOKEN}" },
-          "x-axm": {
-            v: 1,
-            managed: true,
-            ext: "@workspace/mcps/demo",
-            source: "inline",
-          },
         });
       }),
     );

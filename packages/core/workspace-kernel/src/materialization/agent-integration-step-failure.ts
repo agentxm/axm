@@ -18,8 +18,6 @@ import type {
   McpConfigInvalid,
   McpConfigIoFailed,
   McpDefinitionInvalid,
-  McpEntryUnmanaged,
-  McpOwnershipMarkerInvalid,
   McpSharedTargetConflict,
   SubagentIoFailed,
   NativeWriteRefused,
@@ -38,8 +36,6 @@ export type AgentIntegrationFailure =
   | SubagentIoFailed
   | McpConfigInvalid
   | McpConfigIoFailed
-  | McpEntryUnmanaged
-  | McpOwnershipMarkerInvalid
   | McpDefinitionInvalid
   | McpSharedTargetConflict
   | NativeWriteRefused;
@@ -74,21 +70,6 @@ export const agentIntegrationFailureToStepFailure = (
         category: "internal",
         detail: transientBackupDetail(error),
         cause: error.cause,
-      });
-    case "McpEntryUnmanaged":
-      return makeStepFailure({
-        category: "conflict",
-        detail: `MCP server ${error.serverName} is unmanaged in ${error.configPath}; AXM will not remove it`,
-      });
-    case "McpOwnershipMarkerInvalid":
-      return makeStepFailure({
-        category: "conflict",
-        detail:
-          error.state === "unsupported-version"
-            ? `MCP server ${error.serverName} uses a newer AXM ownership marker; upgrade AXM before ${
-                error.operation === "modify" ? "modifying" : "inspecting"
-              } it`
-            : `MCP server ${error.serverName} has malformed AXM ownership markers`,
       });
     case "McpSharedTargetConflict":
       return makeStepFailure({

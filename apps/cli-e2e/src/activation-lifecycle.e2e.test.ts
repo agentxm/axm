@@ -437,9 +437,9 @@ describe("extension activation lifecycle", () => {
       expect(
         planAgentOutcomes(disabled.stdout).every(({ outcome }) => outcome === "not-applicable"),
       ).toBe(true);
-      expect(fs.readFileSync(path.join(temp.path, ".codex/config.toml"), "utf8")).not.toContain(
-        "mcp_servers.context",
-      );
+      const disabledCodex = fs.readFileSync(path.join(temp.path, ".codex/config.toml"), "utf8");
+      expect(disabledCodex).toContain("[mcp_servers.context]");
+      expect(disabledCodex).toContain("enabled = false");
       for (const relative of [".mcp.json", ".cursor/mcp.json", ".gemini/settings.json"]) {
         const native = readJson(path.join(temp.path, relative));
         expect(JSON.stringify(native), relative).not.toContain('"context"');
@@ -453,9 +453,15 @@ describe("extension activation lifecycle", () => {
       expect(lintRuleIds(lint.stdout)).not.toContain("workspace/agents-projections-stale");
       const synced = await runJson(["sync"]);
       expect(synced.exitCode, synced.stdout + synced.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, ".codex/config.toml"), "utf8")).toBe(
+        disabledCodex,
+      );
 
       const reenabled = await runJson(["mcps", "enable", "context"]);
       expect(reenabled.exitCode, reenabled.stdout + reenabled.stderr).toBe(0);
+      expect(fs.readFileSync(path.join(temp.path, ".codex/config.toml"), "utf8")).toContain(
+        "enabled = true",
+      );
       const repeated = await runJson(["mcps", "enable", "context"]);
       expect(repeated.exitCode, repeated.stdout + repeated.stderr).toBe(0);
       expect(planAgentOutcomes(repeated.stdout).every(({ outcome }) => outcome === "current")).toBe(

@@ -6,8 +6,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import {
-  buildAxmMcpMetadataFromSettingsSource,
-  pruneManagedMcpServersForAgents,
   removeMcpServerFromAgents,
   syncInlineMcpServerToAgents,
 } from "../../agent-adapters/index.js";
@@ -20,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "workspace/mcps/removes-shared-native-containers-once",
   title: "MCP withdrawal groups physical consumers before any native mutation",
   statement:
-    "AXM shall preflight all co-reader native container contracts before withdrawing MCP entries, mutate each shared physical file once, and preserve alias routes and exact eligible insertion baselines.",
+    "AXM shall preflight all co-reader native container contracts before withdrawing MCP entries, mutate each shared physical file once, and preserve alias routes, unselected values, and native containers without ownership receipts.",
   class: "functional",
   role: "supporting",
   goals: ["agent-interoperability", "workspace-intent-fidelity", "safe-repetition"],
@@ -33,11 +31,6 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [],
 });
-
-const expected = (...names: ReadonlyArray<string>) =>
-  Object.fromEntries(
-    names.map((name) => [name, [buildAxmMcpMetadataFromSettingsSource("inline", name)]]),
-  );
 
 const managed = (name: string) => ({
   command: "node",
@@ -59,7 +52,7 @@ describe("shared native MCP withdrawal", () => {
       const authority = yield* makeRecordingNativeWriteAuthority;
       const result = yield* removeMcpServerFromAgents(["claude-code", "cursor"], {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        expectedManagedEntries: expected("old"),
+
         workspaceRoot: root,
         serverName: "old",
       }).pipe(Effect.provide(authority.layer), Effect.result);
@@ -86,7 +79,7 @@ describe("shared native MCP withdrawal", () => {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         workspaceRoot: root,
         serverName: "review",
-        nativeInsertionEligible: true,
+
         entry: {
           kind: "inline",
           connection: { transport: "stdio", command: "node", env: {} },
@@ -101,87 +94,42 @@ describe("shared native MCP withdrawal", () => {
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("prunes two stale keys from two aliased readers with one native publication", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, ".mcp.json");
-      const alias = path.join(root, ".cursor/mcp.json");
-      yield* fs.makeDirectory(path.dirname(alias));
-      yield* fs.writeFileString(
-        file,
-        JSON.stringify({
-          mcpServers: { first: managed("first"), second: managed("second") },
-          foreign: true,
-        }),
-      );
-      yield* fs.symlink("../.mcp.json", alias);
-      const authority = yield* makeRecordingNativeWriteAuthority;
-      const outcomes = yield* pruneManagedMcpServersForAgents(["claude-code", "cursor"], {
-        nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-        expectedManagedEntries: expected("first", "second"),
-        workspaceRoot: root,
-        declaredServerNames: new Set(),
-      }).pipe(Effect.provide(authority.layer));
-      expect(outcomes.map((outcome) => outcome._tag)).toEqual(["success", "success"]);
-      expect((yield* authority.observed).records).toHaveLength(1);
-      expect(JSON.parse(yield* fs.readFileString(file))).toEqual({ mcpServers: {}, foreign: true });
-      expect(yield* fs.readLink(alias)).toBe("../.mcp.json");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
-  );
-
   it.effect(
-    "retains a foreign accepted-source marker while pruning an exactly accepted neighbor",
+    "removes only an explicitly selected key from two aliased readers with one publication",
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fs.makeTempDirectoryScoped();
         const file = path.join(root, ".mcp.json");
-        const foreign = {
-          command: "node",
-          "x-axm": {
-            v: 1,
-            managed: true,
-            ext: "@other/mcps/foreign",
-            source: "registry",
-            ref: "@other/mcps/foreign",
-          },
-        };
+        const alias = path.join(root, ".cursor/mcp.json");
+        yield* fs.makeDirectory(path.dirname(alias));
         yield* fs.writeFileString(
           file,
-          JSON.stringify({ mcpServers: { owned: managed("owned"), foreign } }),
+          JSON.stringify({
+            mcpServers: { first: managed("first"), second: managed("second") },
+            foreign: true,
+          }),
         );
+        yield* fs.symlink("../.mcp.json", alias);
         const authority = yield* makeRecordingNativeWriteAuthority;
-        const outcomes = yield* pruneManagedMcpServersForAgents(["claude-code"], {
+        const outcomes = yield* removeMcpServerFromAgents(["claude-code", "cursor"], {
           nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+
           workspaceRoot: root,
-          declaredServerNames: new Set(),
-          expectedManagedEntries: expected("owned", "foreign"),
+          serverName: "first",
         }).pipe(Effect.provide(authority.layer));
-        expect(JSON.parse(yield* fs.readFileString(file))).toEqual({ mcpServers: { foreign } });
+        expect(outcomes.map((outcome) => outcome._tag)).toEqual(["success", "success"]);
         expect((yield* authority.observed).records).toHaveLength(1);
-        expect(outcomes).toMatchObject([
-          {
-            _tag: "success",
-            targets: [
-              {
-                change: "unchanged",
-                nativeLocation: {
-                  ownership: "unowned",
-                  state: "retained",
-                  address: { keys: ["mcpServers", "foreign"] },
-                },
-              },
-              { nativeLocation: { ownership: "owned", state: "removed" } },
-            ],
-          },
-        ]);
+        expect(JSON.parse(yield* fs.readFileString(file))).toEqual({
+          mcpServers: { second: managed("second") },
+          foreign: true,
+        });
+        expect(yield* fs.readLink(alias)).toBe("../.mcp.json");
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("uses the complete shared alias route to restore an eligible compact baseline", () =>
+  it.effect("preserves the shared native file and aliases after explicit key removal", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -199,7 +147,7 @@ describe("shared native MCP withdrawal", () => {
       yield* Effect.gen(function* () {
         yield* syncInlineMcpServerToAgents(["claude-code", "cursor"], {
           nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-          nativeInsertionEligible: true,
+
           workspaceRoot: root,
           serverName: "one",
           entry: {
@@ -210,11 +158,11 @@ describe("shared native MCP withdrawal", () => {
         });
         yield* removeMcpServerFromAgents(["claude-code", "cursor"], {
           nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
-          expectedManagedEntries: expected("one"),
+
           workspaceRoot: root,
           serverName: "one",
         });
-        expect(yield* fs.readFileString(file)).toBe("{ }");
+        expect(JSON.parse(yield* fs.readFileString(file))).toEqual({ mcpServers: {} });
         expect(yield* fs.readLink(alias)).toBe("../.mcp.json");
         expect(yield* fs.exists(path.join(root, ".axm/projection-containers.json"))).toBe(false);
       }).pipe(Effect.provide(authority));

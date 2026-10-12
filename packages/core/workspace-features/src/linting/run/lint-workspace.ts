@@ -61,6 +61,7 @@ import {
   observeInstallRoot,
   type CanonicalObservation,
   type DesiredExtensionNode,
+  type AcceptedResolutionWriter,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import {
@@ -98,6 +99,7 @@ import {
   resolveLintRoot,
 } from "./settings.js";
 import { materializeGitIndexWorkspace } from "./staged-workspace.js";
+import { type WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
 
 // -----------------------------------------------------------------------------
 // Admission
@@ -566,7 +568,10 @@ export const fixLintWorkspace = (
 ): Effect.Effect<
   LintWorkspaceResult,
   LintWorkspaceFailure,
-  LintWorkspaceRequirements | NativeWriteAuthority
+  | LintWorkspaceRequirements
+  | NativeWriteAuthority
+  | AcceptedResolutionWriter
+  | WorkspaceTransactionScope
 > =>
   Effect.gen(function* () {
     // The reconciliation pass proves every determined instruction target

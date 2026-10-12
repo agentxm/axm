@@ -8,6 +8,7 @@ import * as Path from "effect/Path";
 
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
+import { ProjectionRowsTest } from "../../workspace-state/testing.js";
 import { applyInstructionSurfacePlans, planAggregateProjection } from "../index.js";
 
 export const specification = defineSpecification({
@@ -75,7 +76,11 @@ describe("native Hook instruction routing", () => {
               if (existingAlias) expect(yield* fs.readLink(alias)).toBe("AGENTS.md");
             }
             expect(yield* fs.readFileString(native)).toBe(nativeBefore);
-          }).pipe(Effect.provide(Layer.merge(workspace, NativeWriteAuthorityPermissive)));
+          }).pipe(
+            Effect.provide(
+              Layer.mergeAll(workspace, NativeWriteAuthorityPermissive, ProjectionRowsTest()),
+            ),
+          );
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
   }
@@ -113,7 +118,11 @@ describe("native Hook instruction routing", () => {
         expect(yield* fs.readFileString(path.join(root, "CLAUDE.md"))).toBe(
           "# Authored\n\nRule instructions\n",
         );
-      }).pipe(Effect.provide(Layer.merge(workspace, NativeWriteAuthorityPermissive)));
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(workspace, NativeWriteAuthorityPermissive, ProjectionRowsTest()),
+        ),
+      );
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

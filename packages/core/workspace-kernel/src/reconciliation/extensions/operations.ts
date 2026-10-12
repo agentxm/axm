@@ -38,6 +38,8 @@ import {
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
   type WorkspaceSettingsReadFailure,
+  type WorkspaceLockfileReadFailure,
+  type WorkspaceLockfileMutationFailure,
   type ExtensionTarget,
   type ExtensionTargetFor,
   desiredIdentityOfRef,
@@ -273,8 +275,19 @@ const applyManagerProjectionPlans = <F, R>(
   options?: NativeProjectionOptions,
 ): Effect.Effect<
   ReadonlyArray<string>,
-  F | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | NativeWriteAuthority | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  | F
+  | WorkspaceSettingsReadFailure
+  | WorkspaceLockfileReadFailure
+  | WorkspaceLockfileMutationFailure
+  | InstructionMaintenanceFailure,
+  | R
+  | NativeWriteAuthority
+  | FileSystem.FileSystem
+  | Path.Path
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
+  | AcceptedResolutionWriter
 > =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)

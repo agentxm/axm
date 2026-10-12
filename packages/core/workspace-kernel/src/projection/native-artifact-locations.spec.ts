@@ -225,6 +225,7 @@ describe("Native artifact location outcomes", () => {
         yield* fs.makeDirectory(path.dirname(alias));
         yield* fs.writeFileString(alias, contents);
         const observed = yield* observeInstructionProjection({
+          rows: new Map(),
           workspaceRoot: root,
           scope: "user",
           configuredAgents: ["codex"],

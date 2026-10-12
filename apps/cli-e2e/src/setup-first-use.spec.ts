@@ -10,7 +10,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/first-use-plan-and-migration",
   title: "First setup describes its writes and preserves instruction content",
   statement:
-    "First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index.",
+    "First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -91,12 +91,12 @@ describe("First setup plan and migration", () => {
     }
   });
 
-  it("reports pre-existing canonical and different instruction files as unchanged", async () => {
+  it("refuses a different unrecorded instruction file before writing until replacement is explicit", async () => {
     const fixture = makeEnvironmentProcessFixture();
     try {
       fs.writeFileSync(path.join(fixture.invoking, "AGENTS.md"), "Canonical instructions\n");
       fs.writeFileSync(path.join(fixture.invoking, "CLAUDE.md"), "Different instructions\n");
-      const applied = await fixture.run([
+      const args = [
         "setup",
         "--yes",
         "--scope",
@@ -105,12 +105,28 @@ describe("First setup plan and migration", () => {
         "claude-code",
         "--non-interactive",
         "--json",
-      ]);
-      expect(applied.exitCode, applied.stdout + applied.stderr).toBe(0);
-      expect(targets(applied.stdout)).toContainEqual({ path: "CLAUDE.md", change: "unchanged" });
-      expect(targets(applied.stdout)).toContainEqual({ path: "AGENTS.md", change: "unchanged" });
+      ];
+      const refused = await fixture.run(args);
+      expect(refused.exitCode, refused.stdout + refused.stderr).not.toBe(0);
+      expect(refused.stdout).toContain('"code": "projection-output-unrecorded"');
+      expect(refused.stdout).toContain("--replace-unrecorded");
       expect(fs.readFileSync(path.join(fixture.invoking, "CLAUDE.md"), "utf8")).toBe(
         "Different instructions\n",
+      );
+      expect(fs.readFileSync(path.join(fixture.invoking, "AGENTS.md"), "utf8")).toBe(
+        "Canonical instructions\n",
+      );
+      expect(fs.existsSync(path.join(fixture.invoking, "axm.json"))).toBe(false);
+
+      const replaced = await fixture.run([...args, "--replace-unrecorded"]);
+      expect(replaced.exitCode, replaced.stdout + replaced.stderr).toBe(0);
+      expect(targets(replaced.stdout)).toContainEqual({ path: "CLAUDE.md", change: "updated" });
+      expect(targets(replaced.stdout)).toContainEqual({ path: "AGENTS.md", change: "unchanged" });
+      expect(fs.readFileSync(path.join(fixture.invoking, "AGENTS.md"), "utf8")).toBe(
+        "Canonical instructions\n",
+      );
+      expect(fs.readFileSync(path.join(fixture.invoking, "CLAUDE.md"), "utf8")).toBe(
+        "Canonical instructions\n",
       );
     } finally {
       fixture.cleanup();

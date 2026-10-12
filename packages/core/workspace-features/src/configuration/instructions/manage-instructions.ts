@@ -70,10 +70,12 @@ import {
   type InstructionProjectionEffect,
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
+  type InstructionOutputOverrides,
 } from "@agentxm/workspace-kernel/projection";
 import {
   AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
+  LockfileReader,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
@@ -148,7 +150,7 @@ const DISABLED_STATUS: InstructionsStatus = {
 export const instructionsStatus = (): Effect.Effect<
   InstructionsStatus,
   Effect.Error<ReturnType<typeof observeInstructions>>,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | LockfileReader
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
@@ -164,7 +166,7 @@ export const instructionsStatus = (): Effect.Effect<
 // Requests and candidates
 // -----------------------------------------------------------------------------
 
-export type ManageInstructionsRequest =
+export type ManageInstructionsRequest = (
   | {
       readonly action: "enable";
       /** The source-of-truth instruction file every alias points at. */
@@ -172,7 +174,9 @@ export type ManageInstructionsRequest =
       /** Keep the propagated alias files out of Git. */
       readonly gitignoreAliases: boolean;
     }
-  | { readonly action: "disable" };
+  | { readonly action: "disable" }
+) &
+  InstructionOutputOverrides;
 
 /** A request the workspace already satisfies. */
 export interface InstructionsUnchanged {
@@ -195,6 +199,8 @@ export interface ManageInstructionsCandidate {
   /** The gate's refusal, when the workspace is not safe to reconcile. */
   readonly blocked: Option.Option<WorkspaceConfigurationFailed>;
   readonly scope: WorkspaceScope;
+  /** Explicit whole-file overrides the transition applies; both default to `false`. */
+  readonly overrides: InstructionOutputOverrides;
 }
 
 /**
@@ -280,12 +286,17 @@ export const prepareManageInstructions = (
   | Path.Path
   | RuleManager
   | ManagerRequirements
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
     const path = yield* Path.Path;
     const recorded = yield* settings.instructionsConfig;
+    const overrides: InstructionOutputOverrides = {
+      replaceUnrecorded: request.replaceUnrecorded === true,
+      discardModified: request.discardModified === true,
+    };
 
     if (request.action === "disable") {
       if (Option.isNone(recorded) || recorded.value === false) {
@@ -297,7 +308,7 @@ export const prepareManageInstructions = (
         return settled;
       }
       const config = resolveInstructionsConfig(recorded.value);
-      const snapshot = yield* observeInstructions({ config });
+      const snapshot = yield* observeInstructions({ config, ...overrides });
       const disableCandidate: ManageInstructionsCandidate = {
         _tag: "ManageInstructions",
         action: "disable",
@@ -308,6 +319,7 @@ export const prepareManageInstructions = (
         effects: instructionProjectionRemovalEffects(snapshot),
         blocked: yield* reconciliationGate(snapshot),
         scope: location.scope,
+        overrides,
       };
       return disableCandidate;
     }
@@ -324,7 +336,7 @@ export const prepareManageInstructions = (
       Option.isSome(previous) &&
       (previous.value.fileName !== desired.fileName ||
         previous.value.gitignoreAliases !== desired.gitignoreAliases);
-    const observed = yield* observeInstructions({ config: desired });
+    const observed = yield* observeInstructions({ config: desired, ...overrides });
 
     if (
       Option.isSome(recorded) &&
@@ -343,7 +355,7 @@ export const prepareManageInstructions = (
     // configuration owns, because those are the files the transition removes.
     const superseded = configChanged ? previous : Option.none<ResolvedInstructionsConfig>();
     const preflight = Option.isSome(superseded)
-      ? yield* observeInstructions({ config: superseded.value })
+      ? yield* observeInstructions({ config: superseded.value, ...overrides })
       : observed;
     const ruleManager = yield* RuleManager;
     const ruleEffects = (yield* ruleManager.projectionPlans().pipe(
@@ -377,6 +389,7 @@ export const prepareManageInstructions = (
       ],
       blocked: yield* reconciliationGate(preflight),
       scope: location.scope,
+      overrides,
     };
     return enableCandidate;
   });
@@ -430,6 +443,7 @@ const transitionEffect = (
     if (Option.isSome(candidate.supersededConfig)) {
       yield* removeInstructionTargetsFor({
         config: candidate.supersededConfig.value,
+        ...candidate.overrides,
       });
     }
     yield* settingsWriter.setInstructionsConfig({
@@ -492,7 +506,8 @@ const transitionStep = (
             detail: "Instruction management has no recorded configuration to disable",
           });
         }
-        return (yield* disableInstructionManagement({ config })).nativeLocations;
+        return (yield* disableInstructionManagement({ config, ...candidate.overrides }))
+          .nativeLocations;
       }).pipe(Effect.mapError(transitionFailureToStepFailure))
     : Effect.gen(function* () {
         const config = candidate.config;
@@ -509,6 +524,7 @@ const transitionStep = (
           scope: location.scope,
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           eligibleAgentIds: candidate.eligibleAgentIds,
+          ...candidate.overrides,
           configuredAgents: yield* settings.configuredAgents,
           config,
           ...(Option.isSome(candidate.supersededConfig)
@@ -523,7 +539,10 @@ const transitionStep = (
     readiness: "ready",
     artifact,
     run: runWorkspaceTransaction({
-      transition,
+      // Instruction rows the transition stages commit with the recorded choice.
+      transition: Effect.flatMap(AcceptedResolutionWriter, (accepted) =>
+        accepted.withBatch(transition),
+      ).pipe(Effect.mapError(transitionFailureToStepFailure)),
       validate: () => Effect.void,
     }).pipe(
       Effect.mapError(workspaceChangeFailedToStepFailure),

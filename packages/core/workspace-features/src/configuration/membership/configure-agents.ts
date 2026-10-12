@@ -55,6 +55,7 @@ import {
   expectedProjectionNames,
   observeInstructionProjection,
   resolveInstructionsConfig,
+  readInstructionRows,
 } from "@agentxm/workspace-kernel/projection";
 import {
   unresolvedPackRoutes,
@@ -633,7 +634,7 @@ export const listConfiguredAgents = (
 ): Effect.Effect<
   ConfiguredAgentInventory,
   ConfigureAgentsFailure,
-  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path
+  SettingsReader | WorkspaceLocation | FileSystem.FileSystem | Path.Path | LockfileReader
 > =>
   Effect.gen(function* () {
     const settings = yield* SettingsReader;
@@ -648,6 +649,7 @@ export const listConfiguredAgents = (
     const instructionHealth =
       Option.isSome(instructionsConfig) && instructionsConfig.value !== false
         ? yield* observeInstructionProjection({
+            rows: yield* readInstructionRows,
             workspaceRoot: location.baseDir,
             scope: location.scope,
             nativeDirectoryInputs: location.nativeDirectoryInputs,

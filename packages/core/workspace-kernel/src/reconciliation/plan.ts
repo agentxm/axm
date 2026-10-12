@@ -31,11 +31,14 @@ import {
   applyProjectionPlans,
   observeProjectionPlans,
   observeInstructionProjection,
+  readInstructionRows,
   reconcileInstructionAliases,
+  recordInstructionCopiesBeforeSourceWrite,
   projectionFactRequiresReconciliation,
   resolveInstructionsConfig,
   instructionReconciliationReadiness,
   instructionProjectionEffects,
+  instructionProjectionRecordsRows,
   instructionProjectionNativeLocations,
   instructionProjectionIsCurrent,
   type ExpectedProjectionNames,
@@ -64,6 +67,7 @@ import {
   WorkspaceRecords,
   WorkspaceLocation,
   settingsDisplayPath,
+  type LockfileReader,
   type WorkspaceLocationService,
   type DesiredStateGraph,
   type McpServerEntry,
@@ -418,6 +422,7 @@ export const collectCleanupStep: (args: {
   | NativeWriteAuthority
   | ConfiguredAgentOutcomesProvider
   | WorkspaceRecords
+  | LockfileReader
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const location = yield* WorkspaceLocation;
   const agentRepo = yield* CodingAgentRepository;
@@ -635,8 +640,16 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly precedingNativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly touchesRule: boolean;
   readonly adapter: StepFailureConversionService;
+  /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
+  readonly replaceUnrecorded?: boolean;
+  /** Delete recorded copies even when they were modified since AXM last wrote them. */
+  readonly discardModified?: boolean;
 }) {
   const projectionFacts = args.projectionFacts;
+  const overrides = {
+    replaceUnrecorded: args.replaceUnrecorded === true,
+    discardModified: args.discardModified === true,
+  };
   const settings = yield* SettingsReader;
   const location = yield* WorkspaceLocation;
   const config = yield* settings.instructionsConfig;
@@ -705,6 +718,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         .map((source) => path.dirname(source)),
     ),
   ];
+  // Rows are read first, so a lockfile this CLI cannot read refuses here.
+  const rows = yield* readInstructionRows;
   const observed = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
     nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -713,6 +728,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     eligibleAgentIds,
     config: resolvedConfig,
     prospectiveRoots,
+    rows,
+    ...overrides,
   });
   const prior =
     eligibleAgentIds.length === 0
@@ -724,6 +741,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
           configuredAgents: priorConfiguredAgents,
           config: resolvedConfig,
           symlinkSupported: observed.symlinkSupported,
+          rows,
         });
   const priorEntries = yield* Effect.forEach(
     prior?.plan.items.filter((item) => item.action !== "skip") ?? [],
@@ -769,10 +787,17 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   }
 
   const ruleTargets = args.touchesRule ? projectionFileTargets(projectionFacts) : [];
-  const instructionTargets = instructionEffects.map((effect) => ({
-    ...effect,
-    path: path.relative(location.baseDir, effect.path),
-  }));
+  const instructionTargets = [
+    ...instructionEffects.map((effect) => ({
+      ...effect,
+      path: path.relative(location.baseDir, effect.path),
+    })),
+    // Recording an identical copy or withdrawing an orphaned row writes only
+    // the lockfile.
+    ...(instructionProjectionRecordsRows(snapshot)
+      ? [{ path: path.relative(location.baseDir, location.lockPath), change: "updated" as const }]
+      : []),
+  ];
   const targets = mergeArtifactTargets([...ruleTargets, ...instructionTargets]);
   const artifact = {
     path: targets[0]?.path ?? resolvedConfig.fileName,
@@ -791,11 +816,15 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
+    // Projection rows the step stages join the enclosing accepted-resolution
+    // batch, or one the step opens, so they commit with its native writes.
     run: Effect.gen(function* () {
-      if (args.touchesRule)
+      if (args.touchesRule) {
+        yield* recordInstructionCopiesBeforeSourceWrite({ configuredAgents });
         yield* applyPlannedProjections({
           projectionPlans: () => manager.projectionPlans(args.nativeProjection),
         });
+      }
       const ruleLocations = args.touchesRule
         ? ((yield* manager.aggregateProjectionObservation).nativeLocations ?? [])
         : [];
@@ -803,12 +832,14 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         configuredAgents,
         eligibleAgentIds,
         eligibleTargets,
+        ...overrides,
       });
       return combineNativeLocationOutcomes([
         ...ruleLocations,
         ...(Option.isSome(result) ? result.value.nativeLocations : []),
       ]);
     }).pipe(
+      (body) => Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.withBatch(body)),
       Effect.mapError(args.adapter.toStepFailure),
       Effect.map((nativeLocations): JobStepResult => ({
         result: "success",

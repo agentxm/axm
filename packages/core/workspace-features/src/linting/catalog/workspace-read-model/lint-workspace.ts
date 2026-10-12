@@ -54,6 +54,7 @@ import {
   type LockEntry,
   type SkillLockEntry,
   acquiredRootDisplayPath,
+  recordedProjectionRows,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { AXM_DIR_NAME } from "@agentxm/host-primitives";
 import {
@@ -295,8 +296,16 @@ const makeInstructionAccessor = (args: {
         if (Option.isNone(settings)) return Option.none();
         const rawConfig = Option.fromUndefinedOr(settings.value.instructionFiles);
         if (Option.isNone(rawConfig) || rawConfig.value === false) return Option.none();
+        // An unreadable lockfile is reported by its own rule; observe without rows.
+        const lockfile = yield* args.readModel.state.lockfile.pipe(
+          Effect.catch(() => Effect.succeed(Option.none())),
+        );
         return Option.some(
           yield* observeInstructionProjection({
+            rows: recordedProjectionRows(
+              Option.getOrUndefined(lockfile)?.projections,
+              "instructions",
+            ),
             nativeDirectoryInputs: args.nativeDirectoryInputs,
             workspaceRoot: args.workspaceRoot,
             scope: args.scope,

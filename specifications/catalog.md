@@ -185,7 +185,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/fix-repairs-only-determined-state`
 - Owner: `workspace-features`
-- Statement: When lint runs with --fix, it shall normalize only instruction aliases fully determined by local authority, without network access or general workspace reconciliation, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.
+- Statement: When lint runs with --fix, it shall normalize only instruction aliases fully determined by local authority, without network access or general workspace reconciliation, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous. It shall read the lockfile before any write, refusing a lockfile version this CLI does not read untouched, and shall record the projection rows of what it repaired in the same transaction.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -4166,7 +4166,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/instructions/disable/removes-only-owned-aliases`
 - Owner: `workspace-features`
-- Statement: When instruction-file management is disabled, AXM shall record the choice in axm.json and remove only the alias files and ignore regions it owns, and shall preserve authored instruction content and unrelated ignore entries.
+- Statement: When instruction-file management is disabled, AXM shall record the choice in axm.json and remove only the alias files and ignore regions it owns, and shall preserve authored instruction content and unrelated ignore entries. A copy is removed only when its bytes are what AXM last recorded writing or the current source; a copy modified since then is retained and reported unless modified copies are explicitly discarded, and the recorded projection rows are withdrawn either way.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
@@ -4181,7 +4181,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/instructions/enable/records-choice-and-reconciles-aliases`
 - Owner: `workspace-features`
-- Statement: When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation.
+- Statement: When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
@@ -4705,7 +4705,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/first-use-plan-and-migration`
 - Owner: `cli-e2e`
-- Statement: First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index.
+- Statement: First setup shall show every configuration, bundled skill, and native target before approval, report observed changes after apply, and replace only the regular instruction file used to seed its missing canonical source after verifying identical content, while preserving other instruction files and the Git index; a differing instruction file AXM has no record of writing stops setup before any write unless replacement is explicit.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4746,7 +4746,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/rerun-preserves-existing-configuration`
 - Owner: `workspace-features`
-- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open.
+- Statement: When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
@@ -4760,7 +4760,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/setup/unattended-apply-requires-explicit-intent`
 - Owner: `workspace-features`
-- Statement: When setup would apply unattended to a workspace that has no settings, AXM shall apply only when preapproval, an explicit scope, and at least one explicit agent are all present, and shall otherwise report that approval is required without writing anything.
+- Statement: When setup would apply unattended to a workspace that has no settings, AXM shall apply only when preapproval, an explicit scope, and at least one explicit agent are all present, and shall otherwise report that approval is required without writing anything. Preapproval never implies replacing a differing instruction alias AXM has no record of writing.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`

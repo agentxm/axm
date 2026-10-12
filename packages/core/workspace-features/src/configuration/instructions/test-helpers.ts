@@ -6,6 +6,10 @@
  */
 
 import * as Effect from "effect/Effect";
+import * as FileSystem from "effect/FileSystem";
+import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
+import * as NodeServices from "@effect/platform-node/NodeServices";
 
 import { deriveOperationOutcome, previewPlanExecution } from "@agentxm/workspace-kernel/operations";
 import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/testing";
@@ -41,3 +45,32 @@ export type InstructionsRunOutcome =
       readonly resolution: Effect.Success<ReturnType<typeof ManageInstructions.previewOrApply>>;
       readonly outcome: ReturnType<typeof deriveOperationOutcome>;
     };
+
+/** A platform whose symlink creation is refused, so aliases fall back to copies. */
+export const makeSymlinkRefusingPlatform = () => {
+  const rejectedSymlinkTargets: Array<string> = [];
+  const layer = Layer.provide(
+    Layer.effect(
+      FileSystem.FileSystem,
+      Effect.map(FileSystem.FileSystem, (filesystem) => ({
+        ...filesystem,
+        symlink: (_fromPath: string, toPath: string) =>
+          Effect.gen(function* () {
+            rejectedSymlinkTargets.push(toPath);
+            return yield* PlatformError.systemError({
+              _tag: "PermissionDenied",
+              module: "FileSystem",
+              method: "symlink",
+              pathOrDescriptor: toPath,
+              description: "This fixture exercises instruction-copy fallback.",
+            });
+          }),
+      })),
+    ),
+    NodeServices.layer,
+  );
+  return {
+    rejectedSymlinkTargets,
+    layer: Layer.provideMerge(layer, NodeServices.layer),
+  };
+};

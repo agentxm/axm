@@ -765,6 +765,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const applyKnowledgeProjection = projectionPlans().pipe(
       Effect.flatMap(applyInstructionSurfacePlans),
       Effect.asVoid,
+      Effect.provideService(AcceptedResolutionWriter, accepted),
     );
 
     const reconcileDiscovery = (options?: {
@@ -918,6 +919,7 @@ export const KnowledgeManagerLive = Layer.effect(
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
           yield* projectionPlans(nativeProjection).pipe(
             Effect.flatMap(applyInstructionSurfacePlans),
+            Effect.provideService(AcceptedResolutionWriter, accepted),
           );
         }
         return {

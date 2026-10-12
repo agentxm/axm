@@ -185,6 +185,18 @@ export {
 } from "./materialization-currency.js";
 export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
 
+// Whole-file projection decisions
+export {
+  decideWholeFileWrite,
+  type WholeFileDecision,
+  type WholeFileLastWrite,
+} from "./whole-file-decision.js";
+export {
+  decideOutputDeletion,
+  retainedOutputDetail,
+  type DeletionDecision,
+} from "./deletion-guard.js";
+
 // Hook agent outcomes
 export { evaluateHookAgentOutcome, type HookOutcomeTarget } from "./hooks/outcomes.js";
 
@@ -199,6 +211,7 @@ export {
   buildInstructionProjectionPlan,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
+  instructionProjectionRecordsRows,
   instructionProjectionRemovalEffects,
   instructionProjectionNativeLocations,
   observeInstructionProjection,
@@ -210,8 +223,11 @@ export {
   resolveInstructionTargetShape,
   resolveInstructionsConfig,
   syncInstructions,
+  withInstructionRowChanges,
+  type AppliedInstructionProjection,
   type InstructionProjectionEffect,
   type InstructionProjectionPlan,
+  type InstructionProjectionRows,
   type InstructionProjectionSnapshot,
   type InstructionSkipReason,
   type InstructionTargetResolution,
@@ -222,6 +238,7 @@ export {
   type ObserveInstructionProjectionArgs,
   type PlannedInstructionItem,
   type ResolvedInstructionsConfig,
+  type RetainedInstructionTarget,
   type SyncInstructionsArgs,
 } from "./instructions/instructions.js";
 // Instruction reconciliation shared by instruction management and rule
@@ -237,10 +254,14 @@ export {
   observeInstructions,
   observeInstructionSurfacePlans,
   plannedInstructionContributorObservation,
+  readInstructionRows,
   reconcileInstructions,
   reconcileInstructionAliases,
+  recordInstructionCopiesBeforeSourceWrite,
   removeInstructionTargetsFor,
+  stageInstructionRows,
   type DisabledInstructionManagement,
+  type InstructionOutputOverrides,
   type InstructionReadinessFailure,
   type InstructionsReconciliation,
 } from "./instructions/reconciliation.js";

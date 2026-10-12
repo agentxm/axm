@@ -240,6 +240,11 @@ export interface SetupWorkspaceRequest {
   /** Approve applying the documented candidate without prompting. */
   readonly yes?: boolean;
   readonly preview?: boolean;
+  /**
+   * Overwrite a differing instruction alias AXM has no record of writing.
+   * Approval through `yes` never implies it.
+   */
+  readonly replaceUnrecorded?: boolean;
   /** No terminal is available to answer a prompt. */
   readonly nonInteractive: boolean;
   readonly projectRoot: AbsolutePath;
@@ -433,6 +438,7 @@ export const previewOrApplySetupWorkspace = <
         : {}),
       ...(candidate.request.yes !== undefined ? { yes: candidate.request.yes } : {}),
       ...(candidate.request.preview !== undefined ? { preview: candidate.request.preview } : {}),
+      ...(candidate.request.replaceUnrecorded === true ? { replaceUnrecorded: true } : {}),
     };
     const recorder = yield* makeFootprintRecorder;
     const initialize = Effect.gen(function* () {

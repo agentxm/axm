@@ -55,8 +55,12 @@ import {
   NativeWriteAuthorityLive,
   WorkspaceInvariantFactsLive,
 } from "@agentxm/workspace-kernel/projection/live";
-import type { WorkspaceStateError } from "@agentxm/workspace-kernel/workspace-state";
-import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import type {
+  AcceptedResolutionWriter,
+  WorkspaceStateError,
+} from "@agentxm/workspace-kernel/workspace-state";
+import type { WorkspaceTransactionScope } from "@agentxm/workspace-kernel/settlement";
+import { layer as workspaceStateLayer } from "@agentxm/workspace-kernel/workspace-state/live";
 import type { NativeObservationView } from "@agentxm/workspace-kernel/locations";
 
 import { allCatalogRuleIds } from "./catalog/index.js";
@@ -108,7 +112,9 @@ export interface LintWorkspaceFixtureOptions {
  */
 export type LintWorkspaceServices = Layer.Layer<
   | Exclude<LintWorkspaceRequirements, FileSystem.FileSystem | Path.Path | RegistryClientFactory>
-  | NativeWriteAuthority,
+  | NativeWriteAuthority
+  | AcceptedResolutionWriter
+  | WorkspaceTransactionScope,
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | RegistryClientFactory | ProjectionParticipants
 >;
@@ -150,7 +156,9 @@ export const lintWorkspaceServices = (args: {
   /** The CLI version the official-skill compatibility policy evaluates against. */
   readonly cliVersion?: string | null;
 }): LintWorkspaceServices => {
-  const state = WorkspaceStateLive({
+  // `--fix` repairs inside a workspace transaction, so the fixture carries
+  // the production transaction scope beside the state services.
+  const state = workspaceStateLayer({
     ...(args.observationView === undefined ? {} : { observationView: args.observationView }),
     scope: "project",
     projectRoot: decodeAbsolutePathSync(args.workspaceRoot),

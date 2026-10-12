@@ -13,7 +13,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/unattended-apply-requires-explicit-intent",
   title: "An unattended setup applies only what the request said explicitly",
   statement:
-    "When setup would apply unattended to a workspace that has no settings, AXM shall apply only when preapproval, an explicit scope, and at least one explicit agent are all present, and shall otherwise report that approval is required without writing anything.",
+    "When setup would apply unattended to a workspace that has no settings, AXM shall apply only when preapproval, an explicit scope, and at least one explicit agent are all present, and shall otherwise report that approval is required without writing anything. Preapproval never implies replacing a differing instruction alias AXM has no record of writing.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation"],
@@ -121,6 +121,30 @@ describe("Unattended setup intent", () => {
           expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
             agents: ["claude-code"],
           });
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("preapproval does not replace a differing unrecorded instruction alias", () => {
+    const fixture = makeSetupFixture({
+      files: {
+        "AGENTS.md": "# Canonical instructions\n",
+        "CLAUDE.md": "# Different notes AXM never wrote\n",
+      },
+    });
+    cleanups.push(fixture.cleanup);
+
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const result = yield* Effect.result(
+            runSetup(request(fixture, { scopeExplicit: true, agents: ["claude-code"], yes: true })),
+          );
+
+          expect(result._tag).toBe("Failure");
+          expect(fixture.readFile("CLAUDE.md")).toBe("# Different notes AXM never wrote\n");
+          expect(fixture.exists("axm.json")).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

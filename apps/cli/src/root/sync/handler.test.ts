@@ -1627,7 +1627,7 @@ describe("root sync handler", () => {
         expect(planResultUnits(result)).toContainEqual(
           expect.objectContaining({
             state: "blocked",
-            message: expect.stringContaining("Instruction reconciliation would overwrite"),
+            message: expect.stringContaining("has no recorded projection"),
           }),
         );
         expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(true);
@@ -1646,11 +1646,13 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
       });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Old copy\n");
+      // An identical copy is recorded by the first sync; the canonical file
+      // then changes, leaving the recorded copy stale.
+      fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Old copy\n");
+      yield* provide(handleSync({ preview: false, types: ["hook"] }));
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-      fs.writeFileSync(
-        path.join(tempDir, "CLAUDE.md"),
-        "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
-      );
+      rendererState.results.length = 0;
 
       yield* provide(handleSync({ preview: true, types: ["hook"] }));
       const preview = expectRecord(

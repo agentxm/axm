@@ -62,7 +62,10 @@ export interface ProjectionInvariantFact {
     readonly unitId: OwnershipUnitId;
     readonly path: string;
     readonly scope: WorkspaceScope;
+    /** Owning projection unit from the desired graph, for managed-region units. */
     readonly owner?: string;
+    /** How the bytes a planned rewrite replaces compare with AXM's last write. */
+    readonly lastWrite?: "matches" | "modified" | "unrecorded";
   };
   readonly authority: {
     readonly source: "desired-state-graph";
@@ -177,6 +180,10 @@ export const makeProjectionInvariantFact = (
       path: unit.path,
       scope,
       ...(unit.owner === undefined ? {} : { owner: unit.owner }),
+      // A current unit is not rewritten, so it has nothing to compare.
+      ...(unit.lastWrite === undefined || status === "current"
+        ? {}
+        : { lastWrite: unit.lastWrite }),
     },
     authority: { source: "desired-state-graph", contributors: expectedContributors },
     observation: {

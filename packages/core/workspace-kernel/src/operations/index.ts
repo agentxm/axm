@@ -40,6 +40,8 @@ export type {
   PackMembershipDelta,
   JobStepArtifactSource,
   JobStepArtifactTarget,
+  JobStepLastWrite,
+  JobStepManagedRegion,
   JobStepArtifactReference,
   JobStepResult,
   Operation,

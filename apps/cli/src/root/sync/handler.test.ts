@@ -2371,6 +2371,8 @@ describe("root sync handler", () => {
 
         const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
         const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+        // A hand edit is not drift; it is flagged once a rewrite is planned.
+        fs.writeFileSync(projectionPath, "# Edited by hand\n");
         fs.writeFileSync(sourcePath, "# Updated researcher body\n");
 
         const preview = makeLayers({ machine: true });
@@ -2379,11 +2381,21 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Updated researcher body");
+        expect(JSON.stringify(preview.rendererState.results[0]?.data)).toContain(
+          JSON.stringify({
+            path: ".claude/agents/researcher.md",
+            change: "updated",
+            lastWrite: "modified",
+          }),
+        );
+        expect(fs.readFileSync(projectionPath, "utf8")).toBe("# Edited by hand\n");
 
         const apply = makeLayers({ machine: true });
         yield* apply.provide(handleSync({ preview: false }));
         expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
+        expect(JSON.stringify(apply.rendererState)).toContain(
+          "Replaced .claude/agents/researcher.md, which was modified since AXM last wrote it",
+        );
 
         const converged = makeLayers({ machine: true });
         yield* converged.provide(handleSync({ preview: true }));

@@ -33,7 +33,12 @@ import type {
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
-import type { ConfiguredAgentOutcome, JobStepResult, Operation } from "../operations/index.js";
+import type {
+  ConfiguredAgentOutcome,
+  JobStepArtifactTarget,
+  JobStepResult,
+  Operation,
+} from "../operations/index.js";
 import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement/index.js";
 import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
@@ -330,6 +335,8 @@ export interface SubagentManagerService
       readonly current: boolean;
       readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
       readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
+      /** Planned file writes with how each replaced file compares with AXM's last write. */
+      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
     },
     ExtensionManagerFailure,
     ManagerRequirements

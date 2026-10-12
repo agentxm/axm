@@ -200,7 +200,7 @@ describe("agent instructions", () => {
               symlinkSupported: true,
             });
             expect(instructionProjectionEffects(routing, [source])).toEqual(
-              form === "copy" ? [{ path: target, change: "updated" }] : [],
+              form === "copy" ? [{ path: target, change: "updated", lastWrite: "matches" }] : [],
             );
             const beforeSource = fs.readFileSync(source, "utf8");
             const beforeTarget = fs.readFileSync(target, "utf8");
@@ -720,6 +720,40 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("flags a rewritten alias region that was edited since AXM last wrote it", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Root\n");
+        const gitignore = path.join(tempDir, ".gitignore");
+        const options = { config: IGNORED, symlinkSupported: true } as const;
+        yield* sync({ configuredAgents: ["claude-code"], ...options });
+        const gitignoreEffect = (agents: ReadonlyArray<string>) =>
+          Effect.map(observe({ configuredAgents: agents, ...options }), (snapshot) =>
+            instructionProjectionEffects(snapshot).find((effect) => effect.path === gitignore),
+          );
+
+        expect(yield* gitignoreEffect(["claude-code", "gemini-cli"])).toEqual({
+          path: gitignore,
+          change: "updated",
+          lastWrite: "matches",
+        });
+
+        fs.writeFileSync(
+          gitignore,
+          "# axm:instruction-aliases\n/CLAUDE.md\n/edited-by-hand\n# /axm:instruction-aliases\n",
+        );
+        // A hand edit alone is not drift: the recorded generation is current.
+        expect(yield* gitignoreEffect(["claude-code"])).toBeUndefined();
+        expect(yield* gitignoreEffect(["claude-code", "gemini-cli"])).toEqual({
+          path: gitignore,
+          change: "updated",
+          lastWrite: "modified",
+        });
+      }),
+    ),
+  );
+
   it.effect("reports exact tracked aliases at root and nested instruction roots", () =>
     run(
       Effect.gen(function* () {
@@ -986,7 +1020,7 @@ describe("agent instructions", () => {
           replaceUnrecorded: true,
         });
         expect(instructionProjectionEffects(preview)).toEqual([
-          { path: path.join(tempDir, "GEMINI.md"), change: "updated" },
+          { path: path.join(tempDir, "GEMINI.md"), change: "updated", lastWrite: "unrecorded" },
         ]);
         const result = yield* sync({
           configuredAgents: ["gemini-cli"],
@@ -1324,6 +1358,116 @@ describe("agent instructions", () => {
             dryRun: false,
           })).path,
         ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
+      }),
+    ),
+  );
+
+  it.effect("flags a rewritten copy that was edited since AXM last wrote it", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Edited by hand\n");
+        // A hand edit alone is not drift: the recorded generation is current.
+        const edited = yield* observe({
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: false,
+        });
+        expect(instructionProjectionEffects(edited)).toEqual([]);
+
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace, revised\n");
+        const recordedBefore = yield* rows;
+        const preview = yield* observe({
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: false,
+        });
+        expect(instructionProjectionEffects(preview)).toEqual([
+          { path: path.join(tempDir, "CLAUDE.md"), change: "updated", lastWrite: "modified" },
+          { path: path.join(tempDir, "GEMINI.md"), change: "updated", lastWrite: "matches" },
+        ]);
+        // Observing is pure: no row changes before the write.
+        expect(yield* rows).toEqual(recordedBefore);
+        // The same effects drive the rewrite when the source changes in the
+        // same operation as a preceding region write.
+        expect(
+          instructionProjectionEffects(edited, [path.join(tempDir, "AGENTS.md")]).find(
+            (effect) => effect.path === path.join(tempDir, "CLAUDE.md"),
+          ),
+        ).toEqual({
+          path: path.join(tempDir, "CLAUDE.md"),
+          change: "updated",
+          lastWrite: "modified",
+        });
+
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe(
+          "# Workspace, revised\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("previews an edited stale copy as retained unless modified output is discarded", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Edited by hand\n");
+
+        const preview = yield* observe({ configuredAgents: ["codex"], symlinkSupported: false });
+        // The unedited copy is removed; the edited one is retained, and only
+        // its row is withdrawn, which writes the lockfile alone.
+        expect(instructionProjectionEffects(preview)).toEqual([
+          { path: path.join(tempDir, "GEMINI.md"), change: "removed", lastWrite: "matches" },
+        ]);
+        expect(instructionProjectionRecordsRows(preview)).toBe(true);
+
+        const discarding = yield* observe({
+          configuredAgents: ["codex"],
+          symlinkSupported: false,
+          discardModified: true,
+        });
+        expect(instructionProjectionEffects(discarding)).toEqual([
+          { path: path.join(tempDir, "CLAUDE.md"), change: "removed", lastWrite: "modified" },
+          { path: path.join(tempDir, "GEMINI.md"), change: "removed", lastWrite: "matches" },
+        ]);
+
+        const result = yield* sync({ configuredAgents: ["codex"], symlinkSupported: false });
+        expect(result.removed).toEqual([path.join(tempDir, "GEMINI.md")]);
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe(
+          "# Edited by hand\n",
+        );
+        expect([...(yield* rows).keys()]).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("previews an edited copy of a missing source as retained on removal", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        fs.rmSync(path.join(tempDir, "AGENTS.md"));
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Edited by hand\n");
+
+        const removal = yield* observe({
+          configuredAgents: ["claude-code", "gemini-cli"],
+          symlinkSupported: false,
+        });
+        // Only AXM's last write can show a copy is unedited when its source
+        // is gone, so the preview agrees with the deletion guard.
+        expect(
+          instructionProjectionRemovalEffects(removal).filter(
+            (effect) => effect.change === "removed",
+          ),
+        ).toEqual([
+          { path: path.join(tempDir, "GEMINI.md"), change: "removed", lastWrite: "matches" },
+        ]);
+        const preview = yield* removeManagedInstructionTargets({ snapshot: removal, dryRun: true });
+        expect(preview.removed).toEqual([path.join(tempDir, "GEMINI.md")]);
+        expect(preview.retained).toEqual([
+          { path: path.join(tempDir, "CLAUDE.md"), reason: "modified" },
+        ]);
       }),
     ),
   );

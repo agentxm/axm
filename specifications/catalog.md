@@ -5264,7 +5264,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/sync/reports-aggregate-projection-drift-at-unit-precision`
 - Owner: `workspace-features`
-- Statement: When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview for the whole workspace, for one contributing extension, or for the contributors' type shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension; applying that selection shall regenerate the whole region from every contributor, and when another contributor lacks accepted state the region shall stay blocked and unchanged.
+- Statement: When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview for the whole workspace, for one contributing extension, or for the contributors' type shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension; applying that selection shall regenerate the whole region from every contributor, and when another contributor lacks accepted state the region shall stay blocked and unchanged. Drift shall be judged from the recorded generation of the region's inputs, so a hand edit inside a region alone shall not be reported as drift; when a rewrite is planned, the preview shall state for the region whether the bytes it replaces match what AXM last wrote or were modified since, without writing the lockfile.
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `machine-automation`, `workspace-intent-fidelity`

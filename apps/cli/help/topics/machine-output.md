@@ -90,6 +90,14 @@ planned claims of committed native changes. Native MCP and Hook units use
 authorization, not historical ownership. Hook addresses identify the settings key
 and selected canonical script roots. `retained` does not mean execution stopped.
 
+A plan step's `artifact.targets[]` and `artifact.managedRegions[]` carry an
+optional `lastWrite` when a planned rewrite or removal replaces existing bytes:
+`matches` (unchanged since AXM last wrote them), `modified` (edited since), or
+`unrecorded` (AXM has no record of writing them). It compares against the
+`output` digest recorded in `axm-lock.yaml`, is informational, and never
+decides currency. Human output marks a `modified` target "(modified since last
+write)".
+
 Every root and typed extension list uses the same inventory envelope:
 `filter`, `items[]`, `count`, `totalCount`, and `managementCounts`.
 `nativeLocationCounts` is present when native locations were observed; root

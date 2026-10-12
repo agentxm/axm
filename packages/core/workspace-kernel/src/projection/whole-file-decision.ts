@@ -22,6 +22,20 @@ export type WholeFileDecision =
   | { readonly _tag: "conflict" };
 
 /**
+ * Whether recorded bytes are still what AXM last wrote. Bytes equal to the
+ * current render also count as matching, so a merged lockfile whose `output`
+ * lags never reports an unedited file as modified.
+ */
+export const recordedOutputComparison = (
+  recorded: RecordedProjectionRow,
+  bytes: string,
+  rendered: string,
+): "matches" | "modified" =>
+  projectionOutputDigest(bytes) === recorded.row.output || bytes === rendered
+    ? "matches"
+    : "modified";
+
+/**
  * Decide what to do at one planned whole-file path.
  *
  * A current row decides without reading bytes. A recorded file is rewritten
@@ -44,10 +58,7 @@ export const decideWholeFileWrite = (args: {
   if (Option.isSome(args.recorded)) {
     return {
       _tag: "write",
-      lastWrite:
-        projectionOutputDigest(bytes) === args.recorded.value.row.output || bytes === args.rendered
-          ? "matches"
-          : "modified",
+      lastWrite: recordedOutputComparison(args.recorded.value, bytes, args.rendered),
     };
   }
   if (bytes === args.rendered) return { _tag: "record" };

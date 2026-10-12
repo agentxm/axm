@@ -49,6 +49,25 @@ const brokenPipe = () =>
   Object.assign(new Error("private output must never be copied"), { code: "EPIPE" });
 
 describe("native output acknowledgement", () => {
+  it.effect.each(["EPIPE", "EIO", "ENOSPC", "EBADF", "private-foreign-code"])(
+    "retains safe native failure identity for %s without copying foreign content",
+    (code) =>
+      Effect.gen(function* () {
+        const { stream, finish } = controlledStream();
+        const fiber = yield* writeOutput(stream, "stdout", "private-output").pipe(Effect.forkChild);
+        yield* Effect.yieldNow;
+        finish(Object.assign(new Error("private-message"), { code }));
+        const failure = yield* Effect.flip(Fiber.join(fiber));
+        expect(failure.reason).toBe(code === "private-foreign-code" ? "Unknown" : code);
+        expect(failure.message).toContain(failure.reason);
+        expect(JSON.stringify(failure)).not.toMatch(
+          /private-output|private-message|private-foreign-code/u,
+        );
+        yield* eventLoopTurn;
+        expect(stream.listenerCount("error")).toBe(0);
+      }),
+  );
+
   for (const highWaterMark of [1, 16_384]) {
     it.effect(`waits for acknowledgement with a ${highWaterMark}-byte backpressure threshold`, () =>
       Effect.gen(function* () {

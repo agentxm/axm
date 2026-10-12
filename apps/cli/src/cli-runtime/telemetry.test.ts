@@ -262,12 +262,12 @@ describe("process failure reporting", () => {
   it.effect("reports an output write failure in the output phase", () =>
     Effect.gen(function* () {
       const errors = yield* reportCause(
-        Cause.fail(new OutputWriteFailed({ channel: "stderr", reason: "EPIPE" })),
+        Cause.fail(new OutputWriteFailed({ channel: "stderr", reason: "EIO" })),
       );
       expect(errors).toEqual([
         {
           phase: "output",
-          kind: "output-write-failed",
+          kind: "output.stderr.eio",
           operation: "runtime.output",
           category: "internal",
           errorClass: "internal",

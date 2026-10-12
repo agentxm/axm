@@ -96,7 +96,7 @@ describe("handled failure identity", () => {
     expect(
       handledFailureIdentity(new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" })),
     ).toEqual({
-      kind: "output-write-failed",
+      kind: "output.stdout.epipe",
       operation: "runtime.output",
       code: "internal",
       handled: true,

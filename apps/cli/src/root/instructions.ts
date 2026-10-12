@@ -165,11 +165,7 @@ const instructionsDisableConfig = {
 
 const instructionsAdoptConfig = {
   region: Argument.Literals("region", ["rules", "knowledge"]).pipe(
-    withParameterDescription("Managed region to adopt"),
-  ),
-  fileName: Flag.String("file").pipe(
-    withParameterDefault("AGENTS.md"),
-    withParameterDescription("Exact instruction file containing the region"),
+    withParameterDescription("Region of the planned instruction file to adopt"),
   ),
   scope: scopeFlag,
   preview: previewCapabilityFlag(),
@@ -178,7 +174,7 @@ const instructionsAdoptConfig = {
 const instructionsAdoptCommand = Command.make(
   "adopt",
   instructionsAdoptConfig,
-  ({ region, fileName, scope, preview }) =>
+  ({ region, scope, preview }) =>
     withOperationLifecycle(
       {
         command: "instructions.adopt",
@@ -186,7 +182,7 @@ const instructionsAdoptCommand = Command.make(
         planName: "Adopt instruction region",
       },
       Effect.gen(function* () {
-        const candidate = yield* AdoptInstructionRegion.prepare({ region, fileName }).pipe(
+        const candidate = yield* AdoptInstructionRegion.prepare({ region }).pipe(
           Effect.mapError(failureToAppError),
         );
         const { execution, recovery } = yield* makePlanInvocation(
@@ -202,13 +198,11 @@ const instructionsAdoptCommand = Command.make(
 ).pipe(
   withArgvTracking(instructionsAdoptConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
-  Command.withDescription(
-    "Explicitly adopt one unchanged instruction region without replacing its body",
-  ),
+  Command.withDescription("Record an existing instruction region as current without replacing it"),
   Command.withExamples([
     {
-      command: "axm instructions adopt knowledge --file AGENTS.md --preview",
-      description: "Review ownership transfer for one existing Knowledge region",
+      command: "axm instructions adopt knowledge --preview",
+      description: "Review recording one existing Knowledge region as current",
     },
   ]),
 );

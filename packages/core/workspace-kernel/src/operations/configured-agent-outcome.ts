@@ -37,7 +37,6 @@ export const ConfiguredAgentReasonCodeSchema = Schema.Literals([
   "managed-region-absent",
   "managed-region-complete",
   "managed-region-malformed",
-  "managed-region-unsupported-version",
   "hook-native-writer-unavailable",
   "hook-native-implementation-unavailable",
   "hook-native-implementation-ambiguous",

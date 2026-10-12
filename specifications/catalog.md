@@ -2857,14 +2857,14 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 
 - Requirement: `cli/instructions/adopt/preview-is-pure`
 - Owner: `workspace-features`
-- Statement: When instruction region adoption runs in preview mode, AXM shall report the exact ownership transfer it would apply with a previewed outcome, without modifying instruction files, canonical sources, settings, accepted resolutions, or any other state in the selected or unselected scope. A refused preview shall also leave both scopes unchanged.
+- Statement: When instruction region adoption runs in preview mode, AXM shall report the projection record it would make with a previewed outcome, without modifying instruction files, the lockfile, canonical sources, settings, or any other state in the selected or unselected scope. A refused preview shall also leave both scopes unchanged.
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
 - Boundary: platform; selection: per-change
 - Boundary rationale: Byte-identical snapshots of both scopes establish that native files and accepted sources remain unchanged.
 - Methods: example, decision-table
-- Derived from: `cli/instructions/adopt/records-exact-scoped-authority`
+- Derived from: `cli/instructions/adopt/records-current-projection`
 - Source: [`packages/core/workspace-features/src/configuration/instructions/adopt-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/adopt-preview-is-pure.spec.ts)
 
 ##### Disabling already disabled instruction-file management is a successful no-op
@@ -4147,19 +4147,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Additional evidence: process via [`apps/cli-e2e/src/scope-consistency.e2e.test.ts`](../apps/cli-e2e/src/scope-consistency.e2e.test.ts) — Runs Pack, Knowledge and Subagent operations in a populated user workspace and verifies that the populated project workspace and native projections remain byte-identical.
 - Source: [`apps/cli-e2e/src/installed-state-stays-in-selected-scope.spec.ts`](../apps/cli-e2e/src/installed-state-stays-in-selected-scope.spec.ts)
 
-##### Explicit instruction-region adoption records current scoped source authority
+##### Instruction region adoption records the planned region as current
 
-- Requirement: `cli/instructions/adopt/records-exact-scoped-authority`
+- Requirement: `cli/instructions/adopt/records-current-projection`
 - Owner: `workspace-features`
-- Statement: When explicitly asked to adopt one existing instruction region, AXM shall transfer its ownership to the selected scope's accepted contributors without changing its body, surrounding content, desired settings, or accepted resolutions. Missing, malformed, differently owned, escaped, or changed-since-planning regions, and regions without accepted source authority, shall be refused without mutation; ordinary sync shall not perform this ownership transfer.
+- Statement: When explicitly asked to adopt the Rules or Knowledge region of the instruction file the selected scope's settings plan, AXM shall record that region's current generation and the digest of its body as found in the lockfile, so later reconciliation treats it as current, without changing the instruction file, desired settings, canonical sources or accepted resolutions. An absent or malformed region, a region in any other file, a region without accepted source authority, and a region or authority that changed after planning shall be refused without mutation; ordinary sync shall not adopt.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `extension-adoption`
 - Boundary: platform; selection: per-change
-- Boundary rationale: Exact instruction bytes, physical scope confinement, and stale file observations require a real temporary filesystem.
+- Boundary rationale: Exact instruction bytes, the persisted lockfile, and stale file observations require a real temporary filesystem.
 - Methods: example, decision-table
-- Derived from: `workspace/projections/native-regions-preserve-scoped-authority`
-- Source: [`packages/core/workspace-features/src/configuration/instructions/adopts-exact-observed-region.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/adopts-exact-observed-region.spec.ts)
+- Derived from: `workspace/projections/native-regions-follow-planned-target`
+- Supersedes: `cli/instructions/adopt/records-exact-scoped-authority`
+- Source: [`packages/core/workspace-features/src/configuration/instructions/records-current-projection.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/records-current-projection.spec.ts)
 
 ##### Disabling instruction-file management removes only what AXM owns
 
@@ -4204,18 +4205,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Supersedes: `cli/instructions/management-is-explicit`
 - Source: [`packages/core/workspace-features/src/configuration/instructions/status-reports-without-changing-state.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/status-reports-without-changing-state.spec.ts)
 
-##### Invalid ownership markers prevent changes to generated documents
+##### Malformed region fences block reconciliation
 
 - Requirement: `cli/invalid-ownership-markers-block-reconciliation`
 - Owner: `workspace-features`
-- Statement: When a generated document carries an ownership marker AXM cannot validate, reconciliation shall report a blocked outcome and shall not alter the document.
+- Statement: When the planned instruction file carries duplicate, nested, interleaved or unpaired fences of a region AXM writes, reconciliation shall report a blocked outcome and shall not alter any file. A fence whose name is outside AXM's region vocabulary shall not block reconciliation and shall be left untouched.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Methods: example
+- Methods: example, decision-table
 - Derived from: `cli/projection-currency-follows-state-authority`
-- Limitation: The statement no longer carries the lint half of the rule — that a workspace lint run reports the invalid ownership as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace-features/linting` exercises that rule against an unvalidatable marker yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation. Retires when: `@agentxm/workspace-features/linting` carries an ordinary test that runs the real workspace lint over a document whose ownership marker cannot be validated and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.
+- Limitation: The statement does not carry the lint half of the rule — that a workspace lint run reports malformed fences as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace-features/linting` exercises that rule against malformed fences yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation. Retires when: `@agentxm/workspace-features/linting` carries an ordinary test that runs the real workspace lint over a document with malformed region fences and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.
 - Source: [`packages/core/workspace-features/src/sync/invalid-ownership-markers-block-reconciliation.spec.ts`](../packages/core/workspace-features/src/sync/invalid-ownership-markers-block-reconciliation.spec.ts)
 
 ##### Invalid workspace settings or lockfiles block workspace operations
@@ -7892,11 +7893,25 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/workspace/external-mcp-resolutions-remain-reachable.spec.ts)
 
-##### Native Rule and Knowledge regions retain source and scoped authority
+##### Region fences carry only a name and count only at the top level
 
-- Requirement: `workspace/projections/native-regions-preserve-scoped-authority`
+- Requirement: `workspace/projections/fences-are-name-only-and-top-level`
 - Owner: `workspace-kernel`
-- Statement: AXM shall resolve native Rule and Knowledge regions physically, require exact accepted source and scope ownership for mutation, preserve foreign content, and restore the precise insertion baseline only for an eligible new intent followed by its unchanged withdrawal. Ownership proof shall use scope-relative roots so it remains valid in another project checkout with the same accepted sources. Explicit adoption shall bind to unchanged observed bytes and scope, change only the ownership marker, and confer no insertion-baseline cleanup eligibility.
+- Statement: AXM shall delimit a region it writes inside a human-authored file with a fence pair that carries only the region name in the file's native comment syntax, from the closed vocabulary rules, knowledge and instruction-aliases. In Markdown a fence shall count only as a whole line starting at column 0 that is exactly an HTML comment, outside any fenced code block; in hash-comment files only as a whole line starting with '#'. Whitespace inside the comment delimiters shall be tolerated, any other text shall make the line plain text, a fence name outside the vocabulary shall be left untouched, and duplicate, nested, interleaved or unpaired vocabulary fences shall be reported as malformed with the region and the problem.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Fence recognition is a pure function of file bytes, so the rule is observable without a filesystem.
+- Methods: example, decision-table, property
+- Derived from: `workspace/projections/native-regions-follow-planned-target`
+- Source: [`packages/core/workspace-kernel/src/agent-adapters/region-fences.spec.ts`](../packages/core/workspace-kernel/src/agent-adapters/region-fences.spec.ts)
+
+##### Native Rule and Knowledge regions follow the planned instruction target
+
+- Requirement: `workspace/projections/native-regions-follow-planned-target`
+- Owner: `workspace-kernel`
+- Statement: AXM shall create, replace or withdraw a named Rule or Knowledge region only in the instruction target planned by the selected scope's settings, resolved physically and contained within its native roots, and shall leave every other file, including one with a same-named fence, untouched. A region whose recorded generation is current shall not be rewritten, whatever its body now holds; a missing or stale row shall make AXM rewrite the region once and record its generation and written-body digest. AXM shall preserve the file's foreign content and line endings, append a new region at the end of the file, ignore fences inside fenced code, refuse duplicate, nested, interleaved or unpaired fences naming the region and the problem, and restore the precise insertion baseline only for an eligible new region followed by its unchanged withdrawal. Withdrawing an absent region shall converge by withdrawing its row, and a retarget shall withdraw the rows of the previous target without touching its bytes. Explicit adoption shall bind to unchanged observed bytes, record the region's current generation and body digest, and write no file.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
@@ -7904,7 +7919,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Physical aliases and exact instruction bytes require real temporary filesystem observations.
 - Methods: example, decision-table
 - Derived from: `cli/install/preserves-unrelated-and-unowned-state`
-- Source: [`packages/core/workspace-kernel/src/projection/native-regions-preserve-authority.spec.ts`](../packages/core/workspace-kernel/src/projection/native-regions-preserve-authority.spec.ts)
+- Supersedes: `workspace/projections/native-regions-preserve-scoped-authority`
+- Source: [`packages/core/workspace-kernel/src/projection/native-regions-follow-planned-target.spec.ts`](../packages/core/workspace-kernel/src/projection/native-regions-follow-planned-target.spec.ts)
 
 ##### Runtime directory proof survives distinct admitted commands
 

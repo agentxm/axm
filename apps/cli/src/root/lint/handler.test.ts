@@ -516,7 +516,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("reports an unsupported managed-region version without writing", () => {
+  it.effect("reports malformed region fences without writing", () => {
     const { provide, rendererState } = makeLayers({ verbose: true });
     writeSettings({
       agents: [],
@@ -524,8 +524,7 @@ describe("axm lint handler", () => {
     });
     writeEmptyLockfile();
     const instructionsPath = path.join(tempDir, "AGENTS.md");
-    const before =
-      "<!-- axm:start v=2 region=rules -->\ngenerated\n<!-- axm:end v=2 region=rules -->\n";
+    const before = "<!-- axm:rules -->\ngenerated\n";
     fs.writeFileSync(instructionsPath, before);
 
     return provide(
@@ -533,7 +532,7 @@ describe("axm lint handler", () => {
         yield* lint({}).pipe(Effect.exit);
         const report = printed(rendererState, "stdout");
         expect(report).toContain("workspace/projection-ownership-valid");
-        expect(report).toContain("upgrade AXM");
+        expect(report).toContain('AXM region "rules" has unpaired fences');
         expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
       }),
     );

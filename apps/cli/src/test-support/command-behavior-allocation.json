@@ -2126,14 +2126,6 @@
     "instructions adopt": {
       "flags": [
         {
-          "name": "file",
-          "rawHelp": {
-            "aliases": [],
-            "type": "string",
-            "required": false
-          }
-        },
-        {
           "name": "scope",
           "rawHelp": {
             "aliases": [],
@@ -2160,19 +2152,19 @@
         }
       ],
       "relatedRequirements": [
-        "cli/instructions/adopt/records-exact-scoped-authority",
+        "cli/instructions/adopt/records-current-projection",
         "cli/instructions/adopt/preview-is-pure"
       ],
       "parameterBindings": [
         {
-          "parameters": ["argument:region", "flag:file", "flag:scope"],
-          "requirements": ["cli/instructions/adopt/records-exact-scoped-authority"],
-          "when": "Explicitly selecting one complete native region and its accepted scoped source authority."
+          "parameters": ["argument:region", "flag:scope"],
+          "requirements": ["cli/instructions/adopt/records-current-projection"],
+          "when": "Explicitly recording one complete region of the planned instruction file as current."
         },
         {
           "parameters": ["flag:preview"],
           "requirements": ["cli/instructions/adopt/preview-is-pure"],
-          "when": "Assessing ownership transfer before adoption."
+          "when": "Assessing the projection record before adoption."
         }
       ]
     },

@@ -37,7 +37,7 @@ import type { ConfiguredAgentOutcome, JobStepResult, Operation } from "../operat
 import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement/index.js";
 import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { TreeIntegrity } from "../workspace-state/index.js";
+import type { ProjectionDigest, TreeIntegrity } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -374,6 +374,15 @@ export interface RuleManagerService
     ExtensionManagerFailure,
     ManagerRequirements
   >;
+  /**
+   * The input-only generation of this kind's region in the planned
+   * instruction target, as the next reconciliation computes it.
+   */
+  readonly regionGeneration: Effect.Effect<
+    ProjectionDigest,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
   readonly prepareProjection: (
     refs: ReadonlyArray<RuleExtensionRef>,
     options?: NativeProjectionOptions,
@@ -514,6 +523,15 @@ export interface KnowledgeManagerService
   }) => Effect.Effect<KnowledgeMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  /**
+   * The input-only generation of this kind's region in the planned
+   * instruction target, as the next reconciliation computes it.
+   */
+  readonly regionGeneration: Effect.Effect<
+    ProjectionDigest,
     ExtensionManagerFailure,
     ManagerRequirements
   >;

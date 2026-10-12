@@ -53,8 +53,7 @@ export type ProjectionObservationStatus =
   "current" | "missing" | "incomplete" | "stale" | "obsolete" | "unavailable";
 
 /** Why an owned unit could not be observed at all. */
-export type ProjectionUnavailableReasonCode =
-  "unsupported-version" | "invalid-ownership" | "unavailable";
+export type ProjectionUnavailableReasonCode = "invalid-ownership" | "unavailable";
 
 /** Adapter readback from one independently owned output unit. */
 export interface ProjectionInvariantFact {
@@ -96,17 +95,13 @@ export interface ProjectionInvariantFact {
 
 /**
  * Classify a participant failure into the unavailability vocabulary lint and
- * sync branch on. Malformed or newer ownership proof blocks reconciliation;
- * every other failure is reported but does not claim the unit is unowned.
+ * sync branch on. Malformed region fences block reconciliation; every other
+ * failure is reported but does not claim the unit is unowned.
  */
 export const projectionUnavailabilityReason = (
   failure: ProjectionParticipantFailure,
 ): ProjectionUnavailableReasonCode =>
-  failure._tag !== "ManagedRegionViolation"
-    ? "unavailable"
-    : failure.reasonCode === "managed-region-unsupported-version"
-      ? "unsupported-version"
-      : "invalid-ownership";
+  failure._tag !== "ManagedRegionViolation" ? "unavailable" : "invalid-ownership";
 
 /**
  * The sentence an unavailable unit's fact carries: the kernel's rendering of
@@ -197,15 +192,11 @@ export const makeProjectionInvariantFact = (
 };
 
 export const projectionFactIsViolation = (fact: ProjectionInvariantFact): boolean =>
-  fact.observation.status !== "current" &&
-  (fact.observation.status !== "unavailable" ||
-    fact.observation.reasonCode === "unsupported-version");
+  fact.observation.status !== "current" && fact.observation.status !== "unavailable";
 
-/** Whether reconciliation is blocked by malformed or unsupported ownership proof. */
+/** Whether reconciliation is blocked by malformed region fences. */
 export const projectionFactHasInvalidOwnership = (fact: ProjectionInvariantFact): boolean =>
-  fact.observation.status === "unavailable" &&
-  (fact.observation.reasonCode === "invalid-ownership" ||
-    fact.observation.reasonCode === "unsupported-version");
+  fact.observation.status === "unavailable" && fact.observation.reasonCode === "invalid-ownership";
 
 /** Sync work implied by an intrinsic violation or an unready required unit. */
 export const projectionFactRequiresReconciliation = (fact: ProjectionInvariantFact): boolean =>

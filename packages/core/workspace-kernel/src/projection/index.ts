@@ -91,10 +91,6 @@ export {
 } from "./exclusions.js";
 export { projectionGeneration, projectionIsCurrent, projectionOutputDigest } from "./generation.js";
 export {
-  reconcileManagedRegionFile,
-  type ManagedRegionReconciliation,
-} from "./managed-region-adapter.js";
-export {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
   ContributorTreeMismatch,
@@ -251,6 +247,7 @@ export {
 
 // Knowledge discovery region and instruction entry
 export {
+  knowledgeRegionGeneration,
   reconcileKnowledgeDiscovery,
   renderKnowledgeBaseTable,
   type KnowledgeDiscoveryArtifact,
@@ -306,10 +303,15 @@ export {
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
 export {
+  projectionUnitPath,
   reconcileNativeManagedRegion,
   refreshNativeRegionReaders,
+  retargetedRegionRows,
+  type NativeManagedRegionArgs,
+  type NativeManagedRegionResult,
   type NativeRegionReaderContext,
   type NativeRegionSource,
+  type ProjectionLastWrite,
 } from "./native-managed-region.js";
 
 export { InstructionHealthSchema } from "./instructions/instruction-status.js";

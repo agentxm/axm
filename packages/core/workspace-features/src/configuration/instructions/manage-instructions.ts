@@ -28,6 +28,7 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
 import {
+  KnowledgeManager,
   RuleManager,
   failureTag,
   type ExtensionKindFailure,
@@ -71,6 +72,7 @@ import {
   type ResolvedInstructionsConfig,
 } from "@agentxm/workspace-kernel/projection";
 import {
+  AcceptedResolutionWriter,
   ConfiguredAgentOutcomesProvider,
   SettingsReader,
   SettingsWriter,
@@ -401,6 +403,8 @@ const PRESENTATION = {
 
 /** Every service the instruction transition and its plan resolution need. */
 export type ManageInstructionsRequirements =
+  | AcceptedResolutionWriter
+  | KnowledgeManager
   | NativeWriteAuthority
   | ConfiguredAgentOutcomesProvider
   | FileSystem.FileSystem

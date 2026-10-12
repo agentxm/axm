@@ -69,7 +69,7 @@ describe("Instruction aliases follow shared-surface writes", () => {
           expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
           const canonical = workspace.readFile("AGENTS.md");
           const alias = workspace.readFile("CLAUDE.md");
-          expect(canonical).toContain("region=knowledge");
+          expect(canonical).toContain("<!-- axm:knowledge -->\n");
           expect(alias).toContain(canonical.trim());
           expect(alias).not.toContain("# Old copy");
         }),

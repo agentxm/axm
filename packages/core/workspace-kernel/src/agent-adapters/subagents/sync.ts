@@ -17,7 +17,7 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { SubagentIoFailed, type CodingAgentFailure } from "../errors.js";
 import { NativeWriteAuthority, type NativeWriteRefused } from "../native-write-authority.js";
-import { markerForFile, commentStyleForTarget } from "../managed-markers.js";
+import { fileBannerMarker, fileBannerSyntaxForPath } from "../file-banner-marker.js";
 import { renderSubagent } from "./rendering/index.js";
 import type {
   AddSubagentArgs,
@@ -27,11 +27,11 @@ import type {
 } from "../agents/coding-agent.js";
 
 export const nativeSubagentMarker = (content: string, filePath: string) => {
-  const style = commentStyleForTarget(filePath);
-  if (Option.isNone(style)) return Option.none();
+  const syntax = fileBannerSyntaxForPath(filePath);
+  if (Option.isNone(syntax)) return Option.none();
   const parsed = filePath.endsWith(".md") ? parseFrontmatterSync(content) : undefined;
   const body = parsed?.frontmatter === undefined ? content : parsed.body;
-  return markerForFile(body, style.value);
+  return fileBannerMarker(body, syntax.value);
 };
 
 const ownsNativeSubagent = (

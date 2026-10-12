@@ -14,7 +14,12 @@ import { LockfileReader, makeLockfileReader } from "./lockfile-reader.js";
 import { makeSettingsReader, SettingsReader } from "./settings-reader.js";
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { WorkspaceRecords, type WorkspaceRecordsService } from "./workspace-records.js";
-import type { WorkspaceDocumentsService } from "./documents.js";
+import { batchableWorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.js";
+import {
+  AcceptedResolutionWriter,
+  makeAcceptedResolutionWriter,
+} from "./accepted-resolution-writer.js";
+import * as Semaphore from "effect/Semaphore";
 import type { WorkspaceLayout } from "./layout.js";
 import {
   settleDesiredConstraint,
@@ -425,3 +430,28 @@ export const makeRegistryPackLockEntry = (opts: {
     dependencies: opts.dependencies ?? {},
     treeIntegrity: TEST_TREE_INTEGRITY,
   });
+
+/**
+ * An accepted-resolution writer over an in-memory lockfile, with real batch
+ * semantics: projection rows staged inside a batch are read back by the next
+ * reconciliation, as the persisted lockfile would carry them.
+ */
+export const AcceptedResolutionWriterTest = (
+  lockfile?: Lockfile,
+): Layer.Layer<AcceptedResolutionWriter> =>
+  Layer.effect(
+    AcceptedResolutionWriter,
+    Effect.gen(function* () {
+      const current = yield* Ref.make<Lockfile>(
+        lockfile ?? { lockfileVersion: LOCKFILE_VERSION, skills: {} },
+      );
+      const documents = batchableWorkspaceDocuments({
+        settings: () => Effect.succeed(createDefaultSettings()),
+        acceptedResolutions: Ref.get(current),
+        acceptedResolutionState: Effect.succeed("ok"),
+        writeSettings: () => Effect.void,
+        commitAcceptedResolutions: (_base, next) => Ref.set(current, next),
+      });
+      return makeAcceptedResolutionWriter(documents, yield* Semaphore.make(1));
+    }),
+  );

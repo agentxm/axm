@@ -36,10 +36,7 @@ describe("retained native content", () => {
         const raw =
           kind === "region"
             ? names
-                .map(
-                  (name) =>
-                    `<!-- axm:start v=1 region=${name} -->\nKept ${name}.\n<!-- axm:end v=1 region=${name} -->\n`,
-                )
+                .map((name) => `<!-- axm:${name} -->\nKept ${name}.\n<!-- /axm:${name} -->\n`)
                 .join("")
             : JSON.stringify({ mcpServers: { one: { command: "one" }, two: { command: "two" } } });
         yield* fs.writeFileString(file, raw);
@@ -115,7 +112,7 @@ describe("retained native content", () => {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
       };
       const original =
-        "<!-- axm:start v=1 region=rules -->\r\nFormatted retained rules.\r\n<!-- axm:end v=1 region=rules -->\r\n<!-- axm:start v=1 region=knowledge -->\nOld knowledge.\n<!-- axm:end v=1 region=knowledge -->\n";
+        "<!-- axm:rules -->\r\nFormatted retained rules.\r\n<!-- /axm:rules -->\r\n<!-- axm:knowledge -->\nOld knowledge.\n<!-- /axm:knowledge -->\n";
       yield* fs.writeFileString(file, original);
       const before = yield* captureNativeRetentionWitnesses(
         [location({ kind: "region", path: file, region: "rules" })],

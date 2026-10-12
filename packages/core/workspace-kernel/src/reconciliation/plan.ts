@@ -641,25 +641,6 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   const location = yield* WorkspaceLocation;
   const config = yield* settings.instructionsConfig;
   const manager = yield* RuleManager;
-  const unsupported = args.touchesRule
-    ? projectionFacts.find(({ observation }) => observation.reasonCode === "unsupported-version")
-    : undefined;
-  if (unsupported !== undefined) {
-    return Option.some<PlannedJobStep<SyncStepRequirements>>({
-      key: SYNC_RECOVERY_IDS.instructionReconcile,
-      readiness: "error",
-      label: "instruction files",
-      errorMessage:
-        unsupported.observation.message ??
-        "Instruction projection uses an unsupported marker version; upgrade AXM.",
-      artifact: {
-        path: unsupported.subject.path.split("#", 1)[0] ?? unsupported.subject.path,
-        scope: location.scope,
-        change: "unchanged",
-        managedRegions: managedRegionsForFacts(projectionFacts),
-      },
-    });
-  }
   if (Option.isNone(config) || config.value === false) {
     if (!args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts))
       return Option.none<PlannedJobStep<SyncStepRequirements>>();

@@ -166,10 +166,19 @@ export interface JobStepArtifact {
   readonly sourceSwitch?: SourceSwitchEvidence;
 }
 
+/**
+ * How the bytes a planned rewrite or removal replaces compare with what AXM
+ * last recorded writing there. `modified` means the output was edited since;
+ * `unrecorded` means AXM has no record of writing it. Informational only.
+ */
+export type JobStepLastWrite = "matches" | "modified" | "unrecorded";
+
 export interface JobStepManagedRegion {
   readonly unitId: string;
   readonly path: string;
+  /** Owning projection unit from the desired graph. */
   readonly owner: string;
+  readonly lastWrite?: JobStepLastWrite;
 }
 
 export interface JobStepArtifactReference {
@@ -187,6 +196,8 @@ export interface JobStepArtifactTarget {
   readonly unitId?: string;
   readonly owner?: string;
   readonly entryName?: string;
+  /** Present when the target replaces existing bytes; see {@link JobStepLastWrite}. */
+  readonly lastWrite?: JobStepLastWrite;
 }
 
 export interface JobStepArtifactSource {

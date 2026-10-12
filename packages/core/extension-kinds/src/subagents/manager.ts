@@ -75,7 +75,10 @@ import {
   retireCanonicalDirectory,
 } from "@agentxm/workspace-kernel/acquisition";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
-import type { ConfiguredAgentOutcome } from "@agentxm/workspace-kernel/operations";
+import type {
+  ConfiguredAgentOutcome,
+  JobStepArtifactTarget,
+} from "@agentxm/workspace-kernel/operations";
 import { SubagentDefinitionInvalid, SubagentNativeConflict } from "./errors.js";
 
 export const SubagentManagerLive = Layer.effect(
@@ -884,6 +887,43 @@ export const SubagentManagerLive = Layer.effect(
             !planned.has(output.path) && Option.isSome(unit) && rows.get(unit.value) !== undefined
           );
         });
+        // What a reconciliation would write, judged by the same decision the
+        // install applies, so the preview flags a replaced hand edit. A current
+        // row decides without reading the file's bytes.
+        const writes: Array<JobStepArtifactTarget> = [];
+        for (const [destination, file] of planned) {
+          const recorded = Option.fromUndefinedOr(rows.get(file.unit));
+          if (
+            Option.isSome(recorded) &&
+            projectionIsCurrent(
+              recorded,
+              file.gen,
+              yield* fs.exists(destination).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new SubagentDefinitionInvalid({
+                      detail: `Cannot inspect planned Subagent file ${destination}`,
+                      cause,
+                    }),
+                ),
+              ),
+            )
+          )
+            continue;
+          const decision = decideWholeFileWrite({
+            recorded,
+            gen: file.gen,
+            bytes: yield* fs.readFileString(destination).pipe(Effect.option),
+            rendered: file.content,
+            replaceUnrecorded: false,
+          });
+          if (decision._tag !== "write") continue;
+          writes.push({
+            path: path.relative(baseDir, destination),
+            change: decision.lastWrite === "absent" ? "created" : "updated",
+            ...(decision.lastWrite === "absent" ? {} : { lastWrite: decision.lastWrite }),
+          });
+        }
         return {
           present: observations.every((item) => item.present),
           current: !obsolete && observations.every((item) => item.current),
@@ -891,6 +931,9 @@ export const SubagentManagerLive = Layer.effect(
             observations.flatMap((item) => item.nativeLocations),
           ),
           agentOutcomes: targets.map((target) => outcomeForTarget(ref, target, "current")),
+          ...(writes.length === 0
+            ? {}
+            : { targets: writes.sort((left, right) => left.path.localeCompare(right.path)) }),
         };
       }).pipe(
         Effect.mapError((cause) =>

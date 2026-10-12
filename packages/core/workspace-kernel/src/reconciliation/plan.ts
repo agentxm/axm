@@ -51,6 +51,9 @@ import {
   type Job,
   type StepFailure,
   type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type JobStepLastWrite,
+  type JobStepManagedRegion,
   type JobStepResult,
   type OperationPresentation,
   type Plan,
@@ -160,34 +163,62 @@ export const projectionDivergenceLabel = (
   return statuses.length === 0 ? label : `${label} (${statuses})`;
 };
 
-const managedRegionsForFacts = (facts: ReadonlyArray<ProjectionInvariantFact>) =>
+const managedRegionsForFacts = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): ReadonlyArray<JobStepManagedRegion> =>
   facts.flatMap(({ subject }) =>
     subject.owner === undefined
       ? []
-      : [{ unitId: subject.unitId, path: subject.path, owner: subject.owner }],
+      : [
+          {
+            unitId: subject.unitId,
+            path: subject.path,
+            owner: subject.owner,
+            ...(subject.lastWrite === undefined ? {} : { lastWrite: subject.lastWrite }),
+          },
+        ],
   );
 
+/** Which comparison a reader most needs when one file holds several rewritten units. */
+const LAST_WRITE_PRECEDENCE: ReadonlyArray<JobStepLastWrite> = [
+  "modified",
+  "unrecorded",
+  "matches",
+];
+
+const strongestLastWrite = (
+  values: ReadonlyArray<JobStepLastWrite | undefined>,
+): JobStepLastWrite | undefined => LAST_WRITE_PRECEDENCE.find((value) => values.includes(value));
+
+/** One file target per path a region rewrite touches, flagged when a region there was edited. */
 const projectionFileTargets = (
   facts: ReadonlyArray<ProjectionInvariantFact>,
-): ReadonlyArray<{ readonly path: string; readonly change: "updated" }> =>
-  facts
-    .filter(projectionFactRequiresReconciliation)
-    .map(({ subject }) => ({
-      path: subject.path.split("#", 1)[0] ?? subject.path,
-      change: "updated" as const,
-    }))
-    .filter(
-      (target, index, targets) =>
-        targets.findIndex((candidate) => candidate.path === target.path) === index,
-    );
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const byPath = new Map<string, Array<JobStepLastWrite | undefined>>();
+  for (const { subject } of facts.filter(projectionFactRequiresReconciliation)) {
+    const path = subject.path.split("#", 1)[0] ?? subject.path;
+    byPath.set(path, [...(byPath.get(path) ?? []), subject.lastWrite]);
+  }
+  return [...byPath].map(([path, lastWrites]) => {
+    const lastWrite = strongestLastWrite(lastWrites);
+    return { path, change: "updated", ...(lastWrite === undefined ? {} : { lastWrite }) };
+  });
+};
 
-const mergeArtifactTargets = (
-  targets: ReadonlyArray<{
-    readonly path: string;
-    readonly change: "created" | "updated" | "removed";
-  }>,
-) => {
-  const byPath = new Map<string, (typeof targets)[number]>();
+/** The warnings a step reports after it replaced whole files edited since AXM last wrote them. */
+const replacedModifiedWarnings = (
+  targets: ReadonlyArray<JobStepArtifactTarget>,
+): ReadonlyArray<string> =>
+  targets
+    .filter((target) => target.lastWrite === "modified" && target.change !== "removed")
+    .map((target) => `Replaced ${target.path}, which was modified since AXM last wrote it`);
+
+const warningsField = (
+  warnings: ReadonlyArray<string>,
+): { readonly warnings?: ReadonlyArray<string> } => (warnings.length === 0 ? {} : { warnings });
+
+const mergeArtifactTargets = (targets: ReadonlyArray<JobStepArtifactTarget>) => {
+  const byPath = new Map<string, JobStepArtifactTarget>();
   for (const target of targets) byPath.set(target.path, target);
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 };
@@ -803,8 +834,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       ...effect,
       path: path.relative(location.baseDir, effect.path),
     })),
-    // Recording an identical copy or withdrawing an orphaned row writes only
-    // the lockfile.
+    // Recording an identical copy, withdrawing an orphaned row, or retaining
+    // an edited stale copy writes only the lockfile.
     ...(instructionProjectionRecordsRows(snapshot)
       ? [{ path: path.relative(location.baseDir, location.lockPath), change: "updated" as const }]
       : []),
@@ -855,6 +886,9 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
       Effect.map((nativeLocations): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",
+        // Region rewrites are flagged in the preview only; a replaced
+        // whole-file copy loses the edit outright, so it is also a warning.
+        ...warningsField(replacedModifiedWarnings(instructionTargets)),
         artifact: { ...artifact, nativeLocations },
       })),
     ),

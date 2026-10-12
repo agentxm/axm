@@ -54,7 +54,11 @@ import {
   projectionIsCurrent,
   projectionOutputDigest,
 } from "../generation.js";
-import { decideWholeFileWrite, type WholeFileLastWrite } from "../whole-file-decision.js";
+import {
+  decideWholeFileWrite,
+  recordedOutputComparison,
+  type WholeFileLastWrite,
+} from "../whole-file-decision.js";
 import { decideOutputDeletion, retainedOutputDetail } from "../deletion-guard.js";
 import {
   NativeWriteAuthority,
@@ -122,11 +126,21 @@ export interface InstructionsGitignoreStatus {
   readonly desired: boolean;
   readonly current: boolean;
   readonly trackedAliases: ReadonlyArray<string>;
+  /**
+   * How the alias region about to be rewritten compares with AXM's last write.
+   * Absent unless a complete region is about to change.
+   */
+  readonly lastWrite?: "matches" | "modified" | "unrecorded";
 }
 
 export interface InstructionProjectionEffect {
   readonly path: string;
   readonly change: "created" | "updated" | "removed";
+  /**
+   * How the bytes this effect replaces compare with AXM's last write. Absent
+   * when nothing is replaced or the target is a link.
+   */
+  readonly lastWrite?: "matches" | "modified" | "unrecorded";
 }
 
 /**
@@ -1012,8 +1026,16 @@ const observeTargetPath = (args: {
     const unit = instructionUnitPath(path, args.workspaceRoot, args.targetPath);
     const recorded = recordedRow(args.rows, unit);
     if (Option.isNone(args.sourceContent) || Option.isNone(unit))
+      // Without a source only AXM's last write can show the copy is unedited,
+      // the same evidence the deletion guard uses.
       return Option.isSome(recorded)
-        ? observed("owned-drift", "copy")
+        ? {
+            ...observed("owned-drift", "copy"),
+            lastWrite:
+              projectionOutputDigest(targetContent.value) === recorded.value.row.output
+                ? "matches"
+                : "modified",
+          }
         : observed("unowned", "file");
     const decision = decideWholeFileWrite({
       recorded,
@@ -1024,7 +1046,18 @@ const observeTargetPath = (args: {
     });
     switch (decision._tag) {
       case "current":
-        return observed("owned-current", "copy");
+        // Kept for a rewrite a preceding source write forces in the same
+        // operation; currency itself never reads these bytes.
+        return Option.isSome(recorded)
+          ? {
+              ...observed("owned-current", "copy"),
+              lastWrite: recordedOutputComparison(
+                recorded.value,
+                targetContent.value,
+                args.sourceContent.value,
+              ),
+            }
+          : observed("owned-current", "copy");
       case "write":
         return { ...observed("owned-drift", "copy"), lastWrite: decision.lastWrite };
       case "record":
@@ -1142,6 +1175,7 @@ const observeStaleCandidate = (
       readonly mechanism: "symlink" | "copy";
       readonly ownership: "owned-current" | "owned-drift";
       readonly observedForm: "symlink" | "broken-link" | "copy";
+      readonly lastWrite?: "matches" | "modified";
     }): InstructionStatusItem => ({
       root: candidate.root,
       agentId: candidate.agentId,
@@ -1152,6 +1186,7 @@ const observeStaleCandidate = (
       health: "stale",
       ownership: fields.ownership,
       observedForm: fields.observedForm,
+      ...(fields.lastWrite === undefined ? {} : { lastWrite: fields.lastWrite }),
       details: STALE_TARGET_DETAILS,
     });
 
@@ -1201,6 +1236,7 @@ const observeStaleCandidate = (
         mechanism: "copy",
         ownership: decision._tag === "delete" ? "owned-current" : "owned-drift",
         observedForm: "copy",
+        lastWrite: decision._tag === "delete" ? "matches" : "modified",
       }),
     );
   });
@@ -1214,6 +1250,32 @@ const managedGitignoreRegionState = (content: string): ManagedRegionState["state
     onNone: () => "malformed",
     onSome: ({ state }) => state,
   });
+
+/**
+ * How the complete alias region in `content` compares with AXM's last write.
+ * A body already equal to the new render also matches, so a merged lockfile
+ * whose `output` lags never reports an unedited region as modified.
+ */
+const gitignoreLastWrite = (args: {
+  readonly content: string;
+  readonly patterns: ReadonlyArray<string>;
+  readonly recorded: Option.Option<RecordedProjectionRow>;
+}): Option.Option<"matches" | "modified" | "unrecorded"> =>
+  Option.flatMap(
+    reconcilePatternList({ content: args.content, patterns: args.patterns }),
+    ({ state, writtenBody }) =>
+      state.state === "complete"
+        ? Option.some(
+            Option.match(args.recorded, {
+              onNone: () => "unrecorded" as const,
+              onSome: ({ row }) =>
+                projectionOutputDigest(state.body) === row.output || writtenBody === state.body
+                  ? ("matches" as const)
+                  : ("modified" as const),
+            }),
+          )
+        : Option.none(),
+  );
 
 /** The `.gitignore` with the alias region rendered as `patterns`; `None` when it cannot be. */
 const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
@@ -1382,17 +1444,23 @@ const observeInstructionsGitignore = (args: {
     const recorded = Option.fromNullishOr(args.rows.get(GITIGNORE_UNIT));
     // Currency is the recorded generation, never the region's bytes: a
     // reformatted region stays current until its patterns change.
+    const current =
+      currentRegionState !== "malformed" &&
+      (desired
+        ? projectionIsCurrent(recorded, gitignoreGeneration(patterns), complete)
+        : currentRegionState === "absent");
+    const lastWrite =
+      current || Option.isNone(currentContent)
+        ? Option.none()
+        : gitignoreLastWrite({ content: currentContent.value, patterns, recorded });
     return {
       file,
       present: Option.isSome(currentContent),
       managed: complete,
       desired,
       trackedAliases,
-      current:
-        currentRegionState !== "malformed" &&
-        (desired
-          ? projectionIsCurrent(recorded, gitignoreGeneration(patterns), complete)
-          : currentRegionState === "absent"),
+      current,
+      ...Option.match(lastWrite, { onNone: () => ({}), onSome: (value) => ({ lastWrite: value }) }),
     };
   });
 
@@ -1503,14 +1571,50 @@ export const plannedInstructionChanges = (
   ];
 };
 
-const instructionChangeEffect = (
+/**
+ * A recorded copy edited since AXM wrote it is retained by the deletion guard,
+ * not removed, unless the caller asked to discard modified output; only its
+ * row is withdrawn.
+ */
+const retainedRemoval = (
+  snapshot: Pick<InstructionProjectionSnapshot, "discardModified">,
   change: PlannedInstructionChange,
-): ReadonlyArray<InstructionProjectionEffect> =>
-  change.kind === "record"
-    ? []
-    : change.kind === "gitignore"
-      ? [{ path: change.path, change: change.change }]
-      : [{ path: change.item.targetFile, change: change.change }];
+): boolean =>
+  (change.kind === "stale" || change.kind === "owned-alias") &&
+  change.item.lastWrite === "modified" &&
+  !snapshot.discardModified;
+
+/** The replaced-bytes comparison a preview reports; a created file replaces nothing. */
+const effectLastWrite = (
+  item: InstructionStatusItem,
+  change: "created" | "updated" | "removed",
+): Pick<InstructionProjectionEffect, "lastWrite"> =>
+  change === "created" || item.lastWrite === undefined || item.lastWrite === "absent"
+    ? {}
+    : { lastWrite: item.lastWrite };
+
+const instructionChangeEffect =
+  (snapshot: Pick<InstructionProjectionSnapshot, "discardModified" | "gitignore">) =>
+  (change: PlannedInstructionChange): ReadonlyArray<InstructionProjectionEffect> =>
+    change.kind === "record" || retainedRemoval(snapshot, change)
+      ? []
+      : change.kind === "gitignore"
+        ? [
+            {
+              path: change.path,
+              change: change.change,
+              ...(change.change === "created" || snapshot.gitignore.lastWrite === undefined
+                ? {}
+                : { lastWrite: snapshot.gitignore.lastWrite }),
+            },
+          ]
+        : [
+            {
+              path: change.item.targetFile,
+              change: change.change,
+              ...effectLastWrite(change.item, change.change),
+            },
+          ];
 
 /** Exact durable paths a reconciliation from this observation will touch. */
 export const instructionProjectionEffects = (
@@ -1518,7 +1622,9 @@ export const instructionProjectionEffects = (
   sourceWrites: ReadonlyArray<string> = [],
 ): ReadonlyArray<InstructionProjectionEffect> =>
   uniqueEffects(
-    plannedInstructionChanges(snapshot, "reconcile", sourceWrites).flatMap(instructionChangeEffect),
+    plannedInstructionChanges(snapshot, "reconcile", sourceWrites).flatMap(
+      instructionChangeEffect(snapshot),
+    ),
   );
 
 /**
@@ -1530,13 +1636,17 @@ export const instructionProjectionRecordsRows = (
   snapshot: InstructionProjectionSnapshot,
 ): boolean =>
   snapshot.orphanRows.length > 0 ||
-  plannedInstructionChanges(snapshot, "reconcile").some((change) => change.kind === "record");
+  plannedInstructionChanges(snapshot, "reconcile").some(
+    (change) => change.kind === "record" || retainedRemoval(snapshot, change),
+  );
 
 /** Exact durable paths disabling this observed projection will touch. */
 export const instructionProjectionRemovalEffects = (
   snapshot: InstructionProjectionSnapshot,
 ): ReadonlyArray<InstructionProjectionEffect> =>
-  uniqueEffects(plannedInstructionChanges(snapshot, "remove").flatMap(instructionChangeEffect));
+  uniqueEffects(
+    plannedInstructionChanges(snapshot, "remove").flatMap(instructionChangeEffect(snapshot)),
+  );
 
 export const instructionProjectionNativeLocations = (
   snapshot: InstructionProjectionSnapshot,
@@ -1544,7 +1654,7 @@ export const instructionProjectionNativeLocations = (
   sourceWrites: ReadonlyArray<string> = [],
 ) => {
   const changes = plannedInstructionChanges(snapshot, mode, sourceWrites).flatMap(
-    instructionChangeEffect,
+    instructionChangeEffect(snapshot),
   );
   return instructionChangeLocations({
     snapshot,

@@ -443,6 +443,78 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [actual] })));
     });
 
+    it.effect("previews each planned write with how the replaced file compares", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const projectDir = nodePath.join(tmpDir, "project");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      nodeFs.mkdirSync(axmDir, { recursive: true });
+      const native = nodePath.join(projectDir, ".claude/agents/planner.md");
+      const actual = codingAgentForId("claude-code");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const accepted = yield* AcceptedResolutionWriter;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        const options = { sourceRoot: sourceDir };
+        expect((yield* manager.projectionObservation(ref, options)).targets).toEqual([
+          { path: ".claude/agents/planner.md", change: "created" },
+        ]);
+        yield* manager.materializeInstall({ ref });
+        expect((yield* manager.projectionObservation(ref, options)).targets).toBeUndefined();
+
+        writeSubagentPackage(sourceDir, "planner", "Plans work carefully");
+        expect((yield* manager.projectionObservation(ref, options)).targets).toEqual([
+          { path: ".claude/agents/planner.md", change: "updated", lastWrite: "matches" },
+        ]);
+        nodeFs.writeFileSync(native, "Edited by hand\n");
+        const rowsBefore = yield* accepted.projectionRows("subagents");
+        const observed = yield* manager.projectionObservation(ref, options);
+        expect(observed.current).toBe(false);
+        expect(observed.targets).toEqual([
+          { path: ".claude/agents/planner.md", change: "updated", lastWrite: "modified" },
+        ]);
+        // Observing never writes the file or its row.
+        expect(nodeFs.readFileSync(native, "utf8")).toBe("Edited by hand\n");
+        expect(yield* accepted.projectionRows("subagents")).toEqual(rowsBefore);
+      }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [actual] })));
+    });
+
+    it.effect("previews an identical unrecorded file as a record-only change", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      const actual = codingAgentForId("claude-code");
+      const project = (name: string) => {
+        const projectDir = nodePath.join(tmpDir, name);
+        const axmDir = nodePath.join(projectDir, ".axm");
+        nodeFs.mkdirSync(axmDir, { recursive: true });
+        return { axmDir, native: nodePath.join(projectDir, ".claude/agents/planner.md") };
+      };
+      const rendered = project("rendered");
+      const unrecorded = project("unrecorded");
+      const ref = makeLocalSubagentRef("planner", sourceDir);
+      return Effect.gen(function* () {
+        yield* (yield* SubagentManager).materializeInstall({ ref });
+      }).pipe(
+        Effect.provide(makeTestLayer({ axmDir: rendered.axmDir, agents: [actual] })),
+        Effect.andThen(() => {
+          const bytes = nodeFs.readFileSync(rendered.native, "utf8");
+          nodeFs.mkdirSync(nodePath.dirname(unrecorded.native), { recursive: true });
+          nodeFs.writeFileSync(unrecorded.native, bytes);
+          return Effect.gen(function* () {
+            const manager = yield* SubagentManager;
+            const accepted = yield* AcceptedResolutionWriter;
+            const observed = yield* manager.projectionObservation(ref, { sourceRoot: sourceDir });
+            // Only the row is missing: nothing is planned at the file itself,
+            // and observing records nothing.
+            expect(observed.current).toBe(false);
+            expect(observed.targets).toBeUndefined();
+            expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
+            expect(nodeFs.readFileSync(unrecorded.native, "utf8")).toBe(bytes);
+          }).pipe(Effect.provide(makeTestLayer({ axmDir: unrecorded.axmDir, agents: [actual] })));
+        }),
+      );
+    });
+
     it.effect("reports unsupported targets without creating a role Skill", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");

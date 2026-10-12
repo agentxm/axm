@@ -407,6 +407,10 @@ export const RuleManagerLive = Layer.effect(
           present,
           current: !changed,
           expectedContributors: contributors.map(({ marker }) => marker),
+          ...Option.match(reconciliation.lastWrite, {
+            onNone: () => ({}),
+            onSome: (lastWrite) => ({ lastWrite }),
+          }),
         } satisfies ProjectionUnitObservation;
         if (args.dryRun === true) {
           return {

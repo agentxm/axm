@@ -39,7 +39,7 @@ import {
   type CodingAgentRepositoryService,
 } from "./agents/coding-agent-repository.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
-import type { ConfiguredAgentOutcome } from "../operations/index.js";
+import type { ConfiguredAgentOutcome, JobStepArtifactTarget } from "../operations/index.js";
 import { observeConfiguredSkillLocations } from "./skill-location-observation.js";
 import { inspectDesiredMcpServer } from "./mcps/inspection.js";
 import type {
@@ -88,6 +88,8 @@ export const observeMaterializationCurrency = <E>({
     readonly current: boolean;
     readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
     readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
+    /** Planned whole-file writes, with how each replaced file compares with AXM's last write. */
+    readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
   },
   MaterializationCurrencyFailure<E>,
   ProjectionParticipantRequirements
@@ -109,6 +111,7 @@ export const observeMaterializationCurrency = <E>({
           readonly current: boolean;
           readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
           readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome>;
+          readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
         },
         MaterializationCurrencyFailure<E>,
         ProjectionParticipantRequirements
@@ -128,6 +131,7 @@ export const observeMaterializationCurrency = <E>({
                 ...(observation.agentOutcomes === undefined
                   ? {}
                   : { agentOutcomes: observation.agentOutcomes }),
+                ...(observation.targets === undefined ? {} : { targets: observation.targets }),
                 nativeLocations: (observation.nativeLocations ?? []).map(
                   (unit): NativeLocationOutcome => {
                     const { proof: _proof, ...facts } = unit;
@@ -164,9 +168,10 @@ export const observeMaterializationCurrency = <E>({
                   ...(subagentSourceRoot === undefined ? {} : { sourceRoot: subagentSourceRoot }),
                 })
                 .pipe(
-                  Effect.map(({ current, nativeLocations, agentOutcomes }) => ({
+                  Effect.map(({ current, nativeLocations, agentOutcomes, targets }) => ({
                     current,
                     ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
+                    ...(targets === undefined ? {} : { targets }),
                     nativeLocations: nativeLocations ?? [],
                   })),
                 )

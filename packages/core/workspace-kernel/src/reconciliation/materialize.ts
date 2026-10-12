@@ -103,6 +103,8 @@ import {
 import {
   type ReleaseAgeOperationEvidence,
   type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type JobStepResult,
   type ConfiguredAgentOutcome,
   type Plan,
   type PlannedJobStep,
@@ -906,6 +908,9 @@ export const collectMaterializeSteps = (args: {
             ref,
             restoresAccepted: resolved.restoresAccepted,
             nativeLocations: materializationObservation.nativeLocations,
+            ...(materializationObservation.targets === undefined
+              ? {}
+              : { targets: materializationObservation.targets }),
             agentOutcomes: agentOutcomes?.map((outcome) =>
               materialize && node.enabled && outcome.outcome === "current"
                 ? { ...outcome, outcome: "projected" as const }
@@ -979,6 +984,8 @@ export const collectMaterializeSteps = (args: {
     type Reconciled<TRef extends ExtensionRef> = {
       readonly agentOutcomes?: ReadonlyArray<ConfiguredAgentOutcome> | undefined;
       readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
+      /** Planned whole-file writes a Subagent reconciliation reports. */
+      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
       readonly ref: TRef;
       readonly force: boolean;
       readonly materialize: boolean;
@@ -1028,6 +1035,7 @@ export const collectMaterializeSteps = (args: {
             transitionLabel: item.transitionLabel,
             nativeLocations: item.nativeLocations,
             agentOutcomes: item.agentOutcomes,
+            ...(item.targets === undefined ? {} : { targets: item.targets }),
             ...(item.releaseAge === undefined ? {} : { releaseAge: item.releaseAge }),
           });
           break;
@@ -1315,33 +1323,51 @@ export const collectMaterializeSteps = (args: {
       transitionLabel,
       nativeLocations,
       agentOutcomes,
-    }: Reconciled<SubagentExtensionRef>) =>
-      ({
+      targets,
+    }: Reconciled<SubagentExtensionRef>) => {
+      const plannedTargets = desiredActivation(ref) ? (targets ?? []) : [];
+      // A replaced whole file loses its hand edit, so the step says so.
+      const replaced = plannedTargets
+        .filter((target) => target.lastWrite === "modified")
+        .map((target) => `Replaced ${target.path}, which was modified since AXM last wrote it`);
+      const operation = buildMaterializeOperation(subagentManager, {
+        nativeInsertionEligiblePaths: directoryRoutes.subagent,
+        toStepFailure: args.adapter.toStepFailure,
+        ref,
+        desiredActivation: desiredActivation(ref),
+        validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
+        force,
+        label: transitionLabel,
+        message: `Synced subagent ${ref.subagent.name}`,
+        buildArtifact: ({ materialization }) =>
+          subagentSyncArtifact({ ref, location }).pipe(
+            Effect.map((artifact) => ({
+              ...artifact,
+              ...(materialization.observation.agentOutcomes === undefined
+                ? {}
+                : { agentOutcomes: materialization.observation.agentOutcomes }),
+              ...(materialization.observation.nativeLocations === undefined
+                ? {}
+                : {
+                    nativeLocations: materialization.observation.nativeLocations,
+                  }),
+            })),
+          ),
+      });
+      return {
         ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
-        ...buildMaterializeOperation(subagentManager, {
-          nativeInsertionEligiblePaths: directoryRoutes.subagent,
-          toStepFailure: args.adapter.toStepFailure,
-          ref,
-          desiredActivation: desiredActivation(ref),
-          validateMaterialized: () => validateAcceptedLocalMaterialization(ref),
-          force,
-          label: transitionLabel,
-          message: `Synced subagent ${ref.subagent.name}`,
-          buildArtifact: ({ materialization }) =>
-            subagentSyncArtifact({ ref, location }).pipe(
-              Effect.map((artifact) => ({
-                ...artifact,
-                ...(materialization.observation.agentOutcomes === undefined
-                  ? {}
-                  : { agentOutcomes: materialization.observation.agentOutcomes }),
-                ...(materialization.observation.nativeLocations === undefined
-                  ? {}
-                  : {
-                      nativeLocations: materialization.observation.nativeLocations,
-                    }),
-              })),
-            ),
-        }),
+        ...operation,
+        ...(replaced.length === 0 || !("run" in operation)
+          ? {}
+          : {
+              run: operation.run.pipe(
+                Effect.map((result): JobStepResult =>
+                  result.result === "success"
+                    ? { ...result, warnings: [...(result.warnings ?? []), ...replaced] }
+                    : result,
+                ),
+              ),
+            }),
         artifact: {
           path:
             (desiredActivation(ref) ? nativeLocations[0]?.address.path : undefined) ??
@@ -1349,6 +1375,7 @@ export const collectMaterializeSteps = (args: {
           scope: location.scope,
           change: "updated",
           ...(agentOutcomes === undefined ? {} : { agentOutcomes }),
+          ...(plannedTargets.length === 0 ? {} : { targets: plannedTargets }),
           nativeLocations: desiredActivation(ref) ? nativeLocations : [],
           ...(desiredActivation(ref) && nativeLocations.length === 0 && ref.refType === "registry"
             ? {
@@ -1363,7 +1390,8 @@ export const collectMaterializeSteps = (args: {
               }
             : {}),
         },
-      }) satisfies PlannedJobStep<MaterializeStepRequirements>;
+      } satisfies PlannedJobStep<MaterializeStepRequirements>;
+    };
     const knowledgeMaterializeStep = ({
       ref,
       force,

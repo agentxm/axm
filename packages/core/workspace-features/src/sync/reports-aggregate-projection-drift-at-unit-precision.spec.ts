@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   requirement: "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
   title: "Sync identifies the shared output that needs updating",
   statement:
-    "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview for the whole workspace, for one contributing extension, or for the contributors' type shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension; applying that selection shall regenerate the whole region from every contributor, and when another contributor lacks accepted state the region shall stay blocked and unchanged.",
+    "When an aggregate projection like an instruction file's rules or knowledge region drifts, a sync preview for the whole workspace, for one contributing extension, or for the contributors' type shall report it as stale or missing at the owning managed unit and region, and shall not attribute the cause to any individual contributing extension; applying that selection shall regenerate the whole region from every contributor, and when another contributor lacks accepted state the region shall stay blocked and unchanged. Drift shall be judged from the recorded generation of the region's inputs, so a hand edit inside a region alone shall not be reported as drift; when a rewrite is planned, the preview shall state for the region whether the bytes it replaces match what AXM last wrote or were modified since, without writing the lockfile.",
   class: "functional",
   role: "interface",
   goals: ["actionable-diagnostics", "machine-automation", "workspace-intent-fidelity"],
@@ -92,8 +92,10 @@ describe("Aggregate projection drift diagnostics", () => {
                   unitId: "rule:instructions-region",
                   path: "AGENTS.md#rules",
                   owner: "@agentxm/rules/instructions",
+                  lastWrite: "matches",
                 },
               ],
+              targets: [{ path: "AGENTS.md", change: "updated", lastWrite: "matches" }],
             },
           });
           expectNoContributorAttribution(staleUnit, ["@acme/rules/alpha", "@acme/rules/beta"]);
@@ -109,6 +111,55 @@ describe("Aggregate projection drift diagnostics", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "does not report a hand-edited region as drift but flags it when a rewrite is planned",
+    () => {
+      const workspace = fixture({ rules: { alpha: "workspace", beta: "workspace" } });
+      writeAuthoredRule(workspace.root, "alpha", "First alpha guidance.");
+      writeAuthoredRule(workspace.root, "beta", "Stable beta guidance.");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+            workspace.writeFile(
+              "AGENTS.md",
+              workspace
+                .readFile("AGENTS.md")
+                .replace("Stable beta guidance.", "Stable beta guidance, edited by hand."),
+            );
+            expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
+
+            writeAuthoredRule(workspace.root, "alpha", "Changed alpha guidance.");
+            const lockfileBefore = workspace.readFile("axm-lock.yaml");
+            const agentsBefore = workspace.readFile("AGENTS.md");
+            const preview = expectResolved(yield* previewSync());
+            const unit = requireUnit(preview.units, "instruction:reconcile");
+            expect(unit.artifact?.managedRegions).toEqual([
+              {
+                unitId: "rule:instructions-region",
+                path: "AGENTS.md#rules",
+                owner: "@agentxm/rules/instructions",
+                lastWrite: "modified",
+              },
+            ]);
+            expect(unit.artifact?.targets).toEqual([
+              { path: "AGENTS.md", change: "updated", lastWrite: "modified" },
+            ]);
+            // The preview is pure: neither the lockfile nor the region changes.
+            expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+            expect(workspace.readFile("AGENTS.md")).toBe(agentsBefore);
+
+            yield* applySync();
+            const after = workspace.readFile("AGENTS.md");
+            expect(after).toContain("Changed alpha guidance.");
+            expect(after).not.toContain("edited by hand");
+            expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 
   it.effect("reports stale Knowledge discovery at its managed-unit boundary", () => {
     const workspace = fixture({ knowledge: { alpha: "workspace", beta: "workspace" } });
@@ -131,6 +182,7 @@ describe("Aggregate projection drift diagnostics", () => {
           expect(unit.artifact?.managedRegions?.[0]).toMatchObject({
             unitId: "knowledge:discovery-region",
             owner: "@agentxm/knowledge/discovery",
+            lastWrite: "matches",
           });
           expect(unit.artifact?.managedRegions?.[0]?.path.endsWith("/AGENTS.md#knowledge")).toBe(
             true,

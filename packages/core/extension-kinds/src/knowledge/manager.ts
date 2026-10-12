@@ -665,6 +665,10 @@ export const KnowledgeManagerLive = Layer.effect(
                   expectedContributors: input.contributors.map(
                     ({ owner, name }) => `${owner}/knowledge/${name}`,
                   ),
+                  ...Option.match(result.lastWrite, {
+                    onNone: () => ({}),
+                    onSome: (lastWrite) => ({ lastWrite }),
+                  }),
                 })),
               ),
             apply: (input) =>

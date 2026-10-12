@@ -147,6 +147,54 @@ describe("native destinations", () => {
   });
 });
 
+describe("modified since last write", () => {
+  const rows = (artifact: JobStepArtifact) =>
+    paint(
+      operationDoc(
+        makeOperationResolution({
+          name: "Sync workspace",
+          description: Option.none(),
+          mode: "apply",
+          atomicity: { declared: "closure-atomic", applied: "closure-atomic" },
+          units: [{ id: "instructions", label: "instruction files", state: "committed", artifact }],
+        }),
+        { verbosity: "normal" },
+      ),
+      160,
+    );
+
+  it("marks only the targets whose replaced bytes were edited", () => {
+    const text = rows({
+      path: "CLAUDE.md",
+      scope: "project",
+      change: "updated",
+      targets: [
+        { path: "CLAUDE.md", change: "updated", lastWrite: "modified" },
+        { path: "GEMINI.md", change: "updated", lastWrite: "matches" },
+      ],
+    });
+    expect(text).toContain("CLAUDE.md (modified since last write), GEMINI.md");
+    expect(text).not.toContain("GEMINI.md (modified since last write)");
+  });
+
+  it("marks a file whose managed region was edited when the row names no targets", () => {
+    const text = rows({
+      path: "AGENTS.md",
+      scope: "project",
+      change: "updated",
+      managedRegions: [
+        {
+          unitId: "knowledge:discovery-region",
+          path: "/workspace/AGENTS.md#knowledge",
+          owner: "@agentxm/knowledge/discovery",
+          lastWrite: "modified",
+        },
+      ],
+    });
+    expect(text).toContain("AGENTS.md (modified since last write)");
+  });
+});
+
 describe("pack membership output", () => {
   const artifact: JobStepArtifact = {
     path: "packs/toolkit/pack.json",

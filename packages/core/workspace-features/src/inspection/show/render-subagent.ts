@@ -69,17 +69,9 @@ export const RenderSubagent = {
       ),
     );
     const fqn = `${pkg.manifest.owner}/subagents/${pkg.manifest.name}`;
-    const compiled = compileSubagentImplementation({
-      package: pkg,
-      agentId: request.agentId,
-      managedFile: {
-        ext: fqn,
-        source: {
-          kind: detail.item.source === "workspace" ? "workspace-authored" : "acquired",
-          path: path.relative(location.baseDir, path.join(packageRoot, "subagent.json")),
-        },
-      },
-    });
+    // The rendered bytes are exactly what the projection writes: a projected
+    // Subagent file carries no ownership text.
+    const compiled = compileSubagentImplementation({ package: pkg, agentId: request.agentId });
     const common = {
       type: "subagent" as const,
       version: pkg.manifest.version,

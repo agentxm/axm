@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
+import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -224,19 +225,33 @@ const writeMcpServerExtension = (baseDir: string, name: string) => {
   });
 };
 
+/**
+ * Write a native Subagent file. A `recorded` file is one AXM wrote: the
+ * workspace lockfile carries the projection row of its bytes, which is the
+ * only evidence that lets cleanup delete it.
+ */
 const writeRenderedSubagent = (
   baseDir: string,
   agentDir: string,
   name: string,
-  managed: boolean,
+  recorded: boolean,
 ) => {
-  const filePath = path.join(baseDir, agentDir, "agents", `${name}.md`);
+  const relative = `${agentDir}/agents/${name}.md`;
+  const filePath = path.join(baseDir, relative);
+  const bytes = `# ${name}\n`;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, bytes);
+  if (!recorded) return;
+  const lockPath = path.join(baseDir, "axm-lock.yaml");
+  const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+  const document = typeof lockfile === "object" && lockfile !== null ? lockfile : {};
+  const output = projectionOutputDigest(bytes);
   fs.writeFileSync(
-    filePath,
-    managed
-      ? `<!-- axm:file v=1 ext=@acme/subagents/${name} src=subagents/${name}/subagent.json -->\n# ${name}\n`
-      : `# ${name}\n`,
+    lockPath,
+    YAML.stringify({
+      ...document,
+      projections: { subagents: { contract: 1, units: { [relative]: { output } } } },
+    }),
   );
 };
 
@@ -2434,7 +2449,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("preserves a Subagent marker with no accepted source authority", () =>
+  it.effect("preserves a recorded Subagent file with no accepted source authority", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {

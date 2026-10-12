@@ -63,7 +63,7 @@ const fixture = Effect.gen(function* () {
     expectedRegions: { rule: [], knowledge: [] },
     declaredMcpNames: new Set<string>(),
     expectedSkillSources: { review: [source] },
-    expectedSubagentFiles: {},
+    expectedSubagentNames: new Set<string>(),
     authoredSkills: { layout, entries: settings.skills ?? {} },
   };
   return { fs, path, root, source, args };
@@ -143,7 +143,7 @@ describe("Native Skill consumers and ownership", () => {
     }).pipe(Effect.scoped, Effect.provide(services)),
   );
 
-  it.effect("does not grant recursive ownership from a marker inside a user directory", () =>
+  it.effect("grants no ownership from AXM-looking comment text inside a user directory", () =>
     Effect.gen(function* () {
       const { fs, path, root, args } = yield* fixture;
       const directory = path.join(root, ".claude/skills/review");

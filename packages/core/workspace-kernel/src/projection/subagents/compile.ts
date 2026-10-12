@@ -9,8 +9,6 @@ import {
   type SubagentRenderInput,
   type SubagentRenderOutput,
 } from "../../agent-adapters/index.js";
-import type { ManagedFileProvenance } from "../managed-file-banner.js";
-import { managedSubagentRenderInput } from "./managed-render.js";
 
 import type { ConfiguredAgentReasonCode } from "../../operations/index.js";
 
@@ -93,7 +91,6 @@ const unresolvedRuntimeReference = (
 export const compileSubagentImplementation = (args: {
   readonly package: DecodedSubagentPackage;
   readonly agentId: string;
-  readonly managedFile?: ManagedFileProvenance;
 }): CompiledSubagentImplementation => {
   const selected = selectSubagentImplementation(args.package, args.agentId);
   if (selected.kind === "unsupported")
@@ -153,7 +150,7 @@ export const compileSubagentImplementation = (args: {
     );
   }
   const nativeName = selected.kind === "native" ? selected.native.name : selected.name;
-  const base: SubagentRenderInput =
+  const input: SubagentRenderInput =
     selected.kind === "native" && selected.native.format !== "json"
       ? {
           agentId: args.agentId,
@@ -177,10 +174,6 @@ export const compileSubagentImplementation = (args: {
                   description: selected.description,
                 },
         };
-  const input =
-    args.managedFile === undefined
-      ? base
-      : managedSubagentRenderInput({ managedFile: args.managedFile, input: base });
   const rendered = renderSubagent(input);
   if (rendered === undefined || rendered._tag === "Skipped")
     return unsupported(

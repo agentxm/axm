@@ -4,7 +4,7 @@ import type { McpDistribution, McpBinding, McpAuth } from "../mcps/connection.js
  *
  * A `CodingAgent` knows one agent's native surfaces: where its skills live
  * and how a subagent document is rendered and published. Every input crosses as plain data — rendered
- * entries, ownership metadata, banner text — so the adapter never depends on
+ * entries, ownership metadata, write and removal decisions — so the adapter never depends on
  * workspace state or projection policy. Which agents are projection targets
  * is a core decision made elsewhere.
  *
@@ -14,6 +14,7 @@ import type { McpDistribution, McpBinding, McpAuth } from "../mcps/connection.js
 
 import type * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
+import type * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -102,10 +103,26 @@ export type ResolveSubagentsDirOutcome =
   | { readonly _tag: "misconfigured"; readonly reason: string };
 
 /**
+ * What to do at one planned Subagent file, decided by the owning projection
+ * under the adapter's write lock. `current` and `record` leave the bytes in
+ * place; `write` replaces them with the render; `conflict` refuses.
+ */
+export type SubagentWriteDecision =
+  | { readonly _tag: "current" }
+  | { readonly _tag: "record" }
+  | { readonly _tag: "write" }
+  | { readonly _tag: "conflict"; readonly reason: string };
+
+/** Whether a Subagent file being withdrawn may be deleted. */
+export type SubagentRemovalDecision =
+  { readonly _tag: "delete" } | { readonly _tag: "retain"; readonly reason: string };
+
+/**
  * Inputs for adding a subagent to an agent's subagents directory.
  *
- * `input.ownershipBanner` carries the ownership banner the owning projection
- * rendered; the adapter places it where its own format allows a comment.
+ * The rendered file carries no ownership text. Authority comes from the
+ * declaration and its planned native path; `decideWrite` applies the owning
+ * projection's policy to whatever already occupies that path.
  */
 export interface AddSubagentArgs {
   readonly nativeRoots?: ReadonlyArray<string>;
@@ -114,8 +131,13 @@ export interface AddSubagentArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly input: SubagentRenderInput;
-  /** Exact accepted tokens a declared source transition may replace. */
-  readonly previousManagedFiles: ReadonlyArray<{ readonly ext: string; readonly src: string }>;
+  readonly decideWrite: (args: {
+    /** Physical planned path. */
+    readonly filePath: string;
+    /** Current bytes at the path; `None` when absent. */
+    readonly prior: Option.Option<string>;
+    readonly rendered: string;
+  }) => SubagentWriteDecision;
   readonly force: boolean;
 }
 
@@ -127,10 +149,14 @@ export interface RemoveSubagentArgs {
   readonly workspaceRoot: string;
   readonly scope: WorkspaceScope;
   readonly subagentName: string;
-  /** Exact accepted ownership token required before retiring native content. */
-  readonly expectedManagedFile: { readonly ext: string; readonly src: string };
-  /** Workspace-relative rendered file paths recorded at publication. */
+  /** Workspace-relative rendered file paths being withdrawn. */
   readonly renderedFilePaths: ReadonlyArray<string>;
+  /** The owning projection's deletion guard, applied under the write lock. */
+  readonly decideRemoval: (args: {
+    /** Physical path. */
+    readonly filePath: string;
+    readonly bytes: string;
+  }) => SubagentRemovalDecision;
 }
 
 /**
@@ -144,7 +170,11 @@ export type SubagentSyncOutcome =
         readonly path: string;
         readonly kind: "skill" | "subagent";
         readonly change: NativeArtifactChange;
+        /** The write decision taken at this path. */
+        readonly decision?: Exclude<SubagentWriteDecision["_tag"], "conflict">;
       }>;
+      /** Withdrawn files the removal decision kept in place. */
+      readonly retained?: ReadonlyArray<{ readonly path: string; readonly reason: string }>;
       readonly warnings: ReadonlyArray<string>;
     }
   | {

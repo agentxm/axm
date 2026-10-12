@@ -7,19 +7,37 @@ import { describe, expect, it } from "@effect/vitest";
 import { readSubagentPackage } from "@agentxm/extension-content";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import YAML from "yaml";
+import * as Option from "effect/Option";
 import {
   compileSubagentImplementation,
-  managedSubagentRenderInput,
-  renderManagedSubagentOutputs,
+  decideOutputDeletion,
+  decideWholeFileWrite,
+  projectionOutputDigest,
+  subagentProjectionGeneration,
+  subagentUnitPath,
+  type SubagentGenerationArgs,
+  type SubagentProvenance,
 } from "../index.js";
-import { codingAgentForId } from "../../agent-adapters/index.js";
+import {
+  codingAgentForId,
+  renderSubagent,
+  type AddSubagentArgs,
+  type CodingAgent,
+  type RemoveSubagentArgs,
+  type SubagentRenderInput,
+} from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
+import type {
+  ProjectionDigest,
+  ProjectionUnitPath,
+  RecordedProjectionRow,
+} from "../../workspace-state/index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/subagents/native-locations-respect-shape-and-proof",
-  title: "Subagent output follows resolved native shape and requires ownership proof",
+  title: "Subagent output follows resolved native shape and its declaration's planned path",
   statement:
-    "AXM shall place Subagent files under their resolved catalog directory, preserve selected native configuration and compile-time dependency currency without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.",
+    "AXM shall place Subagent files under their resolved catalog directory without ownership text, preserve selected native configuration without inventing tool mappings or execution-policy defaults, judge currency by an input-only generation that every reader of one physical file shares and that dormant implementation edits do not change, record an unrecorded file whose bytes equal the render, refuse an unrecorded differing file unless replacement is explicitly requested, replace a recorded file when its inputs change even after a hand edit, and report native writing unsupported when a file or keyed surface has no verified representation rather than treating a filename as a directory or a slug as ownership.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -30,17 +48,103 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
-const managedFile = {
+const provenance: SubagentProvenance = {
   ext: "@acme/subagents/review",
-  source: { kind: "workspace-authored", path: "subagents/review/subagent.json" },
-} as const;
-const input = (agentId: string) => ({
+  src: "subagents/review/subagent.json",
+  kind: "workspace-authored",
+};
+const input = (agentId: string): SubagentRenderInput => ({
   agentId,
   name: "review",
   body: "Review carefully",
   frontmatter: { name: "review", description: "Review" },
 });
 const services = Layer.merge(NodeServices.layer, NativeWriteAuthorityPermissive);
+
+/**
+ * The owning projection's policy over one scope root, with the rows it
+ * records held in memory: the shared whole-file decision on write, the
+ * deletion guard on removal, and a row for every write or record.
+ */
+const projection = (
+  root: string,
+  path: Path.Path,
+  options: { readonly replaceUnrecorded?: boolean } = {},
+) => {
+  const rows = new Map<ProjectionUnitPath, RecordedProjectionRow>();
+  const unit = (filePath: string) =>
+    Option.getOrThrow(subagentUnitPath(path, root, path.resolve(root, filePath)));
+  const generation = (claimants: ReadonlyArray<SubagentRenderInput>): ProjectionDigest =>
+    subagentProjectionGeneration(
+      claimants.map((claimant): SubagentGenerationArgs => ({ provenance, input: claimant })),
+    );
+  const add = (
+    agent: CodingAgent,
+    args: Omit<AddSubagentArgs, "decideWrite" | "force"> & {
+      readonly claimants?: ReadonlyArray<SubagentRenderInput>;
+    },
+  ) =>
+    Effect.gen(function* () {
+      const gen = generation(args.claimants ?? [args.input]);
+      const rendered = new Map<string, string>();
+      const outcome = yield* agent.addSubagent({
+        ...args,
+        force: true,
+        decideWrite: ({ filePath, prior, rendered: bytes }) => {
+          rendered.set(filePath, bytes);
+          const decision = decideWholeFileWrite({
+            recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
+            gen,
+            bytes: prior,
+            rendered: bytes,
+            replaceUnrecorded: options.replaceUnrecorded === true,
+          });
+          return decision._tag === "conflict"
+            ? {
+                _tag: "conflict",
+                reason: `Existing Subagent file has no recorded projection: ${filePath}`,
+              }
+            : decision._tag === "write"
+              ? { _tag: "write" }
+              : decision;
+        },
+      });
+      if (outcome._tag === "success")
+        for (const target of outcome.nativeTargets ?? []) {
+          const bytes = rendered.get(target.path);
+          if (bytes !== undefined && (target.decision === "write" || target.decision === "record"))
+            rows.set(unit(target.path), {
+              row: { gen, output: projectionOutputDigest(bytes) },
+              stale: false,
+            });
+        }
+      return outcome;
+    });
+  const remove = (
+    agent: CodingAgent,
+    args: Omit<RemoveSubagentArgs, "decideRemoval">,
+    discardModified = false,
+  ) =>
+    Effect.gen(function* () {
+      const outcome = yield* agent.removeSubagent({
+        ...args,
+        decideRemoval: ({ filePath, bytes }) => {
+          const decision = decideOutputDeletion({
+            bytes: Option.some(bytes),
+            recorded: Option.fromUndefinedOr(rows.get(unit(filePath))),
+            expectedRender: Option.none(),
+            discardModified,
+          });
+          return decision._tag === "delete"
+            ? decision
+            : { _tag: "retain", reason: decision.reason };
+        },
+      });
+      for (const file of args.renderedFilePaths) rows.delete(unit(file));
+      return outcome;
+    });
+  return { rows, add, remove };
+};
 
 describe("Native Subagent location contracts", () => {
   it.effect("compiles portable identity and instructions without execution-policy defaults", () =>
@@ -64,7 +168,7 @@ describe("Native Subagent location contracts", () => {
         "qoder-cn",
         "mimo-code",
       ]) {
-        const compiled = compileSubagentImplementation({ package: pkg, agentId, managedFile });
+        const compiled = compileSubagentImplementation({ package: pkg, agentId });
         expect(compiled._tag).toBe("Compiled");
         if (compiled._tag !== "Compiled") continue;
         expect(compiled.mode).toBe("portable");
@@ -102,17 +206,13 @@ describe("Native Subagent location contracts", () => {
           readFile: (source) =>
             Effect.succeed(source.endsWith("toml") ? native : "Unused portable instructions"),
         });
-        const compiled = compileSubagentImplementation({
-          package: pkg,
-          agentId: "codex",
-          managedFile,
-        });
+        const compiled = compileSubagentImplementation({ package: pkg, agentId: "codex" });
         expect(compiled._tag).toBe("Compiled");
         if (compiled._tag !== "Compiled") return;
         expect(compiled.mode).toBe("native");
         expect(compiled.nativeName).toBe("native-review");
         expect(compiled.outputs[0]?.path).toBe("native-review.toml");
-        expect(compiled.outputs[0]?.content.endsWith(native)).toBe(true);
+        expect(compiled.outputs[0]?.content).toBe(native);
         expect(compiled.outputs[0]?.content).not.toContain("Unused portable");
         expect(compiled.sourceDependencies).toEqual(["subagent.json", "native/codex.toml"]);
       }),
@@ -210,57 +310,160 @@ describe("Native Subagent location contracts", () => {
       const first = compileSubagentImplementation({
         package: yield* makePackage("One"),
         agentId: "claude-code",
-        managedFile,
       });
       const second = compileSubagentImplementation({
         package: yield* makePackage("Two"),
         agentId: "claude-code",
-        managedFile,
       });
       expect(first._tag).toBe("Compiled");
       expect(second._tag).toBe("Compiled");
-      if (first._tag === "Compiled" && second._tag === "Compiled")
-        expect(first.outputs).toEqual(second.outputs);
+      if (first._tag !== "Compiled" || second._tag !== "Compiled") return;
+      expect(first.outputs).toEqual(second.outputs);
+      expect(subagentProjectionGeneration([{ provenance, input: first.input }])).toBe(
+        subagentProjectionGeneration([{ provenance, input: second.input }]),
+      );
     }),
   );
 
-  it.effect("preserves another owner's same-named managed document on write and removal", () =>
+  it.effect("keeps an unrecorded same-named document on write and removal", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* fs.makeTempDirectoryScoped();
       const file = path.join(root, ".claude/agents/review.md");
       yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+      // An old inline marker is ordinary text and grants nothing.
       const foreign =
-        "<!-- axm:file v=1 ext=@foreign/subagents/review src=subagents/review/subagent.json -->\nForeign owner\n";
+        "<!-- axm:file v=1 ext=@acme/subagents/review src=subagents/review/subagent.json -->\nForeign owner\n";
       yield* fs.writeFileString(file, foreign);
       const agent = codingAgentForId("claude-code");
-      const outcome = yield* agent.addSubagent({
+      const owner = projection(root, path);
+      const outcome = yield* owner.add(agent, {
         workspaceRoot: root,
         scope: "project",
-        force: true,
-        previousManagedFiles: [],
-        input: managedSubagentRenderInput({ managedFile, input: input("claude-code") }),
+        input: input("claude-code"),
       });
       expect(outcome._tag).toBe("conflict");
-      yield* agent.removeSubagent({
+      const removal = yield* owner.remove(agent, {
         workspaceRoot: root,
         scope: "project",
         subagentName: "review",
-        expectedManagedFile: { ext: managedFile.ext, src: managedFile.source.path },
         renderedFilePaths: [file],
       });
+      expect(removal).toMatchObject({ _tag: "success", retained: [{ path: file }] });
       expect(yield* fs.readFileString(file)).toBe(foreign);
+      expect(owner.rows.size).toBe(0);
     }).pipe(Effect.scoped, Effect.provide(services)),
   );
-  it("shares generation metadata when different readers require identical bytes", () => {
-    const first = renderManagedSubagentOutputs({ managedFile, input: input("claude-code") });
-    const second = renderManagedSubagentOutputs({ managedFile, input: input("cursor") });
+
+  it.effect("records an unrecorded file that already equals the render without writing it", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = path.join(root, ".claude/agents/review.md");
+      const rendered = renderSubagent(input("claude-code"));
+      if (rendered?._tag !== "Rendered") return expect.unreachable();
+      const bytes = rendered.outputs[0]?.content ?? "";
+      yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+      yield* fs.writeFileString(file, bytes);
+      const owner = projection(root, path);
+      const outcome = yield* owner.add(codingAgentForId("claude-code"), {
+        workspaceRoot: root,
+        scope: "project",
+        input: input("claude-code"),
+      });
+      expect(outcome).toMatchObject({
+        _tag: "success",
+        nativeTargets: [{ path: file, change: "unchanged", decision: "record" }],
+      });
+      expect([...owner.rows.keys()]).toEqual([".claude/agents/review.md"]);
+      expect(bytes).not.toContain("axm:");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  );
+
+  it.effect("replaces an unrecorded differing file only when replacement is requested", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = path.join(root, ".claude/agents/review.md");
+      yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+      yield* fs.writeFileString(file, "User content\n");
+      const outcome = yield* projection(root, path, { replaceUnrecorded: true }).add(
+        codingAgentForId("claude-code"),
+        { workspaceRoot: root, scope: "project", input: input("claude-code") },
+      );
+      expect(outcome).toMatchObject({ _tag: "success", nativeTargets: [{ decision: "write" }] });
+      expect(yield* fs.readFileString(file)).toContain("Review carefully");
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  );
+
+  it.effect(
+    "keeps a reformatted recorded file while inputs are current and replaces it when they change",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = path.join(root, ".claude/agents/review.md");
+        const agent = codingAgentForId("claude-code");
+        const owner = projection(root, path);
+        const args = { workspaceRoot: root, scope: "project" as const, input: input(agent.id) };
+        yield* owner.add(agent, args);
+        yield* fs.writeFileString(file, "Repository-formatted review\n");
+        expect(yield* owner.add(agent, args)).toMatchObject({
+          nativeTargets: [{ change: "unchanged", decision: "current" }],
+        });
+        expect(yield* fs.readFileString(file)).toBe("Repository-formatted review\n");
+        expect(
+          yield* owner.add(agent, { ...args, input: { ...args.input, body: "Changed body" } }),
+        ).toMatchObject({ nativeTargets: [{ change: "updated", decision: "write" }] });
+        expect(yield* fs.readFileString(file)).toContain("Changed body");
+      }).pipe(Effect.scoped, Effect.provide(services)),
+  );
+
+  it.effect("deletes a recorded file only while it holds AXM's last write", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const file = path.join(root, ".claude/agents/review.md");
+      const agent = codingAgentForId("claude-code");
+      const args = { workspaceRoot: root, scope: "project" as const, input: input(agent.id) };
+      const removal = {
+        workspaceRoot: root,
+        scope: "project" as const,
+        subagentName: "review",
+        renderedFilePaths: [file],
+      };
+      for (const discardModified of [false, true]) {
+        const owner = projection(root, path);
+        yield* owner.add(agent, args);
+        yield* fs.writeFileString(file, "Hand-edited review\n");
+        const outcome = yield* owner.remove(agent, removal, discardModified);
+        expect(yield* fs.exists(file)).toBe(!discardModified);
+        expect(outcome).toMatchObject(
+          discardModified ? { renderedFilePaths: [file] } : { retained: [{ reason: "modified" }] },
+        );
+        if (!discardModified) yield* fs.remove(file);
+      }
+    }).pipe(Effect.scoped, Effect.provide(services)),
+  );
+
+  it("shares one order-independent generation among readers of one file", () => {
+    const first = renderSubagent(input("claude-code"));
+    const second = renderSubagent(input("cursor"));
     expect(first?._tag).toBe("Rendered");
     expect(second?._tag).toBe("Rendered");
     if (first?._tag !== "Rendered" || second?._tag !== "Rendered") return;
     expect(first.outputs).toEqual(second.outputs);
     expect(first.outputs[0]?.path).toBe("review.md");
+    const claude = { provenance, input: input("claude-code") };
+    const cursor = { provenance, input: input("cursor") };
+    expect(subagentProjectionGeneration([claude, cursor])).toBe(
+      subagentProjectionGeneration([cursor, claude]),
+    );
   });
 
   it.effect.each(["project", "user"] as const)(
@@ -289,20 +492,15 @@ describe("Native Subagent location contracts", () => {
           skills: ["review-guidelines"],
           plugins: ["review-tools"],
         };
+        const owner = projection(root, path);
+        const agentIds = ["antigravity", "antigravity-cli"] as const;
+        const claimants = agentIds.map((id) => ({ ...input(id), frontmatter: nativeFrontmatter }));
         let firstBytes: string | undefined;
-        for (const id of ["antigravity", "antigravity-cli"] as const) {
+        for (const [index, id] of agentIds.entries()) {
           const agent = codingAgentForId(id);
-          const args = {
-            workspaceRoot: root,
-            scope,
-            force: false,
-            previousManagedFiles: [],
-            input: managedSubagentRenderInput({
-              managedFile,
-              input: { ...input(id), frontmatter: nativeFrontmatter },
-            }),
-          };
-          const result = yield* agent.addSubagent(args);
+          const claimant = claimants[index] ?? input(id);
+          const args = { workspaceRoot: root, scope, input: claimant, claimants };
+          const result = yield* owner.add(agent, args);
           expect(result).toMatchObject({
             _tag: "success",
             renderedFilePaths: [file],
@@ -317,7 +515,7 @@ describe("Native Subagent location contracts", () => {
           expect(parsed).toEqual(nativeFrontmatter);
           if (firstBytes === undefined) firstBytes = bytes;
           else expect(bytes).toBe(firstBytes);
-          yield* agent.addSubagent(args);
+          yield* owner.add(agent, args);
           expect(yield* fs.readFileString(file)).toBe(bytes);
         }
         const cli = codingAgentForId("antigravity-cli");
@@ -335,13 +533,7 @@ describe("Native Subagent location contracts", () => {
           },
           body: "Updated review instructions",
         };
-        yield* cli.addSubagent({
-          workspaceRoot: root,
-          scope,
-          force: false,
-          previousManagedFiles: [],
-          input: managedSubagentRenderInput({ managedFile, input: replacement }),
-        });
+        yield* owner.add(cli, { workspaceRoot: root, scope, input: replacement });
         const updated = yield* fs.readFileString(file);
         const updatedFrontmatter: unknown = YAML.parse(
           /^---\n([\s\S]*?)\n---/.exec(updated)?.[1] ?? "",
@@ -357,23 +549,20 @@ describe("Native Subagent location contracts", () => {
           plugins: ["review-tools"],
         });
         expect(updated).toContain("Updated review instructions");
-        yield* cli.removeSubagent({
+        yield* owner.remove(cli, {
           workspaceRoot: root,
           scope,
           subagentName: "review",
-          expectedManagedFile: { ext: managedFile.ext, src: managedFile.source.path },
           renderedFilePaths: [file],
         });
         expect(yield* fs.exists(file)).toBe(false);
         expect(yield* fs.readFileString(foreignFile)).toBe("User-authored subagent\n");
         yield* fs.writeFileString(file, "Unowned replacement\n");
         for (const id of ["antigravity", "antigravity-cli"] as const) {
-          const outcome = yield* codingAgentForId(id).addSubagent({
+          const outcome = yield* owner.add(codingAgentForId(id), {
             workspaceRoot: root,
             scope,
-            force: true,
-            previousManagedFiles: [],
-            input: managedSubagentRenderInput({ managedFile, input: input(id) }),
+            input: input(id),
           });
           expect(outcome._tag).toBe("conflict");
         }
@@ -394,17 +583,12 @@ describe("Native Subagent location contracts", () => {
         yield* fs.makeDirectory(path.join(root, directory));
         yield* fs.symlink(actual, path.join(root, directory, "agents"));
         const agent = codingAgentForId(agentId);
-        const args = {
-          workspaceRoot: root,
-          scope: "project" as const,
-          force: false,
-          previousManagedFiles: [],
-          input: managedSubagentRenderInput({ managedFile, input: input(agent.id) }),
-        };
-        const first = yield* agent.addSubagent(args);
+        const owner = projection(root, path);
+        const args = { workspaceRoot: root, scope: "project" as const, input: input(agent.id) };
+        const first = yield* owner.add(agent, args);
         expect(first._tag).toBe("success");
         const bytes = yield* fs.readFileString(path.join(actual, "review.md"));
-        yield* agent.addSubagent(args);
+        yield* owner.add(agent, args);
         expect(yield* fs.readFileString(path.join(actual, "review.md"))).toBe(bytes);
         expect(yield* fs.exists(path.join(root, ".qoder-cn"))).toBe(false);
       }).pipe(Effect.scoped, Effect.provide(services)),
@@ -427,36 +611,12 @@ describe("Native Subagent location contracts", () => {
         );
         yield* fs.makeDirectory(path.dirname(file), { recursive: true });
         yield* fs.writeFileString(file, "User-owned native content\n");
-        const agent = codingAgentForId(id);
-        const outcome = yield* agent.addSubagent({
-          workspaceRoot: root,
-          scope: "project",
-          force: false,
-          previousManagedFiles: [],
-          input: managedSubagentRenderInput({ managedFile, input: input(id) }),
-        });
+        const outcome = yield* projection(root, path, { replaceUnrecorded: true }).add(
+          codingAgentForId(id),
+          { workspaceRoot: root, scope: "project", input: input(id) },
+        );
         expect(outcome._tag).toBe("unsupported");
         expect(yield* fs.readFileString(file)).toBe("User-owned native content\n");
       }).pipe(Effect.scoped, Effect.provide(services)),
-  );
-
-  it.effect("refuses to overwrite an unmarked native document", () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped();
-      const file = path.join(root, ".claude/agents/review.md");
-      yield* fs.makeDirectory(path.dirname(file), { recursive: true });
-      yield* fs.writeFileString(file, "User content\n");
-      const outcome = yield* codingAgentForId("claude-code").addSubagent({
-        workspaceRoot: root,
-        scope: "project",
-        force: true,
-        previousManagedFiles: [],
-        input: managedSubagentRenderInput({ managedFile, input: input("claude-code") }),
-      });
-      expect(outcome._tag).toBe("conflict");
-      expect(yield* fs.readFileString(file)).toBe("User content\n");
-    }).pipe(Effect.scoped, Effect.provide(services)),
   );
 });

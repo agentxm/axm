@@ -489,13 +489,15 @@ export const collectCleanupStep: (args: {
     ...(yield* retainedNativeLocations),
   ]);
   const previewPaths = preview.removedPaths;
+  const withdrawsRows = preview.rowChanges.length > 0;
   if (
     previewPaths.length === 0 &&
+    !withdrawsRows &&
     args.desiredAgentIds === undefined &&
     args.subjects === undefined
   )
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
-  if (previewPaths.length === 0 && previewNativeLocations.length === 0)
+  if (previewPaths.length === 0 && !withdrawsRows && previewNativeLocations.length === 0)
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: "projection:cleanup",
@@ -509,12 +511,20 @@ export const collectCleanupStep: (args: {
       nativeLocations: previewNativeLocations,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
-    run: reconcileAgentOutputs({
-      authority,
-      desiredAgentIds,
-      expectedNames: args.expectedNames,
-      ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+    // Row withdrawals join the closure's accepted-resolution batch, or one the
+    // step opens, so they commit with the removals.
+    run: Effect.gen(function* () {
+      const result = yield* reconcileAgentOutputs({
+        authority,
+        desiredAgentIds,
+        expectedNames: args.expectedNames,
+        ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+      });
+      if (result.rowChanges.length > 0)
+        yield* (yield* AcceptedResolutionWriter).stageProjections(result.rowChanges);
+      return result;
     }).pipe(
+      (body) => Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.withBatch(body)),
       Effect.flatMap((result) =>
         retainedNativeLocations.pipe(
           Effect.map((retained) => ({
@@ -531,6 +541,7 @@ export const collectCleanupStep: (args: {
         const removedPaths = result.removedPaths;
         return {
           result: "success",
+          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
           message:
             removedPaths.length === 0
               ? "Retained native entries required by remaining consumers or policy"

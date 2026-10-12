@@ -171,7 +171,7 @@ export const nativeArtifactLocationOutcomes = (args: {
                       ? "exact-canonical-source-link"
                       : mechanism === "copied-directory"
                         ? "bounded-copy-receipt"
-                        : "exact-accepted-managed-file",
+                        : "declared-native-path",
                 }
               : {}),
             ...(mechanism === undefined || target.ownerObservation !== undefined

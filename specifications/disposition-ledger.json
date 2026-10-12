@@ -441,5 +441,11 @@
     "requirement": "cli/install/inline-mcp-configuration-is-skipped",
     "disposition": "retired",
     "basis": "Install now requires an explicit source. Configured realization belongs to sync, which realizes inline MCP configuration rather than skipping it."
+  },
+  {
+    "requirement": "cli/managed-projection-guidance-respects-authority",
+    "disposition": "superseded-by",
+    "successor": "cli/help/projection-guidance-names-fork-or-source",
+    "basis": "Projected Subagent files no longer carry an ownership banner, so the authoring guidance moved from each file into bundled help; the successor checks that help names the editable source for authored extensions and axm fork for acquired ones."
   }
 ]

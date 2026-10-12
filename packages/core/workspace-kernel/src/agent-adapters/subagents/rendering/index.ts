@@ -7,7 +7,6 @@
  */
 
 export type {
-  OwnershipBannerText,
   SubagentRenderInput,
   SubagentRenderOutput,
   SubagentRenderOutcome,
@@ -93,22 +92,10 @@ export const selectSubagentRenderer = (agentId: string): SubagentRenderer | unde
 export const renderSubagent = (input: SubagentRenderInput): SubagentRenderOutcome | undefined => {
   if (input.native !== undefined) {
     const native = input.native;
-    const banner = input.ownershipBanner?.[native.format];
-    let content = native.content;
-    if (banner !== undefined) {
-      if (native.format === "toml") content = `${banner}\n${content}`;
-      else {
-        const frontmatter = /^(---\r?\n[\s\S]*?\r?\n---)(?:\r?\n|$)/u.exec(content);
-        content =
-          frontmatter === null
-            ? `${banner}\n${content}`
-            : `${frontmatter[1]}\n${banner}\n${content.slice(frontmatter[0].length)}`;
-      }
-    }
     return rendered([
       {
         path: decodeRelativePathSync(`${input.name}.${native.format === "toml" ? "toml" : "md"}`),
-        content,
+        content: native.content,
       },
     ]);
   }

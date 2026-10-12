@@ -24,9 +24,5 @@ export const renderToml = (input: SubagentRenderInput): SubagentRenderOutcome =>
   };
 
   const path = decodeRelativePathSync(`${input.name}.toml`);
-  const body = stringifyToml(base);
-  const content =
-    input.ownershipBanner === undefined ? body : `${input.ownershipBanner.toml}\n\n${body}`;
-
-  return rendered([{ content, path }], []);
+  return rendered([{ content: stringifyToml(base), path }], []);
 };

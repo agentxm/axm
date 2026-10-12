@@ -494,7 +494,7 @@ describe("Uninstall a directly desired extension", () => {
     },
   );
 
-  it.effect.each(["body", "ownership marker"] as const)(
+  it.effect.each(["body"] as const)(
     "rolls back Pack withdrawal when a retained member's %s changes",
     (change) => {
       const { workspace, registry } = world();
@@ -517,10 +517,7 @@ describe("Uninstall a directly desired extension", () => {
             const settingsBefore = workspace.readFile("axm.json");
             const nativePath = ".claude/agents/planner.md";
             const nativeBefore = workspace.readFile(nativePath);
-            const changed =
-              change === "body"
-                ? nativeBefore.replace("Plan carefully.", "Foreign instructions.")
-                : nativeBefore.replace(/<!-- axm:file[\s\S]*?-->/g, "");
+            const changed = nativeBefore.replace("Plan carefully.", `Foreign ${change}.`);
             expect(changed).not.toBe(nativeBefore);
             const writer = yield* SettingsWriter;
             let corrupted = false;

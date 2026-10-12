@@ -13,6 +13,7 @@ import {
 } from "../../test-support/agent-membership-fixture.js";
 import { handleAgentsAdd } from "./add.js";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import { handleAgentsRemove } from "./remove.js";
 import { handleSync } from "../sync/handler.js";
 import { PlanResolutionDocumentSchema } from "../../operation-output.js";
@@ -89,8 +90,7 @@ describe("Removing a coding agent", () => {
     "refuses membership removal when a native retirement reports success without removing its file",
     () => {
       const nativePath = ".opencode/agents/planner.md";
-      const content =
-        "<!-- axm:file v=1 ext=@acme/subagents/planner src=subagents/planner/subagent.json -->\n---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n";
+      const content = "---\nname: planner\ndescription: Plans work\n---\nPlan carefully\n";
       let retirementAttempted = false;
       const fixture = makeAgentMembershipFixture({
         machine: true,
@@ -98,6 +98,18 @@ describe("Removing a coding agent", () => {
           owner: "@acme",
           agents: ["claude-code", "opencode"],
           subagents: { planner: { source: "workspace", enabled: true } },
+        },
+        // AXM recorded writing both files; that row is what authorizes retirement.
+        lockfile: {
+          projections: {
+            subagents: {
+              contract: 1,
+              units: {
+                [nativePath]: { output: projectionOutputDigest(content) },
+                ".claude/agents/planner.md": { output: projectionOutputDigest(content) },
+              },
+            },
+          },
         },
         files: {
           "subagents/planner/subagent.json": JSON.stringify({
@@ -187,7 +199,7 @@ describe("Removing a coding agent", () => {
     });
   });
 
-  it.effect.each(["body", "ownership marker"] as const)(
+  it.effect.each(["body"] as const)(
     "restores membership when a retained native Subagent %s changes before final validation",
     (change) => {
       const retainedPath = ".claude/agents/planner.md";
@@ -257,10 +269,7 @@ describe("Removing a coding agent", () => {
         const settingsBefore = fixture.readFile("axm.json");
         const departingBefore = fixture.readFile(".opencode/agents/planner.md");
         const retainedBefore = fixture.readFile(retainedPath);
-        foreign =
-          change === "body"
-            ? retainedBefore.replace("Plan carefully", "Foreign instructions")
-            : retainedBefore.replace(/<!-- axm:file[\s\S]*?-->/g, "");
+        foreign = retainedBefore.replace("Plan carefully", `Foreign ${change}`);
         expect(foreign).not.toBe(retainedBefore);
         armed = true;
         yield* removeAgent(fixture, "opencode");

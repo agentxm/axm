@@ -16,20 +16,6 @@ export interface LossyRenderingWarning {
 import type { RelativePath } from "@agentxm/extension-model/unstable/path-types";
 
 /**
- * Ownership banner text the owning projection rendered for one managed
- * subagent document, one rendering per comment grammar the subagent formats
- * use. Formats without a comment grammar (JSON) carry no banner.
- *
- * @experimental This API is unstable and may change without notice.
- */
-export interface OwnershipBannerText {
-  /** Banner placed immediately after the YAML frontmatter block. */
-  readonly markdown: string;
-  /** Banner placed at the head of the file. */
-  readonly toml: string;
-}
-
-/**
  * Renderer input — everything a subagent renderer needs to produce output.
  *
  * @experimental This API is unstable and may change without notice.
@@ -50,11 +36,6 @@ export interface SubagentRenderInput {
     readonly format: "markdown" | "toml";
     readonly content: string;
   };
-  /**
-   * Ownership banner the owning projection stamps into comment-bearing
-   * formats. Absent for an undecorated render.
-   */
-  readonly ownershipBanner?: OwnershipBannerText | undefined;
 }
 
 /**

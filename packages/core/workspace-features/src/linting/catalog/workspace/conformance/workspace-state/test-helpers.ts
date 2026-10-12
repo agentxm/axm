@@ -116,7 +116,7 @@ const staleAgentProjection: AgentOutputInventory["ownedResidue"][number] = {
   entryName: "review",
   claimantAgentIds: ["universal"],
   ownership: "owned",
-  proof: "managed-banner",
+  proof: "copied-directory-receipt",
   desired: false,
 };
 

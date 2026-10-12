@@ -111,8 +111,6 @@ export interface AgentDirOccurrence {
   /** Primary write path or the catalog status of an additional read-only path. */
   readonly readPathStatus?: "primary" | "canonical" | "compat" | "deprecated";
   readonly name: string;
-  /** Marker claim; subject projection verifies it against a canonical package. */
-  readonly managedPackage?: { readonly ext: string; readonly root: string };
   /** Immediate skill source; subject projection checks it against canonical content. */
   readonly skillSource?: string;
   readonly contentLocation: AbsolutePath;

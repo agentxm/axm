@@ -878,12 +878,7 @@ const withManagedCopyBanner = (args: {
     helpTopic: "instructions",
     format,
     ext: INSTRUCTION_ALIAS_EXT,
-    generation: projectionGeneration([
-      "instruction-copy-v1",
-      INSTRUCTION_ALIAS_EXT,
-      args.sourceFileName,
-      args.content,
-    ]),
+    generation: projectionGeneration([INSTRUCTION_ALIAS_EXT, args.sourceFileName, args.content]),
   });
 };
 

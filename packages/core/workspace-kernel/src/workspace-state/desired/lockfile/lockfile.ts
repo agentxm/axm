@@ -26,6 +26,7 @@ import {
 } from "../../../settlement/index.js";
 import { LockfileWriteError } from "./errors.js";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
+import { patchProjections } from "./projections.js";
 import { decodeLockfileBytes, readLockfileBytes } from "../../observed/state.js";
 import type { LockfileReadError } from "../../observed/errors.js";
 import type { DocumentRoundTripContext } from "../document-round-trip.js";
@@ -116,6 +117,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   const hooks = patchOptionalMap(fresh.hooks, base.hooks, next.hooks);
   const knowledge = patchOptionalMap(fresh.knowledge, base.knowledge, next.knowledge);
   const packs = patchOptionalMap(fresh.packs, base.packs, next.packs);
+  const projections = patchProjections(fresh.projections, base.projections, next.projections);
 
   return {
     lockfileVersion: LOCKFILE_VERSION,
@@ -126,6 +128,7 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
     ...(hooks !== undefined ? { hooks } : {}),
     ...(knowledge !== undefined ? { knowledge } : {}),
     ...(packs !== undefined ? { packs } : {}),
+    ...(projections !== undefined ? { projections } : {}),
   } satisfies Lockfile;
 };
 

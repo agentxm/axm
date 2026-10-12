@@ -207,7 +207,6 @@ export const reconcileKnowledgeDiscovery = (args: {
         })
       : "";
     const generation = projectionGeneration([
-      "knowledge-discovery-region-v1",
       instructionRelative,
       KNOWLEDGE_REGION_OWNER,
       JSON.stringify(args.config),

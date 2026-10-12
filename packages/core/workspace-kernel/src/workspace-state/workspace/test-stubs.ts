@@ -455,3 +455,46 @@ export const AcceptedResolutionWriterTest = (
       return makeAcceptedResolutionWriter(documents, yield* Semaphore.make(1));
     }),
   );
+
+/**
+ * An accepted-resolution writer and a lockfile reader over one in-memory
+ * lockfile, so rows a writer's caller stages are what the next observation
+ * reads. Merge it after `WorkspaceReadTest` only when the test needs no other
+ * lockfile facts.
+ */
+export const ProjectionRowsTest = (
+  lockfile?: Lockfile,
+): Layer.Layer<AcceptedResolutionWriter | LockfileReader> =>
+  Layer.unwrap(
+    Effect.gen(function* () {
+      const current = yield* Ref.make<Lockfile>(
+        lockfile ?? { lockfileVersion: LOCKFILE_VERSION, skills: {} },
+      );
+      const documents = batchableWorkspaceDocuments({
+        settings: () => Effect.succeed(createDefaultSettings()),
+        acceptedResolutions: Ref.get(current),
+        acceptedResolutionState: Effect.succeed("ok"),
+        writeSettings: () => Effect.void,
+        commitAcceptedResolutions: (_base, next) => Ref.set(current, next),
+      });
+      const emptyGraph: DesiredStateGraph = {
+        nodes: [],
+        mcpSourceClosures: [],
+        problems: [],
+        packMembership: [],
+      };
+      const desired: DesiredStateReaderService = {
+        evaluate: () => Effect.die(new Error("ProjectionRowsTest evaluates no desired state")),
+        graph: () => Effect.succeed(emptyGraph),
+        propose: (base) => Effect.succeed(base),
+        isRequiredByInstalledPack: () => Effect.succeed(false),
+      };
+      return Layer.mergeAll(
+        Layer.succeed(
+          AcceptedResolutionWriter,
+          makeAcceptedResolutionWriter(documents, yield* Semaphore.make(1)),
+        ),
+        Layer.succeed(LockfileReader, makeLockfileReader(documents, desired)),
+      );
+    }),
+  );

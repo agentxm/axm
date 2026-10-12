@@ -72,6 +72,10 @@ export const instructionContext = (args: {
           witnesses: [],
           plan: { roots: [instructionRoot], items: [] },
           symlinkSupported: true,
+          rows: new Map(),
+          orphanRows: [],
+          replaceUnrecorded: false,
+          discardModified: false,
           status: baseInstructionStatus,
           gitignore: args.gitignore ?? currentGitignore,
         })
@@ -83,6 +87,10 @@ export const instructionContext = (args: {
           witnesses: [],
           plan: { roots: status.roots, items: [] },
           symlinkSupported: true,
+          rows: new Map(),
+          orphanRows: [],
+          replaceUnrecorded: false,
+          discardModified: false,
           status,
           gitignore: args.gitignore ?? currentGitignore,
         }));

@@ -13,44 +13,15 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import * as Effect from "effect/Effect";
-import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as PlatformError from "effect/PlatformError";
-import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
-import { applyInstructionsRequest, previewInstructionsRequest } from "./test-helpers.js";
-
-/** A platform whose symlink creation is refused, so aliases fall back to copies. */
-const makeSymlinkRefusingPlatform = () => {
-  const rejectedSymlinkTargets: Array<string> = [];
-  const layer = Layer.provide(
-    Layer.effect(
-      FileSystem.FileSystem,
-      Effect.map(FileSystem.FileSystem, (filesystem) => ({
-        ...filesystem,
-        symlink: (_fromPath: string, toPath: string) =>
-          Effect.gen(function* () {
-            rejectedSymlinkTargets.push(toPath);
-            return yield* PlatformError.systemError({
-              _tag: "PermissionDenied",
-              module: "FileSystem",
-              method: "symlink",
-              pathOrDescriptor: toPath,
-              description: "This fixture exercises instruction-copy fallback.",
-            });
-          }),
-      })),
-    ),
-    NodeServices.layer,
-  );
-  return {
-    rejectedSymlinkTargets,
-    layer: Layer.provideMerge(layer, NodeServices.layer),
-  };
-};
+import {
+  applyInstructionsRequest,
+  makeSymlinkRefusingPlatform,
+  previewInstructionsRequest,
+} from "./test-helpers.js";
 
 describe("Instruction copies follow their source, not their rendered bytes", () => {
   const cleanups: Array<() => void> = [];

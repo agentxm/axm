@@ -14,7 +14,10 @@ import {
   removeInstructionsGitignore,
   removeManagedInstructionTargets,
   syncInstructions,
+  type InstructionProjectionRows,
 } from "../index.js";
+
+const NO_ROWS: InstructionProjectionRows = new Map();
 
 export const specification = defineSpecification({
   requirement: "workspace/instructions/withdraws-new-containers-exactly",
@@ -67,6 +70,7 @@ describe("instruction container withdrawal", () => {
           configuredAgents: ["codex"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           symlinkSupported: true,
+          rows: NO_ROWS,
         };
         yield* syncInstructions({ ...args, eligibleAgentIds: ["codex"], dryRun: false });
         expect(yield* fs.readFileString(path.join(external, "AGENTS.md"))).toBe("source\n");
@@ -102,6 +106,7 @@ describe("instruction container withdrawal", () => {
               configuredAgents: ["claude-code", "junie"],
               config: { fileName: "AGENTS.md", gitignoreAliases: true },
               symlinkSupported: true,
+              rows: NO_ROWS,
             };
             const installed = yield* syncInstructions({
               ...args,
@@ -119,7 +124,11 @@ describe("instruction container withdrawal", () => {
             });
             const snapshot = yield* observeInstructionProjection(args);
             yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
-            yield* removeInstructionsGitignore({ workspaceRoot: root, dryRun: false });
+            yield* removeInstructionsGitignore({
+              workspaceRoot: root,
+              rows: NO_ROWS,
+              dryRun: false,
+            });
             expect(yield* fs.exists(path.join(root, ".junie"))).toBe(false);
             expect(yield* fs.exists(path.join(root, "CLAUDE.md"))).toBe(false);
             expect(yield* fs.readFileString(path.join(root, "AGENTS.md"))).toBe("source\n");
@@ -150,6 +159,7 @@ describe("instruction container withdrawal", () => {
           configuredAgents: ["junie"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           symlinkSupported: true,
+          rows: NO_ROWS,
         };
         yield* syncInstructions({ ...args, eligibleAgentIds: ["junie"], dryRun: false });
         yield* fs.writeFileString(path.join(root, ".junie/notes.txt"), "foreign\n");
@@ -180,6 +190,7 @@ describe("instruction container withdrawal", () => {
           configuredAgents: ["junie"],
           config: { fileName: "AGENTS.md", gitignoreAliases: false },
           symlinkSupported: true,
+          rows: NO_ROWS,
         };
         yield* syncInstructions({ ...args, dryRun: false });
         yield* removeManagedInstructionTargets({

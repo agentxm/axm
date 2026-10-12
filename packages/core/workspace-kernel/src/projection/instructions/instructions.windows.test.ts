@@ -8,11 +8,43 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { observeInstructionProjection, removeManagedInstructionTargets } from "./instructions.js";
-import { reconcileInstructions } from "./reconciliation.js";
+import {
+  readInstructionRows,
+  reconcileInstructions,
+  stageInstructionRows,
+} from "./reconciliation.js";
 import { resolveNativeReferent } from "../../locations/index.js";
+import {
+  AcceptedResolutionWriter,
+  LockfileReader,
+  type ProjectionRowChange,
+} from "../../workspace-state/index.js";
+import { ProjectionRowsTest } from "../../workspace-state/testing.js";
 
-const run = <A, E>(effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>) =>
-  effect.pipe(Effect.provide(Layer.merge(NativeWriteAuthorityPermissive, NodeServices.layer)));
+const run = <A, E>(
+  effect: Effect.Effect<
+    A,
+    E,
+    NodeServices.NodeServices | NativeWriteAuthority | AcceptedResolutionWriter | LockfileReader
+  >,
+) =>
+  effect.pipe(
+    Effect.provide(
+      Layer.mergeAll(NativeWriteAuthorityPermissive, NodeServices.layer, ProjectionRowsTest()),
+    ),
+  );
+
+/** Reconcile inside an accepted-resolution batch, as every writer's caller does. */
+const reconcile = (args: Parameters<typeof reconcileInstructions>[0]) =>
+  Effect.flatMap(AcceptedResolutionWriter, (writer) =>
+    writer.withBatch(reconcileInstructions(args)),
+  );
+
+/** Commit row edits the way a writer's caller stages them. */
+const stageRows = (changes: ReadonlyArray<ProjectionRowChange>) =>
+  Effect.flatMap(AcceptedResolutionWriter, (writer) =>
+    writer.withBatch(stageInstructionRows(changes)),
+  );
 
 describe("Windows instruction-file materialization", () => {
   it.effect("creates, refreshes, and removes the managed-copy fallback idempotently", () =>
@@ -41,7 +73,7 @@ describe("Windows instruction-file materialization", () => {
             } as const;
             fs.writeFileSync(sourcePath, "# Windows workspace\n");
 
-            const first = yield* reconcileInstructions(args);
+            const first = yield* reconcile(args);
             expect(first.written).toContain(targetPath);
             expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Windows workspace");
@@ -52,28 +84,38 @@ describe("Windows instruction-file materialization", () => {
               "\\",
             );
 
-            const unchanged = yield* reconcileInstructions(args);
+            const unchanged = yield* reconcile(args);
             expect(unchanged.written).toEqual([]);
 
             fs.writeFileSync(sourcePath, "# Refreshed Windows workspace\n");
-            const refreshed = yield* reconcileInstructions(args);
+            const refreshed = yield* reconcile(args);
             expect(refreshed.written).toContain(targetPath);
             expect(fs.readFileSync(targetPath, "utf8")).toContain("# Refreshed Windows workspace");
             expect(fs.readFileSync(sourcePath, "utf8")).toBe("# Refreshed Windows workspace\n");
 
             const removed = yield* removeManagedInstructionTargets({
-              snapshot: yield* observeInstructionProjection(args),
+              snapshot: yield* observeInstructionProjection({
+                ...args,
+                rows: yield* readInstructionRows,
+              }),
               dryRun: false,
             });
-            expect(removed).toEqual([targetPath, path.join(physicalRoot, "docs", "CLAUDE.md")]);
+            expect(removed.removed).toEqual([
+              targetPath,
+              path.join(physicalRoot, "docs", "CLAUDE.md"),
+            ]);
+            yield* stageRows(removed.rowChanges);
             expect(fs.existsSync(targetPath)).toBe(false);
             expect(fs.existsSync(sourcePath)).toBe(true);
 
             const repeated = yield* removeManagedInstructionTargets({
-              snapshot: yield* observeInstructionProjection(args),
+              snapshot: yield* observeInstructionProjection({
+                ...args,
+                rows: yield* readInstructionRows,
+              }),
               dryRun: false,
             });
-            expect(repeated).toEqual([]);
+            expect(repeated.removed).toEqual([]);
           }),
         (workspaceRoot) =>
           Effect.sync(() => fs.rmSync(workspaceRoot, { recursive: true, force: true })),

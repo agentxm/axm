@@ -12,7 +12,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import { instructionChangeLocations } from "./native-outcomes.js";
 import {
   combineNativeLocationOutcomes,
   nativeUnitReference,
@@ -32,10 +31,16 @@ import {
 } from "../planning.js";
 
 import {
+  AcceptedResolutionWriter,
+  LockfileReader,
+  recordedProjectionRows,
   configuredAgentLifecycleOutcomes,
   SettingsReader,
   SettingsWriter,
   WorkspaceLocation,
+  type ProjectionRowChange,
+  type WorkspaceLockfileMutationFailure,
+  type WorkspaceLockfileReadFailure,
   type WorkspaceSettingsMutationFailure,
   type WorkspaceSettingsReadFailure,
 } from "../../workspace-state/index.js";
@@ -48,26 +53,71 @@ import {
   instructionProjectionIsCurrent,
   observeInstructionProjection,
   removeInstructionsGitignore,
+  recordIdenticalInstructionCopies,
   removeManagedInstructionTargets,
   resolveInstructionsConfig,
   syncResult,
+  withInstructionRowChanges,
+  type InstructionProjectionRows,
   type InstructionProjectionSnapshot,
   type InstructionsSyncResult,
   type ObserveInstructionProjectionArgs,
   type ResolvedInstructionsConfig,
 } from "./instructions.js";
 
+/**
+ * The selected scope's recorded `instructions` rows. Reading decodes the
+ * lockfile, so every writer reads them before observing and a lockfile this
+ * CLI cannot read refuses before any native write.
+ */
+export const readInstructionRows: Effect.Effect<
+  InstructionProjectionRows,
+  WorkspaceLockfileReadFailure,
+  LockfileReader
+> = Effect.flatMap(LockfileReader, (reader) =>
+  Effect.map(reader.lockfile, (lockfile) =>
+    recordedProjectionRows(lockfile.projections, "instructions"),
+  ),
+);
+
+/**
+ * Stage instruction row edits into the caller's accepted-resolution batch.
+ * Staging outside a batch is a violated invariant and dies, so a preview path
+ * can never write rows and the rows always commit with the native writes.
+ */
+export const stageInstructionRows = (
+  changes: ReadonlyArray<ProjectionRowChange>,
+): Effect.Effect<
+  void,
+  WorkspaceLockfileReadFailure | WorkspaceLockfileMutationFailure,
+  AcceptedResolutionWriter
+> =>
+  changes.length === 0
+    ? Effect.void
+    : Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.stageProjections(changes));
+
+/** Explicit overrides for whole-file copies; both default to `false`. */
+export interface InstructionOutputOverrides {
+  /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
+  readonly replaceUnrecorded?: boolean;
+  /** Delete recorded copies even when they were modified since AXM last wrote them. */
+  readonly discardModified?: boolean;
+}
+
 /** The one observation a caller's planning derives its views from. */
-export const observeInstructions = (args: {
-  readonly config: ResolvedInstructionsConfig;
-}): Effect.Effect<
+export const observeInstructions = (
+  args: {
+    readonly config: ResolvedInstructionsConfig;
+  } & InstructionOutputOverrides,
+): Effect.Effect<
   InstructionProjectionSnapshot,
-  WorkspaceSettingsReadFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure,
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settings = yield* SettingsReader;
+    const rows = yield* readInstructionRows;
     const agents = yield* settings.configuredAgents;
     return yield* observeInstructionProjection({
       workspaceRoot: location.baseDir,
@@ -75,6 +125,11 @@ export const observeInstructions = (args: {
       nativeDirectoryInputs: location.nativeDirectoryInputs,
       configuredAgents: agents,
       config: args.config,
+      rows,
+      ...(args.replaceUnrecorded === undefined
+        ? {}
+        : { replaceUnrecorded: args.replaceUnrecorded }),
+      ...(args.discardModified === undefined ? {} : { discardModified: args.discardModified }),
     });
   }).pipe(Effect.withSpan("Instructions.observe"));
 
@@ -110,9 +165,9 @@ export const instructionReadinessDetail = (failure: InstructionReadinessFailure)
 
 /**
  * The one readiness gate every instruction transition passes. It decides
- * whether AXM may write at all: an unowned target or an unrecognized
- * `.gitignore` region means the workspace holds a file AXM did not create,
- * and reconciliation stops before it can overwrite it.
+ * whether AXM may write at all: a differing file AXM has no record of writing
+ * at a planned target, or malformed `.gitignore` region fences, stop
+ * reconciliation before it can overwrite anything.
  */
 export const instructionReconciliationReadiness = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
@@ -126,7 +181,7 @@ export const instructionReconciliationReadiness = (args: {
     const result = yield* Effect.result(
       Effect.all(
         [
-          assertInstructionTargetsSafe(args.snapshot.status),
+          assertInstructionTargetsSafe(args.snapshot),
           assertInstructionsGitignoreSafe(args.workspaceRoot),
         ],
         { concurrency: 1, discard: true },
@@ -142,61 +197,84 @@ export const instructionReconciliationReadiness = (args: {
  * decision reflects the workspace at the moment of removal. Used before a new
  * configuration is reconciled, so a changed source filename or alias policy
  * never leaves the old arrangement behind. Refuses on an unowned target like
- * every other path.
+ * every other path; a modified copy is retained unless `discardModified`.
  */
-export const removeInstructionTargetsFor = (args: {
-  readonly config: ResolvedInstructionsConfig;
-}): Effect.Effect<
+export const removeInstructionTargetsFor = (
+  args: {
+    readonly config: ResolvedInstructionsConfig;
+  } & InstructionOutputOverrides,
+): Effect.Effect<
   ReadonlyArray<string>,
-  WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
+  | WorkspaceSettingsReadFailure
+  | WorkspaceLockfileReadFailure
+  | WorkspaceLockfileMutationFailure
+  | InstructionMaintenanceFailure,
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeWriteAuthority
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
+  | AcceptedResolutionWriter
 > =>
   Effect.gen(function* () {
     const snapshot = yield* observeInstructions(args);
-    return yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+    const removals = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+    yield* stageInstructionRows(removals.rowChanges);
+    return removals.removed;
   });
 
 export interface InstructionsReconciliation<A> extends InstructionsSyncResult {
   readonly transition: A;
 }
 
-type ReconcileInstructionsArgs = ObserveInstructionProjectionArgs & {
+type ReconcileInstructionsArgs = Omit<ObserveInstructionProjectionArgs, "rows"> & {
   readonly preflightConfig?: ResolvedInstructionsConfig;
 };
 
-/** Gate, transition, apply, and read back one instruction projection. */
+type ReconcileRequirements =
+  | FileSystem.FileSystem
+  | Path.Path
+  | NativeWriteAuthority
+  | LockfileReader
+  | AcceptedResolutionWriter;
+
+type ReconcileFailure =
+  InstructionMaintenanceFailure | WorkspaceLockfileReadFailure | WorkspaceLockfileMutationFailure;
+
+/**
+ * Gate, transition, apply, and read back one instruction projection. Rows are
+ * read before the preflight and again after the transition, and the applied
+ * row edits are staged before the read-back.
+ */
 export function reconcileInstructions<A, E, R>(
   args: ReconcileInstructionsArgs & { readonly transition: Effect.Effect<A, E, R> },
-): Effect.Effect<
-  InstructionsReconciliation<A>,
-  E | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | NativeWriteAuthority
->;
+): Effect.Effect<InstructionsReconciliation<A>, E | ReconcileFailure, R | ReconcileRequirements>;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & { readonly transition?: undefined },
-): Effect.Effect<
-  InstructionsReconciliation<void>,
-  InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority
->;
+): Effect.Effect<InstructionsReconciliation<void>, ReconcileFailure, ReconcileRequirements>;
 export function reconcileInstructions(
   args: ReconcileInstructionsArgs & {
     readonly transition?: Effect.Effect<unknown, unknown, unknown> | undefined;
   },
 ): Effect.Effect<InstructionsReconciliation<unknown>, unknown, unknown> {
   return Effect.gen(function* () {
+    const recorded = yield* readInstructionRows;
     const preflight = yield* observeInstructionProjection({
       ...args,
+      rows: recorded,
       config: args.preflightConfig ?? args.config,
     });
-    yield* assertInstructionTargetsSafe(preflight.status);
+    yield* assertInstructionTargetsSafe(preflight);
     yield* assertInstructionsGitignoreSafe(args.workspaceRoot);
     const transition = yield* args.transition ?? Effect.void;
+    const rows = args.transition === undefined ? recorded : yield* readInstructionRows;
     const snapshot =
       args.transition === undefined && args.preflightConfig === undefined
         ? preflight
         : yield* observeInstructionProjection({
             ...args,
+            rows,
             symlinkSupported: preflight.symlinkSupported,
           });
     const applied = yield* applyInstructionProjection({
@@ -205,8 +283,10 @@ export function reconcileInstructions(
       snapshot,
       dryRun: false,
     });
+    yield* stageInstructionRows(applied.rowChanges);
     const after = yield* observeInstructionProjection({
       ...args,
+      rows: withInstructionRowChanges(rows, applied.rowChanges),
       symlinkSupported: preflight.symlinkSupported,
     });
     if (!instructionProjectionIsCurrent(after)) {
@@ -220,14 +300,16 @@ export function reconcileInstructions(
 }
 
 /** Bring owned aliases current after a shared-surface write, when management is enabled. */
-export const reconcileInstructionAliases = (options?: {
-  readonly configuredAgents?: ReadonlyArray<string>;
-  readonly eligibleAgentIds?: ReadonlyArray<string>;
-  readonly eligibleTargets?: ReadonlyArray<string>;
-}): Effect.Effect<
+export const reconcileInstructionAliases = (
+  options?: {
+    readonly configuredAgents?: ReadonlyArray<string>;
+    readonly eligibleAgentIds?: ReadonlyArray<string>;
+    readonly eligibleTargets?: ReadonlyArray<string>;
+  } & InstructionOutputOverrides,
+): Effect.Effect<
   Option.Option<InstructionsSyncResult>,
-  WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
+  WorkspaceSettingsReadFailure | ReconcileFailure,
+  ReconcileRequirements | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();
@@ -246,9 +328,44 @@ export const reconcileInstructionAliases = (options?: {
       ...(options?.eligibleTargets === undefined
         ? {}
         : { eligibleTargets: options.eligibleTargets }),
+      ...(options?.replaceUnrecorded === undefined
+        ? {}
+        : { replaceUnrecorded: options.replaceUnrecorded }),
+      ...(options?.discardModified === undefined
+        ? {}
+        : { discardModified: options.discardModified }),
     });
     return Option.some<InstructionsSyncResult>(result);
   });
+
+/**
+ * Record copies AXM has no record of writing that already equal their source,
+ * before a shared-surface write changes that source. Without this, the write
+ * would leave such a copy differing and unrecorded, and the alias
+ * reconciliation that follows would refuse it although preview accepted it.
+ */
+export const recordInstructionCopiesBeforeSourceWrite = (options?: {
+  readonly configuredAgents?: ReadonlyArray<string>;
+}): Effect.Effect<
+  void,
+  WorkspaceSettingsReadFailure | ReconcileFailure,
+  ReconcileRequirements | SettingsReader | WorkspaceLocation
+> =>
+  Effect.gen(function* () {
+    const config = yield* activeInstructionsConfig();
+    if (Option.isNone(config)) return;
+    const location = yield* WorkspaceLocation;
+    const settings = yield* SettingsReader;
+    const snapshot = yield* observeInstructionProjection({
+      workspaceRoot: location.baseDir,
+      scope: location.scope,
+      nativeDirectoryInputs: location.nativeDirectoryInputs,
+      configuredAgents: options?.configuredAgents ?? (yield* settings.configuredAgents),
+      config: config.value,
+      rows: yield* readInstructionRows,
+    });
+    yield* stageInstructionRows(yield* recordIdenticalInstructionCopies(snapshot));
+  }).pipe(Effect.withSpan("Instructions.recordBeforeSourceWrite"));
 
 /**
  * Observe shared instruction content with the routes owned by instruction
@@ -263,8 +380,8 @@ export const observeInstructionSurfacePlans = <E, R>(
   },
 ): Effect.Effect<
   ReadonlyArray<ProjectionUnitObservation>,
-  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  E | WorkspaceSettingsReadFailure | WorkspaceLockfileReadFailure | InstructionMaintenanceFailure,
+  R | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
 > =>
   Effect.gen(function* () {
     const observations = yield* observeProjectionPlans(plans);
@@ -318,6 +435,7 @@ export const observeInstructionSurfacePlans = <E, R>(
       configuredAgents,
       config: config.value,
       prospectiveRoots,
+      rows: yield* readInstructionRows,
     });
     const requiredRoutes = snapshot.status.items.filter(
       (item) =>
@@ -518,8 +636,8 @@ export const applyInstructionSurfacePlans = <E, R>(
   plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
 ): Effect.Effect<
   ReadonlyArray<string>,
-  E | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | FileSystem.FileSystem | Path.Path | NativeWriteAuthority | SettingsReader | WorkspaceLocation
+  E | WorkspaceSettingsReadFailure | ReconcileFailure,
+  R | ReconcileRequirements | SettingsReader | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const instructionPlans = plans.filter(
@@ -527,11 +645,19 @@ export const applyInstructionSurfacePlans = <E, R>(
         unitId === "rule:instructions-region" || unitId === "knowledge:discovery-region",
     );
     const instructionChanges = yield* observeProjectionPlans(instructionPlans);
-    yield* applyProjectionPlans(plans);
-    // A native-only projection does not introduce instruction routing intent.
-    // Repairing a previously missing alias belongs to explicit instruction sync.
-    if (instructionChanges.some((observation) => !observation.current))
-      yield* reconcileInstructionAliases();
+    const reconcilesAliases = instructionChanges.some((observation) => !observation.current);
+    const accepted = yield* AcceptedResolutionWriter;
+    // Rows join the enclosing accepted-resolution batch, or one opened here,
+    // so they commit with the region and alias writes.
+    yield* accepted.withBatch(
+      Effect.gen(function* () {
+        if (reconcilesAliases) yield* recordInstructionCopiesBeforeSourceWrite();
+        yield* applyProjectionPlans(plans);
+        // A native-only projection does not introduce instruction routing intent.
+        // Repairing a previously missing alias belongs to explicit instruction sync.
+        if (reconcilesAliases) yield* reconcileInstructionAliases();
+      }),
+    );
     return projectionPlanExclusionWarnings(plans);
   });
 
@@ -543,41 +669,41 @@ export interface DisabledInstructionManagement {
 }
 
 /**
- * Turn instruction-file management off: refuse on a `.gitignore` region AXM
- * did not write, remove the aliases the recorded configuration owns, drop the
- * ignore region, and record that the workspace no longer propagates
- * instructions.
+ * Turn instruction-file management off: refuse on malformed `.gitignore`
+ * region fences, remove the aliases the recorded configuration owns through
+ * the deletion guard, drop the ignore region, withdraw every instruction row,
+ * and record that the workspace no longer propagates instructions.
  */
-export const disableInstructionManagement = (args: {
-  readonly config: ResolvedInstructionsConfig;
-}): Effect.Effect<
+export const disableInstructionManagement = (
+  args: {
+    readonly config: ResolvedInstructionsConfig;
+  } & InstructionOutputOverrides,
+): Effect.Effect<
   DisabledInstructionManagement,
-  WorkspaceSettingsReadFailure | WorkspaceSettingsMutationFailure | InstructionMaintenanceFailure,
-  | FileSystem.FileSystem
-  | Path.Path
-  | NativeWriteAuthority
-  | SettingsReader
-  | SettingsWriter
-  | WorkspaceLocation
+  WorkspaceSettingsReadFailure | WorkspaceSettingsMutationFailure | ReconcileFailure,
+  ReconcileRequirements | SettingsReader | SettingsWriter | WorkspaceLocation
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const settingsWriter = yield* SettingsWriter;
     yield* assertInstructionsGitignoreSafe(location.baseDir);
     const snapshot = yield* observeInstructions(args);
-    const removed = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+    const removals = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
     const gitignore = yield* removeInstructionsGitignore({
       workspaceRoot: location.baseDir,
+      rows: snapshot.rows,
       dryRun: false,
     });
+    yield* stageInstructionRows([...removals.rowChanges, ...Option.toArray(gitignore.rowChange)]);
     yield* settingsWriter.setInstructionsConfig(false);
     return {
-      removed,
-      nativeLocations: instructionChangeLocations({
+      removed: removals.removed,
+      nativeLocations: syncResult({
         snapshot,
-        removed: [...removed, ...Option.toArray(gitignore)],
+        removed: [...removals.removed, ...Option.toArray(gitignore.path)],
         written: [],
-      }),
-      gitignore: Option.getOrUndefined(gitignore),
+        retained: removals.retained,
+      }).nativeLocations,
+      gitignore: Option.getOrUndefined(gitignore.path),
     };
   }).pipe(Effect.withSpan("Instructions.disableManagement"));

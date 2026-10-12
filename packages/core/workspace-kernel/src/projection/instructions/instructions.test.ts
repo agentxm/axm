@@ -15,7 +15,9 @@ import { afterEach, beforeEach } from "vitest";
 import {
   assertInstructionTargetsSafe,
   instructionProjectionEffects,
+  recordIdenticalInstructionCopies,
   instructionProjectionIsCurrent,
+  instructionProjectionRecordsRows,
   instructionProjectionRemovalEffects,
   observeInstructionProjection,
   probeSymlinkSupport,
@@ -28,13 +30,20 @@ import {
 import { observeInstructionSurfacePlans, reconcileInstructions } from "./reconciliation.js";
 import { planAggregateProjection } from "../planning.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
-import type { InstructionMaintenanceFailed, InstructionMaintenanceFailure } from "./errors.js";
+import { ProjectionRowsTest } from "../../workspace-state/testing.js";
+import {
+  AcceptedResolutionWriter,
+  LockfileReader,
+  ProjectionUnitPathSchema,
+  type ProjectionRowChange,
+} from "../../workspace-state/index.js";
+import { InstructionMaintenanceFailed } from "./errors.js";
 
 /** Narrow a typed failure to the maintenance family before asserting fields. */
-const expectMaintenanceFailed = (
-  failure: InstructionMaintenanceFailure,
-): InstructionMaintenanceFailed => {
-  if (failure._tag !== "InstructionMaintenanceFailed") {
+const expectMaintenanceFailed = (failure: {
+  readonly _tag: string;
+}): InstructionMaintenanceFailed => {
+  if (!(failure instanceof InstructionMaintenanceFailed)) {
     throw new Error(`Expected InstructionMaintenanceFailed, got ${failure._tag}`);
   }
   return failure;
@@ -87,12 +96,38 @@ describe("agent instructions", () => {
   });
 
   const run = <A, E>(
-    effect: Effect.Effect<A, E, NodeServices.NodeServices | NativeWriteAuthority>,
+    effect: Effect.Effect<
+      A,
+      E,
+      NodeServices.NodeServices | NativeWriteAuthority | AcceptedResolutionWriter | LockfileReader
+    >,
   ) =>
     effect.pipe(
       Effect.provide(
-        Layer.mergeAll(NativeWriteAuthorityPermissive, NodeServices.layer, CanonicalNativePathLive),
+        Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
+          NodeServices.layer,
+          CanonicalNativePathLive,
+          ProjectionRowsTest(),
+        ),
       ),
+    );
+
+  /** The recorded `instructions` rows of the test's in-memory lockfile. */
+  const rows = Effect.flatMap(AcceptedResolutionWriter, (writer) =>
+    writer.projectionRows("instructions"),
+  );
+
+  /** Commit row edits the way a writer's caller stages them. */
+  const stage = (changes: ReadonlyArray<ProjectionRowChange>) =>
+    Effect.flatMap(AcceptedResolutionWriter, (writer) =>
+      writer.withBatch(writer.stageProjections(changes)),
+    );
+
+  /** Reconcile inside an accepted-resolution batch, as every writer's caller does. */
+  const reconcile = (args: Parameters<typeof reconcileInstructions>[0]) =>
+    Effect.flatMap(AcceptedResolutionWriter, (writer) =>
+      writer.withBatch(reconcileInstructions(args)),
     );
 
   const observe = (args: {
@@ -101,29 +136,47 @@ describe("agent instructions", () => {
     readonly scope?: "project" | "user";
     readonly symlinkSupported?: boolean;
     readonly gitIndexView?: boolean;
+    readonly replaceUnrecorded?: boolean;
+    readonly discardModified?: boolean;
   }) =>
-    observeInstructionProjection({
-      workspaceRoot: tempDir,
-      scope: args.scope ?? "project",
-      configuredAgents: args.configuredAgents,
-      config: args.config ?? TRACKED,
-      ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
-      ...(args.gitIndexView === undefined ? {} : { gitIndexView: args.gitIndexView }),
-    });
+    Effect.flatMap(rows, (recorded) =>
+      observeInstructionProjection({
+        workspaceRoot: tempDir,
+        scope: args.scope ?? "project",
+        configuredAgents: args.configuredAgents,
+        config: args.config ?? TRACKED,
+        rows: recorded,
+        ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
+        ...(args.gitIndexView === undefined ? {} : { gitIndexView: args.gitIndexView }),
+        ...(args.replaceUnrecorded === undefined
+          ? {}
+          : { replaceUnrecorded: args.replaceUnrecorded }),
+        ...(args.discardModified === undefined ? {} : { discardModified: args.discardModified }),
+      }),
+    );
 
   const sync = (args: {
     readonly configuredAgents: ReadonlyArray<string>;
     readonly config?: ResolvedInstructionsConfig;
     readonly dryRun?: boolean;
     readonly symlinkSupported?: boolean;
+    readonly replaceUnrecorded?: boolean;
   }) =>
-    syncInstructions({
-      workspaceRoot: tempDir,
-      scope: "project",
-      configuredAgents: args.configuredAgents,
-      config: args.config ?? TRACKED,
-      dryRun: args.dryRun ?? false,
-      ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
+    Effect.gen(function* () {
+      const result = yield* syncInstructions({
+        workspaceRoot: tempDir,
+        scope: "project",
+        configuredAgents: args.configuredAgents,
+        config: args.config ?? TRACKED,
+        dryRun: args.dryRun ?? false,
+        rows: yield* rows,
+        ...(args.symlinkSupported === undefined ? {} : { symlinkSupported: args.symlinkSupported }),
+        ...(args.replaceUnrecorded === undefined
+          ? {}
+          : { replaceUnrecorded: args.replaceUnrecorded }),
+      });
+      yield* stage(result.rowChanges);
+      return result;
     });
 
   for (const form of ["copy", "symlink"] as const) {
@@ -187,7 +240,12 @@ describe("agent instructions", () => {
                 },
               });
               return yield* observeInstructionSurfacePlans([plan], { view: "current" });
-            }).pipe(Effect.provide(workspace));
+            }).pipe(
+              // The rows the sync above recorded are the lockfile this observation reads.
+              Effect.provide(
+                Layer.merge(workspace, Layer.succeed(LockfileReader, yield* LockfileReader)),
+              ),
+            );
             const locations = observed.flatMap((observation) => observation.nativeLocations ?? []);
             expect(locations.filter((unit) => unit.address.kind === "region")).toHaveLength(1);
             const entries = locations.filter((unit) => unit.address.kind === "entry");
@@ -197,7 +255,7 @@ describe("agent instructions", () => {
                   address: { kind: "entry", path: target },
                   ownership: "owned",
                   state: "unchanged",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               ]);
@@ -344,6 +402,7 @@ describe("agent instructions", () => {
 
         const broad = yield* observe({ configuredAgents: ["claude-code"] });
         const explicit = yield* observeInstructionProjection({
+          rows: yield* rows,
           workspaceRoot: cacheWorkspace,
           scope: "project",
           configuredAgents: ["claude-code"],
@@ -524,6 +583,7 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(nested, "AGENTS.md"), "# Workspace\n");
 
         const result = yield* syncInstructions({
+          rows: yield* rows,
           workspaceRoot: nested,
           scope: "project",
           configuredAgents: ["claude-code"],
@@ -774,14 +834,11 @@ describe("agent instructions", () => {
         const second = fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8");
 
         expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
-        expect(first).toContain("axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md");
-        expect(first).toContain("AXM managed projection");
-        expect(first).toContain("Configuration source: AGENTS.md");
-        expect(first).toContain("Change the configuration source, then run `axm sync`.");
-        expect(first).toContain("# Workspace\n");
+        // A copy is byte-identical to its source; currency lives in the lockfile.
+        expect(first).toBe("# Workspace\n");
         expect(second).toBe(first);
-        expect(second.match(/AXM managed projection/g)?.length).toBe(1);
         expect(secondResult.written).toEqual([]);
+        expect([...(yield* rows).keys()].sort()).toEqual(["CLAUDE.md", "GEMINI.md"]);
         expect(secondResult.snapshot.status.items.every((item) => item.health === "ok")).toBe(true);
         expect(
           secondResult.snapshot.status.items.map((item) => [item.ownership, item.observedForm]),
@@ -831,16 +888,19 @@ describe("agent instructions", () => {
         // A foreign symlink at a planned target: unowned.
         fs.writeFileSync(path.join(tempDir, "OTHER.md"), "# Other\n");
         fs.symlinkSync("OTHER.md", path.join(tempDir, "GEMINI.md"));
-        // A managed copy whose body was hand-edited: owned and current because
-        // the generation provenance still matches its authoritative inputs.
-        yield* syncInstructions({
-          workspaceRoot: path.join(tempDir, "docs"),
-          scope: "project",
-          configuredAgents: ["claude-code"],
-          config: TRACKED,
-          dryRun: false,
-          symlinkSupported: false,
-        });
+        // A recorded copy whose body was hand-edited: owned and current because
+        // its recorded generation still matches its authoritative inputs.
+        fs.renameSync(path.join(tempDir, "CLAUDE.md"), path.join(tempDir, "CLAUDE.private"));
+        yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+        // The root alias then gets authored content and no recorded row: unowned.
+        fs.renameSync(path.join(tempDir, "CLAUDE.private"), path.join(tempDir, "CLAUDE.md"));
+        yield* stage([
+          {
+            kind: "instructions",
+            path: ProjectionUnitPathSchema.make("CLAUDE.md"),
+            row: undefined,
+          },
+        ]);
         const copyPath = path.join(tempDir, "docs", "CLAUDE.md");
         fs.writeFileSync(
           copyPath,
@@ -875,7 +935,9 @@ describe("agent instructions", () => {
           observedForm: "none",
         });
 
-        const result = yield* Effect.result(assertInstructionTargetsSafe(status));
+        const result = yield* Effect.result(
+          assertInstructionTargetsSafe({ status, replaceUnrecorded: false }),
+        );
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           const failure = expectMaintenanceFailed(result.failure);
@@ -888,19 +950,57 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("reports copy drift without overwriting it", () =>
+  it.effect("blocks a differing unrecorded alias without overwriting it", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Local edit\n");
 
-        const result = yield* sync({ configuredAgents: ["gemini-cli"] });
+        const result = yield* Effect.result(sync({ configuredAgents: ["gemini-cli"] }));
         const { status } = yield* observe({ configuredAgents: ["gemini-cli"] });
 
-        expect(result.written).toEqual([]);
+        expect(result._tag).toBe("Failure");
+        if (result._tag === "Failure") {
+          const failure = expectMaintenanceFailed(result.failure);
+          expect(failure.category).toBe("conflict");
+          expect(failure.detail).toContain("has no recorded projection");
+          expect(failure.detail).toContain("--replace-unrecorded");
+        }
         expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Local edit\n");
         expect(status.items[0]?.health).toBe("drift");
         expect(status.items[0]?.ownership).toBe("unowned");
+        expect((yield* rows).size).toBe(0);
+      }),
+    ),
+  );
+
+  it.effect("replaces a differing unrecorded copy only on explicit intent", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Local edit\n");
+
+        const preview = yield* observe({
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: false,
+          replaceUnrecorded: true,
+        });
+        expect(instructionProjectionEffects(preview)).toEqual([
+          { path: path.join(tempDir, "GEMINI.md"), change: "updated" },
+        ]);
+        const result = yield* sync({
+          configuredAgents: ["gemini-cli"],
+          symlinkSupported: false,
+          replaceUnrecorded: true,
+        });
+
+        expect(result.written).toEqual([path.join(tempDir, "GEMINI.md")]);
+        expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Workspace\n");
+        expect(result.snapshot.status.items[0]).toMatchObject({
+          ownership: "owned-current",
+          observedForm: "copy",
+        });
+        expect([...(yield* rows).keys()]).toEqual(["GEMINI.md"]);
       }),
     ),
   );
@@ -919,8 +1019,8 @@ describe("agent instructions", () => {
           configuredAgents: ["claude-code"],
           symlinkSupported: false,
         });
-        yield* assertInstructionTargetsSafe(status);
-        const result = yield* reconcileInstructions({
+        yield* assertInstructionTargetsSafe({ status, replaceUnrecorded: false });
+        const result = yield* reconcile({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["claude-code"],
@@ -944,7 +1044,7 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), privateNotes);
 
         const result = yield* Effect.result(
-          reconcileInstructions({
+          reconcile({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code", "gemini-cli"],
@@ -968,22 +1068,33 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("blocks an unowned alias even when its body matches the source", () =>
+  it.effect("records an unrecorded alias whose bytes already equal the source", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Workspace\n");
 
-        const { status } = yield* observe({ configuredAgents: ["claude-code"] });
-        const result = yield* Effect.result(assertInstructionTargetsSafe(status));
+        const snapshot = yield* observe({ configuredAgents: ["claude-code"] });
+        expect(snapshot.status.items[0]).toMatchObject({
+          ownership: "owned-unrecorded-identical",
+          observedForm: "copy",
+          health: "ok",
+        });
+        yield* assertInstructionTargetsSafe(snapshot);
+        // Recording touches only the lockfile.
+        expect(instructionProjectionIsCurrent(snapshot)).toBe(false);
+        expect(instructionProjectionEffects(snapshot)).toEqual([]);
+        expect(instructionProjectionRecordsRows(snapshot)).toBe(true);
 
-        expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") {
-          const failure = expectMaintenanceFailed(result.failure);
-          expect(failure.category).toBe("conflict");
-          expect(failure.detail).toContain("CLAUDE.md");
-        }
+        const result = yield* sync({ configuredAgents: ["claude-code"] });
+
+        expect(result.written).toEqual([]);
+        expect(fs.lstatSync(path.join(tempDir, "CLAUDE.md")).isSymbolicLink()).toBe(false);
         expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
+        expect([...(yield* rows).keys()]).toEqual(["CLAUDE.md"]);
+        const after = yield* observe({ configuredAgents: ["claude-code"] });
+        expect(after.status.items[0]?.ownership).toBe("owned-current");
+        expect(instructionProjectionIsCurrent(after)).toBe(true);
       }),
     ),
   );
@@ -995,10 +1106,21 @@ describe("agent instructions", () => {
         fs.mkdirSync(path.join(tempDir, "CLAUDE.md"));
         fs.writeFileSync(path.join(tempDir, "CLAUDE.md", "keep.txt"), "keep\n");
 
-        const result = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: true });
+        const result = yield* Effect.result(
+          sync({
+            configuredAgents: ["claude-code"],
+            symlinkSupported: true,
+            replaceUnrecorded: true,
+          }),
+        );
 
-        expect(result.written).toEqual([]);
-        expect(result.snapshot.status.items[0]).toMatchObject({
+        // Even explicit replacement intent covers only files, never a directory.
+        expect(result._tag).toBe("Failure");
+        const { status } = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: true,
+        });
+        expect(status.items[0]).toMatchObject({
           health: "drift",
           ownership: "unowned",
           observedForm: "directory",
@@ -1182,17 +1304,25 @@ describe("agent instructions", () => {
           snapshot: removal,
           dryRun: true,
         });
-        expect([...removalPreview].sort()).toEqual(removable);
+        expect([...removalPreview.removed].sort()).toEqual(removable);
         const removalApplied = yield* removeManagedInstructionTargets({
           snapshot: removal,
           dryRun: false,
         });
-        expect([...removalApplied].sort()).toEqual(removable);
+        expect([...removalApplied.removed].sort()).toEqual(removable);
         expect(
-          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: true }),
+          (yield* removeInstructionsGitignore({
+            workspaceRoot: tempDir,
+            rows: yield* rows,
+            dryRun: true,
+          })).path,
         ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
         expect(
-          yield* removeInstructionsGitignore({ workspaceRoot: tempDir, dryRun: false }),
+          (yield* removeInstructionsGitignore({
+            workspaceRoot: tempDir,
+            rows: yield* rows,
+            dryRun: false,
+          })).path,
         ).toEqual(Option.some(path.join(tempDir, ".gitignore")));
       }),
     ),
@@ -1364,7 +1494,7 @@ describe("agent instructions", () => {
             symlinkSupported: true,
           });
 
-          const result = yield* reconcileInstructions({
+          const result = yield* reconcile({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["claude-code"],
@@ -1386,7 +1516,7 @@ describe("agent instructions", () => {
           fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
           const refused = yield* Effect.result(
-            reconcileInstructions({
+            reconcile({
               workspaceRoot: tempDir,
               scope: "project",
               configuredAgents: ["claude-code"],
@@ -1408,15 +1538,14 @@ describe("agent instructions", () => {
       ),
   );
 
-  it.effect("preserves a banner belonging to a different managed extension", () =>
+  it.effect("treats an old in-file banner as ordinary unrecorded content", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-        // A managed marker from another owner does not authorize replacement.
-        fs.writeFileSync(
-          path.join(tempDir, "CLAUDE.md"),
-          "<!-- axm:file v=1 ext=@agentxm/rules/managed-file src=AGENTS.md -->\n\n# Old copy\n",
-        );
+        // Inline text grants no authority; only a recorded row does.
+        const authored =
+          "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n";
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), authored);
 
         const { status } = yield* observe({
           configuredAgents: ["claude-code"],
@@ -1424,24 +1553,23 @@ describe("agent instructions", () => {
         });
         expect(status.items[0]).toMatchObject({ health: "drift", ownership: "unowned" });
 
-        const result = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
-
-        expect(result.written).toEqual([]);
-        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toContain(
-          "ext=@agentxm/rules/managed-file",
+        const result = yield* Effect.result(
+          sync({ configuredAgents: ["claude-code"], symlinkSupported: false }),
         );
-        expect(result.snapshot.status.items[0]?.ownership).toBe("unowned");
+
+        expect(result._tag).toBe("Failure");
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe(authored);
       }),
     ),
   );
 
-  it.effect("removes stale managed copies by their banner proof alone", () =>
+  it.effect("removes stale copies by their recorded rows alone", () =>
     run(
       Effect.gen(function* () {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
-        // A banner-bearing file written by something other than instruction
-        // propagation is not residue, even at an alias name.
+        // A file AXM has no record of writing is not residue, even at an alias
+        // name and even when it carries old in-file markers.
         fs.writeFileSync(
           path.join(tempDir, "IFLOW.md"),
           "<!-- axm:file v=1 ext=@acme/skills/demo src=agent_extensions/@acme/skills/demo/src/SKILL.md -->\n\n# Demo\n",
@@ -1471,6 +1599,163 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("retains a modified stale copy unless modified copies are discarded", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Workspace\n\nLocal note\n");
+
+        const kept = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+        expect(kept.removed).toEqual([]);
+        expect(kept.retained).toEqual([
+          { path: path.join(tempDir, "GEMINI.md"), reason: "modified" },
+        ]);
+        expect(
+          kept.nativeLocations.find((location) =>
+            location.aliases.includes(path.join(tempDir, "GEMINI.md")),
+          ),
+        ).toMatchObject({
+          state: "retained",
+          reason: expect.stringContaining("--discard-modified"),
+        });
+        expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toContain("Local note");
+        // The row is withdrawn either way, so the retained file is no longer AXM's.
+        expect([...(yield* rows).keys()]).toEqual(["CLAUDE.md"]);
+        const after = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        expect(after.status.staleTargets).toEqual([]);
+        expect(instructionProjectionIsCurrent(after)).toBe(true);
+      }),
+    ),
+  );
+
+  it.effect("discards a modified recorded copy on explicit intent", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
+        fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Workspace\n\nLocal note\n");
+
+        const snapshot = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+          discardModified: true,
+        });
+        const removal = yield* removeManagedInstructionTargets({ snapshot, dryRun: false });
+
+        expect([...removal.removed].sort()).toEqual(
+          [path.join(tempDir, "CLAUDE.md"), path.join(tempDir, "GEMINI.md")].sort(),
+        );
+        expect(removal.retained).toEqual([]);
+        expect(removal.rowChanges.map((change) => [change.path, change.row])).toEqual([
+          ["CLAUDE.md", undefined],
+          ["GEMINI.md", undefined],
+        ]);
+      }),
+    ),
+  );
+
+  it.effect("withdraws a recorded row whose copy is gone", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+        fs.rmSync(path.join(tempDir, "CLAUDE.md"));
+
+        const orphaned = yield* observe({ configuredAgents: [], symlinkSupported: false });
+        expect(orphaned.orphanRows).toEqual(["CLAUDE.md"]);
+        expect(instructionProjectionIsCurrent(orphaned)).toBe(false);
+        expect(instructionProjectionEffects(orphaned)).toEqual([]);
+
+        yield* sync({ configuredAgents: [], symlinkSupported: false });
+        expect((yield* rows).size).toBe(0);
+      }),
+    ),
+  );
+
+  it.effect("withdraws a .gitignore row whose region is gone without writing the file", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        yield* sync({ configuredAgents: ["claude-code"], config: IGNORED });
+        expect([...(yield* rows).keys()]).toContain(".gitignore");
+        // The region is removed by hand while no alias is ignored any more.
+        fs.writeFileSync(path.join(tempDir, ".gitignore"), "node_modules/\n");
+
+        const orphaned = yield* observe({ configuredAgents: ["claude-code"], config: TRACKED });
+        expect(orphaned.gitignore.current).toBe(true);
+        expect(orphaned.orphanRows).toContain(".gitignore");
+        expect(instructionProjectionEffects(orphaned).map((effect) => effect.path)).not.toContain(
+          path.join(tempDir, ".gitignore"),
+        );
+
+        yield* sync({ configuredAgents: ["claude-code"], config: TRACKED });
+        expect([...(yield* rows).keys()]).not.toContain(".gitignore");
+        expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe("node_modules/\n");
+      }),
+    ),
+  );
+
+  it.effect("records an identical unrecorded copy before its source changes", () =>
+    run(
+      Effect.gen(function* () {
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Workspace\n");
+        const before = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        yield* stage(yield* recordIdenticalInstructionCopies(before));
+        expect([...(yield* rows).keys()]).toEqual(["CLAUDE.md"]);
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe("# Workspace\n");
+
+        // The source changes; the recorded copy is now refreshed, not refused.
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n\nMore\n");
+        const after = yield* observe({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        });
+        expect(byTarget(after.status.items, path.join(tempDir, "CLAUDE.md"))?.lastWrite).toBe(
+          "matches",
+        );
+        yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+        expect(fs.readFileSync(path.join(tempDir, "CLAUDE.md"), "utf-8")).toBe(
+          "# Workspace\n\nMore\n",
+        );
+      }),
+    ),
+  );
+
+  it.effect("records the alias region once and then decides currency from the row", () =>
+    run(
+      Effect.gen(function* () {
+        fs.mkdirSync(path.join(tempDir, ".git"));
+        fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
+        fs.writeFileSync(
+          path.join(tempDir, ".gitignore"),
+          "# axm:instruction-aliases\n/CLAUDE.md\n# /axm:instruction-aliases\n",
+        );
+
+        const unrecorded = yield* observe({ configuredAgents: ["claude-code"], config: IGNORED });
+        expect(unrecorded.gitignore.current).toBe(false);
+        yield* sync({ configuredAgents: ["claude-code"], config: IGNORED });
+        expect([...(yield* rows).keys()]).toContain(".gitignore");
+
+        // A reformatted region body stays current: bytes are never compared.
+        fs.writeFileSync(
+          path.join(tempDir, ".gitignore"),
+          "# axm:instruction-aliases\n/CLAUDE.md   \n# /axm:instruction-aliases\n",
+        );
+        const formatted = yield* observe({ configuredAgents: ["claude-code"], config: IGNORED });
+        expect(formatted.gitignore.current).toBe(true);
+      }),
+    ),
+  );
+
   it.effect("reconciles a changed source filename without touching an unowned collision", () =>
     run(
       Effect.gen(function* () {
@@ -1494,7 +1779,7 @@ describe("agent instructions", () => {
           observedForm: "symlink",
         });
         const refused = yield* Effect.result(
-          reconcileInstructions({
+          reconcile({
             workspaceRoot: tempDir,
             scope: "project",
             configuredAgents: ["gemini-cli"],
@@ -1516,10 +1801,10 @@ describe("agent instructions", () => {
           snapshot: previous,
           dryRun: false,
         });
-        expect([...removed].sort()).toEqual(
+        expect([...removed.removed].sort()).toEqual(
           [path.join(tempDir, "CLAUDE.md"), path.join(tempDir, "GEMINI.md")].sort(),
         );
-        const result = yield* reconcileInstructions({
+        const result = yield* reconcile({
           workspaceRoot: tempDir,
           scope: "project",
           configuredAgents: ["gemini-cli"],
@@ -1653,6 +1938,7 @@ describe("agent instructions", () => {
 
         yield* removeInstructionsGitignore({
           workspaceRoot: tempDir,
+          rows: yield* rows,
           dryRun: false,
         });
 

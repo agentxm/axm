@@ -68,6 +68,7 @@ export {
   ProjectionsSchema,
   ProjectionUnitPathSchema,
   recordedProjectionRows,
+  stageProjectionChanges,
 } from "./projections.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
@@ -76,6 +77,7 @@ export {
   commitLockfileSnapshotUpdate,
   commitLockfileSnapshotUpdateAtPath,
   commitLockfileUpdates,
+  readLockfileAtPath,
   writeLockfile,
   writeLockfileAtPath,
 } from "./lockfile.js";

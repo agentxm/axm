@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -16,7 +17,7 @@ export const specification = defineSpecification({
   title:
     "Enabling instruction-file management records the explicit choice and reconciles aliases together",
   statement:
-    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation.",
+    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -190,4 +191,43 @@ describe("Enabling instruction-file management", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+
+  for (const replaceUnrecorded of [false, true])
+    it.effect(
+      `${replaceUnrecorded ? "replaces" : "blocks on"} a differing alias AXM has no record of writing`,
+      () => {
+        const privateNotes = "Private notes AXM never wrote.\n";
+        const fixture = gitManaged({
+          "AGENTS.md": "Authored instructions.\n",
+          "CLAUDE.md": privateNotes,
+        });
+        const before = fixture.snapshot();
+        return fixture
+          .provide(
+            Effect.gen(function* () {
+              const outcome = yield* applyInstructionsRequest({
+                action: "enable",
+                fileName: "AGENTS.md",
+                gitignoreAliases: false,
+                replaceUnrecorded,
+              });
+
+              if (replaceUnrecorded) {
+                expect(outcome).toMatchObject({ outcome: "applied" });
+                expect(fs.readlinkSync(path.join(fixture.root, "CLAUDE.md"))).toBe("AGENTS.md");
+              } else {
+                expect(outcome).toMatchObject({ outcome: "blocked" });
+                expect(
+                  "candidate" in outcome && Option.isSome(outcome.candidate.blocked)
+                    ? outcome.candidate.blocked.value.detail
+                    : "",
+                ).toContain("--replace-unrecorded");
+                expect(fixture.snapshot()).toEqual(before);
+                expect(fixture.readFile("CLAUDE.md")).toBe(privateNotes);
+              }
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
 });

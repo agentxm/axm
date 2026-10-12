@@ -14,13 +14,17 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
 import {
-  insertManagedFileBanner,
-  managedFileFormatForPath,
-  managedFileMarker,
-} from "../managed-file-banner.js";
-import { makeScannerFileSystem, type InstructionsConfig } from "../../workspace-state/index.js";
+  makeScannerFileSystem,
+  ProjectionUnitPathSchema,
+  type InstructionsConfig,
+  type ProjectionDigest,
+  type ProjectionRowChange,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
+} from "../../workspace-state/index.js";
 import { createSymlink } from "../../workspace-state/index.js";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { DISCOVERY_SKIPPED_DIRECTORIES } from "@agentxm/extension-model/unstable/discovery-walk";
@@ -36,6 +40,7 @@ import {
   assertNativeMutationWithinRoots,
   nativeAuthorityRoots,
   captureContainerIdentity,
+  combineNativeLocationOutcomes,
   verifyContainerIdentity,
   deriveStructuralInverse,
   resolveNativeEntry,
@@ -44,7 +49,13 @@ import {
   type NativeLocationOutcome,
 } from "../../locations/index.js";
 import { recordFootprint } from "../../settlement/index.js";
-import { projectionGeneration } from "../generation.js";
+import {
+  projectionGeneration,
+  projectionIsCurrent,
+  projectionOutputDigest,
+} from "../generation.js";
+import { decideWholeFileWrite, type WholeFileLastWrite } from "../whole-file-decision.js";
+import { decideOutputDeletion, retainedOutputDetail } from "../deletion-guard.js";
 import {
   NativeWriteAuthority,
   reconcilePatternList,
@@ -140,6 +151,23 @@ export interface InstructionProjectionSnapshot {
   readonly symlinkSupported: boolean;
   readonly status: InstructionsStatus;
   readonly gitignore: InstructionsGitignoreStatus;
+  /** Recorded `instructions` projection rows the observation decided against. */
+  readonly rows: InstructionProjectionRows;
+  /** Recorded rows no planned or stale copy accounts for; reconciliation withdraws them. */
+  readonly orphanRows: ReadonlyArray<ProjectionUnitPath>;
+  /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
+  readonly replaceUnrecorded: boolean;
+  /** Delete recorded copies even when they were modified since AXM last wrote them. */
+  readonly discardModified: boolean;
+}
+
+/** Recorded `instructions` projection rows, keyed by scope-relative path. */
+export type InstructionProjectionRows = ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>;
+
+/** A projected file a removal kept because AXM cannot show the bytes are its own. */
+export interface RetainedInstructionTarget {
+  readonly path: string;
+  readonly reason: "modified" | "unrecorded";
 }
 
 export interface InstructionsSyncResult {
@@ -151,13 +179,53 @@ export interface InstructionsSyncResult {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly written: ReadonlyArray<string>;
   readonly removed: ReadonlyArray<string>;
+  readonly retained: ReadonlyArray<RetainedInstructionTarget>;
   readonly skipped: ReadonlyArray<string>;
+  /** Row edits the caller stages inside its accepted-resolution batch. */
+  readonly rowChanges: ReadonlyArray<ProjectionRowChange>;
 }
 
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
-/** Ownership identity carried by every managed alias copy's `axm:file` banner. */
-const INSTRUCTION_ALIAS_EXT = "@agentxm/instructions/alias";
+const INSTRUCTIONS_KIND = "instructions";
+const GITIGNORE_UNIT = ProjectionUnitPathSchema.make(".gitignore");
+const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
+
+/** Apply staged row edits to a row map, for reading back after a write. */
+export const withInstructionRowChanges = (
+  rows: InstructionProjectionRows,
+  changes: ReadonlyArray<ProjectionRowChange>,
+): InstructionProjectionRows => {
+  const next = new Map(rows);
+  for (const change of changes) {
+    if (change.kind !== INSTRUCTIONS_KIND) continue;
+    if (change.row === undefined) next.delete(change.path);
+    else next.set(change.path, { row: change.row, stale: change.row.gen === undefined });
+  }
+  return next;
+};
+
+const recordedRow = (
+  rows: InstructionProjectionRows,
+  unit: Option.Option<ProjectionUnitPath>,
+): Option.Option<RecordedProjectionRow> =>
+  Option.flatMap(unit, (key) => Option.fromNullishOr(rows.get(key)));
+
+const withdrawRow = (path: ProjectionUnitPath): ProjectionRowChange => ({
+  kind: INSTRUCTIONS_KIND,
+  path,
+  row: undefined,
+});
+
+/** Generation of one instruction copy: its path, its canonical source, and that source's bytes. */
+const copyGeneration = (
+  unit: ProjectionUnitPath,
+  sourceFileName: string,
+  sourceContent: string,
+): ProjectionDigest => projectionGeneration([unit, sourceFileName, sourceContent]);
+
+const gitignoreGeneration = (patterns: ReadonlyArray<string>): ProjectionDigest =>
+  projectionGeneration([GITIGNORE_UNIT, ...patterns]);
 
 export const resolveInstructionsConfig = (
   config: InstructionsConfig | undefined,
@@ -867,30 +935,18 @@ const fileExists = (filePath: string) =>
 const resolveLinkTarget = (path: Path.Path, linkPath: string, linkTarget: string): string =>
   path.resolve(path.dirname(linkPath), linkTarget);
 
-const withManagedCopyBanner = (args: {
-  readonly targetPath: string;
-  readonly sourceFileName: string;
-  readonly content: string;
-}): string => {
-  const format = managedFileFormatForPath(args.targetPath);
-  if (format === undefined) return args.content;
-  return insertManagedFileBanner(args.content, {
-    source: { kind: "workspace-config", path: args.sourceFileName },
-    helpTopic: "instructions",
-    format,
-    ext: INSTRUCTION_ALIAS_EXT,
-    generation: projectionGeneration([INSTRUCTION_ALIAS_EXT, args.sourceFileName, args.content]),
-  });
-};
-
-const managedCopyMarker = (args: { readonly targetPath: string; readonly content: string }) => {
-  const format = managedFileFormatForPath(args.targetPath);
-  return format === undefined ? Option.none() : managedFileMarker(args.content, format);
-};
+/** A native path as a scope-relative row key; `None` when it leaves the scope root. */
+const instructionUnitPath = (
+  path: Path.Path,
+  workspaceRoot: string,
+  targetPath: string,
+): Option.Option<ProjectionUnitPath> =>
+  decodeUnitPath(workspaceRelativeGitPath({ path, workspaceRoot, targetPath }));
 
 interface ObservedTargetPath {
   readonly ownership: InstructionTargetOwnership;
   readonly observedForm: ObservedInstructionForm;
+  readonly lastWrite?: WholeFileLastWrite;
 }
 
 const observed = (
@@ -899,10 +955,10 @@ const observed = (
 ): ObservedTargetPath => ({ ownership, observedForm });
 
 /**
- * Classify what occupies a planned target path. Proof order: the path is the
- * source itself, a symlink resolving to the source, or a file carrying an
- * `axm:file` banner whose body is the source. Anything else present is
- * unowned. The banner must name this projection and its exact source.
+ * Classify what occupies a planned target path. The path is the source
+ * itself, a symlink resolving to the source, or a file judged against its
+ * recorded projection row by the shared whole-file decision. A differing file
+ * AXM has no record of writing is unowned.
  */
 const observeTargetPath = (args: {
   readonly nativeRoots?: ReadonlyArray<string>;
@@ -911,6 +967,7 @@ const observeTargetPath = (args: {
   readonly targetPath: string;
   readonly sourceContent: Option.Option<string>;
   readonly sourceFileName: string;
+  readonly rows: InstructionProjectionRows;
 }): Effect.Effect<ObservedTargetPath, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -952,29 +1009,29 @@ const observeTargetPath = (args: {
         Option.isSome(stat) && stat.value.type === "Directory" ? "directory" : "file",
       );
     }
-    const marker = managedCopyMarker({ targetPath: args.targetPath, content: targetContent.value });
-    if (
-      Option.isNone(marker) ||
-      marker.value.ext !== INSTRUCTION_ALIAS_EXT ||
-      marker.value.src !== args.sourceFileName
-    )
-      return observed("unowned", "file");
-    if (Option.isNone(args.sourceContent)) return observed("owned-drift", "copy");
-    const expected = withManagedCopyBanner({
-      targetPath: args.targetPath,
-      sourceFileName: args.sourceFileName,
-      content: args.sourceContent.value,
+    const unit = instructionUnitPath(path, args.workspaceRoot, args.targetPath);
+    const recorded = recordedRow(args.rows, unit);
+    if (Option.isNone(args.sourceContent) || Option.isNone(unit))
+      return Option.isSome(recorded)
+        ? observed("owned-drift", "copy")
+        : observed("unowned", "file");
+    const decision = decideWholeFileWrite({
+      recorded,
+      gen: copyGeneration(unit.value, args.sourceFileName, args.sourceContent.value),
+      bytes: targetContent,
+      rendered: args.sourceContent.value,
+      replaceUnrecorded: false,
     });
-    const expectedMarker = managedCopyMarker({ targetPath: args.targetPath, content: expected });
-    return observed(
-      Option.isSome(expectedMarker) &&
-        marker.value.ext === expectedMarker.value.ext &&
-        marker.value.src === expectedMarker.value.src &&
-        marker.value.generation === expectedMarker.value.generation
-        ? "owned-current"
-        : "owned-drift",
-      "copy",
-    );
+    switch (decision._tag) {
+      case "current":
+        return observed("owned-current", "copy");
+      case "write":
+        return { ...observed("owned-drift", "copy"), lastWrite: decision.lastWrite };
+      case "record":
+        return observed("owned-unrecorded-identical", "copy");
+      case "conflict":
+        return { ...observed("unowned", "file"), lastWrite: "unrecorded" };
+    }
   });
 
 const observePlannedItems = (args: {
@@ -983,6 +1040,7 @@ const observePlannedItems = (args: {
   readonly plan: InstructionProjectionPlan;
   readonly config: ResolvedInstructionsConfig;
   readonly symlinkSupported: boolean;
+  readonly rows: InstructionProjectionRows;
 }) =>
   Effect.forEach(
     args.plan.items,
@@ -1032,6 +1090,7 @@ const observePlannedItems = (args: {
                 targetPath: item.targetPath,
                 sourceContent,
                 sourceFileName: args.config.fileName,
+                rows: args.rows,
               });
         const health = toInstructionHealth({
           sourceExists: Option.isSome(sourceContent),
@@ -1048,6 +1107,7 @@ const observePlannedItems = (args: {
           health,
           ownership: target.ownership,
           observedForm: target.observedForm,
+          ...(target.lastWrite === undefined ? {} : { lastWrite: target.lastWrite }),
           details: instructionDetails(item.instructions, health, target.ownership),
         } satisfies InstructionStatusItem;
       }),
@@ -1056,10 +1116,12 @@ const observePlannedItems = (args: {
 
 /**
  * Classify a registry-convention path the current plan does not desire. Only
- * proof that AXM produced it makes it a stale target: a symlink that resolves
- * to the canonical file beside it — exactly what AXM writes — or a banner
- * carrying the instruction-alias identity. Anything else is not AXM's and is
- * left alone without being reported; outside the plan there is no collision.
+ * evidence that AXM produced it makes it a stale target: a symlink that resolves
+ * to the canonical file beside it — exactly what AXM writes — or a recorded
+ * projection row at its path. Anything else is not AXM's and is left alone
+ * without being reported; outside the plan there is no collision. A recorded
+ * copy reads `owned-current` when the deletion guard would delete it and
+ * `owned-drift` when it would be retained as modified.
  *
  * Aliases of an earlier canonical filename are not recognized here. That
  * transition runs through `axm instructions enable --file`, which removes the
@@ -1070,6 +1132,7 @@ const observeStaleCandidate = (
   sourceFileName: string,
   workspaceRoot: string,
   nativeRoots: ReadonlyArray<string>,
+  rows: InstructionProjectionRows,
 ): Effect.Effect<Option.Option<InstructionStatusItem>, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -1120,35 +1183,23 @@ const observeStaleCandidate = (
 
     const content = yield* readFileOption(candidate.targetPath, workspaceRoot, nativeRoots);
     if (Option.isNone(content)) return Option.none();
-    const marker = managedCopyMarker({ targetPath: candidate.targetPath, content: content.value });
-    if (
-      Option.isNone(marker) ||
-      marker.value.ext !== INSTRUCTION_ALIAS_EXT ||
-      marker.value.src !== sourceFileName
-    )
-      return Option.none();
-    const sourceFile = path.join(candidate.root, marker.value.src);
-    const sourceContent = yield* readFileOption(sourceFile, workspaceRoot, nativeRoots);
-    const expected = Option.map(sourceContent, (source) =>
-      withManagedCopyBanner({
-        targetPath: candidate.targetPath,
-        sourceFileName: marker.value.src,
-        content: source,
-      }),
+    const recorded = recordedRow(
+      rows,
+      instructionUnitPath(path, workspaceRoot, candidate.targetPath),
     );
-    const expectedMarker = Option.flatMap(expected, (value) =>
-      managedCopyMarker({ targetPath: candidate.targetPath, content: value }),
-    );
-    const current =
-      Option.isSome(expectedMarker) &&
-      marker.value.ext === expectedMarker.value.ext &&
-      marker.value.src === expectedMarker.value.src &&
-      marker.value.generation === expectedMarker.value.generation;
+    if (Option.isNone(recorded)) return Option.none();
+    const sourceFile = path.join(candidate.root, sourceFileName);
+    const decision = decideOutputDeletion({
+      bytes: content,
+      recorded,
+      expectedRender: yield* readFileOption(sourceFile, workspaceRoot, nativeRoots),
+      discardModified: false,
+    });
     return Option.some(
       stale({
         sourceFile,
         mechanism: "copy",
-        ownership: current ? "owned-current" : "owned-drift",
+        ownership: decision._tag === "delete" ? "owned-current" : "owned-drift",
         observedForm: "copy",
       }),
     );
@@ -1164,13 +1215,28 @@ const managedGitignoreRegionState = (content: string): ManagedRegionState["state
     onSome: ({ state }) => state,
   });
 
-/** The `.gitignore` with the alias region rendered as `patterns`; unchanged when it cannot be. */
-const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) => ({
-  updated: Option.match(reconcilePatternList({ content, patterns }), {
-    onNone: () => content,
-    onSome: ({ updated }) => updated,
-  }),
-});
+/** The `.gitignore` with the alias region rendered as `patterns`; `None` when it cannot be. */
+const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
+  Option.map(reconcilePatternList({ content, patterns }), ({ updated }) => updated);
+
+/** The row recording `raw`'s alias region, or its withdrawal once the region is gone. */
+const gitignoreRowChange = (args: {
+  readonly raw: string;
+  readonly patterns: ReadonlyArray<string>;
+  readonly recorded: Option.Option<RecordedProjectionRow>;
+}): Option.Option<ProjectionRowChange> => {
+  const region = gitignoreRegion(args.raw);
+  if (Option.isSome(region) && region.value.state === "complete")
+    return Option.some({
+      kind: INSTRUCTIONS_KIND,
+      path: GITIGNORE_UNIT,
+      row: {
+        gen: gitignoreGeneration(args.patterns),
+        output: projectionOutputDigest(region.value.body),
+      },
+    });
+  return Option.isSome(args.recorded) ? Option.some(withdrawRow(GITIGNORE_UNIT)) : Option.none();
+};
 
 const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
@@ -1252,6 +1318,7 @@ const observeInstructionsGitignore = (args: {
   readonly config: ResolvedInstructionsConfig;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView: boolean;
+  readonly rows: InstructionProjectionRows;
 }): Effect.Effect<InstructionsGitignoreStatus, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -1304,7 +1371,7 @@ const observeInstructionsGitignore = (args: {
     const currentRegionState = Option.isSome(currentContent)
       ? managedGitignoreRegionState(currentContent.value)
       : "absent";
-    const current = currentRegionState === "complete";
+    const complete = currentRegionState === "complete";
     const patterns = desiredGitignorePatterns({
       enabled: args.config.gitignoreAliases,
       path,
@@ -1312,20 +1379,20 @@ const observeInstructionsGitignore = (args: {
       plan: args.plan,
     });
     const desired = patterns.length > 0;
-    const next = reconcileGitignorePatterns(
-      Option.getOrElse(currentContent, () => ""),
-      patterns,
-    ).updated;
+    const recorded = Option.fromNullishOr(args.rows.get(GITIGNORE_UNIT));
+    // Currency is the recorded generation, never the region's bytes: a
+    // reformatted region stays current until its patterns change.
     return {
       file,
       present: Option.isSome(currentContent),
-      managed: currentRegionState === "complete",
+      managed: complete,
       desired,
       trackedAliases,
       current:
         currentRegionState !== "malformed" &&
-        ((patterns.length === 0 && !current) ||
-          (Option.isSome(currentContent) && currentContent.value === next)),
+        (desired
+          ? projectionIsCurrent(recorded, gitignoreGeneration(patterns), complete)
+          : currentRegionState === "absent"),
     };
   });
 
@@ -1349,7 +1416,16 @@ export type PlannedInstructionChange =
       readonly item: InstructionStatusItem;
       readonly change: "removed";
     }
-  | { readonly kind: "gitignore"; readonly path: string; readonly change: "created" | "updated" };
+  | { readonly kind: "gitignore"; readonly path: string; readonly change: "created" | "updated" }
+  /** Unrecorded bytes already equal the source; only the projection row is written. */
+  | { readonly kind: "record"; readonly item: InstructionStatusItem; readonly change: "recorded" };
+
+/** A differing unrecorded file the caller explicitly asked AXM to overwrite. */
+const replaceableUnrecorded = (
+  snapshot: Pick<InstructionProjectionSnapshot, "replaceUnrecorded">,
+  item: InstructionStatusItem,
+): boolean =>
+  snapshot.replaceUnrecorded && item.ownership === "unowned" && item.observedForm === "file";
 
 /** One decision for preview and apply; see docs/architecture/workspace/instruction-files.md:
  * a dry run names exactly the targets a real run would write and remove. */
@@ -1395,7 +1471,12 @@ export const plannedInstructionChanges = (
         (item.health === "missing-source" && !sourceWrites.includes(item.sourceFile))
       )
         return [];
-      if (item.ownership === "unowned") return [];
+      if (item.ownership === "unowned" && !replaceableUnrecorded(snapshot, item)) return [];
+      if (
+        item.ownership === "owned-unrecorded-identical" &&
+        !sourceWrites.includes(item.sourceFile)
+      )
+        return [{ kind: "record", item, change: "recorded" }];
       if (
         item.ownership === "owned-current" &&
         item.observedForm !== "broken-link" &&
@@ -1422,10 +1503,14 @@ export const plannedInstructionChanges = (
   ];
 };
 
-const instructionChangeEffect = (change: PlannedInstructionChange): InstructionProjectionEffect =>
-  change.kind === "gitignore"
-    ? { path: change.path, change: change.change }
-    : { path: change.item.targetFile, change: change.change };
+const instructionChangeEffect = (
+  change: PlannedInstructionChange,
+): ReadonlyArray<InstructionProjectionEffect> =>
+  change.kind === "record"
+    ? []
+    : change.kind === "gitignore"
+      ? [{ path: change.path, change: change.change }]
+      : [{ path: change.item.targetFile, change: change.change }];
 
 /** Exact durable paths a reconciliation from this observation will touch. */
 export const instructionProjectionEffects = (
@@ -1433,21 +1518,32 @@ export const instructionProjectionEffects = (
   sourceWrites: ReadonlyArray<string> = [],
 ): ReadonlyArray<InstructionProjectionEffect> =>
   uniqueEffects(
-    plannedInstructionChanges(snapshot, "reconcile", sourceWrites).map(instructionChangeEffect),
+    plannedInstructionChanges(snapshot, "reconcile", sourceWrites).flatMap(instructionChangeEffect),
   );
+
+/**
+ * Whether reconciling this observation changes recorded projection rows
+ * without touching any native file: an identical copy to record, or a row
+ * nothing accounts for any more.
+ */
+export const instructionProjectionRecordsRows = (
+  snapshot: InstructionProjectionSnapshot,
+): boolean =>
+  snapshot.orphanRows.length > 0 ||
+  plannedInstructionChanges(snapshot, "reconcile").some((change) => change.kind === "record");
 
 /** Exact durable paths disabling this observed projection will touch. */
 export const instructionProjectionRemovalEffects = (
   snapshot: InstructionProjectionSnapshot,
 ): ReadonlyArray<InstructionProjectionEffect> =>
-  uniqueEffects(plannedInstructionChanges(snapshot, "remove").map(instructionChangeEffect));
+  uniqueEffects(plannedInstructionChanges(snapshot, "remove").flatMap(instructionChangeEffect));
 
 export const instructionProjectionNativeLocations = (
   snapshot: InstructionProjectionSnapshot,
   mode: "reconcile" | "remove",
   sourceWrites: ReadonlyArray<string> = [],
 ) => {
-  const changes = plannedInstructionChanges(snapshot, mode, sourceWrites).map(
+  const changes = plannedInstructionChanges(snapshot, mode, sourceWrites).flatMap(
     instructionChangeEffect,
   );
   return instructionChangeLocations({
@@ -1472,6 +1568,15 @@ export interface ObserveInstructionProjectionArgs {
   readonly prospectiveRoots?: ReadonlyArray<string>;
   /** True only when the supplied filesystem is a snapshot of the Git index. */
   readonly gitIndexView?: boolean;
+  /**
+   * Recorded `instructions` projection rows. Callers read them before
+   * observing, so a lockfile this CLI cannot read fails before any write.
+   */
+  readonly rows: InstructionProjectionRows;
+  /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
+  readonly replaceUnrecorded?: boolean;
+  /** Delete recorded copies even when they were modified since AXM last wrote them. */
+  readonly discardModified?: boolean;
 }
 
 /**
@@ -1514,6 +1619,7 @@ export const observeInstructionProjection = (
       plan,
       config: args.config,
       symlinkSupported,
+      rows: args.rows,
     });
     const desiredTargets = new Set(
       plan.items.flatMap((item) => (item.action === "skip" ? [] : [path.resolve(item.targetPath)])),
@@ -1526,7 +1632,13 @@ export const observeInstructionProjection = (
         (candidate) => !desiredTargets.has(path.resolve(candidate.targetPath)),
       ),
       (candidate) =>
-        observeStaleCandidate(candidate, args.config.fileName, args.workspaceRoot, nativeRoots),
+        observeStaleCandidate(
+          candidate,
+          args.config.fileName,
+          args.workspaceRoot,
+          nativeRoots,
+          args.rows,
+        ),
       { concurrency: 1 },
     ))
       .filter(Option.isSome)
@@ -1543,7 +1655,29 @@ export const observeInstructionProjection = (
       plan,
       config: args.config,
       gitIndexView: args.gitIndexView === true,
+      rows: args.rows,
     });
+    // A row is kept only while a copy it records is still observed or about
+    // to be written; links, the canonical file, and vanished paths need none.
+    const recordedCopies = new Set(
+      [...items, ...staleTargets].flatMap((item) =>
+        isProjectedTarget(item) &&
+        (item.observedForm === "copy" ||
+          item.observedForm === "none" ||
+          item.ownership === "unowned")
+          ? Option.toArray(instructionUnitPath(path, args.workspaceRoot, item.targetFile))
+          : [],
+      ),
+    );
+    // The `.gitignore` row outlives its region only when no region is wanted
+    // and none is left to remove; withdrawing it then writes no file.
+    const orphanRows = [...args.rows.keys()]
+      .filter((unit) =>
+        unit === GITIGNORE_UNIT
+          ? !gitignore.desired && !gitignore.managed && gitignore.current
+          : !recordedCopies.has(unit),
+      )
+      .sort((left, right) => left.localeCompare(right, "en"));
     const witnessPaths = [
       ...new Set([
         ...plan.items.flatMap((item) =>
@@ -1611,6 +1745,10 @@ export const observeInstructionProjection = (
       ],
       plan,
       symlinkSupported,
+      rows: args.rows,
+      orphanRows,
+      replaceUnrecorded: args.replaceUnrecorded === true,
+      discardModified: args.discardModified === true,
       status: {
         enabled: true,
         sourceFileName: args.config.fileName,
@@ -1633,19 +1771,33 @@ const isProjectedTarget = (item: InstructionStatusItem): boolean =>
   item.mechanism === "symlink" || item.mechanism === "copy";
 
 const unownedInstructionTargets = (
-  status: InstructionsStatus,
+  snapshot: Pick<InstructionProjectionSnapshot, "status" | "replaceUnrecorded">,
+  action: "overwrite" | "remove",
 ): ReadonlyArray<InstructionStatusItem> =>
-  status.items.filter((item) => isProjectedTarget(item) && item.ownership === "unowned");
+  snapshot.status.items.filter(
+    (item) =>
+      isProjectedTarget(item) &&
+      item.ownership === "unowned" &&
+      (action === "remove" || !replaceableUnrecorded(snapshot, item)),
+  );
 
 const unownedTargetsFailure = (
   blockers: ReadonlyArray<InstructionStatusItem>,
   action: "overwrite" | "remove",
-): InstructionMaintenanceFailed =>
-  new InstructionMaintenanceFailed({
+): InstructionMaintenanceFailed => {
+  const files = blockers.filter((item) => item.observedForm === "file");
+  return new InstructionMaintenanceFailed({
     category: "conflict",
-    detail: `Instruction ${action === "overwrite" ? "reconciliation would overwrite" : "cleanup would remove"} files with unknown ownership: ${blockers
-      .map((item) => item.targetFile)
-      .join(", ")}`,
+    detail:
+      action === "overwrite" && files.length === blockers.length
+        ? `${blockers
+            .map((item) => item.targetFile)
+            .join(
+              ", ",
+            )} exists with different content and has no recorded projection; rerun with --replace-unrecorded to overwrite it, or move the file aside`
+        : `Instruction ${action === "overwrite" ? "reconciliation would overwrite" : "cleanup would remove"} files with unknown ownership: ${blockers
+            .map((item) => item.targetFile)
+            .join(", ")}`,
     suggestions: [
       {
         description: "Inspect instruction-file ownership and drift",
@@ -1653,31 +1805,37 @@ const unownedTargetsFailure = (
       },
     ],
   });
+};
 
 /**
- * Whether every projected target with a canonical source is current, no owned
- * residue remains, and the managed `.gitignore` region matches. Rows whose
- * source is missing are not judged here: nothing can be written for them, and
- * the caller decides whether a missing canonical file is its concern — the
- * sync plan treats it as work, `axm lint --fix` leaves it to its author.
+ * Whether every projected target with a canonical source is current, every
+ * copy is recorded, no owned residue or orphaned row remains, and the managed
+ * `.gitignore` region is current. Rows whose source is missing are not judged
+ * here: nothing can be written for them, and the caller decides whether a
+ * missing canonical file is its concern — the sync plan treats it as work,
+ * `axm lint --fix` leaves it to its author.
  */
 export const instructionProjectionIsCurrent = (snapshot: InstructionProjectionSnapshot): boolean =>
   snapshot.status.items.every(
-    (item) => !isProjectedTarget(item) || item.health === "ok" || item.health === "missing-source",
+    (item) =>
+      !isProjectedTarget(item) ||
+      ((item.health === "ok" || item.health === "missing-source") &&
+        item.ownership !== "owned-unrecorded-identical"),
   ) &&
   snapshot.status.staleTargets.length === 0 &&
+  snapshot.orphanRows.length === 0 &&
   snapshot.gitignore.current;
 
 /**
- * The hard blocker every mutation shares: an unowned file at a planned target
- * stops the whole operation before any write, so no path can claim authority
- * over content AXM cannot prove it produced.
+ * The hard blocker every mutation shares: a differing file AXM has no record
+ * of writing at a planned target stops the whole operation before any write,
+ * unless the caller asked to replace unrecorded files.
  */
 export const assertInstructionTargetsSafe = (
-  status: InstructionsStatus,
+  snapshot: Pick<InstructionProjectionSnapshot, "status" | "replaceUnrecorded">,
 ): Effect.Effect<void, InstructionMaintenanceFailure> =>
   Effect.gen(function* () {
-    const blockers = unownedInstructionTargets(status);
+    const blockers = unownedInstructionTargets(snapshot, "overwrite");
     if (blockers.length === 0) return;
     return yield* unownedTargetsFailure(blockers, "overwrite");
   });
@@ -1756,27 +1914,35 @@ const removeTargetFile = (targetPath: string, cleanupDirectories = true) =>
         .pipe(Effect.mapError(insertionFailure));
   });
 
-/** Resolve entries, recheck ownership, and negotiate every shared target before writing. */
+interface PreparedInstructionTarget extends InstructionStatusItem {
+  readonly observedPaths: ReadonlyArray<string>;
+  /** The row key of the planned (lexical) target. */
+  readonly unit: Option.Option<ProjectionUnitPath>;
+}
+
+/**
+ * Resolve entries, recheck each target against the decision its change was
+ * planned from, and negotiate every shared target before writing. A target
+ * observed differently than planned refuses the whole operation.
+ */
 const preparePhysicalInstructionTargets = (
-  workspaceRoot: string,
+  snapshot: InstructionProjectionSnapshot,
   items: ReadonlyArray<InstructionStatusItem>,
-  sourceFileName: string,
-  nativeRoots: ReadonlyArray<string> = [workspaceRoot],
+  purpose: "write" | "record" | "remove",
 ) =>
   Effect.gen(function* () {
-    const targets = new Map<
-      string,
-      InstructionStatusItem & { readonly observedPaths: ReadonlyArray<string> }
-    >();
+    const path = yield* Path.Path;
+    const { workspaceRoot, nativeRoots } = snapshot;
+    const targets = new Map<string, PreparedInstructionTarget>();
     for (const item of items) {
       const { address } = yield* assertNativeMutationWithinRoots(
-        nativeRoots,
+        nativeRoots ?? [workspaceRoot],
         item.targetFile,
         "entry",
         workspaceRoot,
       );
       const { address: source } = yield* assertNativeMutationWithinRoots(
-        nativeRoots,
+        nativeRoots ?? [workspaceRoot],
         item.sourceFile,
         "content",
         workspaceRoot,
@@ -1784,13 +1950,26 @@ const preparePhysicalInstructionTargets = (
       const sourceFile = source.referentPath ?? source.entryPath;
       const current = yield* observeTargetPath({
         workspaceRoot,
-        nativeRoots,
+        ...(nativeRoots === undefined ? {} : { nativeRoots }),
         sourcePath: sourceFile,
         targetPath: address.entryPath,
-        sourceFileName,
+        sourceFileName: snapshot.status.sourceFileName,
         sourceContent: yield* readFileOption(sourceFile, workspaceRoot, nativeRoots),
+        rows: snapshot.rows,
       });
-      if (current.ownership === "unowned") return yield* unownedTargetsFailure([item], "overwrite");
+      if (
+        current.ownership === "unowned" &&
+        (purpose !== "write" || !replaceableUnrecorded(snapshot, { ...item, ...current }))
+      )
+        return yield* unownedTargetsFailure(
+          [{ ...item, ...current }],
+          purpose === "remove" ? "remove" : "overwrite",
+        );
+      if (purpose === "record" && current.ownership !== "owned-unrecorded-identical")
+        return yield* new InstructionMaintenanceFailed({
+          category: "conflict",
+          detail: `Instruction input changed after observation: ${item.targetFile}`,
+        });
       const prior = targets.get(address.entryPath);
       if (
         prior !== undefined &&
@@ -1807,6 +1986,7 @@ const preparePhysicalInstructionTargets = (
         targetFile: address.entryPath,
         sourceFile,
         observedPaths: [...(prior?.observedPaths ?? []), item.targetFile, item.sourceFile],
+        unit: instructionUnitPath(path, workspaceRoot, item.targetFile),
       });
     }
     return [...targets.values()];
@@ -1822,68 +2002,151 @@ const preparePhysicalInstructionTargets = (
     ),
   );
 
+/** The withdrawal of a target's row, when one is recorded. */
+const rowWithdrawal = (
+  snapshot: InstructionProjectionSnapshot,
+  unit: Option.Option<ProjectionUnitPath>,
+): Option.Option<ProjectionRowChange> =>
+  Option.map(
+    Option.filter(unit, (key) => snapshot.rows.has(key)),
+    withdrawRow,
+  );
+
+/**
+ * The deletion guard's verdict for one owned target. A link is proven by its
+ * referent; a copy is deleted only when its bytes are AXM's last write or the
+ * current source, or the caller discards modified copies.
+ */
+const decideTargetRemoval = (
+  snapshot: InstructionProjectionSnapshot,
+  item: PreparedInstructionTarget,
+) =>
+  Effect.gen(function* () {
+    if (item.observedForm === "symlink" || item.observedForm === "broken-link")
+      return { _tag: "delete" } as const;
+    const bytes = yield* readFileOption(
+      item.targetFile,
+      snapshot.workspaceRoot,
+      snapshot.nativeRoots,
+    );
+    return decideOutputDeletion({
+      bytes,
+      recorded: recordedRow(snapshot.rows, item.unit),
+      expectedRender: yield* readFileOption(
+        item.sourceFile,
+        snapshot.workspaceRoot,
+        snapshot.nativeRoots,
+      ),
+      discardModified: snapshot.discardModified,
+    });
+  });
+
+interface TargetRemovals {
+  readonly removed: ReadonlyArray<string>;
+  readonly retained: ReadonlyArray<RetainedInstructionTarget>;
+  readonly rowChanges: ReadonlyArray<ProjectionRowChange>;
+}
+
+/** Remove owned targets through the deletion guard; every target's row is withdrawn. */
+const removeGuardedTargets = (
+  snapshot: InstructionProjectionSnapshot,
+  targets: ReadonlyArray<PreparedInstructionTarget>,
+  dryRun: boolean,
+) =>
+  Effect.gen(function* () {
+    const removed: Array<string> = [];
+    const retained: Array<RetainedInstructionTarget> = [];
+    const rowChanges: Array<ProjectionRowChange> = [];
+    for (const item of targets) {
+      if (!dryRun) yield* assertInstructionWitnesses(snapshot, new Set(item.observedPaths));
+      const decision = yield* decideTargetRemoval(snapshot, item);
+      if (decision._tag === "delete") {
+        if (!dryRun) yield* removeTargetFile(item.targetFile);
+        removed.push(item.targetFile);
+      } else {
+        retained.push({ path: item.targetFile, reason: decision.reason });
+      }
+      rowChanges.push(...Option.toArray(rowWithdrawal(snapshot, item.unit)));
+    }
+    return { removed, retained, rowChanges } satisfies TargetRemovals;
+  });
+
 /**
  * Remove every target AXM owns — the current plan's owned aliases and all
  * stale residue — refusing the whole operation if any planned target is
- * unowned. Returns the removable paths in plan order; with `dryRun` nothing
- * is touched and the same list is returned.
+ * unowned. A copy whose bytes AXM cannot show are its own is retained and
+ * reported. With `dryRun` nothing is touched and the same outcome is returned.
  */
 export const removeManagedInstructionTargets = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
-    const { status } = args.snapshot;
-    const blockers = unownedInstructionTargets(status);
+    const blockers = unownedInstructionTargets(args.snapshot, "remove");
     if (blockers.length > 0) {
       return yield* unownedTargetsFailure(blockers, "remove");
     }
     const targets = yield* preparePhysicalInstructionTargets(
-      args.snapshot.workspaceRoot,
+      args.snapshot,
       plannedInstructionChanges(args.snapshot, "remove").flatMap((change) =>
         change.kind === "owned-alias" || change.kind === "stale" ? [change.item] : [],
       ),
-      status.sourceFileName,
-      args.snapshot.nativeRoots,
+      "remove",
     );
-    const removable = targets.map((item) => item.targetFile);
-    if (!args.dryRun) {
-      yield* assertInstructionWitnesses(args.snapshot);
-      yield* Effect.forEach(
-        targets,
-        (item) =>
-          assertInstructionWitnesses(args.snapshot, new Set(item.observedPaths)).pipe(
-            Effect.andThen(removeTargetFile(item.targetFile)),
-          ),
-        { concurrency: 1, discard: true },
-      );
-    }
-    return removable;
+    if (!args.dryRun) yield* assertInstructionWitnesses(args.snapshot);
+    const removals = yield* removeGuardedTargets(args.snapshot, targets, args.dryRun);
+    return {
+      ...removals,
+      rowChanges: [...removals.rowChanges, ...args.snapshot.orphanRows.map(withdrawRow)],
+    } satisfies TargetRemovals;
   });
 
-/** Write one target already selected by plannedInstructionChanges. */
+/** Write one target already selected by plannedInstructionChanges; returns its row edit. */
 const writeOneTarget = (args: {
-  readonly item: InstructionStatusItem;
+  readonly snapshot: InstructionProjectionSnapshot;
+  readonly item: PreparedInstructionTarget;
   readonly sourceContent: string;
-  readonly sourceFileName: string;
 }) =>
   Effect.gen(function* () {
     const { item } = args;
     if (item.mechanism === "symlink") {
       yield* createSymlink({ target: item.sourceFile, link: item.targetFile });
-      return;
+      return rowWithdrawal(args.snapshot, item.unit);
     }
+    if (Option.isNone(item.unit))
+      return yield* new InstructionMaintenanceFailed({
+        category: "conflict",
+        detail: `Instruction copy cannot be recorded outside its scope root: ${item.targetFile}`,
+      });
     if (item.observedForm === "symlink" || item.observedForm === "broken-link")
       yield* removeTargetFile(item.targetFile, false);
-    yield* writeFile(
-      item.targetFile,
-      withManagedCopyBanner({
-        targetPath: item.targetFile,
-        sourceFileName: args.sourceFileName,
-        content: args.sourceContent,
-      }),
-    );
+    yield* writeFile(item.targetFile, args.sourceContent);
+    return Option.some<ProjectionRowChange>({
+      kind: INSTRUCTIONS_KIND,
+      path: item.unit.value,
+      row: {
+        gen: copyGeneration(
+          item.unit.value,
+          args.snapshot.status.sourceFileName,
+          args.sourceContent,
+        ),
+        output: projectionOutputDigest(args.sourceContent),
+      },
+    });
   });
+
+/** Render the alias region as `patterns`, refusing when the render would break the file's fences. */
+const renderGitignore = (filePath: string, raw: string, patterns: ReadonlyArray<string>) =>
+  Option.match(reconcileGitignorePatterns(raw, patterns), {
+    onNone: () => Effect.fail(unsafeGitignoreRegionFailure(filePath)),
+    onSome: (updated) => Effect.succeed(updated),
+  });
+
+/** The `.gitignore` as written, so its row can record the region AXM left there. */
+interface WrittenGitignore {
+  readonly path: string;
+  readonly raw: string;
+}
 
 const writeGitignoreRegion = (args: {
   readonly workspaceRoot: string;
@@ -1892,7 +2155,7 @@ const writeGitignoreRegion = (args: {
   readonly dryRun?: boolean;
 }) =>
   Effect.gen(function* () {
-    if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<string>();
+    if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<WrittenGitignore>();
     const lexical = yield* instructionGitignorePath(args.workspaceRoot);
     const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
     const filePath = address.referentPath ?? address.entryPath;
@@ -1915,6 +2178,7 @@ const writeGitignoreRegion = (args: {
         unit: unit(pattern),
       });
       let patterns = previous.filter((pattern) => args.patterns.includes(pattern));
+      const written = () => Option.some<WrittenGitignore>({ path: filePath, raw });
       const publish = (next: string, pattern: string, eligible: boolean) =>
         Effect.gen(function* () {
           if (eligible && Option.isNone(deriveStructuralInverse(raw, next)))
@@ -1947,17 +2211,17 @@ const writeGitignoreRegion = (args: {
       // an intervening removal does not establish a new exact-insertion premise.
       const replaced = removed[0];
       if (replaced !== undefined && added.length > 0) {
-        const next = reconcileGitignorePatterns(raw, args.patterns).updated;
+        const next = yield* renderGitignore(filePath, raw, args.patterns);
         if (next !== raw) yield* publish(next, replaced, false);
         if (!args.dryRun)
           for (const pattern of removed)
             yield* authority
               .forgetInsertion(target(pattern))
               .pipe(Effect.mapError(insertionFailure));
-        return Option.some(filePath);
+        return written();
       }
       if (removed.length > 0) {
-        const standard = reconcileGitignorePatterns(raw, patterns).updated;
+        const standard = yield* renderGitignore(filePath, raw, patterns);
         const inverse = yield* authority
           .resolveInsertions({ path: filePath, aliases: [lexical], units: removed.map(unit), raw })
           .pipe(Effect.mapError(insertionFailure));
@@ -1989,16 +2253,19 @@ const writeGitignoreRegion = (args: {
       for (const pattern of added) {
         patterns = [...patterns, pattern].sort();
         yield* publish(
-          reconcileGitignorePatterns(raw, patterns).updated,
+          yield* renderGitignore(filePath, raw, patterns),
           pattern,
           args.eligiblePatterns?.has(pattern) === true,
         );
       }
       if (removed.length === 0 && added.length === 0) {
-        const next = reconcileGitignorePatterns(raw, args.patterns).updated;
-        if (next !== raw && !args.dryRun) yield* writeFile(filePath, next);
+        const next = yield* renderGitignore(filePath, raw, args.patterns);
+        if (next !== raw && !args.dryRun) {
+          yield* writeFile(filePath, next);
+          raw = next;
+        }
       }
-      return Option.some(filePath);
+      return written();
     });
     return yield* args.dryRun
       ? run
@@ -2007,30 +2274,109 @@ const writeGitignoreRegion = (args: {
 
 export const removeInstructionsGitignore = (args: {
   readonly workspaceRoot: string;
+  readonly rows: InstructionProjectionRows;
   readonly dryRun: boolean;
 }): Effect.Effect<
-  Option.Option<string>,
+  {
+    readonly path: Option.Option<string>;
+    readonly rowChange: Option.Option<ProjectionRowChange>;
+  },
   InstructionMaintenanceFailure,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
-    if (!(yield* isGitManaged(args.workspaceRoot))) return Option.none<string>();
+    const recorded = Option.fromNullishOr(args.rows.get(GITIGNORE_UNIT));
+    const unchanged = {
+      path: Option.none<string>(),
+      rowChange: Option.isSome(recorded)
+        ? Option.some(withdrawRow(GITIGNORE_UNIT))
+        : Option.none<ProjectionRowChange>(),
+    };
+    if (!(yield* isGitManaged(args.workspaceRoot))) return unchanged;
     const lexical = yield* instructionGitignorePath(args.workspaceRoot);
     const address = yield* instructionContentAddress(args.workspaceRoot, lexical);
     const filePath = address.referentPath ?? address.entryPath;
     const content = yield* readFileOption(filePath, args.workspaceRoot);
-    if (Option.isNone(content)) return Option.none<string>();
+    if (Option.isNone(content)) return unchanged;
     const state = managedGitignoreRegionState(content.value);
-    if (state === "absent") return Option.none<string>();
-    if (args.dryRun && state === "complete") return Option.some(filePath);
-    return yield* writeGitignoreRegion({ workspaceRoot: args.workspaceRoot, patterns: [] });
+    if (state === "absent") return unchanged;
+    if (args.dryRun && state === "complete") return { ...unchanged, path: Option.some(filePath) };
+    const written = yield* writeGitignoreRegion({
+      workspaceRoot: args.workspaceRoot,
+      patterns: [],
+    });
+    return {
+      path: Option.map(written, ({ path }) => path),
+      rowChange: Option.isSome(written)
+        ? gitignoreRowChange({ raw: written.value.raw, patterns: [], recorded })
+        : unchanged.rowChange,
+    };
   });
+
+/** Rows recording copies whose bytes were just re-observed equal to their source. */
+const recordPreparedCopies = (
+  snapshot: InstructionProjectionSnapshot,
+  records: ReadonlyArray<PreparedInstructionTarget>,
+) =>
+  Effect.forEach(
+    records,
+    (item) =>
+      Effect.gen(function* () {
+        yield* assertInstructionWitnesses(snapshot, new Set(item.observedPaths));
+        const sourceContent = yield* readFileOption(item.sourceFile, snapshot.workspaceRoot);
+        if (Option.isNone(sourceContent) || Option.isNone(item.unit))
+          return yield* new InstructionMaintenanceFailed({
+            category: "conflict",
+            detail: `Instruction input changed after observation: ${item.targetFile}`,
+          });
+        return {
+          kind: INSTRUCTIONS_KIND,
+          path: item.unit.value,
+          row: {
+            gen: copyGeneration(
+              item.unit.value,
+              snapshot.status.sourceFileName,
+              sourceContent.value,
+            ),
+            output: projectionOutputDigest(sourceContent.value),
+          },
+        } satisfies ProjectionRowChange;
+      }),
+    { concurrency: 1 },
+  );
+
+/**
+ * Rows for copies AXM has no record of writing whose bytes already equal
+ * their source. A caller about to rewrite a canonical file records them first,
+ * so the copies stay provably AXM's when the source changes under them.
+ */
+export const recordIdenticalInstructionCopies = (snapshot: InstructionProjectionSnapshot) =>
+  Effect.gen(function* () {
+    const records = yield* preparePhysicalInstructionTargets(
+      snapshot,
+      plannedInstructionChanges(snapshot, "reconcile").flatMap((change) =>
+        change.kind === "record" ? [change.item] : [],
+      ),
+      "record",
+    );
+    return yield* recordPreparedCopies(snapshot, records);
+  });
+
+/** What applying an instruction projection did, and the row edits it produced. */
+export interface AppliedInstructionProjection {
+  readonly written: ReadonlyArray<string>;
+  readonly removed: ReadonlyArray<string>;
+  readonly retained: ReadonlyArray<RetainedInstructionTarget>;
+  readonly rowChanges: ReadonlyArray<ProjectionRowChange>;
+}
 
 /**
  * Apply the desired state the snapshot describes. Stale residue is removed
- * first, then targets are written, then the `.gitignore` region is rewritten —
- * an ignore entry is never dropped while the file it covers remains, so a
- * removed alias is not exposed to Git between steps.
+ * first through the deletion guard, then targets are written and identical
+ * copies recorded, then the `.gitignore` region is rewritten — an ignore entry
+ * is never dropped while the file it covers remains, so a removed alias is not
+ * exposed to Git between steps. A differing unrecorded file at a planned
+ * target refuses the whole application unless the snapshot replaces it.
  */
 export const applyInstructionProjection = (args: {
   readonly workspaceRoot: string;
@@ -2038,25 +2384,28 @@ export const applyInstructionProjection = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly dryRun: boolean;
 }): Effect.Effect<
-  { readonly written: ReadonlyArray<string>; readonly removed: ReadonlyArray<string> },
+  AppliedInstructionProjection,
   InstructionMaintenanceFailure,
   FileSystem.FileSystem | Path.Path | NativeWriteAuthority
 > =>
   Effect.gen(function* () {
     const { snapshot } = args;
+    yield* assertInstructionTargetsSafe(snapshot);
     const changes = plannedInstructionChanges(snapshot, "reconcile");
     const stale = yield* preparePhysicalInstructionTargets(
-      args.workspaceRoot,
+      snapshot,
       changes.flatMap((change) => (change.kind === "stale" ? [change.item] : [])),
-      args.config.fileName,
-      snapshot.nativeRoots,
+      "remove",
     );
-    const removed = stale.map((item) => item.targetFile);
     const targets = yield* preparePhysicalInstructionTargets(
-      args.workspaceRoot,
+      snapshot,
       changes.flatMap((change) => (change.kind === "target" ? [change.item] : [])),
-      args.config.fileName,
-      snapshot.nativeRoots,
+      "write",
+    );
+    const records = yield* preparePhysicalInstructionTargets(
+      snapshot,
+      changes.flatMap((change) => (change.kind === "record" ? [change.item] : [])),
+      "record",
     );
     const gitignore = changes.find((change) => change.kind === "gitignore");
     const path = yield* Path.Path;
@@ -2099,17 +2448,13 @@ export const applyInstructionProjection = (args: {
       ...targets.map((item) => item.targetFile),
       ...(gitignore?.kind === "gitignore" ? [gitignore.path] : []),
     ];
-    if (args.dryRun) return { written, removed };
+    if (args.dryRun) {
+      const removals = yield* removeGuardedTargets(snapshot, stale, true);
+      return { written, removed: removals.removed, retained: removals.retained, rowChanges: [] };
+    }
     if (changes.length > 0) yield* assertInstructionWitnesses(snapshot);
-    yield* Effect.forEach(
-      stale,
-      (item) =>
-        assertInstructionWitnesses(snapshot, new Set(item.observedPaths)).pipe(
-          Effect.andThen(removeTargetFile(item.targetFile)),
-        ),
-      { concurrency: 1, discard: true },
-    );
-    yield* Effect.forEach(
+    const removals = yield* removeGuardedTargets(snapshot, stale, false);
+    const targetRows = yield* Effect.forEach(
       targets,
       (item) =>
         Effect.gen(function* () {
@@ -2136,13 +2481,9 @@ export const applyInstructionProjection = (args: {
           const createdDirectories = yield* authority
             .createParentDirectories(item.targetFile)
             .pipe(Effect.mapError(insertionFailure));
-          yield* Effect.uninterruptible(
-            writeOneTarget({
-              item,
-              sourceContent: sourceContent.value,
-              sourceFileName: args.config.fileName,
-            }).pipe(
-              Effect.andThen(
+          return yield* Effect.uninterruptible(
+            writeOneTarget({ snapshot, item, sourceContent: sourceContent.value }).pipe(
+              Effect.tap(() =>
                 authority
                   .recordCreatedDirectories({ capture: directories, createdDirectories })
                   .pipe(Effect.mapError(insertionFailure)),
@@ -2150,29 +2491,75 @@ export const applyInstructionProjection = (args: {
             ),
           );
         }),
-      { concurrency: 1, discard: true },
+      { concurrency: 1 },
     );
+    const recordRows = yield* recordPreparedCopies(snapshot, records);
+    let gitignoreRow = Option.none<ProjectionRowChange>();
     if (gitignore?.kind === "gitignore") {
       yield* assertInstructionWitnesses(snapshot, new Set([gitignore.path]));
-      yield* writeGitignoreRegion({
+      const writtenIgnore = yield* writeGitignoreRegion({
         workspaceRoot: args.workspaceRoot,
         patterns,
         eligiblePatterns,
       });
+      gitignoreRow = Option.flatMap(writtenIgnore, ({ raw }) =>
+        gitignoreRowChange({
+          raw,
+          patterns,
+          recorded: Option.fromNullishOr(snapshot.rows.get(GITIGNORE_UNIT)),
+        }),
+      );
     }
-    return { written, removed };
+    return {
+      written,
+      removed: removals.removed,
+      retained: removals.retained,
+      rowChanges: [
+        ...removals.rowChanges,
+        ...targetRows.flatMap(Option.toArray),
+        ...recordRows,
+        ...Option.toArray(gitignoreRow),
+        ...snapshot.orphanRows.map(withdrawRow),
+      ],
+    };
   });
+
+/** Native outcomes for targets the deletion guard retained. */
+const retainedLocations = (
+  snapshot: InstructionProjectionSnapshot,
+  retained: ReadonlyArray<RetainedInstructionTarget>,
+): ReadonlyArray<NativeLocationOutcome> =>
+  retained.flatMap(({ path, reason }) =>
+    snapshot.nativeLocations
+      .filter((location) => location.address.path === path || location.aliases.includes(path))
+      .map((location): NativeLocationOutcome => {
+        const { proof: _proof, ...facts } = location;
+        return {
+          ...facts,
+          ownership: "unowned",
+          state: "retained",
+          reason: retainedOutputDetail(path, reason),
+        };
+      }),
+  );
 
 export const syncResult = (args: {
   readonly snapshot: InstructionProjectionSnapshot;
   readonly before?: InstructionProjectionSnapshot;
   readonly written: ReadonlyArray<string>;
   readonly removed: ReadonlyArray<string>;
+  readonly retained?: ReadonlyArray<RetainedInstructionTarget>;
+  readonly rowChanges?: ReadonlyArray<ProjectionRowChange>;
 }): InstructionsSyncResult => ({
-  nativeLocations: instructionChangeLocations(args),
+  nativeLocations: combineNativeLocationOutcomes([
+    ...instructionChangeLocations(args),
+    ...retainedLocations(args.before ?? args.snapshot, args.retained ?? []),
+  ]),
   snapshot: args.snapshot,
   written: args.written,
   removed: args.removed,
+  retained: args.retained ?? [],
+  rowChanges: args.rowChanges ?? [],
   skipped: args.snapshot.status.items
     .filter((item) => item.health !== "ok")
     .map((item) => item.targetFile),
@@ -2183,10 +2570,11 @@ export interface SyncInstructionsArgs extends ObserveInstructionProjectionArgs {
 }
 
 /**
- * Observe, apply, and read back. Unowned planned targets are skipped, not
- * failed; callers that must refuse on them run `assertInstructionTargetsSafe`
- * against their own snapshot first. A dry run returns the paths a real run
- * would write and remove and reports the pre-write observation unchanged.
+ * Observe, apply, and read back. A differing unrecorded file at a planned
+ * target refuses the run unless `replaceUnrecorded` is set. The returned
+ * `rowChanges` are the caller's to stage inside its accepted-resolution
+ * batch. A dry run returns the paths a real run would write and remove,
+ * reports the pre-write observation unchanged, and produces no row edits.
  */
 export const syncInstructions = (
   args: SyncInstructionsArgs,
@@ -2207,6 +2595,7 @@ export const syncInstructions = (
       ? snapshot
       : yield* observeInstructionProjection({
           ...args,
+          rows: withInstructionRowChanges(args.rows, applied.rowChanges),
           symlinkSupported: snapshot.symlinkSupported,
         });
     return syncResult({ snapshot: observed, before: snapshot, ...applied });

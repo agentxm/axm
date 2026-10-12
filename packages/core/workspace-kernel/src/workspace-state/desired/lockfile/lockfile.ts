@@ -132,7 +132,11 @@ const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockf
   } satisfies Lockfile;
 };
 
-const readLockfileIfPresent = (
+/**
+ * The lockfile at `lockfilePath`, or `undefined` when it is absent. Decoding
+ * refuses a lockfile version this CLI does not read.
+ */
+export const readLockfileAtPath = (
   lockfilePath: string,
 ): Effect.Effect<Lockfile | undefined, LockfileReadError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
@@ -302,7 +306,7 @@ export const commitLockfileUpdates = (
     const updated = yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileIfPresent(lockfilePath);
+        const current = yield* readLockfileAtPath(lockfilePath);
         const updated = applyLockfileUpdates(current ?? lockfile, updates);
         yield* writeLockfileUnlocked(lockfilePath, updated);
         return updated;
@@ -333,7 +337,7 @@ export const commitLockfileSnapshotUpdateAtPath = (
     const updated = yield* withLockfileLock(
       lockfilePath,
       Effect.gen(function* () {
-        const current = yield* readLockfileIfPresent(lockfilePath);
+        const current = yield* readLockfileAtPath(lockfilePath);
         const updated = applyLockfileSnapshotPatch(current ?? base, base, next);
         yield* writeLockfileUnlocked(lockfilePath, updated, roundTrip);
         return updated;

@@ -6,6 +6,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { InstructionMaintenanceFailed } from "@agentxm/workspace-kernel/projection";
+import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { fixProject, lintServices } from "../test-helpers.js";
@@ -15,7 +16,7 @@ export const specification = defineSpecification({
   requirement: "cli/lint/fix-repairs-only-determined-state",
   title: "Lint fix requires known ownership and unambiguous content",
   statement:
-    "When lint runs with --fix, it shall normalize only instruction aliases fully determined by local authority, without network access or general workspace reconciliation, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous.",
+    "When lint runs with --fix, it shall normalize only instruction aliases fully determined by local authority, without network access or general workspace reconciliation, and shall fail with a conflict without touching the workspace when a target is unowned or its desired content is ambiguous. It shall read the lockfile before any write, refusing a lockfile version this CLI does not read untouched, and shall record the projection rows of what it repaired in the same transaction.",
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
@@ -83,7 +84,7 @@ describe("Lint determined repairs", () => {
         if (!(failure instanceof InstructionMaintenanceFailed)) return;
         expect(failure.category).toBe("conflict");
         expect(failure.detail).toContain("CLAUDE.md");
-        expect(failure.detail).toMatch(/unowned|unknown ownership|not managed/i);
+        expect(failure.detail).toMatch(/no recorded projection|unknown ownership/i);
 
         expect(fs.lstatSync(nodePath.join(workspace.root, "CLAUDE.md")).isSymbolicLink()).toBe(
           false,
@@ -93,4 +94,41 @@ describe("Lint determined repairs", () => {
       }).pipe(Effect.provide(lintServices(workspace)));
     },
   );
+
+  it.effect("records the repaired ignore region's projection row with the repair", () => {
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible", {
+      settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true } },
+      files: { "AGENTS.md": "# Workspace\n", ".git/HEAD": "ref: refs/heads/main\n" },
+    });
+    cleanups.push(workspace.cleanup);
+
+    return Effect.gen(function* () {
+      yield* fixProject(workspace);
+
+      expect(workspace.readFile(".gitignore")).toContain("# axm:instruction-aliases");
+      const lockfile = workspace.readFile("axm-lock.yaml");
+      expect(lockfile).toContain("projections:");
+      expect(lockfile).toContain(".gitignore");
+    }).pipe(Effect.provide(lintServices(workspace)));
+  });
+
+  it.effect("refuses a newer lockfile before writing any alias", () => {
+    const workspace = makeOfficialAxmSkillWorkspace("official-compatible", {
+      settings: managedInstructions,
+      files: { "AGENTS.md": "# Workspace\n" },
+    });
+    cleanups.push(workspace.cleanup);
+    workspace.writeFile(
+      "axm-lock.yaml",
+      `lockfileVersion: ${LOCKFILE_VERSION + 1}\npackages: {}\nskills: {}\n`,
+    );
+    const treeBefore = workspace.snapshot();
+
+    return Effect.gen(function* () {
+      yield* Effect.flip(fixProject(workspace));
+
+      expect(workspace.exists("CLAUDE.md")).toBe(false);
+      expect(workspace.snapshot()).toEqual(treeBefore);
+    }).pipe(Effect.provide(lintServices(workspace)));
+  });
 });

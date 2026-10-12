@@ -209,7 +209,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "unchanged",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -231,7 +231,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "blocked",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -246,7 +246,7 @@ describe("Generated document projection currency", () => {
                     address: { kind: "entry", path: aliasPath },
                     ownership: "owned",
                     state: "updated",
-                    proof: "exact-instruction-copy-banner",
+                    proof: "recorded-instruction-copy",
                     configuredConsumers: ["claude-code"],
                   }),
                 );
@@ -258,7 +258,7 @@ describe("Generated document projection currency", () => {
                     },
                     ownership: "owned",
                     state: "unchanged",
-                    proof: "exact-instruction-copy-banner",
+                    proof: "recorded-instruction-copy",
                   }),
                 );
                 expect(workspace.snapshot()).toEqual(afterSourceEdit);
@@ -285,7 +285,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "unchanged",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -386,7 +386,7 @@ describe("Generated document projection currency", () => {
                 address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
                 ownership: "owned",
                 state: "updated",
-                proof: "exact-instruction-copy-banner",
+                proof: "recorded-instruction-copy",
               }),
             );
             expect(workspace.snapshot()).toEqual(before);

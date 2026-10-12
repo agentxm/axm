@@ -28,6 +28,7 @@ import {
   DesiredStateReader,
   WorkspaceLocation,
   WorkspaceRecords,
+  type LockfileReader,
   type SettingsReaderService,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
@@ -73,6 +74,7 @@ export type AtomicMembershipRequirements<Requirements> =
   | DesiredStateReader
   | WorkspaceLocation
   | WorkspaceRecords
+  | LockfileReader
   | SettingsReader;
 
 interface AtomicAttempt<Output> {

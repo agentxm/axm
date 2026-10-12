@@ -87,6 +87,8 @@ const planAction = (
       return { mark: "remove", word: "remove" };
     case "skip":
       return { mark: "unchanged", word: "skip" };
+    case "blocked":
+      return { mark: "blocked", word: "blocked" };
   }
 };
 
@@ -101,8 +103,8 @@ const planDetail = (detail: SetupPlanDetail): string => {
     case "instructionTarget":
       return detail.seededAlias
         ? `${detail.agentName}: replace seeded source with alias`
-        : detail.preserved
-          ? `${detail.agentName}: preserve existing content`
+        : detail.blocked
+          ? `${detail.agentName}: differs and has no recorded projection; rerun with --replace-unrecorded to overwrite it`
           : detail.agentName;
     case "missingInstructionConvention":
       return "no instruction convention";

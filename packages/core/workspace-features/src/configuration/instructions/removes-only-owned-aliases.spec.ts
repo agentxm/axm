@@ -9,13 +9,13 @@ import * as path from "node:path";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
-import { applyInstructionsRequest } from "./test-helpers.js";
+import { applyInstructionsRequest, makeSymlinkRefusingPlatform } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/instructions/disable/removes-only-owned-aliases",
   title: "Disabling instruction-file management removes only what AXM owns",
   statement:
-    "When instruction-file management is disabled, AXM shall record the choice in axm.json and remove only the alias files and ignore regions it owns, and shall preserve authored instruction content and unrelated ignore entries.",
+    "When instruction-file management is disabled, AXM shall record the choice in axm.json and remove only the alias files and ignore regions it owns, and shall preserve authored instruction content and unrelated ignore entries. A copy is removed only when its bytes are what AXM last recorded writing or the current source; a copy modified since then is retained and reported unless modified copies are explicitly discarded, and the recorded projection rows are withdrawn either way.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity"],
@@ -100,4 +100,37 @@ describe("Disabling instruction-file management", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  for (const discardModified of [false, true])
+    it.effect(
+      `${discardModified ? "discards" : "retains"} a copy modified since AXM last wrote it`,
+      () => {
+        const platform = makeSymlinkRefusingPlatform();
+        const fixture = workspaceWith({ "AGENTS.md": "Authored instructions.\n" });
+        return fixture
+          .provide(
+            Effect.gen(function* () {
+              yield* applyInstructionsRequest({
+                action: "enable",
+                fileName: "AGENTS.md",
+                gitignoreAliases: false,
+              });
+              expect(fixture.readFile("axm-lock.yaml")).toContain("CLAUDE.md");
+              fixture.writeFile("CLAUDE.md", "Authored instructions.\n\nLocal note.\n");
+
+              const outcome = yield* applyInstructionsRequest({
+                action: "disable",
+                discardModified,
+              });
+
+              expect(outcome).toMatchObject({ outcome: "applied" });
+              expect(readSettings(fixture)).toMatchObject({ instructionFiles: false });
+              expect(fixture.exists("CLAUDE.md")).toBe(!discardModified);
+              if (!discardModified) expect(fixture.readFile("CLAUDE.md")).toContain("Local note.");
+              expect(fixture.readFile("axm-lock.yaml")).not.toContain("CLAUDE.md");
+            }),
+          )
+          .pipe(Effect.provide(platform.layer));
+      },
+    );
 });

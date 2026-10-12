@@ -412,7 +412,7 @@ describe("Generated document projection currency", () => {
 
             const generated = workspace.readFile("AGENTS.md");
             expect(generated).toMatch(
-              /axm:start v=1 region=rules ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u,
+              /axm:start v=1 region=rules ext=[^ ]+ src=[^ ]+ gen=sha256:[0-9a-f]{64}/u,
             );
             const rewritten = replaceRegionBody(
               generated,
@@ -447,7 +447,7 @@ describe("Generated document projection currency", () => {
 
             const withoutGeneration = workspace
               .readFile("AGENTS.md")
-              .replace(/ gen=[0-9a-f]{64}(?= -->)/u, "");
+              .replace(/ gen=sha256:[0-9a-f]{64}(?= -->)/u, "");
             workspace.writeFile("AGENTS.md", withoutGeneration);
 
             expectReconciliationPlanned(yield* previewSync());
@@ -517,7 +517,7 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile(projection);
-            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
+            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=sha256:[0-9a-f]{64}/u);
             const rewritten = generated.replace(
               "First reviewer guidance.",
               "Repository-formatted body.",

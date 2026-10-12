@@ -58,6 +58,15 @@ const CurrentAcceptedResolutionBatch = Context.Reference<AcceptedResolutionBatch
   { defaultValue: () => undefined },
 );
 
+/** Whether this fiber runs inside an accepted-resolution batch targeting `documents`. */
+export const inAcceptedResolutionBatch = (
+  documents: WorkspaceDocumentsService,
+): Effect.Effect<boolean> =>
+  Effect.gen(function* () {
+    const batch = yield* CurrentAcceptedResolutionBatch;
+    return batch?.target === documents;
+  });
+
 /** Decorate an adapter so all its readers observe the same pending package closure. */
 export const batchableWorkspaceDocuments = (
   adapter: WorkspaceDocumentsService,

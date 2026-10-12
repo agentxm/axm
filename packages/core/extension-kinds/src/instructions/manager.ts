@@ -358,7 +358,6 @@ export const RuleManagerLive = Layer.effect(
         const contributors = args.input.contributors;
         const rendered = contributors.map(renderRuleBlock).join("\n\n");
         const generation = projectionGeneration([
-          "rule-instructions-region-v1",
           target.relative,
           RULES_REGION_OWNER,
           ...contributors.flatMap((contributor) => [

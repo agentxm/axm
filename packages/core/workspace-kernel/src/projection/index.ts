@@ -89,7 +89,7 @@ export {
   type ProjectionContributorExclusion,
   type ProjectionExclusionReason,
 } from "./exclusions.js";
-export { projectionGeneration } from "./generation.js";
+export { projectionGeneration, projectionIsCurrent, projectionOutputDigest } from "./generation.js";
 export {
   reconcileManagedRegionFile,
   type ManagedRegionReconciliation,

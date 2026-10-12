@@ -7838,6 +7838,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts`](../packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts)
 
+##### The lockfile records projection generation currency per unit
+
+- Requirement: `workspace/lockfile/records-projection-currency`
+- Owner: `workspace-kernel`
+- Statement: AXM shall record, per projection kind, one contract number and one row per projection unit keyed by its scope-relative path, holding the input-only generation digest and the digest of the bytes AXM last wrote. Unit keys shall be written sorted and absolute or escaping keys shall be rejected. A contract change shall make every unrecorded-by-this-write unit of that kind stale by removing its generation while keeping its written-bytes digest, under staging and concurrent merging alike. Rows shall be staged only inside an accepted-resolution batch, and introducing then withdrawing a row shall restore the prior lockfile bytes exactly.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Row staging, snapshot merging and exact restoration are observable only through lockfile bytes and the accepted-resolution writer.
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/records-projection-currency.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/records-projection-currency.spec.ts)
+
 ##### Withdrawing a newly reachable resolution restores its original lockfile bytes
 
 - Requirement: `workspace/lockfile/withdraws-new-resolutions-exactly`

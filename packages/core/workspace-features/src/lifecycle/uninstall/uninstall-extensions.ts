@@ -25,6 +25,7 @@ import {
   nameFromLabel,
 } from "@agentxm/workspace-kernel/reconciliation";
 import { expectedProjectionNames } from "@agentxm/workspace-kernel/projection";
+import { AcceptedResolutionWriter } from "@agentxm/workspace-kernel/workspace-state";
 
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
@@ -197,6 +198,7 @@ export const prepareUninstallExtensions: (
   PrepareUninstallRequirements
 > = Effect.fn("UninstallExtensions.prepare")(function* (request: UninstallExtensionsRequest) {
   const conversion = yield* StepFailureConversion;
+  const acceptedWriter = yield* AcceptedResolutionWriter;
   const resolved = yield* Option.match(request.type, {
     onSome: (type) =>
       Effect.succeed({
@@ -352,6 +354,10 @@ export const prepareUninstallExtensions: (
               ...Option.toArray(cleanup).map((step) => ({ step, coverage: "ineligible" as const })),
               { step: removal, coverage: "eligible" },
             ],
+            // The cleanup's row withdrawals and the removal's resolution
+            // withdrawal commit once, so exact withdrawal restores the prior
+            // lockfile bytes.
+            acceptedResolutions: acceptedWriter.withBatch,
             toStepFailure: conversion.toStepFailure,
             validate: Effect.void,
             captureNativeRetention: (expected) =>

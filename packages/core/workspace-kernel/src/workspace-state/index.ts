@@ -519,7 +519,7 @@ export {
   type ConfiguredAgentLifecycleState,
 } from "./workspace/configured-agent-outcomes.js";
 
-export { lockEntrySemanticallyEqual } from "./workspace/accepted-resolution-writer.js";
+export { lockEntrySemanticallyEqual, stableJson } from "./workspace/accepted-resolution-writer.js";
 
 export {
   withDocumentRoundTripBatch,

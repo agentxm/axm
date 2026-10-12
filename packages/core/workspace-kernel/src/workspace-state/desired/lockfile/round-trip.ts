@@ -2,6 +2,7 @@ import * as Equal from "effect/Equal";
 import YAML from "yaml";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { LOCKFILE_VERSION } from "./schema.js";
+import { PROJECTION_KINDS } from "./projections.js";
 import { LockfileWriteError } from "./errors.js";
 
 const maps = [
@@ -28,6 +29,10 @@ const entries = (document: Record<string, unknown>, key: string): Record<string,
   const value = document[key];
   return record(value) ? value : {};
 };
+const projectionUnits = (
+  document: Record<string, unknown>,
+  kind: string,
+): Record<string, unknown> => entries(entries(entries(document, "projections"), kind), "units");
 const normalize = (document: Record<string, unknown>): Record<string, unknown> =>
   Object.fromEntries(
     Object.entries(document).filter(
@@ -59,6 +64,28 @@ export const prepareLockfileRoundTrip = (args: {
       for (const name of Object.keys(prior))
         if (!Object.hasOwn(next, name)) withdrawals.push(JSON.stringify(["lockfile", map, name]));
     }
+  // Projection rows follow the extension resolutions that render them, as
+  // package records do: a write that introduces or withdraws a resolution is
+  // that one unit, rows included. Only a write that changes rows alone treats
+  // each introduced or withdrawn row as a unit. A changed row is neither;
+  // exact restoration still requires the restored document to equal the
+  // computed one.
+  if (
+    before !== undefined &&
+    after !== undefined &&
+    insertions.length === 0 &&
+    withdrawals.length === 0
+  )
+    for (const kind of PROJECTION_KINDS) {
+      const prior = projectionUnits(before, kind);
+      const next = projectionUnits(after, kind);
+      for (const path of Object.keys(next))
+        if (!Object.hasOwn(prior, path))
+          insertions.push(JSON.stringify(["lockfile", "projections", kind, path]));
+      for (const path of Object.keys(prior))
+        if (!Object.hasOwn(next, path))
+          withdrawals.push(JSON.stringify(["lockfile", "projections", kind, path]));
+    }
   return prepareDocumentRoundTrip({
     ...args,
     unitPrefix: '["lockfile",',
@@ -81,6 +108,49 @@ export const prepareLockfileRoundTrip = (args: {
   });
 };
 
+/**
+ * Update projection rows in place. A kind whose unit set changes is rewritten
+ * whole so its units stay sorted; otherwise only the changed rows and the
+ * contract are set.
+ */
+const renderProjectionsUpdate = (
+  document: YAML.Document,
+  prior: Record<string, unknown>,
+  encoded: Record<string, unknown>,
+): void => {
+  const next = encoded["projections"];
+  if (Equal.equals(prior["projections"], next)) return;
+  if (!record(next)) {
+    document.delete("projections");
+    return;
+  }
+  if (!record(prior["projections"])) {
+    document.set("projections", next);
+    return;
+  }
+  const previous = prior["projections"];
+  for (const kind of PROJECTION_KINDS) {
+    const before = previous[kind];
+    const after = next[kind];
+    if (Equal.equals(before, after)) continue;
+    if (!record(after)) {
+      document.deleteIn(["projections", kind]);
+      continue;
+    }
+    const priorUnits = projectionUnits(prior, kind);
+    const nextUnits = projectionUnits(encoded, kind);
+    if (!record(before) || !Equal.equals(Object.keys(priorUnits), Object.keys(nextUnits))) {
+      document.setIn(["projections", kind], after);
+      continue;
+    }
+    if (!Equal.equals(before["contract"], after["contract"]))
+      document.setIn(["projections", kind, "contract"], after["contract"]);
+    for (const [path, row] of Object.entries(nextUnits))
+      if (!Equal.equals(priorUnits[path], row))
+        document.setIn(["projections", kind, "units", path], row);
+  }
+};
+
 /** YAML owns comments and anchors; update only the changed authoritative keys. */
 export const renderLockfileUpdate = (before: string, encoded: Record<string, unknown>): string => {
   const document = YAML.parseDocument(before, { keepSourceTokens: true });
@@ -98,10 +168,12 @@ export const renderLockfileUpdate = (before: string, encoded: Record<string, unk
     else if (!Object.hasOwn(prior, map) && record(encoded[map]) && Object.keys(next).length === 0)
       document.set(map, {});
   }
+  renderProjectionsUpdate(document, prior, encoded);
   if (!Equal.equals(prior["lockfileVersion"], encoded["lockfileVersion"]))
     document.set("lockfileVersion", encoded["lockfileVersion"]);
   const expected: Record<string, unknown> = { ...prior, ...encoded };
   for (const map of maps) if (encoded[map] === undefined) delete expected[map];
+  if (encoded["projections"] === undefined) delete expected["projections"];
   const actual: unknown = document.toJS();
   if (!Equal.equals(expected, actual))
     throw new Error("Lockfile update would change unrelated aliased values");

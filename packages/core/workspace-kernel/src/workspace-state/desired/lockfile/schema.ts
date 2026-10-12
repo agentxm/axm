@@ -10,7 +10,9 @@ import { DistributionDescriptorSchema } from "@agentxm/extension-model/unstable/
  * externally sourced extensions.
  *
  * Lockfile v11 is authority, not receipt history. It contains no authored,
- * bundled, inline, projection, completion-time, or command-history state.
+ * bundled, inline, completion-time, or command-history state. Its optional
+ * `projections` section records projection generation currency and the
+ * digests of bytes AXM last wrote; it never establishes ownership.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -40,6 +42,7 @@ import {
   SourceRefSchema,
   SourceSubPathSchema,
 } from "@agentxm/extension-model/unstable/sources/types";
+import { normalizeProjections, ProjectionsSchema } from "./projections.js";
 
 export const LOCKFILE_VERSION = 11;
 
@@ -528,6 +531,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * - lockfileVersion: Schema version (currently 11)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
+ * - projections: Projection generation currency per kind and unit (optional)
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -548,6 +552,7 @@ export const LockfileViewSchema = Schema.Struct({
   hooks: Schema.optional(HooksLockMapSchema),
   knowledge: Schema.optional(KnowledgeLockMapSchema),
   packs: Schema.optional(PacksLockMapSchema),
+  projections: Schema.optional(ProjectionsSchema),
 });
 
 /** In-memory joined resolution view. The wire codec stores packages only once. */
@@ -670,6 +675,7 @@ export const StoredLockfileSchema = Schema.Struct({
   hooks: Schema.optional(RetainedBindingsSchema),
   knowledge: Schema.optional(RetainedBindingsSchema),
   packs: Schema.optional(Schema.Record(Schema.String, RetainedPackBindingSchema)),
+  projections: Schema.optional(ProjectionsSchema),
 });
 type StoredLockfile = typeof StoredLockfileSchema.Type;
 const bindingMaps = [
@@ -779,10 +785,12 @@ const normalizeLockfile = (view: Lockfile) =>
       }
       maps[type] = bindings;
     }
+    const projections = normalizeProjections(view.projections);
     return yield* Schema.decodeUnknownEffect(Schema.toType(StoredLockfileSchema))({
       lockfileVersion: LOCKFILE_VERSION,
       packages,
       ...maps,
+      ...(projections === undefined ? {} : { projections }),
     }).pipe(Effect.mapError((error) => error.issue));
   });
 
@@ -893,6 +901,7 @@ const expandLockfile = (stored: StoredLockfile) =>
     return yield* Schema.decodeUnknownEffect(Schema.toType(LockfileViewSchema))({
       lockfileVersion: LOCKFILE_VERSION,
       ...maps,
+      ...(stored.projections === undefined ? {} : { projections: stored.projections }),
     }).pipe(Effect.mapError((error) => error.issue));
   });
 
@@ -908,5 +917,5 @@ export const LockfileSchema = StoredLockfileSchema.pipe(
   identifier: "Lockfile",
   title: "AXM Lockfile",
   description:
-    "Accepted retained packages and selected component bindings. Desired state and projection ownership are authoritative elsewhere.",
+    "Accepted retained packages, selected component bindings, and projection generation currency. Desired state and projection ownership are authoritative elsewhere.",
 });

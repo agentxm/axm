@@ -5,10 +5,15 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import { nativeSubagentMarker } from "./sync.js";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import type { AddSubagentArgs, CodingAgent, RemoveSubagentArgs } from "../agents/coding-agent.js";
+import type {
+  AddSubagentArgs,
+  CodingAgent,
+  RemoveSubagentArgs,
+  SubagentRemovalDecision,
+  SubagentWriteDecision,
+} from "../agents/coding-agent.js";
 import type { SubagentRenderInput } from "./rendering/types.js";
 import { codingAgentForId } from "../agents/adapters.js";
 import { NativeWriteAuthorityPermissive } from "../testing.js";
@@ -24,15 +29,19 @@ const rooCodingAgent = codingAgentForId("roo");
 const windsurfCodingAgent = codingAgentForId("windsurf");
 
 /**
- * Stand-in for the banner the owning projection renders. The wording and the
- * ownership marker are the projection's, so the assertions here only check
- * that the adapter stamps what it was handed into the formats that can carry
- * a comment.
+ * Stand-in for the owning projection's policy: write an absent path, record
+ * identical bytes, and refuse anything else. The adapter applies whatever
+ * decision it is handed.
  */
-const ownershipBanner = {
-  markdown: "<!-- axm:file v=1 ext=@acme/subagents/test-subagent src=src/test-subagent.md -->",
-  toml: "# axm:file v=1 ext=@acme/subagents/test-subagent src=src/test-subagent.md",
-} as const;
+const decideWrite: AddSubagentArgs["decideWrite"] = ({ filePath, prior, rendered }) =>
+  Option.isNone(prior)
+    ? { _tag: "write" }
+    : prior.value === rendered
+      ? { _tag: "record" }
+      : {
+          _tag: "conflict",
+          reason: `Existing Subagent file has no recorded projection: ${filePath}`,
+        };
 
 const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
   agentId: "claude-code",
@@ -42,7 +51,6 @@ const makeRenderInput = (name = "test-subagent"): SubagentRenderInput => ({
     name,
     description: "A test subagent for unit tests.",
   },
-  ownershipBanner,
 });
 
 const makeAddArgs = (
@@ -54,18 +62,19 @@ const makeAddArgs = (
   scope: "project",
   input: { ...makeRenderInput(name), agentId },
   force: false,
-  previousManagedFiles: [],
+  decideWrite,
 });
 
 const makeRemoveArgs = (
   workspaceRoot: string,
   renderedFilePaths: ReadonlyArray<string>,
   name = "test-subagent",
+  decision: SubagentRemovalDecision = { _tag: "delete" },
 ): RemoveSubagentArgs => ({
   workspaceRoot,
   scope: "project",
   subagentName: name,
-  expectedManagedFile: { ext: `@acme/subagents/${name}`, src: `src/${name}.md` },
+  decideRemoval: () => decision,
   renderedFilePaths: renderedFilePaths.map((p) =>
     nodePath.isAbsolute(p) ? nodePath.relative(workspaceRoot, p) : p,
   ),
@@ -267,9 +276,7 @@ describe("addSubagent", () => {
                 expect(filePath).toContain(expectedSubpath);
                 const content = yield* fs.readFileString(filePath);
                 expect(content.length).toBeGreaterThan(0);
-                expect(content).toContain(
-                  filePath.endsWith(".toml") ? ownershipBanner.toml : ownershipBanner.markdown,
-                );
+                expect(content).not.toContain("axm:");
               }
             }
           } finally {
@@ -346,6 +353,31 @@ describe("removeSubagent", () => {
           rmSync(workspaceRoot, { recursive: true, force: true });
         }
       }),
+    ),
+  );
+
+  it.effect("keeps a file the removal decision retains and reports why", () =>
+    withNode(
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const added = yield* claudeCodeCodingAgent.addSubagent(makeAddArgs(root, "claude-code"));
+        if (added._tag !== "success") return expect.unreachable();
+        const reason = "Retained: modified since AXM last wrote it";
+        const outcome = yield* claudeCodeCodingAgent.removeSubagent(
+          makeRemoveArgs(root, added.renderedFilePaths, "test-subagent", {
+            _tag: "retain",
+            reason,
+          }),
+        );
+        expect(outcome).toMatchObject({
+          _tag: "success",
+          renderedFilePaths: [],
+          retained: [{ path: added.renderedFilePaths[0], reason }],
+          warnings: [reason],
+        });
+        expect(yield* fs.exists(added.renderedFilePaths[0] ?? "")).toBe(true);
+      }).pipe(Effect.scoped),
     ),
   );
 
@@ -435,58 +467,32 @@ describe("overwrite behavior", () => {
     ),
   );
 
-  it.effect("preserves an opaque body at the same generation and refreshes changed inputs", () =>
+  it.effect.each<{
+    readonly decision: Exclude<SubagentWriteDecision["_tag"], "conflict">;
+    readonly change: string;
+    readonly rewritten: boolean;
+  }>([
+    { decision: "current", change: "unchanged", rewritten: false },
+    { decision: "record", change: "unchanged", rewritten: false },
+    { decision: "write", change: "updated", rewritten: true },
+  ])("applies a $decision decision to an existing file", ({ decision, change, rewritten }) =>
     withNode(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const root = mkdtempSync(nodePath.join(tmpdir(), "axm-subagent-generation-"));
-        try {
-          const base = makeAddArgs(root, "claude-code");
-          const args = {
-            ...base,
-            input: {
-              ...base.input,
-              ownershipBanner: {
-                ...ownershipBanner,
-                markdown: ownershipBanner.markdown.replace(" -->", " gen=first -->"),
-              },
-            },
-          } satisfies AddSubagentArgs;
-          const first = yield* claudeCodeCodingAgent.addSubagent(args);
-          expect(first._tag).toBe("success");
-          const file = nodePath.join(root, ".claude/agents/test-subagent.md");
-          const rewritten = (yield* fs.readFileString(file)).replace(
-            "You are a helpful test subagent.",
-            "Repository-formatted body.",
-          );
-          yield* fs.writeFileString(file, rewritten);
-          const unchanged = yield* claudeCodeCodingAgent.addSubagent(args);
-          expect(unchanged).toMatchObject({
-            _tag: "success",
-            nativeTargets: [{ change: "unchanged" }],
-          });
-          expect(yield* fs.readFileString(file)).toBe(rewritten);
-
-          const updated = yield* claudeCodeCodingAgent.addSubagent({
-            ...args,
-            input: {
-              ...args.input,
-              body: "Changed authoritative body.",
-              ownershipBanner: {
-                ...ownershipBanner,
-                markdown: ownershipBanner.markdown.replace(" -->", " gen=second -->"),
-              },
-            },
-          });
-          expect(updated).toMatchObject({
-            _tag: "success",
-            nativeTargets: [{ change: "updated" }],
-          });
-          expect(yield* fs.readFileString(file)).toContain("Changed authoritative body.");
-        } finally {
-          rmSync(root, { recursive: true, force: true });
-        }
-      }),
+        const root = yield* fs.makeTempDirectoryScoped();
+        const first = yield* claudeCodeCodingAgent.addSubagent(makeAddArgs(root, "claude-code"));
+        expect(first).toMatchObject({ nativeTargets: [{ change: "created", decision: "write" }] });
+        const file = nodePath.join(root, ".claude/agents/test-subagent.md");
+        yield* fs.writeFileString(file, "Repository-formatted body.\n");
+        const outcome = yield* claudeCodeCodingAgent.addSubagent({
+          ...makeAddArgs(root, "claude-code"),
+          decideWrite: () => ({ _tag: decision }),
+        });
+        expect(outcome).toMatchObject({ _tag: "success", nativeTargets: [{ change, decision }] });
+        const bytes = yield* fs.readFileString(file);
+        if (rewritten) expect(bytes).toContain("You are a helpful test subagent.");
+        else expect(bytes).toBe("Repository-formatted body.\n");
+      }).pipe(Effect.scoped),
     ),
   );
 
@@ -506,14 +512,4 @@ describe("overwrite behavior", () => {
       }).pipe(Effect.scoped),
     ),
   );
-});
-
-describe("native subagent ownership parsing", () => {
-  it("reads the marker after CRLF native frontmatter", () => {
-    const raw = `---\r\nname: reviewer\r\ndescription: Review\r\n---\r\n${ownershipBanner.markdown}\r\nBody.\r\n`;
-    expect(Option.getOrUndefined(nativeSubagentMarker(raw, "reviewer.md"))).toMatchObject({
-      ext: "@acme/subagents/test-subagent",
-      src: "src/test-subagent.md",
-    });
-  });
 });

@@ -4,7 +4,7 @@
  * What AXM owns in agent-facing output, and what its current state means: the
  * ownership-unit registry and its region identities, projection planning and
  * the participant registry, contributor resolution over the desired-state
- * graph, managed-file ownership grammar and provenance banners, managed-region
+ * graph, region fences and managed-region
  * reconciliation, instruction targets, Knowledge discovery, MCP targeting and
  * drift classification, hook agent outcomes, and the invariant facts lint and
  * sync consume.
@@ -143,23 +143,9 @@ export {
   type PackDependencyReachabilityClassification,
 } from "./packs/dependency-reachability.js";
 
-// Managed-file ownership: banners, discovery, and agent-output observation
-export {
-  hasManagedFileBanner,
-  insertManagedFileBanner,
-  managedFileBanners,
-  managedFileFormatForPath,
-  managedFileMarker,
-  stripManagedFileBanner,
-  type ManagedFileBannerOptions,
-  type ManagedFileFormat,
-  type ManagedFileProvenance,
-  type ManagedFileSource,
-} from "./managed-file-banner.js";
+// Agent-native output discovery and ownership observation
 export {
   extensionNameFromFilename,
-  findManagedSubagentFiles,
-  hasAxmManagedMarker,
   safeReadDirectory,
   safeReadFileString,
   type WorkspaceOwnershipIssue,
@@ -305,18 +291,16 @@ export {
 export { diffAgentEntry, type DriftReport } from "./mcps/drift.js";
 
 // Subagent managed output
-export { managedSubagentFile } from "./subagents/managed-file.js";
+export { subagentProvenance, type SubagentProvenance } from "./subagents/managed-file.js";
 export {
   compileSubagentImplementation,
   type CompiledSubagentImplementation,
   type SubagentImplementationMode,
 } from "./subagents/compile.js";
 export {
-  managedSubagentRenderInput,
-  renderManagedSubagentOutputs,
-  subagentOwnershipBanner,
   subagentProjectionGeneration,
-  type ManagedSubagentRenderArgs,
+  subagentUnitPath,
+  type SubagentGenerationArgs,
 } from "./subagents/managed-render.js";
 
 export {

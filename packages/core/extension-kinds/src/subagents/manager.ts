@@ -17,6 +17,7 @@ import {
   nativeAuthorityRoots,
 } from "@agentxm/workspace-kernel/locations";
 import {
+  AcceptedResolutionWriter,
   LockfileReader,
   SettingsReader,
   WorkspaceLocation,
@@ -27,6 +28,9 @@ import {
   computePackageContentHash,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
+  type ProjectionRowChange,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   SubagentManager,
@@ -42,17 +46,29 @@ import {
   CodingAgentRepository,
   captureAgentOutputAuthority,
   compileSubagentImplementation,
-  managedFileFormatForPath,
-  managedFileMarker,
+  decideOutputDeletion,
+  decideWholeFileWrite,
+  extensionNameFromFilename,
   observeAgentOutputs,
   nativeArtifactLocationOutcomes,
+  projectionIsCurrent,
+  projectionOutputDigest,
+  retainedOutputDetail,
   retiredNativeArtifactLocationOutcomes,
-  managedSubagentFile,
+  subagentProjectionGeneration,
+  subagentProvenance,
+  subagentUnitPath,
   type AgentOutputAuthority,
+  type AgentOutputObservation,
   applyProjectionPlansWithResults,
   planSingletonProjection,
 } from "@agentxm/workspace-kernel/projection";
-import { SubagentIoFailed, removeSubagentFiles } from "@agentxm/workspace-kernel/agent-adapters";
+import {
+  SubagentIoFailed,
+  removeSubagentFiles,
+  type SubagentWriteDecision,
+} from "@agentxm/workspace-kernel/agent-adapters";
+import type { NativeLocationOutcome } from "@agentxm/workspace-kernel/locations";
 import {
   acquiredDirectoryForRef,
   configuredSubagentsToDiskRefs,
@@ -69,6 +85,7 @@ export const SubagentManagerLive = Layer.effect(
     const settings = yield* SettingsReader;
     const lockfile = yield* LockfileReader;
     const records = yield* WorkspaceRecords;
+    const accepted = yield* AcceptedResolutionWriter;
     const sources = yield* SourceHostProviders;
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -98,11 +115,19 @@ export const SubagentManagerLive = Layer.effect(
             }),
         ),
       );
+    // The source path feeds a generation recorded in a shared lockfile, so it
+    // is POSIX on every platform.
     const provenance = (ref: SubagentExtensionRef) =>
-      managedSubagentFile(
+      subagentProvenance(
         ref,
-        path.relative(baseDir, path.join(getCanonicalPaths(ref).canonicalPath, MANIFEST_FILENAME)),
+        path
+          .relative(baseDir, path.join(getCanonicalPaths(ref).canonicalPath, MANIFEST_FILENAME))
+          .split(path.sep)
+          .join("/"),
       );
+    // Reading the rows decodes the lockfile, so a lockfile this CLI cannot
+    // read refuses before any Subagent file is written or removed.
+    const subagentRows = accepted.projectionRows("subagents");
     const preparedTargets = (
       ref: SubagentExtensionRef,
       pkg: DecodedSubagentPackage,
@@ -120,11 +145,7 @@ export const SubagentManagerLive = Layer.effect(
             );
         return yield* Effect.forEach(agents, (agent) =>
           Effect.gen(function* () {
-            const compiled = compileSubagentImplementation({
-              package: pkg,
-              agentId: agent.id,
-              managedFile: provenance(ref),
-            });
+            const compiled = compileSubagentImplementation({ package: pkg, agentId: agent.id });
             const directory = yield* agent.resolveEffectiveSubagentsDir({
               workspaceRoot: baseDir,
               scope: location.scope,
@@ -183,6 +204,99 @@ export const SubagentManagerLive = Layer.effect(
         path: target.directory.dir,
       };
     };
+    /**
+     * Every planned Subagent file, keyed by its physical path. Configured
+     * agents that read one physical file share its generation, so whichever
+     * writes it records the same currency.
+     */
+    const plannedFiles = (ref: SubagentExtensionRef, targets: PreparedTargets) =>
+      Effect.gen(function* () {
+        const files = new Map<
+          string,
+          {
+            readonly unit: ProjectionUnitPath;
+            readonly content: string;
+            readonly claimants: Array<{
+              readonly provenance: ReturnType<typeof provenance>;
+              readonly input: Extract<
+                PreparedTargets[number]["compiled"],
+                { readonly _tag: "Compiled" }
+              >["input"];
+            }>;
+          }
+        >();
+        for (const target of targets) {
+          if (target.directory._tag !== "supported" || target.compiled._tag !== "Compiled")
+            continue;
+          for (const output of target.compiled.outputs) {
+            const { address } = yield* assertNativeMutationWithinRoots(
+              nativeRoots,
+              path.join(target.directory.dir, output.path),
+              "content",
+              baseDir,
+            );
+            const destination = address.referentPath ?? address.entryPath;
+            const prior = files.get(destination);
+            if (prior !== undefined && prior.content !== output.content)
+              return yield* new SubagentNativeConflict({
+                detail: `Configured consumers require incompatible Subagent bytes at ${destination}`,
+              });
+            const unit = subagentUnitPath(path, baseDir, destination);
+            if (Option.isNone(unit))
+              return yield* new SubagentDefinitionInvalid({
+                detail: `Subagent output is outside the workspace scope root: ${destination}`,
+              });
+            const claimant = { provenance: provenance(ref), input: target.compiled.input };
+            if (prior === undefined)
+              files.set(destination, {
+                unit: unit.value,
+                content: output.content,
+                claimants: [claimant],
+              });
+            else prior.claimants.push(claimant);
+          }
+        }
+        return new Map(
+          [...files].map(([destination, file]) => [
+            destination,
+            {
+              unit: file.unit,
+              content: file.content,
+              gen: subagentProjectionGeneration(file.claimants),
+            },
+          ]),
+        );
+      });
+    type PlannedFiles = Effect.Success<ReturnType<typeof plannedFiles>>;
+    const decideAt = (args: {
+      readonly planned: PlannedFiles;
+      readonly rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>;
+      readonly destination: string;
+      readonly bytes: Option.Option<string>;
+      readonly replaceUnrecorded: boolean;
+    }): SubagentWriteDecision => {
+      const file = args.planned.get(args.destination);
+      if (file === undefined)
+        return {
+          _tag: "conflict",
+          reason: `Subagent file is not a planned destination: ${args.destination}`,
+        };
+      const decision = decideWholeFileWrite({
+        recorded: Option.fromUndefinedOr(args.rows.get(file.unit)),
+        gen: file.gen,
+        bytes: args.bytes,
+        rendered: file.content,
+        replaceUnrecorded: args.replaceUnrecorded,
+      });
+      return decision._tag === "conflict"
+        ? {
+            _tag: "conflict",
+            reason: `Existing Subagent file has no recorded projection: ${args.destination}; rerun with --replace-unrecorded to overwrite it`,
+          }
+        : decision._tag === "write"
+          ? { _tag: "write" }
+          : decision;
+    };
     const readPackageForRef = (
       ref: SubagentExtensionRef,
       state: "projected" | "current",
@@ -216,17 +330,13 @@ export const SubagentManagerLive = Layer.effect(
       Effect.gen(function* () {
         const pkg = yield* readPackageForRef(ref, state, options);
         if (options?.validateDestinations === true)
-          yield* preflight(
-            ref,
-            pkg,
-            yield* captureAgentOutputAuthority(),
-            options.configuredAgents,
-          );
+          yield* preflight(ref, pkg, options.configuredAgents);
         return (yield* preparedTargets(ref, pkg, options?.configuredAgents)).map((target) =>
           outcomeForTarget(ref, target, state),
         );
       });
-    const observeOwned = (name: string, authority: AgentOutputAuthority) =>
+    /** Native files of these names in every Subagent container, declared or not. */
+    const observeNamed = (names: ReadonlySet<string>, authority: AgentOutputAuthority) =>
       observeAgentOutputs({
         nativeDirectoryInputs: location.nativeDirectoryInputs,
         workspaceRoot: baseDir,
@@ -239,6 +349,7 @@ export const SubagentManagerLive = Layer.effect(
           "mcp-server": new Set<string>(),
         },
         ...authority,
+        expectedSubagentNames: new Set([...authority.expectedSubagentNames, ...names]),
         authoredSkills: { layout: currentLayout(), entries: {} },
       }).pipe(
         Effect.provideService(CodingAgentRepository, agentRepo),
@@ -246,107 +357,207 @@ export const SubagentManagerLive = Layer.effect(
           inventory.outputs.filter(
             (output) =>
               output.extensionType === "subagent" &&
-              output.entryName === name &&
+              names.has(output.entryName) &&
               output.ownership === "owned",
           ),
         ),
       );
-    const retireOutputs = (
-      name: string,
+    /** The names a package's files carry: its own and each native name it renders. */
+    const nativeNames = (ref: SubagentExtensionRef, targets: PreparedTargets) =>
+      new Set([
+        ref.subagent.name,
+        ...targets.flatMap((target) =>
+          target.compiled._tag === "Compiled" ? [target.compiled.nativeName] : [],
+        ),
+      ]);
+    /**
+     * An accepted Subagent's own name and every native name it renders, or
+     * `None` when its accepted package cannot be read.
+     */
+    const acceptedNames = (name: string) =>
+      Effect.gen(function* () {
+        const canonical = yield* acceptedCanonicalObservation({ type: "subagent", name }).pipe(
+          Effect.option,
+        );
+        const root = Option.flatMap(Option.flatten(canonical), (state) =>
+          Option.fromUndefinedOr(state.observation.path),
+        );
+        if (Option.isNone(root)) return Option.none<ReadonlySet<string>>();
+        const pkg = yield* readPackage(root.value).pipe(Effect.option);
+        if (Option.isNone(pkg)) return Option.none<ReadonlySet<string>>();
+        const agents = yield* agentRepo.all;
+        return Option.some<ReadonlySet<string>>(
+          new Set([
+            name,
+            ...agents.flatMap((agent) => {
+              const compiled = compileSubagentImplementation({
+                package: pkg.value,
+                agentId: agent.id,
+              });
+              return compiled._tag === "Compiled" ? [compiled.nativeName] : [];
+            }),
+          ]),
+        );
+      });
+    /**
+     * Stems of recorded Subagent files that no declared Subagent names, by its
+     * own or a native name: what a renamed native output leaves behind. When
+     * any declared package cannot be read, nothing is treated as orphaned.
+     */
+    const orphanStems = (
       authority: AgentOutputAuthority,
-      keep: ReadonlySet<string>,
+      rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>,
     ) =>
       Effect.gen(function* () {
-        const outputs = (yield* observeOwned(name, authority)).filter(
-          (output) => !keep.has(output.path),
+        // A declared name always claims its own stem; packages are read only
+        // when some recorded stem is not a declared name.
+        const stems = new Set(
+          [...rows.keys()]
+            .map((unit) => extensionNameFromFilename(path.basename(unit)))
+            .filter((stem) => !authority.expectedSubagentNames.has(stem)),
         );
+        if (stems.size === 0) return stems;
+        const claimed = new Set<string>();
+        for (const name of authority.expectedSubagentNames) {
+          const names = yield* acceptedNames(name);
+          if (Option.isNone(names)) return new Set<string>();
+          for (const claim of names.value) claimed.add(claim);
+        }
+        return new Set([...stems].filter((stem) => !claimed.has(stem)));
+      });
+    /**
+     * Withdraw this Subagent's recorded files outside `keep`, and recorded
+     * files no declared Subagent names. Each passes the deletion guard, and its
+     * row is withdrawn whether it is deleted or kept.
+     * With `reportUnrecorded`, a same-named file AXM never recorded in a
+     * configured agent's container is reported as retained.
+     */
+    const retireOutputs = (args: {
+      readonly names: ReadonlySet<string>;
+      readonly authority: AgentOutputAuthority;
+      readonly keep: ReadonlySet<string>;
+      readonly rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>;
+      readonly discardModified: boolean;
+      readonly reportUnrecorded: boolean;
+    }) =>
+      Effect.gen(function* () {
+        const configuredAgentIds = new Set(yield* settings.configuredAgents);
+        const orphans = yield* orphanStems(args.authority, args.rows);
+        const outputs = (yield* observeNamed(
+          new Set([...args.names, ...orphans]),
+          args.authority,
+        )).filter((output) => !args.keep.has(output.path));
+        const recordedOutputs: Array<{
+          readonly output: AgentOutputObservation;
+          readonly unit: ProjectionUnitPath;
+          readonly recorded: RecordedProjectionRow;
+        }> = [];
+        const unrecorded: Array<AgentOutputObservation> = [];
+        for (const output of outputs) {
+          const unit = subagentUnitPath(path, baseDir, output.path);
+          const recorded = Option.flatMap(unit, (key) =>
+            Option.fromUndefinedOr(args.rows.get(key)),
+          );
+          if (Option.isSome(unit) && Option.isSome(recorded))
+            recordedOutputs.push({ output, unit: unit.value, recorded: recorded.value });
+          else if (
+            args.reportUnrecorded &&
+            args.names.has(output.entryName) &&
+            output.claimantAgentIds.some((agentId) => configuredAgentIds.has(agentId))
+          )
+            unrecorded.push(output);
+        }
         const before = yield* nativeArtifactLocationOutcomes({
           workspaceRoot: baseDir,
           scope: location.scope,
           agents: yield* agentRepo.all,
-          configuredAgentIds: new Set(yield* settings.configuredAgents),
+          configuredAgentIds,
           sharedSkillPolicy: false,
-          targets: outputs.map((output) => ({
-            path: output.path,
-            kind: "subagent" as const,
-            state: "unchanged" as const,
-          })),
+          targets: [...recordedOutputs.map(({ output }) => output), ...unrecorded].map(
+            (output) => ({
+              path: output.path,
+              kind: "subagent" as const,
+              state: "unchanged" as const,
+            }),
+          ),
         });
-        const withdrawn = [];
-        for (const output of outputs) {
-          for (const expectedManagedFile of authority.expectedSubagentFiles[name] ?? []) {
-            const result = yield* removeSubagentFiles({
-              nativeRoots,
-              workspaceRoot: baseDir,
-              scope: location.scope,
-              subagentName: name,
-              expectedManagedFile,
-              renderedFilePaths: [path.relative(baseDir, output.path)],
-            });
-            if (result._tag === "success" && result.renderedFilePaths.length > 0) {
-              withdrawn.push(output);
-              break;
-            }
-          }
+        const withdrawn: Array<AgentOutputObservation> = [];
+        const retained = new Map<string, string>(
+          unrecorded.map((output) => [
+            output.path,
+            retainedOutputDetail(output.path, "unrecorded"),
+          ]),
+        );
+        const rowChanges: Array<ProjectionRowChange> = [];
+        for (const { output, unit, recorded } of recordedOutputs) {
+          const result = yield* removeSubagentFiles({
+            nativeRoots,
+            workspaceRoot: baseDir,
+            scope: location.scope,
+            subagentName: output.entryName,
+            renderedFilePaths: [path.relative(baseDir, output.path)],
+            decideRemoval: ({ filePath, bytes }) => {
+              const decision = decideOutputDeletion({
+                bytes: Option.some(bytes),
+                recorded: Option.some(recorded),
+                expectedRender: Option.none(),
+                discardModified: args.discardModified,
+              });
+              return decision._tag === "delete"
+                ? decision
+                : { _tag: "retain", reason: retainedOutputDetail(filePath, decision.reason) };
+            },
+          });
+          rowChanges.push({ kind: "subagents", path: unit, row: undefined });
+          if (result._tag !== "success") continue;
+          if (result.renderedFilePaths.length > 0) withdrawn.push(output);
+          for (const kept of result.retained ?? []) retained.set(output.path, kept.reason);
         }
-        return {
-          outputs: withdrawn,
-          nativeLocations: yield* retiredNativeArtifactLocationOutcomes(before),
-        };
+        const nativeLocations = (yield* retiredNativeArtifactLocationOutcomes(before)).map(
+          (unit): NativeLocationOutcome => {
+            const reason =
+              retained.get(unit.address.path) ??
+              unit.aliases.map((alias) => retained.get(alias)).find((found) => found !== undefined);
+            if (reason === undefined || unit.state !== "retained") return unit;
+            return { ...unit, ownership: "unowned", state: "retained", reason };
+          },
+        );
+        return { outputs: withdrawn, nativeLocations, rowChanges };
       }).pipe(
         Effect.mapError(
           (cause) =>
             new SubagentIoFailed({ detail: "Cannot retire obsolete Subagent outputs", cause }),
         ),
       );
+    const stageRows = (changes: ReadonlyArray<ProjectionRowChange>) =>
+      changes.length === 0 ? Effect.void : accepted.withBatch(accepted.stageProjections(changes));
+    /**
+     * Refuse before any write when a planned destination holds a file AXM has
+     * no record of writing and whose bytes differ from the render.
+     */
     const preflight = (
       ref: SubagentExtensionRef,
       pkg: DecodedSubagentPackage,
-      authority: AgentOutputAuthority,
       configuredAgents?: ReadonlyArray<string>,
+      replaceUnrecorded = false,
     ) =>
       Effect.gen(function* () {
-        const managedFile = provenance(ref);
-        const previous = authority.expectedSubagentFiles[ref.subagent.name] ?? [];
-        const proofs = [...previous, { ext: managedFile.ext, src: managedFile.source.path }];
-        const claims = new Map<string, string>();
-        for (const target of yield* preparedTargets(ref, pkg, configuredAgents)) {
+        const rows = yield* subagentRows;
+        const targets = yield* preparedTargets(ref, pkg, configuredAgents);
+        for (const target of targets)
           if (target.directory._tag === "misconfigured")
             return yield* new SubagentDefinitionInvalid({ detail: target.directory.reason });
-          if (target.directory._tag !== "supported" || target.compiled._tag !== "Compiled")
-            continue;
-          for (const output of target.compiled.outputs) {
-            const { address } = yield* assertNativeMutationWithinRoots(
-              nativeRoots,
-              path.join(target.directory.dir, output.path),
-              "content",
-              baseDir,
-            );
-            const destination = address.referentPath ?? address.entryPath;
-            const prior = claims.get(destination);
-            if (prior !== undefined && prior !== output.content)
-              return yield* new SubagentNativeConflict({
-                detail: `Configured consumers require incompatible Subagent bytes at ${destination}`,
-              });
-            claims.set(destination, output.content);
-            if (address.kind === "absent") continue;
-            const raw = yield* fs.readFileString(destination).pipe(Effect.option);
-            const format = managedFileFormatForPath(output.path);
-            const marker =
-              Option.isNone(raw) || format === undefined
-                ? Option.none()
-                : managedFileMarker(raw.value, format);
-            if (
-              Option.isNone(marker) ||
-              !proofs.some(
-                (proof) => proof.ext === marker.value.ext && proof.src === marker.value.src,
-              )
-            ) {
-              return yield* new SubagentNativeConflict({
-                detail: `Preserved unowned Subagent file: ${destination}`,
-              });
-            }
-          }
+        const planned = yield* plannedFiles(ref, targets);
+        for (const destination of planned.keys()) {
+          const decision = decideAt({
+            planned,
+            rows,
+            destination,
+            bytes: yield* fs.readFileString(destination).pipe(Effect.option),
+            replaceUnrecorded,
+          });
+          if (decision._tag === "conflict")
+            return yield* new SubagentNativeConflict({ detail: decision.reason });
         }
       }).pipe(
         Effect.mapError((cause) =>
@@ -366,11 +577,10 @@ export const SubagentManagerLive = Layer.effect(
     ) =>
       Effect.gen(function* () {
         const { canonicalPath } = getCanonicalPaths(ref);
-        const authority = yield* captureAgentOutputAuthority();
         const validate = (root: string) =>
           Effect.gen(function* () {
             const pkg = yield* readPackage(root);
-            if (project) yield* preflight(ref, pkg, authority);
+            if (project) yield* preflight(ref, pkg);
           });
         if (ref.refType === "workspace") {
           yield* verifyWorkspaceRefLocation({
@@ -408,7 +618,6 @@ export const SubagentManagerLive = Layer.effect(
       function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
         const { canonicalPath } = getCanonicalPaths(ref);
         const authority = yield* captureAgentOutputAuthority();
-        const previousManagedFiles = authority.expectedSubagentFiles[ref.subagent.name] ?? [];
         const treeIntegrity = yield* materializeCanonical(
           ref,
           force === true,
@@ -417,6 +626,8 @@ export const SubagentManagerLive = Layer.effect(
         );
         const pkg = yield* readPackage(canonicalPath);
         const targets = yield* preparedTargets(ref, pkg);
+        const rows = yield* subagentRows;
+        const planned = yield* plannedFiles(ref, targets);
         const writable = targets.filter(
           (target) => target.directory._tag === "supported" && target.compiled._tag === "Compiled",
         );
@@ -445,7 +656,14 @@ export const SubagentManagerLive = Layer.effect(
                     const outcome = yield* target.agent.addSubagent({
                       workspaceRoot: baseDir,
                       scope: location.scope,
-                      previousManagedFiles,
+                      decideWrite: ({ filePath, prior }) =>
+                        decideAt({
+                          planned,
+                          rows,
+                          destination: filePath,
+                          bytes: prior,
+                          replaceUnrecorded: false,
+                        }),
                       nativeRoots,
                       nativeInsertionEligible: nativeInsertionEligible === true,
                       ...(nativeInsertionEligiblePaths === undefined
@@ -474,18 +692,31 @@ export const SubagentManagerLive = Layer.effect(
             );
             keep.add(address.referentPath ?? address.entryPath);
           }
-        const managedFile = provenance(ref);
-        const currentAuthority = {
-          ...authority,
-          expectedSubagentFiles: {
-            ...authority.expectedSubagentFiles,
-            [ref.subagent.name]: [
-              ...previousManagedFiles,
-              { ext: managedFile.ext, src: managedFile.source.path },
-            ],
-          },
-        };
-        const retired = yield* retireOutputs(ref.subagent.name, currentAuthority, keep);
+        const written = successful.flatMap(({ outcome }) =>
+          (outcome.nativeTargets ?? []).flatMap((target): ReadonlyArray<ProjectionRowChange> => {
+            const file = planned.get(target.path);
+            return file === undefined ||
+              target.decision === undefined ||
+              target.decision === "current"
+              ? []
+              : [
+                  {
+                    kind: "subagents",
+                    path: file.unit,
+                    row: { gen: file.gen, output: projectionOutputDigest(file.content) },
+                  },
+                ];
+          }),
+        );
+        const retired = yield* retireOutputs({
+          names: nativeNames(ref, targets),
+          authority,
+          keep,
+          rows,
+          discardModified: false,
+          reportUnrecorded: false,
+        });
+        yield* stageRows([...retired.rowChanges, ...written]);
         const agentIdsByPath = new Map<string, string[]>();
         for (const { agentId, outcome } of successful)
           for (const file of outcome.renderedFilePaths) {
@@ -543,11 +774,16 @@ export const SubagentManagerLive = Layer.effect(
           type: "subagent",
           name: target.name,
         });
-        const retired = yield* retireOutputs(
-          target.name,
-          yield* captureAgentOutputAuthority(),
-          new Set(),
-        );
+        const authority = yield* captureAgentOutputAuthority();
+        const retired = yield* retireOutputs({
+          names: Option.getOrElse(yield* acceptedNames(target.name), () => new Set([target.name])),
+          authority,
+          keep: new Set(),
+          rows: yield* subagentRows,
+          discardModified: false,
+          reportUnrecorded: true,
+        });
+        yield* stageRows(retired.rowChanges);
         if (!retainCanonical) {
           const root = removableAcceptedCanonicalPath(canonical);
           if (Option.isSome(root)) yield* retireCanonicalDirectory(root.value);
@@ -570,11 +806,12 @@ export const SubagentManagerLive = Layer.effect(
     const projectionObservation: SubagentManagerService["projectionObservation"] = (ref, options) =>
       Effect.gen(function* () {
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
-        yield* preflight(ref, pkg, yield* captureAgentOutputAuthority(), options?.configuredAgents);
+        yield* preflight(ref, pkg, options?.configuredAgents);
         const targets = yield* preparedTargets(ref, pkg, options?.configuredAgents);
+        const rows = yield* subagentRows;
+        const planned = yield* plannedFiles(ref, targets);
         const allAgents = yield* agentRepo.all;
         const observations = [];
-        const expectedPaths = new Set<string>();
         for (const target of targets) {
           if (target.directory._tag === "misconfigured") {
             observations.push({ present: false, current: false, nativeLocations: [] });
@@ -590,25 +827,25 @@ export const SubagentManagerLive = Layer.effect(
               "content",
               baseDir,
             );
-            expectedPaths.add(address.referentPath ?? address.entryPath);
-            const content = yield* fs.readFileString(file).pipe(Effect.option);
-            const format = managedFileFormatForPath(output.path);
-            const actual =
-              Option.isNone(content) || format === undefined
-                ? Option.none()
-                : managedFileMarker(content.value, format);
-            const expected =
-              format === undefined ? Option.none() : managedFileMarker(output.content, format);
-            const owned =
-              Option.isSome(actual) &&
-              Option.isSome(expected) &&
-              actual.value.ext === expected.value.ext &&
-              actual.value.src === expected.value.src;
+            const planFile = planned.get(address.referentPath ?? address.entryPath);
+            const present = yield* fs.exists(file).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SubagentDefinitionInvalid({
+                    detail: `Cannot inspect planned Subagent file ${file}`,
+                    cause,
+                  }),
+              ),
+            );
+            // A declared Subagent owns its planned path; currency is the
+            // recorded generation, never the file's bytes.
             const current =
-              owned &&
-              Option.isSome(actual) &&
-              Option.isSome(expected) &&
-              actual.value.generation === expected.value.generation;
+              planFile !== undefined &&
+              projectionIsCurrent(
+                Option.fromUndefinedOr(rows.get(planFile.unit)),
+                planFile.gen,
+                present,
+              );
             const nativeLocations = yield* nativeArtifactLocationOutcomes({
               workspaceRoot: baseDir,
               scope: location.scope,
@@ -619,32 +856,34 @@ export const SubagentManagerLive = Layer.effect(
                 {
                   path: file,
                   kind: "subagent",
-                  state: current ? "unchanged" : Option.isNone(content) ? "created" : "updated",
+                  state: current ? "unchanged" : present ? "updated" : "created",
                 },
               ],
             });
             observations.push({
-              present: Option.isSome(content),
+              present,
               current,
               nativeLocations: nativeLocations.map((unit) => {
                 const { proof: _proof, ...facts } = unit;
-                return {
-                  ...facts,
-                  ownership: Option.isNone(content)
-                    ? ("absent" as const)
-                    : owned
-                      ? ("owned" as const)
-                      : ("unowned" as const),
-                  ...(owned ? { proof: "exact-accepted-managed-file" } : {}),
-                };
+                return present
+                  ? { ...facts, ownership: "owned" as const, proof: "declared-native-path" }
+                  : { ...facts, ownership: "absent" as const };
               }),
             });
           }
         }
-        const obsolete = (yield* observeOwned(
-          ref.subagent.name,
-          yield* captureAgentOutputAuthority(),
-        )).some((output) => !expectedPaths.has(output.path));
+        // A recorded file of this Subagent outside the plan is withdrawn on the
+        // next write, so the projection is not current until it is gone.
+        const observedAuthority = yield* captureAgentOutputAuthority();
+        const obsolete = (yield* observeNamed(
+          new Set([...nativeNames(ref, targets), ...(yield* orphanStems(observedAuthority, rows))]),
+          observedAuthority,
+        )).some((output) => {
+          const unit = subagentUnitPath(path, baseDir, output.path);
+          return (
+            !planned.has(output.path) && Option.isSome(unit) && rows.get(unit.value) !== undefined
+          );
+        });
         return {
           present: observations.every((item) => item.present),
           current: !obsolete && observations.every((item) => item.current),

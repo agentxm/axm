@@ -90,18 +90,11 @@ export {
   type ResolveSkillsDirOutcome,
   type ResolveSubagentsDirArgs,
   type ResolveSubagentsDirOutcome,
+  type SubagentRemovalDecision,
   type SubagentSyncOutcome,
+  type SubagentWriteDecision,
 } from "./agents/coding-agent.js";
 export { codingAgentForId, codingAgentFromDescriptor } from "./agents/adapters.js";
-
-// Whole-file banner marker, until whole-file projections drop banners
-export {
-  fileBannerMarker,
-  fileBannerSyntaxForPath,
-  serializeFileBannerMarker,
-  type FileBannerMarker,
-  type FileBannerSyntax,
-} from "./file-banner-marker.js";
 
 // Region fence grammar and pure managed-region edits
 export {
@@ -143,7 +136,6 @@ export {
 } from "./subagents/rendering/index.js";
 export {
   type LossyRenderingWarning,
-  type OwnershipBannerText,
   type SubagentRendered,
   type SubagentRenderer,
   type SubagentRenderInput,
@@ -152,7 +144,6 @@ export {
   type SubagentSkipped,
 } from "./subagents/rendering/types.js";
 export {
-  nativeSubagentMarker,
   addSubagentViaResolve,
   dirOutcomeToSubagentSyncOutcome,
   removeSubagentFiles,

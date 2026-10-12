@@ -502,8 +502,7 @@ describe("axm lint handler", () => {
     writeSubagentExtension("researcher");
     const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
     fs.mkdirSync(path.dirname(projectionPath), { recursive: true });
-    const drifted =
-      "<!-- axm:file v=1 ext=@acme/subagents/researcher src=subagents/researcher/subagent.json -->\n# Drifted body\n";
+    const drifted = "# Drifted body\n";
     fs.writeFileSync(projectionPath, drifted);
 
     return provide(

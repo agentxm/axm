@@ -18,21 +18,32 @@ import {
 import type * as Config from "effect/Config";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import {
   CodingAgentRepository,
+  decideOutputDeletion,
   nativeArtifactLocationOutcomes,
+  retainedOutputDetail,
   retiredNativeArtifactLocationOutcomes,
   observeAgentOutputs,
   captureAgentOutputAuthority,
+  subagentUnitPath,
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
 } from "../projection/index.js";
 import { NativeWriteAuthority } from "../agent-adapters/index.js";
 import type { PerAgentType } from "@agentxm/extension-model/unstable/extensions/common";
-import { DesiredStateReader, SettingsReader, WorkspaceLocation } from "../workspace-state/index.js";
+import {
+  DesiredStateReader,
+  LockfileReader,
+  SettingsReader,
+  WorkspaceLocation,
+  recordedProjectionRows,
+  type ProjectionRowChange,
+} from "../workspace-state/index.js";
 import { protectWorkspacePath, recordFootprint, retireWorkspacePath } from "../settlement/index.js";
 import { WorkspaceSyncFailed, type WorkspaceSyncCleanupFailure } from "./errors.js";
 
@@ -40,6 +51,10 @@ export interface ReconcileAgentOutputsResult {
   readonly removedPaths: ReadonlyArray<string>;
   readonly preservedPaths: ReadonlyArray<string>;
   readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
+  /** `subagents` row withdrawals the caller stages with the removals. */
+  readonly rowChanges: ReadonlyArray<ProjectionRowChange>;
+  /** Recorded files the deletion guard kept because they were modified. */
+  readonly warnings: ReadonlyArray<string>;
 }
 
 export interface ReconcileAgentOutputsArgs {
@@ -48,7 +63,19 @@ export interface ReconcileAgentOutputsArgs {
   readonly expectedNames: Readonly<Record<PerAgentType, ReadonlySet<string>>>;
   readonly dryRun?: boolean;
   readonly subjects?: ReadonlyArray<{ readonly type: string; readonly name: string }>;
+  /** Delete recorded Subagent files even when they were modified since AXM wrote them. */
+  readonly discardModified?: boolean;
 }
+
+/**
+ * The deletion guard over one owned Subagent residue file. Only a file with a
+ * recorded row is a candidate; its row is withdrawn whether it is deleted or
+ * kept.
+ */
+type SubagentResidueDecision =
+  | { readonly _tag: "unrecorded" }
+  | { readonly _tag: "delete"; readonly rowChange: ProjectionRowChange }
+  | { readonly _tag: "retain"; readonly rowChange: ProjectionRowChange; readonly reason: string };
 
 const inventory = (
   args: ReconcileAgentOutputsArgs,
@@ -145,6 +172,7 @@ export const reconcileAgentOutputs = (
   | DesiredStateReader
   | WorkspaceLocation
   | NativeWriteAuthority
+  | LockfileReader
 > =>
   Effect.gen(function* () {
     const authority =
@@ -164,12 +192,67 @@ export const reconcileAgentOutputs = (
           subject.type === output.extensionType &&
           subject.name === (output.extensionName ?? output.entryName),
       );
-    const candidates = before.ownedResidue.filter(
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    // Reading the rows decodes the lockfile, so a lockfile this CLI cannot
+    // read refuses before any native output is removed.
+    const rows = recordedProjectionRows(
+      (yield* (yield* LockfileReader).lockfile.pipe(
+        Effect.mapError((cause) => cleanupFailure("Cannot read recorded projections", cause)),
+      )).projections,
+      "subagents",
+    );
+    const residueDecision = (output: AgentOutputObservation) =>
+      Effect.gen(function* () {
+        const unit = subagentUnitPath(path, location.baseDir, output.path);
+        const recorded = Option.flatMap(unit, (key) => Option.fromUndefinedOr(rows.get(key)));
+        if (Option.isNone(unit) || Option.isNone(recorded))
+          return { _tag: "unrecorded" } satisfies SubagentResidueDecision;
+        const decision = decideOutputDeletion({
+          bytes: yield* fs.readFileString(output.path).pipe(Effect.option),
+          recorded,
+          expectedRender: Option.none(),
+          discardModified: args.discardModified === true,
+        });
+        const rowChange = { kind: "subagents", path: unit.value, row: undefined } as const;
+        return decision._tag === "delete"
+          ? ({ _tag: "delete", rowChange } satisfies SubagentResidueDecision)
+          : ({
+              _tag: "retain",
+              rowChange,
+              reason: retainedOutputDetail(output.path, decision.reason),
+            } satisfies SubagentResidueDecision);
+      });
+    const residue = before.ownedResidue.filter(
       (output) =>
         selected(output) &&
         output.extensionType !== "mcp-server" &&
         output.extensionType !== "hook",
     );
+    const decisions = new Map<AgentOutputObservation, SubagentResidueDecision>();
+    for (const output of residue)
+      if (output.extensionType === "subagent")
+        decisions.set(output, yield* residueDecision(output));
+    const candidates = residue.filter((output) => {
+      const decision = decisions.get(output);
+      return decision === undefined || decision._tag === "delete";
+    });
+    const rowChanges = [...decisions.values()].flatMap((decision) =>
+      decision._tag === "unrecorded" ? [] : [decision.rowChange],
+    );
+    const warnings = [...decisions.values()].flatMap((decision) =>
+      decision._tag === "retain" ? [decision.reason] : [],
+    );
+    const retainedReason = (output: AgentOutputObservation | undefined): string | undefined => {
+      if (output === undefined) return undefined;
+      const decision = decisions.get(output);
+      if (decision === undefined) return undefined;
+      return decision._tag === "unrecorded"
+        ? retainedOutputDetail(output.path, "unrecorded")
+        : decision._tag === "retain"
+          ? decision.reason
+          : undefined;
+    };
     const retainedNative = before.outputs.filter(
       (output) =>
         selected(output) &&
@@ -201,11 +284,14 @@ export const reconcileAgentOutputs = (
               },
             ],
     );
+    const guardedRetentions = residue.filter((output) => !candidates.includes(output));
     const preservedPaths = [
-      ...new Set([...before.unownedFootprints, ...retainedNative].map(({ path }) => path)),
+      ...new Set(
+        [...before.unownedFootprints, ...retainedNative, ...guardedRetentions].map(
+          ({ path }) => path,
+        ),
+      ),
     ].sort();
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
     const agents = yield* (yield* CodingAgentRepository).all;
     const observedArtifacts = yield* Effect.forEach(
       ["skill", "subagent"] as const,
@@ -240,6 +326,8 @@ export const reconcileAgentOutputs = (
               };
             }
             if (fact.state !== "retained") return fact;
+            const guarded = retainedReason(output);
+            if (guarded !== undefined) return { ...fact, reason: guarded };
             return {
               ...fact,
               reason:
@@ -268,6 +356,8 @@ export const reconcileAgentOutputs = (
           ...nativeRetentions,
           ...observedArtifacts.flat(),
         ]),
+        rowChanges,
+        warnings,
       };
     }
     const nativeLocations: NativeLocationOutcome[] = [...retainedLocations];
@@ -351,5 +441,7 @@ export const reconcileAgentOutputs = (
       ...(nativeLocations.length === 0
         ? {}
         : { nativeLocations: combineNativeLocationOutcomes(nativeLocations) }),
+      rowChanges,
+      warnings,
     };
   });

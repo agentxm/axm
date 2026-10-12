@@ -524,7 +524,21 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile(projection);
-            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=sha256:[0-9a-f]{64}/u);
+            // The file carries no AXM text; its currency is the lockfile row.
+            expect(generated).not.toContain("axm:");
+            expect(YAML.parse(workspace.readFile("axm-lock.yaml"))).toMatchObject({
+              projections: {
+                subagents: {
+                  contract: 1,
+                  units: {
+                    [projection]: {
+                      gen: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+                      output: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+                    },
+                  },
+                },
+              },
+            });
             const rewritten = generated.replace(
               "First reviewer guidance.",
               "Repository-formatted body.",
@@ -599,7 +613,7 @@ describe("Generated document projection currency", () => {
     { timeout: FIXTURE_TIMEOUT },
   );
   it.effect(
-    "native variants preserve edits, retire renamed outputs and converge when support is removed",
+    "native variants preserve edits, keep edited renamed outputs, retire unedited ones and converge",
     () => {
       const native = (name: string, body: string) =>
         `---\nname: ${name}\ndescription: Review\n---\n${body}\n`;
@@ -641,7 +655,8 @@ describe("Generated document projection currency", () => {
               native("analyst", "Changed selected instructions"),
             );
             yield* applySync();
-            expect(workspace.exists(".claude/agents/investigator.md")).toBe(false);
+            // The renamed output was edited since AXM wrote it, so it is kept.
+            expect(workspace.readFile(".claude/agents/investigator.md")).toBe(edited);
             expect(workspace.readFile(".claude/agents/analyst.md")).toContain(
               "Changed selected instructions",
             );

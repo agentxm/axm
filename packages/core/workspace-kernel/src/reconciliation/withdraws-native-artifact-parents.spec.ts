@@ -12,6 +12,14 @@ import { codingAgentRepositoryLayer } from "../projection/testing.js";
 import { reconcileAgentOutputs } from "./index.js";
 import { WorkspaceFileWriteLocksLive } from "../settlement/live.js";
 import { WorkspaceReadTest } from "../workspace-state/testing.js";
+import { projectionOutputDigest } from "../projection/index.js";
+import {
+  LOCKFILE_VERSION,
+  ProjectionUnitPathSchema,
+  type Lockfile,
+} from "../workspace-state/index.js";
+
+const SUBAGENT_BYTES = "# Review\n";
 
 export const specification = defineSpecification({
   requirement: "workspace/locations/withdraws-native-artifact-parents",
@@ -46,7 +54,23 @@ describe("native artifact parent withdrawal", () => {
           yield* fs.writeFileString(path.join(source, "SKILL.md"), "# Review\n");
           if (parentState === "preexisting")
             yield* fs.makeDirectory(directory, { recursive: true });
-          const workspace = WorkspaceReadTest({ baseDir: root });
+          // A Subagent file is deletion-eligible only with the recorded row of
+          // AXM's last write; it carries no ownership text of its own.
+          const lockfile: Lockfile = {
+            lockfileVersion: LOCKFILE_VERSION,
+            skills: {},
+            projections: {
+              subagents: {
+                contract: 1,
+                units: {
+                  [ProjectionUnitPathSchema.make(".claude/agents/review.md")]: {
+                    output: projectionOutputDigest(SUBAGENT_BYTES),
+                  },
+                },
+              },
+            },
+          };
+          const workspace = WorkspaceReadTest({ baseDir: root, lockfile });
           const services = Layer.mergeAll(
             workspace,
             codingAgentRepositoryLayer([]),
@@ -67,11 +91,7 @@ describe("native artifact parent withdrawal", () => {
             });
             const createdDirectories = yield* authority.createParentDirectories(target);
             if (kind === "skill") yield* fs.symlink(source, target);
-            else
-              yield* fs.writeFileString(
-                target,
-                "<!-- axm:file v=1 ext=@acme/subagents/review src=subagents/review -->\n# Review\n",
-              );
+            else yield* fs.writeFileString(target, SUBAGENT_BYTES);
             yield* authority.recordCreatedDirectories({ capture, createdDirectories });
             if (parentState === "foreign-child")
               yield* fs.writeFileString(path.join(directory, "personal.txt"), "keep\n");
@@ -85,15 +105,17 @@ describe("native artifact parent withdrawal", () => {
               },
               authority: {
                 expectedSkillSources: { review: [source] },
-                expectedSubagentFiles: {
-                  review: [{ ext: "@acme/subagents/review", src: "subagents/review" }],
-                },
+                expectedSubagentNames: new Set(["review"]),
                 declaredMcpNames: new Set<string>(),
                 expectedHooks: [],
                 expectedRegions: { rule: [], knowledge: [] },
               },
             });
             expect(result.removedPaths).toContain(target);
+            if (kind === "subagent")
+              expect(result.rowChanges).toEqual([
+                { kind: "subagents", path: ".claude/agents/review.md", row: undefined },
+              ]);
             expect(result.nativeLocations).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({

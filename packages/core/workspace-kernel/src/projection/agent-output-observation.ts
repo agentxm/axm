@@ -45,7 +45,6 @@ import {
   safeReadFileString,
   type WorkspaceOwnershipIssue,
 } from "./managed-file-discovery.js";
-import { managedFileMarker, managedFileFormatForPath } from "./managed-file-banner.js";
 import { collectNativeAgentMcpServers } from "./mcps/inspection.js";
 import {
   readDeclaredHookUnits,
@@ -56,7 +55,7 @@ import {
 export type AgentOutputOwnershipProof =
   | "canonical-source-link"
   | "copied-directory-receipt"
-  | "managed-banner"
+  | "declared-native-path"
   | "effective-native-declaration";
 
 export interface AgentOutputObservation {
@@ -88,9 +87,8 @@ export interface ObserveAgentOutputsArgs {
   readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
   readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: Readonly<Record<string, ReadonlyArray<string>>>;
-  readonly expectedSubagentFiles: Readonly<
-    Record<string, ReadonlyArray<{ readonly ext: string; readonly src: string }>>
-  >;
+  /** Declared Subagent names; a file of that name in a native container is AXM's. */
+  readonly expectedSubagentNames: ReadonlySet<string>;
   /**
    * The layout whose skill authoring folder holds authored packages, and local
    * declarations (including disabled skills) that mark bundled entries.
@@ -303,23 +301,10 @@ export const observeAgentOutputs = (
         const artifactPath = path.join(container.path, entry);
         const stat = yield* fs.stat(artifactPath).pipe(Effect.option);
         if (stat._tag === "None" || stat.value.type !== "File") continue;
-        const content = yield* safeReadFileString(fs, artifactPath);
-        const format = managedFileFormatForPath(artifactPath);
-        const marker = format === undefined ? Option.none() : managedFileMarker(content, format);
-        const packageOwner = Option.isNone(marker)
-          ? undefined
-          : Object.entries(args.expectedSubagentFiles).find(([, proofs]) =>
-              proofs.some(
-                (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
-              ),
-            );
-        const entryName = packageOwner?.[0] ?? extensionNameFromFilename(entry);
-        const expected = packageOwner?.[1] ?? [];
-        const managed =
-          Option.isSome(marker) &&
-          expected.some(
-            (proof) => marker.value.ext === proof.ext && marker.value.src === proof.src,
-          );
+        // Ownership is the declaration at its native path: the file carries no
+        // provenance, and a recorded projection row is never ownership.
+        const entryName = extensionNameFromFilename(entry);
+        const managed = args.expectedSubagentNames.has(entryName);
         const referent = yield* resolveNativeReferent(artifactPath).pipe(Effect.option);
         if (Option.isNone(referent)) continue;
         const prior = outputs.findIndex(
@@ -346,7 +331,7 @@ export const observeAgentOutputs = (
           entryName,
           claimantAgentIds: container.claimantAgentIds,
           ownership: managed ? "owned" : "unowned",
-          ...(managed ? { proof: "managed-banner" } : {}),
+          ...(managed ? { proof: "declared-native-path" } : {}),
           desired: desiredContainer && args.expectedNames.subagent.has(entryName),
         });
       }
@@ -520,7 +505,7 @@ export const observeAgentOutputs = (
  * of the answer are the ones whose desired state cannot be resolved. Every
  * expected-name set is therefore empty, and the answer is only about proof —
  * file artifacts that lack their required ownership evidence. Native MCP
- * and Hook declarations do not use file ownership markers.
+ * and Hook declarations follow declaration authority instead.
  */
 export const observeWorkspaceOwnershipIssues = (args: {
   readonly workspaceRoot: string;
@@ -530,7 +515,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
   readonly expectedHooks: ReadonlyArray<HookNativeDeclaration>;
   readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: ObserveAgentOutputsArgs["expectedSkillSources"];
-  readonly expectedSubagentFiles: ObserveAgentOutputsArgs["expectedSubagentFiles"];
+  readonly expectedSubagentNames: ObserveAgentOutputsArgs["expectedSubagentNames"];
   readonly authoredSkills: ObserveAgentOutputsArgs["authoredSkills"];
 }): Effect.Effect<
   ReadonlyArray<WorkspaceOwnershipIssue>,
@@ -551,7 +536,7 @@ export const observeWorkspaceOwnershipIssues = (args: {
     expectedHooks: args.expectedHooks,
     declaredMcpNames: args.declaredMcpNames,
     expectedSkillSources: args.expectedSkillSources,
-    expectedSubagentFiles: args.expectedSubagentFiles,
+    expectedSubagentNames: args.expectedSubagentNames,
     authoredSkills: args.authoredSkills,
   }).pipe(
     Effect.map((observed) =>
@@ -562,7 +547,10 @@ export const observeWorkspaceOwnershipIssues = (args: {
         .map((output) => ({
           kind: "managed-file-unowned" as const,
           path: output.path,
-          detail: `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
+          detail:
+            output.extensionType === "subagent"
+              ? "Agent subagent file is not a declared Subagent at this path."
+              : `Agent ${output.extensionType} artifact has no AXM ownership proof.`,
         })),
     ),
   );

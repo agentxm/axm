@@ -4051,6 +4051,19 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: contract, decision-table
 - Source: [`apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts`](../apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts)
 
+##### Projection help points to an editable source or to the fork command
+
+- Requirement: `cli/help/projection-guidance-names-fork-or-source`
+- Owner: `cli`
+- Statement: AXM help for generated Subagent projections shall direct edits to the source of a workspace-authored extension and, for an acquired extension, shall mark its content immutable and point to axm fork, because projected files carry no guidance of their own.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `knowledge-access`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The guidance a person reads is the bundled help topic text; reading that text directly shows exactly what the operator sees, without rendering a projection.
+- Methods: example
+- Source: [`apps/cli/src/root/help/projection-guidance-names-fork-or-source.spec.ts`](../apps/cli/src/root/help/projection-guidance-names-fork-or-source.spec.ts)
+
 ##### Hook extension configuration changes consumer values without acquiring another package
 
 - Requirement: `cli/hooks/configure/preserves-acquisition-and-package-content`
@@ -4416,19 +4429,6 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: decision-table, contract
 - Derived from: `packages/core/workspace-features/src/sync/lock-only-rows-are-never-acquired.test.ts`
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/lock-state-never-creates-reachability.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/lock-state-never-creates-reachability.spec.ts)
-
-##### Managed output points to an editable source or to the fork command
-
-- Requirement: `cli/managed-projection-guidance-respects-authority`
-- Owner: `workspace-kernel`
-- Statement: A managed projection shall direct edits to its source only when the workspace authors that extension, and for an acquired extension shall mark the canonical content immutable and point to axm fork instead.
-- Class: functional
-- Role: experience
-- Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `knowledge-access`
-- Boundary: memory; selection: per-change
-- Boundary rationale: The banner is composed from the provenance record a projection carries; giving the projection that record directly is what decides the guidance, and rendering it shows exactly the operator text a person reads.
-- Methods: decision-table, example
-- Source: [`packages/core/workspace-kernel/src/projection/managed-projection-guidance-respects-authority.spec.ts`](../packages/core/workspace-kernel/src/projection/managed-projection-guidance-respects-authority.spec.ts)
 
 ##### Adding an inline MCP server records it as authored configuration and realizes it
 
@@ -5159,11 +5159,11 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts`](../packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts)
 
-##### Subagent output follows resolved native shape and requires ownership proof
+##### Subagent output follows resolved native shape and its declaration's planned path
 
 - Requirement: `workspace/subagents/native-locations-respect-shape-and-proof`
 - Owner: `workspace-kernel`
-- Statement: AXM shall place Subagent files under their resolved catalog directory, preserve selected native configuration and compile-time dependency currency without inventing tool mappings or execution-policy defaults, render identical shared representations with identical generation metadata regardless of reader enumeration, preserve unowned native files, and report native writing unsupported when a file or keyed surface has no verified ownership representation rather than treating a filename as a directory or a slug as ownership.
+- Statement: AXM shall place Subagent files under their resolved catalog directory without ownership text, preserve selected native configuration without inventing tool mappings or execution-policy defaults, judge currency by an input-only generation that every reader of one physical file shares and that dormant implementation edits do not change, record an unrecorded file whose bytes equal the render, refuse an unrecorded differing file unless replacement is explicitly requested, replace a recorded file when its inputs change even after a hand edit, and report native writing unsupported when a file or keyed surface has no verified representation rather than treating a filename as a directory or a slug as ownership.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`

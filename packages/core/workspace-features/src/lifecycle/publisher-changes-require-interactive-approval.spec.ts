@@ -12,7 +12,10 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 import YAML from "yaml";
 
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  LockfileSchema,
+  ProjectionUnitPathSchema,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { readContainerReceipts } from "@agentxm/workspace-kernel/locations";
 import {
   deriveOperationOutcome,
@@ -561,10 +564,24 @@ describe("Publisher changes through typed Subagent update", () => {
         });
         expectSubagentContent(registry, workspace, SUBAGENT, SECOND);
         expect(workspace.readFile(SUBAGENT_NATIVE)).not.toContain(FIRST.body);
+        // Only the updated Subagent's resolution and the projection row of its
+        // rewritten native file change.
+        const withoutUpdatedRow = (lock: typeof lockAfter) => ({
+          ...lock.projections,
+          subagents: Object.entries(lock.projections?.subagents?.units ?? {}).filter(
+            ([unit]) => unit !== SUBAGENT_NATIVE,
+          ),
+        });
+        expect(
+          lockAfter.projections?.subagents?.units[ProjectionUnitPathSchema.make(SUBAGENT_NATIVE)],
+        ).not.toEqual(
+          lockBefore.projections?.subagents?.units[ProjectionUnitPathSchema.make(SUBAGENT_NATIVE)],
+        );
         expect({
           ...lockAfter,
           subagents: { ...lockAfter.subagents, [SUBAGENT]: lockBefore.subagents?.[SUBAGENT] },
-        }).toEqual(lockBefore);
+          projections: withoutUpdatedRow(lockAfter),
+        }).toEqual({ ...lockBefore, projections: withoutUpdatedRow(lockBefore) });
         expect(outsideSubagentUpdate(registry, workspace.snapshot())).toEqual(
           outsideSubagentUpdate(registry, before),
         );

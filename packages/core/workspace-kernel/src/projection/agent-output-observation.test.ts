@@ -96,7 +96,7 @@ const fixture = (directory = "skills") =>
       expectedHooks: [],
       declaredMcpNames: new Set<string>(),
       expectedSkillSources: { other: [path.join(layout.authoredRoot("skill"), "other/src")] },
-      expectedSubagentFiles: {},
+      expectedSubagentNames: new Set<string>(),
       authoredSkills: { layout, entries: settings.skills ?? {} },
     };
     return { fs, path, root, write, manifest, args };
@@ -275,5 +275,41 @@ describe("authored skill exclusion", () => {
           ]);
         }),
       ),
+  );
+});
+
+describe("Subagent output ownership", () => {
+  it.effect("owns a declared name at its native path whatever the file says", () =>
+    provide(
+      Effect.gen(function* () {
+        const { args, root, write } = yield* fixture();
+        yield* write(".claude/agents/review.md", "Hand-written review\n");
+        yield* write(
+          ".claude/agents/personal.md",
+          "<!-- axm:file v=1 ext=@acme/subagents/personal src=subagents/personal -->\nMine\n",
+        );
+        const observed = { ...args, expectedSubagentNames: new Set(["review"]) };
+        const inventory = yield* observeAgentOutputs(observed);
+        const subagents = inventory.outputs.filter((output) => output.extensionType === "subagent");
+        expect(
+          subagents.map(({ entryName, ownership, proof }) => ({ entryName, ownership, proof })),
+        ).toEqual(
+          expect.arrayContaining([
+            { entryName: "review", ownership: "owned", proof: "declared-native-path" },
+            { entryName: "personal", ownership: "unowned", proof: undefined },
+          ]),
+        );
+        const issues = yield* observeWorkspaceOwnershipIssues({
+          ...observed,
+          configuredAgentIds: new Set<string>(),
+        });
+        expect(issues).toContainEqual({
+          kind: "managed-file-unowned",
+          path: `${root}/.claude/agents/personal.md`,
+          detail: "Agent subagent file is not a declared Subagent at this path.",
+        });
+        expect(issues.map((issue) => issue.path)).not.toContain(`${root}/.claude/agents/review.md`);
+      }),
+    ),
   );
 });

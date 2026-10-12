@@ -1,14 +1,22 @@
-import type { ManagedFileProvenance } from "../managed-file-banner.js";
 import type { SubagentExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/subagent";
 
-/** Provenance and authoring disposition for one managed Subagent projection. */
-export const managedSubagentFile = (
+/**
+ * Graph identity of one Subagent projection: the extension it realizes, the
+ * canonical source it renders from, and whether the workspace authors that
+ * source. It feeds the projection's generation; it is never written into the
+ * projected file.
+ */
+export interface SubagentProvenance {
+  readonly ext: string;
+  readonly src: string;
+  readonly kind: "workspace-authored" | "acquired";
+}
+
+export const subagentProvenance = (
   ref: SubagentExtensionRef,
   sourcePath: string,
-): ManagedFileProvenance => ({
+): SubagentProvenance => ({
   ext: `${ref.owner}/subagents/${ref.subagent.name}`,
-  source: {
-    kind: ref.refType === "workspace" ? "workspace-authored" : "acquired",
-    path: sourcePath,
-  },
+  src: sourcePath,
+  kind: ref.refType === "workspace" ? "workspace-authored" : "acquired",
 });

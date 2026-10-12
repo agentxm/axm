@@ -22,7 +22,7 @@ import {
  * - `0` — success
  * - `1`–`16` — AXM application errors (this enum)
  * - `17`–`127` — reserved for future AXM application errors; do not reuse
- * - `128`+ — POSIX signal convention (130 SIGINT, 143 SIGTERM); set by the
+ * - `128`+ — POSIX signal convention (130 SIGINT, 141 SIGPIPE, 143 SIGTERM); set by the
  *   runtime's signal handlers and the operation exit mapping, not by
  *   `AppError`
  *
@@ -147,6 +147,10 @@ export const ExitCodeDefinitions = [
   {
     code: 130,
     meaning: "Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.",
+  },
+  {
+    code: 141,
+    meaning: "Output consumer closed the pipe. Output delivery was cancelled.",
   },
   {
     code: 143,

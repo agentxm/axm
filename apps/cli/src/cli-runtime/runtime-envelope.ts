@@ -76,6 +76,11 @@ import {
 } from "../cli-flags/index.js";
 import { Screen } from "../screen/index.js";
 import { ScreenLogDrain } from "../screen/logger.js";
+import {
+  CLOSED_PIPE_EXIT_CODE,
+  isClosedOutputPipe,
+  outputFailureToAppError,
+} from "./output-failure.js";
 
 /**
  * Emit a defect (unhandled panic). The squashed cause classifies through the
@@ -298,12 +303,39 @@ export const withCliErrorHandling = <A, R>(
       yield* screen.settle;
     });
 
-    // Undelivered output settles as an internal failure of the output phase.
+    // A closed consumer cancels delivery. Other output failures retain their
+    // safe cause and report on stderr when that channel still works.
     const settleOutputFailure = (error: OutputWriteFailed) =>
-      settle({
-        result: "error",
-        failure: { ...handledFailureIdentity(error), phase: "output" },
-      }).pipe(Effect.as(processOutcome(ExitCode.Internal)));
+      Effect.gen(function* () {
+        if (isClosedOutputPipe(error)) {
+          const recorded = yield* getOperationSettlement;
+          if (Option.isSome(recorded) && recorded.value.failure !== undefined) {
+            yield* settleForExit(recorded.value.exitCode);
+            return processOutcome(recorded.value.exitCode);
+          }
+          yield* settle({ result: "cancelled" });
+          return processOutcome(CLOSED_PIPE_EXIT_CODE);
+        }
+        const failure = { ...handledFailureIdentity(error), phase: "output" } as const;
+        const rendered = yield* appErrorWithDiagnostic(
+          outputFailureToAppError(error),
+          failure,
+          options.command,
+        );
+        if (error.channel === "stdout") {
+          const channels = renderAppErrorChannels(rendered, options.format);
+          const screen = yield* Screen;
+          yield* Effect.gen(function* () {
+            if (channels.stderrDoc !== undefined) yield* screen.note(channels.stderrDoc);
+            else
+              for (const line of channels.stderr) {
+                yield* screen.note([{ _tag: "raw", content: `${line}\n` }]);
+              }
+          }).pipe(Effect.catchTag("OutputWriteFailed", () => Effect.void));
+        }
+        yield* settle({ result: "error", failure });
+        return processOutcome(ExitCode.Internal);
+      });
 
     // A failure raised while building the command's workspace settles in the
     // configuration phase, under the identity the workspace boundary recorded
@@ -393,17 +425,18 @@ export const withCliErrorHandling = <A, R>(
                 ),
           ),
           Effect.as(processOutcome(exitCode)),
+          // The command already failed. A consumer closing while its diagnostic
+          // is rendered must not erase that failure or turn it into cancellation.
+          Effect.catchTag("OutputWriteFailed", (outputFailure) =>
+            isClosedOutputPipe(outputFailure) && resolved !== undefined
+              ? Effect.flatMap(commandFailure(error), (failure) =>
+                  settle({ result: "error", failure }),
+                ).pipe(Effect.as(processOutcome(exitCode)))
+              : settleOutputFailure(outputFailure),
+          ),
         );
       }),
       Effect.catchCause((cause) => {
-        const failure = Cause.findErrorOption(cause);
-        if (
-          !Cause.hasDies(cause) &&
-          Option.isSome(failure) &&
-          failure.value instanceof OutputWriteFailed
-        ) {
-          return settleOutputFailure(failure.value);
-        }
         // An interruption is never a defect: it continues to the process
         // owner, which reports the signal's exit.
         if (Cause.hasInterruptsOnly(cause)) {
@@ -414,11 +447,18 @@ export const withCliErrorHandling = <A, R>(
           const defect = failureToAppError(Cause.squash(cause));
           const failure = yield* defectFailure(cause, defect.code);
           const rendered = yield* appErrorWithDiagnostic(defect, failure, options.command);
-          yield* writeExpectedCliError(rendered, options.format);
+          yield* writeExpectedCliError(rendered, options.format).pipe(
+            Effect.catchTag("OutputWriteFailed", (outputFailure) =>
+              isClosedOutputPipe(outputFailure) ? Effect.void : Effect.fail(outputFailure),
+            ),
+          );
           return defect;
         }).pipe(
           Effect.flatMap((defect) =>
             settleOutput.pipe(
+              Effect.catchTag("OutputWriteFailed", (outputFailure) =>
+                isClosedOutputPipe(outputFailure) ? Effect.void : Effect.fail(outputFailure),
+              ),
               Effect.andThen(
                 Effect.flatMap(defectFailure(cause, defect.code), (failure) =>
                   settle({ result: "defect", failure }),

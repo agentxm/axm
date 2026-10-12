@@ -33,6 +33,7 @@ describe("AppError", () => {
     expect(ExitCodeDefinitions.map(({ code }) => code)).toEqual([
       ...Object.values(ExitCode),
       130,
+      141,
       143,
     ]);
     expect(new Set(ExitCodeDefinitions.map(({ code }) => code)).size).toBe(

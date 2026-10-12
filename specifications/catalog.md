@@ -2525,7 +2525,7 @@ Observation of product use stays within the documented data boundary and under t
 
 - Requirement: `system/reliability/telemetry-reports-terminal-failures-once`
 - Owner: `cli`
-- Statement: After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering bootstrap, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.
+- Statement: After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering bootstrap, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A completed lint run with failing findings shall retain the issues category, and a closed output pipe shall cancel delivery with exit 141 and no error report when no command failure has already occurred; other output failures shall retain their safe channel and reason. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`, `safe-repetition`

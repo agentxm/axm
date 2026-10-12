@@ -1,5 +1,10 @@
 import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import { OutputWriteFailed } from "../screen/streams.js";
+import {
+  CLOSED_PIPE_EXIT_CODE,
+  isClosedOutputPipe,
+  outputFailureToAppError,
+} from "./output-failure.js";
 import { CliError } from "effect/cli";
 import * as Effect from "effect/Effect";
 import {
@@ -126,7 +131,16 @@ export const classifyError = (
     debug: false,
   },
 ): ErrorClassification => {
-  if (error instanceof OutputWriteFailed) return { exitCode: ExitCode.Internal };
+  if (error instanceof OutputWriteFailed) {
+    if (isClosedOutputPipe(error)) return { exitCode: CLOSED_PIPE_EXIT_CODE };
+    const channels = renderAppErrorChannels(outputFailureToAppError(error), format, options);
+    return {
+      exitCode: ExitCode.Internal,
+      ...(error.channel === "stdout"
+        ? { stderr: channels.stderr, stderrDoc: channels.stderrDoc }
+        : {}),
+    };
+  }
   if (error instanceof AppError) {
     return {
       exitCode: exitCodeFor(error.code),
@@ -236,7 +250,9 @@ export const handleError = (
       ? undefined
       : CliError.isCliError(error)
         ? cliUsageError(error)
-        : failureToAppError(error);
+        : error instanceof OutputWriteFailed
+          ? outputFailureToAppError(error)
+          : failureToAppError(error);
   const rendered =
     original === undefined
       ? error
@@ -247,10 +263,20 @@ export const handleError = (
             : { diagnosticId: diagnostic.diagnosticId }),
           ...(diagnostic?.diagnostic === undefined ? {} : { diagnostic: diagnostic.diagnostic }),
         });
-  const { exitCode, stderr, stderrDoc, stdout } = classifyError(rendered, format, {
+  const classified = classifyError(rendered, format, {
     verbose: diagnostic?.verbose === true,
     debug: diagnostic?.debug === true,
   });
+  const { exitCode, stderr, stderrDoc, stdout } =
+    error instanceof OutputWriteFailed
+      ? isClosedOutputPipe(error)
+        ? { exitCode: CLOSED_PIPE_EXIT_CODE }
+        : {
+            ...classified,
+            stdout: undefined,
+            ...(error.channel === "stderr" ? { stderr: undefined, stderrDoc: undefined } : {}),
+          }
+      : classified;
   const output = Effect.gen(function* () {
     const screen = yield* Screen;
     if (stderrDoc !== undefined) {

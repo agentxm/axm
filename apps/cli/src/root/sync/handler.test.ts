@@ -737,7 +737,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("reports unsupported marker versions in preview without writing", () =>
+  it.effect("reports malformed region fences in preview without writing", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
@@ -748,9 +748,10 @@ describe("root sync handler", () => {
       const instructionsPath = path.join(tempDir, "AGENTS.md");
       const before = [
         "# User content",
-        "<!-- axm:start v=2 region=rules -->",
+        "<!-- axm:rules -->",
         "generated",
-        "<!-- axm:end v=2 region=rules -->",
+        "<!-- axm:rules -->",
+        "<!-- /axm:rules -->",
         "",
       ].join("\n");
       fs.writeFileSync(instructionsPath, before);
@@ -758,9 +759,10 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: true }));
 
       const payload = JSON.stringify(rendererState.results[0]?.data);
-      expect(payload).toContain("unsupported");
-      expect(payload).toContain("upgrade AXM");
-      expect(payload).toContain("@agentxm/rules/instructions");
+      expect(payload).toContain('"outcome":"blocked"');
+      expect(payload).toContain(
+        'AXM cannot safely update its section in AGENTS.md: AXM region \\"rules\\" has nested fences',
+      );
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
     }),
   );

@@ -25,17 +25,12 @@ const productionTypeScriptFiles = (root: string): ReadonlyArray<string> =>
   });
 
 describe("aggregate ownership unit conformance", () => {
-  it("keeps managed-region reconciliation sealed and exposes the marker grammar", () => {
+  it("keeps managed-region reconciliation sealed and exposes the fence grammar", () => {
     // Reading and rendering a managed region is a single decision. Native
-    // format adapters own the primitives; the two projection adapters own
-    // workspace-region and native-region reconciliation respectively.
+    // format adapters own the primitives; the native-region projection
+    // adapter owns region reconciliation.
     const regionOffenders = productionTypeScriptFiles(projectionSrc)
-      .filter(
-        (file) =>
-          !["managed-region-adapter.ts", "native-managed-region.ts"].includes(
-            nodePath.basename(file),
-          ),
-      )
+      .filter((file) => nodePath.basename(file) !== "native-managed-region.ts")
       .filter((file) => {
         const source = nodeFs.readFileSync(file, "utf8");
         return source.includes("inspectManagedRegion") || source.includes("renderManagedRegion");
@@ -58,11 +53,11 @@ describe("aggregate ownership unit conformance", () => {
     expect(planningSource).toContain("planAggregateProjection");
     expect(planningSource).toContain("planSingletonProjection");
 
-    // The ownership marker grammar is native format mechanics and remains the
-    // single marker reader in the kernel's agent adapter boundary.
+    // The region fence grammar is native format mechanics and remains the
+    // single fence reader in the kernel's agent adapter boundary.
     expect(
-      nodeFs.readFileSync(nodePath.join(agentAdaptersSrc, "managed-markers.ts"), "utf8"),
-    ).toContain("export const parseMarker");
+      nodeFs.readFileSync(nodePath.join(agentAdaptersSrc, "region-fences.ts"), "utf8"),
+    ).toContain("export const scanFences");
   });
 
   it("keeps projection reconciliation out of the workspace service contract", () => {

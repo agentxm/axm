@@ -69,6 +69,7 @@ const emptyHookManager = {
 const emptyRuleManager = {
   ...managerLifecycleStubs,
   prepareProjection: () => Effect.succeed([]),
+  regionGeneration: Effect.die(new Error("not adopted in this test")),
   projectionPlans: () => Effect.succeed([]),
   isInstalled: () => Effect.succeed(false),
   materializeInstall: () => Effect.succeed(NO_MATERIALIZATION_FACTS),
@@ -90,6 +91,7 @@ const emptySubagentManager = {
 const emptyKnowledgeManager = {
   ...managerLifecycleStubs,
   prepareProjection: () => Effect.succeed([]),
+  regionGeneration: Effect.die(new Error("not adopted in this test")),
   refreshCatalog: () => Effect.void,
   sync: () => Effect.succeed({ changed: false, warnings: [], artifacts: [] }),
   projectionPlans: () => Effect.succeed([]),

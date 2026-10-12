@@ -9,6 +9,7 @@
 import {
   desiredConstraintOf,
   WorkspaceReadTest,
+  AcceptedResolutionWriterTest,
   MockWorkspaceTransactionScope,
   treeIntegrityOfSync,
   exactVersion,
@@ -147,6 +148,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(
         Layer.mergeAll(
+          AcceptedResolutionWriterTest(),
           WorkspaceReadTest({
             baseDir,
             runtimeDir: axmDir,
@@ -201,7 +203,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
       const manager = yield* KnowledgeManager;
       yield* applyPlannedProjections(manager);
       const instructions = nodeFs.readFileSync(nodePath.join(baseDir, "AGENTS.md"), "utf8");
-      expect(instructions).toContain("region=knowledge");
+      expect(instructions).toContain("<!-- axm:knowledge -->\n");
       expect(instructions.split("[pack-a-bundle]").length - 1).toBe(1);
       expect(instructions.split("[pack-b-bundle]").length - 1).toBe(1);
     }).pipe(Effect.provide(layer));
@@ -237,7 +239,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
     }).pipe(Effect.provide(after));
   });
 
-  it.effect("does not infer currency from contributor anchors in the generated body", () => {
+  it.effect("does not read a recorded current region's body for currency", () => {
     writeBundle("pack-a-bundle");
     writeBundle("pack-b-bundle");
     const layer = makeTestLayer({
@@ -258,7 +260,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
         instructionsPath,
         nodeFs
           .readFileSync(instructionsPath, "utf8")
-          .replace("<!-- axm:point v=1 ext=@acme/knowledge/pack-b-bundle kind=knowledge -->\n", ""),
+          .replace("| [pack-b-bundle]", "|  [pack-b-bundle]"),
       );
 
       expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(

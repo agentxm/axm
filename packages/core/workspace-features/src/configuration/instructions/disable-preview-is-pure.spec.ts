@@ -79,7 +79,7 @@ describe("Instruction management disable preview purity", () => {
             instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
           });
           expect(fs.lstatSync(path.join(fixture.root, "CLAUDE.md")).isSymbolicLink()).toBe(true);
-          expect(fixture.readFile(".gitignore")).toContain("region=instruction-aliases");
+          expect(fixture.readFile(".gitignore")).toContain("# axm:instruction-aliases\n");
           expect(fixture.interactionState().confirmApplyChangesCalls).toEqual([]);
         }),
       )

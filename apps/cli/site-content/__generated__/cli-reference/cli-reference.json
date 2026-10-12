@@ -8665,26 +8665,18 @@
           {
             "name": "adopt",
             "aliases": [],
-            "description": "Explicitly adopt one unchanged instruction region without replacing its body",
+            "description": "Record an existing instruction region as current without replacing it",
             "arguments": [
               {
                 "name": "region",
                 "aliases": [],
                 "type": "choice",
                 "required": true,
-                "description": "Managed region to adopt",
+                "description": "Region of the planned instruction file to adopt",
                 "choices": [{ "value": "rules" }, { "value": "knowledge" }]
               }
             ],
             "options": [
-              {
-                "name": "file",
-                "aliases": [],
-                "type": "string",
-                "required": false,
-                "description": "Exact instruction file containing the region",
-                "default": "AGENTS.md"
-              },
               {
                 "name": "scope",
                 "aliases": [],
@@ -8706,8 +8698,8 @@
             "globalOptions": [],
             "examples": [
               {
-                "command": "axm instructions adopt knowledge --file AGENTS.md --preview",
-                "description": "Review ownership transfer for one existing Knowledge region"
+                "command": "axm instructions adopt knowledge --preview",
+                "description": "Review recording one existing Knowledge region as current"
               }
             ],
             "subcommands": []

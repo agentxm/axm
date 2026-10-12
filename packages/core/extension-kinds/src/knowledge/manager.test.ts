@@ -15,6 +15,8 @@ import {
   DesiredStateWriter,
   SettingsWriter,
   type AcceptedResolutionWriterService,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
   type DesiredStateWriterService,
   type SettingsWriterService,
   type WorkspaceRecordsService,
@@ -217,6 +219,10 @@ const managerLayer = (
         Layer.mock(AcceptedResolutionWriter, {
           setAccepted: () => Effect.void,
           removeAccepted: () => Effect.void,
+          withBatch: (effect) => effect,
+          projectionRows: () =>
+            Effect.succeed(new Map<ProjectionUnitPath, RecordedProjectionRow>()),
+          stageProjections: () => Effect.void,
           ...options.acceptedResolutionWriter,
         }),
         FootprintRecorderTest,
@@ -439,7 +445,7 @@ describe("KnowledgeManager", () => {
         ).toBe(true);
         expect(existsSync(nodePath.join(workspaceRoot, ".agents", "knowledge"))).toBe(false);
         const instructions = readFileSync(nodePath.join(workspaceRoot, "AGENTS.md"), "utf8");
-        expect(instructions).toContain("region=knowledge");
+        expect(instructions).toContain("<!-- axm:knowledge -->\n");
         expect(instructions).toContain("## Knowledge Bundles");
         expect(instructions).toContain(
           "Use `axm knowledge concepts --help` to search, read, and explore these bundles.",

@@ -2,12 +2,9 @@
 
 import * as Option from "effect/Option";
 import {
-  MARKER_KIND_FILE,
-  MARKER_VERSION,
-  markerForFile,
-  serializeMarker,
-  type FileCommentStyle,
-  type ManagedMarker,
+  fileBannerMarker,
+  serializeFileBannerMarker,
+  type FileBannerMarker,
 } from "../agent-adapters/index.js";
 import { parseFrontmatterSync } from "@agentxm/extension-content";
 
@@ -37,21 +34,15 @@ export const managedFileFormatForPath = (filePath: string): ManagedFileFormat | 
   return undefined;
 };
 
-const styleFor = (format: ManagedFileFormat): FileCommentStyle =>
-  format === "markdown"
-    ? { kind: "block", open: "<!--", close: "-->" }
-    : { kind: "line", prefix: "#" };
-
 const markerLine = (options: ManagedFileBannerOptions): string =>
-  serializeMarker(
+  serializeFileBannerMarker(
     {
-      kind: MARKER_KIND_FILE,
-      v: MARKER_VERSION,
+      kind: "axm:file",
       ext: options.ext,
       src: options.source.path,
       ...(options.generation === undefined ? {} : { generation: options.generation }),
     },
-    styleFor(options.format),
+    options.format,
   );
 
 const guidanceLines = (options: ManagedFileBannerOptions): ReadonlyArray<string> => {
@@ -111,9 +102,9 @@ const markdownBodyStart = (content: string): number => {
 export const managedFileMarker = (
   content: string,
   format: ManagedFileFormat,
-): Option.Option<Extract<ManagedMarker, { readonly kind: typeof MARKER_KIND_FILE }>> => {
+): Option.Option<FileBannerMarker> => {
   const body = format === "markdown" ? content.slice(markdownBodyStart(content)) : content;
-  return markerForFile(body, styleFor(format));
+  return fileBannerMarker(body, format);
 };
 
 const hasFileMarker = (content: string, format: ManagedFileFormat): boolean =>

@@ -7,6 +7,7 @@ import * as Path from "effect/Path";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { reconcileKnowledgeDiscovery } from "../index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
+import type { ProjectionUnitPath, RecordedProjectionRow } from "../../workspace-state/index.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/knowledge/relative-links-require-compatible-native-bases",
@@ -52,6 +53,7 @@ const fixture = Effect.gen(function* () {
     bundles: [{ owner: "@acme", name: "guide", sourceDir }],
     instructionsPath: path.join(root, "AGENTS.md"),
     instructionsDeclaredPath: path.join(root, "AGENTS.md"),
+    recorded: new Map<ProjectionUnitPath, RecordedProjectionRow>(),
     instructionManagementEnabled: true,
   };
   return { fs, path, root, args };

@@ -45,7 +45,11 @@ import {
 } from "../../locations/index.js";
 import { recordFootprint } from "../../settlement/index.js";
 import { projectionGeneration } from "../generation.js";
-import { NativeWriteAuthority, reconcilePatternList } from "../../agent-adapters/index.js";
+import {
+  NativeWriteAuthority,
+  reconcilePatternList,
+  type ManagedRegionState,
+} from "../../agent-adapters/index.js";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import type {
   AgentDescriptor,
@@ -150,11 +154,8 @@ export interface InstructionsSyncResult {
   readonly skipped: ReadonlyArray<string>;
 }
 
-type ManagedGitignoreRegionState = "absent" | "complete" | "malformed" | "unsupported-version";
-
 const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
-const INSTRUCTION_ALIASES_OWNER = "@agentxm/instructions/aliases";
 /** Ownership identity carried by every managed alias copy's `axm:file` banner. */
 const INSTRUCTION_ALIAS_EXT = "@agentxm/instructions/alias";
 
@@ -1153,32 +1154,23 @@ const observeStaleCandidate = (
     );
   });
 
-const managedGitignoreRegionState = (content: string): ManagedGitignoreRegionState => {
-  const reconciliation = reconcilePatternList({
-    content,
-    target: ".gitignore",
-    region: "instruction-aliases",
-    owner: INSTRUCTION_ALIASES_OWNER,
-    patterns: [],
-  });
-  if (Option.isNone(reconciliation)) return "malformed";
-  const state = reconciliation.value.state;
-  return state.state === "complete" && state.startMarker.ext !== INSTRUCTION_ALIASES_OWNER
-    ? "malformed"
-    : state.state;
-};
+/** The alias region as found; `None` when its fences are malformed. */
+const gitignoreRegion = (content: string): Option.Option<ManagedRegionState> =>
+  Option.map(reconcilePatternList({ content, patterns: [] }), ({ state }) => state);
 
-const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) =>
-  Option.getOrThrowWith(
-    reconcilePatternList({
-      content,
-      target: ".gitignore",
-      region: "instruction-aliases",
-      owner: INSTRUCTION_ALIASES_OWNER,
-      patterns,
-    }),
-    () => new Error("Invariant: .gitignore must support hash comments"),
-  );
+const managedGitignoreRegionState = (content: string): ManagedRegionState["state"] =>
+  Option.match(gitignoreRegion(content), {
+    onNone: () => "malformed",
+    onSome: ({ state }) => state,
+  });
+
+/** The `.gitignore` with the alias region rendered as `patterns`; unchanged when it cannot be. */
+const reconcileGitignorePatterns = (content: string, patterns: ReadonlyArray<string>) => ({
+  updated: Option.match(reconcilePatternList({ content, patterns }), {
+    onNone: () => content,
+    onSome: ({ updated }) => updated,
+  }),
+});
 
 const instructionGitignorePath = (workspaceRoot: string) =>
   Effect.gen(function* () {
@@ -1186,16 +1178,10 @@ const instructionGitignorePath = (workspaceRoot: string) =>
     return path.join(workspaceRoot, ".gitignore");
   });
 
-const unsafeGitignoreRegionFailure = (
-  state: "malformed" | "unsupported-version",
-  filePath: string,
-): InstructionMaintenanceFailed =>
+const unsafeGitignoreRegionFailure = (filePath: string): InstructionMaintenanceFailed =>
   new InstructionMaintenanceFailed({
     category: "conflict",
-    detail:
-      state === "unsupported-version"
-        ? `Instruction aliases use a newer AXM ownership marker; upgrade AXM before modifying ${filePath}`
-        : `Instruction reconciliation found malformed AXM ownership markers: ${filePath}`,
+    detail: `Instruction reconciliation found malformed AXM region fences: ${filePath}`,
     suggestions: [
       {
         description: "Inspect instruction-file ownership and drift",
@@ -1212,10 +1198,8 @@ export const assertInstructionsGitignoreSafe = (workspaceRoot: string) =>
     const filePath = address.referentPath ?? address.entryPath;
     const current = yield* readFileOption(filePath, workspaceRoot);
     const state = Option.isSome(current) ? managedGitignoreRegionState(current.value) : "absent";
-    if (state !== "malformed" && state !== "unsupported-version") {
-      return;
-    }
-    return yield* unsafeGitignoreRegionFailure(state, filePath);
+    if (state !== "malformed") return;
+    return yield* unsafeGitignoreRegionFailure(filePath);
   });
 
 const workspaceRelativeGitPath = (args: {
@@ -1340,7 +1324,6 @@ const observeInstructionsGitignore = (args: {
       trackedAliases,
       current:
         currentRegionState !== "malformed" &&
-        currentRegionState !== "unsupported-version" &&
         ((patterns.length === 0 && !current) ||
           (Option.isSome(currentContent) && currentContent.value === next)),
     };
@@ -1917,13 +1900,11 @@ const writeGitignoreRegion = (args: {
     const run = Effect.gen(function* () {
       let current = yield* readFileOption(filePath, args.workspaceRoot);
       let raw = Option.getOrElse(current, () => "");
-      const state = managedGitignoreRegionState(raw);
-      if (state === "malformed" || state === "unsupported-version")
-        return yield* unsafeGitignoreRegionFailure(state, filePath);
-      const region = reconcileGitignorePatterns(raw, []).state;
+      const region = gitignoreRegion(raw);
+      if (Option.isNone(region)) return yield* unsafeGitignoreRegionFailure(filePath);
       const previous =
-        region.state === "complete"
-          ? region.body.split(/\r?\n/).filter((line) => line.length > 0)
+        region.value.state === "complete"
+          ? region.value.body.split(/\r?\n/).filter((line) => line.length > 0)
           : [];
       const removed = previous.filter((pattern) => !args.patterns.includes(pattern));
       const added = args.patterns.filter((pattern) => !previous.includes(pattern));

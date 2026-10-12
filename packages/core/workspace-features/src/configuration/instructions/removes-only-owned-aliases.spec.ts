@@ -68,7 +68,7 @@ describe("Disabling instruction-file management", () => {
             expect(fixture.exists("CLAUDE.md")).toBe(false);
             expect(fixture.readFile("AGENTS.md")).toBe("# Authored instructions\n");
             expect(fixture.readFile(".gitignore")).toContain("dist/");
-            expect(fixture.readFile(".gitignore")).not.toContain("region=instruction-aliases");
+            expect(fixture.readFile(".gitignore")).not.toContain("axm:instruction-aliases");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

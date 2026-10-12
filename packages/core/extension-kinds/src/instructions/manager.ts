@@ -22,6 +22,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
+  AcceptedResolutionWriter,
   DesiredStateReader,
   LockfileReader,
   SettingsReader,
@@ -34,6 +35,8 @@ import {
   MaterializedFileTargetSchema,
   acceptedCanonicalObservation,
   removableAcceptedCanonicalPath,
+  stableJson,
+  type ProjectionDigest,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import { fromFileLocation } from "@agentxm/host-primitives";
@@ -53,17 +56,14 @@ import {
   observeProjectionPlans,
   type NativeRegionSource,
   projectionGeneration,
+  projectionUnitPath,
+  retargetedRegionRows,
   activeInstructionsConfig,
   observeInstructions,
   resolveInstructionsConfig,
   type ProjectionUnitObservation,
   RULES_REGION_OWNER,
 } from "@agentxm/workspace-kernel/projection";
-import {
-  MARKER_KIND_POINT,
-  MARKER_VERSION,
-  serializeMarker,
-} from "@agentxm/workspace-kernel/agent-adapters";
 import { decodeExtensionNameSync, formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import { parseFrontmatterEffect } from "@agentxm/extension-content";
 import { SourceHostProviders, WorkspaceCatalog } from "@agentxm/workspace-kernel/sources";
@@ -89,6 +89,43 @@ const RULES_REGION = "rules";
 
 const decodeRuleManifest = Schema.decodeUnknownEffect(RuleManifestSchema);
 const decodeMaterializedTarget = Schema.decodeUnknownSync(MaterializedFileTargetSchema);
+
+/** The parts of one Rule contributor its region generation is computed from. */
+export interface RuleRegionContributor {
+  readonly name: string;
+  readonly marker: string;
+  readonly manifest: RuleManifest;
+  readonly body: string;
+}
+
+/** Input-only generation of the Rules region in one planned target. */
+export const rulesRegionGeneration = (
+  target: string,
+  contributors: ReadonlyArray<RuleRegionContributor>,
+): ProjectionDigest =>
+  projectionGeneration([
+    target,
+    ...contributors.map((contributor) =>
+      stableJson({
+        name: contributor.name,
+        ref: `${contributor.marker}@${contributor.manifest.version}`,
+        body: contributor.body,
+        manifest: contributor.manifest,
+      }),
+    ),
+  ]);
+
+/** One Rule's block in the region: an optional title heading and its body. */
+export const renderRuleBlock = (args: {
+  readonly manifest: RuleManifest;
+  readonly body: string;
+}): string => {
+  const header =
+    args.manifest.title !== undefined && !args.body.startsWith("#")
+      ? `# ${args.manifest.title}\n\n`
+      : "";
+  return `${header}${args.body}`;
+};
 
 const normalizeMarkdown = (content: string): string =>
   content
@@ -131,6 +168,7 @@ export const RuleManagerLive = Layer.effect(
     const lockfile = yield* LockfileReader;
     const desiredState = yield* DesiredStateReader;
     const records = yield* WorkspaceRecords;
+    const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -266,32 +304,7 @@ export const RuleManagerLive = Layer.effect(
         ),
       );
 
-    const renderRuleBlock = (args: {
-      readonly marker: string;
-      readonly manifest: RuleManifest;
-      readonly body: string;
-    }): string => {
-      const header =
-        args.manifest.title !== undefined && !args.body.startsWith("#")
-          ? `# ${args.manifest.title}\n\n`
-          : "";
-      const marker = serializeMarker(
-        {
-          kind: MARKER_KIND_POINT,
-          v: MARKER_VERSION,
-          pointKind: "rule",
-          ext: `${args.marker}@${args.manifest.version}`,
-        },
-        { kind: "block", open: "<!--", close: "-->" },
-      );
-      return `${marker}\n\n${header}${args.body}`;
-    };
-
-    interface RenderedRuleContributor {
-      readonly name: string;
-      readonly marker: string;
-      readonly manifest: RuleManifest;
-      readonly body: string;
+    interface RenderedRuleContributor extends RuleRegionContributor {
       readonly root: string;
     }
 
@@ -356,28 +369,19 @@ export const RuleManagerLive = Layer.effect(
       Effect.gen(function* () {
         const { target } = args;
         const contributors = args.input.contributors;
-        const rendered = contributors.map(renderRuleBlock).join("\n\n");
-        const generation = projectionGeneration([
-          target.relative,
-          RULES_REGION_OWNER,
-          ...contributors.flatMap((contributor) => [
-            contributor.name,
-            contributor.marker,
-            contributor.body,
-            JSON.stringify(contributor.manifest),
-          ]),
-        ]);
+        const displayPath = yield* projectionUnitPath(target.relative);
+        const rows = yield* accepted.projectionRows(RULES_REGION);
         const reconciliation = yield* reconcileNativeManagedRegion({
           workspaceRoot: baseDir,
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           ownerRoot: path.dirname(location.runtimeDir),
           scope: location.scope,
           targetPath: target.absolute,
-          displayPath: target.relative,
+          displayPath,
           region: RULES_REGION,
-          owner: RULES_REGION_OWNER,
-          rendered,
-          generation,
+          body: contributors.map(renderRuleBlock).join("\n\n"),
+          gen: rulesRegionGeneration(displayPath, contributors),
+          recorded: Option.fromUndefinedOr(rows.get(displayPath)),
           contributors: contributors.map(({ name, marker, root }) => ({
             name,
             ref: marker,
@@ -389,7 +393,7 @@ export const RuleManagerLive = Layer.effect(
           eligible: args.eligible,
           ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
         });
-        const { changed, observedRegion } = reconciliation;
+        const { changed, present } = reconciliation;
         const materializedTarget = decodeMaterializedTarget({
           target: target.relative,
           mode: "managed-region",
@@ -400,7 +404,7 @@ export const RuleManagerLive = Layer.effect(
           unitId: "rule:instructions-region",
           path: `${target.relative}#${RULES_REGION}`,
           owner: RULES_REGION_OWNER,
-          present: Option.isSome(observedRegion),
+          present,
           current: !changed,
           expectedContributors: contributors.map(({ marker }) => marker),
         } satisfies ProjectionUnitObservation;
@@ -412,6 +416,12 @@ export const RuleManagerLive = Layer.effect(
             projectionUnitObservation,
           };
         }
+        yield* accepted.withBatch(
+          accepted.stageProjections([
+            ...Option.toArray(reconciliation.rowChange),
+            ...retargetedRegionRows(RULES_REGION, rows, displayPath),
+          ]),
+        );
 
         const instructionItems = yield* provide(
           Effect.gen(function* () {
@@ -494,6 +504,15 @@ export const RuleManagerLive = Layer.effect(
         yield* observeProjectionPlans([plan]);
         return plan;
       });
+
+    const regionGeneration: RuleManagerService["regionGeneration"] = Effect.gen(function* () {
+      const target = yield* sourceFileTarget();
+      const contributors = yield* selectRuleContributors({
+        graph: yield* desiredState.graph(),
+        locked: yield* lockfile.entries("rule"),
+      });
+      return rulesRegionGeneration(yield* projectionUnitPath(target.relative), contributors);
+    });
 
     const projectionPlans: RuleManagerService["projectionPlans"] = (options) =>
       makeRulesProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
@@ -603,6 +622,7 @@ export const RuleManagerLive = Layer.effect(
     return {
       projectionPlans,
       prepareProjection,
+      regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       ...makeBaseManagerMembers({
         type: "rule",

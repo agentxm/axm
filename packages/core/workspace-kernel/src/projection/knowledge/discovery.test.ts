@@ -7,6 +7,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { NativeWriteAuthorityLive } from "../live.js";
 import { WorkspaceReadTest } from "../../workspace-state/testing.js";
+import type { ProjectionUnitPath, RecordedProjectionRow } from "../../workspace-state/index.js";
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import { reconcileKnowledgeDiscovery, type KnowledgeDiscoveryBundle } from "./discovery.js";
 
@@ -20,6 +21,14 @@ const makeBundle = (
   mkdirSync(sourceDir, { recursive: true });
   writeFileSync(nodePath.join(sourceDir, "index.md"), `# ${name}\n`);
   return { owner, name, sourceDir, ...(description === undefined ? {} : { description }) };
+};
+
+/** Rows each workspace has recorded, as the lockfile would carry them between runs. */
+const rowsByRoot = new Map<string, Map<ProjectionUnitPath, RecordedProjectionRow>>();
+const rowsOf = (root: string) => {
+  const rows = rowsByRoot.get(root) ?? new Map<ProjectionUnitPath, RecordedProjectionRow>();
+  rowsByRoot.set(root, rows);
+  return rows;
 };
 
 const run = (
@@ -49,9 +58,19 @@ const run = (
     bundles,
     instructionsPath: nodePath.join(root, "AGENTS.md"),
     instructionsDeclaredPath: nodePath.join(root, "AGENTS.md"),
+    recorded: rowsOf(root),
     instructionManagementEnabled: options?.management ?? true,
     ...(options?.dryRun === undefined ? {} : { dryRun: options.dryRun }),
   }).pipe(
+    Effect.tap(({ rowChanges }) =>
+      Effect.sync(() => {
+        if (options?.dryRun === true) return;
+        for (const { path, row } of rowChanges) {
+          if (row === undefined) rowsOf(root).delete(path);
+          else rowsOf(root).set(path, { row, stale: false });
+        }
+      }),
+    ),
     Effect.provide(
       NativeWriteAuthorityLive.pipe(
         Layer.provide(
@@ -77,22 +96,21 @@ describe("reconcileKnowledgeDiscovery", () => {
 
         expect(first.changed).toBe(true);
         expect(second.changed).toBe(false);
-        expect(instructions).toContain("region=knowledge");
+        expect(instructions).toContain("<!-- axm:knowledge -->\n## Knowledge Bundles");
+        expect(instructions).toContain("<!-- /axm:knowledge -->\n");
+        expect(instructions).not.toContain("axm:point");
         const routing =
           "Use `axm knowledge concepts --help` to search, read, and explore these bundles.";
         expect(instructions.split(routing)).toHaveLength(2);
         expect(instructions).toContain(`## Knowledge Bundles\n\n${routing}\n\n### @acme`);
         expect(instructions).toContain(
           "### @acme\n\n" +
-            "<!-- axm:point v=1 ext=@acme/knowledge/platform kind=knowledge -->\n" +
-            "<!-- axm:point v=1 ext=@acme/knowledge/runbook kind=knowledge -->\n\n" +
             "| Bundle | Description |\n| --- | --- |\n" +
             "| [platform](agent_extensions/@acme/knowledge/platform/src/index.md) | Line one line \\| two \\\\ ok |\n" +
             "| [runbook](agent_extensions/@acme/knowledge/runbook/src/index.md) | Operations |",
         );
         expect(instructions).toContain(
           "### @zeta\n\n" +
-            "<!-- axm:point v=1 ext=@zeta/knowledge/platform kind=knowledge -->\n\n" +
             "| Bundle | Description |\n| --- | --- |\n" +
             "| [platform](agent_extensions/@zeta/knowledge/platform/src/index.md) | — |",
         );

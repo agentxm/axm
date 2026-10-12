@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
@@ -84,12 +85,18 @@ const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
   fs.writeFileSync(nodePath.join(packageRoot, "src", `${AUTHORED_SUBAGENT}.md`), `${body}\n`);
 };
 
+/** The lockfile with its whole `projections` section removed. */
+const withoutProjectionRows = (lockfile: string): string => {
+  const document = YAML.parseDocument(lockfile);
+  if (!document.has("projections")) throw new Error("Expected recorded projection rows");
+  document.delete("projections");
+  return document.toString();
+};
+
 const replaceRegionBody = (content: string, body: string): string => {
   const lines = content.split("\n");
-  const start = lines.findIndex(
-    (line) => line.includes("axm:start") && line.includes("region=rules"),
-  );
-  const end = lines.findIndex((line) => line.includes("axm:end") && line.includes("region=rules"));
+  const start = lines.findIndex((line) => line === "<!-- axm:rules -->");
+  const end = lines.findIndex((line) => line === "<!-- /axm:rules -->");
   if (start < 0 || end <= start) throw new Error("Expected a complete managed Rules region");
   return [...lines.slice(0, start + 1), body, ...lines.slice(end)].join("\n");
 };
@@ -411,9 +418,7 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile("AGENTS.md");
-            expect(generated).toMatch(
-              /axm:start v=1 region=rules ext=[^ ]+ src=[^ ]+ gen=sha256:[0-9a-f]{64}/u,
-            );
+            expect(generated).toContain("<!-- axm:rules -->\n");
             const rewritten = replaceRegionBody(
               generated,
               "Repository formatter output.\n\n- Wrapped, reordered, or otherwise rewritten.",
@@ -445,17 +450,19 @@ describe("Generated document projection currency", () => {
           Effect.gen(function* () {
             yield* applySync();
 
-            const withoutGeneration = workspace
-              .readFile("AGENTS.md")
-              .replace(/ gen=sha256:[0-9a-f]{64}(?= -->)/u, "");
-            workspace.writeFile("AGENTS.md", withoutGeneration);
+            const generated = workspace.readFile("AGENTS.md");
+            const recorded = workspace.readFile("axm-lock.yaml");
+            expect(recorded).toContain("projections:");
+            const withoutGeneration = withoutProjectionRows(recorded);
+            workspace.writeFile("axm-lock.yaml", withoutGeneration);
 
             expectReconciliationPlanned(yield* previewSync());
-            expect(workspace.readFile("AGENTS.md")).toBe(withoutGeneration);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(withoutGeneration);
 
             yield* applySync();
+            expect(workspace.readFile("axm-lock.yaml")).toContain("projections:");
             const reconciled = workspace.readFile("AGENTS.md");
-            expect(reconciled).not.toBe(withoutGeneration);
+            expect(reconciled).toBe(generated);
             expect(reconciled).toContain("First authoritative guidance.");
 
             expectNothingToReconcile(yield* applySync());

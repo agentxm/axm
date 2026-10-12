@@ -171,6 +171,11 @@ describe("Lockfile rejection recovery routes", () => {
       const recovered = expectResolved(yield* run(applySync()));
       expect(deriveOperationOutcome(recovered), JSON.stringify(recovered)).toBe("applied");
       expect(workspace.readFile("AGENTS.md")).toBe(instructions);
+      // The deleted lockfile took the generation records with it, so the next
+      // sync records the unchanged regions once before the workspace converges.
+      const recorded = expectResolved(yield* run(applySync()));
+      expect(deriveOperationOutcome(recorded), JSON.stringify(recorded)).toBe("applied");
+      expect(workspace.readFile("AGENTS.md")).toBe(instructions);
       expect((yield* run(applySync()))._tag).toBe("AlreadyReconciled");
     });
   });

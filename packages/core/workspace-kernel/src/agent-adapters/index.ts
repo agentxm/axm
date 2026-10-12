@@ -94,28 +94,34 @@ export {
 } from "./agents/coding-agent.js";
 export { codingAgentForId, codingAgentFromDescriptor } from "./agents/adapters.js";
 
-// Ownership marker grammar and pure managed-region edits
+// Whole-file banner marker, until whole-file projections drop banners
 export {
-  commentStyleForTarget,
-  markerForFile,
-  MARKER_KIND_END,
-  MARKER_KIND_FILE,
-  MARKER_KIND_POINT,
-  MARKER_KIND_START,
-  MARKER_VERSION,
-  parseMarker,
-  sameRegionIdentity,
-  serializeMarker,
-  type FileCommentStyle,
-  type ManagedMarker,
-  type MarkerParseResult,
-  type RegionMarker,
+  fileBannerMarker,
+  fileBannerSyntaxForPath,
+  serializeFileBannerMarker,
+  type FileBannerMarker,
+  type FileBannerSyntax,
+} from "./file-banner-marker.js";
+
+// Region fence grammar and pure managed-region edits
+export {
+  FENCE_TEXT,
+  fenceSyntaxForTarget,
+  isRegionName,
+  REGION_NAMES,
+  scanFences,
+  serializeFence,
+  type FenceLine,
+  type FenceSyntax,
   type RegionName,
-} from "./managed-markers.js";
+} from "./region-fences.js";
 export {
   inspectManagedRegion,
   renderManagedRegion,
+  verifyRenderedRegion,
+  type ManagedRegionProblem,
   type ManagedRegionState,
+  type WritableManagedRegionState,
 } from "./managed-regions.js";
 export {
   reconcilePatternList,

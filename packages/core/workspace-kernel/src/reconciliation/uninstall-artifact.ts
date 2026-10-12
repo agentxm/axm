@@ -225,11 +225,7 @@ export const prepareUninstallArtifact = (
         )
       : [];
     for (const fact of projections) {
-      if (
-        fact.observation.reasonCode === "invalid-ownership" ||
-        fact.observation.reasonCode === "unsupported-version"
-      )
-        continue;
+      if (fact.observation.reasonCode === "invalid-ownership") continue;
       if (!targets.some((entry) => entry.path === fact.subject.path))
         targets.push({ path: fact.subject.path, change: "updated" });
     }

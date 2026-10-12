@@ -613,7 +613,13 @@ const representatives: Representatives = {
     new ProjectionTargetUnsupported({ detail: "Target does not support comments: notes.txt" }),
   ],
   ManagedRegionViolation: [
-    new ManagedRegionViolation({ displayPath: "AGENTS.md", reason: "unpaired markers" }),
+    new ManagedRegionViolation({
+      displayPath: "AGENTS.md",
+      reason: 'AXM region "rules" has unpaired fences',
+      reasonCode: "managed-region-malformed",
+      region: "rules",
+      problem: "unpaired",
+    }),
   ],
   ProjectionIoFailed: [
     new ProjectionIoFailed({ path: "/w/AGENTS.md", step: "reconcile", cause: ioCause }),

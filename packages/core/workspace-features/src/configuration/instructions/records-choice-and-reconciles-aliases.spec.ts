@@ -74,7 +74,7 @@ describe("Enabling instruction-file management", () => {
             instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
           });
           expect(fs.lstatSync(path.join(fixture.root, "CLAUDE.md")).isSymbolicLink()).toBe(true);
-          expect(fixture.readFile(".gitignore")).toContain("region=instruction-aliases");
+          expect(fixture.readFile(".gitignore")).toContain("# axm:instruction-aliases\n");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -142,14 +142,13 @@ describe("Enabling instruction-file management", () => {
   );
 
   // Supporting coverage for two rules this one depends on: a region whose
-  // ownership marker cannot be validated blocks reconciliation
+  // fences are malformed blocks reconciliation
   // (`cli/invalid-ownership-markers-block-reconciliation`), and a refused
   // request writes nothing (`cli/mutations-are-closure-atomic`).
   it.effect(
-    "refuses malformed ownership markers before changing settings or any affected alias",
+    "refuses malformed region fences before changing settings or any affected alias",
     () => {
-      const malformed =
-        "dist/\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/GEMINI.md\n";
+      const malformed = "dist/\n# axm:instruction-aliases\n/GEMINI.md\n";
       const fixture = gitManaged(
         {
           "AGENTS.md": "Preserved authored instructions.\n",

@@ -639,7 +639,7 @@ describe("agent instructions", () => {
         expect(fs.existsSync(path.join(tempDir, "GEMINI.md"))).toBe(false);
         expect(fs.existsSync(path.join(tempDir, "docs", "CLAUDE.md"))).toBe(false);
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
-          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+          "# axm:instruction-aliases\n/CLAUDE.md\n# /axm:instruction-aliases\n",
         );
 
         fs.rmSync(path.join(tempDir, "AGENTS.md"));
@@ -687,7 +687,7 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         fs.writeFileSync(
           path.join(tempDir, ".gitignore"),
-          "keep/\n\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n**/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+          "keep/\n\n# axm:instruction-aliases\n**/CLAUDE.md\n# /axm:instruction-aliases\n",
         );
 
         const stale = yield* observe({ configuredAgents: ["claude-code"], config: IGNORED });
@@ -712,7 +712,7 @@ describe("agent instructions", () => {
           ]),
         );
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
-          "keep/\n\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+          "keep/\n\n# axm:instruction-aliases\n/CLAUDE.md\n# /axm:instruction-aliases\n",
         );
         expect(second.written).toEqual([]);
         expect(second.removed).toEqual([]);
@@ -747,7 +747,7 @@ describe("agent instructions", () => {
         const content = fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8");
         expect(content).toContain(">>> axm:instructions >>>");
         expect(content).toContain("**/CLAUDE.md");
-        expect(content.match(/region=instruction-aliases/g)).toHaveLength(2);
+        expect(content.match(/axm:instruction-aliases/g)).toHaveLength(2);
         expect(
           instructionProjectionIsCurrent(
             yield* observe({ configuredAgents: ["claude-code"], config: IGNORED }),
@@ -1330,7 +1330,7 @@ describe("agent instructions", () => {
         fs.symlinkSync("AGENTS.md", path.join(tempDir, ".junie", "CLAUDE.md"));
         fs.writeFileSync(
           path.join(tempDir, ".gitignore"),
-          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/.junie/CLAUDE.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+          "# axm:instruction-aliases\n/.junie/AGENTS.md\n/.junie/CLAUDE.md\n/CLAUDE.md\n# /axm:instruction-aliases\n",
         );
 
         const result = yield* sync({
@@ -1345,7 +1345,7 @@ describe("agent instructions", () => {
           path.join("..", "AGENTS.md"),
         );
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf8")).toBe(
-          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/.junie/AGENTS.md\n/CLAUDE.md\n# axm:end v=1 region=instruction-aliases\n",
+          "# axm:instruction-aliases\n/.junie/AGENTS.md\n/CLAUDE.md\n# /axm:instruction-aliases\n",
         );
       }),
     ),
@@ -1382,8 +1382,7 @@ describe("agent instructions", () => {
           // neither the stale alias nor the missing target is touched.
           fs.rmSync(path.join(tempDir, "CLAUDE.md"));
           fs.symlinkSync("AGENTS.md", path.join(tempDir, "GEMINI.md"));
-          const malformed =
-            "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/CLAUDE.md\n";
+          const malformed = "# axm:instruction-aliases\n/CLAUDE.md\n";
           fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
           const refused = yield* Effect.result(
@@ -1400,7 +1399,7 @@ describe("agent instructions", () => {
           if (refused._tag === "Failure") {
             const failure = expectMaintenanceFailed(refused.failure);
             expect(failure.category).toBe("conflict");
-            expect(failure.detail).toContain("malformed AXM ownership markers");
+            expect(failure.detail).toContain("malformed AXM region fences");
           }
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
           expect(fs.readlinkSync(path.join(tempDir, "GEMINI.md"))).toBe("AGENTS.md");
@@ -1625,13 +1624,13 @@ describe("agent instructions", () => {
 
         yield* sync({ configuredAgents: ["claude-code"], config: IGNORED });
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toContain(
-          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases",
+          "# axm:instruction-aliases",
         );
 
         yield* sync({ configuredAgents: ["claude-code"], config: TRACKED });
 
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).not.toContain(
-          "# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases",
+          "# axm:instruction-aliases",
         );
       }),
     ),
@@ -1642,14 +1641,14 @@ describe("agent instructions", () => {
       Effect.gen(function* () {
         fs.mkdirSync(path.join(tempDir, ".git"));
         const before =
-          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n**/OLD.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n";
+          "dist/  \r\n\r\n# axm:instruction-aliases\r\n**/OLD.md\r\n# /axm:instruction-aliases\r\n\r\n# keep  \r\n";
         fs.writeFileSync(path.join(tempDir, ".gitignore"), before);
 
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         yield* sync({ configuredAgents: ["claude-code"], config: IGNORED, symlinkSupported: true });
 
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(
-          "dist/  \r\n\r\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\r\n/CLAUDE.md\r\n# axm:end v=1 region=instruction-aliases\r\n\r\n# keep  \r\n",
+          "dist/  \r\n\r\n# axm:instruction-aliases\r\n/CLAUDE.md\r\n# /axm:instruction-aliases\r\n\r\n# keep  \r\n",
         );
 
         yield* removeInstructionsGitignore({
@@ -1664,12 +1663,11 @@ describe("agent instructions", () => {
     ),
   );
 
-  it.effect("refuses to overwrite malformed gitignore ownership markers", () =>
+  it.effect("refuses to overwrite malformed gitignore region fences", () =>
     run(
       Effect.gen(function* () {
         fs.mkdirSync(path.join(tempDir, ".git"));
-        const malformed =
-          "dist/\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n**/CLAUDE.md\n";
+        const malformed = "dist/\n# axm:instruction-aliases\n**/CLAUDE.md\n";
         fs.writeFileSync(path.join(tempDir, ".gitignore"), malformed);
 
         const result = yield* Effect.result(
@@ -1680,7 +1678,7 @@ describe("agent instructions", () => {
         if (result._tag === "Failure") {
           const failure = expectMaintenanceFailed(result.failure);
           expect(failure.category).toBe("conflict");
-          expect(failure.detail).toContain("malformed AXM ownership markers");
+          expect(failure.detail).toContain("malformed AXM region fences");
         }
         expect(fs.readFileSync(path.join(tempDir, ".gitignore"), "utf-8")).toBe(malformed);
       }),

@@ -1,8 +1,13 @@
-/** Native managed regions carry exact source proof and insertion authority. */
+/**
+ * Native managed regions: AXM writes a named region only in the instruction
+ * target planned by the selected scope's settings, records its generation
+ * currency, and keeps insertion authority for exact withdrawal.
+ */
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
@@ -19,15 +24,24 @@ import {
   ProjectionIoFailed,
   ProjectionTargetUnsupported,
 } from "./errors.js";
+import { projectionIsCurrent, projectionOutputDigest } from "./generation.js";
 import {
-  commentStyleForTarget,
-  type RegionName,
+  fenceSyntaxForTarget,
   inspectManagedRegion,
+  isRegionName,
   renderManagedRegion,
-  serializeMarker,
+  verifyRenderedRegion,
   NativeWriteAuthority,
   preflightNativeConfigReaders,
 } from "../agent-adapters/index.js";
+import {
+  ProjectionUnitPathSchema,
+  type ProjectionDigest,
+  type ProjectionKind,
+  type ProjectionRowChange,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
+} from "../workspace-state/index.js";
 
 export interface NativeRegionSource {
   readonly name: string;
@@ -36,77 +50,102 @@ export interface NativeRegionSource {
   readonly scope: "project" | "user";
 }
 
-const isRegionName = (region: string): region is RegionName =>
-  region === "rules" || region === "knowledge" || region === "instruction-aliases";
+const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
 
-/** Exact owner-region content for transient retention; sibling regions are independent. */
+/** A planned target as a scope-relative projection row key. */
+export const projectionUnitPath = (
+  relative: string,
+): Effect.Effect<ProjectionUnitPath, ProjectionTargetUnsupported> =>
+  Option.match(decodeUnitPath(relative), {
+    onNone: () =>
+      Effect.fail(
+        new ProjectionTargetUnsupported({
+          detail: `Projection target is not a path inside its scope root: ${relative}`,
+        }),
+      ),
+    onSome: Effect.succeed,
+  });
+
+/** How a region about to be rewritten compares with what AXM last wrote. */
+export type ProjectionLastWrite = "matches" | "modified" | "unrecorded";
+
+/** Exact region content for transient retention; sibling regions are independent. */
 export const nativeManagedRegionContent = (args: {
   readonly targetPath: string;
   readonly region: string;
   readonly raw: string;
 }) =>
   Effect.gen(function* () {
-    const style = commentStyleForTarget(args.targetPath);
-    if (Option.isNone(style) || !isRegionName(args.region))
-      return yield* new ProjectionIoFailed({
-        path: args.targetPath,
-        step: "inspect",
-        cause: "retained-region-grammar-unavailable",
-      });
-    const region = inspectManagedRegion(args.raw, args.region, style.value);
-    if (region.state !== "complete")
+    const syntax = fenceSyntaxForTarget(args.targetPath);
+    const region =
+      Option.isNone(syntax) || !isRegionName(args.region)
+        ? undefined
+        : inspectManagedRegion(args.raw, args.region, syntax.value);
+    if (region?.state !== "complete")
       return yield* new ProjectionIoFailed({
         path: args.targetPath,
         step: "inspect",
         cause: "retained-region-unavailable",
       });
-    return args.raw
-      .split(/(?<=\n)/u)
-      .slice(region.start, region.end + 1)
-      .join("")
-      .replace(/\r?\n$/u, "");
+    return args.raw.slice(region.open.start, region.close.end);
   });
 
-const sourceProof = Schema.Struct({
-  scope: Schema.Literals(["project", "user"]),
-  root: Schema.String,
-  owners: Schema.Array(
-    Schema.Struct({ name: Schema.String, ref: Schema.String, root: Schema.String }),
-  ),
-});
-
-export const reconcileNativeManagedRegion = (args: {
+export interface NativeManagedRegionArgs {
   readonly workspaceRoot: string;
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly ownerRoot: string;
   readonly scope: "project" | "user";
+  /** Physical planned instruction target. */
   readonly targetPath: string;
-  readonly displayPath: string;
-  readonly owner: string;
-  readonly region: RegionName;
-  readonly rendered: string;
-  readonly generation: string;
+  /** Scope-relative planned instruction target; the projection row key. */
+  readonly displayPath: ProjectionUnitPath;
+  readonly region: "rules" | "knowledge";
+  /** The region's whole body; empty withdraws the region. */
+  readonly body: string;
+  readonly gen: ProjectionDigest;
+  readonly recorded: Option.Option<RecordedProjectionRow>;
   readonly contributors: ReadonlyArray<NativeRegionSource>;
   readonly ownership: ReadonlyArray<NativeRegionSource>;
   readonly configuredAgentIds: ReadonlyArray<string>;
   readonly eligible: boolean;
   readonly dryRun?: boolean;
-  /** Explicit transfer of the exact observed region; ordinary reconciliation never adopts. */
+  /** Explicit record of the exact observed region as current; writes no file. */
   readonly adoption?: { readonly expectedRaw: string };
-}) =>
+}
+
+export interface NativeManagedRegionResult {
+  /** The region is not current: apply rewrites it (or withdraws it) and records its row. */
+  readonly changed: boolean;
+  /** The region was complete in the planned target before this reconciliation. */
+  readonly present: boolean;
+  readonly existed: boolean;
+  readonly removedFile: boolean;
+  /** Only when a complete region is about to be rewritten or removed. */
+  readonly lastWrite: Option.Option<ProjectionLastWrite>;
+  /** `None` leaves the row untouched. Callers stage it only when applying. */
+  readonly rowChange: Option.Option<ProjectionRowChange>;
+  readonly nativeLocation: NativeLocationOutcome;
+}
+
+const regionKind = (region: "rules" | "knowledge"): ProjectionKind => region;
+
+/**
+ * Reconcile one named region in the planned instruction target. Authority is
+ * the planned target itself: callers pass only the target their settings
+ * plan, so a same-named fence in any other file is never read or written.
+ */
+export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const authority = yield* NativeWriteAuthority;
-    const portableRoot = (root: string) => root.split(path.sep).join("/");
-    const scopeRoot = portableRoot(path.relative(args.workspaceRoot, args.ownerRoot)) || ".";
     const roots = nativeAuthorityRoots(
       path,
       { workspaceRoot: args.workspaceRoot, scope: args.scope },
       args.nativeDirectoryInputs,
     );
     if (
-      args.rendered.length > 0 &&
+      args.body.length > 0 &&
       (args.contributors.length === 0 ||
         args.contributors.some(
           (contributor) =>
@@ -137,11 +176,12 @@ export const reconcileNativeManagedRegion = (args: {
     );
     const physical = address.referentPath ?? address.entryPath;
     const alias = path.resolve(args.workspaceRoot, args.displayPath);
-    const style = commentStyleForTarget(args.displayPath);
-    if (Option.isNone(style))
+    const syntax = fenceSyntaxForTarget(args.displayPath);
+    if (Option.isNone(syntax))
       return yield* new ProjectionTargetUnsupported({
-        detail: `Managed region cannot use comment markers in ${args.displayPath}`,
+        detail: `Managed region cannot use comment fences in ${args.displayPath}`,
       });
+    const kind = regionKind(args.region);
     const run = Effect.gen(function* () {
       for (const route of [args.targetPath, alias]) {
         const { address: current } = yield* assertNativeMutationWithinRoots(
@@ -184,111 +224,93 @@ export const reconcileNativeManagedRegion = (args: {
           displayPath: args.displayPath,
           reason: "Instruction region changed after explicit adoption was planned",
         });
-      const state = inspectManagedRegion(existing, args.region, style.value);
-      if (args.adoption !== undefined && state.state !== "complete")
-        return yield* new ManagedRegionViolation({
-          displayPath: args.displayPath,
-          reason: "Explicit adoption requires an existing complete region",
-        });
-      if (state.state === "malformed" || state.state === "unsupported-version")
+      const state = inspectManagedRegion(existing, args.region, syntax.value);
+      if (state.state === "malformed")
         return yield* new ManagedRegionViolation({
           displayPath: args.displayPath,
           reason: state.message,
           reasonCode: state.reasonCode,
+          region: state.region,
+          problem: state.problem,
         });
-      let owned = false;
-      if (state.state === "complete") {
-        const decoded = yield* Effect.try({
-          try: (): unknown => JSON.parse(state.startMarker.src ?? "null"),
-          catch: (cause) => cause,
-        }).pipe(Effect.flatMap(Schema.decodeUnknownEffect(sourceProof)), Effect.option);
-        owned =
-          state.startMarker.ext === args.owner &&
-          Option.isSome(decoded) &&
-          decoded.value.scope === args.scope &&
-          decoded.value.root === scopeRoot &&
-          decoded.value.owners.length > 0 &&
-          decoded.value.owners.every((prior) =>
-            args.ownership.some(
-              (owner) =>
-                owner.name === prior.name &&
-                owner.ref === prior.ref &&
-                portableRoot(owner.root) === prior.root &&
-                owner.scope === args.scope,
-            ),
-          );
-        if (!owned && args.adoption !== undefined) {
-          if (
-            existing !== args.adoption.expectedRaw ||
-            state.startMarker.ext !== args.owner ||
-            args.rendered.length === 0 ||
-            (Option.isSome(decoded) && decoded.value.scope !== args.scope)
-          )
-            return yield* new ManagedRegionViolation({
-              displayPath: args.displayPath,
-              reason: "Explicit region adoption no longer matches its observed scope and owner",
-            });
-          owned = true;
-        }
-        if (!owned) {
-          if (args.rendered.length > 0)
-            return yield* new ManagedRegionViolation({
-              displayPath: args.displayPath,
-              reason: "Managed region source ownership conflicts",
-            });
-          return {
-            changed: false,
-            existing,
-            updated: existing,
-            observedRegion: Option.none<string>(),
-            existed: Option.isSome(before),
-            removedFile: false,
-            ownership: "unowned" as const,
-          };
-        }
+      const present = state.state === "complete";
+      const unchanged = {
+        changed: false,
+        present,
+        existed: Option.isSome(before),
+        removedFile: false,
+        lastWrite: Option.none<ProjectionLastWrite>(),
+      };
+      if (args.adoption !== undefined) {
+        if (state.state !== "complete")
+          return yield* new ManagedRegionViolation({
+            displayPath: args.displayPath,
+            reason: "Explicit adoption requires an existing complete region",
+          });
+        return {
+          ...unchanged,
+          rowChange: Option.some<ProjectionRowChange>({
+            kind,
+            path: args.displayPath,
+            row: { gen: args.gen, output: projectionOutputDigest(state.body) },
+          }),
+        };
       }
-      const source = JSON.stringify({
-        scope: args.scope,
-        root: scopeRoot,
-        owners: args.contributors
-          .map(({ name, ref, root }) => ({ name, ref, root: portableRoot(root) }))
-          .sort(
-            (left, right) =>
-              left.ref.localeCompare(right.ref) ||
-              left.root.localeCompare(right.root) ||
-              left.name.localeCompare(right.name),
-          ),
-      });
-      const renderedUpdate = renderManagedRegion({
+      const withdrawing = args.body.length === 0;
+      if (withdrawing && state.state === "absent")
+        return {
+          ...unchanged,
+          rowChange: Option.map(args.recorded, (): ProjectionRowChange => ({
+            kind,
+            path: args.displayPath,
+            row: undefined,
+          })),
+        };
+      if (!withdrawing && projectionIsCurrent(args.recorded, args.gen, present))
+        return { ...unchanged, rowChange: Option.none<ProjectionRowChange>() };
+      const rendered = renderManagedRegion({
         content: existing,
         state,
         region: args.region,
-        owner: args.owner,
-        rendered: args.rendered,
-        style: style.value,
-        source,
-        generation: args.generation,
+        syntax: syntax.value,
+        body: args.body,
       });
-      let updated = renderedUpdate;
-      if (args.adoption !== undefined && state.state === "complete") {
-        let offset = 0;
-        for (let index = 0; index < state.start; index += 1)
-          offset = existing.indexOf("\n", offset) + 1;
-        const newline = existing.indexOf("\n", offset);
-        const end = newline < 0 ? existing.length : newline;
-        const carriageReturn = existing[end - 1] === "\r" ? "\r" : "";
-        updated =
-          existing.slice(0, offset) +
-          serializeMarker(
-            {
-              ...state.startMarker,
-              src: source,
-            },
-            style.value,
-          ) +
-          carriageReturn +
-          existing.slice(end);
-      }
+      const updated = Option.match(rendered, {
+        onNone: () => existing,
+        onSome: ({ content }) => content,
+      });
+      const written = verifyRenderedRegion({
+        before: existing,
+        after: updated,
+        region: args.region,
+        syntax: syntax.value,
+        withdrawn: withdrawing,
+      });
+      if (Result.isFailure(written))
+        return yield* new ManagedRegionViolation({
+          displayPath: args.displayPath,
+          reason: `${written.failure}; the region is generated from ${
+            args.contributors.map(({ ref }) => ref).join(", ") || "no contributors"
+          }`,
+        });
+      const lastWrite =
+        state.state === "complete"
+          ? Option.some<ProjectionLastWrite>(
+              Option.match(args.recorded, {
+                onNone: () => "unrecorded",
+                onSome: ({ row }) =>
+                  projectionOutputDigest(state.body) === row.output ? "matches" : "modified",
+              }),
+            )
+          : Option.none<ProjectionLastWrite>();
+      const rowChange: ProjectionRowChange = {
+        kind,
+        path: args.displayPath,
+        row:
+          written.success.state === "complete"
+            ? { gen: args.gen, output: projectionOutputDigest(written.success.body) }
+            : undefined,
+      };
       yield* preflightNativeConfigReaders({
         workspaceRoot: args.workspaceRoot,
         scope: args.scope,
@@ -305,25 +327,19 @@ export const reconcileNativeManagedRegion = (args: {
         ),
       );
       const result = {
-        changed: updated !== existing,
-        existing,
-        updated,
-        observedRegion:
-          owned && state.state === "complete" ? Option.some(state.body) : Option.none<string>(),
+        changed: true,
+        present,
         existed: Option.isSome(before),
         removedFile: false,
-        ownership:
-          owned || (args.dryRun !== true && args.rendered.length > 0)
-            ? ("owned" as const)
-            : ("absent" as const),
+        lastWrite,
+        rowChange: Option.some(rowChange),
       };
-      if (args.dryRun === true || !result.changed) return result;
+      if (args.dryRun === true || updated === existing) return result;
       const receipt = {
         path: physical,
         aliases: [alias],
-        unit: JSON.stringify([args.region, args.scope, args.ownerRoot, args.owner]),
+        unit: JSON.stringify([args.region, args.scope, args.ownerRoot]),
       };
-      const withdrawing = args.rendered.length === 0;
       const inverse = withdrawing
         ? yield* authority.resolveInsertion({ ...receipt, raw: existing })
         : Option.none();
@@ -341,7 +357,7 @@ export const reconcileNativeManagedRegion = (args: {
       const capture = yield* authority.captureInsertion({
         ...receipt,
         beforeRaw: before,
-        eligible: !withdrawing && !owned && args.eligible,
+        eligible: !withdrawing && !present && args.eligible,
       });
       yield* authority.protect(physical);
       const createdDirectories = yield* authority.createParentDirectories(physical);
@@ -373,6 +389,8 @@ export const reconcileNativeManagedRegion = (args: {
       return result;
     });
     const result = yield* args.dryRun === true ? run : authority.withExclusiveWrite(physical, run);
+    const withdrawing = args.body.length === 0;
+    const owned = result.present || (args.dryRun !== true && !withdrawing);
     const nativeLocation = {
       scope: args.scope,
       address: { kind: "region", path: physical, region: args.region },
@@ -380,20 +398,17 @@ export const reconcileNativeManagedRegion = (args: {
       configuredConsumers: [],
       potentialReaders: [],
       policyReasons: [],
-      ownership: result.ownership,
-      ...(result.ownership === "owned" ? { proof: "exact-scoped-managed-region-sources" } : {}),
-      state:
-        result.ownership === "unowned"
-          ? "retained"
-          : !result.changed
-            ? args.rendered.length > 0
-              ? "unchanged"
-              : "absent"
-            : args.rendered.length === 0
-              ? "removed"
-              : Option.isSome(result.observedRegion)
-                ? "updated"
-                : "created",
+      ownership: owned ? "owned" : "absent",
+      ...(owned ? { proof: "planned-instruction-target" } : {}),
+      state: !result.changed
+        ? withdrawing
+          ? "absent"
+          : "unchanged"
+        : withdrawing
+          ? "removed"
+          : result.present
+            ? "updated"
+            : "created",
       mechanism: "managed-region",
       availability: [],
     } satisfies NativeLocationOutcome;
@@ -402,8 +417,23 @@ export const reconcileNativeManagedRegion = (args: {
         (cause) => new ProjectionIoFailed({ path: cause.target, step: "inspect", cause }),
       ),
     );
-    return { ...result, nativeLocation: refreshed[0] ?? nativeLocation };
+    return {
+      ...result,
+      nativeLocation: refreshed[0] ?? nativeLocation,
+    } satisfies NativeManagedRegionResult;
   });
+
+/**
+ * Row withdrawals for every recorded region row of `kind` whose key is not the
+ * planned target. A retarget leaves the old file's bytes alone: AXM has no
+ * authority in a file the settings no longer plan.
+ */
+export const retargetedRegionRows = (
+  kind: "rules" | "knowledge",
+  rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>,
+  planned: ProjectionUnitPath,
+): ReadonlyArray<ProjectionRowChange> =>
+  [...rows.keys()].filter((key) => key !== planned).map((path) => ({ kind, path, row: undefined }));
 
 export interface NativeRegionReaderContext {
   readonly workspaceRoot: string;

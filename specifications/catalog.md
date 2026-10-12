@@ -532,6 +532,18 @@ People and agents can understand invalid workspace state and recover it through 
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
 
+##### Sync distinguishes malformed selectors from absent extensions
+
+- Requirement: `cli/sync/invalid-selectors-name-the-fqn-shape`
+- Owner: `workspace-features`
+- Statement: Sync shall reject a malformed target with a validation diagnostic naming @owner/type/name and suggesting axm list, without changing workspace state. A valid fully qualified name absent from desired state shall remain not_found.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Source: [`packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts`](../packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts)
+
 ##### A refused workload token points at the trusted publisher's permissions
 
 - Requirement: `cli/trusted-publishing/refusals-name-the-trusted-publishers-permissions`
@@ -2082,6 +2094,20 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/knowledge/list-knowledge.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Source: [`packages/core/workspace-features/src/inspection/knowledge/reports-bundle-inspection.spec.ts`](../packages/core/workspace-features/src/inspection/knowledge/reports-bundle-inspection.spec.ts)
+
+##### Help and version flags do not make unknown commands valid
+
+- Requirement: `cli/unknown-commands-remain-usage-errors`
+- Owner: `cli`
+- Statement: An invocation containing an unknown root or nested command, including a retired command, shall fail with usage exit code 2 and contextual command recovery in human and JSON output, even when help or version is requested. Help for a supported command shall remain available without its required operands.
+- Class: functional
+- Role: experience
+- Product goals: `knowledge-access`
+- Boundary: memory; selection: per-change
+- Boundary rationale: The real command grammar and error classification are checked in process; built CLI exits and output channels are bound at apps/cli-e2e/src/unknown-command-help.e2e.test.ts.
+- Methods: example
+- Additional evidence: process via [`apps/cli-e2e/src/unknown-command-help.e2e.test.ts`](../apps/cli-e2e/src/unknown-command-help.e2e.test.ts) — A built CLI invocation verifies the process exit code and human and JSON output channels.
+- Source: [`apps/cli/src/unknown-commands-remain-usage-errors.spec.ts`](../apps/cli/src/unknown-commands-remain-usage-errors.spec.ts)
 
 #### Constraints
 

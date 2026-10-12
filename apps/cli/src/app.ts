@@ -15,7 +15,7 @@ import * as Console from "effect/Console";
 import * as Exit from "effect/Exit";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { CliError, CliOutput, Command } from "effect/cli";
+import { CliConfig, CliError, CliOutput, Command, GlobalFlag } from "effect/cli";
 import { format as formatConsoleArgs } from "node:util";
 
 import { AppError, makeAppError } from "./app-error/index.js";
@@ -51,6 +51,7 @@ import {
   startupUpdateCheckLayer,
 } from "./runtime.js";
 import { loadVersion } from "./version.js";
+import { validateCommandPath } from "./validate-command-path.js";
 import { groupCapabilities, withCommandCapabilities } from "./root/shared/command-capabilities.js";
 import { ScopedRoutesLive } from "./root/shared/scoped-command.js";
 
@@ -240,7 +241,20 @@ export const runCommand = (argv: ReadonlyArray<string>, isJson: boolean) =>
         void stderr.push(`${formatConsoleArgs(...args)}\n`),
     };
     const exit = yield* Effect.exit(
-      Command.runWith(rootCommand, { version, renderErrors: false })(argv).pipe(
+      validateCommandPath(rootCommand, argv).pipe(
+        Effect.catchTag("ShowHelp", (error) =>
+          Effect.gen(function* () {
+            const { builtIns } = yield* CliConfig.CliConfig;
+            yield* GlobalFlag.Help.run(true, {
+              command: rootCommand,
+              commandPath: error.commandPath,
+              builtIns,
+              version,
+            });
+            return yield* error;
+          }),
+        ),
+        Effect.andThen(Command.runWith(rootCommand, { version, renderErrors: false })(argv)),
         Effect.provideService(Console.Console, bufferedConsole),
       ),
     );

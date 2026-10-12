@@ -266,6 +266,18 @@ export const prepareSyncWorkspace = (
   SyncWorkspaceRequirements
 > =>
   Effect.gen(function* () {
+    if (
+      Option.isSome(request.target) &&
+      parseExtensionFqnParts(request.target.value) === undefined
+    ) {
+      return yield* new WorkspaceSyncFailed({
+        category: "validation",
+        detail: `Invalid sync target ${request.target.value}; expected @owner/type/name.`,
+        suggestions: [
+          { description: "Find the extension's fully qualified name", cmd: "axm list" },
+        ],
+      });
+    }
     const desiredState = yield* DesiredStateReader;
     const lockfile = yield* LockfileReader;
     const location = yield* WorkspaceLocation;

@@ -28,6 +28,24 @@ import {
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
   errors.map((error) => error.message ?? String(error)).join("; ");
 
+const cliUsageError = (error: CliError.CliError): AppError =>
+  makeAppError({
+    code: "usage",
+    detail: error._tag === "ShowHelp" ? cliErrorMessage(error.errors) : error.message,
+    ...(error._tag === "ShowHelp" &&
+    error.errors.some((entry) => entry._tag === "UnknownSubcommand")
+      ? {
+          suggestions: [
+            {
+              description: "Show supported commands",
+              cmd: `${error.commandPath.join(" ")} --help`,
+            },
+          ],
+        }
+      : {}),
+    cause: error,
+  });
+
 /**
  * Classified error result — pure data describing what handleError should do.
  *
@@ -130,6 +148,13 @@ export const classifyError = (
         return { exitCode: ExitCode.Success };
       }
 
+      if (error.errors.some((entry) => entry._tag === "UnknownSubcommand")) {
+        return {
+          exitCode: ExitCode.Usage,
+          ...renderAppErrorChannels(cliUsageError(error), format, options),
+        };
+      }
+
       if (format !== "text") {
         const message = redactRegistryText(cliErrorMessage(error.errors));
         return {
@@ -210,11 +235,7 @@ export const handleError = (
     diagnostic?.diagnosticId === undefined
       ? undefined
       : CliError.isCliError(error)
-        ? makeAppError({
-            code: "usage",
-            detail: error._tag === "ShowHelp" ? cliErrorMessage(error.errors) : error.message,
-            cause: error,
-          })
+        ? cliUsageError(error)
         : failureToAppError(error);
   const rendered =
     original === undefined

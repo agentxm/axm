@@ -322,6 +322,34 @@ describe("root command parser output", () => {
     vi.restoreAllMocks();
   });
 
+  for (const command of [["inspect"], ["outdated"], ["skills", "bogus"]]) {
+    for (const flag of ["--help", "-h", "--version"]) {
+      for (const json of [false, true]) {
+        it(`rejects ${command.join(" ")} ${flag} in ${json ? "JSON" : "human"} output`, async () => {
+          await expect(run([...command, flag, ...(json ? ["--json"] : [])])).rejects.toMatchObject({
+            code: ExitCode.Usage,
+          });
+          if (json) {
+            expect(stdoutWrites).toHaveLength(1);
+            const document: unknown = JSON.parse(stdoutWrites[0] ?? "");
+            expect(document).toMatchObject({ ok: false, code: "usage" });
+            expect(stdoutWrites.join("")).not.toContain('"type":"help"');
+          } else {
+            expect(stdoutWrites).toEqual([]);
+            expect([...stderrWrites, ...consoleErrorWrites].join("\n")).toContain(command.at(-1));
+          }
+        });
+      }
+    }
+  }
+
+  it("shows help for a valid command without its required operand", async () => {
+    await run(["token", "create", "--help", "--json"]);
+    expect(stdoutWrites).toHaveLength(1);
+    const document: unknown = JSON.parse(stdoutWrites[0] ?? "");
+    expect(document).toMatchObject({ type: "help" });
+  });
+
   it.effect("rejects an unknown flag with exit 2 across every registered command", () =>
     Effect.gen(function* () {
       const files = yield* collectHelpFiles();

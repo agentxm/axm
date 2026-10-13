@@ -9,7 +9,7 @@
 import * as Schema from "effect/Schema";
 import type { PathTraversalDetected, SymlinkCreationError } from "../../workspace-state/index.js";
 import type { WorkspaceSnapshotError } from "../../settlement/index.js";
-import { FailureSuggestedActionSchema } from "../../operations/index.js";
+import { FailureProblemSchema, FailureSuggestedActionSchema } from "../../operations/index.js";
 
 /**
  * An instruction-projection maintenance step could not proceed. `category`
@@ -20,6 +20,7 @@ export class InstructionMaintenanceFailed extends Schema.TaggedError<Instruction
   {
     category: Schema.Literals(["conflict", "internal"]),
     detail: Schema.String,
+    problem: Schema.optional(FailureProblemSchema),
     suggestions: Schema.optional(Schema.Array(FailureSuggestedActionSchema)),
     cause: Schema.optional(Schema.Unknown),
   },

@@ -130,6 +130,10 @@ import {
 } from "@agentxm/workspace-features/configuration";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
+import {
+  ProjectionOutputPosture,
+  type ProjectionOutputPostureValue,
+} from "@agentxm/workspace-kernel/projection";
 import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
 
 export { verboseFlag, debugFlag };
@@ -617,6 +621,18 @@ export const withReleaseAgePosture =
   (ignoreReleaseAge: boolean) =>
   <A, E, R>(program: Effect.Effect<A, E, R>) =>
     Effect.provideService(program, ReleaseAgePosture, ignoreReleaseAge ? "ignore" : "enforce");
+
+/**
+ * Discharge the whole-file projection overrides at a command boundary.
+ *
+ * A command passes only the flags it registers, always as its own parsed
+ * values: a field it omits keeps that policy and tells every recovery not to
+ * name a flag this command does not accept.
+ */
+export const withProjectionOutputPosture =
+  (posture: ProjectionOutputPostureValue) =>
+  <A, E, R>(program: Effect.Effect<A, E, R>) =>
+    Effect.provideService(program, ProjectionOutputPosture, posture);
 
 export const withRuntime =
   (command?: string, options?: { readonly registry?: Option.Option<string> }) =>

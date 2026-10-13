@@ -7,6 +7,7 @@
 import * as Option from "effect/Option";
 import type { RecordedProjectionRow } from "../workspace-state/index.js";
 import { projectionOutputDigest } from "./generation.js";
+import { DISCARD_MODIFIED_FLAG, type ProjectionOutputPostureValue } from "./output-posture.js";
 
 export type DeletionDecision =
   | { readonly _tag: "delete" }
@@ -30,8 +31,17 @@ export const decideOutputDeletion = (args: {
   return { _tag: "retain", reason: "modified" };
 };
 
-/** The warning a retained projected file reports. */
-export const retainedOutputDetail = (path: string, reason: "modified" | "unrecorded"): string =>
-  reason === "modified"
-    ? `Retained ${path}, modified since AXM last wrote it; rerun with --discard-modified to delete it`
-    : `Retained ${path}, which AXM has no record of writing`;
+/**
+ * The warning a retained projected file reports. It names `--discard-modified`
+ * only when the invocation's command offers that flag.
+ */
+export const retainedOutputDetail = (
+  path: string,
+  reason: "modified" | "unrecorded",
+  posture: ProjectionOutputPostureValue,
+): string =>
+  reason === "unrecorded"
+    ? `Retained ${path}, which AXM has no record of writing`
+    : posture.discardModified === false
+      ? `Retained ${path}, modified since AXM last wrote it; rerun with ${DISCARD_MODIFIED_FLAG} to delete it`
+      : `Retained ${path}, modified since AXM last wrote it`;

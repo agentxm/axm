@@ -897,8 +897,22 @@
       "title": "Unsupported Workspace Lockfile Version",
       "description": "Identifies an unsupported workspace lockfile version and its direction."
     },
+    "ProjectionOutputUnrecordedProblem": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "enum": ["projection-output-unrecorded"] },
+        "paths": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["code", "paths"],
+      "additionalProperties": false,
+      "title": "Unrecorded Projection Output",
+      "description": "Files at planned projection paths that differ from AXM's render and that AXM has no record of writing."
+    },
     "FailureProblem": {
-      "anyOf": [{ "$ref": "#/$defs/WorkspaceLockfileVersionUnsupportedProblem" }],
+      "anyOf": [
+        { "$ref": "#/$defs/WorkspaceLockfileVersionUnsupportedProblem" },
+        { "$ref": "#/$defs/ProjectionOutputUnrecordedProblem" }
+      ],
       "title": "Failure Problem",
       "description": "Structured details for a recognized failure."
     },

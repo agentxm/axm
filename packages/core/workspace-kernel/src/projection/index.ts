@@ -182,6 +182,12 @@ export {
   retainedOutputDetail,
   type DeletionDecision,
 } from "./deletion-guard.js";
+export {
+  DISCARD_MODIFIED_FLAG,
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+  type ProjectionOutputPostureValue,
+} from "./output-posture.js";
 
 // Hook agent outcomes
 export { evaluateHookAgentOutcome, type HookOutcomeTarget } from "./hooks/outcomes.js";

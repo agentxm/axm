@@ -1,11 +1,21 @@
 import { withParameterDescription } from "../../cli-parameters.js";
 import { Argument, Command } from "effect/cli";
 
-import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
+import {
+  discardModifiedFlag,
+  ignoreReleaseAgeFlag,
+  reinstallFlag,
+  replaceUnrecordedFlag,
+} from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  withProjectionOutputPosture,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -24,14 +34,17 @@ const updateConfig = {
   reinstall: reinstallFlag,
   preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
+  replaceUnrecorded: replaceUnrecordedFlag,
+  discardModified: discardModifiedFlag,
 } as const;
 
 export const updateCommand = Command.make(
   "update",
   updateConfig,
-  ({ source, scope, reinstall, preview, ignoreReleaseAge }) =>
+  ({ source, scope, reinstall, preview, ignoreReleaseAge, replaceUnrecorded, discardModified }) =>
     handleUpdate({ source, reinstall, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
+      withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
       withRuntime("update"),
     ),

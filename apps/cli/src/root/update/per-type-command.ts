@@ -3,10 +3,20 @@ import * as Option from "effect/Option";
 import { Argument, Command, Flag } from "effect/cli";
 import type { WorkspaceUpdatableType } from "@agentxm/workspace-features/lifecycle";
 import { withParameterDescription } from "../../cli-parameters.js";
-import { ignoreReleaseAgeFlag, reinstallFlag } from "../../cli-flags/index.js";
+import {
+  discardModifiedFlag,
+  ignoreReleaseAgeFlag,
+  reinstallFlag,
+  replaceUnrecordedFlag,
+} from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  withProjectionOutputPosture,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../../runtime.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
 import {
   previewCapabilityFlag,
@@ -32,11 +42,22 @@ export const makePerTypeUpdateCommand = (type: WorkspaceUpdatableType) => {
     reinstall: reinstallFlag,
     preview: previewCapabilityFlag(),
     ignoreReleaseAge: ignoreReleaseAgeFlag,
+    replaceUnrecorded: replaceUnrecordedFlag,
+    discardModified: discardModifiedFlag,
   } as const;
   return Command.make(
     "update",
     config,
-    ({ source, name, scope, reinstall, preview, ignoreReleaseAge }) =>
+    ({
+      source,
+      name,
+      scope,
+      reinstall,
+      preview,
+      ignoreReleaseAge,
+      replaceUnrecorded,
+      discardModified,
+    }) =>
       handleWorkspaceUpdate({
         command: `${route}.update`,
         type: Option.some(type),
@@ -46,6 +67,7 @@ export const makePerTypeUpdateCommand = (type: WorkspaceUpdatableType) => {
         selector: { resourceType: type, source, nameFilters: name },
       }).pipe(
         withReleaseAgePosture(ignoreReleaseAge),
+        withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
         withWorkspace(scope),
         withRuntime(`${route} update`),
       ),

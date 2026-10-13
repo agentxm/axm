@@ -22,7 +22,13 @@ import {
   type RequestedPlanIntent,
   type ResolvedUnit,
   type PlanPolicyId,
+  namedPolicyRecoverySuggestions,
 } from "@agentxm/workspace-kernel/operations";
+import {
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+} from "@agentxm/workspace-kernel/projection";
+import { AppError } from "../../app-error/index.js";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   installableExtensionTypes,
@@ -214,3 +220,50 @@ export const narrowUpdateNames = (
     ],
   };
 };
+
+/**
+ * A refusal of an unrecorded file at a planned projection path, raised while
+ * the command was still planning, offers the invocation replayed with
+ * `--replace-unrecorded` — only on a command that registers it. A refusal
+ * raised while the plan ran already carries that recovery from the kernel.
+ */
+export const withUnrecordedOutputRecovery =
+  (recovery: ConfirmationRecovery) =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+    Effect.catchIf(
+      effect,
+      (failure: E) =>
+        failure instanceof AppError && failure.problem?.code === "projection-output-unrecorded",
+      (failure) =>
+        Effect.gen(function* () {
+          const posture = yield* ProjectionOutputPosture;
+          if (!(failure instanceof AppError) || posture.replaceUnrecorded !== false)
+            return yield* Effect.fail(failure);
+          const existing = failure.suggestions ?? [];
+          const added = namedPolicyRecoverySuggestions(recovery, [REPLACE_UNRECORDED_FLAG]).filter(
+            (suggestion) =>
+              !existing.some(
+                (present) =>
+                  present.cmd === suggestion.cmd && present.description === suggestion.description,
+              ),
+          );
+          return yield* Effect.fail(
+            new AppError({
+              code: failure.code,
+              title: failure.title,
+              detail: failure.detail,
+              ...(failure.diagnostic === undefined ? {} : { diagnostic: failure.diagnostic }),
+              ...(failure.diagnosticId === undefined ? {} : { diagnosticId: failure.diagnosticId }),
+              ...(failure.metadata === undefined ? {} : { metadata: failure.metadata }),
+              ...(failure.status === undefined ? {} : { status: failure.status }),
+              ...(failure.retryable === undefined ? {} : { retryable: failure.retryable }),
+              ...(failure.blockedOn === undefined ? {} : { blockedOn: failure.blockedOn }),
+              ...(failure.action === undefined ? {} : { action: failure.action }),
+              ...(failure.problem === undefined ? {} : { problem: failure.problem }),
+              ...(failure.inputs === undefined ? {} : { inputs: failure.inputs }),
+              suggestions: [...added, ...existing],
+              cause: failure.cause,
+            }),
+          );
+        }),
+    );

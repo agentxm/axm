@@ -399,6 +399,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -466,6 +474,14 @@
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"],
           "when": "Selecting the workspace for coding-agent membership/detection or instruction-file management, including when no extensions are installed."
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -571,6 +587,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -610,6 +634,14 @@
           "parameters": ["flag:scope"],
           "requirements": ["cli/installed-state-stays-in-selected-scope"],
           "when": "Selecting the workspace for coding-agent membership/detection or instruction-file management, including when no extensions are installed."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -1152,6 +1184,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -1178,6 +1218,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [
@@ -1213,6 +1261,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -1265,6 +1321,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -1328,6 +1392,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -1398,6 +1470,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -1773,6 +1853,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -1806,6 +1894,14 @@
           "details": [
             "The route fixes the target type; a string declaration alone does not allocate a glob or FQN dialect."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -1845,6 +1941,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -1895,6 +2007,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -2027,6 +2155,14 @@
             "minimumOccurrences": 0,
             "repeatable": true
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -2114,6 +2250,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -2185,6 +2329,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -2203,6 +2355,14 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/instructions/disable/preview-is-pure"],
           "when": "A management change is needed; command-specific idempotency owners handle already-matching/disabled state."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -2239,6 +2399,22 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -2266,6 +2442,22 @@
           "parameters": ["flag:preview"],
           "requirements": ["cli/instructions/enable/preview-is-pure"],
           "when": "A management change is needed; command-specific idempotency owners handle already-matching/disabled state."
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -2760,6 +2952,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -2801,6 +3001,14 @@
             "cli/knowledge/concepts/reads-only-enabled-selected-corpus"
           ],
           "details": ["Knowledge activation and instruction-entry visibility are independent."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -2824,6 +3032,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -2879,6 +3095,14 @@
             "cli/knowledge/concepts/reads-only-enabled-selected-corpus"
           ],
           "details": ["Knowledge activation and instruction-entry visibility are independent."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -2934,6 +3158,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -2999,6 +3231,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -3388,6 +3628,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -3421,6 +3669,14 @@
           "details": [
             "The route fixes the target type; a string declaration alone does not allocate a glob or FQN dialect."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -3460,6 +3716,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -3510,6 +3782,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -4018,6 +4306,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -4047,6 +4343,14 @@
             "cli/mcps/projects-to-every-configured-agent"
           ],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [
@@ -4082,6 +4386,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -4125,6 +4437,14 @@
             "cli/mcps/projects-to-every-configured-agent"
           ],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ],
       "conditionalLinks": [
@@ -4305,6 +4625,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -4385,6 +4713,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -4709,6 +5045,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -4743,6 +5087,14 @@
           "details": [
             "Removing a local connection and removing its entire source closure are distinct."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -4782,6 +5134,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -4840,6 +5208,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -4978,6 +5362,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -5017,6 +5409,14 @@
           "requirements": ["cli/activation-follows-desired-state"],
           "openTopics": ["pack-activation-selection"],
           "details": ["Pack activation may affect its dependency members."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -5040,6 +5440,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -5093,6 +5501,14 @@
           "requirements": ["cli/activation-follows-desired-state"],
           "openTopics": ["pack-activation-selection"],
           "details": ["Pack activation may affect its dependency members."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -5148,6 +5564,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -5213,6 +5637,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -5599,6 +6031,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -5630,6 +6070,14 @@
             "cli/uninstall/preserves-unrelated-and-unowned-state"
           ],
           "openTopics": ["pack-uninstall-selection"]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -5726,6 +6174,22 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -5772,6 +6236,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -6025,6 +6505,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -6051,6 +6539,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [
@@ -6086,6 +6582,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -6138,6 +6642,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -6193,6 +6705,14 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -6258,6 +6778,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -6596,6 +7124,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -6629,6 +7165,14 @@
           "details": [
             "The route fixes the target type; a string declaration alone does not allocate a glob or FQN dialect."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -6668,6 +7212,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -6718,6 +7278,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -6758,6 +7334,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [],
@@ -6785,6 +7369,14 @@
             "cli/setup/unattended-apply-requires-explicit-intent",
             "cli/confirmation-flags-have-a-supported-purpose"
           ]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -6838,6 +7430,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -6864,6 +7464,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [
@@ -6904,6 +7512,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -6939,6 +7555,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ],
       "conditionalLinks": [
@@ -7098,6 +7722,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -7181,6 +7813,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -7509,6 +8149,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -7542,6 +8190,14 @@
           "details": [
             "The route fixes the target type; a string declaration alone does not allocate a glob or FQN dialect."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -7581,6 +8237,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -7631,6 +8303,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -7652,6 +8340,14 @@
         },
         {
           "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -7683,6 +8379,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [
@@ -7723,6 +8427,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -7758,6 +8470,14 @@
           "parameters": ["argument:name"],
           "requirements": ["cli/activation-follows-desired-state"],
           "details": ["An installed-entry selector is not a new source to acquire."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ],
       "conditionalLinks": [
@@ -7921,6 +8641,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -7989,6 +8717,14 @@
         {
           "parameters": ["argument:source"],
           "requirements": ["cli/install/requires-explicit-source"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ]
     },
@@ -8329,6 +9065,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -8362,6 +9106,14 @@
           "details": [
             "The route fixes the target type; a string declaration alone does not allocate a glob or FQN dialect."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -8401,6 +9153,22 @@
         },
         {
           "name": "reinstall",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -8451,6 +9219,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -8490,6 +9274,22 @@
         },
         {
           "name": "ignore-release-age",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -8569,6 +9369,22 @@
           ],
           "openTopics": ["sync-target-selection"],
           "details": ["Sync target selection is not source acquisition."]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -8868,6 +9684,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -8902,6 +9726,14 @@
             "cli/uninstall/rejects-versioned-root-targets"
           ],
           "openTopics": ["root-uninstall-selection"]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -8975,6 +9807,22 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -9019,6 +9867,22 @@
         {
           "parameters": ["flag:reinstall"],
           "requirements": ["cli/update/reinstall-reacquires-accepted-content"]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ]
     },
@@ -9851,6 +10715,14 @@
             "type": "boolean",
             "required": false
           }
+        },
+        {
+          "name": "replace-unrecorded",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
         }
       ],
       "arguments": [
@@ -9893,6 +10765,14 @@
           "details": [
             "The root route requires an unversioned FQN and routes to the same activation use case as the typed form."
           ]
+        },
+        {
+          "parameters": ["flag:replace-unrecorded"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A planned whole-file projection path holds a differing file AXM has no record of writing."
         }
       ],
       "conditionalLinks": [
@@ -9920,6 +10800,14 @@
         },
         {
           "name": "preview",
+          "rawHelp": {
+            "aliases": [],
+            "type": "boolean",
+            "required": false
+          }
+        },
+        {
+          "name": "discard-modified",
           "rawHelp": {
             "aliases": [],
             "type": "boolean",
@@ -9958,6 +10846,14 @@
           "details": [
             "The root route requires an unversioned FQN and routes to the same activation use case as the typed form."
           ]
+        },
+        {
+          "parameters": ["flag:discard-modified"],
+          "requirements": [
+            "cli/projection-overrides-reach-every-projecting-command",
+            "cli/force-bypasses-only-named-policies"
+          ],
+          "when": "A recorded projected file the request removes was modified since AXM last wrote it."
         }
       ],
       "conditionalLinks": [

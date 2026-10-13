@@ -109,6 +109,15 @@ const OVERRIDE_FLAG_DECLARATIONS = {
     description:
       "Take a release younger than the configured minimum release age, for this run only",
   },
+  "replace-unrecorded": {
+    policy: "unrecorded output",
+    description:
+      "Overwrite files at planned paths that AXM has no record of writing (unrecorded output)",
+  },
+  "discard-modified": {
+    policy: "modified output",
+    description: "Delete projected files even when modified since AXM wrote them (modified output)",
+  },
 } as const satisfies Record<string, { readonly policy: string; readonly description: string }>;
 
 type OverrideFlagName = keyof typeof OVERRIDE_FLAG_DECLARATIONS;
@@ -137,6 +146,16 @@ export const reinstallFlag = makeOverrideFlag("reinstall");
 export const ignoreReleaseAgeFlag = makeOverrideFlag("ignore-release-age");
 
 export const acceptWarningsFlag = makeOverrideFlag("accept-warnings");
+
+/**
+ * The whole-file projection overrides. A command that can write a projected
+ * file registers `--replace-unrecorded`; one that can delete a projected file
+ * registers `--discard-modified`. Each command hands its parsed values to
+ * `withProjectionOutputPosture` at its boundary.
+ */
+export const replaceUnrecordedFlag = makeOverrideFlag("replace-unrecorded");
+
+export const discardModifiedFlag = makeOverrideFlag("discard-modified");
 
 /**
  * The one assessment flag. A command that can assess its intended change

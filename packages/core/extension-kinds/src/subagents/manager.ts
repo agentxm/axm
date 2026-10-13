@@ -47,6 +47,9 @@ import {
   captureAgentOutputAuthority,
   compileSubagentImplementation,
   decideOutputDeletion,
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+  type ProjectionOutputPostureValue,
   decideWholeFileWrite,
   extensionNameFromFilename,
   observeAgentOutputs,
@@ -276,7 +279,7 @@ export const SubagentManagerLive = Layer.effect(
       readonly rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>;
       readonly destination: string;
       readonly bytes: Option.Option<string>;
-      readonly replaceUnrecorded: boolean;
+      readonly posture: ProjectionOutputPostureValue;
     }): SubagentWriteDecision => {
       const file = args.planned.get(args.destination);
       if (file === undefined)
@@ -289,12 +292,16 @@ export const SubagentManagerLive = Layer.effect(
         gen: file.gen,
         bytes: args.bytes,
         rendered: file.content,
-        replaceUnrecorded: args.replaceUnrecorded,
+        replaceUnrecorded: args.posture.replaceUnrecorded === true,
       });
+      // Name the override only when the invocation's command offers it.
       return decision._tag === "conflict"
         ? {
             _tag: "conflict",
-            reason: `Existing Subagent file has no recorded projection: ${args.destination}; rerun with --replace-unrecorded to overwrite it`,
+            reason:
+              args.posture.replaceUnrecorded === false
+                ? `Existing Subagent file has no recorded projection: ${args.destination}; rerun with ${REPLACE_UNRECORDED_FLAG} to overwrite it`
+                : `Existing Subagent file has no recorded projection: ${args.destination}; move it aside to let AXM write it`,
           }
         : decision._tag === "write"
           ? { _tag: "write" }
@@ -431,7 +438,8 @@ export const SubagentManagerLive = Layer.effect(
     /**
      * Withdraw this Subagent's recorded files outside `keep`, and recorded
      * files no declared Subagent names. Each passes the deletion guard, and its
-     * row is withdrawn whether it is deleted or kept.
+     * row is withdrawn whether it is deleted or kept; a modified file is deleted
+     * only under the invocation's `--discard-modified`.
      * With `reportUnrecorded`, a same-named file AXM never recorded in a
      * configured agent's container is reported as retained.
      */
@@ -440,10 +448,10 @@ export const SubagentManagerLive = Layer.effect(
       readonly authority: AgentOutputAuthority;
       readonly keep: ReadonlySet<string>;
       readonly rows: ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>;
-      readonly discardModified: boolean;
       readonly reportUnrecorded: boolean;
     }) =>
       Effect.gen(function* () {
+        const posture = yield* ProjectionOutputPosture;
         const configuredAgentIds = new Set(yield* settings.configuredAgents);
         const orphans = yield* orphanStems(args.authority, args.rows);
         const outputs = (yield* observeNamed(
@@ -488,7 +496,7 @@ export const SubagentManagerLive = Layer.effect(
         const retained = new Map<string, string>(
           unrecorded.map((output) => [
             output.path,
-            retainedOutputDetail(output.path, "unrecorded"),
+            retainedOutputDetail(output.path, "unrecorded", posture),
           ]),
         );
         const rowChanges: Array<ProjectionRowChange> = [];
@@ -504,11 +512,14 @@ export const SubagentManagerLive = Layer.effect(
                 bytes: Option.some(bytes),
                 recorded: Option.some(recorded),
                 expectedRender: Option.none(),
-                discardModified: args.discardModified,
+                discardModified: posture.discardModified === true,
               });
               return decision._tag === "delete"
                 ? decision
-                : { _tag: "retain", reason: retainedOutputDetail(filePath, decision.reason) };
+                : {
+                    _tag: "retain",
+                    reason: retainedOutputDetail(filePath, decision.reason, posture),
+                  };
             },
           });
           rowChanges.push({ kind: "subagents", path: unit, row: undefined });
@@ -536,31 +547,41 @@ export const SubagentManagerLive = Layer.effect(
       changes.length === 0 ? Effect.void : accepted.withBatch(accepted.stageProjections(changes));
     /**
      * Refuse before any write when a planned destination holds a file AXM has
-     * no record of writing and whose bytes differ from the render.
+     * no record of writing and whose bytes differ from the render. An
+     * observation passes `report`: it checks the plan's shape and leaves the
+     * unrecorded file to read as not current.
      */
     const preflight = (
       ref: SubagentExtensionRef,
       pkg: DecodedSubagentPackage,
       configuredAgents?: ReadonlyArray<string>,
-      replaceUnrecorded = false,
+      unrecorded: "refuse" | "report" = "refuse",
     ) =>
       Effect.gen(function* () {
+        const posture = yield* ProjectionOutputPosture;
         const rows = yield* subagentRows;
         const targets = yield* preparedTargets(ref, pkg, configuredAgents);
         for (const target of targets)
           if (target.directory._tag === "misconfigured")
             return yield* new SubagentDefinitionInvalid({ detail: target.directory.reason });
         const planned = yield* plannedFiles(ref, targets);
+        if (unrecorded === "report") return;
         for (const destination of planned.keys()) {
           const decision = decideAt({
             planned,
             rows,
             destination,
             bytes: yield* fs.readFileString(destination).pipe(Effect.option),
-            replaceUnrecorded,
+            posture,
           });
           if (decision._tag === "conflict")
-            return yield* new SubagentNativeConflict({ detail: decision.reason });
+            return yield* new SubagentNativeConflict({
+              detail: decision.reason,
+              problem: {
+                code: "projection-output-unrecorded",
+                paths: [destination],
+              },
+            });
         }
       }).pipe(
         Effect.mapError((cause) =>
@@ -620,6 +641,7 @@ export const SubagentManagerLive = Layer.effect(
     )(
       function* ({ ref, force, nativeInsertionEligible, nativeInsertionEligiblePaths }) {
         const { canonicalPath } = getCanonicalPaths(ref);
+        const posture = yield* ProjectionOutputPosture;
         const authority = yield* captureAgentOutputAuthority();
         const treeIntegrity = yield* materializeCanonical(
           ref,
@@ -665,7 +687,7 @@ export const SubagentManagerLive = Layer.effect(
                           rows,
                           destination: filePath,
                           bytes: prior,
-                          replaceUnrecorded: false,
+                          posture,
                         }),
                       nativeRoots,
                       nativeInsertionEligible: nativeInsertionEligible === true,
@@ -716,7 +738,6 @@ export const SubagentManagerLive = Layer.effect(
           authority,
           keep,
           rows,
-          discardModified: false,
           reportUnrecorded: false,
         });
         yield* stageRows([...retired.rowChanges, ...written]);
@@ -783,7 +804,6 @@ export const SubagentManagerLive = Layer.effect(
           authority,
           keep: new Set(),
           rows: yield* subagentRows,
-          discardModified: false,
           reportUnrecorded: true,
         });
         yield* stageRows(retired.rowChanges);
@@ -809,7 +829,8 @@ export const SubagentManagerLive = Layer.effect(
     const projectionObservation: SubagentManagerService["projectionObservation"] = (ref, options) =>
       Effect.gen(function* () {
         const pkg = yield* readPackage(options?.sourceRoot ?? getCanonicalPaths(ref).canonicalPath);
-        yield* preflight(ref, pkg, options?.configuredAgents);
+        // Observation reports an unrecorded file as not current; only a write refuses it.
+        yield* preflight(ref, pkg, options?.configuredAgents, "report");
         const targets = yield* preparedTargets(ref, pkg, options?.configuredAgents);
         const rows = yield* subagentRows;
         const planned = yield* plannedFiles(ref, targets);
@@ -890,6 +911,7 @@ export const SubagentManagerLive = Layer.effect(
         // What a reconciliation would write, judged by the same decision the
         // install applies, so the preview flags a replaced hand edit. A current
         // row decides without reading the file's bytes.
+        const { replaceUnrecorded } = yield* ProjectionOutputPosture;
         const writes: Array<JobStepArtifactTarget> = [];
         for (const [destination, file] of planned) {
           const recorded = Option.fromUndefinedOr(rows.get(file.unit));
@@ -915,7 +937,7 @@ export const SubagentManagerLive = Layer.effect(
             gen: file.gen,
             bytes: yield* fs.readFileString(destination).pipe(Effect.option),
             rendered: file.content,
-            replaceUnrecorded: false,
+            replaceUnrecorded: replaceUnrecorded === true,
           });
           if (decision._tag !== "write") continue;
           writes.push({

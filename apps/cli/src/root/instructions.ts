@@ -12,7 +12,8 @@ import {
 } from "@agentxm/workspace-features/configuration";
 import { emitNoOpOutcome, emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../runtime.js";
+import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../runtime.js";
+import { discardModifiedFlag, replaceUnrecordedFlag } from "../cli-flags/index.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -156,11 +157,14 @@ const instructionsEnableConfig = {
     withParameterDefault(true),
   ),
   preview: previewCapabilityFlag(),
+  replaceUnrecorded: replaceUnrecordedFlag,
+  discardModified: discardModifiedFlag,
 } as const;
 
 const instructionsDisableConfig = {
   scope: scopeFlag,
   preview: previewCapabilityFlag(),
+  discardModified: discardModifiedFlag,
 } as const;
 
 const instructionsAdoptConfig = {
@@ -210,8 +214,9 @@ const instructionsAdoptCommand = Command.make(
 const instructionsEnableCommand = Command.make(
   "enable",
   instructionsEnableConfig,
-  ({ scope, fileName, gitignore, preview }) =>
+  ({ scope, fileName, gitignore, preview, replaceUnrecorded, discardModified }) =>
     handleInstructionsEnable({ fileName, gitignore, preview }).pipe(
+      withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
       withRuntime("instructions enable"),
     ),
@@ -231,8 +236,9 @@ const instructionsEnableCommand = Command.make(
 const instructionsDisableCommand = Command.make(
   "disable",
   instructionsDisableConfig,
-  ({ scope, preview }) =>
+  ({ scope, preview, discardModified }) =>
     handleInstructionsDisable({ preview }).pipe(
+      withProjectionOutputPosture({ discardModified }),
       withWorkspace(scope),
       withRuntime("instructions disable"),
     ),

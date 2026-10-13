@@ -798,7 +798,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Owner: `cli`
-- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches, retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.
+- Statement: When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches — a whole file only while its bytes are AXM's last write, or with --discard-modified when AXM recorded writing it, otherwise retaining and reporting it and withdrawing its projection row — retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
@@ -829,7 +829,7 @@ Configured extensions realize correctly and completely for every configured codi
 
 - Requirement: `cli/install/realizes-for-every-configured-agent`
 - Owner: `workspace-features`
-- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, shall report those physical units before first acquisition without claiming current ownership, and shall report the realized units after apply, as permitted by the workspace's activation and instruction settings.
+- Statement: When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, shall report those physical units before first acquisition without claiming current ownership, and shall report the realized units after apply, as permitted by the workspace's activation and instruction settings; a differing instruction alias AXM has no record of writing shall block the install unless the request carries --replace-unrecorded.
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `extension-adoption`
@@ -4629,6 +4629,21 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Open questions: Whether enabling an already-installed extension should resolve from source at all, or should read only the accepted resolution and never reach the gate. Activation accepts the override today because the gate can block it today; deciding that question may remove activation from the gated inventory instead.
 - Limitation: The one-shot meaning is exercised through each handler the flag reaches — root install, root update, sync, the shared workspace install, and the shared workspace update — rather than once per registered command path. Commands routing into the same handler share its behavior by construction, and the registration and parser checks below do cover every path. Retires when: The specification harness exports a driver for every gate-blockable command path, letting the decision table run per path.
 - Source: [`apps/cli/src/cli-flags/policy-overrides-reach-every-blocked-command.spec.ts`](../apps/cli/src/cli-flags/policy-overrides-reach-every-blocked-command.spec.ts)
+
+##### Whole-file projection overrides reach every command that writes or deletes projections
+
+- Requirement: `cli/projection-overrides-reach-every-projecting-command`
+- Owner: `cli`
+- Statement: Every command that can write a whole-file projection shall accept --replace-unrecorded and every command that can delete one shall accept --discard-modified; each flag shall carry one definition and reach the projection writers only from the command's own parsed value; a refusal of an unrecorded file shall name the same invocation with --replace-unrecorded; and without --discard-modified a recorded file modified since AXM last wrote it shall be retained and reported, while with it the file shall be deleted.
+- Class: functional
+- Role: experience
+- Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: contract, decision-table, static, example
+- Derived from: `cli/force-bypasses-only-named-policies`, `workspace/subagents/native-locations-respect-shape-and-proof`
+- Assumptions: Commands that reach projection writers only through a confirmation they do not own (authoring, forking, demotion, pack membership edits, migration) keep both policies and offer neither flag; their refusals name no flag.
+- Limitation: The overrides are exercised through `axm sync`; the other registered routes reach the same posture through `withProjectionOutputPosture`, which the static checks below cover for every call site. Retires when: The specification harness exports a driver for every projecting command path, letting the decision table run per path.
+- Source: [`apps/cli/src/cli-flags/projection-overrides-reach-every-projecting-command.spec.ts`](../apps/cli/src/cli-flags/projection-overrides-reach-every-projecting-command.spec.ts)
 
 ##### Publication selectors and filters narrow the workspace-authored set
 

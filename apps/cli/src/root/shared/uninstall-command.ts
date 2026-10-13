@@ -27,6 +27,7 @@ import {
 
 import { setCommandSemanticProperties, summarizeCommandOutcome } from "../../cli-runtime/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
+import { discardModifiedFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { failureToAppError } from "../../app-error/conversions.js";
 import {
@@ -36,7 +37,7 @@ import {
   retryCanHelp,
 } from "../../operation-output.js";
 import { EXTENSION_TYPE_PRESENTATION } from "../extension-type-presentation.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -160,15 +161,20 @@ export const makePerTypeUninstallCommand = (type: InstallableExtensionType) => {
     ),
     scope: scopeFlag,
     preview: previewCapabilityFlag(),
+    discardModified: discardModifiedFlag,
   } as const;
-  return Command.make("uninstall", config, ({ name, scope, preview }) =>
+  return Command.make("uninstall", config, ({ name, scope, preview, discardModified }) =>
     runUninstallCommand({
       command: `${route}.uninstall`,
       preview,
       request: { type: Option.some(type), selector: name },
       recoveryCommand: [route, "uninstall"],
       recoveryPositionals: [name],
-    }).pipe(withWorkspace(scope), withRuntime(`${route} uninstall`)),
+    }).pipe(
+      withProjectionOutputPosture({ discardModified }),
+      withWorkspace(scope),
+      withRuntime(`${route} uninstall`),
+    ),
   ).pipe(
     withArgvTracking(config),
     withCommandCapabilities(previewableCapabilities("workspace")),

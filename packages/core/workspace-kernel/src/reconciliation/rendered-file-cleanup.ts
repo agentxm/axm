@@ -25,6 +25,7 @@ import {
   CodingAgentRepository,
   decideOutputDeletion,
   nativeArtifactLocationOutcomes,
+  ProjectionOutputPosture,
   retainedOutputDetail,
   retiredNativeArtifactLocationOutcomes,
   observeAgentOutputs,
@@ -194,6 +195,7 @@ export const reconcileAgentOutputs = (
       );
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const posture = yield* ProjectionOutputPosture;
     // Reading the rows decodes the lockfile, so a lockfile this CLI cannot
     // read refuses before any native output is removed.
     const rows = recordedProjectionRows(
@@ -220,7 +222,7 @@ export const reconcileAgentOutputs = (
           : ({
               _tag: "retain",
               rowChange,
-              reason: retainedOutputDetail(output.path, decision.reason),
+              reason: retainedOutputDetail(output.path, decision.reason, posture),
             } satisfies SubagentResidueDecision);
       });
     const residue = before.ownedResidue.filter(
@@ -248,7 +250,7 @@ export const reconcileAgentOutputs = (
       const decision = decisions.get(output);
       if (decision === undefined) return undefined;
       return decision._tag === "unrecorded"
-        ? retainedOutputDetail(output.path, "unrecorded")
+        ? retainedOutputDetail(output.path, "unrecorded", posture)
         : decision._tag === "retain"
           ? decision.reason
           : undefined;

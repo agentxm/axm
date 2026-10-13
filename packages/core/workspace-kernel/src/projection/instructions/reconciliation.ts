@@ -46,8 +46,10 @@ import {
 } from "../../workspace-state/index.js";
 
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
+import { ProjectionOutputPosture } from "../output-posture.js";
 import {
   applyInstructionProjection,
+  replaceableUnrecorded,
   assertInstructionTargetsSafe,
   assertInstructionsGitignoreSafe,
   instructionProjectionIsCurrent,
@@ -96,7 +98,7 @@ export const stageInstructionRows = (
     ? Effect.void
     : Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.stageProjections(changes));
 
-/** Explicit overrides for whole-file copies; both default to `false`. */
+/** Explicit overrides for whole-file copies; an omitted one is the invocation's `ProjectionOutputPosture`. */
 export interface InstructionOutputOverrides {
   /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
   readonly replaceUnrecorded?: boolean;
@@ -119,6 +121,8 @@ export const observeInstructions = (
     const settings = yield* SettingsReader;
     const rows = yield* readInstructionRows;
     const agents = yield* settings.configuredAgents;
+    // An override the caller does not state is the invocation's own.
+    const posture = yield* ProjectionOutputPosture;
     return yield* observeInstructionProjection({
       workspaceRoot: location.baseDir,
       scope: location.scope,
@@ -126,10 +130,8 @@ export const observeInstructions = (
       configuredAgents: agents,
       config: args.config,
       rows,
-      ...(args.replaceUnrecorded === undefined
-        ? {}
-        : { replaceUnrecorded: args.replaceUnrecorded }),
-      ...(args.discardModified === undefined ? {} : { discardModified: args.discardModified }),
+      replaceUnrecorded: args.replaceUnrecorded ?? posture.replaceUnrecorded === true,
+      discardModified: args.discardModified ?? posture.discardModified === true,
     });
   }).pipe(Effect.withSpan("Instructions.observe"));
 
@@ -295,7 +297,15 @@ export function reconcileInstructions(
         detail: "Instruction reconciliation did not reach the desired state",
       });
     }
-    return { ...syncResult({ snapshot: after, before: snapshot, ...applied }), transition };
+    return {
+      ...syncResult({
+        snapshot: after,
+        before: snapshot,
+        ...applied,
+        posture: yield* ProjectionOutputPosture,
+      }),
+      transition,
+    };
   }).pipe(Effect.withSpan("Instructions.reconcile"));
 }
 
@@ -436,6 +446,7 @@ export const observeInstructionSurfacePlans = <E, R>(
       config: config.value,
       prospectiveRoots,
       rows: yield* readInstructionRows,
+      replaceUnrecorded: (yield* ProjectionOutputPosture).replaceUnrecorded === true,
     });
     const requiredRoutes = snapshot.status.items.filter(
       (item) =>
@@ -492,7 +503,8 @@ export const observeInstructionSurfacePlans = <E, R>(
       if (
         target === undefined ||
         target.ownership === "unverified" ||
-        target.ownership === "unowned"
+        (target.ownership === "unowned" &&
+          !(willReconcile && replaceableUnrecorded(snapshot, route)))
       )
         return yield* new InstructionMaintenanceFailed({
           category: "conflict",
@@ -655,7 +667,13 @@ export const applyInstructionSurfacePlans = <E, R>(
         yield* applyProjectionPlans(plans);
         // A native-only projection does not introduce instruction routing intent.
         // Repairing a previously missing alias belongs to explicit instruction sync.
-        if (reconcilesAliases) yield* reconcileInstructionAliases();
+        if (reconcilesAliases) {
+          const posture = yield* ProjectionOutputPosture;
+          yield* reconcileInstructionAliases({
+            replaceUnrecorded: posture.replaceUnrecorded === true,
+            discardModified: posture.discardModified === true,
+          });
+        }
       }),
     );
     return projectionPlanExclusionWarnings(plans);
@@ -703,6 +721,7 @@ export const disableInstructionManagement = (
         removed: [...removals.removed, ...Option.toArray(gitignore.path)],
         written: [],
         retained: removals.retained,
+        posture: yield* ProjectionOutputPosture,
       }).nativeLocations,
       gitignore: Option.getOrUndefined(gitignore.path),
     };

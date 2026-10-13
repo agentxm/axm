@@ -42,6 +42,7 @@ import {
 import { Screen, headlineDoc } from "../../screen/index.js";
 import {
   makeInstallPlanInvocation,
+  withUnrecordedOutputRecovery,
   narrowInstallSelection,
   retrySuggestion,
 } from "./confirmation-recovery.js";
@@ -114,18 +115,19 @@ const settlingFailure = (failure: unknown) =>
 /** Plan a settled selection and carry it through to its reported outcome. */
 const complete = <R>(args: InstallCommandArgs<R>, selection: InstallExtensionsSelection) =>
   Effect.gen(function* () {
-    const candidate = yield* InstallExtensions.plan(args.request, selection).pipe(
-      Effect.mapError(failureToAppError),
-    );
-    yield* showDiagnostics(candidate);
-
-    const noOpMessage = args.noOpMessage;
     const { execution, recovery } = yield* makeInstallPlanInvocation(
       { preview: args.preview },
       args.recoveryCommand,
       args.recoveryLocators,
       args.recoveryArguments ?? [],
     );
+    const candidate = yield* InstallExtensions.plan(args.request, selection).pipe(
+      Effect.mapError(failureToAppError),
+      withUnrecordedOutputRecovery(recovery),
+    );
+    yield* showDiagnostics(candidate);
+
+    const noOpMessage = args.noOpMessage;
     const { resolution, installedSkills } = yield* InstallExtensions.previewOrApply(
       candidate,
       execution,

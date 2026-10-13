@@ -41,6 +41,7 @@ import {
   instructionProjectionRecordsRows,
   instructionProjectionNativeLocations,
   instructionProjectionIsCurrent,
+  ProjectionOutputPosture,
   type ExpectedProjectionNames,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
@@ -470,11 +471,13 @@ export const collectCleanupStep: (args: {
         }),
     ),
   );
+  const { discardModified } = yield* ProjectionOutputPosture;
   const preview = yield* reconcileAgentOutputs({
     authority,
     desiredAgentIds,
     expectedNames: args.expectedNames,
     dryRun: true,
+    discardModified: discardModified === true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
   const retainedNativeLocations = Effect.gen(function* () {
@@ -549,6 +552,7 @@ export const collectCleanupStep: (args: {
         authority,
         desiredAgentIds,
         expectedNames: args.expectedNames,
+        discardModified: discardModified === true,
         ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
       });
       if (result.rowChanges.length > 0)
@@ -682,15 +686,12 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly precedingNativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly touchesRule: boolean;
   readonly adapter: StepFailureConversionService;
-  /** Overwrite a differing file at a planned copy path that AXM has no record of writing. */
-  readonly replaceUnrecorded?: boolean;
-  /** Delete recorded copies even when they were modified since AXM last wrote them. */
-  readonly discardModified?: boolean;
 }) {
   const projectionFacts = args.projectionFacts;
+  const posture = yield* ProjectionOutputPosture;
   const overrides = {
-    replaceUnrecorded: args.replaceUnrecorded === true,
-    discardModified: args.discardModified === true,
+    replaceUnrecorded: posture.replaceUnrecorded === true,
+    discardModified: posture.discardModified === true,
   };
   const settings = yield* SettingsReader;
   const location = yield* WorkspaceLocation;

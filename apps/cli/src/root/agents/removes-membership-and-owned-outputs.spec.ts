@@ -16,13 +16,14 @@ import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
 import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import { handleAgentsRemove } from "./remove.js";
 import { handleSync } from "../sync/handler.js";
+import { withProjectionOutputPosture } from "../../runtime.js";
 import { PlanResolutionDocumentSchema } from "../../operation-output.js";
 
 export const specification = defineSpecification({
   requirement: "cli/agents/remove/removes-membership-and-owned-outputs",
   title: "Removing a coding agent retires it together with the outputs only it reached",
   statement:
-    "When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches, retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.",
+    "When a coding agent is removed from the workspace, AXM shall remove it from the durable agent set and remove the owned file outputs no remaining configured agent reaches — a whole file only while its bytes are AXM's last write, or with --discard-modified when AXM recorded writing it, otherwise retaining and reporting it and withdrawing its projection row — retain native MCP and Hook registrations because membership removal grants no native cleanup authority in one operation, shall leave every remaining agent's realization untouched, and shall report retained physical units with the remaining readers or shared policy that requires them. AXM shall refuse and restore the membership change when readback finds an owned output that should have been retired still present or a retained required unit that no longer matches desired content.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
@@ -655,5 +656,84 @@ describe("Removing a coding agent", () => {
         expect((yield* decodeResult()).result.outcome).toBe("no-op");
       });
     },
+  );
+
+  const PLANNER_FILES = {
+    "subagents/planner/subagent.json": JSON.stringify({
+      owner: "@acme",
+      type: "subagent",
+      name: "planner",
+      version: "1.0.0",
+      description: "Plans work",
+      core: { instructions: "src/planner.md" },
+    }),
+    "subagents/planner/src/planner.md": "Plan carefully\n",
+  };
+  const DEPARTING = ".opencode/agents/planner.md";
+
+  /** Strip the departing file's projection row, as if AXM never recorded writing it. */
+  const forgetDeparting = (fixture: AgentMembershipFixture): void => {
+    const lockfile = fixture.readLockfileText();
+    const row = new RegExp(`,?\\s*${DEPARTING.replaceAll(".", "\\.")}: \\{[^}]*\\}`, "u");
+    expect(lockfile).toMatch(row);
+    fixture.writeFile("axm-lock.yaml", lockfile.replace(row, ""));
+  };
+
+  it.effect.each([
+    { case: "an edited recorded file", recorded: true, discard: false, kept: true },
+    {
+      case: "an edited recorded file with --discard-modified",
+      recorded: true,
+      discard: true,
+      kept: false,
+    },
+    {
+      case: "an unrecorded file with --discard-modified",
+      recorded: false,
+      discard: true,
+      kept: true,
+    },
+  ])(
+    "decides the departing agent's Subagent file for $case",
+    (row) => {
+      const fixture = makeAgentMembershipFixture({
+        machine: true,
+        settings: {
+          owner: "@acme",
+          agents: [],
+          subagents: { planner: { source: "workspace", enabled: true } },
+        },
+        files: PLANNER_FILES,
+      });
+      cleanups.push(fixture.cleanup);
+      return Effect.gen(function* () {
+        yield* fixture.provide(
+          handleAgentsAdd({
+            ids: ["claude-code", "opencode"],
+            detected: false,
+            force: false,
+            preview: false,
+          }),
+        );
+        const edited = `${fixture.readFile(DEPARTING)}Local note.\n`;
+        fixture.writeFile(DEPARTING, edited);
+        if (!row.recorded) forgetDeparting(fixture);
+
+        yield* fixture
+          .provide(handleAgentsRemove({ ids: ["opencode"], force: false, preview: false }))
+          .pipe(withProjectionOutputPosture({ discardModified: row.discard }));
+
+        expect(fixture.readSettings()["agents"]).toEqual(["claude-code"]);
+        expect(fixture.exists(DEPARTING)).toBe(row.kept);
+        if (row.kept) expect(fixture.readFile(DEPARTING)).toBe(edited);
+        // The row is withdrawn in every outcome: a kept file is the person's now.
+        expect(fixture.readLockfileText()).not.toContain(DEPARTING);
+        if (row.kept)
+          expect(JSON.stringify(fixture.rendererState.results)).toContain(
+            row.recorded ? "--discard-modified" : "no record of writing",
+          );
+      });
+    },
+    40_000,
   );
 });

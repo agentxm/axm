@@ -9,6 +9,7 @@ import * as Layer from "effect/Layer";
 import {
   CodingAgentRepository,
   projectionOutputDigest,
+  ProjectionOutputPosture,
   type CodingAgentRepositoryService,
   type AgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
@@ -169,14 +170,38 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
   );
 
   it.effect.each([
-    { case: "modified", discardModified: false, removed: false, withdrawn: true },
+    {
+      case: "modified",
+      discardModified: false,
+      posture: { discardModified: false },
+      removed: false,
+      withdrawn: true,
+      warning: "; rerun with --discard-modified to delete it",
+    },
+    {
+      case: "modified on a command without --discard-modified",
+      discardModified: false,
+      posture: {},
+      removed: false,
+      withdrawn: true,
+      warning: "",
+    },
     {
       case: "modified with --discard-modified",
       discardModified: true,
+      posture: { discardModified: true },
       removed: true,
       withdrawn: true,
+      warning: undefined,
     },
-    { case: "unrecorded", discardModified: true, removed: false, withdrawn: false },
+    {
+      case: "unrecorded",
+      discardModified: true,
+      posture: { discardModified: true },
+      removed: false,
+      withdrawn: false,
+      warning: undefined,
+    },
   ])("applies the deletion guard to $case Subagent residue", (row) =>
     Effect.gen(function* () {
       const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-guard-"));
@@ -213,7 +238,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
           expectedNames: expectedNames(),
           authority: outputAuthority({ expectedSubagentNames: new Set(["reviewer"]) }),
           discardModified: row.discardModified,
-        }).pipe(Effect.provide(layer));
+        }).pipe(Effect.provide(layer), Effect.provideService(ProjectionOutputPosture, row.posture));
         expect(fs.existsSync(file)).toBe(!row.removed);
         expect(result.removedPaths).toEqual(row.removed ? [file] : []);
         expect(result.rowChanges).toEqual(
@@ -221,12 +246,11 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
             ? [{ kind: "subagents", path: ".cursor/agents/reviewer.md", row: undefined }]
             : [],
         );
+        // The warning names the flag only when the command offers it.
         expect(result.warnings).toEqual(
-          row.case === "modified"
-            ? [
-                `Retained ${file}, modified since AXM last wrote it; rerun with --discard-modified to delete it`,
-              ]
-            : [],
+          row.warning === undefined
+            ? []
+            : [`Retained ${file}, modified since AXM last wrote it${row.warning}`],
         );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });

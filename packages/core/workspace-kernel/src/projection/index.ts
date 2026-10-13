@@ -312,7 +312,6 @@ export {
 } from "./subagents/compile.js";
 export {
   subagentProjectionGeneration,
-  subagentUnitPath,
   type SubagentGenerationArgs,
 } from "./subagents/managed-render.js";
 
@@ -320,8 +319,8 @@ export {
   nativeArtifactLocationOutcomes,
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
+export { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
 export {
-  projectionUnitPath,
   reconcileNativeManagedRegion,
   refreshNativeRegionReaders,
   retargetedRegionRows,

@@ -14,7 +14,6 @@ import {
   decideWholeFileWrite,
   projectionOutputDigest,
   subagentProjectionGeneration,
-  subagentUnitPath,
   type SubagentGenerationArgs,
   type SubagentProvenance,
 } from "../index.js";
@@ -27,10 +26,11 @@ import {
   type SubagentRenderInput,
 } from "../../agent-adapters/index.js";
 import { NativeWriteAuthorityPermissive } from "../../agent-adapters/testing.js";
-import type {
-  ProjectionDigest,
-  ProjectionUnitPath,
-  RecordedProjectionRow,
+import {
+  ProjectionUnitPathSchema,
+  type ProjectionDigest,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
 } from "../../workspace-state/index.js";
 
 export const specification = defineSpecification({
@@ -72,8 +72,12 @@ const projection = (
   options: { readonly replaceUnrecorded?: boolean } = {},
 ) => {
   const rows = new Map<ProjectionUnitPath, RecordedProjectionRow>();
+  // Adapter write decisions are synchronous, so this in-memory owner keys
+  // lexically; every path it sees is spelled from the same root.
   const unit = (filePath: string) =>
-    Option.getOrThrow(subagentUnitPath(path, root, path.resolve(root, filePath)));
+    ProjectionUnitPathSchema.make(
+      path.relative(root, path.resolve(root, filePath)).split(path.sep).join("/"),
+    );
   const generation = (claimants: ReadonlyArray<SubagentRenderInput>): ProjectionDigest =>
     subagentProjectionGeneration(
       claimants.map((claimant): SubagentGenerationArgs => ({ provenance, input: claimant })),

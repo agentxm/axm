@@ -369,7 +369,10 @@ export const RuleManagerLive = Layer.effect(
       Effect.gen(function* () {
         const { target } = args;
         const contributors = args.input.contributors;
-        const displayPath = yield* projectionUnitPath(target.relative);
+        const displayPath = yield* projectionUnitPath(
+          baseDir,
+          path.resolve(baseDir, target.relative),
+        );
         const rows = yield* accepted.projectionRows(RULES_REGION);
         const reconciliation = yield* reconcileNativeManagedRegion({
           workspaceRoot: baseDir,
@@ -515,7 +518,10 @@ export const RuleManagerLive = Layer.effect(
         graph: yield* desiredState.graph(),
         locked: yield* lockfile.entries("rule"),
       });
-      return rulesRegionGeneration(yield* projectionUnitPath(target.relative), contributors);
+      return rulesRegionGeneration(
+        yield* projectionUnitPath(baseDir, path.resolve(baseDir, target.relative)),
+        contributors,
+      );
     });
 
     const projectionPlans: RuleManagerService["projectionPlans"] = (options) =>

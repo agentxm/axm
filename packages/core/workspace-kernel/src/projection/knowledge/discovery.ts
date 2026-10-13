@@ -10,8 +10,8 @@ import {
   type ManagedRegionFailure,
 } from "../errors.js";
 import { projectionGeneration } from "../generation.js";
+import { projectionUnitPath } from "../unit-path.js";
 import {
-  projectionUnitPath,
   reconcileNativeManagedRegion,
   retargetedRegionRows,
   type NativeRegionSource,
@@ -236,7 +236,8 @@ export const reconcileKnowledgeDiscovery = (args: {
     const tableDesired = manageInstructions && args.config.instructions && args.bundles.length > 0;
     if (tableDesired) yield* validateKnowledgeLinkBases(args);
     const instructionRelative = yield* projectionUnitPath(
-      portable(path.relative(args.scopeRoot, args.instructionsDeclaredPath)),
+      args.scopeRoot,
+      args.instructionsDeclaredPath,
     );
     const renderedRegion = tableDesired
       ? renderKnowledgeBaseTable({

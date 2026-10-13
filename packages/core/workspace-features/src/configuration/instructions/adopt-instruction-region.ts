@@ -56,9 +56,7 @@ export const prepareAdoptInstructionRegion = Effect.fn("Instructions.prepareAdop
       Option.isSome(config) && config.value !== false ? config.value : undefined,
     ).fileName;
     const file = path.resolve(location.baseDir, fileName);
-    const displayPath = yield* projectionUnitPath(
-      path.relative(location.baseDir, file).split(path.sep).join("/"),
-    ).pipe(
+    const displayPath = yield* projectionUnitPath(location.baseDir, file).pipe(
       Effect.mapError((cause) =>
         fail("The planned instruction target is not inside the workspace", cause),
       ),

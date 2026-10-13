@@ -30,7 +30,7 @@ import {
   retiredNativeArtifactLocationOutcomes,
   observeAgentOutputs,
   captureAgentOutputAuthority,
-  subagentUnitPath,
+  scopeUnitPath,
   type AgentOutputAuthority,
   type AgentOutputInventory,
   type AgentOutputObservation,
@@ -206,7 +206,11 @@ export const reconcileAgentOutputs = (
     );
     const residueDecision = (output: AgentOutputObservation) =>
       Effect.gen(function* () {
-        const unit = subagentUnitPath(path, location.baseDir, output.path);
+        const unit = yield* scopeUnitPath(location.baseDir, output.path).pipe(
+          Effect.mapError((cause) =>
+            cleanupFailure("Cannot locate a recorded Subagent output", cause),
+          ),
+        );
         const recorded = Option.flatMap(unit, (key) => Option.fromUndefinedOr(rows.get(key)));
         if (Option.isNone(unit) || Option.isNone(recorded))
           return { _tag: "unrecorded" } satisfies SubagentResidueDecision;

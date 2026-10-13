@@ -885,6 +885,65 @@ describe("agent instructions", () => {
     ),
   );
 
+  it.effect("keys managed copies by physical location when the workspace root is an alias", () =>
+    run(
+      Effect.gen(function* () {
+        // The root arrives through a link, as a macOS /var or Windows 8.3 temp
+        // path does, while writes address the physical entry beneath it.
+        const physicalRoot = fs.realpathSync(tempDir);
+        const workspaceRoot = path.join(physicalRoot, "alias");
+        const realRoot = path.join(physicalRoot, "real");
+        fs.mkdirSync(realRoot);
+        fs.symlinkSync(realRoot, workspaceRoot, "dir");
+        const sourcePath = path.join(workspaceRoot, "AGENTS.md");
+        const targetPath = path.join(realRoot, "CLAUDE.md");
+        fs.mkdirSync(path.join(workspaceRoot, ".git"));
+        fs.mkdirSync(path.join(workspaceRoot, "docs"));
+        fs.writeFileSync(path.join(workspaceRoot, "docs", "AGENTS.md"), "# Docs\n");
+        fs.writeFileSync(sourcePath, "# Aliased workspace\n");
+        const args = {
+          workspaceRoot,
+          scope: "project",
+          configuredAgents: ["claude-code"],
+          config: IGNORED,
+          symlinkSupported: false,
+        } as const;
+
+        const first = yield* reconcile(args);
+        expect(first.written).toContain(targetPath);
+        expect(fs.lstatSync(targetPath).isSymbolicLink()).toBe(false);
+        expect([...(yield* rows).keys()].sort()).toEqual([
+          ".gitignore",
+          "CLAUDE.md",
+          "docs/CLAUDE.md",
+        ]);
+
+        const unchanged = yield* reconcile(args);
+        expect(unchanged.written).toEqual([]);
+
+        fs.writeFileSync(sourcePath, "# Refreshed aliased workspace\n");
+        const refreshed = yield* reconcile(args);
+        expect(refreshed.written).toContain(targetPath);
+        expect(fs.readFileSync(targetPath, "utf8")).toBe("# Refreshed aliased workspace\n");
+
+        const removed = yield* removeManagedInstructionTargets({
+          snapshot: yield* observeInstructionProjection({ ...args, rows: yield* rows }),
+          dryRun: false,
+        });
+        expect(removed.removed).toEqual([targetPath, path.join(realRoot, "docs", "CLAUDE.md")]);
+        yield* stage(removed.rowChanges);
+        expect(fs.existsSync(targetPath)).toBe(false);
+        expect(fs.existsSync(sourcePath)).toBe(true);
+
+        const repeated = yield* removeManagedInstructionTargets({
+          snapshot: yield* observeInstructionProjection({ ...args, rows: yield* rows }),
+          dryRun: false,
+        });
+        expect(repeated.removed).toEqual([]);
+      }),
+    ),
+  );
+
   it.effect("reports the observed form independently of the mechanism sync would choose", () =>
     run(
       Effect.gen(function* () {

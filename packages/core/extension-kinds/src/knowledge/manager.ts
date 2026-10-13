@@ -696,9 +696,7 @@ export const KnowledgeManagerLive = Layer.effect(
         config,
         instructionsTarget.enabled,
       );
-      const target = yield* projectionUnitPath(
-        path.relative(baseDir, instructionsTarget.declaredPath).split(path.sep).join("/"),
-      );
+      const target = yield* projectionUnitPath(baseDir, instructionsTarget.declaredPath);
       return knowledgeRegionGeneration({
         target,
         scopeRoot: baseDir,

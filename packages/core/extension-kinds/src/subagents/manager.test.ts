@@ -443,6 +443,51 @@ describe("SubagentManager", () => {
       }).pipe(Effect.provide(makeTestLayer({ axmDir, agents: [actual] })));
     });
 
+    it.effect("keys written files physically when the workspace root is an alias", () => {
+      const sourceDir = nodePath.join(tmpDir, "source", "planner");
+      writeSubagentPackage(sourceDir, "planner", "Plans work");
+      // The workspace is named through a link while writes address the
+      // physical file, as an aliased temp or checkout path does.
+      const realDir = nodePath.join(tmpDir, "real-project");
+      const projectDir = nodePath.join(tmpDir, "project");
+      nodeFs.mkdirSync(nodePath.join(realDir, ".axm"), { recursive: true });
+      nodeFs.symlinkSync(realDir, projectDir, "dir");
+      const axmDir = nodePath.join(projectDir, ".axm");
+      const native = nodePath.join(realDir, ".claude/agents/planner.md");
+      const unit = ProjectionUnitPathSchema.make(".claude/agents/planner.md");
+      return Effect.gen(function* () {
+        const manager = yield* SubagentManager;
+        const accepted = yield* AcceptedResolutionWriter;
+        const ref = makeLocalSubagentRef("planner", sourceDir);
+        yield* manager.materializeInstall({ ref });
+        expect([...(yield* accepted.projectionRows("subagents")).keys()]).toEqual([unit]);
+        expect((yield* manager.projectionObservation(ref)).current).toBe(true);
+
+        yield* manager.materializeInstall({ ref });
+        expect([...(yield* accepted.projectionRows("subagents")).keys()]).toEqual([unit]);
+
+        yield* manager.materializeDeactivate({ target: { type: "subagent", name: "planner" } });
+        expect(nodeFs.existsSync(native)).toBe(false);
+        expect((yield* accepted.projectionRows("subagents")).size).toBe(0);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer({
+            axmDir,
+            agents: [codingAgentForId("claude-code")],
+            configuredSubagents: { planner: { source: "path:sources/planner", enabled: true } },
+            lockedSubagents: {
+              planner: {
+                source: { type: "path", path: decodeRelativePathSync("sources/planner") },
+                identity: { owner: handle("@acme"), name: extensionName("planner") },
+                resolved: { tree: TEST_TREE_INTEGRITY },
+                treeIntegrity: TEST_TREE_INTEGRITY,
+              },
+            },
+          }),
+        ),
+      );
+    });
+
     it.effect("previews each planned write with how the replaced file compares", () => {
       const sourceDir = nodePath.join(tmpDir, "source", "planner");
       writeSubagentPackage(sourceDir, "planner", "Plans work");

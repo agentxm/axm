@@ -8,7 +8,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as Schema from "effect/Schema";
 import { AGENTS } from "@agentxm/extension-model/unstable/agent-capabilities";
 import {
   resolveNativeReadLocation,
@@ -36,7 +35,6 @@ import {
   type RegionName,
 } from "../agent-adapters/index.js";
 import {
-  ProjectionUnitPathSchema,
   type ProjectionDigest,
   type ProjectionKind,
   type ProjectionRowChange,
@@ -50,22 +48,6 @@ export interface NativeRegionSource {
   readonly root: string;
   readonly scope: "project" | "user";
 }
-
-const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
-
-/** A planned target as a scope-relative projection row key. */
-export const projectionUnitPath = (
-  relative: string,
-): Effect.Effect<ProjectionUnitPath, ProjectionTargetUnsupported> =>
-  Option.match(decodeUnitPath(relative), {
-    onNone: () =>
-      Effect.fail(
-        new ProjectionTargetUnsupported({
-          detail: `Projection target is not a path inside its scope root: ${relative}`,
-        }),
-      ),
-    onSome: Effect.succeed,
-  });
 
 /** How a region about to be rewritten compares with what AXM last wrote. */
 export type ProjectionLastWrite = "matches" | "modified" | "unrecorded";

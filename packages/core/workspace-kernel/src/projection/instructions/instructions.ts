@@ -14,7 +14,6 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as Schema from "effect/Schema";
 import { InstructionMaintenanceFailed, type InstructionMaintenanceFailure } from "./errors.js";
 import {
   makeScannerFileSystem,
@@ -60,6 +59,7 @@ import {
   type WholeFileLastWrite,
 } from "../whole-file-decision.js";
 import { decideOutputDeletion, retainedOutputDetail } from "../deletion-guard.js";
+import { scopeUnitPath } from "../unit-path.js";
 import {
   ProjectionOutputPosture,
   REPLACE_UNRECORDED_FLAG,
@@ -208,7 +208,6 @@ const DEFAULT_SOURCE_FILE = "AGENTS.md";
 const DEFAULT_GITIGNORE = true;
 const INSTRUCTIONS_KIND = "instructions";
 const GITIGNORE_UNIT = ProjectionUnitPathSchema.make(".gitignore");
-const decodeUnitPath = Schema.decodeUnknownOption(ProjectionUnitPathSchema);
 
 /** Apply staged row edits to a row map, for reading back after a write. */
 export const withInstructionRowChanges = (
@@ -954,13 +953,15 @@ const fileExists = (filePath: string) =>
 const resolveLinkTarget = (path: Path.Path, linkPath: string, linkTarget: string): string =>
   path.resolve(path.dirname(linkPath), linkTarget);
 
-/** A native path as a scope-relative row key; `None` when it leaves the scope root. */
-const instructionUnitPath = (
-  path: Path.Path,
+/**
+ * An observed path's row key. Observation is total: a path that leaves, or
+ * cannot be located beneath, the scope root has no key and so no recorded row.
+ */
+const observedUnitPath = (
   workspaceRoot: string,
   targetPath: string,
-): Option.Option<ProjectionUnitPath> =>
-  decodeUnitPath(workspaceRelativeGitPath({ path, workspaceRoot, targetPath }));
+): Effect.Effect<Option.Option<ProjectionUnitPath>, never, FileSystem.FileSystem | Path.Path> =>
+  scopeUnitPath(workspaceRoot, targetPath).pipe(Effect.catch(() => Effect.succeedNone));
 
 interface ObservedTargetPath {
   readonly ownership: InstructionTargetOwnership;
@@ -1028,7 +1029,7 @@ const observeTargetPath = (args: {
         Option.isSome(stat) && stat.value.type === "Directory" ? "directory" : "file",
       );
     }
-    const unit = instructionUnitPath(path, args.workspaceRoot, args.targetPath);
+    const unit = yield* observedUnitPath(args.workspaceRoot, args.targetPath);
     const recorded = recordedRow(args.rows, unit);
     if (Option.isNone(args.sourceContent) || Option.isNone(unit))
       // Without a source only AXM's last write can show the copy is unedited,
@@ -1225,7 +1226,7 @@ const observeStaleCandidate = (
     if (Option.isNone(content)) return Option.none();
     const recorded = recordedRow(
       rows,
-      instructionUnitPath(path, workspaceRoot, candidate.targetPath),
+      yield* observedUnitPath(workspaceRoot, candidate.targetPath),
     );
     if (Option.isNone(recorded)) return Option.none();
     const sourceFile = path.join(candidate.root, sourceFileName);
@@ -1775,14 +1776,17 @@ export const observeInstructionProjection = (
     // A row is kept only while a copy it records is still observed or about
     // to be written; links, the canonical file, and vanished paths need none.
     const recordedCopies = new Set(
-      [...items, ...staleTargets].flatMap((item) =>
-        isProjectedTarget(item) &&
-        (item.observedForm === "copy" ||
-          item.observedForm === "none" ||
-          item.ownership === "unowned")
-          ? Option.toArray(instructionUnitPath(path, args.workspaceRoot, item.targetFile))
-          : [],
-      ),
+      (yield* Effect.forEach(
+        [...items, ...staleTargets].filter(
+          (item) =>
+            isProjectedTarget(item) &&
+            (item.observedForm === "copy" ||
+              item.observedForm === "none" ||
+              item.ownership === "unowned"),
+        ),
+        (item) =>
+          observedUnitPath(args.workspaceRoot, item.targetFile).pipe(Effect.map(Option.toArray)),
+      )).flat(),
     );
     // The `.gitignore` row outlives its region only when no region is wanted
     // and none is left to remove; withdrawing it then writes no file.
@@ -2063,7 +2067,6 @@ const preparePhysicalInstructionTargets = (
   purpose: "write" | "record" | "remove",
 ) =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     const { workspaceRoot, nativeRoots } = snapshot;
     const targets = new Map<string, PreparedInstructionTarget>();
     for (const item of items) {
@@ -2118,7 +2121,7 @@ const preparePhysicalInstructionTargets = (
         targetFile: address.entryPath,
         sourceFile,
         observedPaths: [...(prior?.observedPaths ?? []), item.targetFile, item.sourceFile],
-        unit: instructionUnitPath(path, workspaceRoot, item.targetFile),
+        unit: yield* scopeUnitPath(workspaceRoot, item.targetFile),
       });
     }
     return [...targets.values()];

@@ -72,6 +72,7 @@ export const projectionErrorToStepFailure = (error: ProjectionFamilyFailure): St
       return makeStepFailure({
         category: error.category,
         detail: error.detail,
+        problem: error.problem,
         suggestions: error.suggestions,
         cause: error.cause,
       });

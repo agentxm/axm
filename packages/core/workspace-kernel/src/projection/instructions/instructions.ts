@@ -61,6 +61,11 @@ import {
 } from "../whole-file-decision.js";
 import { decideOutputDeletion, retainedOutputDetail } from "../deletion-guard.js";
 import {
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+  type ProjectionOutputPostureValue,
+} from "../output-posture.js";
+import {
   NativeWriteAuthority,
   reconcilePatternList,
   type ManagedRegionState,
@@ -1489,7 +1494,7 @@ export type PlannedInstructionChange =
   | { readonly kind: "record"; readonly item: InstructionStatusItem; readonly change: "recorded" };
 
 /** A differing unrecorded file the caller explicitly asked AXM to overwrite. */
-const replaceableUnrecorded = (
+export const replaceableUnrecorded = (
   snapshot: Pick<InstructionProjectionSnapshot, "replaceUnrecorded">,
   item: InstructionStatusItem,
 ): boolean =>
@@ -1891,31 +1896,48 @@ const unownedInstructionTargets = (
       (action === "remove" || !replaceableUnrecorded(snapshot, item)),
   );
 
+/**
+ * Refuse unowned planned targets. The detail names `--replace-unrecorded` only
+ * when the invocation's command offers it.
+ */
 const unownedTargetsFailure = (
   blockers: ReadonlyArray<InstructionStatusItem>,
   action: "overwrite" | "remove",
-): InstructionMaintenanceFailed => {
-  const files = blockers.filter((item) => item.observedForm === "file");
-  return new InstructionMaintenanceFailed({
-    category: "conflict",
-    detail:
-      action === "overwrite" && files.length === blockers.length
-        ? `${blockers
-            .map((item) => item.targetFile)
-            .join(
-              ", ",
-            )} exists with different content and has no recorded projection; rerun with --replace-unrecorded to overwrite it, or move the file aside`
-        : `Instruction ${action === "overwrite" ? "reconciliation would overwrite" : "cleanup would remove"} files with unknown ownership: ${blockers
-            .map((item) => item.targetFile)
-            .join(", ")}`,
-    suggestions: [
-      {
-        description: "Inspect instruction-file ownership and drift",
-        cmd: "axm instructions",
-      },
-    ],
+): Effect.Effect<never, InstructionMaintenanceFailed> =>
+  Effect.flatMap(ProjectionOutputPosture, (posture) => {
+    const files = blockers.filter((item) => item.observedForm === "file");
+    const replaceable = action === "overwrite" && files.length === blockers.length;
+    const remedy =
+      posture.replaceUnrecorded === false
+        ? `rerun with ${REPLACE_UNRECORDED_FLAG} to overwrite it, or move the file aside`
+        : "move the file aside to let AXM write it";
+    return Effect.fail(
+      new InstructionMaintenanceFailed({
+        category: "conflict",
+        ...(replaceable
+          ? {
+              problem: {
+                code: "projection-output-unrecorded" as const,
+                paths: blockers.map((item) => item.targetFile),
+              },
+            }
+          : {}),
+        detail: replaceable
+          ? `${blockers
+              .map((item) => item.targetFile)
+              .join(", ")} exists with different content and has no recorded projection; ${remedy}`
+          : `Instruction ${action === "overwrite" ? "reconciliation would overwrite" : "cleanup would remove"} files with unknown ownership: ${blockers
+              .map((item) => item.targetFile)
+              .join(", ")}`,
+        suggestions: [
+          {
+            description: "Inspect instruction-file ownership and drift",
+            cmd: "axm instructions",
+          },
+        ],
+      }),
+    );
   });
-};
 
 /**
  * Whether every projected target with a canonical source is current, every
@@ -2638,6 +2660,7 @@ export const applyInstructionProjection = (args: {
 const retainedLocations = (
   snapshot: InstructionProjectionSnapshot,
   retained: ReadonlyArray<RetainedInstructionTarget>,
+  posture: ProjectionOutputPostureValue,
 ): ReadonlyArray<NativeLocationOutcome> =>
   retained.flatMap(({ path, reason }) =>
     snapshot.nativeLocations
@@ -2648,7 +2671,7 @@ const retainedLocations = (
           ...facts,
           ownership: "unowned",
           state: "retained",
-          reason: retainedOutputDetail(path, reason),
+          reason: retainedOutputDetail(path, reason, posture),
         };
       }),
   );
@@ -2660,10 +2683,12 @@ export const syncResult = (args: {
   readonly removed: ReadonlyArray<string>;
   readonly retained?: ReadonlyArray<RetainedInstructionTarget>;
   readonly rowChanges?: ReadonlyArray<ProjectionRowChange>;
+  /** The invocation's overrides, so a retention warning names only an offered flag. */
+  readonly posture: ProjectionOutputPostureValue;
 }): InstructionsSyncResult => ({
   nativeLocations: combineNativeLocationOutcomes([
     ...instructionChangeLocations(args),
-    ...retainedLocations(args.before ?? args.snapshot, args.retained ?? []),
+    ...retainedLocations(args.before ?? args.snapshot, args.retained ?? [], args.posture),
   ]),
   snapshot: args.snapshot,
   written: args.written,
@@ -2708,5 +2733,10 @@ export const syncInstructions = (
           rows: withInstructionRowChanges(args.rows, applied.rowChanges),
           symlinkSupported: snapshot.symlinkSupported,
         });
-    return syncResult({ snapshot: observed, before: snapshot, ...applied });
+    return syncResult({
+      snapshot: observed,
+      before: snapshot,
+      ...applied,
+      posture: yield* ProjectionOutputPosture,
+    });
   });

@@ -252,12 +252,10 @@ describe("list command empty output", () => {
     const { provide, rendererState } = makeWorkspaceHandlerTestContext({ machine: true });
     writeRegistryMcpWorkspace();
     writeCodexConfig([
-      "# axm:start v=1 region=mcp-server:context ext=@acme/mcps/context",
       "[mcp_servers.context]",
       'url = "https://mcp.acme.test/mcp"',
       "enabled = true",
       "",
-      "# axm:end v=1 region=mcp-server:context ext=@acme/mcps/context",
     ]);
 
     return provide(

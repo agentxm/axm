@@ -9,6 +9,7 @@ import * as path from "node:path";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 
 import { makeSetupFixture } from "../testing.js";
 import { runSetup } from "./test-helpers.js";
@@ -83,10 +84,7 @@ describe("Repeated setup", () => {
     cleanups.push(fixture.cleanup);
     return fixture;
   };
-  const completion = (
-    root: string,
-    overrides: { yes?: boolean; nonInteractive: boolean; replaceUnrecorded?: boolean },
-  ) => ({
+  const completion = (root: string, overrides: { yes?: boolean; nonInteractive: boolean }) => ({
     scope: "project" as const,
     scopeExplicit: true,
     agents: ["cursor"],
@@ -189,8 +187,11 @@ describe("Repeated setup", () => {
         Effect.gen(function* () {
           const before = fixture.snapshot();
 
+          // `axm setup` offers the override without setting it.
           const result = yield* Effect.result(
-            runSetup(completion(fixture.root, { yes: true, nonInteractive: true })),
+            runSetup(completion(fixture.root, { yes: true, nonInteractive: true })).pipe(
+              Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: false }),
+            ),
           );
 
           expect(result._tag).toBe("Failure");
@@ -207,8 +208,8 @@ describe("Repeated setup", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          yield* runSetup(
-            completion(fixture.root, { yes: true, nonInteractive: true, replaceUnrecorded: true }),
+          yield* runSetup(completion(fixture.root, { yes: true, nonInteractive: true })).pipe(
+            Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: true }),
           );
 
           expect(fs.readlinkSync(path.join(fixture.root, "CLAUDE.md"))).toBe("AGENTS.md");

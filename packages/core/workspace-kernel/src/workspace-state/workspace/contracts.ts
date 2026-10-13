@@ -250,11 +250,6 @@ export interface WorkspaceStateOptions {
   readonly nonInteractive?: boolean;
   /** Compute the setup plan without writing files. */
   readonly preview?: boolean;
-  /**
-   * Overwrite a differing file at a planned instruction copy path that AXM has
-   * no record of writing. `--yes` never implies it.
-   */
-  readonly replaceUnrecorded?: boolean;
   /** Built-in registry source configs. */
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
   /** Initial settings supplied by source-first install; used only while the selected document is absent. */

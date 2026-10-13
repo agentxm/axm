@@ -13,7 +13,7 @@
 
 import { hasProperty } from "effect/Predicate";
 
-import type { FailureSuggestedAction, ErrorCode } from "../operations/index.js";
+import type { FailureProblem, FailureSuggestedAction, ErrorCode } from "../operations/index.js";
 
 export const ExtensionKindFailureTypeId: unique symbol = Symbol.for(
   "@agentxm/workspace-kernel/materialization/ExtensionKindFailure",
@@ -24,6 +24,8 @@ export interface ExtensionKindFailure {
   readonly [ExtensionKindFailureTypeId]: typeof ExtensionKindFailureTypeId;
   readonly category: ErrorCode;
   readonly detail: string;
+  /** Machine-readable identity of a recognized failure. */
+  readonly problem?: FailureProblem | undefined;
   readonly recover?: string | undefined;
   readonly cmd?: string | undefined;
   readonly suggestions?: ReadonlyArray<FailureSuggestedAction> | undefined;

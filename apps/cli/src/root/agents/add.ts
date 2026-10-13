@@ -3,12 +3,21 @@ import { Argument, Command, Flag } from "effect/cli";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
-import { acceptWarningsFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
+import {
+  acceptWarningsFlag,
+  ignoreReleaseAgeFlag,
+  replaceUnrecordedFlag,
+} from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { Screen, headlineDoc } from "../../screen/index.js";
 import { deriveOperationOutcome, observeUnit } from "@agentxm/workspace-kernel/operations";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  withProjectionOutputPosture,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../../runtime.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
@@ -111,14 +120,16 @@ const addConfig = {
   force: acceptWarningsFlag,
   preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
+  replaceUnrecorded: replaceUnrecordedFlag,
 } as const;
 
 export const addCommand = Command.make(
   "add",
   addConfig,
-  ({ ids, scope, detected, force, preview, ignoreReleaseAge }) =>
+  ({ ids, scope, detected, force, preview, ignoreReleaseAge, replaceUnrecorded }) =>
     handleAgentsAdd({ ids: [...ids], detected, force, preview }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
+      withProjectionOutputPosture({ replaceUnrecorded }),
       withWorkspace(scope),
       withRuntime("agents add"),
     ),

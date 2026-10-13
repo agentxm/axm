@@ -68,6 +68,7 @@ import {
   resolveInstructionTarget,
   observeInstructionProjection,
   syncInstructions,
+  ProjectionOutputPosture,
   type InstructionMechanism,
 } from "@agentxm/workspace-kernel/projection";
 
@@ -834,6 +835,9 @@ const configureProjectWorkspace = (args: {
       ? richestExistingInstructionFile(instructionSetup.choices)
       : Option.none<SetupInstructionSourceChoice>();
     const sourceWillBeCreated = Option.isSome(sourceContent);
+    // `--yes` approves the plan; only the operator's own override replaces an
+    // instruction alias AXM has no record of writing.
+    const replaceUnrecorded = (yield* ProjectionOutputPosture).replaceUnrecorded === true;
     const gitManaged = yield* isGitManaged(workspaceRoot);
     // Declining instruction sync leaves every instruction file alone, so the
     // plan has nothing to say about them.
@@ -844,7 +848,7 @@ const configureProjectWorkspace = (args: {
           sourceFileName: instructionSetup.fileName,
           sourceWillBeCreated,
           sourceSeed,
-          replaceUnrecorded: args.options.replaceUnrecorded === true,
+          replaceUnrecorded,
         })
       : [];
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
@@ -910,7 +914,7 @@ const configureProjectWorkspace = (args: {
       sourceContent,
       sourceSeed,
       syncInstructions: instructionSetup.enabled,
-      replaceUnrecorded: args.options.replaceUnrecorded === true,
+      replaceUnrecorded,
       dryRun: args.options.preview ?? false,
     });
     return {

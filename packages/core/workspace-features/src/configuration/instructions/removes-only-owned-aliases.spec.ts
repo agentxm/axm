@@ -7,6 +7,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
 import { applyInstructionsRequest, makeSymlinkRefusingPlatform } from "./test-helpers.js";
@@ -118,10 +119,9 @@ describe("Disabling instruction-file management", () => {
               expect(fixture.readFile("axm-lock.yaml")).toContain("CLAUDE.md");
               fixture.writeFile("CLAUDE.md", "Authored instructions.\n\nLocal note.\n");
 
-              const outcome = yield* applyInstructionsRequest({
-                action: "disable",
-                discardModified,
-              });
+              const outcome = yield* applyInstructionsRequest({ action: "disable" }).pipe(
+                Effect.provideService(ProjectionOutputPosture, { discardModified }),
+              );
 
               expect(outcome).toMatchObject({ outcome: "applied" });
               expect(readSettings(fixture)).toMatchObject({ instructionFiles: false });

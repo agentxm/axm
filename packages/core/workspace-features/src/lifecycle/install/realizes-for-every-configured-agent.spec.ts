@@ -18,6 +18,7 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 import { writeLocalSkillPackage } from "../../testing/local-packages.js";
 import { localLifecycleRows } from "./test-helpers.js";
 import { WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 import {
   deriveOperationOutcome,
   operationNativeLocations,
@@ -33,7 +34,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/realizes-for-every-configured-agent",
   title: "Install realizes the extension for every configured agent",
   statement:
-    "When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, shall report those physical units before first acquisition without claiming current ownership, and shall report the realized units after apply, as permitted by the workspace's activation and instruction settings.",
+    "When an acquirable extension is installed, AXM shall realize it on every native surface supported for that extension type by the configured agents and on its declared shared surfaces, shall report those physical units before first acquisition without claiming current ownership, and shall report the realized units after apply, as permitted by the workspace's activation and instruction settings; a differing instruction alias AXM has no record of writing shall block the install unless the request carries --replace-unrecorded.",
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "extension-adoption"],
@@ -288,11 +289,7 @@ describe("Install realizes the extension for configured agents", () => {
         .pipe(Effect.provide(NodeServices.layer));
     });
 
-    for (const obstruction of [
-      "foreign file",
-      "different target",
-      "malformed copy marker",
-    ] as const) {
+    for (const obstruction of ["foreign file", "different target"] as const) {
       it.effect(`refuses a ${obstruction} at the proposed ${row.label} instruction alias`, () => {
         const { workspace, cleanup } = makeInstallWorld({
           settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
@@ -304,12 +301,7 @@ describe("Install realizes the extension for configured agents", () => {
           fs.writeFileSync(path.join(workspace.root, "OTHER.md"), "Foreign instructions\n");
           fs.symlinkSync("OTHER.md", alias);
         } else {
-          fs.writeFileSync(
-            alias,
-            obstruction === "foreign file"
-              ? "Foreign instructions\n"
-              : "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md src=OTHER.md -->\nForeign instructions\n",
-          );
+          fs.writeFileSync(alias, "Foreign instructions\n");
         }
         const before = workspace.snapshot();
         return workspace
@@ -322,15 +314,49 @@ describe("Install realizes the extension for configured agents", () => {
               const preview = yield* previewInstall(request).pipe(Effect.result);
               expect(preview._tag).toBe("Failure");
               expect(workspace.snapshot()).toEqual(before);
-              const apply = yield* applyInstall(request).pipe(Effect.result);
+              // `axm install` offers the override without setting it.
+              const apply = yield* applyInstall(request).pipe(
+                Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: false }),
+                Effect.result,
+              );
               expect(apply._tag).toBe("Failure");
               expect(workspace.snapshot()).toEqual(before);
               expect(workspace.exists("agent_extensions")).toBe(false);
+              if (obstruction === "foreign file") {
+                const reported = JSON.stringify(apply);
+                expect(reported).toContain("projection-output-unrecorded");
+                expect(reported).toContain("--replace-unrecorded");
+              }
             }),
           )
           .pipe(Effect.provide(NodeServices.layer));
       });
     }
+
+    it.effect(`replaces a foreign ${row.label} instruction alias only on explicit intent`, () => {
+      const { workspace, cleanup } = makeInstallWorld({
+        settings: { instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false } },
+      });
+      cleanups.push(cleanup);
+      const source = row.writePackage(workspace.root, { name: `replaced-${row.label}` });
+      fs.writeFileSync(path.join(workspace.root, "CLAUDE.md"), "Foreign instructions\n");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const request = installRequest({
+              type: row.type,
+              subject: { kind: "source", source },
+            });
+            const applied = yield* applyInstall(request).pipe(
+              Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: true }),
+            );
+            expect(deriveOperationOutcome(applied)).toBe("applied");
+            expect(workspace.readFile("CLAUDE.md")).not.toContain("Foreign instructions");
+            expect(workspace.readFile("CLAUDE.md")).toBe(workspace.readFile("AGENTS.md"));
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    });
   }
 
   it.effect.each(localLifecycleRows)(

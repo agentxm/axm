@@ -30,6 +30,7 @@ import {
   makeConfirmationRecovery,
   makePlanInvocation,
   retrySuggestion,
+  withUnrecordedOutputRecovery,
 } from "../shared/confirmation-recovery.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 
@@ -68,19 +69,6 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
 
   const target = args.target ?? Option.none<string>();
   const types = args.types ?? [];
-  const candidate = yield* SyncWorkspace.prepare({ target, types }).pipe(
-    Effect.mapError(toAppError),
-  );
-
-  if (candidate._tag === "AlreadyReconciled") {
-    yield* emitNoOpOutcome({
-      planName: candidate.planName,
-      planDescription: candidate.planDescription,
-      message: candidate.message,
-    });
-    return;
-  }
-
   // Sync confirms nothing in advance: it applies ready reconciliation work and
   // stops before mutation if a plan ever carries an unexpected confirmable
   // condition, naming interactive approval rather than a flag it lacks.
@@ -98,6 +86,20 @@ const handleSyncBody = Effect.fn("Sync.handle")(function* (args: HandleSyncArgs)
       ],
     ),
   );
+  const candidate = yield* SyncWorkspace.prepare({ target, types }).pipe(
+    Effect.mapError(toAppError),
+    withUnrecordedOutputRecovery(recovery),
+  );
+
+  if (candidate._tag === "AlreadyReconciled") {
+    yield* emitNoOpOutcome({
+      planName: candidate.planName,
+      planDescription: candidate.planDescription,
+      message: candidate.message,
+    });
+    return;
+  }
+
   const resolution = yield* SyncWorkspace.previewOrApply(candidate, execution);
   const outcome = deriveOperationOutcome(resolution);
   const diverged =

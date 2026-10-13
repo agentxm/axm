@@ -38,6 +38,7 @@ import {
   type ProjectionRowChange,
 } from "../../workspace-state/index.js";
 import { InstructionMaintenanceFailed } from "./errors.js";
+import { ProjectionOutputPosture } from "../output-posture.js";
 
 /** Narrow a typed failure to the maintenance family before asserting fields. */
 const expectMaintenanceFailed = (failure: {
@@ -990,15 +991,30 @@ describe("agent instructions", () => {
         fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
         fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Local edit\n");
 
+        // A command that offers the override names it; one that does not, does not.
+        const offered = yield* Effect.result(
+          sync({ configuredAgents: ["gemini-cli"] }).pipe(
+            Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: false }),
+          ),
+        );
         const result = yield* Effect.result(sync({ configuredAgents: ["gemini-cli"] }));
         const { status } = yield* observe({ configuredAgents: ["gemini-cli"] });
 
+        expect(offered._tag).toBe("Failure");
+        if (offered._tag === "Failure") {
+          const failure = expectMaintenanceFailed(offered.failure);
+          expect(failure.detail).toContain("--replace-unrecorded");
+          expect(failure.problem).toEqual({
+            code: "projection-output-unrecorded",
+            paths: [path.join(tempDir, "GEMINI.md")],
+          });
+        }
         expect(result._tag).toBe("Failure");
         if (result._tag === "Failure") {
           const failure = expectMaintenanceFailed(result.failure);
           expect(failure.category).toBe("conflict");
           expect(failure.detail).toContain("has no recorded projection");
-          expect(failure.detail).toContain("--replace-unrecorded");
+          expect(failure.detail).not.toContain("--replace-unrecorded");
         }
         expect(fs.readFileSync(path.join(tempDir, "GEMINI.md"), "utf-8")).toBe("# Local edit\n");
         expect(status.items[0]?.health).toBe("drift");
@@ -1750,7 +1766,10 @@ describe("agent instructions", () => {
         yield* sync({ configuredAgents: ["claude-code", "gemini-cli"], symlinkSupported: false });
         fs.writeFileSync(path.join(tempDir, "GEMINI.md"), "# Workspace\n\nLocal note\n");
 
-        const kept = yield* sync({ configuredAgents: ["claude-code"], symlinkSupported: false });
+        const kept = yield* sync({
+          configuredAgents: ["claude-code"],
+          symlinkSupported: false,
+        }).pipe(Effect.provideService(ProjectionOutputPosture, { discardModified: false }));
         expect(kept.removed).toEqual([]);
         expect(kept.retained).toEqual([
           { path: path.join(tempDir, "GEMINI.md"), reason: "modified" },

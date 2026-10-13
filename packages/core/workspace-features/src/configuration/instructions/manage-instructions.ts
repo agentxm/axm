@@ -71,6 +71,7 @@ import {
   type InstructionProjectionSnapshot,
   type ResolvedInstructionsConfig,
   type InstructionOutputOverrides,
+  ProjectionOutputPosture,
 } from "@agentxm/workspace-kernel/projection";
 import {
   AcceptedResolutionWriter,
@@ -166,7 +167,7 @@ export const instructionsStatus = (): Effect.Effect<
 // Requests and candidates
 // -----------------------------------------------------------------------------
 
-export type ManageInstructionsRequest = (
+export type ManageInstructionsRequest =
   | {
       readonly action: "enable";
       /** The source-of-truth instruction file every alias points at. */
@@ -174,9 +175,7 @@ export type ManageInstructionsRequest = (
       /** Keep the propagated alias files out of Git. */
       readonly gitignoreAliases: boolean;
     }
-  | { readonly action: "disable" }
-) &
-  InstructionOutputOverrides;
+  | { readonly action: "disable" };
 
 /** A request the workspace already satisfies. */
 export interface InstructionsUnchanged {
@@ -293,9 +292,10 @@ export const prepareManageInstructions = (
     const settings = yield* SettingsReader;
     const path = yield* Path.Path;
     const recorded = yield* settings.instructionsConfig;
+    const posture = yield* ProjectionOutputPosture;
     const overrides: InstructionOutputOverrides = {
-      replaceUnrecorded: request.replaceUnrecorded === true,
-      discardModified: request.discardModified === true,
+      replaceUnrecorded: posture.replaceUnrecorded === true,
+      discardModified: posture.discardModified === true,
     };
 
     if (request.action === "disable") {
@@ -470,6 +470,7 @@ const transitionFailureToStepFailure = (
     return new StepFailure({
       category: failure.category,
       detail: failure.detail,
+      ...(failure.problem === undefined ? {} : { problem: failure.problem }),
       ...(failure.suggestions === undefined ? {} : { suggestions: failure.suggestions }),
       ...(failure.cause === undefined ? {} : { cause: failure.cause }),
     });

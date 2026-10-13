@@ -8,6 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
 import { applyInstructionsRequest } from "./test-helpers.js";
@@ -209,8 +210,7 @@ describe("Enabling instruction-file management", () => {
                 action: "enable",
                 fileName: "AGENTS.md",
                 gitignoreAliases: false,
-                replaceUnrecorded,
-              });
+              }).pipe(Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded }));
 
               if (replaceUnrecorded) {
                 expect(outcome).toMatchObject({ outcome: "applied" });

@@ -92,6 +92,7 @@ export const materializationFailureToStepFailure = (
     return makeStepFailure({
       category: error.category,
       detail: error.detail,
+      problem: error.problem,
       recover: error.recover,
       cmd: error.cmd,
       suggestions: error.suggestions,

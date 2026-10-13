@@ -60,6 +60,10 @@ verification still run.
   existing toolchain checks remain authoritative; updater scope does not
   include a separate toolchain manager. Raise the `@types/node` ceiling only
   with the runtime floor.
+- Hold `string-argv` below 0.4.0 until Nx resolves packages that export only
+  the `import` condition. Nx locates npm packages through CommonJS resolution,
+  so the newer release drops out of the project graph and fails the module
+  boundary check.
 - Preserve the two TypeScript aliases in the catalog. A grouped proposal
   does not authorize collapsing the compiler and compatibility packages.
 - Review override edits against their advisory and affected range. Overrides

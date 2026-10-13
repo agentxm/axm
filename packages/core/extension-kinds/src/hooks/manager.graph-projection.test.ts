@@ -169,7 +169,7 @@ describe("HookManager graph-derived unit projection", () => {
           baseDir,
           runtimeDir: axmDir,
           settings: { agents: [...args.configuredAgents], instructionFiles: {} },
-          lockfile: { lockfileVersion: 11, skills: {}, hooks: args.locked },
+          lockfile: { lockfileVersion: 12, skills: {}, hooks: args.locked },
           graph: args.graph,
         }),
       ),

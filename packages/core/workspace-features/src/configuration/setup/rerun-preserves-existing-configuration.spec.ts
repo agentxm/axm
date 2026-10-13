@@ -77,7 +77,7 @@ describe("Repeated setup", () => {
     const fixture = makeSetupFixture({
       files: {
         "axm.json": JSON.stringify({ agents: ["claude-code"], skills: {} }),
-        "axm-lock.yaml": "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+        "axm-lock.yaml": "lockfileVersion: 12\npackages: {}\nskills: {}\n",
         "CLAUDE.md": "# Team instructions\n",
       },
     });
@@ -139,7 +139,7 @@ describe("Repeated setup", () => {
     const fixture = makeSetupFixture({
       files: {
         "axm.json": JSON.stringify({ agents: ["claude-code"], skills: {} }),
-        "axm-lock.yaml": "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+        "axm-lock.yaml": "lockfileVersion: 12\npackages: {}\nskills: {}\n",
         "CLAUDE.md": "# Team instructions\n",
       },
       confirmInstructionSync: false,

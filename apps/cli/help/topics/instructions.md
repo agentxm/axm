@@ -44,13 +44,16 @@ All commands accept `--scope project` (default) or `--scope user`:
   AXM-owned alias the current configuration no longer needs.
 - `axm instructions enable [--file AGENTS.md]
 [--gitignore|--no-gitignore]` — enable propagation and reconcile owned
-  aliases and `.gitignore`. Add `--preview` to inspect the plan.
+  aliases and `.gitignore`. Add `--preview` to inspect the plan,
+  `--replace-unrecorded` to replace an alias file AXM never wrote, and
+  `--discard-modified` to delete a superseded alias copy you edited.
 - `axm instructions disable` — remove current AXM-owned aliases and the managed
   `.gitignore` block while preserving the canonical source and authored prose,
-  then set `instructionFiles: false`. Add `--preview` to inspect the plan.
-- `axm instructions adopt <rules|knowledge> [--file AGENTS.md]`
-  — explicitly accept ownership of one existing contributor region. Add
-  `--preview` to inspect the transfer without writing.
+  then set `instructionFiles: false`. Add `--preview` to inspect the plan and
+  `--discard-modified` to delete alias copies you edited.
+- `axm instructions adopt <rules|knowledge>` — record an existing region in the
+  planned instruction file as current without replacing it. Add `--preview` to
+  inspect the record without writing.
 
 ## Propagation
 
@@ -84,32 +87,30 @@ Top-level instruction management is the outer gate. It does not replace the
 Knowledge-specific precedence or affect enabled Concepts; see `axm help
 knowledge` for per-bundle `instructionEntry` behavior.
 
-### Explicit ownership adoption
+### Recording an existing region
 
-When a complete region belongs to the expected AXM contributor but lacks current
-scoped source proof, first inspect its body and the scope's accepted extensions.
-Then preview and adopt that exact region:
+A Rules or Knowledge region in the planned instruction file is AXM's to write
+because your settings plan that file; no inline proof is needed. When the
+lockfile has no row for the region, for example after it was deleted, the next
+sync rewrites the region once. To keep the current bytes instead, inspect the
+body, then record it:
 
 ```bash
-axm instructions adopt knowledge --file AGENTS.md --preview
-axm instructions adopt knowledge --file AGENTS.md
+axm instructions adopt knowledge --preview
+axm instructions adopt knowledge
 axm sync --preview
 ```
 
-Adoption updates only the start marker's source proof. It preserves the body,
-generation, surrounding text, workspace settings, and accepted resolutions.
-Ordinary sync never transfers ownership. Adoption refuses malformed regions,
-different contributor owners, missing accepted sources, escaped targets, and
-files or source authority that change after planning. It supplies no authority
-to delete the original file or surrounding content. After adoption, inspect the
-sync preview before reconciling the region from its accepted contributors.
+Adoption records the region's current generation and bytes in `axm-lock.yaml`.
+It changes no file, settings, or accepted resolution. It refuses an absent or
+malformed region and bytes that change after planning. A later input change
+still replaces the region.
 
 ## Alias `.gitignore` entries
 
-`gitignoreAliases` controls the managed block between `# axm:start v=1
-region=instruction-aliases ext=@agentxm/instructions/aliases` and `# axm:end
-v=1 region=instruction-aliases` markers. The canonical source named by
-`fileName` is never ignored.
+`gitignoreAliases` controls the managed block between the
+`# axm:instruction-aliases` and `# /axm:instruction-aliases` fences. The
+canonical source named by `fileName` is never ignored.
 
 - `true` (default) manages one exact workspace-relative ignore entry for each
   propagated alias target at every discovered instruction root. It does not
@@ -125,11 +126,14 @@ patterns. The tracked-alias finding names `gitignoreAliases: false` as the
 reconciling setting. Use `axm sync --preview` to inspect reconciliation, then
 `axm sync` to restore configured state.
 
-Ownership is inspected, not remembered. A symlink that resolves to the canonical
-source or an `axm:file v=1` marker proves an alias is AXM's; the banner prose is
-guidance rather than an ownership signal. Anything else at a target path is an
-unowned collision: `axm instructions status` reports it as `unowned`, `axm lint` names
-it, and no reconciliation modifies it. An AXM-owned alias left behind by a
+A symlink that resolves to the canonical source proves an alias is AXM's. A
+copied alias carries no marker: it is AXM's when `axm-lock.yaml` records it, or
+when its bytes equal the copy AXM would write, which AXM then records. Anything
+else at a target path is an unowned collision: `axm instructions status` reports
+it as `unowned`, `axm lint` names it, and reconciliation refuses until you move
+it aside or rerun with `--replace-unrecorded`. A recorded copy AXM would remove
+is removed only while its bytes match what AXM wrote; an edited copy is kept and
+reported unless you pass `--discard-modified`. An AXM-owned alias left behind by a
 removed propagation root, a removed agent, or a changed canonical filename is
 `stale`: `axm sync` removes it before rewriting the `.gitignore` block, and
 `axm sync --preview` names every file it would remove.

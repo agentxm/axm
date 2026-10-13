@@ -240,8 +240,8 @@ describe("generated schemas", () => {
 
     expect(lockSchema["$ref"]).toBe("#/definitions/LockfileEncoded");
     expect(lockfileVersion["type"]).toBe("number");
-    expect(lockfileVersion["enum"]).toEqual([11]);
-    expect(lockfileVersion["default"]).toBe(11);
+    expect(lockfileVersion["enum"]).toEqual([12]);
+    expect(lockfileVersion["default"]).toBe(12);
     expect(lockfile["required"]).toEqual(["lockfileVersion", "packages", "skills"]);
   });
 

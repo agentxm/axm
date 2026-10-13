@@ -10,13 +10,14 @@ Navigation for AXM workspace state, artifacts, and safe execution.
   native output boundaries
 - [Instruction files](instruction-files.md) — canonical instructions,
   agent-specific aliases, and contributed regions
-- [Managed-file ownership](managed-file-ownership.md) — The versioned ownership
-  grammar and reconciliation rules for AXM-managed workspace output.
+- [Managed-file ownership](managed-file-ownership.md) — The name-only region
+  fences, planned-target authority, projection currency, and deletion guard for
+  AXM-managed workspace output.
 - [Sources and resolution](sources.md) — How AXM turns source locators into
   accepted external resolutions without confusing acquisition, identity, or
   local names.
 - [Lockfile](lockfile.md) — accepted external resolutions, immutable content
-  identity, and provenance
+  identity, provenance, and projection currency
 - [Invariants](invariants.md) — shared workspace validity facts and recovery
   coverage
 - [Execution](execution.md) — read snapshots, planning, mutation, and adapter

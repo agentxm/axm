@@ -167,11 +167,17 @@ and retained recovery paths instead of claiming an exact rollback.
 Authoritative files publish through atomic replacement. Canonical directories
 publish as complete directories rather than partially populated destinations.
 Read-modify-write adapters validate their independently owned entry or region
-and preserve all surrounding content, owned and unowned.
+and preserve all surrounding content, owned and unowned. A region writer
+appends an absent region at the end of the file and, after rendering, re-reads
+the result: the write proceeds only when exactly the intended region with the
+intended body is found, so a body that would break the fences is refused rather
+than written.
 
 Projection currency and retention answer separate questions. A generated
 document can remain current after a legitimate body rewrite when its
-authoritative inputs and generation record have not changed. A closure that
+authoritative inputs and the generation recorded in the lockfile have not
+changed. Projection rows change in the same closure as the bytes they describe
+and restore exactly when it rolls back. A closure that
 promises to retain that document also checks that its observed content survives
 the transition. Reconciliation carries temporary owner-unit fingerprints
 through the existing transaction to final validation, without publishing them

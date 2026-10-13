@@ -137,7 +137,7 @@ describe("rejected lockfile recovery", () => {
         problem: {
           code: "workspace-lockfile-version-unsupported",
           observedVersion: 9,
-          supportedVersion: 11,
+          supportedVersion: 12,
           direction: "older",
         },
       });
@@ -158,7 +158,7 @@ describe("rejected lockfile recovery", () => {
 
       const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
       expect(lockfile).toMatchObject({
-        lockfileVersion: 11,
+        lockfileVersion: 12,
         skills: { [MEMBER.name]: { package: expect.any(String) } },
       });
       if (!isRecord(lockfile) || !isRecord(lockfile["packages"]) || !isRecord(lockfile["skills"]))

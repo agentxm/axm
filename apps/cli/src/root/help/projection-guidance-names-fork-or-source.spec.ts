@@ -7,7 +7,7 @@ export const specification = defineSpecification({
   requirement: "cli/help/projection-guidance-names-fork-or-source",
   title: "Projection help points to an editable source or to the fork command",
   statement:
-    "AXM help for generated Subagent projections shall direct edits to the source of a workspace-authored extension and, for an acquired extension, shall mark its content immutable and point to axm fork, because projected files carry no guidance of their own.",
+    "AXM help for generated projections shall direct edits to the source of a workspace-authored extension and, for an acquired extension, shall mark its content immutable and point to axm fork, because projected files carry no guidance of their own.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability", "knowledge-access"],
@@ -37,5 +37,14 @@ describe("Projection authoring guidance", () => {
 
   it("states that projected files carry no AXM text", () => {
     expect(text).toContain("A projected file carries no AXM text.");
+  });
+
+  it("routes an edited projection to its source or to axm fork in the workspace-state topic", () => {
+    const workspaceState = HELP_TOPICS["workspace-state"].replace(/\s+/gu, " ");
+
+    expect(workspaceState).toContain("`workspace/projection-modified`");
+    expect(workspaceState).toContain(
+      "names `axm fork` for an acquired source or the authored source to edit",
+    );
   });
 });

@@ -2,11 +2,11 @@
 
 AXM is the Agent Extension Manager CLI for coding agents.
 
-<!-- axm:generated:extension-type-list -->
+<!-- axm:extension-type-list -->
 
 AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bundles, and packs.
 
-<!-- /axm:generated -->
+<!-- /axm:extension-type-list -->
 
 > AXM is in early alpha. Commands and contracts may change.
 

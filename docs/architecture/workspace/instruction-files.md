@@ -77,7 +77,8 @@ AXM-owned regions. Each contribution region is a derived output with its own
 type-specific identity. AXM owns an alias only when it created the alias for the
 configured canonical source and can still prove that relationship.
 
-Ownership is inspected, never remembered. Every view a command plans from —
+Ownership is inspected, never remembered; the lockfile records only currency
+and deletion evidence. Every view a command plans from —
 status, lint rules, readiness, cleanup, the sync plan — derives from one
 observation: a single walk of the workspace discovers the propagation roots and
 every path where a registry-known alias convention is present, the configured
@@ -92,11 +93,13 @@ configuration directories named by a nested alias convention, such as
 
 An observed target is `absent`, `owned-current`, `owned-drift`, or `unowned`.
 At a planned target the proof is a symlink that resolves to the canonical
-source or any `axm:file` banner; outside the plan only a symlink to the
-canonical file beside it or a banner carrying the instruction-alias identity
-counts. An unowned file at a planned target is a collision: status and lint
-name it as such, distinct from AXM-managed drift, and no reconciliation path —
-including `axm lint --fix` — replaces it. An AXM-owned alias the current plan no longer desires, left behind
+source, or, for a copy, a recorded projection row or bytes identical to the
+copy AXM would write, which AXM then records. Outside the plan only a symlink to
+the canonical file beside it, or a recorded copy whose bytes still match, counts.
+An unowned file at a planned target is a collision: status and lint name it as
+such, distinct from AXM-managed drift, and reconciliation — including
+`axm lint --fix` — refuses to replace it unless the command was given
+`--replace-unrecorded`. An AXM-owned alias the current plan no longer desires, left behind
 by a removed source root, a removed agent, or a changed canonical filename, is a
 stale target: status lists it, lint reports it, and sync removes it before the
 `.gitignore` region is rewritten, so an ignore entry never disappears while the
@@ -115,16 +118,16 @@ re-renders the region from the remaining set; it never rewrites the region to
 contain only the extension being operated on.
 
 An absent region may be created when instruction management authorizes it. A
-one-sided, duplicate, nested, or malformed marker sequence makes ownership
+one-sided, duplicate, nested, or interleaved fence sequence makes the region
 ambiguous and blocks the affected reconciliation. An unowned file at a required
 alias path is a collision and remains untouched.
 
-The shared [managed-file ownership grammar](managed-file-ownership.md) names
-the Rules, Knowledge, and instruction-alias units. Alias copies
-carry a structured `axm:file` banner, while `.gitignore` uses the
-`instruction-aliases` pattern-list region. Generated document currency follows
-generation provenance derived from authoritative inputs, so AXM does not
-inspect or classify body rewrites. AXM emits no formatter directives.
+The shared [region fences](managed-file-ownership.md#region-fences) name the
+Rules, Knowledge, and instruction-alias units. Alias copies carry no marker,
+while `.gitignore` uses the `instruction-aliases` pattern-list region.
+Generated document currency follows the generation digest recorded in the
+lockfile's `projections` section, so AXM does not inspect or classify body
+rewrites. AXM emits no formatter directives.
 
 The canonical filename and alias behavior are durable instruction-file
 settings choices. Contributor participation follows the contributor's own
@@ -137,7 +140,7 @@ contributors.
 - Canonical authored prose survives enablement, reconciliation, and disablement.
 - Each managed region is identifiable independently of the surrounding file
   and other regions.
-- Each generated region records provenance for the complete desired
+- Each generated region's recorded generation covers the complete desired
   contributor set routed into it, regardless of which operation last wrote
   the region.
 - Composition order is deterministic and repeated reconciliation adds no
@@ -147,8 +150,9 @@ contributors.
 - Disabling a contributing capability removes only its owned region; disabling
   one contributing extension removes only that extension's contribution; and
   disabling instruction management removes only AXM-owned regions and aliases.
-- Every write and removal decision rests on an ownership proof read from the
-  workspace in the same command; no prior-ownership record is persisted.
+- Every write and removal decision rests on planned authority and facts read
+  from the workspace in the same command; a recorded projection row is
+  deletion evidence only together with an exact byte match, never ownership.
 - Removing a source root or an agent, or changing the canonical filename,
   leaves no AXM-owned alias behind after the next reconciliation and never
   removes a file AXM cannot prove it produced.
@@ -157,7 +161,7 @@ contributors.
 ## Testing strategy
 
 Behavior tests prove canonical prose preservation, contributor independence,
-deterministic ordering, formatting changes, malformed and duplicate markers,
+deterministic ordering, formatting changes, malformed and duplicate fences,
 owned alias drift, unowned alias collisions, stale-alias discovery after a
 removed nested root, a removed agent, and a changed canonical filename, cleanup
 without a managed `.gitignore` region, preview parity with apply,

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 
+import { REGION_NAMES } from "@agentxm/workspace-kernel/agent-adapters";
+
 import {
+  BUILD_TIME_REGION_NAMES,
   buildRegionBlocks,
-  CLOSE_MARKER,
-  openMarker,
   rewriteManagedRegions,
   stripRegionMarkers,
+  type BuildTimeRegionName,
   type TypeEnumerationRow,
 } from "./type-enumerations.js";
 
@@ -35,8 +37,19 @@ const pack: TypeEnumerationRow = {
 
 const rows = [skill, rule, pack];
 
-const document = (region: Parameters<typeof openMarker>[0]): string =>
-  `# Title\n\nIntro paragraph.\n\n${openMarker(region)}\n\nstale content\n\n${CLOSE_MARKER}\n\nOutro.\n`;
+const open = (region: BuildTimeRegionName): string => `<!-- axm:${region} -->`;
+const close = (region: BuildTimeRegionName): string => `<!-- /axm:${region} -->`;
+
+const document = (region: BuildTimeRegionName): string =>
+  `# Title\n\nIntro paragraph.\n\n${open(region)}\n\nstale content\n\n${close(region)}\n\nOutro.\n`;
+
+describe("build-time region names", () => {
+  it("never collide with the regions AXM writes into a workspace", () => {
+    const runtime: ReadonlySet<string> = new Set(REGION_NAMES);
+
+    expect(BUILD_TIME_REGION_NAMES.filter((name) => runtime.has(name))).toEqual([]);
+  });
+});
 
 describe("region blocks", () => {
   it("renders one table row per catalog-described type, with its standard", () => {
@@ -54,7 +67,6 @@ describe("region blocks", () => {
     const blocks = buildRegionBlocks(rows);
 
     expect(blocks["extension-type-namespaces"]).toContain("`axm skills`, `axm rules`, `axm packs`");
-    expect(blocks["extension-type-namespace-set"]).toBe("`<type>` ∈ {`skills`, `rules`, `packs`}");
   });
 
   it("enumerates every type in the prose list, workspace capabilities included", () => {
@@ -79,7 +91,6 @@ describe("region blocks", () => {
     expect(after["extension-types-table"]).not.toBe(before["extension-types-table"]);
     expect(after["extension-type-list"]).not.toBe(before["extension-type-list"]);
     expect(after["extension-type-namespaces"]).not.toBe(before["extension-type-namespaces"]);
-    expect(after["extension-type-namespace-set"]).not.toBe(before["extension-type-namespace-set"]);
   });
 });
 
@@ -105,16 +116,33 @@ describe("managed region rewriting", () => {
   });
 
   it("refuses an unterminated region rather than guessing where the body ends", () => {
-    const source = `${openMarker("extension-type-list")}\n\nbody\n`;
+    const source = `${open("extension-type-list")}\n\nbody\n`;
 
     expect(() => rewriteManagedRegions(source, buildRegionBlocks(rows))).toThrow(
-      /missing its <!-- \/axm:generated --> marker/,
+      /missing its <!-- \/axm:extension-type-list --> marker/,
     );
   });
 
+  it("does not accept another region's closing fence", () => {
+    const source = `${open("extension-type-list")}\n\nbody\n\n${close("extension-types-table")}\n`;
+
+    expect(() => rewriteManagedRegions(source, buildRegionBlocks(rows))).toThrow(
+      /missing its <!-- \/axm:extension-type-list --> marker/,
+    );
+  });
+
+  it("ignores fences shown inside a fenced code block", () => {
+    const source = `# Title\n\n\`\`\`md\n${open("extension-type-list")}\n\`\`\`\n`;
+
+    expect(rewriteManagedRegions(source, buildRegionBlocks(rows))).toEqual({
+      content: source,
+      regions: [],
+    });
+  });
+
   it("refuses a region opened twice", () => {
-    const open = openMarker("extension-type-list");
-    const source = `${open}\n\nbody\n\n${CLOSE_MARKER}\n\n${open}\n\nbody\n\n${CLOSE_MARKER}\n`;
+    const fenced = `${open("extension-type-list")}\n\nbody\n\n${close("extension-type-list")}\n`;
+    const source = `${fenced}\n${fenced}`;
 
     expect(() => rewriteManagedRegions(source, buildRegionBlocks(rows))).toThrow(
       /opened more than once/,
@@ -130,8 +158,14 @@ describe("marker stripping", () => {
     );
     const stripped = stripRegionMarkers(content);
 
-    expect(stripped).not.toContain("axm:generated");
+    expect(stripped).not.toContain("axm:");
     expect(stripped).not.toMatch(/\n{3,}/);
     expect(stripped).toContain("AXM manages skills, rules, and packs.");
+  });
+
+  it("keeps fences that do not name a build-time region", () => {
+    const source = "Intro.\n\n<!-- axm:rules -->\n\nbody\n\n<!-- /axm:rules -->\n";
+
+    expect(stripRegionMarkers(source)).toBe(source);
   });
 });

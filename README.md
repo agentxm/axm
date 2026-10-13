@@ -95,7 +95,7 @@ axm install @acme/skills/code-review
 
 ## Extension types
 
-<!-- axm:generated:extension-types-table -->
+<!-- axm:extension-types-table -->
 
 | Type                | What it is                                                                   | Governing standard                                                                                          |
 | ------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
@@ -106,18 +106,18 @@ axm install @acme/skills/code-review
 | **Hook extensions** | Install lifecycle hook extensions into an agent's native hook system.        | —                                                                                                           |
 | **Knowledge**       | Package portable Open Knowledge Format concept bundles.                      | [Open Knowledge Format 0.2](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md) |
 
-<!-- /axm:generated -->
+<!-- /axm:extension-types-table -->
 
 **Packs** are the container type: a pack curates any of the above into one
 bundle teams install and keep in sync, such as
 `@acme/packs/frontend-tools` — the frontend guild's standard skills and
 commands.
 
-<!-- axm:generated:extension-type-namespaces -->
+<!-- axm:extension-type-namespaces -->
 
 Every type has its own subcommand namespace (`axm skills`, `axm mcps`, `axm subagents`, `axm rules`, `axm hooks`, `axm knowledge`, `axm packs`) sharing a common shape: `install`, `uninstall`, `list`, `update`, `new`, `publish`, plus `enable`/`disable` where it applies.
 
-<!-- /axm:generated -->
+<!-- /axm:extension-type-namespaces -->
 
 ## Subcommands
 

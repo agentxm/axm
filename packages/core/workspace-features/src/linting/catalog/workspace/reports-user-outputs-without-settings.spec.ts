@@ -58,7 +58,7 @@ describe("User outputs without settings", () => {
         [`${CANONICAL}/SKILL.md`]: skill("review"),
         ".axm/workspace/axm-lock.yaml": JSON.stringify(
           storedLockfileFixture({
-            lockfileVersion: 11,
+            lockfileVersion: 12,
             skills: {
               review: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@acme"),

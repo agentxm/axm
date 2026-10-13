@@ -42,7 +42,7 @@ instruction-file capability.
 ## Ownership and coexistence
 
 AXM owns the aggregate Rule region, not the surrounding instruction file. User
-prose and other independently marked regions coexist outside it. Shared marker,
+prose and other independently fenced regions coexist outside it. Shared fence,
 alias, collision, and disablement behavior follows the instruction-file
 contract.
 
@@ -66,12 +66,13 @@ Behavior tests prove deterministic composition, ordering, activation,
 instruction-management interaction, surrounding prose and contribution
 preservation, formatter changes, safe removal, and idempotent reconciliation.
 The shared [multi-route contributor coverage](overview.md#testing-strategy)
-applies to the Rule region. Shared instruction-file tests own marker and alias
+applies to the Rule region. Shared instruction-file tests own fence and alias
 behavior.
 
-The aggregate region is `region=rules` with provenance owner
-`@agentxm/rules/instructions`. Each contributed Rule begins with a versioned
-`axm:point` anchor for human and diagnostic traceability. Currency comes from
-the region's generation provenance over the complete contributor set, not from
-parsing those anchors or comparing the rendered body. See the shared
-[ownership grammar](../workspace/managed-file-ownership.md).
+The aggregate region is the `rules` region, fenced by `<!-- axm:rules -->` and
+`<!-- /axm:rules -->`. Its body is one opaque unit with no per-Rule anchors.
+Currency comes from the generation recorded in the lockfile over the complete
+contributor set, not from comparing the rendered body. See the shared
+[region fences](../workspace/managed-file-ownership.md#region-fences).
+Projected instruction files carry no `.gitattributes` entries from AXM; a
+repository may mark them `linguist-generated` itself.

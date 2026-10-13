@@ -122,13 +122,13 @@ describe("workspace read-model per-source error families", () => {
       const err = new LockfileVersionUnsupported({
         path: "/ws/axm-lock.yaml",
         observedVersion: 8,
-        supportedVersion: 11,
+        supportedVersion: 12,
       });
       expect(err).toMatchObject({
         _tag: "LockfileVersionUnsupported",
         path: "/ws/axm-lock.yaml",
         observedVersion: 8,
-        supportedVersion: 11,
+        supportedVersion: 12,
       });
     });
   });
@@ -180,8 +180,8 @@ describe("workspace read-model per-source error families", () => {
         new LockfileDecodeError({ path: "/p", issues: ["bad"], raw: {} }),
         new LockfileVersionUnsupported({
           path: "/p",
-          observedVersion: 12,
-          supportedVersion: 11,
+          observedVersion: 13,
+          supportedVersion: 12,
         }),
       ];
 

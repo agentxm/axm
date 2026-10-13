@@ -1,4 +1,4 @@
-lockfileVersion: 11
+lockfileVersion: 12
 packages:
   '["git","https://github.com/acme/code-review.git",".","native"]':
     source:

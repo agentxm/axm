@@ -63,7 +63,7 @@ describe("Installed but not configured", () => {
           ...installed("orphan"),
           "axm-lock.yaml": JSON.stringify(
             storedLockfileFixture({
-              lockfileVersion: 11,
+              lockfileVersion: 12,
               skills: { kept: lockRow("kept"), stale: lockRow("stale") },
             }),
           ),
@@ -111,7 +111,7 @@ describe("Installed but not configured", () => {
       files: {
         ...installed("kept"),
         "axm-lock.yaml": JSON.stringify(
-          storedLockfileFixture({ lockfileVersion: 11, skills: { kept: lockRow("kept") } }),
+          storedLockfileFixture({ lockfileVersion: 12, skills: { kept: lockRow("kept") } }),
         ),
       },
     });

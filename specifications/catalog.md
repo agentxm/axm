@@ -319,6 +319,20 @@ People and agents can understand invalid workspace state and recover it through 
 - Derived from: `apps/cli-e2e/src/cli-commands/lint/command.e2e.ts`
 - Source: [`packages/core/workspace-features/src/linting/run/reports-missing-settings-as-finding.spec.ts`](../packages/core/workspace-features/src/linting/run/reports-missing-settings-as-finding.spec.ts)
 
+##### Lint reports edited projections and AXM fences it does not manage
+
+- Requirement: `cli/lint/reports-modified-projections-and-unknown-fences`
+- Owner: `workspace-features`
+- Statement: A workspace lint run shall report, as information, each recorded projection unit whose bytes differ from the output digest AXM last recorded for it, comparing a whole file directly and a region through its body only, naming the path, that AXM replaces it when its inputs change, and where to make the change instead; and shall report, as information, each AXM fence outside the region vocabulary in the canonical instruction file or .gitignore with its path and line, saying it is left untouched. Fences inside Markdown code blocks shall not be reported, and the run shall change no file.
+- Class: functional
+- Role: experience
+- Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
+- Boundary: memory; selection: per-change
+- Boundary rationale: Recorded rows are a real lockfile and the compared bytes are real files under a temporary workspace; production lint reads both without mutating either.
+- Methods: example
+- Derived from: `workspace/projections/fences-are-name-only-and-top-level`, `workspace/lockfile/records-projection-currency`
+- Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-modified-projections-and-unknown-fences.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-modified-projections-and-unknown-fences.spec.ts)
+
 ##### Lint reports project agent outputs that share a name with a user-scope output
 
 - Requirement: `cli/lint/reports-project-outputs-shadowed-by-user-scope`
@@ -367,7 +381,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/lint/reports-user-outputs-without-settings`
 - Owner: `workspace-features`
-- Statement: When user-scope agent outputs carry AXM ownership proof and the user workspace has no readable settings, a project lint run shall report one warning per such output under workspace/user-outputs-have-settings naming its type, path, ownership proof, and the expected user settings path, as facts without commands, and shall not report user-scope outputs without ownership proof.
+- Statement: When user-scope agent outputs carry AXM ownership proof and the user workspace has no readable settings, a project lint run shall report one warning per such output under workspace/user-outputs-have-settings naming its type, path, ownership proof, and the expected user settings path, as facts without commands, and shall not report user-scope outputs without ownership proof. A user-scope Subagent file is owned when its name is an accepted user-scope Subagent at the agent's native path; a hand-written Subagent file beside it is not.
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
@@ -4055,7 +4069,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/help/projection-guidance-names-fork-or-source`
 - Owner: `cli`
-- Statement: AXM help for generated Subagent projections shall direct edits to the source of a workspace-authored extension and, for an acquired extension, shall mark its content immutable and point to axm fork, because projected files carry no guidance of their own.
+- Statement: AXM help for generated projections shall direct edits to the source of a workspace-authored extension and, for an acquired extension, shall mark its content immutable and point to axm fork, because projected files carry no guidance of their own.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`, `knowledge-access`

@@ -6,7 +6,7 @@ import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.j
 import { getOutput } from "../../../test-helpers.js";
 
 describe("authoritative lockfile recovery boundary", () => {
-  it("creates a new v11 lockfile containing only the requested external resolution", async () => {
+  it("recreates a v12 lockfile whose accepted resolutions are only the requested one", async () => {
     const temp = createTempDir();
     try {
       await runCli(
@@ -23,7 +23,21 @@ describe("authoritative lockfile recovery boundary", () => {
 
       expect(result.exitCode, getOutput(result)).toBe(0);
       const lock = YAML.parse(fs.readFileSync(lockfilePath, "utf8"));
-      expect(lock.lockfileVersion).toBe(11);
+      expect(lock.lockfileVersion).toBe(12);
+      // Projection currency rows may be re-recorded beside the resolutions;
+      // they are not accepted resolutions.
+      const populatedResolutionSections = Object.entries(lock)
+        .filter(
+          ([key, value]) =>
+            key !== "lockfileVersion" &&
+            key !== "projections" &&
+            typeof value === "object" &&
+            value !== null &&
+            Object.keys(value).length > 0,
+        )
+        .map(([key]) => key)
+        .sort();
+      expect(populatedResolutionSections).toEqual(["packages", "skills"]);
       expect(Object.keys(lock.skills)).toEqual(["another-skill"]);
       expect(lock.packages[lock.skills["another-skill"].package]).toMatchObject({
         source: { type: "path" },

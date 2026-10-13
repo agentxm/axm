@@ -194,8 +194,7 @@ table to the canonical instruction source. Eligible rows sort by owner and
 bundle name and link directly to each installed bundle's canonical
 `src/index.md`. Existing instruction aliases continue to propagate from that
 canonical source.
-The versioned region is `region=knowledge` with
-`ext=@agentxm/knowledge/discovery`.
+The region lies between `<!-- axm:knowledge -->` and `<!-- /axm:knowledge -->`.
 
 Discovery is enabled by default. Disable only the table with:
 

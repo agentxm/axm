@@ -5,10 +5,10 @@ Registry-only archive policy and effective preview.
 
 Rule extensions are installable guidance packages. A rule package has a
 `rule.json` manifest and a `src/RULE.md` body. When instruction-file management
-is enabled, active Rules contribute their bodies to the complete managed
-`region=rules` block in the canonical instruction source.
-The region carries `ext=@agentxm/rules/instructions`, and each Rule begins with
-a versioned `axm:point v=1 kind=rule` contributor anchor.
+is enabled, active Rules contribute their bodies to the managed Rules region in
+the canonical instruction source, between `<!-- axm:rules -->` and
+`<!-- /axm:rules -->`. AXM replaces the whole region body; edit a Rule's source,
+not the region.
 
 Rule guidance targets the [AGENTS.md](https://agents.md) cross-vendor standard.
 AXM owns only the managed Rules region; authored prose and other contributors
@@ -66,14 +66,14 @@ that desired state routes into the workspace, in deterministic order. Enabling,
 disabling, or removing one Rule re-renders the region from the remaining active
 set; it never replaces the region with only the Rule being operated on.
 
-AXM preserves authored prose outside its markers. A malformed, duplicate, or
+AXM preserves authored prose outside its fences. A malformed, duplicate, or
 otherwise ambiguous managed region blocks the transition without changing
 settings or files. Use `axm lint` for diagnostics and `axm sync --preview` to
 inspect reconciliation.
 
-Marker identity is the region name; provenance attributes do not create a
-second region. Formatting-only prose wrapping and table padding do not create
-drift, and AXM writes no formatter directives.
+A fence carries only the region name. Currency comes from the generation
+recorded in `axm-lock.yaml`, so formatting-only prose wrapping and table padding
+do not create drift, and AXM writes no formatter directives.
 
 ## Self-containment and Packs
 

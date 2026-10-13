@@ -147,6 +147,8 @@ const expectedRules: ReadonlyArray<ExpectedRule> = [
   ["workspace/instructions-gitignore-current", "info", bothViews],
   ["workspace/projection-ownership-valid", "error", workspaceView],
   ["workspace/projection-contributors-rendered", "warning", workspaceView],
+  ["workspace/projection-modified", "info", workspaceView],
+  ["workspace/unknown-axm-fence", "info", workspaceView],
   ["workspace/managed-file-unowned", "warning", workspaceView],
   ["workspace/installed-but-not-configured", "warning", workspaceView],
   ["workspace/deprecated-installed", "warning", workspaceView],

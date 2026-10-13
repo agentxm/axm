@@ -12,7 +12,7 @@ const relativeToRoot = (root: string, file: string): string => {
 
 export const managedFileUnownedRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "Agent-directory artifacts have a resolvable AXM ownership proof.",
+  description: "Agent-directory artifacts are outputs AXM declares at their path.",
   kind: "advisory",
   severity: "warning",
   check: (context) =>

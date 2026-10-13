@@ -2,12 +2,15 @@ import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 
-import type {
-  InstallRootInventory,
-  InstalledPackageEntry,
+import {
+  ProjectionUnitPathSchema,
+  type InstallRootInventory,
+  type InstalledPackageEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
+  projectionOutputDigest,
   type AgentOutputInventory,
   type AgentOutputObservation,
   type ProjectionInvariantFact,
@@ -29,6 +32,8 @@ import { authoredPackageDeclaredRule } from "../../authored-package-declared.js"
 import { installRootEntriesRecognizedRule } from "../../install-root-entries-recognized.js";
 import { projectionOwnershipValidRule } from "../../projection-ownership-valid.js";
 import { projectionContributorsRenderedRule } from "../../projection-contributors-rendered.js";
+import { projectionModifiedRule } from "../../projection-modified.js";
+import { unknownAxmFenceRule } from "../../unknown-axm-fence.js";
 import { settingsKeysRecognizedRule } from "../../settings-keys-recognized.js";
 import {
   contextFor,
@@ -170,12 +175,12 @@ export const managedFileUnownedConformance: WorkspaceRuleConformanceCase = {
       {
         kind: "managed-file-unowned",
         path: "/workspace/.claude/agents/manual.md",
-        detail: "Agent subagent artifact has no structured file ownership proof.",
+        detail: "Agent subagent file is not a declared Subagent at this path.",
       },
     ]),
   expectedFindings: [
     {
-      message: "Agent subagent artifact has no structured file ownership proof.",
+      message: "Agent subagent file is not a declared Subagent at this path.",
       location: { file: ".claude/agents/manual.md" },
     },
   ],
@@ -208,7 +213,8 @@ const projectionContext = (ownershipValid: boolean) =>
                       status: "unavailable",
                       contributors: [],
                       reasonCode: "invalid-ownership",
-                      message: "AXM managed region AGENTS.md has malformed ownership markers.",
+                      message:
+                        'AXM cannot safely update its section in AGENTS.md: AXM region "rules" has nested fences',
                     },
                 expectation: {
                   status: "current",
@@ -227,7 +233,82 @@ export const projectionOwnershipValidConformance: WorkspaceRuleConformanceCase =
   violated: () => projectionContext(false),
   expectedFindings: [
     {
-      message: "AXM managed region AGENTS.md has malformed ownership markers.",
+      message:
+        'AXM cannot safely update its section in AGENTS.md: AXM region "rules" has nested fences',
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const projectionOutputsContext = (modified: boolean) =>
+  contextFor({
+    settings: validSettings({
+      agents: ["claude-code"],
+      instructionFiles: { fileName: "AGENTS.md" },
+    }),
+    lockfile: validLockfile,
+  }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          projectionOutputs: Effect.succeed([
+            Result.succeed({
+              kind: "instructions",
+              path: ProjectionUnitPathSchema.make("CLAUDE.md"),
+              recorded: projectionOutputDigest("# Shared\n"),
+              observed: projectionOutputDigest(modified ? "# Shared, edited\n" : "# Shared\n"),
+            }),
+          ]),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const projectionModifiedConformance: WorkspaceRuleConformanceCase = {
+  rule: projectionModifiedRule,
+  satisfied: () => projectionOutputsContext(false),
+  violated: () => projectionOutputsContext(true),
+  expectedFindings: [
+    {
+      message:
+        "`CLAUDE.md` differs from what AXM last wrote; AXM replaces it when its inputs change. Edit `AGENTS.md`; the alias is a copy of it.",
+      location: { file: "CLAUDE.md" },
+    },
+  ],
+  inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
+};
+
+const unknownFencesContext = (present: boolean) =>
+  contextFor({ settings: validSettings(), lockfile: validLockfile }).pipe(
+    Effect.map(
+      (context) =>
+        ({
+          ...context,
+          unknownFences: Effect.succeed(
+            present
+              ? [
+                  Result.succeed({
+                    path: "AGENTS.md",
+                    line: 4,
+                    name: "future",
+                    edge: "open" as const,
+                  }),
+                ]
+              : [],
+          ),
+        }) satisfies WorkspaceRuleContext,
+    ),
+  );
+
+export const unknownAxmFenceConformance: WorkspaceRuleConformanceCase = {
+  rule: unknownAxmFenceRule,
+  satisfied: () => unknownFencesContext(false),
+  violated: () => unknownFencesContext(true),
+  expectedFindings: [
+    {
+      message:
+        "`AGENTS.md:5` has AXM fence `axm:future`, which is not a region AXM manages; it is left untouched.",
+      location: { file: "AGENTS.md", line: 5 },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

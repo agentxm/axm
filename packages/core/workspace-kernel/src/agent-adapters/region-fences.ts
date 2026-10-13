@@ -151,3 +151,10 @@ export const scanFences = (content: string, syntax: FenceSyntax): ReadonlyArray<
   }
   return fences;
 };
+
+/**
+ * Fence lines whose name lies outside the runtime vocabulary. AXM never reads
+ * or writes such a region; lint reports it so a person sees it is inert.
+ */
+export const scanUnknownFences = (content: string, syntax: FenceSyntax): ReadonlyArray<FenceLine> =>
+  scanFences(content, syntax).filter(({ name }) => !isRegionName(name));

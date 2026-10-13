@@ -26,6 +26,8 @@ import { instructionsTargetUnownedRule } from "./workspace/instructions-target-u
 import { instructionsTargetStaleRule } from "./workspace/instructions-target-stale.js";
 import { projectionOwnershipValidRule } from "./workspace/projection-ownership-valid.js";
 import { projectionContributorsRenderedRule } from "./workspace/projection-contributors-rendered.js";
+import { projectionModifiedRule } from "./workspace/projection-modified.js";
+import { unknownAxmFenceRule } from "./workspace/unknown-axm-fence.js";
 import { instructionsAgentSupportedRule } from "./workspace/instructions-agent-supported.js";
 import { instructionsGitignoreCurrentRule } from "./workspace/instructions-gitignore-current.js";
 import { skillsDeclarationsValidRule } from "./workspace/skills-declarations-valid.js";
@@ -105,6 +107,8 @@ export const liveOnlyWorkspaceRules: ReadonlyArray<
   instructionsTargetStaleRule,
   projectionOwnershipValidRule,
   projectionContributorsRenderedRule,
+  projectionModifiedRule,
+  unknownAxmFenceRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
   deprecatedInstalledRule,
@@ -138,6 +142,8 @@ export const workspaceRules: ReadonlyArray<LintRule<WorkspaceRuleContext, Config
   instructionsGitignoreCurrentRule,
   projectionOwnershipValidRule,
   projectionContributorsRenderedRule,
+  projectionModifiedRule,
+  unknownAxmFenceRule,
   managedFileUnownedRule,
   installedButNotConfiguredRule,
   deprecatedInstalledRule,

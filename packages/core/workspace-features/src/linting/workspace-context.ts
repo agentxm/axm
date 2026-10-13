@@ -11,6 +11,7 @@
 
 import type * as Effect from "effect/Effect";
 import type * as Option from "effect/Option";
+import type * as Result from "effect/Result";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
 import type { DeprecationView } from "@agentxm/extension-model/unstable/extensions/deprecation";
@@ -20,6 +21,8 @@ import type {
   WorkspaceOwnershipIssue,
   InstructionProjectionSnapshot,
   ProjectionInvariantFact,
+  ProjectionIoFailed,
+  ProjectionOutputObservation,
 } from "@agentxm/workspace-kernel/projection";
 import type {
   CanonicalObservation,
@@ -60,6 +63,22 @@ export interface WorkspaceRuleContext {
   readonly instructions?: WorkspaceInstructionAccessor;
   /** Read-back currency for aggregate managed output units. */
   readonly projections?: WorkspaceProjectionsAccessor;
+  /**
+   * Recorded projection units compared with the bytes AXM last wrote. A unit
+   * that is absent, or whose region is absent or malformed, is not listed; a
+   * unit that cannot be read is listed as a failure naming its path, without
+   * hiding the other units.
+   */
+  readonly projectionOutputs?: Effect.Effect<
+    ReadonlyArray<Result.Result<ProjectionOutputObservation, ProjectionIoFailed>>
+  >;
+  /**
+   * AXM fences outside the region vocabulary in the files that carry regions;
+   * a file that cannot be read is listed as a failure naming its path.
+   */
+  readonly unknownFences?: Effect.Effect<
+    ReadonlyArray<Result.Result<UnknownAxmFence, ProjectionIoFailed>>
+  >;
   readonly ownership?: Effect.Effect<ReadonlyArray<WorkspaceOwnershipIssue>>;
   /** Owned and unowned agent-native outputs observed from resolved containers. */
   readonly agentOutputs?: Effect.Effect<AgentOutputInventory>;
@@ -127,6 +146,20 @@ export interface WorkspaceRuleContext {
  */
 export interface WorkspaceInstructionAccessor {
   readonly snapshot: Effect.Effect<Option.Option<InstructionProjectionSnapshot>>;
+}
+
+/**
+ * One fence line whose name is not a region AXM manages.
+ *
+ * @experimental This API is unstable and may change without notice.
+ */
+export interface UnknownAxmFence {
+  /** Workspace-relative path of the file carrying the fence. */
+  readonly path: string;
+  /** 0-based line index. */
+  readonly line: number;
+  readonly name: string;
+  readonly edge: "open" | "close";
 }
 
 /**

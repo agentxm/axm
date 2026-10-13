@@ -170,6 +170,13 @@ export {
   type ObservedMaterializationCurrencyArgs,
 } from "./materialization-currency.js";
 export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
+export {
+  observeProjectionOutput,
+  projectionOutputUnits,
+  type ProjectionOutputObservation,
+  type ProjectionOutputRead,
+  type ProjectionOutputUnit,
+} from "./projection-output-observation.js";
 
 // Whole-file projection decisions
 export {

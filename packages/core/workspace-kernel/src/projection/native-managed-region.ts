@@ -33,6 +33,7 @@ import {
   verifyRenderedRegion,
   NativeWriteAuthority,
   preflightNativeConfigReaders,
+  type RegionName,
 } from "../agent-adapters/index.js";
 import {
   ProjectionUnitPathSchema,
@@ -88,6 +89,36 @@ export const nativeManagedRegionContent = (args: {
         cause: "retained-region-unavailable",
       });
     return args.raw.slice(region.open.start, region.close.end);
+  });
+
+/**
+ * The body of a named region as it stands in a target file, for comparison
+ * with AXM's last write. A target without fence syntax or without the region
+ * yields none; a malformed region is a violation.
+ */
+export const observedNativeManagedRegionBody = (args: {
+  readonly displayPath: string;
+  readonly region: RegionName;
+  readonly raw: string;
+}): Effect.Effect<Option.Option<string>, ManagedRegionViolation> =>
+  Effect.gen(function* () {
+    const syntax = fenceSyntaxForTarget(args.displayPath);
+    if (Option.isNone(syntax)) return Option.none();
+    const state = inspectManagedRegion(args.raw, args.region, syntax.value);
+    switch (state.state) {
+      case "absent":
+        return Option.none();
+      case "complete":
+        return Option.some(state.body);
+      case "malformed":
+        return yield* new ManagedRegionViolation({
+          displayPath: args.displayPath,
+          reason: state.message,
+          reasonCode: state.reasonCode,
+          region: state.region,
+          problem: state.problem,
+        });
+    }
   });
 
 export interface NativeManagedRegionArgs {

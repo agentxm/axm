@@ -579,6 +579,18 @@ export const lintCatalogRuleMetadata = defineLintCatalog([
     views: filesystemView,
   },
   {
+    id: "workspace/projection-modified",
+    defaultSeverity: "info",
+    group: "workspace",
+    views: filesystemView,
+  },
+  {
+    id: "workspace/unknown-axm-fence",
+    defaultSeverity: "info",
+    group: "workspace",
+    views: filesystemView,
+  },
+  {
     id: "workspace/managed-file-unowned",
     defaultSeverity: "warning",
     group: "workspace",

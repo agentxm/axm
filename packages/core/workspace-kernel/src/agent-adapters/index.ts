@@ -103,6 +103,7 @@ export {
   isRegionName,
   REGION_NAMES,
   scanFences,
+  scanUnknownFences,
   serializeFence,
   type FenceLine,
   type FenceSyntax,

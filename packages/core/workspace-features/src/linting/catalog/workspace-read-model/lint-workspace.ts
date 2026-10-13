@@ -24,6 +24,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Path from "effect/Path";
 import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
@@ -74,6 +75,7 @@ import type {
   WorkspaceHealthFailure,
   WorkspaceProjectionsAccessor,
   WorkspaceRuleContext,
+  UnknownAxmFence,
 } from "../../workspace-context.js";
 import { parseRegistrySourceRef } from "@agentxm/extension-model/unstable/extensions/registry-source";
 import { HOOK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
@@ -84,8 +86,13 @@ import {
 } from "@agentxm/extension-content/knowledge";
 import {
   observeInstructionProjection,
+  observeProjectionOutput,
+  projectionOutputUnits,
+  ProjectionIoFailed,
   resolveInstructionsConfig,
+  type ProjectionOutputObservation,
 } from "@agentxm/workspace-kernel/projection";
+import { fenceSyntaxForTarget, scanUnknownFences } from "@agentxm/workspace-kernel/agent-adapters";
 import { MCP_SERVER_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/mcps/manifest-schema";
 import { RULE_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/rules/manifest-schema";
 import { PACK_MANIFEST_FILENAME } from "@agentxm/extension-model/unstable/packs/manifest-schema";
@@ -255,6 +262,11 @@ export const buildLintWorkspace = (
         readModel,
         gitIndexView: args.gitIndexView === true,
       }),
+      ...(yield* makeProjectionOutputAccessors({
+        platform: args.platform,
+        workspaceRoot: args.workspaceRoot,
+        readModel,
+      })),
       // The projection already read every installed manifest; hand the same
       // values to workspace rules rather than re-reading them per rule.
       installedExtensions: { manifests: Effect.succeed(projection.installedManifests) },
@@ -317,6 +329,111 @@ const makeInstructionAccessor = (args: {
       }),
     );
     return { snapshot };
+  });
+
+/**
+ * Recorded projection units and the files that carry regions, observed once
+ * per lint run. The region target is the configured canonical instruction
+ * file, whether or not instruction-file management is enabled, because Rules
+ * and Knowledge regions are written there either way.
+ */
+const makeProjectionOutputAccessors = (args: {
+  readonly platform: {
+    readonly fs: FileSystem.FileSystem;
+    readonly path: Path.Path;
+  };
+  readonly workspaceRoot: string;
+  readonly readModel: WorkspaceReadModel;
+}): Effect.Effect<{
+  readonly projectionOutputs: Effect.Effect<
+    ReadonlyArray<Result.Result<ProjectionOutputObservation, ProjectionIoFailed>>
+  >;
+  readonly unknownFences: Effect.Effect<
+    ReadonlyArray<Result.Result<UnknownAxmFence, ProjectionIoFailed>>
+  >;
+}> =>
+  Effect.gen(function* () {
+    const { fs, path } = args.platform;
+    const instructionTarget = yield* Effect.cached(
+      args.readModel.state.settings.pipe(
+        Effect.map((settings) => {
+          const raw = Option.getOrUndefined(settings)?.instructionFiles;
+          const { fileName } = resolveInstructionsConfig(raw === false ? undefined : raw);
+          const relative = path.relative(
+            args.workspaceRoot,
+            path.resolve(args.workspaceRoot, fileName),
+          );
+          return relative === "" || relative.startsWith("..") || path.isAbsolute(relative)
+            ? Option.none<string>()
+            : Option.some(relative.split(path.sep).join("/"));
+        }),
+        Effect.catch(() => Effect.succeed(Option.none<string>())),
+      ),
+    );
+    const projectionOutputs = yield* Effect.cached(
+      Effect.gen(function* () {
+        // An unreadable lockfile is reported by its own rule; compare nothing.
+        const lockfile = yield* args.readModel.state.lockfile.pipe(
+          Effect.catch(() => Effect.succeed(Option.none())),
+        );
+        const units = projectionOutputUnits({
+          projections: Option.getOrUndefined(lockfile)?.projections,
+          instructionTarget: yield* instructionTarget,
+        });
+        const observed = yield* Effect.forEach(
+          units,
+          (unit) =>
+            observeProjectionOutput({ workspaceRoot: args.workspaceRoot, unit }).pipe(
+              // Malformed fences are reported by `workspace/projection-ownership-valid`.
+              Effect.catchTag("ManagedRegionViolation", () => Effect.succeedNone),
+              // One unreadable unit must not hide the others.
+              Effect.result,
+            ),
+          { concurrency: 1 },
+        );
+        return observed.flatMap(
+          (entry): ReadonlyArray<Result.Result<ProjectionOutputObservation, ProjectionIoFailed>> =>
+            Result.isFailure(entry)
+              ? [Result.fail(entry.failure)]
+              : Option.isSome(entry.success)
+                ? [Result.succeed(entry.success.value)]
+                : [],
+        );
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fs),
+        Effect.provideService(Path.Path, path),
+      ),
+    );
+    const fencesIn = (
+      relative: string,
+    ): Effect.Effect<ReadonlyArray<Result.Result<UnknownAxmFence, ProjectionIoFailed>>> =>
+      Option.match(fenceSyntaxForTarget(relative), {
+        onNone: () => Effect.succeed([]),
+        onSome: (syntax) =>
+          fs.readFileString(path.join(args.workspaceRoot, relative)).pipe(
+            Effect.map((content) =>
+              scanUnknownFences(content, syntax).map(({ name, line, edge }) =>
+                Result.succeed({ path: relative, line, name, edge }),
+              ),
+            ),
+            Effect.catch((cause) =>
+              Effect.succeed(
+                cause.reason._tag === "NotFound"
+                  ? []
+                  : [Result.fail(new ProjectionIoFailed({ path: relative, step: "read", cause }))],
+              ),
+            ),
+          ),
+      });
+    const unknownFences = yield* Effect.cached(
+      Effect.gen(function* () {
+        const target = yield* instructionTarget;
+        const files = [...Option.toArray(target), ".gitignore"];
+        const found = yield* Effect.forEach(files, fencesIn, { concurrency: 1 });
+        return found.flat();
+      }),
+    );
+    return { projectionOutputs, unknownFences };
   });
 
 // -----------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import {
   fenceSyntaxForTarget,
   REGION_NAMES,
   scanFences,
+  scanUnknownFences,
   serializeFence,
   type FenceSyntax,
 } from "./region-fences.js";
@@ -163,6 +164,21 @@ describe("Region fence grammar", () => {
       state: "complete",
       body: "body\n",
     });
+  });
+
+  it("lists only fences outside the vocabulary as unknown, in either syntax", () => {
+    const markdown =
+      "<!-- axm:future -->\n<!-- axm:rules -->\nbody\n<!-- /axm:rules -->\n```\n<!-- axm:hidden -->\n```\n<!-- /axm:future -->\n";
+    expect(
+      scanUnknownFences(markdown, "markdown").map(
+        ({ edge, name, line }) => `${line}:${edge}:${name}`,
+      ),
+    ).toEqual(["0:open:future", "7:close:future"]);
+    expect(
+      scanUnknownFences("# axm:instruction-aliases\n# axm:extra\n", "hash").map(
+        ({ name, line }) => `${line}:${name}`,
+      ),
+    ).toEqual(["1:extra"]);
   });
 
   it.each([

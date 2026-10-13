@@ -11,11 +11,12 @@ const RULE_ID = "workspace/projection-ownership-valid";
 
 /**
  * Formatting and body edits are not lint concerns for generated documents.
- * Report only ownership proof that AXM cannot safely interpret or replace.
+ * Report only region fences AXM cannot safely pair, so it cannot replace the
+ * region: the kernel's message names the path, the region and the problem.
  */
 export const projectionOwnershipValidRule: AdvisoryRule<WorkspaceRuleContext> = {
   id: RULE_ID,
-  description: "AXM-managed projections carry valid, supported ownership proof.",
+  description: "Projection region fences are well formed.",
   kind: "advisory",
   severity: "error",
   check: (context) =>
@@ -33,6 +34,5 @@ export const findingsForProjectionOwnership = (
     ruleId: RULE_ID,
     severity: "error",
     message:
-      fact.observation.message ??
-      `The AXM ownership proof at ${fact.subject.path} is invalid or unsupported.`,
+      fact.observation.message ?? `The AXM region fences at ${fact.subject.path} are malformed.`,
   }));

@@ -1073,6 +1073,8 @@
             "workspace/projection-contributors-rendered": {
               "$ref": "#/definitions/LintRuleSeverity"
             },
+            "workspace/projection-modified": { "$ref": "#/definitions/LintRuleSeverity" },
+            "workspace/unknown-axm-fence": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/managed-file-unowned": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/installed-but-not-configured": { "$ref": "#/definitions/LintRuleSeverity" },
             "workspace/deprecated-installed": { "$ref": "#/definitions/LintRuleSeverity" },

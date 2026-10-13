@@ -60,7 +60,7 @@ import {
   retiredNativeArtifactLocationOutcomes,
   subagentProjectionGeneration,
   subagentProvenance,
-  subagentUnitPath,
+  scopeUnitPath,
   type AgentOutputAuthority,
   type AgentOutputObservation,
   applyProjectionPlansWithResults,
@@ -247,7 +247,15 @@ export const SubagentManagerLive = Layer.effect(
               return yield* new SubagentNativeConflict({
                 detail: `Configured consumers require incompatible Subagent bytes at ${destination}`,
               });
-            const unit = subagentUnitPath(path, baseDir, destination);
+            const unit = yield* scopeUnitPath(baseDir, destination).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new SubagentDefinitionInvalid({
+                    detail: `Subagent output cannot be located beneath the workspace scope root: ${destination}`,
+                    cause,
+                  }),
+              ),
+            );
             if (Option.isNone(unit))
               return yield* new SubagentDefinitionInvalid({
                 detail: `Subagent output is outside the workspace scope root: ${destination}`,
@@ -465,7 +473,7 @@ export const SubagentManagerLive = Layer.effect(
         }> = [];
         const unrecorded: Array<AgentOutputObservation> = [];
         for (const output of outputs) {
-          const unit = subagentUnitPath(path, baseDir, output.path);
+          const unit = yield* scopeUnitPath(baseDir, output.path);
           const recorded = Option.flatMap(unit, (key) =>
             Option.fromUndefinedOr(args.rows.get(key)),
           );
@@ -899,15 +907,18 @@ export const SubagentManagerLive = Layer.effect(
         // A recorded file of this Subagent outside the plan is withdrawn on the
         // next write, so the projection is not current until it is gone.
         const observedAuthority = yield* captureAgentOutputAuthority();
-        const obsolete = (yield* observeNamed(
+        let obsolete = false;
+        for (const output of yield* observeNamed(
           new Set([...nativeNames(ref, targets), ...(yield* orphanStems(observedAuthority, rows))]),
           observedAuthority,
-        )).some((output) => {
-          const unit = subagentUnitPath(path, baseDir, output.path);
-          return (
-            !planned.has(output.path) && Option.isSome(unit) && rows.get(unit.value) !== undefined
-          );
-        });
+        )) {
+          if (planned.has(output.path)) continue;
+          const unit = yield* scopeUnitPath(baseDir, output.path);
+          if (Option.isSome(unit) && rows.get(unit.value) !== undefined) {
+            obsolete = true;
+            break;
+          }
+        }
         // What a reconciliation would write, judged by the same decision the
         // install applies, so the preview flags a replaced hand edit. A current
         // row decides without reading the file's bytes.

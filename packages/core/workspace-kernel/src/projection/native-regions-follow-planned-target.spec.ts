@@ -326,6 +326,48 @@ for (const kind of ["rules", "knowledge"] as const) {
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
     );
 
+    it.effect("compares a rewritten region's body with AXM's last write in a preview", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const root = yield* fs.makeTempDirectoryScoped();
+        const file = `${root}/AGENTS.md`;
+        const authority = yield* makeRecordingNativeWriteAuthority;
+        const applied = yield* reconcileNativeManagedRegion(baseArgs(root)).pipe(
+          Effect.provide(authority.layer),
+        );
+        const recorded = recordedAfter(applied.rowChange);
+        const preview = (overrides: Partial<NativeManagedRegionArgs>) =>
+          reconcileNativeManagedRegion({
+            ...baseArgs(root),
+            gen: GEN_B,
+            body: "Next body",
+            recorded,
+            dryRun: true,
+            ...overrides,
+          }).pipe(
+            Effect.provide(authority.layer),
+            Effect.map(({ lastWrite }) => Option.getOrUndefined(lastWrite)),
+          );
+        expect(yield* preview({})).toBe("matches");
+        expect(yield* preview({ recorded: Option.none() })).toBe("unrecorded");
+        expect(yield* preview({ body: "" })).toBe("matches");
+        yield* fs.writeFileString(file, `<!-- axm:${kind} -->\nHand edit\n<!-- /axm:${kind} -->\n`);
+        expect(yield* preview({})).toBe("modified");
+        expect(yield* preview({ body: "" })).toBe("modified");
+        // A lagging recorded output never flags a body that already equals the render.
+        expect(yield* preview({ body: "Hand edit" })).toBe("matches");
+        expect(
+          Option.getOrUndefined(
+            (yield* reconcileNativeManagedRegion({ ...baseArgs(root), dryRun: true }).pipe(
+              Effect.provide(authority.layer),
+            )).lastWrite,
+          ),
+        ).toBe("unrecorded");
+        yield* fs.remove(file);
+        expect(yield* preview({})).toBeUndefined();
+      }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("refuses contributors without accepted source authority before any write", () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;

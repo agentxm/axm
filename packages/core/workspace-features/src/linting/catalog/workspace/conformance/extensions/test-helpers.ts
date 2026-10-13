@@ -128,7 +128,7 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 11,
+        lockfileVersion: 12,
         skills: accepted
           ? {
               reviewer: {

@@ -40,7 +40,7 @@ export const writeWorkspaceState = (
   );
   fs.writeFileSync(
     path.join(workspaceRoot, "axm-lock.yaml"),
-    "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+    "lockfileVersion: 12\npackages: {}\nskills: {}\n",
   );
 };
 

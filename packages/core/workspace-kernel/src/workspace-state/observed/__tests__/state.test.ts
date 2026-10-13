@@ -340,7 +340,7 @@ describe("makeScopedStateApi.settings", () => {
 // Lockfile cell
 // ---------------------------------------------------------------------------
 
-const validLockfileYaml = ["lockfileVersion: 11", "packages: {}", "skills: {}", ""].join("\n");
+const validLockfileYaml = ["lockfileVersion: 12", "packages: {}", "skills: {}", ""].join("\n");
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -372,7 +372,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(11);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(12);
     }),
   );
 
@@ -468,7 +468,7 @@ describe("makeScopedStateApi.lockfile", () => {
   it.effect("fails with LockfileDecodeError for an unrecognised lockfile key", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
-      const raw = "lockfileVersion: 11\npackages: {}\nskills: {}\nextra: 1\n";
+      const raw = "lockfileVersion: 12\npackages: {}\nskills: {}\nextra: 1\n";
       const fs = buildFs(
         {
           readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
@@ -492,7 +492,8 @@ describe("makeScopedStateApi.lockfile", () => {
     { observedVersion: 5, direction: "older" },
     { observedVersion: 8, direction: "older" },
     { observedVersion: 9, direction: "older" },
-    { observedVersion: 12, direction: "newer" },
+    { observedVersion: 11, direction: "older" },
+    { observedVersion: 13, direction: "newer" },
   ])(
     "fails with LockfileVersionUnsupported for an $direction positive integer version",
     ({ observedVersion }) =>
@@ -515,7 +516,7 @@ describe("makeScopedStateApi.lockfile", () => {
           expect(err).toMatchObject({
             path: LOCKFILE_PATH,
             observedVersion,
-            supportedVersion: 11,
+            supportedVersion: 12,
           });
         }
       }),

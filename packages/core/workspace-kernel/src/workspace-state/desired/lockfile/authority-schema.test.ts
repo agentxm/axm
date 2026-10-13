@@ -21,13 +21,13 @@ describe("authoritative external-resolution lockfile", () => {
   });
 
   it("uses a clean-cut schema version", () => {
-    expect(LOCKFILE_VERSION).toBe(11);
+    expect(LOCKFILE_VERSION).toBe(12);
     expect(
       decodeLockfile(
-        { lockfileVersion: 11, packages: {}, skills: {} },
+        { lockfileVersion: 12, packages: {}, skills: {} },
         { onExcessProperty: "error" },
       ),
-    ).toEqual({ lockfileVersion: 11, skills: {} });
+    ).toEqual({ lockfileVersion: 12, skills: {} });
     expect(() =>
       decodeLockfile({ lockfileVersion: 7, skills: {} }, { onExcessProperty: "error" }),
     ).toThrow();
@@ -111,7 +111,7 @@ describe("authoritative external-resolution lockfile", () => {
   it("round-trips every self-describing source locator", () => {
     const treeIntegrity = `sha256-tree-v2:${"0".repeat(64)}`;
     const lockfile = {
-      lockfileVersion: 11,
+      lockfileVersion: 12,
       skills: {
         git: {
           source: {
@@ -259,7 +259,7 @@ describe("authoritative external-resolution lockfile", () => {
     ).toThrow();
     expect(() =>
       decodeLockfile(
-        { lockfileVersion: 11, skills: {}, receiptHistory: {} },
+        { lockfileVersion: 12, skills: {}, receiptHistory: {} },
         { onExcessProperty: "error" },
       ),
     ).toThrow();

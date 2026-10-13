@@ -126,6 +126,7 @@
       "inputs": [
         "{projectRoot}/scripts/generate-type-enumerations.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
+        "{workspaceRoot}/packages/core/workspace-kernel/src/agent-adapters/region-fences.ts",
         "{workspaceRoot}/packages/core/extension-model/src/unstable/extensions/common.ts",
         "{workspaceRoot}/packages/core/extension-model/src/unstable/extension-types/catalog.ts",
         "{workspaceRoot}/packages/core/extension-model/src/unstable/extension-types/schema.ts",
@@ -175,6 +176,7 @@
         "{projectRoot}/help/topics/*.md",
         "{projectRoot}/scripts/generate-help-topics.ts",
         "{projectRoot}/scripts/type-enumerations.ts",
+        "{workspaceRoot}/packages/core/workspace-kernel/src/agent-adapters/region-fences.ts",
         {
           "dependentTasksOutputFiles": "**/*.schema.json"
         },
@@ -215,6 +217,8 @@
       "inputs": [
         "{projectRoot}/scripts/bundled-axm-skill-contract.ts",
         "{projectRoot}/scripts/generate-bundled-axm-skill.ts",
+        "{projectRoot}/scripts/type-enumerations.ts",
+        "{workspaceRoot}/packages/core/workspace-kernel/src/agent-adapters/region-fences.ts",
         "{workspaceRoot}/packages/supporting/cli-maintenance/src/official-skill/domain/policy.ts",
         "{workspaceRoot}/packages/core/extension-content/src/content/skill-content.ts",
         "{workspaceRoot}/skills/axm/skill.json",

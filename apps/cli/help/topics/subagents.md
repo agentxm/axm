@@ -116,11 +116,11 @@ formatted or hand-edited file as it is; a changed selected implementation
 rewrites it. Editing an unused runtime implementation does not rewrite another
 runtime's output. A file already at a planned path that AXM has no record of
 writing is recorded when its bytes equal the render, and is otherwise left
-untouched and the write refused.
+untouched and the write refused; rerun with `--replace-unrecorded` to replace it.
 
 Identity changes and removal delete a native file only while its bytes are the
-ones AXM last wrote; a modified file is kept and reported, and a file AXM never
-recorded is never deleted. Foreign native definitions and separately authored
+ones AXM last wrote; a modified file is kept and reported unless you pass
+`--discard-modified`, and a file AXM never recorded is never deleted. Foreign native definitions and separately authored
 Skills remain intact. Consumers sharing a physical destination must require
 identical bytes; incompatible claims are refused before writing.
 

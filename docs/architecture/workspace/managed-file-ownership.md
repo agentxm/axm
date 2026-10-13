@@ -1,20 +1,22 @@
 ---
 type: Architecture
 status: stable
-description: The versioned ownership grammar and reconciliation rules for AXM-managed workspace output.
+description: The name-only region fences, planned-target authority, projection currency, and deletion guard for AXM-managed workspace output.
 depends-on:
   - ./overview.md
   - ./execution.md
+  - ./lockfile.md
 ---
 
 # Managed-file ownership
 
 AXM changes native MCP entries and Hook registrations under the declaration
-contract below. Other derived workspace output requires ownership proof for the
-exact unit being changed. Ownership is explicit, versioned, native to the
-target substrate, and independent of human-facing guidance. For those other
-artifact types, unmarked content is user-owned even when it resembles AXM output or points into a canonical
-extension root.
+contract below. Other derived workspace output is AXM's only where the desired
+graph and the selected scope's settings plan it: a named region in the planned
+instruction target, or a declared whole file at its planned native path. No
+inline attribute, banner, or lockfile row establishes ownership. Content AXM
+did not plan is user-owned even when it resembles AXM output or points into a
+canonical extension root.
 
 ## Native declaration authority
 
@@ -64,8 +66,10 @@ invocation.
 
 AXM uses one ownership vocabulary through substrate-specific evidence:
 
-- A fence owns a byte range in comment-bearing text.
-- A banner owns a whole comment-bearing file.
+- A pair of name-only fences delimits a region AXM writes inside a
+  human-authored file planned by settings.
+- A declared whole file is authorized by its declaration and planned native
+  path; it carries no marker.
 - A symlink proves ownership by addressing the exact accepted canonical source
   for its identity and scope. Merely pointing somewhere inside an AXM root is
   insufficient; an instruction alias addresses its selected canonical source.
@@ -112,83 +116,122 @@ then permits the corresponding complete withdrawal to recover the original
 document. A later command changing the source or other document intent expires
 that baseline; it cannot extend or recreate the introduction's proof.
 
-## Marker grammar
+## Region fences
 
-The canonical comment-bearing grammar is:
+AXM writes a marker only where it writes a region inside a human-authored file:
+the Rules and Knowledge regions of the canonical instruction file, and the
+instruction-alias region of `.gitignore`. A fence names its region and nothing
+else, in the file's native comment syntax:
 
 ```text
-axm:start v=1 region=<id> [ext=<fqn>] [gen=<digest>]
-axm:end v=1 region=<id>
-axm:file v=1 ext=<fqn> src=<path> [gen=<digest>]
-axm:point v=1 kind=<kind> ext=<fqn>
+<!-- axm:rules -->            # Markdown open
+<!-- /axm:rules -->           # Markdown close
+# axm:instruction-aliases     # .gitignore open
+# /axm:instruction-aliases    # .gitignore close
 ```
 
-The target file supplies the native comment delimiters: Markdown and HTML use
-`<!-- -->`, CSS uses `/* */`, supported programming languages use `//`, and
-shell-like formats and explicitly allowed basenames use `#`. AXM refuses
-unknown extensions and JSON-like dotfiles because guessing a comment syntax
-could corrupt user data.
+The closed runtime vocabulary is `rules`, `knowledge`, and
+`instruction-aliases`. Only `.md`, `.mdx`, and `.gitignore` targets carry
+regions. A fence carries no version, owner, source, or generation, and the
+region body is one opaque unit that AXM replaces whole; there are no
+per-contribution anchors.
 
-The closed region vocabulary is `rules`, `knowledge`,
-and `instruction-aliases`. Region identity is the
-`region` value alone. That address does not establish the owner: source,
-reference, and scope evidence must match the accepted authority for the unit.
-`gen` and unknown version-1 attributes do not change its address. For a generated document, `gen` is
-a digest of canonical structured inputs: the ownership unit and projection
-contract, contributor and source identities, authoritative source content,
-target agent and capabilities, and applicable configuration. Rendered output
-bytes are never an input to this digest.
+A Markdown fence is a whole line that, after a trailing `\r` is removed, is
+exactly an HTML comment whose trimmed text is `axm:<name>` or `/axm:<name>`. It
+starts at column 0, so indented code, list continuations, and blockquote
+content never hold a fence. A line inside a fenced code block is not a fence.
+Code blocks follow CommonMark: one opens on a line indented 0-3 spaces with at
+least three backticks or tildes, where a backtick info string contains no
+backtick; it closes on a line indented 0-3 spaces holding only a run of the same
+character at least as long as the opener, followed by whitespace; an unclosed
+block runs to the end of the file. A code block opened inside a list item is
+treated as top level. That can hide a fence but never invent one: a hidden fence
+makes its region read as absent, so AXM appends a new region, and the post-write
+check refuses the write unless exactly that region is then found intact. A hash
+fence is a whole line
+starting with `#` whose remaining text, trimmed, is `axm:<name>` or
+`/axm:<name>`.
 
-Serialization orders attributes as `v`, `region`, `ext`, `src`, `gen`, then any
-remaining keys lexicographically. Values containing whitespace, `%`, `=`, or
-`~` are encoded as `~` followed by the URI-encoded JSON string. Readers accept
-attributes in any order and ignore unknown attributes at version 1.
+AXM creates or replaces a region only in the instruction target the selected
+scope's settings plan (`instructionFiles.fileName` at that workspace root).
+Planning and physical containment establish that authority; escapes,
+overlapping or ambiguous roots, and alias retargeting still block the write. A
+same-named fence in any other file is not AXM's. Duplicate, nested,
+interleaved, or unpaired vocabulary fences in the planned target block the write
+and name the path and region. An `axm:` fence with another name is left
+untouched and reported by lint as information.
+
+A new region is appended at the end of the file. After rendering, AXM re-reads
+the result and refuses the write unless it finds exactly the intended region
+with the intended body, so a body that would break the fences is never written.
+Old inline-attribute markers from earlier releases match no fence and are plain
+text.
+
+Build-time documentation generators use the same grammar with their own names,
+which a test keeps disjoint from the runtime vocabulary, and strip those fences
+before publishing help or bundled content.
+
+## Projection currency
+
+The lockfile's `projections` section records one row per projected unit, keyed
+by its scope-relative path under the kinds `rules`, `knowledge`,
+`instructions` (the alias region and instruction copies), and `subagents`. A row
+holds `gen`, a digest of the unit's canonical structured inputs, and `output`, a
+digest of the bytes AXM last wrote. Each kind also records a projection
+`contract` version. Rendered bytes are never an input to `gen`.
+
+A unit is current when its row's `gen` and its kind's `contract` match the
+expected values; AXM then does not inspect, normalize, or rewrite the body. This
+covers formatter output and any other rewrite without requiring AXM to define
+Markdown equivalence, and AXM emits no formatter directives. A changed source,
+configuration, contributor set, target capability, or contract makes the unit
+stale, and sync replaces it. A missing or unreadable row means unknown
+currency: sync rewrites the unit once and records it. A changed `contract` strips
+`gen` from that kind's rows but keeps `output`.
+
+`output` is consulted only by the deletion guard, the preview's
+`lastWrite` comparison, and the lint advisory for edited projections. It never
+decides currency, and rows never establish ownership.
+
+## Whole files and deletion
+
+An existing file at a declared whole-file path with no row is recorded without
+a write when its bytes equal the render. When they differ, the write is refused
+unless the command was given `--replace-unrecorded`. AXM writes no backup files.
+
+AXM deletes a whole-file output it no longer plans, on uninstall, agent removal,
+deactivation, or rename, only while its bytes equal the recorded `output` or the
+current render. A modified file is retained and reported, and
+`--discard-modified` deletes it. A file with no row is never deleted. The row is
+withdrawn in every case.
+
+A hand edit of a region is overwritten when its inputs change. The preview marks
+that replacement "modified since last write" when the body differs from
+`output`; this is informational.
 
 ## Reconciliation
 
-A reader classifies a managed region as `absent`, `complete`, `malformed`, or
-`unsupported-version`, with a distinct reason code. Absent units may be
-created. Complete units may be replaced in place. Duplicate, nested, or
-unpaired markers are malformed and block the affected write. A version newer
-than the running CLI blocks the write and instructs the operator to upgrade
-AXM; AXM never guesses how to mutate an unknown grammar.
+Rules and Knowledge discovery use generated whole-body regions. Managed Subagent
+Markdown and TOML and instruction copies are unmarked whole files. Instruction
+alias ignores use a pattern-list region in `.gitignore`. Native MCP and Hook
+settings follow [declaration authority](#native-declaration-authority) and
+compare decoded values, independently of formatting or comments.
 
-Generated document bodies are opaque projections, not authority or integrity
-boundaries. When ownership is valid and `gen` matches the generation expected
-from current authoritative inputs, AXM does not inspect, normalize, classify,
-or rewrite the body. This covers formatter output and any other body rewrite
-without requiring AXM to define Markdown equivalence. AXM emits no formatter
-directives. User-authored bytes outside an owned unit remain unchanged, and
-ambiguous ownership causes no write.
-
-When authoritative source, configuration, contributor membership, target
-agent capabilities, or the projection contract changes, expected generation
-changes and sync replaces the generated body. A version-1 generated document
-without `gen` has ownership evidence but no currency evidence; sync reconciles
-it once. It does not fall back to body normalization.
-
-Rules and Knowledge discovery use generated whole-body
-regions. Managed Subagent Markdown and TOML, and instruction copies use generated whole-file banners.
-Instruction alias ignores use a pattern-list region in `.gitignore`.
-Native MCP and Hook settings follow [declaration authority](#native-declaration-authority)
-and compare decoded values, independently of formatting or comments.
-
-Whole-file banners lead with `axm:file`; the human-facing
-guidance that follows reflects source authority. Workspace-authored packages
-name the source to change before sync, workspace configuration names its
-configuration source, acquired packages retain immutable provenance and direct
-customization through `axm fork`, and bundled sources offer no edit path. The
-guidance may change without affecting ownership or requiring a new marker
-grammar version.
+Customization guidance lives in help topics rather than in projected files.
+Workspace-authored packages name the source to change before sync, acquired
+packages direct customization through `axm fork`, and bundled sources offer no
+edit path.
 
 `axm sync --preview --json` owns convergence: it identifies each managed unit
-and exposes its `owner` provenance. `axm lint` reports unowned agent-directory
-artifacts, unowned files at planned
-instruction targets, stale AXM-owned instruction aliases, tracked instruction
-aliases covered by a managed ignore pattern, invalid ownership structures, and
-unsupported marker versions. It does not report generated-body currency.
+and exposes its `owner` provenance from the desired graph. `axm lint` reports
+unowned agent-directory artifacts, unowned files at planned instruction targets,
+stale AXM-owned instruction aliases, tracked instruction aliases covered by a
+managed ignore pattern, and malformed region fences. As information, it reports
+projected units whose bytes differ from `output` and `axm:` fences with unknown
+names. It does not report generated-body currency.
 
-The version-1 ownership grammar remains a clean boundary. File artifacts outside native declaration authority without
-current ownership evidence remain unowned even if it resembles AXM output.
-A generated version-1 marker without generation provenance is owned but of
-unknown currency and is rewritten by the next applicable reconciliation.
+When the lockfile or a projected file has a merge conflict, take either side and
+run `axm sync`. A conflicted `output` can only narrow deletion or raise an
+informational advisory. The
+[name-only fences decision](../decisions/name-only-region-fences-and-lockfile-projection-currency.md)
+records why this design replaced inline provenance.

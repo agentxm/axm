@@ -9,7 +9,7 @@ import { DistributionDescriptorSchema } from "@agentxm/extension-model/unstable/
  * The lockfile (axm-lock.yaml) records accepted immutable resolutions for
  * externally sourced extensions.
  *
- * Lockfile v11 is authority, not receipt history. It contains no authored,
+ * Lockfile v12 is authority, not receipt history. It contains no authored,
  * bundled, inline, completion-time, or command-history state. Its optional
  * `projections` section records projection generation currency and the
  * digests of bytes AXM last wrote; it never establishes ownership.
@@ -44,7 +44,7 @@ import {
 } from "@agentxm/extension-model/unstable/sources/types";
 import { normalizeProjections, ProjectionsSchema } from "./projections.js";
 
-export const LOCKFILE_VERSION = 11;
+export const LOCKFILE_VERSION = 12;
 
 // =============================================================================
 // Self-describing source locators and accepted resolutions
@@ -528,7 +528,7 @@ export const LOCK_ENTRY_SCHEMA_BY_TYPE = {
  * enabling reproducible installations across environments.
  *
  * Structure:
- * - lockfileVersion: Schema version (currently 11)
+ * - lockfileVersion: Schema version (currently 12)
  * - skills: Map of skill names to their lock entries
  * - packs: Map of pack names to their lock entries (optional)
  * - projections: Projection generation currency per kind and unit (optional)

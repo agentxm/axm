@@ -70,7 +70,7 @@ for (const relativePath of TARGET_FILES) {
   const source = fs.readFileSync(filePath, "utf-8");
   const { content, regions } = rewriteManagedRegions(source, blocks);
   if (regions.length === 0) {
-    throw new Error(`${relativePath} declares no axm:generated region`);
+    throw new Error(`${relativePath} declares no axm:<name> region`);
   }
   const formatted = await prettierFor(filePath, content);
   if (formatted !== source) {

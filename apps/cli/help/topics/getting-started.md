@@ -4,11 +4,11 @@ Use this when the current workspace has never been managed by AXM before. It
 walks through first-time setup. Once `.axm/` exists, switch to
 `axm help basic-usage`.
 
-<!-- axm:generated:extension-type-list -->
+<!-- axm:extension-type-list -->
 
 AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bundles, and packs.
 
-<!-- /axm:generated -->
+<!-- /axm:extension-type-list -->
 
 A workspace is the project (or user) directory whose extensions AXM tracks.
 

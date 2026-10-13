@@ -55,9 +55,9 @@ record explains the identity choice and its durable effects.
 Using the published package name as the only identity was rejected because it
 permits only one connection per source. Copying one lock and canonical package
 per local name was rejected because it creates independently advancing
-resolutions for what is still one source package. Adding a new ownership marker
-version was rejected because the existing marker already separates the native
-unit's key from its package provenance.
+resolutions for what is still one source package. Adding a new region fence
+or ownership marker was rejected because the native entry key already separates
+the native unit's key from its package provenance.
 
 ## Reconsideration
 

@@ -34,6 +34,11 @@ derive directly from workspace configuration.
 An **agent output** is a managed output in the form and location a configured
 agent expects. Other managed outputs may belong to a shared workspace surface.
 
+A **managed region** is the body between a pair of name-only fences, such as
+`<!-- axm:rules -->` and `<!-- /axm:rules -->`, in the instruction target the
+selected scope's settings plan, or in `.gitignore`. The same fences in any other
+file are not a managed region.
+
 ## Authority
 
 The right and responsibility to decide or change a specific unit of workspace
@@ -53,10 +58,11 @@ accepted resolution alone does not create a desired root.
 
 The generated, committed `axm-lock.yaml` project state (or user-scope
 `axm-lock.yaml`) that records accepted external resolutions, package-tree
-integrity, provenance, and complete acquired-Pack dependency declarations.
-Configured Packs use matching accepted declarations to derive member routes;
-settings still establish roots and activation. A lock row alone never establishes
-projection ownership or physical cleanup authority.
+integrity, provenance, complete acquired-Pack dependency declarations, and the
+generation currency and last-written digests of projections. Configured Packs
+use matching accepted declarations to derive member routes; settings still
+establish roots and activation. A lock row alone never establishes projection
+ownership or physical cleanup authority.
 
 ## Authoring inventory
 
@@ -143,8 +149,8 @@ An output unit derived from desired workspace state, whether from canonical
 extension content or, as with inline MCP entries and instruction aliases,
 directly from workspace configuration. Native MCP and Hook projections follow
 [declaration authority](workspace/managed-file-ownership.md#native-declaration-authority).
-Other projections require unit-local ownership evidence; occupying an expected
-path does not establish ownership. Projection facts establish currency
+Other projections are authorized by the desired graph and their planned native
+location; occupying an expected path does not establish ownership. Projection facts establish currency
 independently of the authority to change a unit.
 
 ## Source

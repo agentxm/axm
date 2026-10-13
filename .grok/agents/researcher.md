@@ -2,13 +2,6 @@
 name: researcher
 description: Performs one fresh-context, read-only Research Brief framing or evidence-gathering phase
 ---
-
-<!-- axm:file v=1 ext=@agentxm/subagents/researcher src=subagents/researcher/subagent.json gen=e8f2c648354d1d77e6f0a9fddffdeabac2b5e6515d2fc8c766b9af11e18058af
-     AXM managed projection — do not edit directly.
-     Source: subagents/researcher/subagent.json
-     Change the source, then run `axm sync`.
-     Learn more: `axm help subagents` -->
-
 # Researcher
 
 Complete exactly one delegated Research phase and return its artifact to the

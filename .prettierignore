@@ -13,8 +13,13 @@ packages/core/workspace-features/src/linting/__fixtures__/
 # AXM acquired packages preserve immutable upstream archive formatting.
 agent_extensions/
 
-# AXM-owned generated agent projections preserve manager-rendered bytes.
+# AXM-owned generated agent projections preserve manager-rendered bytes; the
+# lockfile records those bytes, so a reformat reads as a modified projection.
+# Root AGENTS.md fences its AXM regions with prettier-ignore-start/end instead.
 .claude/agents/
+.codex/agents/
+.grok/agents/
+.opencode/agents/
 
 # Benchmark reports retain the runner's exact evidence bytes.
 benchmarks/evidence/**/*.json

@@ -293,13 +293,18 @@ export const reconcileNativeManagedRegion = (args: NativeManagedRegionArgs) =>
             args.contributors.map(({ ref }) => ref).join(", ") || "no contributors"
           }`,
         });
+      // A body already equal to the new render also matches, so a merged
+      // lockfile whose `output` lags never reports an unedited region as modified.
       const lastWrite =
         state.state === "complete"
           ? Option.some<ProjectionLastWrite>(
               Option.match(args.recorded, {
                 onNone: () => "unrecorded",
                 onSome: ({ row }) =>
-                  projectionOutputDigest(state.body) === row.output ? "matches" : "modified",
+                  projectionOutputDigest(state.body) === row.output ||
+                  (written.success.state === "complete" && written.success.body === state.body)
+                    ? "matches"
+                    : "modified",
               }),
             )
           : Option.none<ProjectionLastWrite>();

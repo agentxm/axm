@@ -176,7 +176,7 @@
     "@agentxm/registry-client": "workspace:^",
     "@agentxm/registry-protocol": "workspace:^",
     "effect": "catalog:",
-    "ignore": "7.0.9",
+    "ignore": "7.0.12",
     "jsonc-parser": "catalog:",
     "proper-lockfile": "^4.1.2",
     "semver": "catalog:",

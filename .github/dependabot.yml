@@ -29,6 +29,10 @@ updates:
       # Types must not describe a newer runtime than the declared Node floor.
       - dependency-name: "@types/node"
         versions: [">=25"]
+      # 0.4.0 exports only the `import` condition, which Nx's CommonJS
+      # package resolution cannot read; lift when Nx resolves such packages.
+      - dependency-name: string-argv
+        versions: [">=0.4.0"]
     groups:
       weekly-npm:
         patterns: ["*"]

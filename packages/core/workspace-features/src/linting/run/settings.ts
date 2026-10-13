@@ -17,7 +17,8 @@ import {
 } from "@agentxm/workspace-kernel/projection";
 import { type LintConfig, composePath } from "@agentxm/extension-content/lint";
 import type { NativeDirectoryInputs } from "@agentxm/workspace-kernel/locations";
-import type { Settings } from "@agentxm/workspace-kernel/workspace-state";
+import { AcceptedResolutionWriter, type Settings } from "@agentxm/workspace-kernel/workspace-state";
+import { runWorkspaceTransaction } from "@agentxm/workspace-kernel/settlement";
 import { type WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { LintSummary } from "../runner.js";
 
@@ -109,7 +110,9 @@ export const lintConfigFromSettings = (settings: Option.Option<Settings>): LintC
  * This delegates to the same reconciliation `axm sync` performs rather than
  * defining a second desired state. A workspace that has not enabled
  * instruction-file management has nothing determined to restore, so `--fix`
- * leaves it untouched.
+ * leaves it untouched. The repair runs in one workspace transaction whose
+ * accepted-resolution batch commits the instruction rows it records, and the
+ * rows are read before any write, so a newer lockfile refuses untouched.
  */
 export const DETERMINED_REPAIR_RULE_IDS = [
   "workspace/instructions-target-current",
@@ -127,12 +130,18 @@ export const applyDeterminedRepairs = (args: {
     if (Option.isNone(args.settings)) return none;
     const instructionFiles = args.settings.value.instructionFiles;
     if (instructionFiles === undefined || instructionFiles === false) return none;
-    yield* reconcileInstructions({
-      workspaceRoot: args.workspaceRoot,
-      nativeDirectoryInputs: args.nativeDirectoryInputs,
-      scope: args.scope,
-      configuredAgents: args.settings.value.agents ?? [],
-      config: resolveInstructionsConfig(instructionFiles),
+    const accepted = yield* AcceptedResolutionWriter;
+    yield* runWorkspaceTransaction({
+      transition: accepted.withBatch(
+        reconcileInstructions({
+          workspaceRoot: args.workspaceRoot,
+          nativeDirectoryInputs: args.nativeDirectoryInputs,
+          scope: args.scope,
+          configuredAgents: args.settings.value.agents ?? [],
+          config: resolveInstructionsConfig(instructionFiles),
+        }),
+      ),
+      validate: () => Effect.void,
     });
     return DETERMINED_REPAIR_RULE_IDS;
   });

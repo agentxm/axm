@@ -449,7 +449,7 @@ const blockedMaterialization = (
 const instructionGate = (): Effect.Effect<
   Option.Option<ExtensionLifecycleFailed>,
   ExtensionManagerFailure,
-  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation | LockfileReader
 > =>
   Effect.gen(function* () {
     const config = yield* activeInstructionsConfig();

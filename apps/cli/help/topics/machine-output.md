@@ -89,6 +89,21 @@ planned claims of committed native changes. Native MCP and Hook units use
 `ownership: "declared"` and `proof: "effective-native-declaration"`; that is current
 authorization, not historical ownership. Hook addresses identify the settings key
 and selected canonical script roots. `retained` does not mean execution stopped.
+A Rules or Knowledge region uses `proof: "planned-instruction-target"`: the
+region sits in the instruction file the selected scope's settings plan.
+Instruction copies use `recorded-instruction-copy` (a recorded projection row)
+or `identical-instruction-copy` (an unrecorded copy whose bytes equal the
+render), and Subagent files use `declared-native-path`. When AXM keeps a
+whole-file output instead of deleting it, the step warning says why: it was
+modified since AXM last wrote it, or AXM has no record of writing it.
+
+A plan step's `artifact.targets[]` and `artifact.managedRegions[]` carry an
+optional `lastWrite` when a planned rewrite or removal replaces existing bytes:
+`matches` (unchanged since AXM last wrote them), `modified` (edited since), or
+`unrecorded` (AXM has no record of writing them). It compares against the
+`output` digest recorded in `axm-lock.yaml`, is informational, and never
+decides currency. Human output marks a `modified` target "(modified since last
+write)".
 
 Every root and typed extension list uses the same inventory envelope:
 `filter`, `items[]`, `count`, `totalCount`, and `managementCounts`.
@@ -243,12 +258,12 @@ requiring message parsing:
   "ok": false,
   "code": "validation",
   "title": "Unsupported workspace lockfile version",
-  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 12, but this AXM supports version 11. This workspace requires a newer AXM.",
+  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 13, but this AXM supports version 12. This workspace requires a newer AXM.",
   "problem": {
     "code": "workspace-lockfile-version-unsupported",
     "path": "/workspace/axm-lock.yaml",
-    "observedVersion": 12,
-    "supportedVersion": 11,
+    "observedVersion": 13,
+    "supportedVersion": 12,
     "direction": "newer"
   },
   "suggestions": [

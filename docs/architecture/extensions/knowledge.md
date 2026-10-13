@@ -54,10 +54,11 @@ second copy of its knowledge.
 ## Ownership and coexistence
 
 AXM owns the managed discovery region, not unrelated workspace documents or
-the surrounding instruction file. Authored prose and other independently marked
+the surrounding instruction file. Authored prose and other independently fenced
 regions coexist outside the discovery region. An absent region may be created
-when instruction management authorizes it. A one-sided, duplicate, or malformed
-marker sequence makes ownership ambiguous and blocks reconciliation. Search
+when instruction management authorizes it. A one-sided, duplicate, nested, or
+interleaved fence sequence makes the region ambiguous and blocks
+reconciliation. Search
 indexes and concept graphs are derived, rebuildable working state, not native
 ownership units.
 
@@ -100,7 +101,9 @@ revision consistency, surrounding instruction preservation, ambiguous region
 boundaries, compact discovery, activation, safe stale-state removal,
 instruction-management interaction, and idempotent rebuilding.
 
-The compact discovery unit is `region=knowledge` with provenance owner
-`@agentxm/knowledge/discovery`; `knowledge-base` is not a region identifier.
-Its markers and ambiguity behavior follow the shared
-[ownership grammar](../workspace/managed-file-ownership.md).
+The compact discovery unit is the `knowledge` region, fenced by
+`<!-- axm:knowledge -->` and `<!-- /axm:knowledge -->`; `knowledge-base` is not
+a region name. Its fences and ambiguity behavior follow the shared
+[region fences](../workspace/managed-file-ownership.md#region-fences). Projected
+instruction files carry no `.gitattributes` entries from AXM; a repository may
+mark them `linguist-generated` itself.

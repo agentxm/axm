@@ -15,7 +15,7 @@ import {
   installSelectorsFor,
 } from "@agentxm/workspace-features/lifecycle";
 
-import { agentFlag, ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
+import { agentFlag, ignoreReleaseAgeFlag, replaceUnrecordedFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { parseHookConfiguration } from "../hooks/configuration-input.js";
@@ -25,6 +25,7 @@ import {
   chooseUndetectedAgents,
   observeFirstInstallAgents,
   undetectedAgentsRefusal,
+  withProjectionOutputPosture,
   withReleaseAgePosture,
   withRuntime,
   withWorkspace,
@@ -69,6 +70,7 @@ const commonConfig = () => ({
   all: allFlag,
   preview: previewCapabilityFlag(),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
+  replaceUnrecorded: replaceUnrecordedFlag,
 });
 
 const mcpConfig = {
@@ -159,18 +161,19 @@ interface ParsedTypedInstall {
   readonly all: boolean;
   readonly preview: boolean;
   readonly ignoreReleaseAge: boolean;
+  readonly replaceUnrecorded: boolean;
 }
 
 const executeInstall = (
   args: InstallHandlerArgs,
   scope: "project" | "user",
-  ignoreReleaseAge: boolean,
+  overrides: { readonly ignoreReleaseAge: boolean; readonly replaceUnrecorded: boolean },
   runtimeName: string,
 ) =>
   validateInstallArgsBeforeWorkspace(args).pipe(
     Effect.flatMap((agents) =>
       Effect.gen(function* () {
-        const install = handleInstall(args).pipe(withReleaseAgePosture(ignoreReleaseAge));
+        const install = handleInstall(args).pipe(withReleaseAgePosture(overrides.ignoreReleaseAge));
         const observed = yield* observeFirstInstallAgents(scope);
         if (observed._tag === "Established") return yield* install.pipe(withWorkspace(scope));
         // First use asks after the selection: select in the uninitialized
@@ -180,7 +183,7 @@ const executeInstall = (
           workspace: Parameters<typeof withWorkspace>[0],
         ) =>
           handleInstall(args, { scope, establish }).pipe(
-            withReleaseAgePosture(ignoreReleaseAge),
+            withReleaseAgePosture(overrides.ignoreReleaseAge),
             withWorkspace(workspace),
           );
         const canAsk = yield* canAskUndetectedAgents;
@@ -220,6 +223,8 @@ const executeInstall = (
         );
       }),
     ),
+    // First use runs setup before the install, so both read the override.
+    withProjectionOutputPosture({ replaceUnrecorded: overrides.replaceUnrecorded }),
     withRuntime(runtimeName),
   );
 
@@ -243,12 +248,7 @@ const runTypedInstall = (
     bundled: false,
     ...(configuration === undefined ? {} : { configuration }),
   };
-  return executeInstall(
-    args,
-    parsed.scope,
-    parsed.ignoreReleaseAge,
-    `${extensionTypeToPlural[type]} install`,
-  );
+  return executeInstall(args, parsed.scope, parsed, `${extensionTypeToPlural[type]} install`);
 };
 
 export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
@@ -263,6 +263,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
       preview: common.preview,
       ...mcpConfig,
       ignoreReleaseAge: common.ignoreReleaseAge,
+      replaceUnrecorded: common.replaceUnrecorded,
     } as const;
     return finishCommand(
       Command.make("install", config, (parsed) => {
@@ -283,7 +284,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           localName: parsed.as,
           bundled: false,
         };
-        return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "mcps install");
+        return executeInstall(args, parsed.scope, parsed, "mcps install");
       }).pipe(withArgvTracking(config)),
       type,
     );
@@ -302,6 +303,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         withParameterDefault(false),
       ),
       ignoreReleaseAge: common.ignoreReleaseAge,
+      replaceUnrecorded: common.replaceUnrecorded,
     } as const;
     return finishCommand(
       Command.make("install", config, (parsed) => {
@@ -318,7 +320,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
           localName: Option.none(),
           bundled: parsed.bundled,
         };
-        return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "skills install");
+        return executeInstall(args, parsed.scope, parsed, "skills install");
       }).pipe(withArgvTracking(config)),
       type,
     );
@@ -334,6 +336,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         all: common.all,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
+        replaceUnrecorded: common.replaceUnrecorded,
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
@@ -352,6 +355,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         all: common.all,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
+        replaceUnrecorded: common.replaceUnrecorded,
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
@@ -376,6 +380,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         all: common.all,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
+        replaceUnrecorded: common.replaceUnrecorded,
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
@@ -398,6 +403,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         all: common.all,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
+        replaceUnrecorded: common.replaceUnrecorded,
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
@@ -416,6 +422,7 @@ export const makePerTypeInstallCommand = (type: InstallableExtensionType) => {
         all: common.all,
         preview: common.preview,
         ignoreReleaseAge: common.ignoreReleaseAge,
+        replaceUnrecorded: common.replaceUnrecorded,
       } as const;
       return finishCommand(
         Command.make("install", config, (parsed) =>
@@ -461,7 +468,7 @@ export const installCommand = finishCommand(
       localName: Option.none(),
       bundled: false,
     };
-    return executeInstall(args, parsed.scope, parsed.ignoreReleaseAge, "install");
+    return executeInstall(args, parsed.scope, parsed, "install");
   }).pipe(withArgvTracking(installConfig)),
 ).pipe(
   Command.withExamples([

@@ -140,7 +140,7 @@ describe("source independence (Decision 2)", () => {
       const lockfile = yield* api.lockfile;
       expect(Option.isSome(lockfile)).toBe(true);
       const lf = Option.getOrThrow(lockfile);
-      expect(lf.lockfileVersion).toBe(11);
+      expect(lf.lockfileVersion).toBe(12);
       expect(Object.keys(lf.skills)).toContain("review-tool");
 
       // Settings cell SHALL fail with `SettingsParseError` (corrupt JSON).

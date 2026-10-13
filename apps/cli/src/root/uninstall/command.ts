@@ -5,9 +5,10 @@ import { resolveRootUninstallIntent } from "@agentxm/workspace-features/lifecycl
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
 
+import { discardModifiedFlag } from "../../cli-flags/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
 import { failureToAppError } from "../../app-error/conversions.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -21,15 +22,17 @@ const uninstallConfig = {
   ),
   scope: scopeFlag,
   preview: previewCapabilityFlag(),
+  discardModified: discardModifiedFlag,
 } as const;
 
 export const uninstallCommand = Command.make(
   "uninstall",
   uninstallConfig,
-  ({ source, scope, preview }) =>
+  ({ source, scope, preview, discardModified }) =>
     resolveRootUninstallIntent(source).pipe(
       Effect.mapError(failureToAppError),
       Effect.flatMap(() => handleUninstall({ source, preview }).pipe(withWorkspace(scope))),
+      withProjectionOutputPosture({ discardModified }),
       withRuntime("uninstall"),
     ),
 ).pipe(

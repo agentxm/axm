@@ -24,6 +24,7 @@ import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions
 import {
   SettingsReader,
   WorkspaceLocation,
+  type AcceptedResolutionWriter,
   type DesiredExtensionNode,
   type LockfileReader,
 } from "../workspace-state/index.js";
@@ -225,7 +226,7 @@ const reconcileAggregateProjections = (
 ): Effect.Effect<
   ReadonlyArray<string>,
   ExtensionManagerFailure,
-  RuleManager | HookManager | KnowledgeManager | ManagerRequirements
+  RuleManager | HookManager | KnowledgeManager | ManagerRequirements | AcceptedResolutionWriter
 > =>
   Effect.gen(function* () {
     const plans: Array<ProjectionPlan<void, ExtensionManagerFailure, ManagerRequirements>> = [];

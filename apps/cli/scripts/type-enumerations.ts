@@ -10,6 +10,8 @@
  * the block shapes and the rewriter are unit-testable without a filesystem.
  */
 
+import { scanFences, type FenceLine } from "@agentxm/workspace-kernel/agent-adapters";
+
 /** One extension type, flattened to just what the prose blocks need. */
 export interface TypeEnumerationRow {
   readonly plural: string;
@@ -20,24 +22,27 @@ export interface TypeEnumerationRow {
   readonly standard: { readonly name: string; readonly url: string } | null;
 }
 
-export const REGION_NAMES = [
+/**
+ * Names of the build-time regions this generator owns. They share the runtime
+ * fence grammar (`<!-- axm:<name> -->` … `<!-- /axm:<name> -->`) but never the
+ * runtime vocabulary, so a generated document cannot be mistaken for a region
+ * AXM writes into a workspace. Generators strip these fences before publishing
+ * rendered help or bundled workspace artifacts.
+ */
+export const BUILD_TIME_REGION_NAMES = [
   "extension-types-table",
   "extension-type-namespaces",
   "extension-type-list",
-  "extension-type-namespace-set",
 ] as const;
 
-// This grammar is build-time-only. Generators must strip it before publishing
-// rendered help or bundled workspace artifacts.
+export type BuildTimeRegionName = (typeof BUILD_TIME_REGION_NAMES)[number];
 
-export type RegionName = (typeof REGION_NAMES)[number];
+const isBuildTimeRegionName = (value: string): value is BuildTimeRegionName =>
+  BUILD_TIME_REGION_NAMES.some((name) => name === value);
 
-export const openMarker = (region: RegionName): string => `<!-- axm:generated:${region} -->`;
-
-export const CLOSE_MARKER = "<!-- /axm:generated -->";
-
-/** Matches either marker on its own line, for stripping before rendering. */
-export const MARKER_LINE_PATTERN = /^[ \t]*<!-- \/?axm:generated(?::[a-z-]+)? -->[ \t]*\r?\n?/gm;
+/** The fence lines in `source` that name a build-time region. */
+const buildTimeFences = (source: string): ReadonlyArray<FenceLine> =>
+  scanFences(source, "markdown").filter(({ name }) => isBuildTimeRegionName(name));
 
 const escapeCell = (value: string): string => value.replace(/\|/g, "\\|");
 
@@ -80,48 +85,45 @@ export const extensionTypeNamespacesBlock = (rows: ReadonlyArray<TypeEnumeration
 export const extensionTypeListBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string =>
   `AXM manages ${joinPhrase(rows.map((row) => row.pluralSentenceLabel))}.`;
 
-export const extensionTypeNamespaceSetBlock = (rows: ReadonlyArray<TypeEnumerationRow>): string =>
-  `\`<type>\` ∈ {${rows.map((row) => `\`${row.plural}\``).join(", ")}}`;
-
 export const buildRegionBlocks = (
   rows: ReadonlyArray<TypeEnumerationRow>,
-): Record<RegionName, string> => ({
+): Record<BuildTimeRegionName, string> => ({
   "extension-types-table": extensionTypesTableBlock(rows),
   "extension-type-namespaces": extensionTypeNamespacesBlock(rows),
   "extension-type-list": extensionTypeListBlock(rows),
-  "extension-type-namespace-set": extensionTypeNamespaceSetBlock(rows),
 });
 
 export interface RegionRewrite {
   readonly content: string;
-  readonly regions: ReadonlyArray<RegionName>;
+  readonly regions: ReadonlyArray<BuildTimeRegionName>;
 }
 
 /**
- * Replaces the body of every managed region present in `source`. A region the
- * document does not open is left alone; an opened region without a closing
- * marker, or opened twice, throws rather than guessing where the body ends.
+ * Replaces the body of every build-time region present in `source`. A region
+ * the document does not open is left alone; an opened region without its own
+ * closing fence, or opened twice, throws rather than guessing where the body
+ * ends. Fences inside fenced code blocks are not fences.
  */
 export const rewriteManagedRegions = (
   source: string,
-  blocks: Readonly<Record<RegionName, string>>,
+  blocks: Readonly<Record<BuildTimeRegionName, string>>,
 ): RegionRewrite => {
   let content = source;
-  const regions: Array<RegionName> = [];
+  const regions: Array<BuildTimeRegionName> = [];
 
-  for (const region of REGION_NAMES) {
-    const open = openMarker(region);
-    const openIndex = content.indexOf(open);
-    if (openIndex === -1) continue;
-    if (content.indexOf(open, openIndex + open.length) !== -1) {
+  for (const region of BUILD_TIME_REGION_NAMES) {
+    const fences = buildTimeFences(content).filter(({ name }) => name === region);
+    const opens = fences.filter(({ edge }) => edge === "open");
+    const open = opens[0];
+    if (open === undefined) continue;
+    if (opens.length > 1) {
       throw new Error(`Managed region '${region}' is opened more than once`);
     }
-    const bodyStart = openIndex + open.length;
-    const closeIndex = content.indexOf(CLOSE_MARKER, bodyStart);
-    if (closeIndex === -1) {
-      throw new Error(`Managed region '${region}' is missing its ${CLOSE_MARKER} marker`);
+    const close = fences.find(({ edge, start }) => edge === "close" && start >= open.end);
+    if (close === undefined) {
+      throw new Error(`Managed region '${region}' is missing its <!-- /axm:${region} --> marker`);
     }
-    content = `${content.slice(0, bodyStart)}\n\n${blocks[region]}\n\n${content.slice(closeIndex)}`;
+    content = `${content.slice(0, open.end)}\n${blocks[region]}\n\n${content.slice(close.start)}`;
     regions.push(region);
   }
 
@@ -129,9 +131,15 @@ export const rewriteManagedRegions = (
 };
 
 /**
- * Drops the region markers, so rendered help never shows generator plumbing.
- * Removing a marker line would otherwise leave the blank lines that surrounded
+ * Drops the build-time fences, so rendered help never shows generator plumbing.
+ * Removing a fence line would otherwise leave the blank lines that surrounded
  * it stacked, so runs of blank lines collapse back to one.
  */
 export const stripRegionMarkers = (source: string): string =>
-  source.replace(MARKER_LINE_PATTERN, "").replace(/\n{3,}/g, "\n\n");
+  [...buildTimeFences(source)]
+    .reverse()
+    .reduce(
+      (content, fence) => `${content.slice(0, fence.start)}${content.slice(fence.end)}`,
+      source,
+    )
+    .replace(/\n{3,}/g, "\n\n");

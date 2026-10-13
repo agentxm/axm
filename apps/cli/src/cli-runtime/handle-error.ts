@@ -1,5 +1,10 @@
 import { collectSensitiveStrings, redactRegistryText } from "@agentxm/registry-client";
 import { OutputWriteFailed } from "../screen/streams.js";
+import {
+  CLOSED_PIPE_EXIT_CODE,
+  isClosedOutputPipe,
+  outputFailureToAppError,
+} from "./output-failure.js";
 import { CliError } from "effect/cli";
 import * as Effect from "effect/Effect";
 import {
@@ -27,6 +32,24 @@ import {
 
 const cliErrorMessage = (errors: ReadonlyArray<{ readonly message?: string }>): string =>
   errors.map((error) => error.message ?? String(error)).join("; ");
+
+const cliUsageError = (error: CliError.CliError): AppError =>
+  makeAppError({
+    code: "usage",
+    detail: error._tag === "ShowHelp" ? cliErrorMessage(error.errors) : error.message,
+    ...(error._tag === "ShowHelp" &&
+    error.errors.some((entry) => entry._tag === "UnknownSubcommand")
+      ? {
+          suggestions: [
+            {
+              description: "Show supported commands",
+              cmd: `${error.commandPath.join(" ")} --help`,
+            },
+          ],
+        }
+      : {}),
+    cause: error,
+  });
 
 /**
  * Classified error result — pure data describing what handleError should do.
@@ -108,7 +131,16 @@ export const classifyError = (
     debug: false,
   },
 ): ErrorClassification => {
-  if (error instanceof OutputWriteFailed) return { exitCode: ExitCode.Internal };
+  if (error instanceof OutputWriteFailed) {
+    if (isClosedOutputPipe(error)) return { exitCode: CLOSED_PIPE_EXIT_CODE };
+    const channels = renderAppErrorChannels(outputFailureToAppError(error), format, options);
+    return {
+      exitCode: ExitCode.Internal,
+      ...(error.channel === "stdout"
+        ? { stderr: channels.stderr, stderrDoc: channels.stderrDoc }
+        : {}),
+    };
+  }
   if (error instanceof AppError) {
     return {
       exitCode: exitCodeFor(error.code),
@@ -128,6 +160,13 @@ export const classifyError = (
     if (error._tag === "ShowHelp") {
       if (error.errors.length === 0) {
         return { exitCode: ExitCode.Success };
+      }
+
+      if (error.errors.some((entry) => entry._tag === "UnknownSubcommand")) {
+        return {
+          exitCode: ExitCode.Usage,
+          ...renderAppErrorChannels(cliUsageError(error), format, options),
+        };
       }
 
       if (format !== "text") {
@@ -210,12 +249,10 @@ export const handleError = (
     diagnostic?.diagnosticId === undefined
       ? undefined
       : CliError.isCliError(error)
-        ? makeAppError({
-            code: "usage",
-            detail: error._tag === "ShowHelp" ? cliErrorMessage(error.errors) : error.message,
-            cause: error,
-          })
-        : failureToAppError(error);
+        ? cliUsageError(error)
+        : error instanceof OutputWriteFailed
+          ? outputFailureToAppError(error)
+          : failureToAppError(error);
   const rendered =
     original === undefined
       ? error
@@ -226,10 +263,20 @@ export const handleError = (
             : { diagnosticId: diagnostic.diagnosticId }),
           ...(diagnostic?.diagnostic === undefined ? {} : { diagnostic: diagnostic.diagnostic }),
         });
-  const { exitCode, stderr, stderrDoc, stdout } = classifyError(rendered, format, {
+  const classified = classifyError(rendered, format, {
     verbose: diagnostic?.verbose === true,
     debug: diagnostic?.debug === true,
   });
+  const { exitCode, stderr, stderrDoc, stdout } =
+    error instanceof OutputWriteFailed
+      ? isClosedOutputPipe(error)
+        ? { exitCode: CLOSED_PIPE_EXIT_CODE }
+        : {
+            ...classified,
+            stdout: undefined,
+            ...(error.channel === "stderr" ? { stderr: undefined, stderrDoc: undefined } : {}),
+          }
+      : classified;
   const output = Effect.gen(function* () {
     const screen = yield* Screen;
     if (stderrDoc !== undefined) {

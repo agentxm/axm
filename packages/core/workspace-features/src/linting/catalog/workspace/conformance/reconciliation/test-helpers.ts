@@ -24,7 +24,7 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 11,
+        lockfileVersion: 12,
         skills: {
           "react-router": {
             source: {

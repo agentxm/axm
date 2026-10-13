@@ -5,9 +5,10 @@ AXM separates three state families:
 - **Desired** — project `axm.json` and workspace-authored pack manifests say
   what the workspace wants.
 - **Accepted resolution** — project `axm-lock.yaml` records the exact immutable
-  identity and provenance accepted for each desired external extension.
+  identity and provenance accepted for each desired external extension, plus
+  the generation currency of the projections AXM writes.
 - **Observed** — canonical packages, managed agent artifacts and instruction
-  regions, native config, and ownership markers say what actually exists.
+  regions, and native config say what actually exists.
 
 Settings declare roots and activation. Authored Pack manifests and acquired
 Packs' accepted dependency declarations determine their members. A lock row
@@ -29,26 +30,84 @@ blocked and unchanged. Run `axm sync
 result when that candidate contains changes and exits 0 when the workspace is
 already converged. Both preview forms are read-only.
 
-## Managed ownership versions
+## Managed regions and projection currency
 
-Comment-bearing managed units use `axm:start`, `axm:end`, `axm:file`, or
-`axm:point` with an explicit `v=1`. The version identifies the safe ownership
-grammar for file artifacts, not an extension version. Native MCP and Hook
-configuration instead uses validated effective declarations: see `axm help mcps`
-and `axm help hooks`. These entries require no ownership properties or fences;
-absence from desired state retains their native configuration.
+AXM writes a region inside a human-authored file only where it must share that
+file: the Rules and Knowledge regions of the instruction file your settings
+plan, and the instruction-alias region of `.gitignore`. A region is delimited by
+name-only fences in the file's own comment syntax:
 
-An unknown marker version is reported as `unsupported-version`. `axm lint` and
-`axm sync --preview` instruct you to upgrade AXM, and sync performs no writes
-for the affected closure. Do not hand-edit the version or marker boundaries.
-After upgrading, preview again before applying reconciliation.
+```markdown
+<!-- axm:rules -->
 
-Machine previews expose an `owner` for every managed-region unit so callers
-can distinguish unit identity from extension provenance.
+…generated body…
+<!-- /axm:rules -->
+```
+
+```gitignore
+# axm:instruction-aliases
+CLAUDE.md
+# /axm:instruction-aliases
+```
+
+The names are `rules`, `knowledge`, and `instruction-aliases`. A fence carries
+no version, owner, source, or digest, and AXM replaces the whole body. In
+Markdown, a fence is a whole line starting at column 0, and a fence shown inside
+a fenced code block is not one. AXM writes a region only in the planned
+instruction target; a same-named fence in any other file is yours. Duplicate,
+nested, interleaved, or unpaired fences block the write and name the file and
+region. An `axm:` fence with another name is left untouched and reported by lint
+as information. Whole-file outputs, such as Subagent files and instruction
+copies, carry no marker at all.
+
+Native MCP and Hook configuration instead uses validated effective
+declarations: see `axm help mcps` and `axm help hooks`. These entries require no
+ownership properties or fences; absence from desired state retains their native
+configuration.
+
+The lockfile's `projections` section records, per projected file, a generation
+digest of the inputs (`gen`) and a digest of the bytes AXM last wrote
+(`output`). Sync compares only `gen`: a formatter or editor rewriting a current
+region or file is not drift, and sync does not rewrite it. When an input
+changes, sync replaces the unit, and `axm sync --preview` marks a replaced unit
+"modified since last write" when its bytes differ from `output`. The rows never
+grant ownership; they are deletion evidence. A recorded file AXM would delete is
+deleted only while its bytes still match what AXM wrote or would write; an
+edited one is kept and reported.
+
+Two flags override these guards on the commands that can hit them:
+
+- `--replace-unrecorded` replaces an existing whole file at a planned path that
+  AXM has no record of writing and whose bytes differ from the render. Without
+  it, the command refuses and names the flag. An identical file is recorded
+  without a write.
+- `--discard-modified` deletes a recorded whole file that was edited since AXM
+  last wrote it. A file AXM never recorded is kept even with this flag.
+
+Neither flag is implied by `--yes`.
+
+Machine previews expose an `owner` for every managed-region unit, derived from
+the desired graph, so callers can distinguish unit identity from extension
+provenance.
+
+**Merge conflicts.** When `axm-lock.yaml` or a projected file conflicts, take
+either side and run `axm sync`. A stale row can only make sync rewrite a unit
+once or keep a file it would otherwise delete.
+
+**Deleting the lockfile** drops the rows. The next sync records identical whole
+files without writing them, refuses differing ones until you pass
+`--replace-unrecorded`, and rewrites each region once.
+
+**Generated files in review.** AXM does not write `.gitattributes`. To collapse
+projected files in GitHub diffs, add your own entries, for example
+`AGENTS.md linguist-generated` or `.claude/agents/*.md linguist-generated`.
 
 `axm lint` reports `workspace/managed-file-unowned` when an artifact in a
-configured agent directory has neither a structured file marker nor a managed
-symlink proof. Inspect and preserve unfamiliar content; AXM does not claim or
+configured agent directory is neither a declared output at its planned path
+nor a managed symlink. `workspace/projection-modified` reports a projected file
+or region whose bytes differ from what AXM last wrote, and names `axm fork` for
+an acquired source or the authored source to edit; the next input change
+replaces those edits. Inspect and preserve unfamiliar content; AXM does not claim or
 delete it automatically. A valid authored package in its authoring folder is
 authored source, not an unowned artifact.
 
@@ -79,7 +138,7 @@ relationships are otherwise the same. Its runtime state is the inner
 
 ## Accepted external resolution
 
-Lockfile v11 contains only external resolutions. Its `packages` map records one
+Lockfile v12 contains external resolutions and projection currency. Its `packages` map records one
 source locator, immutable snapshot, and complete-tree integrity per retained
 package. Per-kind bindings select identities and component paths within those
 packages. Multiple selections can share one package record and directory,
@@ -89,7 +148,8 @@ Registry snapshots pin version, archive integrity, and publisher binding. Git
 snapshots pin commit and tree. Local snapshots pin a tree at project-relative or
 absolute source coordinates. HTTP snapshots preserve the logical source and
 accepted artifact manifest for exact replay. Workspace-authored, bundled,
-inline, projected, and command-history state do not belong in the lockfile.
+inline, and command-history state do not belong in the lockfile; for
+projections it holds only the digests described above.
 
 Acquired Pack rows also record their complete dependency declarations. Those
 accepted declarations preserve membership and constraints when installed Pack
@@ -192,7 +252,7 @@ repeated install; restoring missing bytes may require network access.
 
 ## Unsupported lockfile versions
 
-AXM reads only lockfile v11. Every ordinary workspace-loading command checks a
+AXM reads only lockfile v12. Every ordinary workspace-loading command checks a
 present lockfile before command-specific work, and override flags do not bypass
 that check. The error names the lockfile path plus its observed and supported
 versions.
@@ -295,8 +355,8 @@ and rebuilt; it is never workspace authority.
 ## Workspace files
 
 - Change project intent through AXM commands or `axm.json`.
-- Treat `axm-lock.yaml` as generated accepted-resolution state; do not
-  hand-edit it.
+- Treat `axm-lock.yaml` as generated accepted-resolution and projection-currency
+  state; do not hand-edit it.
 - Commit `axm.json`, `axm-lock.yaml`, authored roots, and `agent_extensions/`;
   ignore `.axm/` runtime state.
 - Keep acquired `agent_extensions/` content byte-for-byte unchanged and exclude

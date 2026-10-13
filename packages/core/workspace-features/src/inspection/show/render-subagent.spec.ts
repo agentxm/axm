@@ -84,6 +84,14 @@ describe("Subagent render inspection", () => {
               expect(result.artifacts[0]?.content).toContain(
                 agentId === "cursor" ? "Different native instructions." : "Portable instructions.",
               );
+              // Show reports the bytes the projection writes: a native render is
+              // the native source verbatim, and no render carries AXM text.
+              expect(result.artifacts[0]?.content).toBe(
+                agentId === "cursor"
+                  ? "---\nname: native-reviewer\ndescription: Native review\n---\n\nDifferent native instructions.\n"
+                  : "---\nname: reviewer\ndescription: Portable review\n---\nPortable instructions.\n",
+              );
+              expect(result.artifacts[0]?.content).not.toMatch(/axm/i);
               expect(result.artifacts[0]?.path).toBe(
                 agentId === "cursor"
                   ? ".cursor/agents/native-reviewer.md"

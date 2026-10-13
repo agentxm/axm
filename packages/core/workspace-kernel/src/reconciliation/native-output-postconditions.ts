@@ -21,6 +21,7 @@ import {
   validateNativeRetentionWitnesses,
   type NativeRetentionWitness,
   observeInstructionProjection,
+  readInstructionRows,
   resolveInstructionsConfig,
 } from "../projection/index.js";
 import { WorkspaceSyncFailed } from "./errors.js";
@@ -102,6 +103,7 @@ export const captureRequiredNativeOutputs = (
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           configuredAgents: options.configuredAgents,
           config: resolveInstructionsConfig(config.value),
+          rows: yield* readInstructionRows,
         });
         units.push(...instructions.nativeLocations);
       }
@@ -201,6 +203,7 @@ export const validateNativeOutputPostconditions = (
           nativeDirectoryInputs: location.nativeDirectoryInputs,
           configuredAgents: agentIds,
           config: resolveInstructionsConfig(config.value),
+          rows: yield* readInstructionRows,
         });
         observed.push(...instructions.nativeLocations);
       }

@@ -22,30 +22,20 @@ const unavailable = (failure: Parameters<typeof projectionUnavailabilityReason>[
   }).observation;
 
 describe("projection unavailability", () => {
-  it("reads an unsupported marker version from the failure, not its wording", () => {
+  it("reads malformed fences from the failure, not its wording", () => {
     const failure = new ManagedRegionViolation({
       displayPath: "AGENTS.md",
-      reason: "AXM ownership marker version 2 is unsupported",
-      reasonCode: "managed-region-unsupported-version",
+      reason: 'AXM region "rules" has interleaved fences',
+      reasonCode: "managed-region-malformed",
+      region: "rules",
+      problem: "interleaved",
     });
-    expect(projectionUnavailabilityReason(failure)).toBe("unsupported-version");
+    expect(projectionUnavailabilityReason(failure)).toBe("invalid-ownership");
     // The fact's sentence is the kernel's rendering, which names the file.
     expect(unavailable(failure).message).toBe(projectionErrorToStepFailure(failure).detail);
     expect(unavailable(failure).message).toBe(
-      "AXM cannot safely update its section in AGENTS.md: AXM ownership marker version 2 is unsupported",
+      'AXM cannot safely update its section in AGENTS.md: AXM region "rules" has interleaved fences',
     );
-  });
-
-  it("treats a malformed region as invalid ownership rather than unsupported", () => {
-    expect(
-      projectionUnavailabilityReason(
-        new ManagedRegionViolation({
-          displayPath: "AGENTS.md",
-          reason: "AXM region marker has an invalid or missing region",
-          reasonCode: "managed-region-malformed",
-        }),
-      ),
-    ).toBe("invalid-ownership");
   });
 
   it("reports every other projection failure as unavailable, worded by the kernel", () => {

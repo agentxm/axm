@@ -38,6 +38,8 @@ import {
   type WorkspaceStateReadFailure,
   type WorkspaceStateMutationFailure,
   type WorkspaceSettingsReadFailure,
+  type WorkspaceLockfileReadFailure,
+  type WorkspaceLockfileMutationFailure,
   type ExtensionTarget,
   type ExtensionTargetFor,
   desiredIdentityOfRef,
@@ -273,8 +275,19 @@ const applyManagerProjectionPlans = <F, R>(
   options?: NativeProjectionOptions,
 ): Effect.Effect<
   ReadonlyArray<string>,
-  F | WorkspaceSettingsReadFailure | InstructionMaintenanceFailure,
-  R | NativeWriteAuthority | FileSystem.FileSystem | Path.Path | SettingsReader | WorkspaceLocation
+  | F
+  | WorkspaceSettingsReadFailure
+  | WorkspaceLockfileReadFailure
+  | WorkspaceLockfileMutationFailure
+  | InstructionMaintenanceFailure,
+  | R
+  | NativeWriteAuthority
+  | FileSystem.FileSystem
+  | Path.Path
+  | SettingsReader
+  | WorkspaceLocation
+  | LockfileReader
+  | AcceptedResolutionWriter
 > =>
   manager.projectionPlans === undefined
     ? Effect.succeed(NO_PROJECTION_WARNINGS)
@@ -526,69 +539,76 @@ const runInstallOperation = <TRef extends ExtensionRef, TMaterialization, F, R>(
     const installedBefore = yield* manager.isInstalled({ target });
     const { value: transaction, footprint } = yield* observeFootprint(
       runWorkspaceTransaction({
-        transition: Effect.gen(function* () {
-          const cleanupSupersededCanonical =
-            manager.prepareSourceTransition === undefined
-              ? Effect.void
-              : yield* manager.prepareSourceTransition({ ref: args.ref });
-          const materialization = yield* manager.materializeInstall({
-            ref: args.ref,
-            nativeInsertionEligible:
-              args.nativeInsertionEligible ??
-              desiredReachability(priorGraph, target).decision === "not-reached",
-            ...(args.force === undefined ? {} : { force: args.force }),
-          });
-          const resolution = yield* manager.acceptedResolution({
-            ref: args.ref,
-            materialization: Option.some(materialization),
-          });
-          if (args.declaration !== undefined) {
-            yield* declareMaterialization({
-              ref: args.ref,
-              name: args.declaration.name,
-              versionRange: args.declaration.versionRange,
-              resolution,
-            });
-          }
-          if (args.ref.type === "hook" && args.hookConfiguration !== undefined) {
-            const configured = (yield* (yield* SettingsReader).entries("hook"))[target.name];
-            yield* (yield* SettingsWriter).setEntry("hook", target.name, {
-              ...(configured ?? { kind: "configuration" as const }),
-              configuration: args.hookConfiguration,
-            });
-          }
-          yield* recordMaterialization({
-            ref: args.ref,
-            name: target.name,
-            resolution,
-            roundTrip: desiredReachability(priorGraph, target).decision === "not-reached",
-          });
-          const graph = yield* (yield* DesiredStateReader).graph();
-          const resulting = graph.nodes.find(
-            (node) => node.type === target.type && node.name === target.name,
-          );
-          if (resulting?.enabled === false && manager.materializeDeactivate !== undefined) {
-            yield* manager.materializeDeactivate({ target });
-          }
-          yield* cleanupSupersededCanonical;
-          // Desired state and canonical content are committed; render every
-          // shared aggregate unit once from the complete contributor set.
-          const projectionWarnings =
-            args.enclosingClosure?.projections.includes(target.type) !== true
-              ? yield* applyManagerProjectionPlans(manager, {
-                  ...(priorAuthority === undefined ? {} : { priorAuthority }),
-                  nativeInsertionEligibleNames: new Set(
-                    (target.type === "hook" ||
-                      target.type === "rule" ||
-                      target.type === "knowledge") &&
-                      desiredReachability(priorGraph, target).decision === "not-reached"
-                      ? [target.name]
-                      : [],
-                  ),
-                })
-              : NO_PROJECTION_WARNINGS;
-          return { materialization, projectionWarnings };
-        }),
+        // One lockfile commit carries the resolution with the projection rows
+        // it renders, so exact withdrawal can restore the prior bytes. An
+        // enclosing closure's batch is joined.
+        transition: Effect.flatMap(AcceptedResolutionWriter, (accepted) =>
+          accepted.withBatch(
+            Effect.gen(function* () {
+              const cleanupSupersededCanonical =
+                manager.prepareSourceTransition === undefined
+                  ? Effect.void
+                  : yield* manager.prepareSourceTransition({ ref: args.ref });
+              const materialization = yield* manager.materializeInstall({
+                ref: args.ref,
+                nativeInsertionEligible:
+                  args.nativeInsertionEligible ??
+                  desiredReachability(priorGraph, target).decision === "not-reached",
+                ...(args.force === undefined ? {} : { force: args.force }),
+              });
+              const resolution = yield* manager.acceptedResolution({
+                ref: args.ref,
+                materialization: Option.some(materialization),
+              });
+              if (args.declaration !== undefined) {
+                yield* declareMaterialization({
+                  ref: args.ref,
+                  name: args.declaration.name,
+                  versionRange: args.declaration.versionRange,
+                  resolution,
+                });
+              }
+              if (args.ref.type === "hook" && args.hookConfiguration !== undefined) {
+                const configured = (yield* (yield* SettingsReader).entries("hook"))[target.name];
+                yield* (yield* SettingsWriter).setEntry("hook", target.name, {
+                  ...(configured ?? { kind: "configuration" as const }),
+                  configuration: args.hookConfiguration,
+                });
+              }
+              yield* recordMaterialization({
+                ref: args.ref,
+                name: target.name,
+                resolution,
+                roundTrip: desiredReachability(priorGraph, target).decision === "not-reached",
+              });
+              const graph = yield* (yield* DesiredStateReader).graph();
+              const resulting = graph.nodes.find(
+                (node) => node.type === target.type && node.name === target.name,
+              );
+              if (resulting?.enabled === false && manager.materializeDeactivate !== undefined) {
+                yield* manager.materializeDeactivate({ target });
+              }
+              yield* cleanupSupersededCanonical;
+              // Desired state and canonical content are committed; render every
+              // shared aggregate unit once from the complete contributor set.
+              const projectionWarnings =
+                args.enclosingClosure?.projections.includes(target.type) !== true
+                  ? yield* applyManagerProjectionPlans(manager, {
+                      ...(priorAuthority === undefined ? {} : { priorAuthority }),
+                      nativeInsertionEligibleNames: new Set(
+                        (target.type === "hook" ||
+                          target.type === "rule" ||
+                          target.type === "knowledge") &&
+                          desiredReachability(priorGraph, target).decision === "not-reached"
+                          ? [target.name]
+                          : [],
+                      ),
+                    })
+                  : NO_PROJECTION_WARNINGS;
+              return { materialization, projectionWarnings };
+            }),
+          ),
+        ),
         validate: () =>
           Effect.gen(function* () {
             if (args.enclosingClosure?.postconditions.includes(target.type) !== true) {

@@ -12,7 +12,8 @@ import {
 } from "@agentxm/workspace-features/configuration";
 import { emitNoOpOutcome, emitOperationResolution } from "../operation-output.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../runtime.js";
+import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../runtime.js";
+import { discardModifiedFlag, replaceUnrecordedFlag } from "../cli-flags/index.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -156,20 +157,19 @@ const instructionsEnableConfig = {
     withParameterDefault(true),
   ),
   preview: previewCapabilityFlag(),
+  replaceUnrecorded: replaceUnrecordedFlag,
+  discardModified: discardModifiedFlag,
 } as const;
 
 const instructionsDisableConfig = {
   scope: scopeFlag,
   preview: previewCapabilityFlag(),
+  discardModified: discardModifiedFlag,
 } as const;
 
 const instructionsAdoptConfig = {
   region: Argument.Literals("region", ["rules", "knowledge"]).pipe(
-    withParameterDescription("Managed region to adopt"),
-  ),
-  fileName: Flag.String("file").pipe(
-    withParameterDefault("AGENTS.md"),
-    withParameterDescription("Exact instruction file containing the region"),
+    withParameterDescription("Region of the planned instruction file to adopt"),
   ),
   scope: scopeFlag,
   preview: previewCapabilityFlag(),
@@ -178,7 +178,7 @@ const instructionsAdoptConfig = {
 const instructionsAdoptCommand = Command.make(
   "adopt",
   instructionsAdoptConfig,
-  ({ region, fileName, scope, preview }) =>
+  ({ region, scope, preview }) =>
     withOperationLifecycle(
       {
         command: "instructions.adopt",
@@ -186,7 +186,7 @@ const instructionsAdoptCommand = Command.make(
         planName: "Adopt instruction region",
       },
       Effect.gen(function* () {
-        const candidate = yield* AdoptInstructionRegion.prepare({ region, fileName }).pipe(
+        const candidate = yield* AdoptInstructionRegion.prepare({ region }).pipe(
           Effect.mapError(failureToAppError),
         );
         const { execution, recovery } = yield* makePlanInvocation(
@@ -202,13 +202,11 @@ const instructionsAdoptCommand = Command.make(
 ).pipe(
   withArgvTracking(instructionsAdoptConfig),
   withCommandCapabilities(previewableCapabilities("workspace")),
-  Command.withDescription(
-    "Explicitly adopt one unchanged instruction region without replacing its body",
-  ),
+  Command.withDescription("Record an existing instruction region as current without replacing it"),
   Command.withExamples([
     {
-      command: "axm instructions adopt knowledge --file AGENTS.md --preview",
-      description: "Review ownership transfer for one existing Knowledge region",
+      command: "axm instructions adopt knowledge --preview",
+      description: "Review recording one existing Knowledge region as current",
     },
   ]),
 );
@@ -216,8 +214,9 @@ const instructionsAdoptCommand = Command.make(
 const instructionsEnableCommand = Command.make(
   "enable",
   instructionsEnableConfig,
-  ({ scope, fileName, gitignore, preview }) =>
+  ({ scope, fileName, gitignore, preview, replaceUnrecorded, discardModified }) =>
     handleInstructionsEnable({ fileName, gitignore, preview }).pipe(
+      withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
       withRuntime("instructions enable"),
     ),
@@ -237,8 +236,9 @@ const instructionsEnableCommand = Command.make(
 const instructionsDisableCommand = Command.make(
   "disable",
   instructionsDisableConfig,
-  ({ scope, preview }) =>
+  ({ scope, preview, discardModified }) =>
     handleInstructionsDisable({ preview }).pipe(
+      withProjectionOutputPosture({ discardModified }),
       withWorkspace(scope),
       withRuntime("instructions disable"),
     ),

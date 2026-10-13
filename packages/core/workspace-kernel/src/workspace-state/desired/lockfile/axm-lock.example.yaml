@@ -1,4 +1,4 @@
-lockfileVersion: 11
+lockfileVersion: 12
 packages:
   '["git","https://github.com/acme/code-review.git",".","native"]':
     source:
@@ -47,3 +47,19 @@ skills:
     identity:
       owner: "@acme"
       name: published-skill
+projections:
+  rules:
+    contract: 1
+    units:
+      AGENTS.md:
+        gen: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+        output: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+  instructions:
+    contract: 1
+    units:
+      .gitignore:
+        gen: sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+        output: sha256:0000000000000000000000000000000000000000000000000000000000000000
+      CLAUDE.md:
+        gen: sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+        output: sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa

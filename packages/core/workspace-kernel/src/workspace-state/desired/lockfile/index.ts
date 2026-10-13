@@ -49,6 +49,27 @@ export {
   SubagentLockEntrySchema,
   SubagentsLockMapSchema,
 } from "./schema.js";
+export type {
+  ProjectionDigest,
+  ProjectionKind,
+  ProjectionKindState,
+  ProjectionRow,
+  ProjectionRowChange,
+  RecordedProjectionRow,
+  Projections,
+  ProjectionUnitPath,
+} from "./projections.js";
+export {
+  PROJECTION_CONTRACTS,
+  PROJECTION_KINDS,
+  ProjectionDigestSchema,
+  ProjectionKindStateSchema,
+  ProjectionRowSchema,
+  ProjectionsSchema,
+  ProjectionUnitPathSchema,
+  recordedProjectionRows,
+  stageProjectionChanges,
+} from "./projections.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
 export {
@@ -56,6 +77,7 @@ export {
   commitLockfileSnapshotUpdate,
   commitLockfileSnapshotUpdateAtPath,
   commitLockfileUpdates,
+  readLockfileAtPath,
   writeLockfile,
   writeLockfileAtPath,
 } from "./lockfile.js";

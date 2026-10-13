@@ -19,6 +19,7 @@ import {
 import {
   desiredConstraintOf,
   WorkspaceReadTest,
+  AcceptedResolutionWriterTest,
   MockWorkspaceTransactionScope,
   treeIntegrityOfSync,
 } from "@agentxm/workspace-kernel/workspace-state/testing";
@@ -211,13 +212,16 @@ describe("RuleManager graph-derived region projection", () => {
       Layer.provideMerge(CodingAgentRepositoryLive),
       Layer.provideMerge(NativeWriteAuthorityLive),
       Layer.provideMerge(
-        WorkspaceReadTest({
-          baseDir,
-          runtimeDir: axmDir,
-          settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
-          lockfile: { lockfileVersion: 11, skills: {}, rules: args.locked },
-          graph: args.graph,
-        }),
+        Layer.merge(
+          WorkspaceReadTest({
+            baseDir,
+            runtimeDir: axmDir,
+            settings: { owner: decodeHandleSync(OWNER), agents: [], instructionFiles: {} },
+            lockfile: { lockfileVersion: 12, skills: {}, rules: args.locked },
+            graph: args.graph,
+          }),
+          AcceptedResolutionWriterTest(),
+        ),
       ),
       Layer.provideMerge(MockWorkspaceTransactionScope(axmDir)),
       Layer.provide(Layer.succeed(SourceHostProviders, providersStub)),
@@ -231,7 +235,7 @@ describe("RuleManager graph-derived region projection", () => {
   const instructionsPath = () => nodePath.join(baseDir, "AGENTS.md");
   const readInstructions = () => nodeFs.readFileSync(instructionsPath(), "utf8");
   const markerCount = (content: string, name: string): number =>
-    content.split(`axm:point v=1 ext=${OWNER}/rules/${name}@`).length - 1;
+    content.split(`Guidance for ${name}.`).length - 1;
 
   it.effect("renders direct and two-pack contributors exactly once each", () => {
     writeRulePackage("direct-rule", { priority: 10 });
@@ -259,7 +263,9 @@ describe("RuleManager graph-derived region projection", () => {
       expect(content).toContain("Guidance for pack-a-rule.");
       expect(content).toContain("Guidance for pack-b-rule.");
       // priority 10 renders before the default-priority pack rules
-      expect(content.indexOf("direct-rule@")).toBeLessThan(content.indexOf("pack-a-rule@"));
+      expect(content.indexOf("Guidance for direct-rule.")).toBeLessThan(
+        content.indexOf("Guidance for pack-a-rule."),
+      );
     }).pipe(Effect.provide(layer));
   });
 
@@ -299,7 +305,7 @@ describe("RuleManager graph-derived region projection", () => {
     });
   });
 
-  it.effect("does not infer currency from contributor anchors in the generated body", () => {
+  it.effect("does not read a recorded current region's body for currency", () => {
     writeRulePackage("pack-a-rule");
     writeRulePackage("pack-b-rule");
     const layer = makeTestLayer({
@@ -316,9 +322,9 @@ describe("RuleManager graph-derived region projection", () => {
       const manager = yield* RuleManager;
       yield* applyPlannedProjections(manager);
       const rewritten = `${readInstructions().replace(
-        "<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\n\nGuidance for pack-b-rule.",
-        "",
-      )}\n<!-- axm:point v=1 ext=@acme/rules/pack-b-rule@1.0.0 kind=rule -->\nUser-owned text outside the region.\n`;
+        "Guidance for pack-b-rule.",
+        "Formatter rewrote this guidance.",
+      )}\nUser-owned text outside the region.\n`;
       nodeFs.writeFileSync(instructionsPath(), rewritten);
 
       expect(yield* manager.projectionPlans().pipe(Effect.flatMap(observeProjectionPlans))).toEqual(
@@ -353,7 +359,6 @@ describe("RuleManager graph-derived region projection", () => {
       const content = readInstructions();
       expect(content).toContain("Updated guidance.");
       expect(content).not.toContain("Original guidance.");
-      expect(content).toContain("edited-rule@1.1.0");
       yield* applyPlannedProjections(manager);
       expect(readInstructions()).toBe(content);
     }).pipe(Effect.provide(layer));

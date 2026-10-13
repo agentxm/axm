@@ -33,11 +33,16 @@ import type {
 } from "./manager-contract.js";
 import type { ExtensionManagerFailure } from "./errors.js";
 import type { CodingAgentRepository, ProjectionPlan } from "../projection/index.js";
-import type { ConfiguredAgentOutcome, JobStepResult, Operation } from "../operations/index.js";
+import type {
+  ConfiguredAgentOutcome,
+  JobStepArtifactTarget,
+  JobStepResult,
+  Operation,
+} from "../operations/index.js";
 import type { FootprintRecorder, WorkspaceTransactionScope } from "../settlement/index.js";
 import type { McpAuth, McpBinding, McpDistribution } from "../agent-adapters/index.js";
 import type { SourceHash } from "@agentxm/extension-model/unstable/sources/source-hash";
-import type { TreeIntegrity } from "../workspace-state/index.js";
+import type { ProjectionDigest, TreeIntegrity } from "../workspace-state/index.js";
 import type { NativeLocationOutcome } from "../locations/index.js";
 import type { HookExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/hook";
 import type { KnowledgeExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/knowledge";
@@ -330,6 +335,8 @@ export interface SubagentManagerService
       readonly current: boolean;
       readonly agentOutcomes: ReadonlyArray<ConfiguredAgentOutcome>;
       readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
+      /** Planned file writes with how each replaced file compares with AXM's last write. */
+      readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
     },
     ExtensionManagerFailure,
     ManagerRequirements
@@ -371,6 +378,15 @@ export interface RuleManagerService
   }) => Effect.Effect<RuleMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  /**
+   * The input-only generation of this kind's region in the planned
+   * instruction target, as the next reconciliation computes it.
+   */
+  readonly regionGeneration: Effect.Effect<
+    ProjectionDigest,
     ExtensionManagerFailure,
     ManagerRequirements
   >;
@@ -514,6 +530,15 @@ export interface KnowledgeManagerService
   }) => Effect.Effect<KnowledgeMaterializationFacts, ExtensionManagerFailure, ManagerRequirements>;
   readonly aggregateProjectionObservation: Effect.Effect<
     MaterializationObservation,
+    ExtensionManagerFailure,
+    ManagerRequirements
+  >;
+  /**
+   * The input-only generation of this kind's region in the planned
+   * instruction target, as the next reconciliation computes it.
+   */
+  readonly regionGeneration: Effect.Effect<
+    ProjectionDigest,
     ExtensionManagerFailure,
     ManagerRequirements
   >;

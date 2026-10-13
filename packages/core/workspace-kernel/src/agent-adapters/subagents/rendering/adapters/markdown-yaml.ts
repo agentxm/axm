@@ -25,10 +25,6 @@ export const renderMarkdownYaml = (input: SubagentRenderInput): SubagentRenderOu
   const yamlStr = YAML.stringify(fmObject, { lineWidth: 0 }).trim();
   const parts: Array<string> = [`---\n${yamlStr}\n---`];
 
-  if (input.ownershipBanner !== undefined) {
-    parts.push(`${input.ownershipBanner.markdown}\n`);
-  }
-
   if (input.body.length > 0) {
     parts.push(input.body);
   }

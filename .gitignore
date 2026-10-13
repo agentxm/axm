@@ -61,7 +61,7 @@ test-results/
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
-# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases
+# axm:instruction-aliases
 /CLAUDE.md
 /docs/CLAUDE.md
-# axm:end v=1 region=instruction-aliases
+# /axm:instruction-aliases

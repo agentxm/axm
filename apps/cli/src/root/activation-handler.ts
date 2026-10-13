@@ -31,11 +31,20 @@ import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/sugges
 
 import { AppError } from "../app-error/index.js";
 import { failureToAppError } from "../app-error/conversions.js";
-import { ignoreReleaseAgeFlag } from "../cli-flags/index.js";
+import {
+  discardModifiedFlag,
+  ignoreReleaseAgeFlag,
+  replaceUnrecordedFlag,
+} from "../cli-flags/index.js";
 import { scopeFlag } from "../cli-flags/scope-flag.js";
 import { withArgvTracking } from "../cli-runtime/index.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../operation-output.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../runtime.js";
+import {
+  withProjectionOutputPosture,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../runtime.js";
 import { EXTENSION_TYPE_PRESENTATION } from "./extension-type-presentation.js";
 import { makePublicPositionalPlanInvocation } from "./shared/confirmation-recovery.js";
 import {
@@ -157,21 +166,33 @@ const makeActivationCommand = (type: InstallableExtensionType, enabled: boolean)
     );
   return enabled
     ? (() => {
-        const enableConfig = { ...config, ignoreReleaseAge: ignoreReleaseAgeFlag };
-        return Command.make("enable", enableConfig, ({ name, scope, preview, ignoreReleaseAge }) =>
-          handleEnable(type, { name, preview }).pipe(
-            withReleaseAgePosture(ignoreReleaseAge),
-            withWorkspace(scope),
-            withRuntime(`${route} enable`),
-          ),
+        const enableConfig = {
+          ...config,
+          ignoreReleaseAge: ignoreReleaseAgeFlag,
+          replaceUnrecorded: replaceUnrecordedFlag,
+        };
+        return Command.make(
+          "enable",
+          enableConfig,
+          ({ name, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
+            handleEnable(type, { name, preview }).pipe(
+              withReleaseAgePosture(ignoreReleaseAge),
+              withProjectionOutputPosture({ replaceUnrecorded }),
+              withWorkspace(scope),
+              withRuntime(`${route} enable`),
+            ),
         ).pipe(withArgvTracking(enableConfig), describe);
       })()
-    : Command.make("disable", config, ({ name, scope, preview }) =>
-        handleDisable(type, { name, preview }).pipe(
-          withWorkspace(scope),
-          withRuntime(`${route} disable`),
-        ),
-      ).pipe(withArgvTracking(config), describe);
+    : (() => {
+        const disableConfig = { ...config, discardModified: discardModifiedFlag };
+        return Command.make("disable", disableConfig, ({ name, scope, preview, discardModified }) =>
+          handleDisable(type, { name, preview }).pipe(
+            withProjectionOutputPosture({ discardModified }),
+            withWorkspace(scope),
+            withRuntime(`${route} disable`),
+          ),
+        ).pipe(withArgvTracking(disableConfig), describe);
+      })();
 };
 
 export const makeActivationCommands = (type: InstallableExtensionType) => ({
@@ -232,24 +253,36 @@ const makeRootActivationCommand = (enabled: boolean) => {
     );
   return enabled
     ? (() => {
-        const enableConfig = { ...config, ignoreReleaseAge: ignoreReleaseAgeFlag };
+        const enableConfig = {
+          ...config,
+          ignoreReleaseAge: ignoreReleaseAgeFlag,
+          replaceUnrecorded: replaceUnrecordedFlag,
+        };
         return Command.make(
           "enable",
           enableConfig,
-          ({ extension, scope, preview, ignoreReleaseAge }) =>
+          ({ extension, scope, preview, ignoreReleaseAge, replaceUnrecorded }) =>
             runRoot(extension, preview, EnableExtension.prepare).pipe(
               withReleaseAgePosture(ignoreReleaseAge),
+              withProjectionOutputPosture({ replaceUnrecorded }),
               withWorkspace(scope),
               withRuntime("enable"),
             ),
         ).pipe(withArgvTracking(enableConfig), describe);
       })()
-    : Command.make("disable", config, ({ extension, scope, preview }) =>
-        runRoot(extension, preview, DisableExtension.prepare).pipe(
-          withWorkspace(scope),
-          withRuntime("disable"),
-        ),
-      ).pipe(withArgvTracking(config), describe);
+    : (() => {
+        const disableConfig = { ...config, discardModified: discardModifiedFlag };
+        return Command.make(
+          "disable",
+          disableConfig,
+          ({ extension, scope, preview, discardModified }) =>
+            runRoot(extension, preview, DisableExtension.prepare).pipe(
+              withProjectionOutputPosture({ discardModified }),
+              withWorkspace(scope),
+              withRuntime("disable"),
+            ),
+        ).pipe(withArgvTracking(disableConfig), describe);
+      })();
 };
 
 export const rootEnableCommand = makeRootActivationCommand(true);

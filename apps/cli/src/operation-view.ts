@@ -78,13 +78,32 @@ const artifactPaths = (artifact: JobStepArtifact, saidOnce: SaidOnce): string =>
   artifact.targets === undefined || artifact.targets.length === 0
     ? saidOnce(artifact.path)
       ? ""
-      : artifact.path
+      : withLastWrite(artifact.path, regionModified(artifact, artifact.path))
     : artifact.targets
         .filter((target) => !saidOnce(target.path))
         .map((target) =>
-          target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
+          withLastWrite(
+            target.entryName === undefined ? target.path : `${target.path} (${target.entryName})`,
+            target.lastWrite === "modified" || regionModified(artifact, target.path),
+          ),
         )
         .join(", ");
+
+/** Marks a path whose planned rewrite replaces output edited since AXM last wrote it. */
+const withLastWrite = (label: string, modified: boolean): string =>
+  modified ? `${label} (modified since last write)` : label;
+
+/**
+ * Whether a managed region in the file at `path` was edited since AXM last
+ * wrote it. A region names its file from the workspace or in full, so the
+ * row's path may be the tail.
+ */
+const regionModified = (artifact: JobStepArtifact, path: string): boolean =>
+  (artifact.managedRegions ?? []).some((region) => {
+    if (region.lastWrite !== "modified") return false;
+    const file = region.path.split("#", 1)[0] ?? region.path;
+    return file === path || file.endsWith(`/${path}`);
+  });
 
 /** Whether a path is named once for the whole operation rather than on each row. */
 type SaidOnce = (path: string) => boolean;

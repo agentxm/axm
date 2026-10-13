@@ -1,4 +1,5 @@
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
@@ -7,6 +8,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 
 import { makeConfigurationFixture, type ConfigurationFixture } from "../testing.js";
 import { applyInstructionsRequest } from "./test-helpers.js";
@@ -16,7 +18,7 @@ export const specification = defineSpecification({
   title:
     "Enabling instruction-file management records the explicit choice and reconciles aliases together",
   statement:
-    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation.",
+    "When instruction-file management is enabled, AXM shall record the explicit choice and its source file in axm.json and shall reconcile the alias files and ignore regions it owns in the same operation. An alias copy is byte-identical to its source. A differing file at an alias path that AXM has no record of writing blocks the operation unless replacing unrecorded files is explicitly requested.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
@@ -74,7 +76,7 @@ describe("Enabling instruction-file management", () => {
             instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: true },
           });
           expect(fs.lstatSync(path.join(fixture.root, "CLAUDE.md")).isSymbolicLink()).toBe(true);
-          expect(fixture.readFile(".gitignore")).toContain("region=instruction-aliases");
+          expect(fixture.readFile(".gitignore")).toContain("# axm:instruction-aliases\n");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -142,14 +144,13 @@ describe("Enabling instruction-file management", () => {
   );
 
   // Supporting coverage for two rules this one depends on: a region whose
-  // ownership marker cannot be validated blocks reconciliation
+  // fences are malformed blocks reconciliation
   // (`cli/invalid-ownership-markers-block-reconciliation`), and a refused
   // request writes nothing (`cli/mutations-are-closure-atomic`).
   it.effect(
-    "refuses malformed ownership markers before changing settings or any affected alias",
+    "refuses malformed region fences before changing settings or any affected alias",
     () => {
-      const malformed =
-        "dist/\n# axm:start v=1 region=instruction-aliases ext=@agentxm/instructions/aliases\n/GEMINI.md\n";
+      const malformed = "dist/\n# axm:instruction-aliases\n/GEMINI.md\n";
       const fixture = gitManaged(
         {
           "AGENTS.md": "Preserved authored instructions.\n",
@@ -191,4 +192,42 @@ describe("Enabling instruction-file management", () => {
         .pipe(Effect.provide(NodeServices.layer));
     },
   );
+
+  for (const replaceUnrecorded of [false, true])
+    it.effect(
+      `${replaceUnrecorded ? "replaces" : "blocks on"} a differing alias AXM has no record of writing`,
+      () => {
+        const privateNotes = "Private notes AXM never wrote.\n";
+        const fixture = gitManaged({
+          "AGENTS.md": "Authored instructions.\n",
+          "CLAUDE.md": privateNotes,
+        });
+        const before = fixture.snapshot();
+        return fixture
+          .provide(
+            Effect.gen(function* () {
+              const outcome = yield* applyInstructionsRequest({
+                action: "enable",
+                fileName: "AGENTS.md",
+                gitignoreAliases: false,
+              }).pipe(Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded }));
+
+              if (replaceUnrecorded) {
+                expect(outcome).toMatchObject({ outcome: "applied" });
+                expect(fs.readlinkSync(path.join(fixture.root, "CLAUDE.md"))).toBe("AGENTS.md");
+              } else {
+                expect(outcome).toMatchObject({ outcome: "blocked" });
+                expect(
+                  "candidate" in outcome && Option.isSome(outcome.candidate.blocked)
+                    ? outcome.candidate.blocked.value.detail
+                    : "",
+                ).toContain("--replace-unrecorded");
+                expect(fixture.snapshot()).toEqual(before);
+                expect(fixture.readFile("CLAUDE.md")).toBe(privateNotes);
+              }
+            }),
+          )
+          .pipe(Effect.provide(NodeServices.layer));
+      },
+    );
 });

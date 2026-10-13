@@ -136,7 +136,7 @@ describe("withWorkspace settings gate", () => {
     fs.writeFileSync(path.join(projectDir, "axm.json"), JSON.stringify({ agents: [] }));
     fs.writeFileSync(
       path.join(projectDir, "axm-lock.yaml"),
-      "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+      "lockfileVersion: 12\npackages: {}\nskills: {}\n",
     );
     process.chdir(projectDir);
     process.env["HOME"] = userHome;

@@ -54,7 +54,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           fs.mkdirSync(path.join(fixture.selected, ".axm"));
           write(
             path.join(fixture.selected, "axm-lock.yaml"),
-            "# Authored baseline\r\nlockfileVersion: 11\r\npackages: {}\r\nskills: {}\r\n",
+            "# Authored baseline\r\nlockfileVersion: 12\r\npackages: {}\r\nskills: {}\r\n",
           );
         }
         const before = snapshotTree(fixture.selected);

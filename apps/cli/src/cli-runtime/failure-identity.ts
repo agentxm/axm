@@ -17,6 +17,7 @@ import { AppError } from "../app-error/index.js";
 import { isWorkspaceFailure } from "../app-error/failure-catalog.js";
 import { failureToAppError, toAppError } from "../app-error/conversions.js";
 import { OutputWriteFailed } from "../screen/streams.js";
+import { isClosedOutputPipe, outputFailureToAppError } from "./output-failure.js";
 import type { TelemetryFailurePhase } from "../telemetry/index.js";
 
 export interface FailureIdentity extends FailureDiagnostic {
@@ -104,12 +105,7 @@ export const handledFailureIdentity = (failure: unknown): FailureIdentity => {
     };
   }
   if (failure instanceof OutputWriteFailed) {
-    return {
-      kind: "output-write-failed",
-      operation: "runtime.output",
-      code: "internal",
-      handled: true,
-    };
+    return handledFailureIdentity(outputFailureToAppError(failure));
   }
   if (CliError.isCliError(failure)) {
     return {
@@ -169,6 +165,7 @@ export const processTerminalFailure = (
     });
   }
   const failure = Cause.squash(cause);
+  if (failure instanceof OutputWriteFailed && isClosedOutputPipe(failure)) return Option.none();
   if (CliError.isCliError(failure) && failure._tag === "ShowHelp" && failure.errors.length === 0) {
     return Option.none();
   }

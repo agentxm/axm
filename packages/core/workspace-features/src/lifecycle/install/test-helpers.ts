@@ -83,12 +83,11 @@ export const localLifecycleRows: ReadonlyArray<LocalLifecycleRow> = [
     canonicalFile: () => "src/RULE.md",
     expectRealized: (workspace, name) => {
       const instructions = workspace.readFile("AGENTS.md");
-      expect(instructions).toContain("region=rules");
-      expect(instructions).toContain(`@acme/rules/${name}`);
+      expect(instructions).toContain("<!-- axm:rules -->\n");
       expect(instructions).toContain(`Guidance for ${name}`);
     },
     expectUnrealized: (workspace, name) => {
-      expectFileLacksMarker(workspace, "AGENTS.md", `@acme/rules/${name}`);
+      expectFileLacksMarker(workspace, "AGENTS.md", `Guidance for ${name}`);
     },
   },
   {

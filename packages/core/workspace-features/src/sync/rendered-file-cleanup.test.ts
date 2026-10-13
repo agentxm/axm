@@ -8,24 +8,48 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import {
   CodingAgentRepository,
-  hasAxmManagedMarker,
+  projectionOutputDigest,
+  ProjectionOutputPosture,
   type CodingAgentRepositoryService,
   type AgentOutputAuthority,
 } from "@agentxm/workspace-kernel/projection";
+import {
+  LOCKFILE_VERSION,
+  ProjectionUnitPathSchema,
+  type Lockfile,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { codingAgentForId } from "@agentxm/workspace-kernel/agent-adapters";
 import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { reconcileAgentOutputs } from "@agentxm/workspace-kernel/reconciliation";
 import { applySync, previewSync, makeSyncFixture } from "../testing/sync-fixture.js";
 
-const AXM_MANAGED_MARKER =
+/** Old inline marker text: ordinary content that grants no ownership. */
+const OLD_MARKER_TEXT =
   "<!-- axm:file v=1 ext=@acme/subagents/test src=agent_extensions/@acme/subagents/test -->";
+
+/** A lockfile recording AXM's last write of each Subagent file. */
+const recordedSubagents = (rows: Readonly<Record<string, string>>): Lockfile => ({
+  lockfileVersion: LOCKFILE_VERSION,
+  skills: {},
+  projections: {
+    subagents: {
+      contract: 1,
+      units: Object.fromEntries(
+        Object.entries(rows).map(([unit, bytes]) => [
+          ProjectionUnitPathSchema.make(unit),
+          { output: projectionOutputDigest(bytes) },
+        ]),
+      ),
+    },
+  },
+});
 
 const outputAuthority = (overrides: Partial<AgentOutputAuthority>): AgentOutputAuthority => ({
   expectedRegions: { rule: [], knowledge: [] },
   expectedHooks: [],
   declaredMcpNames: new Set([]),
   expectedSkillSources: {},
-  expectedSubagentFiles: {},
+  expectedSubagentNames: new Set<string>(),
   ...overrides,
 });
 
@@ -76,7 +100,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
 
         const managedSubagent = path.join(cursorSubagents, "reviewer.md");
         const unmanagedSubagent = path.join(cursorSubagents, "manual.md");
-        fs.writeFileSync(managedSubagent, `${AXM_MANAGED_MARKER}\nsubagent body\n`);
+        fs.writeFileSync(managedSubagent, "subagent body\n");
         fs.writeFileSync(unmanagedSubagent, "# Manual subagent\n");
 
         const cursor = codingAgentForId("cursor");
@@ -90,17 +114,17 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const layer = Layer.mergeAll(
           NativeWriteAuthorityPermissive,
           NodeServices.layer,
-          WorkspaceReadTest({ baseDir: tempDir, runtimeDir: axmDir }),
+          WorkspaceReadTest({
+            baseDir: tempDir,
+            runtimeDir: axmDir,
+            lockfile: recordedSubagents({ ".cursor/agents/reviewer.md": "subagent body\n" }),
+          }),
           Layer.succeed(CodingAgentRepository, agentRepo),
         );
 
         const authority = outputAuthority({
           expectedSkillSources: { "code-review": [canonicalSkill] },
-          expectedSubagentFiles: {
-            reviewer: [
-              { ext: "@acme/subagents/test", src: "agent_extensions/@acme/subagents/test" },
-            ],
-          },
+          expectedSubagentNames: new Set(["reviewer"]),
         });
         const preview = yield* reconcileAgentOutputs({
           desiredAgentIds: new Set(),
@@ -136,6 +160,98 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         expect(fs.existsSync(managedSubagent)).toBe(false);
         expect(fs.existsSync(unmanagedSkill)).toBe(true);
         expect(fs.existsSync(unmanagedSubagent)).toBe(true);
+        expect(result.rowChanges).toEqual([
+          { kind: "subagents", path: ".cursor/agents/reviewer.md", row: undefined },
+        ]);
+      } finally {
+        fs.rmSync(tempDir, { recursive: true, force: true });
+      }
+    }),
+  );
+
+  it.effect.each([
+    {
+      case: "modified",
+      discardModified: false,
+      posture: { discardModified: false },
+      removed: false,
+      withdrawn: true,
+      warning: "; rerun with --discard-modified to delete it",
+    },
+    {
+      case: "modified on a command without --discard-modified",
+      discardModified: false,
+      posture: {},
+      removed: false,
+      withdrawn: true,
+      warning: "",
+    },
+    {
+      case: "modified with --discard-modified",
+      discardModified: true,
+      posture: { discardModified: true },
+      removed: true,
+      withdrawn: true,
+      warning: undefined,
+    },
+    {
+      case: "unrecorded",
+      discardModified: true,
+      posture: { discardModified: true },
+      removed: false,
+      withdrawn: false,
+      warning: undefined,
+    },
+  ])("applies the deletion guard to $case Subagent residue", (row) =>
+    Effect.gen(function* () {
+      const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "axm-agent-cleanup-guard-"));
+      try {
+        const subagents = path.join(tempDir, ".cursor", "agents");
+        fs.mkdirSync(subagents, { recursive: true });
+        const file = path.join(subagents, "reviewer.md");
+        fs.writeFileSync(file, "Hand-edited reviewer\n");
+        const cursor = codingAgentForId("cursor");
+        const layer = Layer.mergeAll(
+          NativeWriteAuthorityPermissive,
+          NodeServices.layer,
+          WorkspaceReadTest({
+            baseDir: tempDir,
+            runtimeDir: path.join(tempDir, ".axm"),
+            ...(row.case === "unrecorded"
+              ? {}
+              : {
+                  lockfile: recordedSubagents({
+                    ".cursor/agents/reviewer.md": "AXM-written reviewer\n",
+                  }),
+                }),
+          }),
+          Layer.succeed(CodingAgentRepository, {
+            get: () => Effect.succeed(cursor),
+            all: Effect.succeed([cursor]),
+            getConfiguredAgents: () => Effect.succeed([]),
+            getMaterializationAgents: () => Effect.succeed([]),
+            getUnknownConfiguredAgentIds: () => Effect.succeed([]),
+          } satisfies CodingAgentRepositoryService),
+        );
+        const result = yield* reconcileAgentOutputs({
+          desiredAgentIds: new Set(),
+          expectedNames: expectedNames(),
+          authority: outputAuthority({ expectedSubagentNames: new Set(["reviewer"]) }),
+          discardModified: row.discardModified,
+        }).pipe(Effect.provide(layer), Effect.provideService(ProjectionOutputPosture, row.posture));
+        expect(fs.existsSync(file)).toBe(!row.removed);
+        expect(result.removedPaths).toEqual(row.removed ? [file] : []);
+        expect(result.rowChanges).toEqual(
+          row.withdrawn
+            ? [{ kind: "subagents", path: ".cursor/agents/reviewer.md", row: undefined }]
+            : [],
+        );
+        // The warning names the flag only when the command offers it.
+        expect(result.warnings).toEqual(
+          row.warning === undefined
+            ? []
+            : [`Retained ${file}, modified since AXM last wrote it${row.warning}`],
+        );
       } finally {
         fs.rmSync(tempDir, { recursive: true, force: true });
       }
@@ -156,7 +272,7 @@ describe("cleanupManagedArtifactsForRemovedAgents", () => {
         const instructionFile = path.join(tempDir, "AGENTS.md");
         const renderedRule = path.join(rulesDir, "style.md");
         for (const file of [instructionFile, renderedRule]) {
-          fs.writeFileSync(file, `${AXM_MANAGED_MARKER}\nbody\n`);
+          fs.writeFileSync(file, `${OLD_MARKER_TEXT}\nbody\n`);
         }
 
         const cursor = codingAgentForId("cursor");
@@ -312,7 +428,7 @@ describe("cleanupManagedArtifactsForRemovedAgents MCP and hook artifacts", () =>
     ],
     declaredMcpNames: new Set([]),
     expectedSkillSources: {},
-    expectedSubagentFiles: {},
+    expectedSubagentNames: new Set<string>(),
   };
 
   const makeClaudeCodeLayer = (tempDir: string) => {
@@ -592,6 +708,8 @@ describe("authored skill cleanup exclusion", () => {
                 removedPaths: [],
                 preservedPaths: [],
                 nativeLocations: [],
+                rowChanges: [],
+                warnings: [],
               });
               yield* previewSync();
               expect(workspace.snapshot()).toEqual(before);
@@ -610,18 +728,4 @@ describe("authored skill cleanup exclusion", () => {
       }).pipe(Effect.provide(NodeServices.layer)),
     { timeout: 15_000 },
   );
-});
-
-describe("hasAxmManagedMarker", () => {
-  it("matches the full managed-file banner", () => {
-    expect(hasAxmManagedMarker(AXM_MANAGED_MARKER)).toBe(true);
-    expect(hasAxmManagedMarker('{"_axm_managed": true}')).toBe(false);
-  });
-
-  it("does not match a user file that merely mentions the phrase", () => {
-    // A user-authored subagent file that references "AXM managed" (e.g.
-    // documentation) must not be treated as a managed artifact and deleted.
-    expect(hasAxmManagedMarker("# Notes on how AXM managed extensions work")).toBe(false);
-    expect(hasAxmManagedMarker("This skill explains AXM managed regions.")).toBe(false);
-  });
 });

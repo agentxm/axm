@@ -58,10 +58,9 @@ describe("Instruction aliases follow shared-surface writes", () => {
     const workspace = workspaceWithAuthoredExtension({ type, name: "review", enabled: false });
     cleanups.push(workspace.cleanup);
     configureInstructions(workspace);
-    workspace.writeFile(
-      "CLAUDE.md",
-      "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
-    );
+    // An unrecorded alias copy identical to its source: the shared-surface
+    // write records it before changing the source, so it may refresh it.
+    workspace.writeFile("CLAUDE.md", workspace.readFile("AGENTS.md"));
     return workspace
       .provide(
         Effect.gen(function* () {
@@ -69,9 +68,8 @@ describe("Instruction aliases follow shared-surface writes", () => {
           expect(result._tag === "Resolved" ? result.outcome : result._tag).toBe("applied");
           const canonical = workspace.readFile("AGENTS.md");
           const alias = workspace.readFile("CLAUDE.md");
-          expect(canonical).toContain("region=knowledge");
-          expect(alias).toContain(canonical.trim());
-          expect(alias).not.toContain("# Old copy");
+          expect(canonical).toContain("<!-- axm:knowledge -->\n");
+          expect(alias).toBe(canonical);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

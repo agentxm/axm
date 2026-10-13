@@ -652,7 +652,9 @@ describe("withCliErrorHandling cancellation", () => {
           command: "test",
           format: "text",
         }).pipe(Effect.exit);
-        expect(exit).toEqual(Exit.succeed(processOutcome(ExitCode.Internal)));
+        expect(exit).toEqual(
+          Exit.succeed(processOutcome(output === "expected-error" ? ExitCode.Conflict : 141)),
+        );
         expect(stdoutWrites.length + stderrWrites.length).toBe(1);
         expect(stdoutWrites.concat(stderrWrites).join("")).not.toContain("sensitive stream detail");
       }).pipe(

@@ -1,4 +1,4 @@
-lockfileVersion: 11
+lockfileVersion: 12
 packages:
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","devops-docs"]':
     source:
@@ -420,3 +420,37 @@ packs:
     dependencies:
       "@craigsmitham/skills/manage-work-items": ">=0.2.0"
       "@craigsmitham/knowledge/product-engineering": ">=2.0.0"
+projections:
+  subagents:
+    contract: 1
+    units:
+      .claude/agents/researcher.md:
+        gen: sha256:e7154b9cc3e1182dc2a1c233e3bfe5b6f86ad841fb07d344d941ae8208c4561a
+        output: sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc
+      .codex/agents/researcher.toml:
+        gen: sha256:79f3a4d16bf35c188e158242dac28aef07d76744bce6f8aa9d3892bc805f6f8e
+        output: sha256:7e00757fbacb261923e9020b1634e4ebdd3a07fc5e8f000749b876f779a3f1da
+      .grok/agents/researcher.md:
+        gen: sha256:91f1aae5b1384836218c005850d6b44b5df48a9ea3ba7caad97953d3ff90e575
+        output: sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc
+      .opencode/agents/researcher.md:
+        gen: sha256:49b1327aea4694d6060fd472ad298ef8c6e4274f115ca34aec4bc083a8d6378c
+        output: sha256:1aa6b58af83b28dca4d05c9f493efc7bcc101f2a0624e5a6d1c2b968a3ac43bc
+  rules:
+    contract: 1
+    units:
+      AGENTS.md:
+        gen: sha256:3a50ccbd560497484bf382d3dca7b137816e4f070125b5a40b346d3b6c67d603
+        output: sha256:bf301ad83fddb38ab87f210df162d7446784f6a53315d66a4b3f1cd3b9f1448b
+  knowledge:
+    contract: 1
+    units:
+      AGENTS.md:
+        gen: sha256:67740c641fa0ffdd50765d3ba593e495bce97174661887fbd061a9aa14cac9af
+        output: sha256:ff30f29c1d859562c2ebb4bc0c8a8bf8a05b07aa616b9e3feb26d8f66f8f4e62
+  instructions:
+    contract: 1
+    units:
+      .gitignore:
+        gen: sha256:39065cd41c1abc152f85e9a3f2ac45671a3b358d4d93231581a7f2dc98ef20b4
+        output: sha256:33a01c811f5271907f7d3b1a4fe8fa316aedbce40a349a59133b102cc0b54cac

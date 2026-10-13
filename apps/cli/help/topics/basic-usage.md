@@ -2,11 +2,11 @@
 
 AXM is the agent extension manager for coding agents and AI assistants.
 
-<!-- axm:generated:extension-type-list -->
+<!-- axm:extension-type-list -->
 
 AXM manages skills, MCP servers, subagents, rules, hook extensions, knowledge bundles, and packs.
 
-<!-- /axm:generated -->
+<!-- /axm:extension-type-list -->
 
 - One tool to manage every extension type above across every configured agent.
 - Bundle compatible extension types with packs

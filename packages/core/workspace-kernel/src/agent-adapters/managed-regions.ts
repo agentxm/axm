@@ -1,189 +1,207 @@
 /**
- * Pure text reconciliation for AXM-owned regions inside agent-native files.
+ * Pure text reconciliation for AXM regions inside human-authored files.
  *
- * The grammar and the byte-level edit live here because they are native
- * format mechanics; which region an extension owns, when it is written, and
- * how the write is protected are projection decisions owned by core.
+ * A region is the opaque body between a name-only open fence and its close
+ * fence. The grammar and the byte-level edit live here because they are
+ * native format mechanics; which file may carry a region, when it is written,
+ * and how the write is protected are projection decisions owned by core.
  *
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import {
-  MARKER_KIND_END,
-  MARKER_KIND_START,
-  MARKER_VERSION,
-  parseMarker,
-  sameRegionIdentity,
-  serializeMarker,
-  type FileCommentStyle,
-  type RegionMarker,
+  isRegionName,
+  scanFences,
+  serializeFence,
+  type FenceLine,
+  type FenceSyntax,
   type RegionName,
-} from "./managed-markers.js";
+} from "./region-fences.js";
+
+export type ManagedRegionProblem = "duplicate" | "unpaired" | "nested" | "interleaved";
 
 export type ManagedRegionState =
   | { readonly state: "absent"; readonly reasonCode: "managed-region-absent" }
   | {
       readonly state: "complete";
       readonly reasonCode: "managed-region-complete";
-      readonly start: number;
-      readonly end: number;
-      readonly lines: ReadonlyArray<string>;
+      readonly open: FenceLine;
+      readonly close: FenceLine;
+      /** Exact bytes between the open fence's terminator and the close fence. */
       readonly body: string;
-      readonly startMarker: RegionMarker;
     }
   | {
       readonly state: "malformed";
       readonly reasonCode: "managed-region-malformed";
-      readonly message: string;
-    }
-  | {
-      readonly state: "unsupported-version";
-      readonly reasonCode: "managed-region-unsupported-version";
+      readonly problem: ManagedRegionProblem;
+      readonly region: RegionName;
       readonly message: string;
     };
 
-const splitLines = (content: string): ReadonlyArray<string> => content.split(/\r?\n/u);
-const detectEol = (content: string): "\r\n" | "\n" => (content.includes("\r\n") ? "\r\n" : "\n");
+export type WritableManagedRegionState = Exclude<
+  ManagedRegionState,
+  { readonly state: "malformed" }
+>;
 
-/** Inspect one region without guessing through duplicate, nested, or unpaired markers. */
+const malformed = (region: RegionName, problem: ManagedRegionProblem): ManagedRegionState => ({
+  state: "malformed",
+  reasonCode: "managed-region-malformed",
+  problem,
+  region,
+  message: `AXM region "${region}" has ${problem} fences`,
+});
+
+interface RegionSpan {
+  readonly open: FenceLine;
+  readonly close: FenceLine;
+}
+
+/**
+ * Pair every vocabulary fence in the file. Any malformed vocabulary fence
+ * blocks every region write in the file, so the first problem is returned.
+ */
+const pairFences = (
+  content: string,
+  syntax: FenceSyntax,
+):
+  | { readonly ok: true; readonly spans: ReadonlyMap<RegionName, RegionSpan> }
+  | { readonly ok: false; readonly state: ManagedRegionState } => {
+  const spans = new Map<RegionName, RegionSpan>();
+  let openFence: { readonly fence: FenceLine; readonly name: RegionName } | undefined;
+  for (const fence of scanFences(content, syntax)) {
+    const name = fence.name;
+    if (!isRegionName(name)) continue;
+    if (fence.edge === "open") {
+      if (openFence !== undefined)
+        return {
+          ok: false,
+          state: malformed(openFence.name, openFence.name === name ? "nested" : "interleaved"),
+        };
+      openFence = { fence, name };
+      continue;
+    }
+    if (openFence === undefined) return { ok: false, state: malformed(name, "unpaired") };
+    if (openFence.name !== name)
+      return { ok: false, state: malformed(openFence.name, "interleaved") };
+    if (spans.has(name)) return { ok: false, state: malformed(name, "duplicate") };
+    spans.set(name, { open: openFence.fence, close: fence });
+    openFence = undefined;
+  }
+  return openFence === undefined
+    ? { ok: true, spans }
+    : { ok: false, state: malformed(openFence.name, "unpaired") };
+};
+
+/** Inspect one region without guessing through duplicate, nested, interleaved or unpaired fences. */
 export const inspectManagedRegion = (
   content: string,
   region: RegionName,
-  style: FileCommentStyle,
+  syntax: FenceSyntax,
 ): ManagedRegionState => {
-  const lines = splitLines(content);
-  const matches: Array<{
-    readonly index: number;
-    readonly marker: RegionMarker;
-  }> = [];
-  for (const [index, line] of lines.entries()) {
-    const parsed = parseMarker(line, style);
-    if (parsed.state === "unsupported-version") {
-      return {
-        state: "unsupported-version",
-        reasonCode: "managed-region-unsupported-version",
-        message: parsed.message,
+  const paired = pairFences(content, syntax);
+  if (!paired.ok) return paired.state;
+  const span = paired.spans.get(region);
+  return span === undefined
+    ? { state: "absent", reasonCode: "managed-region-absent" }
+    : {
+        state: "complete",
+        reasonCode: "managed-region-complete",
+        open: span.open,
+        close: span.close,
+        body: content.slice(span.open.end, span.close.start),
       };
-    }
-    if (parsed.state === "malformed") {
-      return {
-        state: "malformed",
-        reasonCode: "managed-region-malformed",
-        message: parsed.message,
-      };
-    }
-    if (parsed.state === "complete" && sameRegionIdentity(parsed.marker, region)) {
-      matches.push({ index, marker: parsed.marker });
-    }
-  }
-  if (matches.length === 0) {
-    return { state: "absent", reasonCode: "managed-region-absent" };
-  }
-  const start = matches[0];
-  const end = matches[1];
-  if (
-    matches.length !== 2 ||
-    start === undefined ||
-    end === undefined ||
-    start.marker.kind !== MARKER_KIND_START ||
-    end.marker.kind !== MARKER_KIND_END ||
-    start.index >= end.index
-  ) {
-    return {
-      state: "malformed",
-      reasonCode: "managed-region-malformed",
-      message: `AXM managed region ${region} has duplicate, nested, or unpaired markers`,
-    };
-  }
-  return {
-    state: "complete",
-    reasonCode: "managed-region-complete",
-    start: start.index,
-    end: end.index,
-    lines,
-    body: lines.slice(start.index + 1, end.index).join("\n"),
-    startMarker: start.marker,
-  };
 };
 
-const lineOffset = (content: string, line: number): number => {
-  let offset = 0;
-  for (let index = 0; index < line; index += 1) {
-    const newline = content.indexOf("\n", offset);
-    if (newline < 0) return content.length;
-    offset = newline + 1;
-  }
-  return offset;
+const detectEol = (content: string): "\r\n" | "\n" => (content.includes("\r\n") ? "\r\n" : "\n");
+
+const terminatorOf = (content: string, fence: FenceLine): string => {
+  const line = content.slice(fence.start, fence.end);
+  return line.endsWith("\r\n") ? "\r\n" : line.endsWith("\n") ? "\n" : "";
 };
 
-const replaceRegionBytes = (
-  content: string,
-  state: Extract<ManagedRegionState, { readonly state: "complete" }>,
-  replacement: string,
-): string => {
-  const start = lineOffset(content, state.start);
-  const endLine = lineOffset(content, state.end);
-  const newline = content.indexOf("\n", endLine);
-  const end = newline < 0 ? content.length : newline + 1;
-  const terminator = newline < 0 ? "" : content[newline - 1] === "\r" ? "\r\n" : "\n";
-  return (
-    content.slice(0, start) +
-    replacement +
-    (replacement.length === 0 ? "" : terminator) +
-    content.slice(end)
-  );
+const terminated = (body: string, eol: string): string => {
+  const lines = body.split(/\r?\n/u);
+  if (lines.at(-1) === "") lines.pop();
+  return lines.map((line) => `${line}${eol}`).join("");
 };
 
+/**
+ * Render the file with `body` as the region's whole content; an empty body
+ * withdraws the region. `None` means there is nothing to write: the region is
+ * absent and the body empty. The renderer makes no currency decision; it
+ * always writes the canonical fences around the requested body.
+ */
 export const renderManagedRegion = (args: {
   readonly content: string;
-  readonly state: ManagedRegionState;
+  readonly state: WritableManagedRegionState;
   readonly region: RegionName;
-  readonly owner: string;
-  readonly rendered: string;
-  readonly style: FileCommentStyle;
-  readonly generation?: string;
-  readonly source?: string;
-}): string => {
-  if (args.state.state === "malformed" || args.state.state === "unsupported-version") {
-    return args.content;
+  readonly syntax: FenceSyntax;
+  readonly body: string;
+}): Option.Option<{ readonly content: string }> => {
+  const { content, state } = args;
+  const eol = detectEol(content);
+  const open = serializeFence(args.region, "open", args.syntax);
+  const close = serializeFence(args.region, "close", args.syntax);
+  if (args.body.length === 0) {
+    return state.state === "absent"
+      ? Option.none()
+      : Option.some({
+          content: content.slice(0, state.open.start) + content.slice(state.close.end),
+        });
   }
-  const eol = detectEol(args.content);
-  if (args.rendered.length === 0) {
-    if (args.state.state === "absent") return args.content;
-    return replaceRegionBytes(args.content, args.state, "");
+  const unit = `${open}${eol}${terminated(args.body, eol)}${close}`;
+  if (state.state === "absent") {
+    const separator = content.length === 0 || content.endsWith("\n") ? "" : eol;
+    return Option.some({ content: `${content}${separator}${unit}${eol}` });
   }
-  const start = serializeMarker(
-    {
-      kind: MARKER_KIND_START,
-      v: MARKER_VERSION,
-      region: args.region,
-      ext: args.owner,
-      ...(args.source === undefined ? {} : { src: args.source }),
-      ...(args.generation === undefined ? {} : { generation: args.generation }),
-    },
-    args.style,
-  );
-  const end = serializeMarker(
-    { kind: MARKER_KIND_END, v: MARKER_VERSION, region: args.region },
-    args.style,
-  );
-  const replacement = [start, ...splitLines(args.rendered), end];
-  if (args.state.state === "absent") {
-    const separator = args.content.length === 0 || args.content.endsWith("\n") ? "" : eol;
-    return `${args.content}${separator}${replacement.join(eol)}${eol}`;
+  const openTerminator = terminatorOf(content, state.open) || eol;
+  const closeTerminator = terminatorOf(content, state.close) || eol;
+  return Option.some({
+    content:
+      content.slice(0, state.open.start) +
+      `${open}${openTerminator}${terminated(args.body, eol)}${close}${closeTerminator}` +
+      content.slice(state.close.end),
+  });
+};
+
+/**
+ * Post-condition of a region render: the rendered region is complete (or
+ * absent after a withdrawal), and every other vocabulary region in the file
+ * keeps its state. A body that would break the fences, such as one that opens
+ * an unclosed code block, fails here instead of being written.
+ */
+export const verifyRenderedRegion = (args: {
+  readonly before: string;
+  readonly after: string;
+  readonly region: RegionName;
+  readonly syntax: FenceSyntax;
+  readonly withdrawn: boolean;
+}): Result.Result<WritableManagedRegionState, string> => {
+  const state = inspectManagedRegion(args.after, args.region, args.syntax);
+  const expected = args.withdrawn ? "absent" : "complete";
+  if (state.state !== expected)
+    return Result.fail(
+      state.state === "malformed"
+        ? `rendering the region would leave ${state.message}`
+        : `rendering the region would leave it ${state.state}`,
+    );
+  for (const other of [
+    ...new Set(
+      scanFences(args.before, args.syntax)
+        .map((fence) => fence.name)
+        .filter(isRegionName),
+    ),
+  ]) {
+    if (other === args.region) continue;
+    const prior = inspectManagedRegion(args.before, other, args.syntax);
+    const next = inspectManagedRegion(args.after, other, args.syntax);
+    if (
+      prior.state !== next.state ||
+      (prior.state === "complete" && next.state === "complete" && prior.body !== next.body)
+    )
+      return Result.fail(`rendering the region would change region "${other}"`);
   }
-  const currentStart = args.state.lines[args.state.start];
-  const currentEnd = args.state.lines[args.state.end];
-  const bodyIsCurrent =
-    args.generation === undefined
-      ? args.state.body === args.rendered
-      : args.state.startMarker.ext === args.owner &&
-        (args.source === undefined || args.state.startMarker.src === args.source) &&
-        args.state.startMarker.generation === args.generation;
-  const markersAreCurrent =
-    args.generation === undefined ? currentStart === start && currentEnd === end : true;
-  if (markersAreCurrent && bodyIsCurrent) {
-    return args.content;
-  }
-  return replaceRegionBytes(args.content, args.state, replacement.join(eol));
+  return Result.succeed(state);
 };

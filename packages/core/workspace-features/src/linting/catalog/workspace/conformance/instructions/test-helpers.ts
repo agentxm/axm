@@ -72,6 +72,10 @@ export const instructionContext = (args: {
           witnesses: [],
           plan: { roots: [instructionRoot], items: [] },
           symlinkSupported: true,
+          rows: new Map(),
+          orphanRows: [],
+          replaceUnrecorded: false,
+          discardModified: false,
           status: baseInstructionStatus,
           gitignore: args.gitignore ?? currentGitignore,
         })
@@ -83,6 +87,10 @@ export const instructionContext = (args: {
           witnesses: [],
           plan: { roots: status.roots, items: [] },
           symlinkSupported: true,
+          rows: new Map(),
+          orphanRows: [],
+          replaceUnrecorded: false,
+          discardModified: false,
           status,
           gitignore: args.gitignore ?? currentGitignore,
         }));
@@ -173,7 +181,7 @@ export const instructionsTargetUnownedConformance: WorkspaceRuleConformanceCase 
   expectedFindings: [
     {
       message:
-        "An unowned file occupies the Claude Code instruction target; AXM will not modify it. Preserve any unique content in the canonical instruction file, then move the conflicting target aside and run `axm sync`. First-time setup can replace only the identical file used to seed its canonical source.",
+        "An unowned file occupies the Claude Code instruction target; AXM will not modify it. Preserve any unique content in the canonical instruction file, then move the conflicting target aside and run `axm sync`, or run `axm sync --replace-unrecorded` to replace it.",
       location: { file: "CLAUDE.md" },
     },
   ],

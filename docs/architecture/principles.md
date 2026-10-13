@@ -95,7 +95,7 @@ specification `cli/install/preserves-unrelated-and-unowned-state`, together
 with the whole-surface workspace specifications
 `cli/invalid-ownership-markers-block-reconciliation`,
 `cli/installed-state-stays-in-selected-scope`, and
-`cli/managed-projection-guidance-respects-authority`. The
+`cli/help/projection-guidance-names-fork-or-source`. The
 [specification catalog](../../specifications/catalog.md) resolves each identity
 to the project and file that own it. The rest of this section elaborates that
 boundary.

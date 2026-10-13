@@ -31,7 +31,7 @@ const topicFiles = fs
   .filter((file) => file.endsWith(".md"))
   .sort((a, b) => a.localeCompare(b));
 
-// Topic sources carry `axm:generated` region markers so the enumeration
+// Topic sources carry build-time `axm:<name>` region fences so the enumeration
 // generator knows what it owns. They are plumbing, not documentation, so they
 // are stripped before the topic reaches a reader.
 const markdownTopics = topicFiles.map((file): HelpTopic => {

@@ -23,9 +23,11 @@ export interface InstructionSourceChoice {
 /**
  * What setup would do to one target: write it anew, change it, leave one that
  * already agrees, link or copy an agent's instruction file to the shared
- * source, or pass over an agent that has no instruction convention.
+ * source, pass over an agent that has no instruction convention, or refuse a
+ * target whose differing content AXM has no record of writing.
  */
-export type SetupPlanAction = "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove";
+export type SetupPlanAction =
+  "create" | "update" | "in sync" | "link" | "copy" | "skip" | "remove" | "blocked";
 
 /** Structured facts the presenting adapter turns into setup-plan wording. */
 export type SetupPlanDetail =
@@ -36,7 +38,8 @@ export type SetupPlanDetail =
       readonly _tag: "instructionTarget";
       readonly agentName: string;
       readonly seededAlias?: boolean;
-      readonly preserved?: boolean;
+      /** A differing file AXM has no record of writing occupies the target. */
+      readonly blocked?: boolean;
     }
   | { readonly _tag: "missingInstructionConvention" }
   | { readonly _tag: "acceptedResolution" }

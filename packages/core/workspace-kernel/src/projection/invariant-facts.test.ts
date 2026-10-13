@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
   makeProjectionInvariantFact,
+  projectionFactHasInvalidOwnership,
   projectionFactIsViolation,
   type ProjectionInvariantFact,
 } from "./invariant-facts.js";
@@ -84,7 +85,7 @@ describe("projection invariant facts", () => {
     expect(statuses).toEqual(["missing", "stale", "obsolete", "current"]);
   });
 
-  it("treats an unsupported marker version as a reportable unavailable unit", () => {
+  it("treats malformed region fences as a blocking unavailable unit, not drift", () => {
     const fact: ProjectionInvariantFact = {
       predicate: "workspace/projection-current",
       subject: {
@@ -97,11 +98,13 @@ describe("projection invariant facts", () => {
       observation: {
         status: "unavailable",
         contributors: [],
-        reasonCode: "unsupported-version",
-        message: "Marker version 2 is unsupported; upgrade AXM.",
+        reasonCode: "invalid-ownership",
+        message:
+          'AXM cannot safely update its section in AGENTS.md: AXM region "rules" has unpaired fences',
       },
       expectation: { status: "current", contributors: [] },
     };
-    expect(projectionFactIsViolation(fact)).toBe(true);
+    expect(projectionFactIsViolation(fact)).toBe(false);
+    expect(projectionFactHasInvalidOwnership(fact)).toBe(true);
   });
 });

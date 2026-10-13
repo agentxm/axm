@@ -90,32 +90,32 @@ export {
   type ResolveSkillsDirOutcome,
   type ResolveSubagentsDirArgs,
   type ResolveSubagentsDirOutcome,
+  type SubagentRemovalDecision,
   type SubagentSyncOutcome,
+  type SubagentWriteDecision,
 } from "./agents/coding-agent.js";
 export { codingAgentForId, codingAgentFromDescriptor } from "./agents/adapters.js";
 
-// Ownership marker grammar and pure managed-region edits
+// Region fence grammar and pure managed-region edits
 export {
-  commentStyleForTarget,
-  markerForFile,
-  MARKER_KIND_END,
-  MARKER_KIND_FILE,
-  MARKER_KIND_POINT,
-  MARKER_KIND_START,
-  MARKER_VERSION,
-  parseMarker,
-  sameRegionIdentity,
-  serializeMarker,
-  type FileCommentStyle,
-  type ManagedMarker,
-  type MarkerParseResult,
-  type RegionMarker,
+  FENCE_TEXT,
+  fenceSyntaxForTarget,
+  isRegionName,
+  REGION_NAMES,
+  scanFences,
+  scanUnknownFences,
+  serializeFence,
+  type FenceLine,
+  type FenceSyntax,
   type RegionName,
-} from "./managed-markers.js";
+} from "./region-fences.js";
 export {
   inspectManagedRegion,
   renderManagedRegion,
+  verifyRenderedRegion,
+  type ManagedRegionProblem,
   type ManagedRegionState,
+  type WritableManagedRegionState,
 } from "./managed-regions.js";
 export {
   reconcilePatternList,
@@ -137,7 +137,6 @@ export {
 } from "./subagents/rendering/index.js";
 export {
   type LossyRenderingWarning,
-  type OwnershipBannerText,
   type SubagentRendered,
   type SubagentRenderer,
   type SubagentRenderInput,
@@ -146,7 +145,6 @@ export {
   type SubagentSkipped,
 } from "./subagents/rendering/types.js";
 export {
-  nativeSubagentMarker,
   addSubagentViaResolve,
   dirOutcomeToSubagentSyncOutcome,
   removeSubagentFiles,

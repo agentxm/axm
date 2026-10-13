@@ -71,7 +71,7 @@ const makeInlineWorkspace = () => {
   );
   fs.writeFileSync(
     path.join(root, "axm-lock.yaml"),
-    "lockfileVersion: 11\npackages: {}\nskills: {}\n",
+    "lockfileVersion: 12\npackages: {}\nskills: {}\n",
   );
   return {
     root,

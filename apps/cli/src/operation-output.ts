@@ -106,6 +106,13 @@ export const AgentCoverageSchema = Schema.Struct({
 });
 export type AgentCoverage = typeof AgentCoverageSchema.Type;
 
+const LastWriteSchema = Schema.Literals(["matches", "modified", "unrecorded"]).annotate({
+  identifier: "LastWrite",
+  title: "Last Write Comparison",
+  description:
+    "How the bytes a planned rewrite or removal replaces compare with what AXM last recorded writing: `matches` (unchanged since), `modified` (edited since AXM last wrote it), or `unrecorded` (AXM has no record of writing it). Informational; never currency.",
+});
+
 const StepArtifactTargetSchema = Schema.Struct({
   path: Schema.String,
   change: ArtifactChangeSchema,
@@ -113,6 +120,7 @@ const StepArtifactTargetSchema = Schema.Struct({
   unitId: Schema.optional(Schema.String),
   owner: Schema.optional(Schema.String),
   entryName: Schema.optional(Schema.String),
+  lastWrite: Schema.optional(LastWriteSchema),
 }).annotate({
   identifier: "StepArtifactTarget",
   title: "Plan Step Artifact Target",
@@ -135,10 +143,12 @@ const StepManagedRegionSchema = Schema.Struct({
   unitId: Schema.String,
   path: Schema.String,
   owner: Schema.String,
+  lastWrite: Schema.optional(LastWriteSchema),
 }).annotate({
   identifier: "StepManagedRegion",
   title: "Plan Step Managed Region",
-  description: "One managed-region ownership unit and its provenance owner.",
+  description:
+    "One managed-region ownership unit and its owning projection unit from the desired graph.",
 });
 
 const StepArtifactReferenceSchema = Schema.Struct({

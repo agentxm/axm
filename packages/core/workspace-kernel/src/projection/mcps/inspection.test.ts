@@ -241,7 +241,6 @@ describe("agent MCP config inspection", () => {
           writeFileSync(
             nodePath.join(configDir, "config.toml"),
             [
-              "# axm:start v=1 region=mcp-server:context ext=@agentxm/mcps/context",
               "[mcp_servers.context]",
               'args = ["-y", "@acme/context-mcp"]',
               'command = "npx"',
@@ -249,7 +248,6 @@ describe("agent MCP config inspection", () => {
               "",
               "[mcp_servers.context.env]",
               'ACME_REGION = "west"',
-              "# axm:end v=1 region=mcp-server:context ext=@agentxm/mcps/context",
               "",
             ].join("\n"),
           );
@@ -279,7 +277,6 @@ describe("agent MCP config inspection", () => {
         );
         try {
           writeCodexConfig(workspaceRoot, [
-            "# axm:start v=1 region=mcp-server:context ext=@acme/mcps/context",
             "[mcp_servers.context]",
             'url = "https://mcp.acme.test/mcp"',
             "enabled = true",
@@ -290,7 +287,6 @@ describe("agent MCP config inspection", () => {
             'ext = "@acme/mcps/context"',
             'source = "registry"',
             'ref = "@acme/mcps/context"',
-            "# axm:end v=1 region=mcp-server:context ext=@acme/mcps/context",
           ]);
 
           const result = yield* inspectAgentMcpServer({

@@ -20,6 +20,7 @@
 | 15   | auth_denied   | A person denied or cancelled a pending authentication flow.                                                                                                                                             |
 | 16   | timeout       | A bounded operation did not complete before its deadline, including a caller-selected wait.                                                                                                             |
 | 130  |               | Interrupted by SIGINT. Local candidate-wide transactions roll back before AXM exits.                                                                                                                    |
+| 141  |               | Output consumer closed the pipe. Output delivery was cancelled.                                                                                                                                         |
 | 143  |               | Terminated by SIGTERM. Local candidate-wide transactions roll back before AXM exits.                                                                                                                    |
 
 `axm sync --preview --fail-on-change` uses code 1 only when planning succeeds

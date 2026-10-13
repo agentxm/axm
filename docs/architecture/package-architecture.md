@@ -237,7 +237,7 @@ on the module that writes the unit.
 
 `workspace-kernel/agent-adapters` owns installed-agent detection and the
 native format mechanics used by projection: coding-agent adapters, subagent
-rendering, MCP configuration, hook-group editing, ownership markers, and the
+rendering, MCP configuration, hook-group editing, region fences, and the
 YAML, TOML, and JSON codecs used by those writers. Its inputs are plain data,
 and native writes use the `NativeWriteAuthority` port so the enclosing workspace
 transaction protects and records every target.

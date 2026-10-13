@@ -67,6 +67,7 @@ import {
   type ConfiguredAgentOperation,
   type PlanExecution,
 } from "../../operations/index.js";
+import { ProjectionOutputPosture, REPLACE_UNRECORDED_FLAG } from "../../projection/index.js";
 import { preflightPackagePlacement } from "./package-placement.js";
 import { applyPlan } from "./apply-plan.js";
 import {
@@ -1381,6 +1382,22 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
   const firstFailed = restoringPlan
     ? executedResolved.find((unit) => unit.state === "failed")
     : undefined;
+  // An unrecorded file at a planned projection path is refused unless the
+  // operator replaces it; the recovery replays this invocation with the
+  // override, and only on a command that offers it.
+  const outputPosture = yield* ProjectionOutputPosture;
+  const failureSuggestions =
+    firstFailed?.error === undefined
+      ? undefined
+      : firstFailed.error.problem?.code === "projection-output-unrecorded" &&
+          outputPosture.replaceUnrecorded === false
+        ? [
+            ...namedPolicyRecoverySuggestions(applyExecution.approvalRecovery, [
+              REPLACE_UNRECORDED_FLAG,
+            ]),
+            ...(firstFailed.error.suggestions ?? []),
+          ]
+        : firstFailed.error.suggestions;
   // The operation-level failure names the unit's settled message and keeps
   // everything else the unit's rendered failure states, so the operation
   // reports the same title, problem, evidence, and recoveries a command
@@ -1396,7 +1413,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
           metadata: firstFailed.error.metadata,
           retryable: firstFailed.error.retryable,
           inputs: firstFailed.error.inputs,
-          suggestions: firstFailed.error.suggestions,
+          suggestions: failureSuggestions,
           cause: firstFailed.error,
         });
   return makeOperationResolution<Output>({
@@ -1408,7 +1425,7 @@ const resolveExecutionCandidateInScope = Effect.fn("resolveExecutionCandidate")(
     ...(firstFailed === undefined
       ? {}
       : {
-          suggestions: firstFailed.error?.suggestions ?? candidatePlan.failureSuggestions,
+          suggestions: failureSuggestions ?? candidatePlan.failureSuggestions,
         }),
   });
 });

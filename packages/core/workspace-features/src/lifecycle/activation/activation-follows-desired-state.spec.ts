@@ -4,6 +4,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -37,6 +38,13 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [],
 });
+
+/** The lockfile's accepted resolutions: everything but its projection generation records. */
+const acceptedResolutions = (lockfile: string): string => {
+  const document = YAML.parseDocument(lockfile);
+  document.delete("projections");
+  return document.toString();
+};
 
 describe("Activation follows desired state", () => {
   const cleanups: Array<() => void> = [];
@@ -137,7 +145,9 @@ describe("Activation follows desired state", () => {
               acquireForTransition: unexpected,
             }),
           );
-          expect(world.workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          expect(acceptedResolutions(world.workspace.readFile("axm-lock.yaml"))).toBe(
+            acceptedResolutions(accepted),
+          );
           expect(world.workspace.exists(pack)).toBe(false);
           expect(world.workspace.readFile(".claude/skills/review/SKILL.md")).toContain(
             "review guidance.",
@@ -174,7 +184,9 @@ describe("Activation follows desired state", () => {
             );
             const enabled = yield* applyActivation({ type: row.type, name, enabled: true });
             expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+              acceptedResolutions(accepted),
+            );
             expect(workspace.readFile(canonical)).toBe(content);
             row.expectRealized(workspace, name);
           }),
@@ -229,7 +241,9 @@ describe("Activation follows desired state", () => {
             expect(
               graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
             ).toBe(false);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+              acceptedResolutions(accepted),
+            );
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -417,7 +431,9 @@ describe("Activation follows desired state", () => {
             if (Result.isFailure(result))
               expect(JSON.stringify(result.failure)).toContain("accepted-resolution-incompatible");
             expect(workspace.readFile("axm.json")).toBe(settings);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+              acceptedResolutions(accepted),
+            );
             expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
           }),
         )
@@ -475,7 +491,9 @@ describe("Activation follows desired state", () => {
             expect(JSON.stringify(result.failure)).toContain("2.0.0");
           }
           expect(workspace.readFile("axm.json")).toBe(settings);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+          expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+            acceptedResolutions(accepted),
+          );
           expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
         }),
       )
@@ -722,7 +740,9 @@ describe("Activation follows desired state", () => {
               enabled: true,
             });
             expect(workspace.exists(surface)).toBe(true);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(accepted);
+            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+              acceptedResolutions(accepted),
+            );
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

@@ -9,7 +9,13 @@ import * as Path from "effect/Path";
 import * as Ref from "effect/Ref";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
-import { observeInstructionProjection, probeSymlinkSupport, syncInstructions } from "../index.js";
+import {
+  observeInstructionProjection,
+  probeSymlinkSupport,
+  syncInstructions,
+  withInstructionRowChanges,
+  type InstructionProjectionRows,
+} from "../index.js";
 import { applyInstructionProjection } from "../testing.js";
 
 export const specification = defineSpecification({
@@ -29,6 +35,7 @@ export const specification = defineSpecification({
   assumptions: [],
   openQuestions: [],
 });
+const NO_ROWS: InstructionProjectionRows = new Map();
 const config = { fileName: "AGENTS.md", gitignoreAliases: true };
 
 describe("native instruction boundaries", () => {
@@ -47,6 +54,7 @@ describe("native instruction boundaries", () => {
         config,
         symlinkSupported: true,
         dryRun: false,
+        rows: NO_ROWS,
       };
       const installed = yield* syncInstructions(args);
       expect(installed.snapshot.status.items).toEqual(
@@ -154,6 +162,7 @@ describe("native instruction boundaries", () => {
       yield* fs.symlink(foreign, source);
       const reads = yield* Ref.make<ReadonlyArray<string>>([]);
       const boundedObservation = observeInstructionProjection({
+        rows: NO_ROWS,
         workspaceRoot: root,
         scope: "project",
         configuredAgents: ["claude-code"],
@@ -190,6 +199,7 @@ describe("native instruction boundaries", () => {
       yield* fs.writeFileString(foreign, "foreign\n");
       yield* fs.symlink(foreign, path.join(root, ".gitignore"));
       const result = yield* syncInstructions({
+        rows: NO_ROWS,
         workspaceRoot: root,
         scope: "project",
         configuredAgents: ["claude-code"],
@@ -215,6 +225,7 @@ describe("native instruction boundaries", () => {
       yield* fs.symlink("source.md", path.join(root, "AGENTS.md"));
       yield* fs.symlink("AGENTS.md", path.join(root, "CLAUDE.md"));
       const snapshot = yield* observeInstructionProjection({
+        rows: NO_ROWS,
         workspaceRoot: root,
         scope: "project",
         configuredAgents: [],
@@ -243,9 +254,12 @@ describe("native instruction boundaries", () => {
         symlinkSupported: false,
       };
       yield* fs.writeFileString(source, "old source\n");
-      yield* syncInstructions({ ...args, dryRun: false });
+      const first = yield* syncInstructions({ ...args, rows: NO_ROWS, dryRun: false });
       yield* fs.writeFileString(source, "new source\n");
-      const snapshot = yield* observeInstructionProjection(args);
+      const snapshot = yield* observeInstructionProjection({
+        ...args,
+        rows: withInstructionRowChanges(NO_ROWS, first.rowChanges),
+      });
       const foreign = `${yield* fs.readFileString(target)}\nforeign note\n`;
       yield* fs.writeFileString(target, foreign);
       const result = yield* applyInstructionProjection({
@@ -269,6 +283,7 @@ describe("native instruction boundaries", () => {
       const outside = yield* fs.makeTempDirectoryScoped();
       yield* fs.symlink(outside, path.join(root, ".axm"));
       yield* observeInstructionProjection({
+        rows: NO_ROWS,
         workspaceRoot: root,
         scope: "project",
         configuredAgents: [],

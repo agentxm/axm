@@ -16,9 +16,19 @@ import type * as Semaphore from "effect/Semaphore";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   WorkspaceDocuments,
+  inAcceptedResolutionBatch,
   withAcceptedResolutionBatch,
   type WorkspaceDocumentsService,
 } from "./documents.js";
+import type { Lockfile } from "../desired/lockfile/schema.js";
+import {
+  recordedProjectionRows,
+  stageProjectionChanges,
+  type ProjectionKind,
+  type ProjectionRowChange,
+  type ProjectionUnitPath,
+  type RecordedProjectionRow,
+} from "../desired/lockfile/projections.js";
 import { lockEntries, type LockEntryByType } from "./entry-accessors.js";
 import type {
   WorkspaceLockfileMutationFailure,
@@ -50,6 +60,23 @@ export interface AcceptedResolutionWriterService {
   readonly removeAcceptedEntries: (
     entries: ReadonlyArray<{ readonly type: InstallableExtensionType; readonly key: string }>,
   ) => Write;
+  /**
+   * Recorded projection rows of one kind: the batch's pending document inside
+   * a batch, otherwise the persisted lockfile. Reading decodes the lockfile,
+   * so a newer lockfile version fails here, before any projection write.
+   */
+  readonly projectionRows: (
+    kind: ProjectionKind,
+  ) => Effect.Effect<
+    ReadonlyMap<ProjectionUnitPath, RecordedProjectionRow>,
+    WorkspaceLockfileReadFailure
+  >;
+  /**
+   * Stage projection row changes into the open accepted-resolution batch under
+   * each kind's current contract. Staging outside a batch is a defect, so a
+   * preview or observation can never record rows.
+   */
+  readonly stageProjections: (changes: ReadonlyArray<ProjectionRowChange>) => Write;
 }
 
 export class AcceptedResolutionWriter extends ServiceMap.Service<
@@ -72,10 +99,13 @@ const normalizeForStableCompare = (value: unknown): unknown => {
   return value;
 };
 
+/** Canonical JSON with sorted keys and ISO date-times, for hashing structured inputs. */
+export const stableJson = (value: unknown): string =>
+  JSON.stringify(normalizeForStableCompare(value));
+
 /** Structural equality that treats date-times by their ISO rendering. */
 export const stableCompare = (left: unknown, right: unknown): boolean =>
-  JSON.stringify(normalizeForStableCompare(left)) ===
-  JSON.stringify(normalizeForStableCompare(right));
+  stableJson(left) === stableJson(right);
 
 export const lockEntrySemanticallyEqual = <TEntry>(
   current: TEntry | undefined,
@@ -130,6 +160,27 @@ export const makeAcceptedResolutionWriter = (
       ).pipe(Effect.withSpan("AcceptedResolutionWriter.setAccepted")),
     removeAccepted: (type, key) => removeAcceptedEntries([{ type, key }]),
     removeAcceptedEntries,
+    projectionRows: (kind) =>
+      current.pipe(
+        Effect.map((lockfile) => recordedProjectionRows(lockfile.projections, kind)),
+        Effect.withSpan("AcceptedResolutionWriter.projectionRows"),
+      ),
+    stageProjections: (changes) =>
+      serialized(
+        Effect.gen(function* () {
+          if (!(yield* inAcceptedResolutionBatch(documents)))
+            return yield* Effect.die(
+              new Error("projection rows staged outside an accepted-resolution batch"),
+            );
+          if (changes.length === 0) return;
+          const base = yield* current;
+          const { projections: _previous, ...rest } = base;
+          const staged = stageProjectionChanges(base.projections, changes);
+          const next: Lockfile = staged === undefined ? rest : { ...rest, projections: staged };
+          if (stableCompare(base, next)) return;
+          yield* commit(base, next);
+        }),
+      ).pipe(Effect.withSpan("AcceptedResolutionWriter.stageProjections")),
   };
 };
 

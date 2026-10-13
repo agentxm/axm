@@ -70,7 +70,7 @@
     "LockfileEncoded": {
       "type": "object",
       "properties": {
-        "lockfileVersion": { "type": "number", "enum": [11], "default": 11 },
+        "lockfileVersion": { "type": "number", "enum": [12], "default": 12 },
         "packages": {
           "type": "object",
           "additionalProperties": {
@@ -615,6 +615,141 @@
                 ],
                 "additionalProperties": false
               }
+            },
+            { "type": "null" }
+          ]
+        },
+        "projections": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "rules": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "contract": { "type": "integer", "minimum": 1 },
+                        "units": {
+                          "type": "object",
+                          "propertyNames": { "type": "string" },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "gen": {
+                                "anyOf": [
+                                  { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            },
+                            "required": ["output"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["contract", "units"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                },
+                "knowledge": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "contract": { "type": "integer", "minimum": 1 },
+                        "units": {
+                          "type": "object",
+                          "propertyNames": { "type": "string" },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "gen": {
+                                "anyOf": [
+                                  { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            },
+                            "required": ["output"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["contract", "units"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                },
+                "instructions": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "contract": { "type": "integer", "minimum": 1 },
+                        "units": {
+                          "type": "object",
+                          "propertyNames": { "type": "string" },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "gen": {
+                                "anyOf": [
+                                  { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            },
+                            "required": ["output"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["contract", "units"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                },
+                "subagents": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "contract": { "type": "integer", "minimum": 1 },
+                        "units": {
+                          "type": "object",
+                          "propertyNames": { "type": "string" },
+                          "additionalProperties": {
+                            "type": "object",
+                            "properties": {
+                              "gen": {
+                                "anyOf": [
+                                  { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+                                  { "type": "null" }
+                                ]
+                              },
+                              "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
+                            },
+                            "required": ["output"],
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "required": ["contract", "units"],
+                      "additionalProperties": false
+                    },
+                    { "type": "null" }
+                  ]
+                }
+              },
+              "additionalProperties": false
             },
             { "type": "null" }
           ]

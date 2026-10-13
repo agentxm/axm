@@ -7,7 +7,7 @@
 
 import * as Data from "effect/Data";
 
-import type { ErrorCode } from "@agentxm/workspace-kernel/operations";
+import type { ErrorCode, FailureProblem } from "@agentxm/workspace-kernel/operations";
 import {
   ExtensionKindFailureTypeId,
   type ExtensionKindFailure,
@@ -35,6 +35,8 @@ export class SubagentDefinitionInvalid
 export class SubagentNativeConflict
   extends Data.TaggedError("SubagentNativeConflict")<{
     readonly detail: string;
+    /** Set when the conflict is an unrecorded file `--replace-unrecorded` may overwrite. */
+    readonly problem?: FailureProblem;
     readonly cause?: unknown;
   }>
   implements ExtensionKindFailure

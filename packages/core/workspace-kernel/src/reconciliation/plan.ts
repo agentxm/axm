@@ -31,13 +31,17 @@ import {
   applyProjectionPlans,
   observeProjectionPlans,
   observeInstructionProjection,
+  readInstructionRows,
   reconcileInstructionAliases,
+  recordInstructionCopiesBeforeSourceWrite,
   projectionFactRequiresReconciliation,
   resolveInstructionsConfig,
   instructionReconciliationReadiness,
   instructionProjectionEffects,
+  instructionProjectionRecordsRows,
   instructionProjectionNativeLocations,
   instructionProjectionIsCurrent,
+  ProjectionOutputPosture,
   type ExpectedProjectionNames,
   type ProjectionInvariantFact,
 } from "../projection/index.js";
@@ -48,6 +52,9 @@ import {
   type Job,
   type StepFailure,
   type JobStepArtifact,
+  type JobStepArtifactTarget,
+  type JobStepLastWrite,
+  type JobStepManagedRegion,
   type JobStepResult,
   type OperationPresentation,
   type Plan,
@@ -64,6 +71,7 @@ import {
   WorkspaceRecords,
   WorkspaceLocation,
   settingsDisplayPath,
+  type LockfileReader,
   type WorkspaceLocationService,
   type DesiredStateGraph,
   type McpServerEntry,
@@ -156,34 +164,62 @@ export const projectionDivergenceLabel = (
   return statuses.length === 0 ? label : `${label} (${statuses})`;
 };
 
-const managedRegionsForFacts = (facts: ReadonlyArray<ProjectionInvariantFact>) =>
+const managedRegionsForFacts = (
+  facts: ReadonlyArray<ProjectionInvariantFact>,
+): ReadonlyArray<JobStepManagedRegion> =>
   facts.flatMap(({ subject }) =>
     subject.owner === undefined
       ? []
-      : [{ unitId: subject.unitId, path: subject.path, owner: subject.owner }],
+      : [
+          {
+            unitId: subject.unitId,
+            path: subject.path,
+            owner: subject.owner,
+            ...(subject.lastWrite === undefined ? {} : { lastWrite: subject.lastWrite }),
+          },
+        ],
   );
 
+/** Which comparison a reader most needs when one file holds several rewritten units. */
+const LAST_WRITE_PRECEDENCE: ReadonlyArray<JobStepLastWrite> = [
+  "modified",
+  "unrecorded",
+  "matches",
+];
+
+const strongestLastWrite = (
+  values: ReadonlyArray<JobStepLastWrite | undefined>,
+): JobStepLastWrite | undefined => LAST_WRITE_PRECEDENCE.find((value) => values.includes(value));
+
+/** One file target per path a region rewrite touches, flagged when a region there was edited. */
 const projectionFileTargets = (
   facts: ReadonlyArray<ProjectionInvariantFact>,
-): ReadonlyArray<{ readonly path: string; readonly change: "updated" }> =>
-  facts
-    .filter(projectionFactRequiresReconciliation)
-    .map(({ subject }) => ({
-      path: subject.path.split("#", 1)[0] ?? subject.path,
-      change: "updated" as const,
-    }))
-    .filter(
-      (target, index, targets) =>
-        targets.findIndex((candidate) => candidate.path === target.path) === index,
-    );
+): ReadonlyArray<JobStepArtifactTarget> => {
+  const byPath = new Map<string, Array<JobStepLastWrite | undefined>>();
+  for (const { subject } of facts.filter(projectionFactRequiresReconciliation)) {
+    const path = subject.path.split("#", 1)[0] ?? subject.path;
+    byPath.set(path, [...(byPath.get(path) ?? []), subject.lastWrite]);
+  }
+  return [...byPath].map(([path, lastWrites]) => {
+    const lastWrite = strongestLastWrite(lastWrites);
+    return { path, change: "updated", ...(lastWrite === undefined ? {} : { lastWrite }) };
+  });
+};
 
-const mergeArtifactTargets = (
-  targets: ReadonlyArray<{
-    readonly path: string;
-    readonly change: "created" | "updated" | "removed";
-  }>,
-) => {
-  const byPath = new Map<string, (typeof targets)[number]>();
+/** The warnings a step reports after it replaced whole files edited since AXM last wrote them. */
+const replacedModifiedWarnings = (
+  targets: ReadonlyArray<JobStepArtifactTarget>,
+): ReadonlyArray<string> =>
+  targets
+    .filter((target) => target.lastWrite === "modified" && target.change !== "removed")
+    .map((target) => `Replaced ${target.path}, which was modified since AXM last wrote it`);
+
+const warningsField = (
+  warnings: ReadonlyArray<string>,
+): { readonly warnings?: ReadonlyArray<string> } => (warnings.length === 0 ? {} : { warnings });
+
+const mergeArtifactTargets = (targets: ReadonlyArray<JobStepArtifactTarget>) => {
+  const byPath = new Map<string, JobStepArtifactTarget>();
   for (const target of targets) byPath.set(target.path, target);
   return [...byPath.values()].sort((left, right) => left.path.localeCompare(right.path));
 };
@@ -418,6 +454,7 @@ export const collectCleanupStep: (args: {
   | NativeWriteAuthority
   | ConfiguredAgentOutcomesProvider
   | WorkspaceRecords
+  | LockfileReader
 > = Effect.fn("Sync.collectCleanupStep")(function* (args) {
   const location = yield* WorkspaceLocation;
   const agentRepo = yield* CodingAgentRepository;
@@ -434,11 +471,13 @@ export const collectCleanupStep: (args: {
         }),
     ),
   );
+  const { discardModified } = yield* ProjectionOutputPosture;
   const preview = yield* reconcileAgentOutputs({
     authority,
     desiredAgentIds,
     expectedNames: args.expectedNames,
     dryRun: true,
+    discardModified: discardModified === true,
     ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
   });
   const retainedNativeLocations = Effect.gen(function* () {
@@ -484,13 +523,15 @@ export const collectCleanupStep: (args: {
     ...(yield* retainedNativeLocations),
   ]);
   const previewPaths = preview.removedPaths;
+  const withdrawsRows = preview.rowChanges.length > 0;
   if (
     previewPaths.length === 0 &&
+    !withdrawsRows &&
     args.desiredAgentIds === undefined &&
     args.subjects === undefined
   )
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
-  if (previewPaths.length === 0 && previewNativeLocations.length === 0)
+  if (previewPaths.length === 0 && !withdrawsRows && previewNativeLocations.length === 0)
     return Option.none<PlannedJobStep<SyncStepRequirements>>();
   return Option.some<PlannedJobStep<SyncStepRequirements>>({
     key: "projection:cleanup",
@@ -504,12 +545,21 @@ export const collectCleanupStep: (args: {
       nativeLocations: previewNativeLocations,
       targets: previewPaths.map((filePath) => ({ path: filePath, change: "removed" })),
     },
-    run: reconcileAgentOutputs({
-      authority,
-      desiredAgentIds,
-      expectedNames: args.expectedNames,
-      ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+    // Row withdrawals join the closure's accepted-resolution batch, or one the
+    // step opens, so they commit with the removals.
+    run: Effect.gen(function* () {
+      const result = yield* reconcileAgentOutputs({
+        authority,
+        desiredAgentIds,
+        expectedNames: args.expectedNames,
+        discardModified: discardModified === true,
+        ...(args.subjects === undefined ? {} : { subjects: args.subjects }),
+      });
+      if (result.rowChanges.length > 0)
+        yield* (yield* AcceptedResolutionWriter).stageProjections(result.rowChanges);
+      return result;
     }).pipe(
+      (body) => Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.withBatch(body)),
       Effect.flatMap((result) =>
         retainedNativeLocations.pipe(
           Effect.map((retained) => ({
@@ -526,6 +576,7 @@ export const collectCleanupStep: (args: {
         const removedPaths = result.removedPaths;
         return {
           result: "success",
+          ...(result.warnings.length === 0 ? {} : { warnings: result.warnings }),
           message:
             removedPaths.length === 0
               ? "Retained native entries required by remaining consumers or policy"
@@ -637,29 +688,15 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   readonly adapter: StepFailureConversionService;
 }) {
   const projectionFacts = args.projectionFacts;
+  const posture = yield* ProjectionOutputPosture;
+  const overrides = {
+    replaceUnrecorded: posture.replaceUnrecorded === true,
+    discardModified: posture.discardModified === true,
+  };
   const settings = yield* SettingsReader;
   const location = yield* WorkspaceLocation;
   const config = yield* settings.instructionsConfig;
   const manager = yield* RuleManager;
-  const unsupported = args.touchesRule
-    ? projectionFacts.find(({ observation }) => observation.reasonCode === "unsupported-version")
-    : undefined;
-  if (unsupported !== undefined) {
-    return Option.some<PlannedJobStep<SyncStepRequirements>>({
-      key: SYNC_RECOVERY_IDS.instructionReconcile,
-      readiness: "error",
-      label: "instruction files",
-      errorMessage:
-        unsupported.observation.message ??
-        "Instruction projection uses an unsupported marker version; upgrade AXM.",
-      artifact: {
-        path: unsupported.subject.path.split("#", 1)[0] ?? unsupported.subject.path,
-        scope: location.scope,
-        change: "unchanged",
-        managedRegions: managedRegionsForFacts(projectionFacts),
-      },
-    });
-  }
   if (Option.isNone(config) || config.value === false) {
     if (!args.touchesRule || !projectionFactsNeedReconciliation(projectionFacts))
       return Option.none<PlannedJobStep<SyncStepRequirements>>();
@@ -724,6 +761,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         .map((source) => path.dirname(source)),
     ),
   ];
+  // Rows are read first, so a lockfile this CLI cannot read refuses here.
+  const rows = yield* readInstructionRows;
   const observed = yield* observeInstructionProjection({
     workspaceRoot: location.baseDir,
     nativeDirectoryInputs: location.nativeDirectoryInputs,
@@ -732,6 +771,8 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     eligibleAgentIds,
     config: resolvedConfig,
     prospectiveRoots,
+    rows,
+    ...overrides,
   });
   const prior =
     eligibleAgentIds.length === 0
@@ -743,6 +784,7 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
           configuredAgents: priorConfiguredAgents,
           config: resolvedConfig,
           symlinkSupported: observed.symlinkSupported,
+          rows,
         });
   const priorEntries = yield* Effect.forEach(
     prior?.plan.items.filter((item) => item.action !== "skip") ?? [],
@@ -788,10 +830,17 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
   }
 
   const ruleTargets = args.touchesRule ? projectionFileTargets(projectionFacts) : [];
-  const instructionTargets = instructionEffects.map((effect) => ({
-    ...effect,
-    path: path.relative(location.baseDir, effect.path),
-  }));
+  const instructionTargets = [
+    ...instructionEffects.map((effect) => ({
+      ...effect,
+      path: path.relative(location.baseDir, effect.path),
+    })),
+    // Recording an identical copy, withdrawing an orphaned row, or retaining
+    // an edited stale copy writes only the lockfile.
+    ...(instructionProjectionRecordsRows(snapshot)
+      ? [{ path: path.relative(location.baseDir, location.lockPath), change: "updated" as const }]
+      : []),
+  ];
   const targets = mergeArtifactTargets([...ruleTargets, ...instructionTargets]);
   const artifact = {
     path: targets[0]?.path ?? resolvedConfig.fileName,
@@ -810,11 +859,15 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
     readiness: "ready",
     label: projectionDivergenceLabel("instruction files", projectionFacts),
     artifact,
+    // Projection rows the step stages join the enclosing accepted-resolution
+    // batch, or one the step opens, so they commit with its native writes.
     run: Effect.gen(function* () {
-      if (args.touchesRule)
+      if (args.touchesRule) {
+        yield* recordInstructionCopiesBeforeSourceWrite({ configuredAgents });
         yield* applyPlannedProjections({
           projectionPlans: () => manager.projectionPlans(args.nativeProjection),
         });
+      }
       const ruleLocations = args.touchesRule
         ? ((yield* manager.aggregateProjectionObservation).nativeLocations ?? [])
         : [];
@@ -822,16 +875,21 @@ export const collectInstructionStep = Effect.fn("Sync.collectInstructionStep")(f
         configuredAgents,
         eligibleAgentIds,
         eligibleTargets,
+        ...overrides,
       });
       return combineNativeLocationOutcomes([
         ...ruleLocations,
         ...(Option.isSome(result) ? result.value.nativeLocations : []),
       ]);
     }).pipe(
+      (body) => Effect.flatMap(AcceptedResolutionWriter, (accepted) => accepted.withBatch(body)),
       Effect.mapError(args.adapter.toStepFailure),
       Effect.map((nativeLocations): JobStepResult => ({
         result: "success",
         message: "Reconciled canonical instructions, aliases, and gitignore entries",
+        // Region rewrites are flagged in the preview only; a replaced
+        // whole-file copy loses the edit outright, so it is also a warning.
+        ...warningsField(replacedModifiedWarnings(instructionTargets)),
         artifact: { ...artifact, nativeLocations },
       })),
     ),

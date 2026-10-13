@@ -23,6 +23,7 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
@@ -36,6 +37,7 @@ import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-t
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { runCommand } from "../app.js";
+import { runLintCommand } from "../root/lint/command.js";
 import { makeAppError } from "../app-error/index.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { ExecutionDirectory } from "../execution-directory.js";
@@ -57,7 +59,7 @@ export const specification = defineSpecification({
   requirement: "system/reliability/telemetry-reports-terminal-failures-once",
   title: "An opted-in invocation reports at most one terminal failure",
   statement:
-    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering bootstrap, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.",
+    "After consent is resolved, an opted-in invocation shall report at most one terminal failure, covering bootstrap, configuration, command, and output settlement, and shall report none for success, cancellation, or a recovered failure. A completed lint run with failing findings shall retain the issues category, and a closed output pipe shall cancel delivery with exit 141 and no error report when no command failure has already occurred; other output failures shall retain their safe channel and reason. A reported failure shall use the Diagnostic ID of the locally prepared record and rendered output independently of consent.",
   class: "functional",
   role: "experience",
   goals: ["privacy-and-consent", "safe-repetition"],
@@ -93,9 +95,9 @@ interface RecordedWrite {
 }
 
 /** Output streams that record every write; stdout can be a closed pipe. */
-const recordingStreams = (brokenStdout: boolean) => {
+const recordingStreams = (brokenStdout: boolean, reason: OutputWriteFailed["reason"] = "EPIPE") => {
   const log: Array<RecordedWrite> = [];
-  const closedPipe = new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" });
+  const closedPipe = new OutputWriteFailed({ channel: "stdout", reason });
   let stdoutFailed = false;
   const record = (channel: RecordedWrite["channel"]) => (content: string) =>
     Effect.sync(() => void log.push({ channel, content }));
@@ -142,11 +144,15 @@ const isErrorReport = (request: { readonly url: string }) => request.url.endsWit
 /** Run one invocation under the process entry wrapper with the given consent. */
 const observe = <A, E, R>(
   invocation: Effect.Effect<A, E, R>,
-  options: { readonly mode: "all" | "off"; readonly brokenStdout?: boolean },
+  options: {
+    readonly mode: "all" | "off";
+    readonly brokenStdout?: boolean;
+    readonly outputReason?: OutputWriteFailed["reason"];
+  },
 ) =>
   Effect.gen(function* () {
     const capture = captureTelemetry();
-    const streams = recordingStreams(options.brokenStdout === true);
+    const streams = recordingStreams(options.brokenStdout === true, options.outputReason);
     const diagnostics = yield* makeTerminalDiagnostics({
       invocationId: "00000000-0000-4000-8000-000000000003",
       eventIdFactory: () => "00000000-0000-4000-8000-000000000002",
@@ -171,7 +177,10 @@ const observe = <A, E, R>(
  */
 const reportsOf = <A, E, R>(
   invocation: Effect.Effect<A, E, R>,
-  options: { readonly brokenStdout?: boolean } = {},
+  options: {
+    readonly brokenStdout?: boolean;
+    readonly outputReason?: OutputWriteFailed["reason"];
+  } = {},
 ) =>
   Effect.gen(function* () {
     const baseline = yield* observe(invocation, { ...options, mode: "off" });
@@ -249,6 +258,124 @@ const inProjectWorkspace = <A, R>(
   );
 
 describe("Terminal failure reporting", () => {
+  it.effect("a closed output consumer cancels with exit 141 and reports no error", () =>
+    Effect.gen(function* () {
+      const invocation = withCliErrorHandling(writeResult, envelope);
+      expect(yield* reportsOf(invocation, { brokenStdout: true })).toEqual([]);
+      const observed = yield* observe(invocation, { mode: "all", brokenStdout: true });
+      expect(observed.result).toEqual({ _tag: "ProcessOutcome", exitCode: 141 });
+      expect(observed.output).toEqual([]);
+      expect(
+        yield* reportsOf(
+          Effect.fail(new OutputWriteFailed({ channel: "stdout", reason: "EPIPE" })),
+        ),
+      ).toEqual([]);
+    }),
+  );
+
+  it.effect("completed lint findings retain their category and fact-only result", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* temporaryDirectory;
+        const invocation = withCliErrorHandling(
+          runLintCommand({
+            path: Option.some(root),
+            scope: "project",
+            strict: false,
+            fix: false,
+            view: "filesystem",
+            preview: false,
+          }),
+          { command: "lint", format: "json" },
+        ).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              baseLayer,
+              makeArtifactHttpClientLayer(globalThis.fetch),
+              Layer.provide(
+                RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
+                NodeServices.layer,
+              ),
+            ),
+          ),
+          Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
+        );
+        const reports = yield* reportsOf(invocation);
+        expect(reports[0]).toMatchObject({
+          failure: { kind: "lint.findings", category: "issues" },
+        });
+        expectOneReport(reports, {
+          phase: "command",
+          kind: "lint.findings",
+          category: "issues",
+          handled: true,
+          command: "lint",
+        });
+        const observed = yield* observe(invocation, { mode: "all" });
+        expect(observed.result).toEqual({ _tag: "ProcessOutcome", exitCode: 1 });
+        const stdout = observed.output
+          .filter((entry) => entry.channel === "stdout")
+          .map((entry) => entry.content)
+          .join("");
+        expect(stdout).toContain('"workspace/initialized"');
+        expect(stdout).not.toContain('"suggestions"');
+        const undelivered = yield* observe(invocation, { mode: "all", brokenStdout: true });
+        expect(undelivered.result).toEqual({ _tag: "ProcessOutcome", exitCode: 1 });
+        expect(undelivered.reports[0]?.body).toMatchObject({
+          failure: { kind: "lint.findings", category: "issues" },
+        });
+        expect(observed.output.filter((entry) => entry.channel === "stderr")).toEqual([]);
+      }),
+    ),
+  );
+
+  it.effect("lint refusing to execute remains a diagnostic failure rather than findings", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        const root = yield* temporaryDirectory;
+        const invocation = withCliErrorHandling(
+          runLintCommand({
+            path: Option.some(root),
+            scope: "project",
+            strict: false,
+            fix: true,
+            view: "git-index",
+            preview: false,
+          }),
+          { command: "lint", format: "json" },
+        ).pipe(
+          Effect.provide(
+            Layer.mergeAll(
+              baseLayer,
+              makeArtifactHttpClientLayer(globalThis.fetch),
+              Layer.provide(
+                RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
+                NodeServices.layer,
+              ),
+            ),
+          ),
+          Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
+        );
+        const reports = yield* reportsOf(invocation);
+        expectOneReport(reports, {
+          phase: "command",
+          kind: "usage",
+          category: "usage",
+          handled: true,
+          command: "lint",
+        });
+        const observed = yield* observe(invocation, { mode: "all" });
+        expect(observed.result).toEqual({ _tag: "ProcessOutcome", exitCode: 2 });
+        const stdout = observed.output
+          .filter((entry) => entry.channel === "stdout")
+          .map((entry) => entry.content)
+          .join("");
+        expect(stdout).toContain("--fix cannot be combined with --staged");
+        expect(stdout).not.toContain('"findings"');
+      }),
+    ),
+  );
+
   it.effect(
     "a workspace configuration failure before the command runs is reported once, in the configuration phase",
     () =>
@@ -297,6 +424,20 @@ describe("Terminal failure reporting", () => {
       ),
   );
 
+  it.effect("a closed output pipe does not hide a command failure or rendering defect", () =>
+    Effect.gen(function* () {
+      for (const program of [
+        Effect.fail(notFound),
+        Effect.die(new TypeError("renderer invariant")),
+      ]) {
+        const invocation = withCliErrorHandling(program, envelope);
+        const observed = yield* observe(invocation, { mode: "all", brokenStdout: true });
+        expect(observed.reports).toHaveLength(1);
+        expect(observed.result).not.toEqual({ _tag: "ProcessOutcome", exitCode: 141 });
+      }
+    }),
+  );
+
   it.effect("a handled command error is reported once, in the command phase", () =>
     Effect.gen(function* () {
       const reports = yield* reportsOf(withCliErrorHandling(Effect.fail(notFound), envelope));
@@ -330,20 +471,37 @@ describe("Terminal failure reporting", () => {
     }),
   );
 
-  it.effect("an output write failure is reported once, in the output phase", () =>
-    Effect.gen(function* () {
-      const reports = yield* reportsOf(withCliErrorHandling(writeResult, envelope), {
-        brokenStdout: true,
-      });
+  it.effect.each(["EIO", "ENOSPC", "EBADF", "Unknown"] as const)(
+    "an output %s failure preserves its reason and reports once",
+    (reason) =>
+      Effect.gen(function* () {
+        const reports = yield* reportsOf(withCliErrorHandling(writeResult, envelope), {
+          brokenStdout: true,
+          outputReason: reason,
+        });
 
-      expectOneReport(reports, {
-        phase: "output",
-        kind: "output-write-failed",
-        category: "internal",
-        handled: true,
-        command: "list",
-      });
-    }),
+        expectOneReport(reports, {
+          phase: "output",
+          kind: `output.stdout.${reason.toLowerCase()}`,
+          category: "internal",
+          handled: true,
+          command: "list",
+        });
+        const observed = yield* observe(withCliErrorHandling(writeResult, envelope), {
+          mode: "all",
+          brokenStdout: true,
+          outputReason: reason,
+        });
+        expect(observed.result).toEqual({ _tag: "ProcessOutcome", exitCode: 10 });
+        expect(observed.output.filter((entry) => entry.channel === "stdout")).toEqual([]);
+        expect(observed.output.map((entry) => entry.content).join("")).toContain(
+          `Could not write stdout (${reason}).`,
+        );
+        expect(
+          Option.isSome(observed.diagnostic) &&
+            observed.diagnostic.value.causes.some((cause) => cause.message.includes(reason)),
+        ).toBe(true);
+      }),
   );
 
   it.effect("a usage error before any command runs is reported once, in the bootstrap phase", () =>

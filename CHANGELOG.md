@@ -1,3 +1,18 @@
+## 0.45.0 (2026-10-12)
+
+### 🩹 Fixes
+
+- Reject unknown commands even with help or version flags, and explain the fully qualified target required by sync. ([1fd577800](https://github.com/agentxm/axm/commit/1fd577800))
+- Preserve lint finding classifications and output failure diagnostics; treat closed output consumers as cancellation. ([7cb2914f9](https://github.com/agentxm/axm/commit/7cb2914f9))
+
+### ⚠️ Breaking Changes
+
+- Ask one install question across every extension type a source offers, name native destinations once beneath the ledger, and offer only what a workspace source authors. Run setup on a first install a person can answer, leave the instruction-file choice unrecorded on an unattended one, and let `axm setup` settle that choice in an existing workspace. ([2da0455d9](https://github.com/agentxm/axm/commit/2da0455d9))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.44.0 (2026-10-10)
 
 ### 🩹 Fixes

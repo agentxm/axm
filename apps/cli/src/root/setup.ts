@@ -4,7 +4,7 @@ import {
   SetupWorkspace,
   type SetupOutcome,
 } from "@agentxm/workspace-features/configuration";
-import { agentFlag, jsonFlag, Verbosity } from "../cli-flags/index.js";
+import { agentFlag, jsonFlag, replaceUnrecordedFlag, Verbosity } from "../cli-flags/index.js";
 import { emitResult, Screen, errorDoc } from "../screen/index.js";
 import { processOutcome, withArgvTracking } from "../cli-runtime/index.js";
 import { type SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
@@ -22,7 +22,12 @@ import { toAppError } from "../app-error/conversions.js";
 import { coerceConfigurationFailure } from "../feature-errors.js";
 import { LearnMore, formatLearnMore } from "../formatter.js";
 import { ExecutionDirectory } from "../execution-directory.js";
-import { setupProjectionLayer, withRuntime, withWorkspace } from "../runtime.js";
+import {
+  setupProjectionLayer,
+  withProjectionOutputPosture,
+  withRuntime,
+  withWorkspace,
+} from "../runtime.js";
 import { formatDisplayPath } from "./shared/display-path.js";
 import { ScopedRoutes, suggestionsForScope } from "./shared/scoped-command.js";
 import {
@@ -302,18 +307,23 @@ const setupConfig = {
   ),
   yes: preapprovalCapabilityFlag(setupCapabilities),
   preview: previewCapabilityFlag(),
+  replaceUnrecorded: replaceUnrecordedFlag,
 } as const;
 
-export const setupCommand = Command.make("setup", setupConfig, ({ scope, agent, yes, preview }) => {
-  const resolvedScope = Option.getOrElse(scope, () => "project" as const);
-  return handleSetup({
-    scope: resolvedScope,
-    scopeExplicit: Option.isSome(scope),
-    yes,
-    preview,
-    ...(agent.length > 0 ? { agents: agent } : {}),
-  }).pipe(withRuntime("setup"));
-}).pipe(
+export const setupCommand = Command.make(
+  "setup",
+  setupConfig,
+  ({ scope, agent, yes, preview, replaceUnrecorded }) => {
+    const resolvedScope = Option.getOrElse(scope, () => "project" as const);
+    return handleSetup({
+      scope: resolvedScope,
+      scopeExplicit: Option.isSome(scope),
+      yes,
+      preview,
+      ...(agent.length > 0 ? { agents: agent } : {}),
+    }).pipe(withProjectionOutputPosture({ replaceUnrecorded }), withRuntime("setup"));
+  },
+).pipe(
   withArgvTracking(setupConfig),
   withCommandCapabilities(setupCapabilities),
   Command.withDescription("Set up AXM in the current project"),

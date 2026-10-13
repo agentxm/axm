@@ -112,7 +112,9 @@ export const observeInstructionNativeLocations = (args: {
                     ? "canonical-source-coincidence"
                     : item.observedForm === "symlink" || item.observedForm === "broken-link"
                       ? "exact-canonical-source-link"
-                      : "exact-instruction-copy-banner",
+                      : item.ownership === "owned-unrecorded-identical"
+                        ? "identical-instruction-copy"
+                        : "recorded-instruction-copy",
               }
             : {}),
           ...(item.mechanism === "symlink"

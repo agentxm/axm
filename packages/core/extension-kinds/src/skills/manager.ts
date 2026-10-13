@@ -215,7 +215,7 @@ export const SkillManagerLive = Layer.effect(
           "mcp-server": new Set<string>(),
         },
         expectedSkillSources: { [ref.skill.name]: sourcePaths },
-        expectedSubagentFiles: {},
+        expectedSubagentNames: new Set<string>(),
         declaredMcpNames: new Set(),
         expectedHooks: [],
         authoredSkills: { layout: currentLayout(), entries: yield* settings.entries("skill") },
@@ -358,7 +358,7 @@ export const SkillManagerLive = Layer.effect(
           },
           expectedSkillSources:
             canonicalSkillSrcPath === undefined ? {} : { [target.name]: [canonicalSkillSrcPath] },
-          expectedSubagentFiles: {},
+          expectedSubagentNames: new Set<string>(),
           declaredMcpNames: new Set(),
           expectedHooks: [],
           authoredSkills: { layout, entries: yield* settings.entries("skill") },

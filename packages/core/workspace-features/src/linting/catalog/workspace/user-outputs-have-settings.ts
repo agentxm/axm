@@ -10,7 +10,7 @@ const RULE_ID = "workspace/user-outputs-have-settings";
 const proofText: Record<AgentOutputOwnershipProof, string> = {
   "canonical-source-link": "links to its accepted canonical source",
   "copied-directory-receipt": "matches its recorded managed directory",
-  "managed-banner": "carries an AXM ownership marker",
+  "declared-native-path": "is declared at its native path",
   "effective-native-declaration": "has an effective AXM native declaration",
 };
 

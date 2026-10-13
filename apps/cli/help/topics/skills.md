@@ -166,7 +166,7 @@ AXM records accepted immutable resolution for externally sourced skills:
   explicit update resolves the source again.
 
 After install, remote-source canonical files under `agent_extensions/` are
-observed materialization. Lockfile v11 records each retained package snapshot once and binds selected
+observed materialization. Lockfile v12 records each retained package snapshot once and binds selected
 components to it. Its strict `treeIntegrity` covers the complete package tree. If any
 path or byte changes locally, AXM preserves the
 drift and blocks affected lint, inspection, reconciliation, projection, and

@@ -88,7 +88,7 @@ describe("axm lint handler", () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
     fs.writeFileSync(
       path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 11\npackages: {}\nskills: {}\nmcpServers: {}\n",
+      "lockfileVersion: 12\npackages: {}\nskills: {}\nmcpServers: {}\n",
     );
   };
 
@@ -502,8 +502,7 @@ describe("axm lint handler", () => {
     writeSubagentExtension("researcher");
     const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
     fs.mkdirSync(path.dirname(projectionPath), { recursive: true });
-    const drifted =
-      "<!-- axm:file v=1 ext=@acme/subagents/researcher src=subagents/researcher/subagent.json -->\n# Drifted body\n";
+    const drifted = "# Drifted body\n";
     fs.writeFileSync(projectionPath, drifted);
 
     return provide(
@@ -516,7 +515,7 @@ describe("axm lint handler", () => {
     );
   });
 
-  it.effect("reports an unsupported managed-region version without writing", () => {
+  it.effect("reports malformed region fences without writing", () => {
     const { provide, rendererState } = makeLayers({ verbose: true });
     writeSettings({
       agents: [],
@@ -524,8 +523,7 @@ describe("axm lint handler", () => {
     });
     writeEmptyLockfile();
     const instructionsPath = path.join(tempDir, "AGENTS.md");
-    const before =
-      "<!-- axm:start v=2 region=rules -->\ngenerated\n<!-- axm:end v=2 region=rules -->\n";
+    const before = "<!-- axm:rules -->\ngenerated\n";
     fs.writeFileSync(instructionsPath, before);
 
     return provide(
@@ -533,7 +531,7 @@ describe("axm lint handler", () => {
         yield* lint({}).pipe(Effect.exit);
         const report = printed(rendererState, "stdout");
         expect(report).toContain("workspace/projection-ownership-valid");
-        expect(report).toContain("upgrade AXM");
+        expect(report).toContain('AXM region "rules" has unpaired fences');
         expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
       }),
     );

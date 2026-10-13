@@ -7,6 +7,7 @@
  */
 
 import * as Data from "effect/Data";
+import type { ManagedRegionProblem, RegionName } from "../agent-adapters/index.js";
 
 /** Aggregate writes are gated on a completely enumerable desired-state graph. */
 export class DesiredStateIncomplete extends Data.TaggedError("DesiredStateIncomplete")<{
@@ -47,13 +48,17 @@ export class ProjectionTargetUnsupported extends Data.TaggedError("ProjectionTar
 /** A managed region exists but cannot be reconciled without guessing. */
 export class ManagedRegionViolation extends Data.TaggedError("ManagedRegionViolation")<{
   readonly displayPath: string;
-  /** The inspection's message for malformed or unsupported-version regions. */
+  /** The refusal sentence, such as the inspection's message for malformed fences. */
   readonly reason?: string;
   /**
-   * The inspection's structured reason. Callers classify ownership validity
-   * from this field; they never re-read the sentence in `reason`.
+   * The inspection's structured reason. Callers classify fence validity from
+   * this field; they never re-read the sentence in `reason`.
    */
-  readonly reasonCode?: "managed-region-malformed" | "managed-region-unsupported-version";
+  readonly reasonCode?: "managed-region-malformed";
+  /** The region whose fences are malformed; set with `reasonCode`. */
+  readonly region?: RegionName;
+  /** How the region's fences are malformed; set with `reasonCode`. */
+  readonly problem?: ManagedRegionProblem;
 }> {}
 
 /** A managed-region filesystem step failed. */

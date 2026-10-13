@@ -3,8 +3,13 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach } from "vitest";
 
+import * as fs from "node:fs";
+import * as path from "node:path";
+
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { ProjectionOutputPosture } from "@agentxm/workspace-kernel/projection";
 
 import { makeSetupFixture } from "../testing.js";
 import { runSetup } from "./test-helpers.js";
@@ -13,7 +18,7 @@ export const specification = defineSpecification({
   requirement: "cli/setup/rerun-preserves-existing-configuration",
   title: "Repeated setup preserves the existing workspace",
   statement:
-    "When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open.",
+    "When setup runs against an initialized workspace, AXM shall preserve its settings, lockfile, authored content, and agent outputs even if different agents are supplied, directing membership changes to the agent commands, except that it shall settle an instruction-management choice the project workspace has never recorded: asking where a prompt can open, applying the documented default under preapproval, and otherwise leaving the choice open. Settling that choice shall block, with a recovery, on a differing alias AXM has no record of writing rather than silently preserving it, and shall refuse a lockfile version this CLI does not read before writing anything.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -72,7 +77,7 @@ describe("Repeated setup", () => {
     const fixture = makeSetupFixture({
       files: {
         "axm.json": JSON.stringify({ agents: ["claude-code"], skills: {} }),
-        "axm-lock.yaml": "lockfileVersion: 11\nskills: {}\n",
+        "axm-lock.yaml": "lockfileVersion: 12\npackages: {}\nskills: {}\n",
         "CLAUDE.md": "# Team instructions\n",
       },
     });
@@ -134,7 +139,7 @@ describe("Repeated setup", () => {
     const fixture = makeSetupFixture({
       files: {
         "axm.json": JSON.stringify({ agents: ["claude-code"], skills: {} }),
-        "axm-lock.yaml": "lockfileVersion: 11\nskills: {}\n",
+        "axm-lock.yaml": "lockfileVersion: 12\npackages: {}\nskills: {}\n",
         "CLAUDE.md": "# Team instructions\n",
       },
       confirmInstructionSync: false,
@@ -156,6 +161,77 @@ describe("Repeated setup", () => {
 
           expect(fixture.snapshot()).toEqual(before);
           expect(again).toMatchObject({ outcome: { status: "already-initialized" } });
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  /** An undecided workspace whose canonical file and a differing alias both exist. */
+  const divergentAlias = (lockfileVersion = LOCKFILE_VERSION) => {
+    const fixture = makeSetupFixture({
+      files: {
+        "axm.json": JSON.stringify({ agents: ["claude-code"], skills: {} }),
+        "axm-lock.yaml": `lockfileVersion: ${lockfileVersion}\npackages: {}\nskills: {}\n`,
+        "AGENTS.md": "# Canonical instructions\n",
+        "CLAUDE.md": "# Different notes AXM never wrote\n",
+      },
+    });
+    cleanups.push(fixture.cleanup);
+    return fixture;
+  };
+
+  it.effect("blocks a differing unrecorded alias with a recovery instead of preserving it", () => {
+    const fixture = divergentAlias();
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = fixture.snapshot();
+
+          // `axm setup` offers the override without setting it.
+          const result = yield* Effect.result(
+            runSetup(completion(fixture.root, { yes: true, nonInteractive: true })).pipe(
+              Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: false }),
+            ),
+          );
+
+          expect(result._tag).toBe("Failure");
+          if (result._tag === "Failure")
+            expect(JSON.stringify(result.failure)).toContain("--replace-unrecorded");
+          expect(fixture.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("replaces a differing unrecorded alias only on explicit intent", () => {
+    const fixture = divergentAlias();
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          yield* runSetup(completion(fixture.root, { yes: true, nonInteractive: true })).pipe(
+            Effect.provideService(ProjectionOutputPosture, { replaceUnrecorded: true }),
+          );
+
+          expect(fs.readlinkSync(path.join(fixture.root, "CLAUDE.md"))).toBe("AGENTS.md");
+          expect(fixture.readFile("AGENTS.md")).toBe("# Canonical instructions\n");
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("refuses a newer lockfile before writing anything", () => {
+    const fixture = divergentAlias(LOCKFILE_VERSION + 1);
+    return fixture
+      .provide(
+        Effect.gen(function* () {
+          const before = fixture.snapshot();
+
+          const result = yield* Effect.result(
+            runSetup(completion(fixture.root, { yes: true, nonInteractive: true })),
+          );
+
+          expect(result._tag).toBe("Failure");
+          expect(fixture.snapshot()).toEqual(before);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

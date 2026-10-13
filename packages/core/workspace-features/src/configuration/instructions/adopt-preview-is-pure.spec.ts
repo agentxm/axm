@@ -11,7 +11,7 @@ export const specification = defineSpecification({
   requirement: "cli/instructions/adopt/preview-is-pure",
   title: "Instruction region adoption preview leaves both scopes unchanged",
   statement:
-    "When instruction region adoption runs in preview mode, AXM shall report the exact ownership transfer it would apply with a previewed outcome, without modifying instruction files, canonical sources, settings, accepted resolutions, or any other state in the selected or unselected scope. A refused preview shall also leave both scopes unchanged.",
+    "When instruction region adoption runs in preview mode, AXM shall report the projection record it would make with a previewed outcome, without modifying instruction files, the lockfile, canonical sources, settings, or any other state in the selected or unselected scope. A refused preview shall also leave both scopes unchanged.",
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "Byte-identical snapshots of both scopes establish that native files and accepted sources remain unchanged.",
   methods: ["example", "decision-table"],
-  derivedFrom: ["cli/instructions/adopt/records-exact-scoped-authority"],
+  derivedFrom: ["cli/instructions/adopt/records-current-projection"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -36,7 +36,7 @@ describe("Instruction region adoption preview purity", () => {
         settings: { owner: "@acme", agents: ["codex"], rules: { guide: "workspace" } },
         files: {
           "AGENTS.md": valid
-            ? "<!-- axm:start v=1 region=rules ext=@agentxm/rules/instructions -->\nExisting body\n<!-- axm:end v=1 region=rules -->\n"
+            ? "<!-- axm:rules -->\nExisting body\n<!-- /axm:rules -->\n"
             : "# Authored instructions\n",
           "rules/guide/rule.json": JSON.stringify({
             owner: "@acme",
@@ -54,10 +54,9 @@ describe("Instruction region adoption preview purity", () => {
           Effect.gen(function* () {
             const before = world.snapshot();
             const homeBefore = world.homeSnapshot();
-            const prepared = yield* AdoptInstructionRegion.prepare({
-              region: "rules",
-              fileName: "AGENTS.md",
-            }).pipe(Effect.result);
+            const prepared = yield* AdoptInstructionRegion.prepare({ region: "rules" }).pipe(
+              Effect.result,
+            );
             expect(prepared._tag).toBe(valid ? "Success" : "Failure");
             if (prepared._tag === "Success") {
               expect(

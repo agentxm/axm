@@ -16,6 +16,7 @@ import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { afterEach, beforeEach } from "vitest";
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
+import { projectionOutputDigest } from "@agentxm/workspace-kernel/projection";
 import {
   HookManagerLive,
   KnowledgeManagerLive,
@@ -224,19 +225,33 @@ const writeMcpServerExtension = (baseDir: string, name: string) => {
   });
 };
 
+/**
+ * Write a native Subagent file. A `recorded` file is one AXM wrote: the
+ * workspace lockfile carries the projection row of its bytes, which is the
+ * only evidence that lets cleanup delete it.
+ */
 const writeRenderedSubagent = (
   baseDir: string,
   agentDir: string,
   name: string,
-  managed: boolean,
+  recorded: boolean,
 ) => {
-  const filePath = path.join(baseDir, agentDir, "agents", `${name}.md`);
+  const relative = `${agentDir}/agents/${name}.md`;
+  const filePath = path.join(baseDir, relative);
+  const bytes = `# ${name}\n`;
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  fs.writeFileSync(filePath, bytes);
+  if (!recorded) return;
+  const lockPath = path.join(baseDir, "axm-lock.yaml");
+  const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+  const document = typeof lockfile === "object" && lockfile !== null ? lockfile : {};
+  const output = projectionOutputDigest(bytes);
   fs.writeFileSync(
-    filePath,
-    managed
-      ? `<!-- axm:file v=1 ext=@acme/subagents/${name} src=subagents/${name}/subagent.json -->\n# ${name}\n`
-      : `# ${name}\n`,
+    lockPath,
+    YAML.stringify({
+      ...document,
+      projections: { subagents: { contract: 1, units: { [relative]: { output } } } },
+    }),
   );
 };
 
@@ -737,7 +752,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("reports unsupported marker versions in preview without writing", () =>
+  it.effect("reports malformed region fences in preview without writing", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       writeWorkspaceFiles(path.join(tempDir, ".axm"), { agents: [] });
@@ -748,9 +763,10 @@ describe("root sync handler", () => {
       const instructionsPath = path.join(tempDir, "AGENTS.md");
       const before = [
         "# User content",
-        "<!-- axm:start v=2 region=rules -->",
+        "<!-- axm:rules -->",
         "generated",
-        "<!-- axm:end v=2 region=rules -->",
+        "<!-- axm:rules -->",
+        "<!-- /axm:rules -->",
         "",
       ].join("\n");
       fs.writeFileSync(instructionsPath, before);
@@ -758,9 +774,10 @@ describe("root sync handler", () => {
       yield* provide(handleSync({ preview: true }));
 
       const payload = JSON.stringify(rendererState.results[0]?.data);
-      expect(payload).toContain("unsupported");
-      expect(payload).toContain("upgrade AXM");
-      expect(payload).toContain("@agentxm/rules/instructions");
+      expect(payload).toContain('"outcome":"blocked"');
+      expect(payload).toContain(
+        'AXM cannot safely update its section in AGENTS.md: AXM region \\"rules\\" has nested fences',
+      );
       expect(fs.readFileSync(instructionsPath, "utf8")).toBe(before);
     }),
   );
@@ -1625,7 +1642,7 @@ describe("root sync handler", () => {
         expect(planResultUnits(result)).toContainEqual(
           expect.objectContaining({
             state: "blocked",
-            message: expect.stringContaining("Instruction reconciliation would overwrite"),
+            message: expect.stringContaining("has no recorded projection"),
           }),
         );
         expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "release"))).toBe(true);
@@ -1644,11 +1661,13 @@ describe("root sync handler", () => {
         agents: ["claude-code"],
         instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
       });
+      fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Old copy\n");
+      // An identical copy is recorded by the first sync; the canonical file
+      // then changes, leaving the recorded copy stale.
+      fs.writeFileSync(path.join(tempDir, "CLAUDE.md"), "# Old copy\n");
+      yield* provide(handleSync({ preview: false, types: ["hook"] }));
       fs.writeFileSync(path.join(tempDir, "AGENTS.md"), "# Workspace\n");
-      fs.writeFileSync(
-        path.join(tempDir, "CLAUDE.md"),
-        "<!-- axm:file v=1 ext=@agentxm/instructions/alias src=AGENTS.md -->\n\n# Old copy\n",
-      );
+      rendererState.results.length = 0;
 
       yield* provide(handleSync({ preview: true, types: ["hook"] }));
       const preview = expectRecord(
@@ -2352,6 +2371,8 @@ describe("root sync handler", () => {
 
         const sourcePath = path.join(tempDir, "subagents", "researcher", "src", "researcher.md");
         const projectionPath = path.join(tempDir, ".claude", "agents", "researcher.md");
+        // A hand edit is not drift; it is flagged once a rewrite is planned.
+        fs.writeFileSync(projectionPath, "# Edited by hand\n");
         fs.writeFileSync(sourcePath, "# Updated researcher body\n");
 
         const preview = makeLayers({ machine: true });
@@ -2360,11 +2381,21 @@ describe("root sync handler", () => {
           planName: "Sync workspace",
           totalSteps: 1,
         });
-        expect(fs.readFileSync(projectionPath, "utf8")).not.toContain("Updated researcher body");
+        expect(JSON.stringify(preview.rendererState.results[0]?.data)).toContain(
+          JSON.stringify({
+            path: ".claude/agents/researcher.md",
+            change: "updated",
+            lastWrite: "modified",
+          }),
+        );
+        expect(fs.readFileSync(projectionPath, "utf8")).toBe("# Edited by hand\n");
 
         const apply = makeLayers({ machine: true });
         yield* apply.provide(handleSync({ preview: false }));
         expect(fs.readFileSync(projectionPath, "utf8")).toContain("Updated researcher body");
+        expect(JSON.stringify(apply.rendererState)).toContain(
+          "Replaced .claude/agents/researcher.md, which was modified since AXM last wrote it",
+        );
 
         const converged = makeLayers({ machine: true });
         yield* converged.provide(handleSync({ preview: true }));
@@ -2430,7 +2461,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("preserves a Subagent marker with no accepted source authority", () =>
+  it.effect("preserves a recorded Subagent file with no accepted source authority", () =>
     Effect.gen(function* () {
       const { provide } = makeLayers();
       writeWorkspaceFiles(path.join(tempDir, ".axm"), {

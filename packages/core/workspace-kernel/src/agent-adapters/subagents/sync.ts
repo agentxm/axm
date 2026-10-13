@@ -7,7 +7,6 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import { parseFrontmatterSync } from "@agentxm/extension-content";
 import { AGENT_DESCRIPTORS } from "@agentxm/extension-model/unstable/agents/registry";
 import { isConfigurableAgentId } from "@agentxm/extension-model/unstable/agent-capabilities/identity";
 import { assertNativeMutationWithinRoots, resolveNativeReferent } from "../../locations/index.js";
@@ -17,7 +16,6 @@ import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { SubagentIoFailed, type CodingAgentFailure } from "../errors.js";
 import { NativeWriteAuthority, type NativeWriteRefused } from "../native-write-authority.js";
-import { markerForFile, commentStyleForTarget } from "../managed-markers.js";
 import { renderSubagent } from "./rendering/index.js";
 import type {
   AddSubagentArgs,
@@ -25,26 +23,6 @@ import type {
   ResolveSubagentsDirOutcome,
   SubagentSyncOutcome,
 } from "../agents/coding-agent.js";
-
-export const nativeSubagentMarker = (content: string, filePath: string) => {
-  const style = commentStyleForTarget(filePath);
-  if (Option.isNone(style)) return Option.none();
-  const parsed = filePath.endsWith(".md") ? parseFrontmatterSync(content) : undefined;
-  const body = parsed?.frontmatter === undefined ? content : parsed.body;
-  return markerForFile(body, style.value);
-};
-
-const ownsNativeSubagent = (
-  content: string,
-  filePath: string,
-  expected: { readonly ext: string; readonly src: string } | undefined,
-): boolean => {
-  if (expected === undefined) return false;
-  const marker = nativeSubagentMarker(content, filePath);
-  return (
-    Option.isSome(marker) && marker.value.ext === expected.ext && marker.value.src === expected.src
-  );
-};
 
 /** Failures the shared subagent sync helpers raise. */
 export type SubagentSyncFailure = SubagentIoFailed | NativeWriteRefused;
@@ -135,9 +113,10 @@ export const writeSubagentFiles = (
       path: string;
       kind: "subagent";
       change: "created" | "updated" | "unchanged";
+      decision: "current" | "record" | "write";
     }> = [];
     for (const { output, filePath } of resolvedOutputs) {
-      const conflict = yield* authority.withExclusiveWrite(
+      const written = yield* authority.withExclusiveWrite(
         filePath,
         Effect.gen(function* () {
           const { address } = yield* assertNativeMutationWithinRoots(
@@ -157,33 +136,10 @@ export const writeSubagentFiles = (
               reason: `Preserved unowned Subagent entry: ${filePath}`,
             } as const;
           const prior = yield* fs.readFileString(filePath).pipe(Effect.option);
-          const expectedMarker = Option.getOrUndefined(
-            nativeSubagentMarker(output.content, filePath),
-          );
-          if (
-            Option.isSome(prior) &&
-            !ownsNativeSubagent(prior.value, filePath, expectedMarker) &&
-            !args.previousManagedFiles.some((expected) =>
-              ownsNativeSubagent(prior.value, filePath, expected),
-            )
-          )
-            return {
-              _tag: "conflict",
-              reason: `Preserved unowned Subagent file: ${filePath}`,
-            } as const;
-          if (Option.isSome(prior)) {
-            const marker = nativeSubagentMarker(prior.value, filePath);
-            // The owner stamps authoritative render inputs in gen. Preserve
-            // accepted body edits whenever those inputs have not changed.
-            const current =
-              expectedMarker?.generation !== undefined &&
-              Option.isSome(marker) &&
-              marker.value.ext === expectedMarker.ext &&
-              marker.value.src === expectedMarker.src &&
-              marker.value.generation === expectedMarker.generation;
-            if (current || prior.value === output.content)
-              return { _tag: "written", change: "unchanged" } as const;
-          }
+          const decision = args.decideWrite({ filePath, prior, rendered: output.content });
+          if (decision._tag === "conflict") return decision;
+          if (decision._tag !== "write")
+            return { _tag: "written", change: "unchanged", decision: decision._tag } as const;
           const capture = yield* authority.captureCreatedDirectories({
             path: filePath,
             unit: JSON.stringify(["subagent-parent-directories", filePath]),
@@ -205,11 +161,20 @@ export const writeSubagentFiles = (
             change: Option.isSome(prior) ? "modified" : "created",
           });
           yield* authority.recordCreatedDirectories({ capture, createdDirectories });
-          return { _tag: "written", change: Option.isSome(prior) ? "updated" : "created" } as const;
+          return {
+            _tag: "written",
+            change: Option.isSome(prior) ? "updated" : "created",
+            decision: "write",
+          } as const;
         }),
       );
-      if (conflict._tag === "conflict") return conflict;
-      nativeTargets.push({ path: filePath, kind: "subagent", change: conflict.change });
+      if (written._tag === "conflict") return written;
+      nativeTargets.push({
+        path: filePath,
+        kind: "subagent",
+        change: written.change,
+        decision: written.decision,
+      });
       renderedFilePaths.push(filePath);
     }
 
@@ -224,7 +189,8 @@ export const writeSubagentFiles = (
 /**
  * Remove subagent files from an agent's subagents directory.
  *
- * Handles file-not-found gracefully.
+ * Each file is deleted only when the caller's removal decision allows it; a
+ * retained file is reported, never an error. A missing file is already gone.
  */
 export const removeSubagentFiles = (
   args: RemoveSubagentArgs,
@@ -239,6 +205,7 @@ export const removeSubagentFiles = (
     const authority = yield* NativeWriteAuthority;
 
     const removedPaths: Array<string> = [];
+    const retained: Array<{ readonly path: string; readonly reason: string }> = [];
     for (const renderedPath of args.renderedFilePaths) {
       const { address } = yield* assertNativeMutationWithinRoots(
         args.nativeRoots ?? [args.workspaceRoot],
@@ -266,13 +233,11 @@ export const removeSubagentFiles = (
                 new SubagentIoFailed({ detail: `Unsafe Subagent removal: ${filePath}`, cause }),
             ),
           );
-          if (current.kind !== "file") return false;
+          if (current.kind !== "file") return { _tag: "absent" } as const;
           const raw = yield* fs.readFileString(filePath).pipe(Effect.option);
-          if (
-            Option.isNone(raw) ||
-            !ownsNativeSubagent(raw.value, filePath, args.expectedManagedFile)
-          )
-            return false;
+          if (Option.isNone(raw)) return { _tag: "absent" } as const;
+          const decision = args.decideRemoval({ filePath, bytes: raw.value });
+          if (decision._tag === "retain") return decision;
           yield* authority.protect(filePath);
           yield* fs.remove(filePath).pipe(
             Effect.mapError(
@@ -288,16 +253,18 @@ export const removeSubagentFiles = (
             path: filePath,
             unit: JSON.stringify(["subagent-parent-directories", filePath]),
           });
-          return true;
+          return { _tag: "delete" } as const;
         }),
       );
-      if (removed) removedPaths.push(filePath);
+      if (removed._tag === "delete") removedPaths.push(filePath);
+      if (removed._tag === "retain") retained.push({ path: filePath, reason: removed.reason });
     }
 
     return {
       _tag: "success",
       renderedFilePaths: removedPaths,
-      warnings: [],
+      retained,
+      warnings: retained.map(({ reason }) => reason),
     } as const;
   });
 

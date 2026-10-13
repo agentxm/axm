@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import YAML from "yaml";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
@@ -84,12 +85,18 @@ const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
   fs.writeFileSync(nodePath.join(packageRoot, "src", `${AUTHORED_SUBAGENT}.md`), `${body}\n`);
 };
 
+/** The lockfile with its whole `projections` section removed. */
+const withoutProjectionRows = (lockfile: string): string => {
+  const document = YAML.parseDocument(lockfile);
+  if (!document.has("projections")) throw new Error("Expected recorded projection rows");
+  document.delete("projections");
+  return document.toString();
+};
+
 const replaceRegionBody = (content: string, body: string): string => {
   const lines = content.split("\n");
-  const start = lines.findIndex(
-    (line) => line.includes("axm:start") && line.includes("region=rules"),
-  );
-  const end = lines.findIndex((line) => line.includes("axm:end") && line.includes("region=rules"));
+  const start = lines.findIndex((line) => line === "<!-- axm:rules -->");
+  const end = lines.findIndex((line) => line === "<!-- /axm:rules -->");
   if (start < 0 || end <= start) throw new Error("Expected a complete managed Rules region");
   return [...lines.slice(0, start + 1), body, ...lines.slice(end)].join("\n");
 };
@@ -202,7 +209,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "unchanged",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -224,7 +231,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "blocked",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -239,7 +246,7 @@ describe("Generated document projection currency", () => {
                     address: { kind: "entry", path: aliasPath },
                     ownership: "owned",
                     state: "updated",
-                    proof: "exact-instruction-copy-banner",
+                    proof: "recorded-instruction-copy",
                     configuredConsumers: ["claude-code"],
                   }),
                 );
@@ -251,7 +258,7 @@ describe("Generated document projection currency", () => {
                     },
                     ownership: "owned",
                     state: "unchanged",
-                    proof: "exact-instruction-copy-banner",
+                    proof: "recorded-instruction-copy",
                   }),
                 );
                 expect(workspace.snapshot()).toEqual(afterSourceEdit);
@@ -278,7 +285,7 @@ describe("Generated document projection currency", () => {
                   address: { kind: "entry", path: aliasPath },
                   ownership: "owned",
                   state: "unchanged",
-                  proof: "exact-instruction-copy-banner",
+                  proof: "recorded-instruction-copy",
                   configuredConsumers: ["claude-code"],
                 }),
               );
@@ -379,7 +386,7 @@ describe("Generated document projection currency", () => {
                 address: { kind: "entry", path: nodePath.join(workspace.root, "CLAUDE.md") },
                 ownership: "owned",
                 state: "updated",
-                proof: "exact-instruction-copy-banner",
+                proof: "recorded-instruction-copy",
               }),
             );
             expect(workspace.snapshot()).toEqual(before);
@@ -411,9 +418,7 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile("AGENTS.md");
-            expect(generated).toMatch(
-              /axm:start v=1 region=rules ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u,
-            );
+            expect(generated).toContain("<!-- axm:rules -->\n");
             const rewritten = replaceRegionBody(
               generated,
               "Repository formatter output.\n\n- Wrapped, reordered, or otherwise rewritten.",
@@ -445,17 +450,19 @@ describe("Generated document projection currency", () => {
           Effect.gen(function* () {
             yield* applySync();
 
-            const withoutGeneration = workspace
-              .readFile("AGENTS.md")
-              .replace(/ gen=[0-9a-f]{64}(?= -->)/u, "");
-            workspace.writeFile("AGENTS.md", withoutGeneration);
+            const generated = workspace.readFile("AGENTS.md");
+            const recorded = workspace.readFile("axm-lock.yaml");
+            expect(recorded).toContain("projections:");
+            const withoutGeneration = withoutProjectionRows(recorded);
+            workspace.writeFile("axm-lock.yaml", withoutGeneration);
 
             expectReconciliationPlanned(yield* previewSync());
-            expect(workspace.readFile("AGENTS.md")).toBe(withoutGeneration);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(withoutGeneration);
 
             yield* applySync();
+            expect(workspace.readFile("axm-lock.yaml")).toContain("projections:");
             const reconciled = workspace.readFile("AGENTS.md");
-            expect(reconciled).not.toBe(withoutGeneration);
+            expect(reconciled).toBe(generated);
             expect(reconciled).toContain("First authoritative guidance.");
 
             expectNothingToReconcile(yield* applySync());
@@ -517,7 +524,21 @@ describe("Generated document projection currency", () => {
             yield* applySync();
 
             const generated = workspace.readFile(projection);
-            expect(generated).toMatch(/axm:file v=1 ext=[^ ]+ src=[^ ]+ gen=[0-9a-f]{64}/u);
+            // The file carries no AXM text; its currency is the lockfile row.
+            expect(generated).not.toContain("axm:");
+            expect(YAML.parse(workspace.readFile("axm-lock.yaml"))).toMatchObject({
+              projections: {
+                subagents: {
+                  contract: 1,
+                  units: {
+                    [projection]: {
+                      gen: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+                      output: expect.stringMatching(/^sha256:[0-9a-f]{64}$/u),
+                    },
+                  },
+                },
+              },
+            });
             const rewritten = generated.replace(
               "First reviewer guidance.",
               "Repository-formatted body.",
@@ -592,7 +613,7 @@ describe("Generated document projection currency", () => {
     { timeout: FIXTURE_TIMEOUT },
   );
   it.effect(
-    "native variants preserve edits, retire renamed outputs and converge when support is removed",
+    "native variants preserve edits, keep edited renamed outputs, retire unedited ones and converge",
     () => {
       const native = (name: string, body: string) =>
         `---\nname: ${name}\ndescription: Review\n---\n${body}\n`;
@@ -634,7 +655,8 @@ describe("Generated document projection currency", () => {
               native("analyst", "Changed selected instructions"),
             );
             yield* applySync();
-            expect(workspace.exists(".claude/agents/investigator.md")).toBe(false);
+            // The renamed output was edited since AXM wrote it, so it is kept.
+            expect(workspace.readFile(".claude/agents/investigator.md")).toBe(edited);
             expect(workspace.readFile(".claude/agents/analyst.md")).toContain(
               "Changed selected instructions",
             );

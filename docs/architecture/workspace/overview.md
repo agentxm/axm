@@ -185,9 +185,13 @@ canonical extension content merely to fit the ordinary sourced-extension flow.
 
 Native MCP and Hook outputs use
 [native declaration authority](managed-file-ownership.md#native-declaration-authority).
-For other file artifacts, AXM owns only outputs it created and can still identify. Ownership evidence is
-type-specific and survives ordinary formatting or serialization changes. Name,
-path, and byte equality are observations, not ownership proof.
+For other file artifacts, AXM owns only outputs the desired graph plans at a
+planned location: a name-only fenced region in the planned instruction target,
+a declared whole file at its planned native path, or a link or copied directory
+with its type-specific proof. That authority survives ordinary formatting or
+serialization changes. Name, path, byte equality, and recorded lockfile rows
+are observations, not ownership proof; a recorded row together with an exact
+byte match is only deletion evidence.
 
 ## Reachability and retention
 

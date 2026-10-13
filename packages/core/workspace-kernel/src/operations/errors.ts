@@ -117,9 +117,20 @@ const WorkspaceLockfileVersionUnsupportedProblemSchema = Schema.Struct({
   description: "Identifies an unsupported workspace lockfile version and its direction.",
 });
 
+const ProjectionOutputUnrecordedProblemSchema = Schema.Struct({
+  code: Schema.Literal("projection-output-unrecorded"),
+  paths: Schema.Array(Schema.String),
+}).annotate({
+  identifier: "ProjectionOutputUnrecordedProblem",
+  title: "Unrecorded Projection Output",
+  description:
+    "Files at planned projection paths that differ from AXM's render and that AXM has no record of writing.",
+});
+
 /** Structured details for a recognized failure, keyed by a stable problem code. */
 export const FailureProblemSchema = Schema.Union([
   WorkspaceLockfileVersionUnsupportedProblemSchema,
+  ProjectionOutputUnrecordedProblemSchema,
 ]).annotate({
   identifier: "FailureProblem",
   title: "Failure Problem",

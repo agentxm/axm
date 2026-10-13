@@ -130,7 +130,7 @@ describe("desired-state collection", () => {
           baseDir: "/workspace",
           settings: settings({ packs: { alpha: "@acme/packs/alpha" } }),
           registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
-          acceptedResolutions: { lockfileVersion: 11, skills: {}, packs: { alpha: accepted } },
+          acceptedResolutions: { lockfileVersion: 12, skills: {}, packs: { alpha: accepted } },
           readSet: [{ path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" }],
         });
         const graph = evaluateDesiredState(inputs);

@@ -63,7 +63,7 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const lockfile: Lockfile = {
-          lockfileVersion: 11,
+          lockfileVersion: 12,
           skills: { review: localEntry("/sources/sources/review") },
         };
         yield* writeLockfile(axmDir, lockfile);
@@ -78,7 +78,7 @@ describe("lockfile", () => {
   );
 
   it("applies pure updates in order", () => {
-    const base: Lockfile = { lockfileVersion: 11, skills: {} };
+    const base: Lockfile = { lockfileVersion: 12, skills: {} };
     const result = applyLockfileUpdates(base, [
       (lockfile) => ({ ...lockfile, skills: { review: localEntry("/sources/one") } }),
       (lockfile) => ({
@@ -92,9 +92,9 @@ describe("lockfile", () => {
   it.effect("commits updates against the latest on-disk state", () =>
     run(
       Effect.gen(function* () {
-        const base: Lockfile = { lockfileVersion: 11, skills: {} };
+        const base: Lockfile = { lockfileVersion: 12, skills: {} };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 11,
+          lockfileVersion: 12,
           skills: { existing: localEntry("/sources/existing", "existing") },
         });
         const result = yield* commitLockfileUpdates(axmDir, base, [
@@ -112,18 +112,18 @@ describe("lockfile", () => {
     run(
       Effect.gen(function* () {
         const base: Lockfile = {
-          lockfileVersion: 11,
+          lockfileVersion: 12,
           skills: { review: localEntry("/sources/old") },
         };
         yield* writeLockfile(axmDir, {
-          lockfileVersion: 11,
+          lockfileVersion: 12,
           skills: {
             ...base.skills,
             independent: localEntry("/sources/independent", "independent"),
           },
         });
         const next: Lockfile = {
-          lockfileVersion: 11,
+          lockfileVersion: 12,
           skills: { review: localEntry("/sources/new") },
         };
         const result = yield* commitLockfileSnapshotUpdate(axmDir, base, next);
@@ -138,19 +138,19 @@ describe("lockfile", () => {
   it.effect.each([
     {
       fault: "an unrecognised key",
-      raw: "lockfileVersion: 11\npackages: {}\nskills: {}\nextra: 1\n",
+      raw: "lockfileVersion: 12\npackages: {}\nskills: {}\nextra: 1\n",
       error: LockfileDecodeError,
     },
     {
       fault: "an unsupported version",
-      raw: "lockfileVersion: 12\nskills: {}\n",
+      raw: "lockfileVersion: 13\nskills: {}\n",
       error: LockfileVersionUnsupported,
     },
   ])("refuses a commit reread with $fault without changing the file", ({ raw, error }) =>
     run(
       Effect.gen(function* () {
         const target = path.join(root, "axm-lock.yaml");
-        const base: Lockfile = { lockfileVersion: 11, skills: {} };
+        const base: Lockfile = { lockfileVersion: 12, skills: {} };
         fs.writeFileSync(target, raw);
 
         const failure = yield* Effect.flip(commitLockfileSnapshotUpdateAtPath(target, base, base));

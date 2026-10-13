@@ -139,7 +139,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Accept concise fixture shapes useful to command tests, but publish only
- * valid v11 accepted resolutions to the workspace under test.
+ * valid v12 accepted resolutions to the workspace under test.
  * Authored workspace packages deliberately have no lock row.
  */
 const normalizeTestLockMap = (
@@ -367,7 +367,7 @@ export const makeWorkspaceFileContents = (opts: WriteWorkspaceFilesOptions = {})
   };
 
   const lockfile: Record<string, unknown> = {
-    lockfileVersion: 11,
+    lockfileVersion: 12,
     skills: normalizeTestLockMap(opts.lockfileSkills, "skill", sourceEndpoints),
     ...(hasEntries(opts.lockfileRules) && {
       rules: normalizeTestLockMap(opts.lockfileRules, "rule", sourceEndpoints),

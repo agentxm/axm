@@ -17,8 +17,9 @@ import type { ProjectionContributorExclusion } from "./exclusions.js";
 // -----------------------------------------------------------------------------
 // Projection-region ownership identities
 //
-// A managed region names its owner in its marker. The identity is the unit's,
-// not the contributing extension's, so it belongs to the unit registry.
+// The owner of a managed region is the projection unit from the desired graph,
+// not text in the file and not a contributing extension, so it belongs to the
+// unit registry.
 // -----------------------------------------------------------------------------
 
 export const RULES_REGION_OWNER = "@agentxm/rules/instructions";
@@ -101,7 +102,7 @@ export interface ProjectionUnitObservation {
   readonly nativeLocations?: ReadonlyArray<NativeLocationOutcome>;
   readonly unitId: OwnershipUnitId;
   readonly path: string;
-  /** Marker provenance owner for comment-bearing managed-region units. */
+  /** Owning projection unit from the desired graph, for managed-region units. */
   readonly owner?: string;
   /** Whether the AXM-owned unit itself is present, not merely its surrounding file. */
   readonly present: boolean;
@@ -119,4 +120,10 @@ export interface ProjectionUnitObservation {
    * selector excluded at least one, so an observation stays silent by default.
    */
   readonly exclusions?: ReadonlyArray<ProjectionContributorExclusion>;
+  /**
+   * How the bytes a planned rewrite or removal replaces compare with what AXM
+   * last recorded writing. Present only for a unit about to be rewritten or
+   * removed whose current bytes exist; informational, never currency.
+   */
+  readonly lastWrite?: "matches" | "modified" | "unrecorded";
 }

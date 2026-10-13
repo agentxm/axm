@@ -1,7 +1,7 @@
 ---
 type: Architecture
 status: stable
-description: Authority, reproducibility, and failure boundaries of the AXM lockfile.
+description: Authority, reproducibility, projection currency, and failure boundaries of the AXM lockfile.
 depends-on:
   - ./overview.md
   - ./sources.md
@@ -11,7 +11,8 @@ depends-on:
 # Lockfile
 
 Project-root `axm-lock.yaml` is AXM's generated, committed authority for
-accepted external resolutions and their provenance. User scope keeps the same
+accepted external resolutions and their provenance, and the record of
+projection generation currency and last-written digests. User scope keeps the same
 authority in `~/.axm/workspace/axm-lock.yaml`. It is a reproducible-resolution snapshot
 used by planning, materialization, update, reinstall, and cleanup.
 
@@ -31,7 +32,7 @@ the accepted content from another result at the same mutable source:
 - a Git commit and tree identity; or
 - a path content identity.
 
-The current strict version is version 11. Its `packages` map records each
+The current strict version is version 12. Its `packages` map records each
 retained package once: the self-describing source locator, immutable resolved
 snapshot, and integrity of the complete retained tree. Per-kind maps bind
 selected extension identities and component paths to that package. Package keys
@@ -62,6 +63,24 @@ by schemas and behavior tests. The architectural requirement is that the row
 identify one accepted external result and support verification or exact
 rematerialization where the source can still reproduce it.
 
+### Projection currency
+
+The optional `projections` section records, per projection kind (`rules`,
+`knowledge`, `instructions`, `subagents`), a `contract` version and one row per
+unit keyed by its scope-relative path: `gen`, the input-only generation digest,
+and `output`, the digest of the bytes AXM last wrote. Keys are sorted; absolute
+or escaping paths are rejected on read. A changed `contract` strips `gen` from
+that kind's rows and keeps `output`, so the units are stale but their deletion
+evidence survives. Rows are written by every command that writes the
+projection and withdrawn with the unit, inside the same closure, and a failed
+transition restores them exactly. The
+[managed-file ownership](managed-file-ownership.md#projection-currency) record
+owns how currency and the deletion guard use them.
+
+Deleting the lockfile drops the rows; the next sync records identical whole
+files, blocks differing ones until an explicit replace, and rewrites each region
+once.
+
 A satisfying accepted resolution remains stable during install and sync. `update` owns
 advancement. A desired external extension without a row may resolve once and
 atomically establish one; AXM never infers a row from installed bytes, obsolete
@@ -76,7 +95,8 @@ The lockfile does not:
 - create roots or retain otherwise unreachable content (the
   executable specification
   `cli/lock-state-never-creates-reachability` owns the obligation);
-- establish authorship or ownership of agent-native output;
+- establish authorship or ownership of agent-native output, including through
+  projection rows, which are currency and deletion evidence only;
 - prove that canonical content or a managed output is currently present;
 - record command history, completion timestamps, or source-free realization;
 - serve as an append-only audit log; or

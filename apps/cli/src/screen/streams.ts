@@ -16,10 +16,27 @@ export class CredentialDeliveryFailed extends Data.TaggedError("CredentialDelive
   readonly cause: unknown;
 }> {}
 
+const outputFailureReasons = [
+  "EPIPE",
+  "EIO",
+  "EBADF",
+  "ENOSPC",
+  "EDQUOT",
+  "EACCES",
+  "EPERM",
+  "ERR_STREAM_DESTROYED",
+  "ERR_STREAM_WRITE_AFTER_END",
+  "Unknown",
+] as const;
+
 export class OutputWriteFailed extends Data.TaggedError("OutputWriteFailed")<{
   readonly channel: "stdout" | "stderr";
-  readonly reason: string;
-}> {}
+  readonly reason: (typeof outputFailureReasons)[number];
+}> {
+  override get message(): string {
+    return `Could not write ${this.channel} (${this.reason}).`;
+  }
+}
 
 interface WritableOutput {
   readonly write: (content: string, callback: (error?: Error | null) => void) => boolean;
@@ -33,11 +50,7 @@ interface WritableOutput {
 const writeFailure = (channel: "stdout" | "stderr", cause: unknown) => {
   const code =
     typeof cause === "object" && cause !== null && "code" in cause ? cause.code : undefined;
-  const reason =
-    typeof code === "string" &&
-    ["EPIPE", "EIO", "EBADF", "ERR_STREAM_DESTROYED", "ERR_STREAM_WRITE_AFTER_END"].includes(code)
-      ? code
-      : "Unknown";
+  const reason = outputFailureReasons.find((candidate) => candidate === code) ?? "Unknown";
   return new OutputWriteFailed({ channel, reason });
 };
 

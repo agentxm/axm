@@ -22,7 +22,7 @@ import type * as Path from "effect/Path";
 import * as ServiceMap from "effect/Context";
 import type { RegistryClientFactory } from "@agentxm/registry-client";
 import type { NativeWriteAuthority } from "../agent-adapters/index.js";
-import type { ConfiguredAgentOutcome } from "../operations/index.js";
+import type { ConfiguredAgentOutcome, JobStepArtifactTarget } from "../operations/index.js";
 import type {
   DesiredStateReader,
   LockfileReader,
@@ -80,6 +80,11 @@ export interface SubagentProjectionObservation {
   readonly nativeLocations?: ReadonlyArray<import("../locations/index.js").NativeLocationOutcome>;
   readonly present: boolean;
   readonly current: boolean;
+  /**
+   * Planned files a reconciliation would write, workspace-relative, each with
+   * how the bytes it replaces compare with what AXM last recorded writing.
+   */
+  readonly targets?: ReadonlyArray<JobStepArtifactTarget>;
 }
 
 /**
@@ -113,7 +118,7 @@ export class ProjectionParticipants extends ServiceMap.Service<
 export interface AggregateUnitSubject {
   /** Operator-facing name of the unit, used when no target file is known. */
   readonly path: string;
-  /** Marker provenance owner, for units that carry one. */
+  /** Owning projection unit from the desired graph, for units that carry one. */
   readonly owner?: string;
   /** Extension type whose enabled desired nodes are the unit's contributors. */
   readonly contributorType: ExtensionType;

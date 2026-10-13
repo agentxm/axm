@@ -2,10 +2,19 @@ import { withParameterDefault, withParameterDescription } from "../../cli-parame
 import { Argument, Command, Flag } from "effect/cli";
 
 import { withArgvTracking } from "../../cli-runtime/index.js";
-import { ignoreReleaseAgeFlag } from "../../cli-flags/index.js";
+import {
+  discardModifiedFlag,
+  ignoreReleaseAgeFlag,
+  replaceUnrecordedFlag,
+} from "../../cli-flags/index.js";
 import { CATALOG_EXTENSION_TYPES } from "@agentxm/extension-model/unstable/extension-types";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withReleaseAgePosture, withRuntime, withWorkspace } from "../../runtime.js";
+import {
+  withProjectionOutputPosture,
+  withReleaseAgePosture,
+  withRuntime,
+  withWorkspace,
+} from "../../runtime.js";
 import {
   previewCapabilityFlag,
   previewableCapabilities,
@@ -32,14 +41,26 @@ const syncConfig = {
     withParameterDefault(false),
   ),
   ignoreReleaseAge: ignoreReleaseAgeFlag,
+  replaceUnrecorded: replaceUnrecordedFlag,
+  discardModified: discardModifiedFlag,
 } as const;
 
 export const syncCommand = Command.make(
   "sync",
   syncConfig,
-  ({ target, type, scope, preview, failOnChange, ignoreReleaseAge }) =>
+  ({
+    target,
+    type,
+    scope,
+    preview,
+    failOnChange,
+    ignoreReleaseAge,
+    replaceUnrecorded,
+    discardModified,
+  }) =>
     handleSync({ target, types: type, preview, failOnChange }).pipe(
       withReleaseAgePosture(ignoreReleaseAge),
+      withProjectionOutputPosture({ replaceUnrecorded, discardModified }),
       withWorkspace(scope),
       withRuntime("sync"),
     ),

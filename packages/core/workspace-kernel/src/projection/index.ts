@@ -4,7 +4,7 @@
  * What AXM owns in agent-facing output, and what its current state means: the
  * ownership-unit registry and its region identities, projection planning and
  * the participant registry, contributor resolution over the desired-state
- * graph, managed-file ownership grammar and provenance banners, managed-region
+ * graph, region fences and managed-region
  * reconciliation, instruction targets, Knowledge discovery, MCP targeting and
  * drift classification, hook agent outcomes, and the invariant facts lint and
  * sync consume.
@@ -89,11 +89,7 @@ export {
   type ProjectionContributorExclusion,
   type ProjectionExclusionReason,
 } from "./exclusions.js";
-export { projectionGeneration } from "./generation.js";
-export {
-  reconcileManagedRegionFile,
-  type ManagedRegionReconciliation,
-} from "./managed-region-adapter.js";
+export { projectionGeneration, projectionIsCurrent, projectionOutputDigest } from "./generation.js";
 export {
   AuthoredContributorUnsupported,
   ContributorIdentityInvalid,
@@ -147,23 +143,9 @@ export {
   type PackDependencyReachabilityClassification,
 } from "./packs/dependency-reachability.js";
 
-// Managed-file ownership: banners, discovery, and agent-output observation
-export {
-  hasManagedFileBanner,
-  insertManagedFileBanner,
-  managedFileBanners,
-  managedFileFormatForPath,
-  managedFileMarker,
-  stripManagedFileBanner,
-  type ManagedFileBannerOptions,
-  type ManagedFileFormat,
-  type ManagedFileProvenance,
-  type ManagedFileSource,
-} from "./managed-file-banner.js";
+// Agent-native output discovery and ownership observation
 export {
   extensionNameFromFilename,
-  findManagedSubagentFiles,
-  hasAxmManagedMarker,
   safeReadDirectory,
   safeReadFileString,
   type WorkspaceOwnershipIssue,
@@ -188,6 +170,31 @@ export {
   type ObservedMaterializationCurrencyArgs,
 } from "./materialization-currency.js";
 export { expectedProjectionNames, type ExpectedProjectionNames } from "./expected-names.js";
+export {
+  observeProjectionOutput,
+  projectionOutputUnits,
+  type ProjectionOutputObservation,
+  type ProjectionOutputRead,
+  type ProjectionOutputUnit,
+} from "./projection-output-observation.js";
+
+// Whole-file projection decisions
+export {
+  decideWholeFileWrite,
+  type WholeFileDecision,
+  type WholeFileLastWrite,
+} from "./whole-file-decision.js";
+export {
+  decideOutputDeletion,
+  retainedOutputDetail,
+  type DeletionDecision,
+} from "./deletion-guard.js";
+export {
+  DISCARD_MODIFIED_FLAG,
+  ProjectionOutputPosture,
+  REPLACE_UNRECORDED_FLAG,
+  type ProjectionOutputPostureValue,
+} from "./output-posture.js";
 
 // Hook agent outcomes
 export { evaluateHookAgentOutcome, type HookOutcomeTarget } from "./hooks/outcomes.js";
@@ -203,6 +210,7 @@ export {
   buildInstructionProjectionPlan,
   instructionProjectionEffects,
   instructionProjectionIsCurrent,
+  instructionProjectionRecordsRows,
   instructionProjectionRemovalEffects,
   instructionProjectionNativeLocations,
   observeInstructionProjection,
@@ -214,8 +222,11 @@ export {
   resolveInstructionTargetShape,
   resolveInstructionsConfig,
   syncInstructions,
+  withInstructionRowChanges,
+  type AppliedInstructionProjection,
   type InstructionProjectionEffect,
   type InstructionProjectionPlan,
+  type InstructionProjectionRows,
   type InstructionProjectionSnapshot,
   type InstructionSkipReason,
   type InstructionTargetResolution,
@@ -226,6 +237,7 @@ export {
   type ObserveInstructionProjectionArgs,
   type PlannedInstructionItem,
   type ResolvedInstructionsConfig,
+  type RetainedInstructionTarget,
   type SyncInstructionsArgs,
 } from "./instructions/instructions.js";
 // Instruction reconciliation shared by instruction management and rule
@@ -241,16 +253,21 @@ export {
   observeInstructions,
   observeInstructionSurfacePlans,
   plannedInstructionContributorObservation,
+  readInstructionRows,
   reconcileInstructions,
   reconcileInstructionAliases,
+  recordInstructionCopiesBeforeSourceWrite,
   removeInstructionTargetsFor,
+  stageInstructionRows,
   type DisabledInstructionManagement,
+  type InstructionOutputOverrides,
   type InstructionReadinessFailure,
   type InstructionsReconciliation,
 } from "./instructions/reconciliation.js";
 
 // Knowledge discovery region and instruction entry
 export {
+  knowledgeRegionGeneration,
   reconcileKnowledgeDiscovery,
   renderKnowledgeBaseTable,
   type KnowledgeDiscoveryArtifact,
@@ -287,29 +304,31 @@ export {
 export { diffAgentEntry, type DriftReport } from "./mcps/drift.js";
 
 // Subagent managed output
-export { managedSubagentFile } from "./subagents/managed-file.js";
+export { subagentProvenance, type SubagentProvenance } from "./subagents/managed-file.js";
 export {
   compileSubagentImplementation,
   type CompiledSubagentImplementation,
   type SubagentImplementationMode,
 } from "./subagents/compile.js";
 export {
-  managedSubagentRenderInput,
-  renderManagedSubagentOutputs,
-  subagentOwnershipBanner,
   subagentProjectionGeneration,
-  type ManagedSubagentRenderArgs,
+  type SubagentGenerationArgs,
 } from "./subagents/managed-render.js";
 
 export {
   nativeArtifactLocationOutcomes,
   retiredNativeArtifactLocationOutcomes,
 } from "./native-artifact-locations.js";
+export { projectionUnitPath, scopeUnitPath } from "./unit-path.js";
 export {
   reconcileNativeManagedRegion,
   refreshNativeRegionReaders,
+  retargetedRegionRows,
+  type NativeManagedRegionArgs,
+  type NativeManagedRegionResult,
   type NativeRegionReaderContext,
   type NativeRegionSource,
+  type ProjectionLastWrite,
 } from "./native-managed-region.js";
 
 export { InstructionHealthSchema } from "./instructions/instruction-status.js";

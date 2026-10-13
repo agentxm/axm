@@ -10,6 +10,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 import {
+  AcceptedResolutionWriter,
   contributorSetBlockers,
   contributorSetComplete,
   DesiredStateReader,
@@ -75,6 +76,8 @@ import {
   type ProjectionSelection,
   requireCompleteContributors,
   KNOWLEDGE_REGION_OWNER,
+  knowledgeRegionGeneration,
+  projectionUnitPath,
   reconcileKnowledgeDiscovery,
   type KnowledgeDiscoveryBundle,
   resolveInstructionsConfig,
@@ -143,6 +146,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const lockfile = yield* LockfileReader;
     const desiredState = yield* DesiredStateReader;
     const records = yield* WorkspaceRecords;
+    const accepted = yield* AcceptedResolutionWriter;
     const currentLayout = () => Ref.getUnsafe(location.layout);
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -553,34 +557,44 @@ export const KnowledgeManagerLive = Layer.effect(
       readonly configuredAgents: ReadonlyArray<string>;
       readonly eligible: boolean;
     }) =>
-      provide(
-        reconcileKnowledgeDiscovery({
-          scopeRoot: baseDir,
-          ownerRoot: path.dirname(location.runtimeDir),
-          scope: location.scope,
-          nativeDirectoryInputs: location.nativeDirectoryInputs,
-          configuredAgentIds: args.configuredAgents,
-          ownership: args.ownership,
-          eligible: args.eligible,
-          config: args.config,
-          bundles: args.bundles,
-          instructionsPath: args.instructionsTarget.path,
-          instructionsDeclaredPath: args.instructionsTarget.declaredPath,
-          instructionManagementEnabled: args.instructionsTarget.enabled,
-          ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
-        }),
-      ).pipe(
+      Effect.gen(function* () {
+        // Reading the rows decodes the lockfile, so a newer lockfile refuses
+        // before any region is written.
+        const recorded = yield* accepted.projectionRows("knowledge");
+        return yield* provide(
+          reconcileKnowledgeDiscovery({
+            scopeRoot: baseDir,
+            ownerRoot: path.dirname(location.runtimeDir),
+            scope: location.scope,
+            nativeDirectoryInputs: location.nativeDirectoryInputs,
+            configuredAgentIds: args.configuredAgents,
+            ownership: args.ownership,
+            eligible: args.eligible,
+            config: args.config,
+            bundles: args.bundles,
+            instructionsPath: args.instructionsTarget.path,
+            instructionsDeclaredPath: args.instructionsTarget.declaredPath,
+            instructionManagementEnabled: args.instructionsTarget.enabled,
+            recorded,
+            ...(args.dryRun === undefined ? {} : { dryRun: args.dryRun }),
+          }),
+        );
+      }).pipe(
         Effect.tap((result) =>
           args.dryRun === true
             ? Effect.void
-            : Ref.set(lastProjection, {
-                agents: args.configuredAgents,
-                targets: result.artifacts.map((artifact) => ({
-                  path: artifact.path,
-                  agentIds: args.configuredAgents,
-                })),
-                nativeLocations: result.nativeLocations,
-              }),
+            : accepted.withBatch(accepted.stageProjections(result.rowChanges)).pipe(
+                Effect.andThen(
+                  Ref.set(lastProjection, {
+                    agents: args.configuredAgents,
+                    targets: result.artifacts.map((artifact) => ({
+                      path: artifact.path,
+                      agentIds: args.configuredAgents,
+                    })),
+                    nativeLocations: result.nativeLocations,
+                  }),
+                ),
+              ),
         ),
       );
 
@@ -646,11 +660,15 @@ export const KnowledgeManagerLive = Layer.effect(
                   nativeLocations: result.nativeLocations,
                   path: `${instructionsTarget.path}#knowledge`,
                   owner: KNOWLEDGE_REGION_OWNER,
-                  present: Option.isSome(result.observedRegion),
+                  present: result.present,
                   current: !result.changed,
                   expectedContributors: input.contributors.map(
                     ({ owner, name }) => `${owner}/knowledge/${name}`,
                   ),
+                  ...Option.match(result.lastWrite, {
+                    onNone: () => ({}),
+                    onSome: (lastWrite) => ({ lastWrite }),
+                  }),
                 })),
               ),
             apply: (input) =>
@@ -667,6 +685,26 @@ export const KnowledgeManagerLive = Layer.effect(
         yield* observeProjectionPlans([plan]);
         return plan;
       });
+
+    const regionGeneration: KnowledgeManagerService["regionGeneration"] = Effect.gen(function* () {
+      const { graph, locked, configured, config, instructionsTarget } =
+        yield* resolveKnowledgeProjection();
+      const selection = yield* selectKnowledgeBundles(
+        graph,
+        locked,
+        configured,
+        config,
+        instructionsTarget.enabled,
+      );
+      const target = yield* projectionUnitPath(baseDir, instructionsTarget.declaredPath);
+      return knowledgeRegionGeneration({
+        target,
+        scopeRoot: baseDir,
+        path,
+        config,
+        bundles: selection.contributors,
+      });
+    });
 
     const projectionPlans: KnowledgeManagerService["projectionPlans"] = (options) =>
       makeKnowledgeProjectionPlan([], options).pipe(Effect.map((plan) => [plan]));
@@ -729,6 +767,7 @@ export const KnowledgeManagerLive = Layer.effect(
     const applyKnowledgeProjection = projectionPlans().pipe(
       Effect.flatMap(applyInstructionSurfacePlans),
       Effect.asVoid,
+      Effect.provideService(AcceptedResolutionWriter, accepted),
     );
 
     const reconcileDiscovery = (options?: {
@@ -882,6 +921,7 @@ export const KnowledgeManagerLive = Layer.effect(
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
           yield* projectionPlans(nativeProjection).pipe(
             Effect.flatMap(applyInstructionSurfacePlans),
+            Effect.provideService(AcceptedResolutionWriter, accepted),
           );
         }
         return {
@@ -937,6 +977,7 @@ export const KnowledgeManagerLive = Layer.effect(
     return {
       projectionPlans,
       prepareProjection,
+      regionGeneration,
       aggregateProjectionObservation: Ref.get(lastProjection),
       refreshCatalog: () =>
         runWorkspaceTransaction({

@@ -35,18 +35,10 @@ const harness = (params: {
   });
 
 describe("makeSubagentExtensionsApi", () => {
-  it.effect("associates a distinct native name only with its exact canonical marker owner", () =>
+  it.effect("attributes a native Subagent file only by its own name", () =>
     Effect.gen(function* () {
       const settings = yield* settingsWithSubagents({
         reviewer: { source: "workspace", enabled: true },
-      });
-      const native = makeAgentDirOccurrence({
-        scope: "project",
-        type: "subagent",
-        agentId: "codex",
-        name: "research",
-        contentLocation: "/ws/.codex/agents/research.toml",
-        singleFile: true,
       });
       const canonical = makeCanonicalOccurrence({
         scope: "project",
@@ -56,25 +48,30 @@ describe("makeSubagentExtensionsApi", () => {
         name: "reviewer",
         contentLocation: "/ws/subagents/reviewer",
       });
-      for (const exact of [true, false]) {
-        const api = yield* harness({
-          settings,
-          canonicalOccurrences: [canonical],
-          agentDirOccurrences: [
-            {
-              ...native,
-              managedPackage: {
-                ext: "@owner/subagents/reviewer",
-                root: exact ? "/ws/subagents/reviewer" : "/ws/subagents/foreign",
-              },
-            },
-          ],
-        });
-        expect((yield* api.installed)[0]?.actual).toHaveLength(exact ? 2 : 1);
-        expect((yield* api.unmanaged).map((row) => row.key.name)).toEqual(
-          exact ? [] : ["research"],
-        );
-      }
+      const api = yield* harness({
+        settings,
+        canonicalOccurrences: [canonical],
+        agentDirOccurrences: [
+          makeAgentDirOccurrence({
+            scope: "project",
+            type: "subagent",
+            agentId: "codex",
+            name: "reviewer",
+            contentLocation: "/ws/.codex/agents/reviewer.toml",
+            singleFile: true,
+          }),
+          makeAgentDirOccurrence({
+            scope: "project",
+            type: "subagent",
+            agentId: "codex",
+            name: "research",
+            contentLocation: "/ws/.codex/agents/research.toml",
+            singleFile: true,
+          }),
+        ],
+      });
+      expect((yield* api.installed)[0]?.actual).toHaveLength(2);
+      expect((yield* api.unmanaged).map((row) => row.key.name)).toEqual(["research"]);
     }),
   );
 

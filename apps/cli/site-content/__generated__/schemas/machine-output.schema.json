@@ -471,7 +471,6 @@
         "managed-region-absent",
         "managed-region-complete",
         "managed-region-malformed",
-        "managed-region-unsupported-version",
         "hook-native-writer-unavailable",
         "hook-native-implementation-unavailable",
         "hook-native-implementation-ambiguous",
@@ -898,8 +897,22 @@
       "title": "Unsupported Workspace Lockfile Version",
       "description": "Identifies an unsupported workspace lockfile version and its direction."
     },
+    "ProjectionOutputUnrecordedProblem": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "enum": ["projection-output-unrecorded"] },
+        "paths": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["code", "paths"],
+      "additionalProperties": false,
+      "title": "Unrecorded Projection Output",
+      "description": "Files at planned projection paths that differ from AXM's render and that AXM has no record of writing."
+    },
     "FailureProblem": {
-      "anyOf": [{ "$ref": "#/$defs/WorkspaceLockfileVersionUnsupportedProblem" }],
+      "anyOf": [
+        { "$ref": "#/$defs/WorkspaceLockfileVersionUnsupportedProblem" },
+        { "$ref": "#/$defs/ProjectionOutputUnrecordedProblem" }
+      ],
       "title": "Failure Problem",
       "description": "Structured details for a recognized failure."
     },
@@ -2175,6 +2188,12 @@
       "title": "Unit State",
       "description": "Canonical lifecycle state of one unit of work."
     },
+    "LastWrite": {
+      "type": "string",
+      "enum": ["matches", "modified", "unrecorded"],
+      "title": "Last Write Comparison",
+      "description": "How the bytes a planned rewrite or removal replaces compare with what AXM last recorded writing: `matches` (unchanged since), `modified` (edited since AXM last wrote it), or `unrecorded` (AXM has no record of writing it). Informational; never currency."
+    },
     "StepArtifactTarget": {
       "type": "object",
       "properties": {
@@ -2185,7 +2204,8 @@
         },
         "unitId": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
         "owner": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-        "entryName": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+        "entryName": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+        "lastWrite": { "anyOf": [{ "$ref": "#/$defs/LastWrite" }, { "type": "null" }] }
       },
       "required": ["path", "change"],
       "additionalProperties": false,
@@ -2211,12 +2231,13 @@
       "properties": {
         "unitId": { "type": "string" },
         "path": { "type": "string" },
-        "owner": { "type": "string" }
+        "owner": { "type": "string" },
+        "lastWrite": { "anyOf": [{ "$ref": "#/$defs/LastWrite" }, { "type": "null" }] }
       },
       "required": ["unitId", "path", "owner"],
       "additionalProperties": false,
       "title": "Plan Step Managed Region",
-      "description": "One managed-region ownership unit and its provenance owner."
+      "description": "One managed-region ownership unit and its owning projection unit from the desired graph."
     },
     "ArchivalView": {
       "type": "object",

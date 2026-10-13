@@ -101,7 +101,7 @@ describe("Bundled official-skill recovery", () => {
         "axm-lock.yaml",
         JSON.stringify(
           storedLockfileFixture({
-            lockfileVersion: 11,
+            lockfileVersion: 12,
             skills: {
               axm: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@agentxm"),

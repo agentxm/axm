@@ -103,17 +103,26 @@ destination, or changed source or destination after preview is refused. Use
 
 ## Update and remove
 
-Edit the authored manifest or its referenced files, then run `axm sync`.
-Acquired packages are accepted state; fork them before customizing. Native
-output records its package source and generation. Unchanged source preserves
-local edits to owned output; a changed selected implementation renders a new
-generation. Editing an unused runtime implementation does not rewrite another
-runtime's output.
+Projected Subagent files are generated: do not edit them directly. For a
+workspace-authored Subagent, edit its source — the manifest and referenced files
+in the authored package — then run `axm sync`. An acquired Subagent is accepted,
+immutable content: run `axm fork <ref>` to create a workspace-authored copy, then
+edit the fork.
 
-Identity changes and removal retire only proven AXM-owned native files. Foreign
-native definitions and separately authored Skills remain intact. Consumers
-sharing a physical destination must require identical bytes; incompatible
-claims are refused before writing.
+A projected file carries no AXM text. AXM owns a declared Subagent's file at its
+planned native path, and records in `axm-lock.yaml` the generation of the inputs
+it rendered from and a digest of the bytes it wrote. Unchanged inputs leave a
+formatted or hand-edited file as it is; a changed selected implementation
+rewrites it. Editing an unused runtime implementation does not rewrite another
+runtime's output. A file already at a planned path that AXM has no record of
+writing is recorded when its bytes equal the render, and is otherwise left
+untouched and the write refused; rerun with `--replace-unrecorded` to replace it.
+
+Identity changes and removal delete a native file only while its bytes are the
+ones AXM last wrote; a modified file is kept and reported unless you pass
+`--discard-modified`, and a file AXM never recorded is never deleted. Foreign native definitions and separately authored
+Skills remain intact. Consumers sharing a physical destination must require
+identical bytes; incompatible claims are refused before writing.
 
 Run `axm subagents publish` only when ready to release a version. Publication
 validates the manifest and referenced content and follows the archive policy

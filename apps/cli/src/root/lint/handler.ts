@@ -24,7 +24,7 @@ import {
 import { ExitCode } from "../../app-error/index.js";
 import { Screen } from "../../screen/index.js";
 import { Verbosity } from "../../cli-flags/index.js";
-import { processOutcome } from "../../cli-runtime/index.js";
+import { processOutcome, setOperationSettlement } from "../../cli-runtime/index.js";
 import { lintFailureToAppError } from "../../feature-errors.js";
 import { lintDoc } from "./view.js";
 import { toLintHumanFindings } from "./human-findings.js";
@@ -80,6 +80,21 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
   ).pipe(Effect.mapError(lintFailureToAppError));
 
   const ok = result.outcome !== "fail";
+  const exitCode = ok ? ExitCode.Success : ExitCode.Issues;
+  yield* setOperationSettlement({
+    exitCode,
+    ...(ok
+      ? {}
+      : {
+          failure: {
+            code: "issues",
+            phase: "command",
+            kind: "lint.findings",
+            operation: "lint.evaluate",
+            handled: true,
+          } as const,
+        }),
+  });
   const handledByMachine = yield* emitJsonDocument(result.document, ok);
   if (!handledByMachine) {
     yield* emitHumanOutput({
@@ -89,5 +104,5 @@ export const handleLint = Effect.fn("Lint.handle")(function* (args: HandleLintAr
     });
   }
 
-  return processOutcome(ok ? ExitCode.Success : ExitCode.Issues);
+  return processOutcome(exitCode);
 });

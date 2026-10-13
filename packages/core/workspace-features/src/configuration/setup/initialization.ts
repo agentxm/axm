@@ -50,6 +50,10 @@ import {
   locateWorkspace,
   resolveUserHome,
   LOCK_FILENAME,
+  readLockfileAtPath,
+  recordedProjectionRows,
+  stageProjectionChanges,
+  commitLockfileSnapshotUpdateAtPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
@@ -64,6 +68,7 @@ import {
   resolveInstructionTarget,
   observeInstructionProjection,
   syncInstructions,
+  ProjectionOutputPosture,
   type InstructionMechanism,
 } from "@agentxm/workspace-kernel/projection";
 
@@ -375,12 +380,25 @@ const instructionPlanAction = (mechanism: InstructionMechanism): SetupPlanAction
   }
 };
 
+/**
+ * The instruction rows the project lockfile records. Reading decodes the
+ * lockfile, so a version this CLI does not read refuses setup before it
+ * plans or writes anything.
+ */
+const setupInstructionRows = (workspaceRoot: string) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const lockfile = yield* readLockfileAtPath(path.join(workspaceRoot, LOCK_FILENAME));
+    return recordedProjectionRows(lockfile?.projections, "instructions");
+  });
+
 const instructionPlanRows = (args: {
   readonly workspaceRoot: string;
   readonly selectedAgents: ReadonlyArray<AgentDescriptor>;
   readonly sourceFileName: string;
   readonly sourceWillBeCreated: boolean;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
+  readonly replaceUnrecorded: boolean;
 }) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
@@ -390,6 +408,8 @@ const instructionPlanRows = (args: {
       configuredAgents: args.selectedAgents.map((agent) => agent.id),
       config: { fileName: args.sourceFileName, gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE },
       prospectiveRoots: [args.workspaceRoot],
+      rows: yield* setupInstructionRows(args.workspaceRoot),
+      replaceUnrecorded: args.replaceUnrecorded,
     });
     const rows: Array<SetupPlanRow> = [
       {
@@ -406,20 +426,22 @@ const instructionPlanRows = (args: {
       const target = path.relative(args.workspaceRoot, item.targetFile);
       if (rows.some((row) => row.target === target)) continue;
       const seeded = Option.isSome(args.sourceSeed) && args.sourceSeed.value.fileName === target;
+      // A differing file AXM has no record of writing blocks setup unless the
+      // caller asked to replace it; it is never silently preserved.
+      const blocked = !seeded && item.ownership === "unowned" && !args.replaceUnrecorded;
       rows.push({
         target,
-        action:
-          !seeded && (item.ownership === "unowned" || item.ownership === "owned-current")
+        action: blocked
+          ? "blocked"
+          : !seeded &&
+              (item.ownership === "owned-current" ||
+                item.ownership === "owned-unrecorded-identical")
             ? "in sync"
             : instructionPlanAction(item.mechanism),
         detail: {
           _tag: "instructionTarget",
           agentName: item.agentName,
-          ...(seeded
-            ? { seededAlias: true }
-            : item.ownership === "unowned"
-              ? { preserved: true }
-              : {}),
+          ...(seeded ? { seededAlias: true } : blocked ? { blocked: true } : {}),
         },
       });
     }
@@ -593,6 +615,7 @@ const applyProjectSetup = (args: {
   readonly sourceContent: Option.Option<string>;
   readonly sourceSeed: Option.Option<SetupInstructionSourceChoice>;
   readonly syncInstructions: boolean;
+  readonly replaceUnrecorded: boolean;
   readonly dryRun: boolean;
 }) =>
   Effect.gen(function* () {
@@ -600,6 +623,10 @@ const applyProjectSetup = (args: {
     const path = yield* Path.Path;
     const settingsPath = path.join(args.workspaceRoot, SETTINGS_FILENAME);
     const lockfilePath = path.join(args.workspaceRoot, LOCK_FILENAME);
+    // Rows are read before any write, so a newer lockfile refuses here.
+    const rows = args.syncInstructions
+      ? yield* setupInstructionRows(args.workspaceRoot)
+      : recordedProjectionRows(undefined, "instructions");
     yield* writeSettingsAtPath(settingsPath, args.settings);
     const lockfileExists = yield* fileExists(lockfilePath);
     if (!lockfileExists) {
@@ -681,7 +708,7 @@ const applyProjectSetup = (args: {
       );
       yield* recordFootprint({ path: aliasPath, change: "removed" });
     }
-    yield* syncInstructions({
+    const synced = yield* syncInstructions({
       workspaceRoot: args.workspaceRoot,
       scope: "project",
       configuredAgents: args.settings.agents ?? [],
@@ -689,8 +716,23 @@ const applyProjectSetup = (args: {
         fileName: args.sourceFileName,
         gitignoreAliases: DEFAULT_INSTRUCTIONS_GITIGNORE,
       },
+      rows,
+      replaceUnrecorded: args.replaceUnrecorded,
       dryRun: args.dryRun,
     });
+    if (synced.rowChanges.length > 0) {
+      const base = (yield* readLockfileAtPath(lockfilePath)) ?? {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+      };
+      const { projections: _recorded, ...rest } = base;
+      const projections = stageProjectionChanges(base.projections, synced.rowChanges);
+      yield* commitLockfileSnapshotUpdateAtPath(
+        lockfilePath,
+        base,
+        projections === undefined ? rest : { ...rest, projections },
+      );
+    }
     if (replacesAlias && aliasPath !== undefined)
       yield* recordFootprint({ path: aliasPath, change: "modified" });
   });
@@ -793,6 +835,9 @@ const configureProjectWorkspace = (args: {
       ? richestExistingInstructionFile(instructionSetup.choices)
       : Option.none<SetupInstructionSourceChoice>();
     const sourceWillBeCreated = Option.isSome(sourceContent);
+    // `--yes` approves the plan; only the operator's own override replaces an
+    // instruction alias AXM has no record of writing.
+    const replaceUnrecorded = (yield* ProjectionOutputPosture).replaceUnrecorded === true;
     const gitManaged = yield* isGitManaged(workspaceRoot);
     // Declining instruction sync leaves every instruction file alone, so the
     // plan has nothing to say about them.
@@ -803,6 +848,7 @@ const configureProjectWorkspace = (args: {
           sourceFileName: instructionSetup.fileName,
           sourceWillBeCreated,
           sourceSeed,
+          replaceUnrecorded,
         })
       : [];
     const interaction = yield* Effect.serviceOption(WorkspaceInitializationInteraction);
@@ -868,6 +914,7 @@ const configureProjectWorkspace = (args: {
       sourceContent,
       sourceSeed,
       syncInstructions: instructionSetup.enabled,
+      replaceUnrecorded,
       dryRun: args.options.preview ?? false,
     });
     return {

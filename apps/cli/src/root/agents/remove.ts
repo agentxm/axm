@@ -9,10 +9,10 @@ import {
 } from "@agentxm/workspace-kernel/reconciliation";
 import { ConfigureAgents } from "@agentxm/workspace-features/configuration";
 import { failureToAppError, toAppError } from "../../app-error/conversions.js";
-import { acceptWarningsFlag } from "../../cli-flags/index.js";
+import { acceptWarningsFlag, discardModifiedFlag } from "../../cli-flags/index.js";
 import { withArgvTracking } from "../../cli-runtime/index.js";
 import { scopeFlag } from "../../cli-flags/scope-flag.js";
-import { withRuntime, withWorkspace } from "../../runtime.js";
+import { withProjectionOutputPosture, withRuntime, withWorkspace } from "../../runtime.js";
 import { emitNoOpOutcome, emitOperationResolution } from "../../operation-output.js";
 import { withOperationLifecycle } from "../../operation-lifecycle.js";
 import { makePublicPositionalPlanInvocation } from "../shared/confirmation-recovery.js";
@@ -94,13 +94,15 @@ const removeConfig = {
   scope: scopeFlag,
   force: acceptWarningsFlag,
   preview: previewCapabilityFlag(),
+  discardModified: discardModifiedFlag,
 } as const;
 
 export const removeCommand = Command.make(
   "remove",
   removeConfig,
-  ({ ids, scope, force, preview }) =>
+  ({ ids, scope, force, preview, discardModified }) =>
     handleAgentsRemove({ ids: [...ids], force, preview }).pipe(
+      withProjectionOutputPosture({ discardModified }),
       withWorkspace(scope),
       withRuntime("agents remove"),
     ),

@@ -23,15 +23,8 @@ export interface AgentOutputAuthority {
   >;
   readonly declaredMcpNames: ReadonlySet<string>;
   readonly expectedSkillSources: Readonly<Record<string, ReadonlyArray<string>>>;
-  readonly expectedSubagentFiles: Readonly<
-    Record<
-      string,
-      ReadonlyArray<{
-        readonly ext: string;
-        readonly src: string;
-      }>
-    >
-  >;
+  /** Subagent names the workspace declares; a native file of that name at a planned container is AXM's. */
+  readonly expectedSubagentNames: ReadonlySet<string>;
 }
 
 /** A path's location beneath a store is never, by itself, ownership evidence. */
@@ -45,7 +38,7 @@ interface OutputAuthorityInputs {
 }
 
 export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOutputAuthority => {
-  const subagentFiles: Record<string, Array<{ ext: string; src: string }>> = {};
+  const expectedSubagentNames = new Set<string>();
   const declaredMcpNames = new Set<string>();
   const expectedHooks: HookNativeDeclaration[] = [];
   const expectedRegions: Record<"rule" | "knowledge", NativeRegionSource[]> = {
@@ -99,26 +92,8 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
       expectedHooks.push({ name, ref, root, scope: args.layout.scope });
     }
   };
-  const addSubagent = (name: string, ext: string, source: string) => {
-    const src = args.path.relative(args.baseDir, args.path.join(source, "..", "subagent.json"));
-    const files = subagentFiles[name] ?? [];
-    if (!files.some((file) => file.ext === ext && file.src === src)) files.push({ ext, src });
-    subagentFiles[name] = files;
-  };
-  for (const [name, entry] of Object.entries(args.acceptedResolutions.subagents ?? {})) {
-    const paths = computeExtensionPathsForLayout(
-      args.path.join,
-      args.layout,
-      extensionPathSourceFromLockEntry(entry),
-      "subagents",
-      entry.identity.name,
-    );
-    addSubagent(
-      name,
-      `${entry.identity.owner}/subagents/${entry.identity.name}`,
-      paths.extensionSrcPath,
-    );
-  }
+  for (const name of Object.keys(args.acceptedResolutions.subagents ?? {}))
+    expectedSubagentNames.add(name);
   for (const [name, entry] of Object.entries(args.acceptedResolutions.hooks ?? {})) {
     if (!args.desired.nodes.some((node) => node.type === "hook" && node.name === name)) continue;
     const paths = computeExtensionPathsForLayout(
@@ -131,17 +106,8 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
     addHook(name, `${entry.identity.owner}/hooks/${entry.identity.name}`, paths.canonicalPath);
   }
   for (const [name, entry] of Object.entries(args.settings.subagents ?? {})) {
-    if (
-      entry.source === "workspace" &&
-      args.layout.scope === "project" &&
-      args.layout.owner !== undefined
-    ) {
-      addSubagent(
-        name,
-        `${args.layout.owner}/subagents/${name}`,
-        args.path.join(args.layout.authoredRoot("subagent"), name, "src"),
-      );
-    }
+    if (entry.source === "workspace" && args.layout.scope === "project")
+      expectedSubagentNames.add(name);
   }
   for (const node of args.desired.nodes) {
     if (
@@ -172,17 +138,12 @@ export const deriveAgentOutputAuthority = (args: OutputAuthorityInputs): AgentOu
       node.type === "subagent" &&
       node.identity.authority === "workspace" &&
       args.layout.scope === "project"
-    ) {
-      addSubagent(
-        node.name,
-        node.identity.fqn,
-        args.path.join(args.layout.authoredRoot("subagent"), node.name, "src"),
-      );
-    }
+    )
+      expectedSubagentNames.add(node.name);
   }
   return {
     expectedSkillSources: deriveSkillOutputSources(args),
-    expectedSubagentFiles: subagentFiles,
+    expectedSubagentNames,
     declaredMcpNames,
     expectedHooks,
     expectedRegions,

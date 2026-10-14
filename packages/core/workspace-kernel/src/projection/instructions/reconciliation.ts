@@ -643,9 +643,15 @@ export const plannedInstructionContributorObservation = (args: {
   return { nativeLocations, agentOutcomes };
 };
 
-/** Apply shared instruction-surface regions, then the aliases depending on their content. */
+/**
+ * Apply shared instruction-surface regions, then the aliases depending on their
+ * content. A caller whose operation writes another contributor region afterwards
+ * defers the aliases to that final reconciliation, so no alias is judged against
+ * an intermediate canonical file.
+ */
 export const applyInstructionSurfacePlans = <E, R>(
   plans: ReadonlyArray<ProjectionPlan<void, E, R>>,
+  aliases: "reconcile" | "deferred" = "reconcile",
 ): Effect.Effect<
   ReadonlyArray<string>,
   E | WorkspaceSettingsReadFailure | ReconcileFailure,
@@ -667,7 +673,7 @@ export const applyInstructionSurfacePlans = <E, R>(
         yield* applyProjectionPlans(plans);
         // A native-only projection does not introduce instruction routing intent.
         // Repairing a previously missing alias belongs to explicit instruction sync.
-        if (reconcilesAliases) {
+        if (reconcilesAliases && aliases === "reconcile") {
           const posture = yield* ProjectionOutputPosture;
           yield* reconcileInstructionAliases({
             replaceUnrecorded: posture.replaceUnrecorded === true,

@@ -23,6 +23,11 @@ export interface NativeProjectionOptions {
   readonly desiredGraph?: DesiredStateGraph;
   /** Prospective values validated and rendered before settings are committed. */
   readonly hookConfigurations?: ReadonlyMap<string, HookConfigurationValues>;
+  /**
+   * `deferred` when a later step of the same operation reconciles instruction
+   * aliases once every contributor region is written.
+   */
+  readonly instructionAliases?: "reconcile" | "deferred";
 }
 
 export interface MaterializationConfiguration<E, R> {

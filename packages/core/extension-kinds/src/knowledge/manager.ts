@@ -920,7 +920,9 @@ export const KnowledgeManagerLive = Layer.effect(
         if (!dryRun) {
           yield* Effect.forEach(prepared, (item) => item.commit, { discard: true });
           yield* projectionPlans(nativeProjection).pipe(
-            Effect.flatMap(applyInstructionSurfacePlans),
+            Effect.flatMap((plans) =>
+              applyInstructionSurfacePlans(plans, nativeProjection?.instructionAliases),
+            ),
             Effect.provideService(AcceptedResolutionWriter, accepted),
           );
         }

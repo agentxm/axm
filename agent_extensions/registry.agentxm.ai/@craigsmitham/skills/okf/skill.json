@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "okf",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "repository": {
     "type": "git",
     "url": "https://github.com/craigsmitham/agent-extensions",

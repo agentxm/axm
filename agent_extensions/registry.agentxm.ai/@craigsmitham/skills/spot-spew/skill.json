@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "spot-spew",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Finds opportunities to release engineering capacity through elimination, capability substitution, idiomatic simplification, and consolidation that reduce total maintenance burden while preserving live obligations and domain meaning",
   "keywords": [
     "code review",
@@ -22,8 +22,5 @@
     "directory": "skills/spot-spew"
   },
   "homepage": "https://github.com/craigsmitham/agent-extensions",
-  "license": "MIT",
-  "publish": {
-    "ignore": []
-  }
+  "license": "MIT"
 }

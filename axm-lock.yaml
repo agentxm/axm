@@ -20,10 +20,10 @@ packages:
       extensionType: skills
       name: improve-whatever
     resolved:
-      version: 1.0.2
-      integrity: sha512-VDGqcdGI9Py8/I45j6XJGN9RZe20iuwLGD3fDQwrhSP3mbh6ZPsNc567DF1INLK7Z58Aoj9Qxb3BNcDz6NDGww==
+      version: 1.0.3
+      integrity: sha512-8nHiQ8h/J1p8Ut3jUpitqChccH8OnOeixZjnLms5abB1emEEVU9VXezKAScHVzu8ikoQmETZzbPl5SNM339ujQ==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:85b15ea136b005df267f5559be475c0e2af7c6a7713cd3e3b6c06bdb6d4d98f2
+    treeIntegrity: sha256-tree-v2:1476e555735c6e9fc3133352deb2bc9f8ba54fadcc73fff38b81b1bfa3944459
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","okf"]':
     source:
       type: registry
@@ -32,10 +32,10 @@ packages:
       extensionType: skills
       name: okf
     resolved:
-      version: 0.1.9
-      integrity: sha512-82E+G7GQXDxj514Vym4n98WS2cJvrSP/cDijOlvxb4aYX1XebACztUfujgzC7o4pyRqUyPc7DEBceGuc4Ol1pA==
+      version: 0.1.10
+      integrity: sha512-ihpm1C2s1hjWrw391h+ugYLidh1S7qmsMM08oNoAHX6V5C6NprztXtRkBqZfv8tgIg/vGjttYpZymzzk2qMNyA==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:5804515cdf4899899045171a976bbb21dc232fe4f26aeeb5f8838ef5ac4a6b0e
+    treeIntegrity: sha256-tree-v2:eaf63d55ee76f474e6a9ee49a901987dfe9cf5cd43bccd48b729aa06abb2cbfc
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","research"]':
     source:
       type: registry
@@ -44,10 +44,10 @@ packages:
       extensionType: skills
       name: research
     resolved:
-      version: 3.0.4
-      integrity: sha512-JB/oPDe4kSbVy4U9MfI8LSWzvC/fP08Vlb3VzJ6bJnewmSX1YuQuyYN9oM8G+eeeWfSTclfdPTBoLfJwnJcKaw==
+      version: 3.0.5
+      integrity: sha512-Z+WOG5VFY2UCM36435QTx0aQHmPNGQuBjzNeC8Yg+AJ/xp6aE8CYkxsrPagnMFjbERQgc1BLESuiPtSPphbOeA==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:492f786d4156a8126056050cc8ac1dd972942f8fa7efd98de74b133f4493f2a7
+    treeIntegrity: sha256-tree-v2:b6b66f7c33dad20fdb2d8a39cfb477a44204a956257931536693cad6e9d4388b
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","spot-spew"]':
     source:
       type: registry
@@ -56,10 +56,10 @@ packages:
       extensionType: skills
       name: spot-spew
     resolved:
-      version: 0.2.0
-      integrity: sha512-TJ9ENVUeo4diiLD8GlhPoKIm7m4CYDZrmzc28SW4vv+35PP1VM35zYXZ5t2oZDS0y+QFpPQJSpGW/YgClr+qhw==
+      version: 0.2.1
+      integrity: sha512-QZQXcxuw764wfbwO6sGUj47z+6OOscLbsAyM3LUsN+rCK/FDKrhBgx9ZXYGk86zvxlzPgOJEgb9eyMZRBxYjcw==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:b20f61e2e8d4f28a0f6ae4acdfc32c55ac9303b4d69a73b71c901edb0bde4f4d
+    treeIntegrity: sha256-tree-v2:b10a75fa81aa4f3336b1d6491682b7ef3512d8fdeefc4d6286b6b635dc8e3c63
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","docs"]':
     source:
       type: registry
@@ -68,10 +68,10 @@ packages:
       extensionType: skills
       name: docs
     resolved:
-      version: 0.4.0
-      integrity: sha512-Mzjz6KAjUrAN1BtTXbHIvfkW12Rl08uiNUXYfmSAXwJVD8t1gySrH6njW+Ex5Ip5L4W3Qpo1UlKmQtcbKbOREA==
+      version: 0.4.1
+      integrity: sha512-v1EWbWiTaCJzkBrQIC4tBdDrQ89gSmfySotA0NxWa6seCfJYteCvROG6zAtnzzZ+Y+pziT+4bg8uTZgB3AKkVg==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:8d185d41d9dbe4fa420f20ff35863ae57d7fe9bca8aeaf8cd15901639e254164
+    treeIntegrity: sha256-tree-v2:571c5f283873df4b88d15fe900625ba788f939d1ebca3616d0da38cb682e756d
   '["registry","https://registry.agentxm.ai","@craigsmitham","skills","manage-work-items"]':
     source:
       type: registry
@@ -80,10 +80,10 @@ packages:
       extensionType: skills
       name: manage-work-items
     resolved:
-      version: 0.2.0
-      integrity: sha512-EIITlzI2tbY9MCtpNE8KEv5Gp2IzHqemkK7YVwJCEcviWt92hOd81Q/RBA9xEPVA9G14ncMaL0xujPBSKDWNoQ==
+      version: 0.2.1
+      integrity: sha512-xDxE4aO//lW1GkEnALMdenRx73Kxd+3LfryPWgdgtE9whQH3hgnfHMZgcB+6dGeTDLJMZGW1rFyGyaQZA94a5w==
       publisherBindingId: hbnd_01ks5vvdf0fx08m9gcaq7y2wv7
-    treeIntegrity: sha256-tree-v2:9769325f885c1c902f8c0db5e630623f42575c90ac540234f42282945ca2abe4
+    treeIntegrity: sha256-tree-v2:6c4de4bc2e6b5009d2ef6bc97fc25aa4335f22fc8e1391be41b5330dfca8e863
   '["registry","https://registry.agentxm.ai","@craigsmitham","rules","use-effect-v4"]':
     source:
       type: registry

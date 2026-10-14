@@ -389,7 +389,9 @@ export const collectKnowledgeStep: (args: {
     run: manager
       .sync({
         dryRun: false,
-        ...(args.nativeProjection === undefined ? {} : { nativeProjection: args.nativeProjection }),
+        // The sync plan's instruction step follows this one and reconciles the
+        // aliases once the Rules region is written too.
+        nativeProjection: { ...args.nativeProjection, instructionAliases: "deferred" },
       })
       .pipe(
         Effect.flatMap((result) =>

@@ -61,12 +61,6 @@ export const specification = defineSpecification({
       retirementCondition:
         "Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.",
     },
-    {
-      limitation:
-        "A deleted canonical instruction file is regenerated beside a retained modified copy only when one contributor region writes it. When Rules and Knowledge regions both regenerate it in one operation, Knowledge discovery reconciles aliases against the intermediate file before the Rules region is written, so a modified copy is rewritten even though the final canonical bytes equal its recorded input.",
-      retirementCondition:
-        "Sync reconciles instruction aliases once, after every contributor region is written, and the modified-copy example runs with both Rules and Knowledge contributors.",
-    },
   ],
 });
 
@@ -400,16 +394,7 @@ describe("Generated document projection currency", () => {
     it.effect(
       `${modified ? "retains a modified" : "keeps an unmodified"} instruction copy when the canonical file is regenerated`,
       () => {
-        const workspace = makeSyncFixture({
-          settings: {
-            owner: "@acme",
-            agents: ["claude-code"],
-            instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
-            rules: { review: "workspace" },
-          },
-        });
-        cleanups.push(workspace.cleanup);
-        writeAuthoredRule(workspace.root, "review", "Authoritative review guidance.");
+        const workspace = aliasedContributorWorkspace();
         return workspace
           .provide(
             Effect.gen(function* () {

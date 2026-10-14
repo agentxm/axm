@@ -1,7 +1,8 @@
 ---
 type: Reference
 title: Permissions and side effects
-description: How to expose authority and trace information flow before actions run.
+description:
+  How to expose authority and trace information flow before actions run.
 tags: [agent-skills, permissions, side-effects, data-flow]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }

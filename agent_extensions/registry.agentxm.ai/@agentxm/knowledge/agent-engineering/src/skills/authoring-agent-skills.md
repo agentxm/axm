@@ -1,7 +1,10 @@
 ---
 type: How-to guide
 title: How to author an Agent Skill
-description: How to turn defined requirements or workflow evidence into a bounded portable Agent Skill with precise routing, proportional instructions and resources, and observable validation.
+description:
+  How to turn defined requirements or workflow evidence into a bounded portable
+  Agent Skill with precise routing, proportional instructions and resources, and
+  observable validation.
 tags: [agent-skills, authoring, routing, workflow, authority, validation]
 status: stable
 sources:
@@ -57,33 +60,33 @@ whose observable behavior has been checked in proportion to its risk.
    [Routing and activation](routing-and-activation.md).
 4. **Define only the applicable workflow contracts.** Resolve the inputs,
    discoverable facts, decisions, output, authority, failures, and completion
-   evidence that change execution. Use goals and decision criteria where
-   several approaches are valid, ordered steps where dependencies matter, and
-   exact templates or scripts only for fragile mechanics. Distinguish actual
+   evidence that change execution. Use goals and decision criteria where several
+   approaches are valid, ordered steps where dependencies matter, and exact
+   templates or scripts only for fragile mechanics. Distinguish actual
    requirements from recommendations, examples, and local conventions. See
    [Workflow contracts](workflow-contracts.md) and
    [Degrees of freedom](degrees-of-freedom.md).
 5. **Choose the smallest useful package.** Keep routing and essential
    constraints in `SKILL.md`; add only resources that concretely improve
    execution, and route to conditional resources where needed. Apply
-   [Progressive disclosure for skills](progressive-disclosure-for-skills.md)
-   and [References, scripts, and assets](resources-scripts-and-assets.md),
-   including its generated-file and distribution-boundary guidance.
+   [Progressive disclosure for skills](progressive-disclosure-for-skills.md) and
+   [References, scripts, and assets](resources-scripts-and-assets.md), including
+   its generated-file and distribution-boundary guidance.
 6. **Design interaction only when the job has one.** For a meaningful
    user-facing sequence, apply
    [How to design agent-mediated user experience](../agents/agent-mediated-user-experience.md).
    Add [Decision-support presentations](decision-support-presentations.md) when
-   the workflow compares alternatives, recommends one, or leaves a
-   consequential choice with a person. Do not add questions, progress, or
-   confirmations to a one-step or non-interactive job merely for consistency.
+   the workflow compares alternatives, recommends one, or leaves a consequential
+   choice with a person. Do not add questions, progress, or confirmations to a
+   one-step or non-interactive job merely for consistency.
 7. **Adapt through independent layers.** Keep the portable contract
    authoritative. Open a host profile under
    [Host and extension-management profiles](platforms/) only for a host the
    skill explicitly supports. When AXM owns the package, also read the
    [AXM extension-management profile](platforms/axm.md) and current CLI help;
    manager selection does not imply a host claim. Keep optional UI, invocation,
-   or distribution metadata consistent with the portable skill without making
-   it the sole source of behavior.
+   or distribution metadata consistent with the portable skill without making it
+   the sole source of behavior.
 8. **Author canonically.** Use the repository's extension manager or host
    scaffold, preserve unrelated supported metadata and invocation policy, and
    reference paths only within the package itself; name a declared pack sibling
@@ -102,17 +105,17 @@ whose observable behavior has been checked in proportion to its risk.
 
 ## Greenfield requests
 
-Repeated observations are strong candidate evidence, but an explicit request
-may commission a new skill before usage history exists. Proceed when the job,
+Repeated observations are strong candidate evidence, but an explicit request may
+commission a new skill before usage history exists. Proceed when the job,
 authority, environment, and observable outcome can be stated without inventing
-private facts. Mark unsupported assumptions, use synthetic representative
-cases, and treat compatibility or production-readiness claims as unverified.
-Defer when the request remains only a topic or aspiration without a coherent
-workflow contract.
+private facts. Mark unsupported assumptions, use synthetic representative cases,
+and treat compatibility or production-readiness claims as unverified. Defer when
+the request remains only a topic or aspiration without a coherent workflow
+contract.
 
 ## Stop conditions
 
 Stop and return the preserved state when required authority, canonical source,
-host capability, or material input is unavailable. Bound retries for external
-or mutating operations and do not interpret skill activation as permission to
+host capability, or material input is unavailable. Bound retries for external or
+mutating operations and do not interpret skill activation as permission to
 expand scope, install, publish, or perform unrelated effects.

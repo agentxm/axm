@@ -1,57 +1,70 @@
 # Agent engineering update log
 
-## 2026-09-12
+## 2026-10-14
 
-- **Outcome-oriented instructions**: Instruction authoring and audit guidance
-  now distinguishes desired outcomes and necessary constraints from incidental
-  procedure. Tool ownership, required verification, safety ordering, and useful
-  discovery remain valid constraints; compliant execution paths may differ.
+- **Removal**: Removed the Agent Skill evaluation concepts (skill evaluation
+  model, evaluating Agent Skills, routing evaluations, execution evaluations,
+  skill comparison surfaces, and evaluation runner engineering). Trimmed
+  skill-package evaluation layout and runner-selection guidance from
+  [Evaluation assets and evidence](evaluation/managing-evaluation-assets-and-evidence.md)
+  and [Evaluation contracts](evaluation/evaluation-contracts.md). General
+  agent-evaluation guidance remains.
+- **Single authoring lineage**: Consolidated changes from the former separate
+  authoring repository that had not reached this source: evidence-calibrated
+  instruction guidance with baselines, ablations, and held-out cases in
+  [Agent instruction files](domains/software-engineering/agent-instruction-files.md),
+  [Authoring agent instruction files](domains/software-engineering/authoring-agent-instruction-files.md),
+  [Context evaluation](evaluation/context-evaluation.md), and
+  [Eval-driven prompt development](evaluation/eval-driven-prompt-development.md);
+  outcome-first instructions with necessary constraints; instruction-element
+  selection and personas in
+  [Instruction structure and examples](prompts/instruction-structure-and-examples.md)
+  and
+  [Goals, roles, responsibilities, and success](agents/goals-roles-responsibilities-and-success.md);
+  generated-file and distribution boundaries in
+  [References, scripts, and assets](skills/resources-scripts-and-assets.md); and
+  catalog-versus-composition authority in the
+  [AXM profile](skills/platforms/axm.md).
+
+## 2026-10-07
+
+- **Evaluation distribution**: Updated
+  [Evaluation assets and evidence](evaluation/managing-evaluation-assets-and-evidence.md)
+  for inherited Git ignore selection, explicit publish-all inclusion, and
+  ordered publication exclusions. Source, Registry, and projection identities
+  remain separate.
+
+## 2026-10-01
+
+- **Qualified platform claims**: Expanded
+  [Portability and compatibility](skills/portability-and-compatibility.md) to
+  separate product surfaces, editions, native evidence, manager delivery,
+  configuration tests, and runtime verification. Missing evidence remains
+  unknown; lifecycle claims apply to their documented scope.
+- **Platform profiles**: Scoped [Gemini CLI](skills/platforms/gemini-cli.md)
+  lifecycle and Antigravity custom-subagent guidance, distinguished
+  [OpenAI](skills/platforms/openai.md) surfaces and executable hook handlers,
+  qualified [Claude Code](skills/platforms/claude.md) hook mechanisms, and
+  bounded [Copilot](skills/platforms/copilot.md) guidance to its VS Code source.
+  These are scoped source reviews, not renewed runtime verification.
+- **Catalog authority**: Routed current capability inventory through the public
+  catalog from the [platform index](skills/platforms/index.md) and
+  [AXM profile](skills/platforms/axm.md); corrected the acquired package path to
+  include its source family and updated CLI help source locations.
 
 ## 2026-09-08
 
 - **Name-based sibling resolution**: Required pack coupling now reaches a
   sibling by extension identity or name through host or manager discovery
   instead of a canonical same-pack path. Package paths stay inside the
-  extension, and portability treats any path into another extension as a
-  defect. The stale verification on `skills/agent-skills` was dropped because
-  the revision postdates it.
-
-## 2026-08-26
-
-- **Generated-file boundaries**: Assigned runtime output, extension-root ignore
-  rules, and release filtering separate responsibilities so independently
-  distributed extensions do not assume consumer repositories ignore their
-  generated files. Skill authoring and AXM guidance now verify those controls
-  without duplicating the canonical resource policy.
-
-## 2026-08-24
-
-- **Evidence-calibrated instructions**: Distinguished interface conformity from
-  demonstrated behavioral value, added minimal and absent-guidance baselines,
-  component ablations, held-out cases, adjacent-task regressions, and separate
-  outcome, compliance, trajectory, economy, and safety measures.
-- **Repository guidance evidence**: Reconciled mixed empirical results across
-  generated, static, efficiency-oriented, and failure-refined repository
-  guidance, added unproven accretion as an audit finding, and made continued
-  retention contingent on representative value without unacceptable cost or
-  regression.
-- **Instruction elements**: Added evidence-calibrated guidance for goal
-  contracts, scope-wide invariants, examples, personas, tone labels,
-  procedures, and formatting; narrowed negative examples to measured material
-  boundaries and replaced emphasis escalation with failure diagnosis.
-- **Roles and personas**: Separated responsibility-and-authority role contracts
-  from presentation or simulation personas and rejected persona labels as
-  evidence of expertise.
+  extension, and portability treats any path into another extension as a defect.
+  The stale verification on `skills/agent-skills` was dropped because the
+  revision postdates it.
 
 ## 2026-08-22
 
-- **Catalog and composition authority**: Clarified that an active catalog or
-  observed cohort supplies routing, coexistence, and compatibility context but
-  cannot create a dependency or required composition. Required collaboration
-  needs independent package, host, or workflow authority, and collision
-  findings belong to the smallest responsible surface.
-- **Replaceable evaluation runners**: Defined explicit-runner precedence over
-  an active configured default, selection-source attribution, disabled-source
+- **Replaceable evaluation runners**: Defined explicit-runner precedence over an
+  active configured default, selection-source attribution, disabled-source
   handling, no auto-discovery or fallback, and adapter-based evidence mapping
   for runners that do not reproduce a reference implementation's interface.
 - **Evaluation runner engineering**: Added a portable runner pattern with a
@@ -61,11 +74,11 @@
   separate trials and retry attempts, resumability, enforced budgets, and
   deterministic summaries bounded to selected coverage.
 - **AXM-aware extension guidance**: Reframed AXM as an extension-management
-  layer independent of agent hosts, expanded its profile across extension
-  types, workspace state, pack and plugin relationships, and lifecycle
-  controls, and routed skill authoring, maintenance, and retirement through
-  that profile. Governance deprecation, registry yanking, installed-state
-  disabling, and workspace uninstall are now distinct operations.
+  layer independent of agent hosts, expanded its profile across extension types,
+  workspace state, pack and plugin relationships, and lifecycle controls, and
+  routed skill authoring, maintenance, and retirement through that profile.
+  Governance deprecation, registry yanking, installed-state disabling, and
+  workspace uninstall are now distinct operations.
 - **Routing measurement**: Routing evaluations now measure a trigger rate over
   repeated attempts instead of a single verdict, require cases sized so that
   selection can vary at all, and require decision cases held out before a
@@ -81,10 +94,10 @@
   observations that never move an outcome. Evaluation validity gains threat rows
   for uninformative task difficulty and non-discriminating measures.
 - **Authoring generalization**: Skill maintenance now warns against fitting a
-  revision to the small case set that motivated it, treats repeated improvisation
-  across independent trials as evidence that the skill should own the work, and
-  prefers stated reasons over escalating emphasis, with absolutes reserved for
-  genuine invariants.
+  revision to the small case set that motivated it, treats repeated
+  improvisation across independent trials as evidence that the skill should own
+  the work, and prefers stated reasons over escalating emphasis, with absolutes
+  reserved for genuine invariants.
 - **Agent-mediated UX**: Added round trips that leave the conversation — return
   paths, response semantics, artifact identification, and a degradation ladder
   ending in ordinary conversation — plus vocabulary calibration to an unknown
@@ -101,16 +114,16 @@
   evidence tiers, and an explicit artifact lifecycle to evaluation governance.
 - **Agent Skill authoring architecture**: Added a focused creation guide and
   moved candidate admission, routing, workflow contracts, package composition,
-  host adaptation, interaction design, and proportional lifecycle guidance
-  into the knowledge bundle. The coupled authoring skill now acts as a thin
-  execution router over those concepts instead of duplicating their method.
+  host adaptation, interaction design, and proportional lifecycle guidance into
+  the knowledge bundle. The coupled authoring skill now acts as a thin execution
+  router over those concepts instead of duplicating their method.
 - **Agent-mediated user experience**: Extracted portable interaction guidance
   for user-facing agent workflows: task-state translation, surface-independent
-  interaction intents, proportional openings and progress, answerable
-  questions, authority-aware gates, evidence-led closeouts, and plain-text
-  degradation. The guide distinguishes interaction choreography from harness
-  rendering, prompt presentation contracts, human-control policy, and agent
-  experience; the glossary now records that distinction.
+  interaction intents, proportional openings and progress, answerable questions,
+  authority-aware gates, evidence-led closeouts, and plain-text degradation. The
+  guide distinguishes interaction choreography from harness rendering, prompt
+  presentation contracts, human-control policy, and agent experience; the
+  glossary now records that distinction.
 
 ## 2026-08-17
 
@@ -118,8 +131,8 @@
   `harness-engineering`, `prompt-engineering`, and `skill-engineering` bundles
   into this one. Prompts, context, harness, skills, and evaluation are now
   sections of a single body of knowledge rather than separately installable
-  bundles, so no reader has to decide which bundle owns a question before
-  asking it.
+  bundles, so no reader has to decide which bundle owns a question before asking
+  it.
 - **Boundaries**: Collapsed the four bundle-boundary concepts —
   `agent-system-boundaries`, the prompt-engineering `boundaries` matrix,
   `context-engineering-boundary`, and `instruction-files-as-harness-elements` —
@@ -132,15 +145,15 @@
   `glossary`, resolving the duplicate definitions of agent, plan, context,
   evaluation, and trace, and dropping the "core disciplines" section that
   described the former bundle split.
-- **Agent instruction files**: Reduced the three instruction-file concepts to one
-  explainer and one guide. The general `context/instruction-files` explainer was
-  roughly a lower-resolution copy of the repository one — same content taxonomy,
-  same guidance-versus-enforcement paragraph, a weaker treatment of scope — so it
-  was folded in and removed. Renamed both survivors to `agent-instruction-files`
-  and `authoring-agent-instruction-files`, matching the vocabulary the
-  `author-agent-instructions` and `audit-agent-instructions` skills already use,
-  and placed them in the software-engineering domain where their AGENTS.md and
-  CLAUDE.md subject matter belongs.
+- **Agent instruction files**: Reduced the three instruction-file concepts to
+  one explainer and one guide. The general `context/instruction-files` explainer
+  was roughly a lower-resolution copy of the repository one — same content
+  taxonomy, same guidance-versus-enforcement paragraph, a weaker treatment of
+  scope — so it was folded in and removed. Renamed both survivors to
+  `agent-instruction-files` and `authoring-agent-instruction-files`, matching
+  the vocabulary the `author-agent-instructions` and `audit-agent-instructions`
+  skills already use, and placed them in the software-engineering domain where
+  their AGENTS.md and CLAUDE.md subject matter belongs.
 - **Structure**: Regrouped concepts into `foundations`, `agents`, `multi-agent`,
   `prompts`, `context`, `harness`, `skills`, `evaluation`, `trust`,
   `operations`, and `domains`. Evaluation concepts that had been distributed
@@ -164,9 +177,9 @@
 ## 2026-08-15
 
 - **Trust semantics**: Clarified across all merged material that lifecycle
-  status, machine provenance, machine confirmation, and independent human
-  review are distinct signals, and removed verification events that predated
-  their current generated content.
+  status, machine provenance, machine confirmation, and independent human review
+  are distinct signals, and removed verification events that predated their
+  current generated content.
 - **Repository instructions**: Distinguished scope, applicability, composition,
   and precedence in the instruction-file explainer; added a portable guide for
   authoring and validating scoped repository instructions.
@@ -201,8 +214,8 @@
 
 - **Ownership**: Established `@agentxm` as the first-party identity for all
   merged material.
-- **Agent engineering**: Established the behavioral-system discipline for
-  agency choice, goals, loops, planning, tool and memory policy, human control,
+- **Agent engineering**: Established the behavioral-system discipline for agency
+  choice, goals, loops, planning, tool and memory policy, human control,
   coordination, trust, reliability, evaluation obligations, and lifecycle.
 - **Context engineering**: Extracted context from the broader harness domain and
   established context lifecycle, forms, quality, authority, progressive
@@ -213,24 +226,24 @@
   presentation contracts, prompt surfaces, eval-driven iteration, robustness,
   versioning, compatibility, injection defenses, and structural security
   boundaries.
-- **Harness engineering**: Added independent classification axes for
-  application domain, adaptation locus, ownership scope, interaction,
-  execution, continuity, coordination, authority, and evaluation role so
-  category names do not mix unrelated dimensions. Established coding harness as
-  the software-engineering domain profile and repository harness as a
-  first-class environment-side adaptation profile, and distinguished the agent,
-  harness core, adapted environment, runtime substrate, orchestration plane,
-  governance plane, agent platform, and evaluation harness by responsibility.
-  Added first-class concepts for action and observation interfaces, runtimes
-  and environments, state and continuity, feedback and verification, authority
-  and containment, and whole-system evaluation.
+- **Harness engineering**: Added independent classification axes for application
+  domain, adaptation locus, ownership scope, interaction, execution, continuity,
+  coordination, authority, and evaluation role so category names do not mix
+  unrelated dimensions. Established coding harness as the software-engineering
+  domain profile and repository harness as a first-class environment-side
+  adaptation profile, and distinguished the agent, harness core, adapted
+  environment, runtime substrate, orchestration plane, governance plane, agent
+  platform, and evaluation harness by responsibility. Added first-class concepts
+  for action and observation interfaces, runtimes and environments, state and
+  continuity, feedback and verification, authority and containment, and
+  whole-system evaluation.
 - **Skill engineering**: Established the skill lifecycle, design, evaluation,
   trust, operations, and platform profiles; added presentation contracts,
   per-surface degrees of freedom, and a decision-support pattern separating
   balanced option comparison from a single proposed recommendation and explicit
   human choice; added a governance model covering admission, distributed
-  ownership, enforceable capability boundaries, risk tiers, semantic
-  versioning, change control, and portfolio coherence.
+  ownership, enforceable capability boundaries, risk tiers, semantic versioning,
+  change control, and portfolio coherence.
 - **Evaluation engineering**: Established foundations, design, validity, and
   operations for evaluating variable AI systems, and centralized generic task
   sampling, trials, graders, baselines, uncertainty, and lifecycle guidance

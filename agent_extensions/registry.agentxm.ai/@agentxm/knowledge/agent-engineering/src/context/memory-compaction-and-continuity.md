@@ -1,7 +1,8 @@
 ---
 type: Explanation
 title: Memory, compaction, feedback, and continuity
-description: How working state survives long tasks without turning history into authority.
+description:
+  How working state survives long tasks without turning history into authority.
 tags: [memory, compaction, continuity, working-state, feedback, handoff]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
@@ -49,16 +50,16 @@ Discard repetition, superseded hypotheses, low-value raw output, and narration
 that does not affect future decisions. Label inference and uncertainty rather
 than compacting them into facts.
 
-Anthropic describes compaction as a primary mechanism for long-horizon
-coherence and warns that aggressive summaries can discard details whose
-importance emerges later.[^anthropic-context] Its long-running harness work
-also uses explicit progress artifacts so later sessions can resume without
-reconstructing the project from conversation history.[^anthropic-harness]
+Anthropic describes compaction as a primary mechanism for long-horizon coherence
+and warns that aggressive summaries can discard details whose importance emerges
+later.[^anthropic-context] Its long-running harness work also uses explicit
+progress artifacts so later sessions can resume without reconstructing the
+project from conversation history.[^anthropic-harness]
 
 ## Feedback into continuity
 
-Feedback should update working state only after its evidence is interpreted.
-A failed test may revise a hypothesis; it does not automatically supersede the
+Feedback should update working state only after its evidence is interpreted. A
+failed test may revise a hypothesis; it does not automatically supersede the
 goal. A successful action claim should not become accepted state until the
 environment verifies the effect.
 
@@ -67,4 +68,5 @@ authority, current state, evidence, and next action without silently reviving
 superseded context?
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^anthropic-harness]: Anthropic — Effective harnesses for long-running agents

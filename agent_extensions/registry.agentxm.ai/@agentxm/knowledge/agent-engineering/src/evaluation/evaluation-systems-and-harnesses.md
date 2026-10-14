@@ -1,8 +1,17 @@
 ---
 type: Explanation
 title: Evaluation systems and harnesses
-description: Separates the target, operational agent harness, evaluation harness, environment, evidence, and decision.
-tags: [evaluation-harness, agent-harness, target-system, environment, instrumentation]
+description:
+  Separates the target, operational agent harness, evaluation harness,
+  environment, evidence, and decision.
+tags:
+  [
+    evaluation-harness,
+    agent-harness,
+    target-system,
+    environment,
+    instrumentation,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
 stale_after: 2027-02-14
@@ -36,7 +45,8 @@ graders → aggregation → decision evidence
   failure conditions that influence behavior.
 
 Anthropic explicitly separates evaluation harnesses from agent harnesses and
-notes that evaluating an agent measures the harness and model together.[^anthropic-evals]
+notes that evaluating an agent measures the harness and model
+together.[^anthropic-evals]
 
 Version every material member. If the evaluation harness constrains the target,
 leaks state, or fails to observe decisive outcomes, its defects must not be

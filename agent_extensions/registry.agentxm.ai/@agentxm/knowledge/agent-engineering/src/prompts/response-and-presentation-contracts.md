@@ -1,8 +1,19 @@
 ---
 type: Reference
 title: Response and presentation contracts
-description: How answer shape, relative order, identifiers, emphasis, uniqueness, and handoff become explicit output obligations.
-tags: [response-contract, presentation, answer-shape, ordering, identifiers, structured-output, decision-support]
+description:
+  How answer shape, relative order, identifiers, emphasis, uniqueness, and
+  handoff become explicit output obligations.
+tags:
+  [
+    response-contract,
+    presentation,
+    answer-shape,
+    ordering,
+    identifiers,
+    structured-output,
+    decision-support,
+  ]
 status: stable
 generated: { by: "claude-code/claude-opus-5", at: 2026-08-16T01:39:08Z }
 stale_after: 2027-02-14
@@ -18,7 +29,9 @@ sources:
     title: Updated International Patient Decision Aid Standards, version 5.0
   - id: advice-timing
     resource: https://arxiv.org/abs/2205.09696
-    title: Who Goes First? Influences of Human-AI Workflow on Decision Making in Clinical Imaging
+    title:
+      Who Goes First? Influences of Human-AI Workflow on Decision Making in
+      Clinical Imaging
 ---
 
 # Response and presentation contracts
@@ -43,7 +56,8 @@ as design decisions rather than incidental formatting.[^prompt-report] Define:
 
 Use deterministic structured-output or schema validation when syntax must be
 enforced. Google recommends native structured output for complex schemas rather
-than relying only on natural-language formatting instructions.[^google-prompting]
+than relying only on natural-language formatting
+instructions.[^google-prompting]
 
 ## Literal and fillable parts of an output template
 
@@ -85,7 +99,13 @@ Grade contractual structure directly. Semantic completeness does not excuse an
 invalid order, duplicate recommendation, omitted choice request, or misleading
 visual emphasis.
 
-[^prompt-report]: The Prompt Report — A Systematic Survey of Prompting Techniques
+[^prompt-report]:
+    The Prompt Report — A Systematic Survey of Prompting Techniques
+
 [^google-prompting]: Google — Prompt design strategies
+
 [^ipdas]: Updated International Patient Decision Aid Standards, version 5.0
-[^advice-timing]: Who Goes First? Influences of Human-AI Workflow on Decision Making in Clinical Imaging
+
+[^advice-timing]:
+    Who Goes First? Influences of Human-AI Workflow on Decision Making in
+    Clinical Imaging

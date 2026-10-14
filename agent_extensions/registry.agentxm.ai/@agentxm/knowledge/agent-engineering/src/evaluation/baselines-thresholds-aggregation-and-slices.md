@@ -1,8 +1,19 @@
 ---
 type: Reference
 title: Baselines, thresholds, aggregation, and slices
-description: Makes comparisons and dispositions without allowing aggregate scores to hide critical failures or non-discriminating measures.
-tags: [baselines, thresholds, aggregation, cohorts, slices, tradeoffs, discrimination]
+description:
+  Makes comparisons and dispositions without allowing aggregate scores to hide
+  critical failures or non-discriminating measures.
+tags:
+  [
+    baselines,
+    thresholds,
+    aggregation,
+    cohorts,
+    slices,
+    tradeoffs,
+    discrimination,
+  ]
 status: stable
 generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
 stale_after: 2027-02-22
@@ -21,14 +32,14 @@ sources:
 # Baselines, thresholds, aggregation, and slices
 
 Prefer a decision-relevant comparison: current production, the accepted prior
-revision, the same task without the intervention, the simplest viable system,
-or a named alternative. Hold unrelated variables constant when attributing a
+revision, the same task without the intervention, the simplest viable system, or
+a named alternative. Hold unrelated variables constant when attributing a
 difference.
 
 Define thresholds before candidate results. Tie them to product requirements,
 risk tolerance, uncertainty, and the cost of false acceptance or rejection.
-Track quality with latency, cost, authority, safety, and reliability rather
-than optimizing one convenience score.
+Track quality with latency, cost, authority, safety, and reliability rather than
+optimizing one convenience score.
 
 Aggregate only after preserving:
 
@@ -51,13 +62,13 @@ A measure earns its place by separating the configurations under comparison.
 Before reading any pass rate, classify each assertion, check, or rubric
 dimension by its pattern across those configurations:
 
-| Pattern across configurations | Reading | Action |
-| --- | --- | --- |
-| Passes everywhere | The baseline already satisfies it | Retire it, or keep it explicitly as a guardrail rather than as evidence of value |
-| Fails everywhere | Broken, unobservable, or beyond current capability | Repair the case or withdraw the claim it was meant to support |
-| Passes with the intervention, fails without | Attributable value | Keep as primary evidence |
-| Fails with the intervention, passes without | A regression an aggregate can absorb | Gate it independently |
-| Alternates across trials | Flaky case, unstable grader, or genuinely variable behavior | Add trials before reading a mean |
+| Pattern across configurations               | Reading                                                     | Action                                                                           |
+| ------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Passes everywhere                           | The baseline already satisfies it                           | Retire it, or keep it explicitly as a guardrail rather than as evidence of value |
+| Fails everywhere                            | Broken, unobservable, or beyond current capability          | Repair the case or withdraw the claim it was meant to support                    |
+| Passes with the intervention, fails without | Attributable value                                          | Keep as primary evidence                                                         |
+| Fails with the intervention, passes without | A regression an aggregate can absorb                        | Gate it independently                                                            |
+| Alternates across trials                    | Flaky case, unstable grader, or genuinely variable behavior | Add trials before reading a mean                                                 |
 
 A suite whose measures nearly all pass everywhere reports a high score while
 establishing very little: the aggregate then describes the task rather than the
@@ -70,5 +81,8 @@ fails this check is a finding against the suite's author, and repairing it
 during a controlled run invalidates the comparison it was meant to inform.
 
 [^openai-evals]: OpenAI — Evaluation best practices
+
 [^nist-rmf]: NIST — AI RMF Core
-[^anthropic-skill-creator-analyzer]: Anthropic — Skill Creator benchmark analyzer
+
+[^anthropic-skill-creator-analyzer]:
+    Anthropic — Skill Creator benchmark analyzer

@@ -1,8 +1,19 @@
 ---
 type: Reference
 title: Observability, improvement, and retirement
-description: Uses decisions, actions, effects, interventions, and drift to improve or withdraw an agent safely.
-tags: [agent-observability, traces, monitoring, improvement, drift, retirement, lifecycle]
+description:
+  Uses decisions, actions, effects, interventions, and drift to improve or
+  withdraw an agent safely.
+tags:
+  [
+    agent-observability,
+    traces,
+    monitoring,
+    improvement,
+    drift,
+    retirement,
+    lifecycle,
+  ]
 status: stable
 sources:
   - id: otel-agent-observability
@@ -33,8 +44,8 @@ Capture proportionately:
 - retries, fallbacks, escalations, human interventions, and termination reason;
 - cost, latency, resource consumption, safety signals, and user feedback.
 
-Protect sensitive prompts, tool arguments, results, memory, and credentials.
-Use identifiers, redaction, access control, retention limits, and sampled detail
+Protect sensitive prompts, tool arguments, results, memory, and credentials. Use
+identifiers, redaction, access control, retention limits, and sampled detail
 rather than indiscriminate transcript capture. OpenTelemetry separates agent
 applications from frameworks and uses traces, metrics, logs, feedback, and
 evaluation signals; its GenAI conventions remain an evolving interoperability
@@ -42,12 +53,12 @@ surface.[^otel-agent-observability][^otel-genai]
 
 ## Improvement loop
 
-Cluster recurring failures, attribute each to a responsible surface, change
-the smallest sufficient policy or mechanism, rerun representative evaluations,
-and monitor the deployed cohort for regression and drift. Re-evaluate after
-material changes to models, prompts, tools, authority, memory, topology,
-environment, or task distribution. This recurring govern-map-measure-manage
-cycle follows the structure of the NIST AI RMF.[^nist-rmf]
+Cluster recurring failures, attribute each to a responsible surface, change the
+smallest sufficient policy or mechanism, rerun representative evaluations, and
+monitor the deployed cohort for regression and drift. Re-evaluate after material
+changes to models, prompts, tools, authority, memory, topology, environment, or
+task distribution. This recurring govern-map-measure-manage cycle follows the
+structure of the NIST AI RMF.[^nist-rmf]
 
 Retire or suspend an agent when ownership disappears, controls or evidence are
 stale, the task no longer warrants agency, residual risk is unacceptable, or a
@@ -56,5 +67,7 @@ delegation, preserve required audit evidence, dispose of memory under policy,
 and give affected people a transition and redress path.
 
 [^otel-agent-observability]: OpenTelemetry — AI agent observability
+
 [^otel-genai]: OpenTelemetry — Generative AI semantic convention attributes
+
 [^nist-rmf]: NIST — AI Risk Management Framework

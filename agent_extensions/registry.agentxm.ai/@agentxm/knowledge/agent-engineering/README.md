@@ -1,9 +1,9 @@
 # Agent engineering knowledge
 
 Portable knowledge for people designing and operating goal-directed AI agents.
-It covers when agency is warranted, how agent behavior should be structured,
-and how prompts, context, harness, skills, evaluation, trust, and lifecycle
-concerns fit together as one system rather than as separate disciplines.
+It covers when agency is warranted, how agent behavior should be structured, and
+how prompts, context, harness, skills, evaluation, trust, and lifecycle concerns
+fit together as one system rather than as separate disciplines.
 
 It does not attempt to cover robotics, autonomous vehicles, or reinforcement
 learning as complete fields, and it does not supply a framework, runtime, or

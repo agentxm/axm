@@ -1,15 +1,27 @@
 ---
 type: Reference
 title: Robustness, versioning, and compatibility
-description: How prompt revisions remain attributable and portable across wording, configuration, model, host, and context changes.
-tags: [prompt-robustness, versioning, compatibility, model-migration, portability, variance]
+description:
+  How prompt revisions remain attributable and portable across wording,
+  configuration, model, host, and context changes.
+tags:
+  [
+    prompt-robustness,
+    versioning,
+    compatibility,
+    model-migration,
+    portability,
+    variance,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
 stale_after: 2027-02-14
 sources:
   - id: prompt-robust
     resource: https://arxiv.org/abs/2306.04528
-    title: PromptRobust — Towards Evaluating the Robustness of Large Language Models on Adversarial Prompts
+    title:
+      PromptRobust — Towards Evaluating the Robustness of Large Language Models
+      on Adversarial Prompts
   - id: anthropic-eval-tool
     resource: https://platform.claude.com/docs/en/test-and-evaluate/develop-tests
     title: Anthropic — Define success criteria and build evaluations
@@ -65,6 +77,11 @@ change as a compatibility event. Rerun the representative suite; do not infer
 support from a newer model name. Evaluation suites also require maintenance as
 tasks and models evolve.[^anthropic-eval-tool]
 
-[^prompt-robust]: PromptRobust — Towards Evaluating the Robustness of Large Language Models on Adversarial Prompts
-[^anthropic-eval-tool]: Anthropic — Define success criteria and build evaluations
+[^prompt-robust]:
+    PromptRobust — Towards Evaluating the Robustness of Large Language Models on
+    Adversarial Prompts
+
+[^anthropic-eval-tool]:
+    Anthropic — Define success criteria and build evaluations
+
 [^aws-prompt-management]: AWS — Prompt management

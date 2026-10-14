@@ -1,8 +1,19 @@
 ---
 type: Explanation
 title: Repository harnesses
-description: How repository-owned adaptation composes with coding-agent hosts and external infrastructure to make a codebase legible, actionable, bounded, and verifiable.
-tags: [repository-harness, coding-agents, repositories, adaptation, ownership, verification]
+description:
+  How repository-owned adaptation composes with coding-agent hosts and external
+  infrastructure to make a codebase legible, actionable, bounded, and
+  verifiable.
+tags:
+  [
+    repository-harness,
+    coding-agents,
+    repositories,
+    adaptation,
+    ownership,
+    verification,
+  ]
 status: stable
 sources:
   - id: openai-agents-md
@@ -36,24 +47,24 @@ harness engineering, not merely another name for repository context.
 
 ## What a repository harness can contain
 
-| Surface | Contribution |
-| --- | --- |
-| Scoped instructions and discovery routes | Establish invariants, commands, precedence, and paths to deeper knowledge |
-| Architecture and domain documentation | Make responsibilities, vocabulary, authority, and change boundaries discoverable |
-| Scripts, task runners, and development containers | Provide repeatable actions and environments |
-| Tests, linters, schemas, and finish gates | Convert important expectations into executable feedback |
-| CI, review automation, and repository hooks | Carry verification and policy into delivery workflows |
-| Plans, task state, handoffs, and receipts | Preserve decisions, progress, and evidence across sessions or workers |
+| Surface                                           | Contribution                                                                     |
+| ------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Scoped instructions and discovery routes          | Establish invariants, commands, precedence, and paths to deeper knowledge        |
+| Architecture and domain documentation             | Make responsibilities, vocabulary, authority, and change boundaries discoverable |
+| Scripts, task runners, and development containers | Provide repeatable actions and environments                                      |
+| Tests, linters, schemas, and finish gates         | Convert important expectations into executable feedback                          |
+| CI, review automation, and repository hooks       | Carry verification and policy into delivery workflows                            |
+| Plans, task state, handoffs, and receipts         | Preserve decisions, progress, and evidence across sessions or workers            |
 
-These surfaces are not all context. Some change the environment, enforce
-policy, execute work, or produce verification evidence. That is why
-**repository harness** is broader than **repository context**.
+These surfaces are not all context. Some change the environment, enforce policy,
+execute work, or produce verification evidence. That is why **repository
+harness** is broader than **repository context**.
 
 ## Composition boundary
 
 The repository is not the whole coding-agent system, but it can own a
-first-class repository harness that composes with portable coding-agent
-runtimes and external infrastructure:
+first-class repository harness that composes with portable coding-agent runtimes
+and external infrastructure:
 
 ```text
 portable coding-agent harness
@@ -64,22 +75,22 @@ portable coding-agent harness
 ```
 
 The repository layer should own stable codebase-specific adaptation. The
-portable agent host should own reusable loop, model, and tool behavior.
-External platforms should own shared compute, credentials, queues,
-observability, and organization policy when those concerns cannot be safely or
-portably owned by one repository.
+portable agent host should own reusable loop, model, and tool behavior. External
+platforms should own shared compute, credentials, queues, observability, and
+organization policy when those concerns cannot be safely or portably owned by
+one repository.
 
 ## Scope can nest
 
 A repository harness may have root defaults plus narrower package, subtree, or
 workspace adaptations. Host discovery and precedence rules determine how those
-layers compose. The engineering goal is not one file; it is a coherent
-effective environment at representative entry points.
+layers compose. The engineering goal is not one file; it is a coherent effective
+environment at representative entry points.
 
-Do not call any repository-local evaluator a **repository evaluation
-harness** without qualification. It may mean repository-owned checks used by a
-production coding harness, or an evaluation harness that benchmarks agents on
-repository tasks. Name which system runs trials and which system is the target.
+Do not call any repository-local evaluator a **repository evaluation harness**
+without qualification. It may mean repository-owned checks used by a production
+coding harness, or an evaluation harness that benchmarks agents on repository
+tasks. Name which system runs trials and which system is the target.
 
 ## Relationship to coding harnesses
 
@@ -89,10 +100,14 @@ environment-side adaptation locus and repository ownership scope. A real
 coding-agent system commonly includes both; neither term should replace the
 other.
 
-See [Harness classification](../../harness/harness-classification.md) for
-the complete set of axes.
+See [Harness classification](../../harness/harness-classification.md) for the
+complete set of axes.
 
 [^openai-agents-md]: OpenAI — Custom instructions with AGENTS.md
-[^github-response-customization]: GitHub Docs — About customizing GitHub Copilot responses
+
+[^github-response-customization]:
+    GitHub Docs — About customizing GitHub Copilot responses
+
 [^repository-harness-project]: repository-harness
+
 [^repo-harness-project]: repo-harness

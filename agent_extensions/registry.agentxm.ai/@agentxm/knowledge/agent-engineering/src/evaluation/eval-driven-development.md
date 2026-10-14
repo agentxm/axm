@@ -1,7 +1,9 @@
 ---
 type: How-to guide
 title: How to practice eval-driven development
-description: Uses evaluations before and throughout development to define success, compare attributable changes, and retain regressions.
+description:
+  Uses evaluations before and throughout development to define success, compare
+  attributable changes, and retain regressions.
 tags: [eval-driven-development, comparison, regression, iteration, attribution]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
@@ -39,4 +41,5 @@ target during a supposedly controlled run. Separate measurement from mutation
 when attribution or independent judgment matters.
 
 [^openai-evals]: OpenAI — Evaluation best practices
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

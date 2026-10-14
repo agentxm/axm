@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Feedback and verification
-description: How harnesses turn action consequences into useful feedback and establish completion with evidence.
+description:
+  How harnesses turn action consequences into useful feedback and establish
+  completion with evidence.
 tags: [harness, feedback, verification, evidence, observability, completion]
 status: stable
 sources:
@@ -29,10 +31,10 @@ Avoid undifferentiated logs and success messages that do not prove the claimed
 effect. Preserve artifacts when later review or audit depends on them.
 
 Completion criteria should be defined before the agent declares success and
-should match the consequence of the work. Tests, schemas, policy checks,
-runtime observations, and human decisions cover different claims; no single
-signal substitutes for all of them. OpenAI's harness account emphasizes giving
-agents observable environments and feedback loops that let them verify their
-own work.[^openai-harness-engineering]
+should match the consequence of the work. Tests, schemas, policy checks, runtime
+observations, and human decisions cover different claims; no single signal
+substitutes for all of them. OpenAI's harness account emphasizes giving agents
+observable environments and feedback loops that let them verify their own
+work.[^openai-harness-engineering]
 
 [^openai-harness-engineering]: OpenAI — Harness engineering

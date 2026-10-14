@@ -9,8 +9,8 @@ and how responsibility divides among them.
   Model-directed agency distinguished from predefined execution and simpler
   automation.
 - [Autonomy and risk classification](autonomy-and-risk-classification.md) -
-  Classifying deployed agency by decision freedom, reach, duration,
-  supervision, reversibility, and consequence.
+  Classifying deployed agency by decision freedom, reach, duration, supervision,
+  reversibility, and consequence.
 - [Agent-system composition](agent-system-composition.md) - How agents,
   harnesses, environments, runtime substrates, orchestration, governance, and
   evaluation compose without becoming synonyms.

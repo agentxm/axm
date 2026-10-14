@@ -1,7 +1,9 @@
 ---
 type: Reference
 title: Portable Agent Skills core
-description: The cross-host package and progressive-disclosure contract defined by the open specification.
+description:
+  The cross-host package and progressive-disclosure contract defined by the open
+  specification.
 tags: [agent-skills, specification, portability, package]
 status: stable
 stale_after: 2027-02-14
@@ -43,4 +45,3 @@ exist, and a skill that lets the surface supply the labels produces a different
 referent on each host.
 
 [^agent-skills-spec]: Agent Skills specification
-

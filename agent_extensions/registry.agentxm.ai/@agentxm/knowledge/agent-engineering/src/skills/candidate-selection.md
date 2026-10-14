@@ -1,7 +1,8 @@
 ---
 type: How-to guide
 title: How to select a skill candidate
-description: How to decide whether repeated work warrants a reusable Agent Skill.
+description:
+  How to decide whether repeated work warrants a reusable Agent Skill.
 tags: [agent-skills, candidate-selection, workflow, repetition, scope]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }
@@ -13,8 +14,8 @@ stale_after: 2027-02-14
 Create a skill when reusable procedural knowledge materially improves a
 recognizable job. Repeated work provides the strongest admission evidence; an
 explicitly commissioned greenfield skill may instead begin from defined
-requirements and remain experimental until representative behavior is tested.
-Do not create one merely because a topic can be described in Markdown.
+requirements and remain experimental until representative behavior is tested. Do
+not create one merely because a topic can be described in Markdown.
 
 ## Evidence to gather
 

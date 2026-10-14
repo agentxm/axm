@@ -1,8 +1,17 @@
 ---
 type: Explanation
 title: Outcomes, trajectories, and state
-description: Selects evidence from final results, external state, and execution traces without overconstraining valid paths.
-tags: [outcome-evaluation, trajectory-evaluation, traces, external-state, agent-evals]
+description:
+  Selects evidence from final results, external state, and execution traces
+  without overconstraining valid paths.
+tags:
+  [
+    outcome-evaluation,
+    trajectory-evaluation,
+    traces,
+    external-state,
+    agent-evals,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
 stale_after: 2027-02-14
@@ -34,13 +43,15 @@ Google separates final-response and trajectory evaluation.[^google-agent-evals]
 
 Prefer outcome or external-state grading when several valid paths exist. Grade
 the trajectory when authority, safety, required obligations, attribution,
-recovery, or efficiency makes the path consequential. Anthropic warns that
-exact golden paths can reject creative valid solutions.[^anthropic-evals]
+recovery, or efficiency makes the path consequential. Anthropic warns that exact
+golden paths can reject creative valid solutions.[^anthropic-evals]
 
 A plausible statement of success is not proof that the state changed. A valid
 outcome does not excuse a prohibited action. Report both independently where
 both are contractual.
 
 [^openai-agent-evals]: OpenAI — Evaluate agent workflows
+
 [^google-agent-evals]: Google Cloud — Evaluate Gen AI agents
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

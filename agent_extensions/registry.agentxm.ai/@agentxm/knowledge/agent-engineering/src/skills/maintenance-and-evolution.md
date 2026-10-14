@@ -1,8 +1,11 @@
 ---
 type: How-to guide
 title: How to maintain and evolve a skill
-description: How observed failures become bounded revisions, regression cases, releases, and rollback decisions without fitting the skill to its own case set.
-tags: [agent-skills, maintenance, evolution, regression, releases, generalization]
+description:
+  How observed failures become bounded revisions, regression cases, releases,
+  and rollback decisions without fitting the skill to its own case set.
+tags:
+  [agent-skills, maintenance, evolution, regression, releases, generalization]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-24T13:32:38Z }
 stale_after: 2027-02-24
@@ -43,9 +46,9 @@ current Agent Skill research.[^dynamic-lifecycle]
    unchanged version.
 7. **Pin or withdraw the release when a critical claim cannot be supported.**
 
-Use the extension manager's native version and availability controls rather
-than editing generated state or treating a governance label as an operational
-action. For AXM-managed packages, read the
+Use the extension manager's native version and availability controls rather than
+editing generated state or treating a governance label as an operational action.
+For AXM-managed packages, read the
 [AXM extension-management profile](platforms/axm.md) and current CLI help.
 
 Add every confirmed failure to the regression set as you go, so the next
@@ -69,4 +72,5 @@ Read the trials, not only their outcomes. Work the skill caused that produced no
 value is a reason to remove instructions, and it is invisible in a pass rate.
 
 [^dynamic-lifecycle]: Dynamic lifecycle management for Agent Skills
+
 [^anthropic-skill-creator]: Anthropic — Skill Creator

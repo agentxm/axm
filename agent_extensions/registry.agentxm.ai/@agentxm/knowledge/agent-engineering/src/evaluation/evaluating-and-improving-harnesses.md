@@ -1,8 +1,18 @@
 ---
 type: How-to guide
 title: How to evaluate and improve a harness
-description: Specializes whole-system evaluation through runtime identity, trace capture, environment fidelity, and responsible-surface attribution.
-tags: [harness, evaluation, diagnosis, observability, environment-fidelity, attribution]
+description:
+  Specializes whole-system evaluation through runtime identity, trace capture,
+  environment fidelity, and responsible-surface attribution.
+tags:
+  [
+    harness,
+    evaluation,
+    diagnosis,
+    observability,
+    environment-fidelity,
+    attribution,
+  ]
 status: stable
 sources:
   - id: openai-harness-engineering
@@ -25,8 +35,8 @@ or verification accepted a false completion.[^openai-harness-engineering]
 
 1. Bind each trial to exact model, harness, tool, policy, environment, and
    fixture identities.
-2. Capture traces, external state, and artifacts sufficient to locate failures without relying
-   only on the model's explanation.
+2. Capture traces, external state, and artifacts sufficient to locate failures
+   without relying only on the model's explanation.
 3. Verify trial isolation and distinguish target behavior from evaluation-
    harness or environment failure.
 4. Classify each failure by responsible surface: intent, context, interface,
@@ -43,4 +53,5 @@ Anthropic warns that agent, task, grader, scaffold, and environment failures can
 otherwise be confused.[^anthropic-evals]
 
 [^openai-harness-engineering]: OpenAI — Harness engineering
+
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents

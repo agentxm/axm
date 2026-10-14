@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Reasoning, planning, and replanning
-description: Chooses planning commitments and replanning triggers without requiring hidden reasoning disclosure.
+description:
+  Chooses planning commitments and replanning triggers without requiring hidden
+  reasoning disclosure.
 tags: [reasoning, planning, replanning, decomposition, commitments, uncertainty]
 status: stable
 sources:
@@ -39,15 +41,16 @@ observation; uncontrolled replanning destroys continuity.
 ## Match the pattern to the problem
 
 Prompt chaining, routing, parallelization, orchestrator-worker decomposition,
-and evaluator-optimizer loops are reusable patterns, not universal stages.[^anthropic-agents]
-Use a pattern only when its control structure corresponds to the task:
-parallelize independent work, route distinct classes, delegate separable
-responsibilities, and iterate only when feedback can materially improve the
-artifact.
+and evaluator-optimizer loops are reusable patterns, not universal
+stages.[^anthropic-agents] Use a pattern only when its control structure
+corresponds to the task: parallelize independent work, route distinct classes,
+delegate separable responsibilities, and iterate only when feedback can
+materially improve the artifact.
 
 Evaluate planning through outcomes and trajectories: unnecessary steps,
 premature commitment, missed dependencies, failure to revise, oscillation, and
 unsafe action are more informative than whether a plan sounds plausible.
 
 [^agent-survey]: A Survey on Large Language Model based Autonomous Agents
+
 [^anthropic-agents]: Anthropic — Building effective agents

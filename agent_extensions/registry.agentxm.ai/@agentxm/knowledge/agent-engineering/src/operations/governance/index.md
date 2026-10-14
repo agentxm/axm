@@ -1,7 +1,7 @@
 # Governance
 
-Deciding what enters a library, who owns it, what authority it may hold, and
-how it changes over time.
+Deciding what enters a library, who owns it, what authority it may hold, and how
+it changes over time.
 
 - [Skill library governance model](governance-model.md) - How automation,
   distributed ownership, independent review, and runtime enforcement govern a
@@ -13,8 +13,8 @@ how it changes over time.
   How declared, approved, effective, and observed authority determine controls
   and reviewers.
 - [Skill governance record](governance-record.md) - The authored claims,
-  independent decisions, runtime facts, and evidence identities needed to
-  govern one skill over time.
+  independent decisions, runtime facts, and evidence identities needed to govern
+  one skill over time.
 - [Versioning, deprecation, and change control](versioning-deprecation-and-change-control.md) -
   How a public contract drives semantic versions, reapproval, migration,
   deprecation, revocation, and retirement.

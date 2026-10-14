@@ -1,8 +1,18 @@
 ---
 type: How-to guide
 title: How to evaluate production behavior and detect drift
-description: Connects offline evaluation with monitoring, feedback, experiments, incidents, and changing deployment conditions.
-tags: [production-evaluation, monitoring, drift, user-feedback, ab-testing, incidents]
+description:
+  Connects offline evaluation with monitoring, feedback, experiments, incidents,
+  and changing deployment conditions.
+tags:
+  [
+    production-evaluation,
+    monitoring,
+    drift,
+    user-feedback,
+    ab-testing,
+    incidents,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
 stale_after: 2027-02-14
@@ -41,4 +51,5 @@ Production data is not automatically ground truth. It may be selected,
 privacy-sensitive, delayed, or missing counterfactuals; record those limits.
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
+
 [^nist-rmf]: NIST — AI RMF Core

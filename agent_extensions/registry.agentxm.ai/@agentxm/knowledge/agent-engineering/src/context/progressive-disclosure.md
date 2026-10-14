@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Progressive disclosure
-description: How compact routes, meaningful selection conditions, and on-demand depth conserve attention.
+description:
+  How compact routes, meaningful selection conditions, and on-demand depth
+  conserve attention.
 tags: [progressive-disclosure, routing, retrieval, discovery, attention-budget]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-09T20:53:20Z }
@@ -29,16 +31,16 @@ advertise a route → select it when relevant → load the needed depth
 
 Agents need enough initial context to discover what could help, but loading
 every instruction, tool, document, memory item, and observation consumes finite
-attention. Anthropic recommends high-signal context and just-in-time
-exploration rather than exhaustive loading.[^anthropic-context]
+attention. Anthropic recommends high-signal context and just-in-time exploration
+rather than exhaustive loading.[^anthropic-context]
 
 ## Three-part contract
 
-| Part | Responsibility |
-| --- | --- |
-| Route | Name what exists, when it matters, its boundary, and how to reach it |
-| Selection | Decide whether this task warrants the deeper context |
-| Depth | Supply enough selected material to act without an unbounded descent |
+| Part      | Responsibility                                                       |
+| --------- | -------------------------------------------------------------------- |
+| Route     | Name what exists, when it matters, its boundary, and how to reach it |
+| Selection | Decide whether this task warrants the deeper context                 |
+| Depth     | Supply enough selected material to act without an unbounded descent  |
 
 Depth without a route is invisible. A route without a selection condition loads
 too broadly. A destination that does not fulfill its advertised purpose makes
@@ -65,4 +67,5 @@ Do not repair a routing failure by bloating every entry point with the entire
 destination.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^cursor-discovery]: Cursor — Dynamic context discovery

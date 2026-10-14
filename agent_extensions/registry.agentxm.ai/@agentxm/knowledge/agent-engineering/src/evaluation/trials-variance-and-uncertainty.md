@@ -1,7 +1,9 @@
 ---
 type: Reference
 title: Trials, variance, and uncertainty
-description: Designs repeated trials and reports distributions and uncertainty without treating one run as stable behavior.
+description:
+  Designs repeated trials and reports distributions and uncertainty without
+  treating one run as stable behavior.
 tags: [trials, nondeterminism, variance, uncertainty, pass-at-k, reliability]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
@@ -40,4 +42,5 @@ Do not convert “not observed” into “cannot happen.” A small suite can re
 large regression without supporting a precise population estimate.
 
 [^anthropic-evals]: Anthropic — Demystifying evals for AI agents
+
 [^nist-rmf]: NIST — AI RMF Core

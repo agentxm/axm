@@ -5716,7 +5716,6 @@
           "archive_read_failed",
           "publish_internal_error",
           "service_unavailable",
-          "publish_publish_disabled",
           "publish_database_contention"
         ],
         "title": "Registry Problem Code",

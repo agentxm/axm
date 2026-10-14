@@ -2,7 +2,7 @@
  * E2E tests for the `axm packs` command group.
  *
  * Tests: packs new, add/remove, publish, install, uninstall, unpack,
- * and transitive skill disable.
+ * transitive skill disable, and pack-contributed rules sharing one region.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -1615,6 +1615,149 @@ describe("axm packs list", () => {
       expect(output).toContain("@test");
     } finally {
       cleanup();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pack-contributed rules share one managed Rules region
+// ---------------------------------------------------------------------------
+
+describe("pack-contributed rules", () => {
+  const RULES = ["alpha", "beta", "gamma"] as const;
+  type RuleName = (typeof RULES)[number];
+
+  const outcomeOf = (stdout: string): unknown => JSON.parse(stdout).result.outcome;
+
+  /** The exact instruction file AXM writes for the given contributing rules. */
+  const expectedInstructions = (members: ReadonlyArray<RuleName>) =>
+    `<!-- axm:rules -->\n${members
+      .map((name) => `# ${name}\n\nRule ${name} body.\n`)
+      .join("\n")}<!-- /axm:rules -->\n`;
+
+  it("composes, preserves, repairs, and withdraws one Rules region across two packs", async () => {
+    const author = createTempDir();
+    const consumer = createTempDir();
+    const registryDir = createTempDir("axm-registry-");
+    const registryUrl = `file://${registryDir.path}`;
+    const instructionsPath = path.join(consumer.path, "AGENTS.md");
+    const lockPath = path.join(consumer.path, "axm-lock.yaml");
+    const readInstructions = () => fs.readFileSync(instructionsPath, "utf-8");
+
+    const sync = async (args: ReadonlyArray<string>) => {
+      const result = await runCli(["sync", ...args, "--json"], { cwd: consumer.path });
+      expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+      return outcomeOf(result.stdout);
+    };
+
+    try {
+      for (const workspace of [author, consumer]) {
+        const setup = await runCli(
+          ["setup", "--yes", "--scope", "project", "--agent", "claude-code"],
+          { cwd: workspace.path },
+        );
+        expect(setup.exitCode, setup.stdout + setup.stderr).toBe(0);
+        const settingsPath = path.join(workspace.path, "axm.json");
+        configureRegistrySource(settingsPath, registryUrl);
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        settings.instructionFiles = { fileName: "AGENTS.md", gitignoreAliases: false };
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      }
+
+      for (const name of RULES) {
+        const created = await runCli(["rules", "new", name, "--owner", "@test"], {
+          cwd: author.path,
+        });
+        expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+        fs.writeFileSync(
+          path.join(author.path, "rules", name, "src", "RULE.md"),
+          `# ${name}\n\nRule ${name} body.\n`,
+        );
+      }
+      const rulesPublished = await runCli(["rules", "publish", "--json"], {
+        cwd: author.path,
+        env: { AXM_TOKEN: "e2e-test-token" },
+      });
+      expect(rulesPublished.exitCode, rulesPublished.stdout + rulesPublished.stderr).toBe(0);
+
+      const packMembers = { "first-pack": ["alpha"], "second-pack": ["beta", "gamma"] } as const;
+      for (const [pack, members] of Object.entries(packMembers)) {
+        const created = await runCli(["packs", "new", pack], { cwd: author.path });
+        expect(created.exitCode, created.stdout + created.stderr).toBe(0);
+        for (const member of members) {
+          const added = await runCli(["packs", "add", pack, `@test/rules/${member}`], {
+            cwd: author.path,
+          });
+          expect(added.exitCode, added.stdout + added.stderr).toBe(0);
+        }
+        const published = await runCli(["packs", "publish", pack, "--json"], {
+          cwd: author.path,
+          env: { AXM_TOKEN: "e2e-test-token" },
+        });
+        expect(published.exitCode, published.stdout + published.stderr).toBe(0);
+      }
+
+      // A two-rule pack installs into a workspace already receiving a rule
+      // from another pack; the region carries every contribution exactly once.
+      for (const pack of Object.keys(packMembers)) {
+        const installed = await runCli(["packs", "install", `@test/packs/${pack}`, "--json"], {
+          cwd: consumer.path,
+        });
+        expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
+      }
+      const composed = readInstructions();
+      expect(composed).toBe(expectedInstructions(RULES));
+      const acceptedLock = fs.readFileSync(lockPath, "utf-8");
+      expect(await sync(["--preview"])).toBe("no-op");
+
+      // A hand edit inside the region is not drift while its inputs are unchanged.
+      const edited = composed.replace("Rule beta body.", "Rule beta body, reworded.");
+      fs.writeFileSync(instructionsPath, edited);
+      expect(await sync(["--preview"])).toBe("no-op");
+      expect(await sync([])).toBe("no-op");
+      expect(readInstructions()).toBe(edited);
+      fs.writeFileSync(instructionsPath, composed);
+
+      // An emptied instruction file and a stale recorded generation are drift:
+      // preview reports work without writing, apply restores the exact region
+      // and recorded state, and a rerun is a no-op.
+      const corruptions = {
+        "emptied instruction file": () => fs.writeFileSync(instructionsPath, ""),
+        "stale recorded generation": () => {
+          fs.writeFileSync(instructionsPath, edited);
+          const stale = acceptedLock.replace(
+            /gen: sha256:[0-9a-f]{64}/u,
+            `gen: sha256:${"0".repeat(64)}`,
+          );
+          expect(stale).not.toBe(acceptedLock);
+          fs.writeFileSync(lockPath, stale);
+        },
+      };
+      for (const [corruption, corrupt] of Object.entries(corruptions)) {
+        corrupt();
+        const corruptedInstructions = readInstructions();
+        const corruptedLock = fs.readFileSync(lockPath, "utf-8");
+        expect(await sync(["--preview"]), corruption).toBe("previewed");
+        expect(readInstructions(), corruption).toBe(corruptedInstructions);
+        expect(fs.readFileSync(lockPath, "utf-8"), corruption).toBe(corruptedLock);
+        expect(await sync([]), corruption).toBe("applied");
+        expect(readInstructions(), corruption).toBe(composed);
+        expect(fs.readFileSync(lockPath, "utf-8"), corruption).toBe(acceptedLock);
+        expect(await sync(["--preview"]), corruption).toBe("no-op");
+      }
+
+      // Removing one pack withdraws only its contributions.
+      const uninstalled = await runCli(
+        ["packs", "uninstall", "@test/packs/second-pack", "--json", "--non-interactive"],
+        { cwd: consumer.path },
+      );
+      expect(uninstalled.exitCode, uninstalled.stdout + uninstalled.stderr).toBe(0);
+      expect(readInstructions()).toBe(expectedInstructions(["alpha"]));
+      expect(await sync(["--preview"])).toBe("no-op");
+    } finally {
+      author.cleanup();
+      consumer.cleanup();
+      registryDir.cleanup();
     }
   });
 });

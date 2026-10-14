@@ -1,3 +1,6 @@
+import { makeRegistryContextLayer } from "../runtime.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { RegistryClientFactoryTest, RegistryContextTest } from "@agentxm/registry-client/testing";
 import { ArtifactHttpClient } from "@agentxm/workspace-kernel/sources";
 import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
 /**
@@ -26,7 +29,6 @@ import {
   CredentialStoreTest,
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { type Screen } from "../screen/index.js";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "./presenter-test.js";
@@ -580,14 +582,13 @@ export const makeCliTestContext = (opts?: {
           recordingFileSystemLayer(opts.onFileSystemWrite),
           fileSystemPlatformLayer,
         );
+  // Registry clients travel the test transport as it is: a fixture that
+  // needs a credential on a request puts it there itself.
   const registryClientFactoryLayer = Layer.provide(
-    RegistryClientFactoryLive,
-    Layer.mergeAll(
-      platformLayer,
-      Layer.succeed(ArtifactHttpClient, opts?.httpClient ?? testHttpClient),
+    RegistryClientFactoryTest(
       Layer.succeed(HttpClient.HttpClient, opts?.httpClient ?? testHttpClient),
-      Layer.succeed(RegistryUrl, cliTestRegistryUrl),
     ),
+    platformLayer,
   );
   const baseLayer = Layer.mergeAll(
     platformLayer,
@@ -602,7 +603,7 @@ export const makeCliTestContext = (opts?: {
     workspaceInitializationLayer,
     flagsLayer,
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(process.cwd()) }),
-    Layer.succeed(RegistryUrl, cliTestRegistryUrl),
+    RegistryContextTest(cliTestRegistryUrl),
     CredentialStoreTest(),
     WorkloadCredentialsTest(),
     // The process-owned reporter a command envelope requires; a test that
@@ -651,7 +652,7 @@ export const cliTestRegistryUrl = "https://registry.example.com";
 export const cliTestBuiltInSources = (
   registryUrl: string = cliTestRegistryUrl,
 ): ReadonlyArray<SourceHostConfig> => [
-  { name: "agentxm", type: "registry", location: new URL(registryUrl) },
+  { name: "agentxm", type: "registry", location: decodeRegistryEndpointSync(registryUrl) },
 ];
 
 export const makeWorkspaceHandlerTestContext = (opts?: {
@@ -750,6 +751,13 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     // journal and footprint recorder once per invocation; a test that drives
     // a handler directly gets empty ones here.
     PlanInvocationTest,
+    // The Registry selection the runtime composes, read from this workspace's
+    // settings through the harness's file services and write locks, whose
+    // built-in default is the harness Registry.
+    Layer.provide(
+      makeRegistryContextLayer(projectRoot, Option.none(), wsOptions.builtInSources),
+      cliTestContext.baseLayer,
+    ),
   );
 
   return {

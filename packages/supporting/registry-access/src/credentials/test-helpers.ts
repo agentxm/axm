@@ -3,7 +3,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { AuthEnvironment, CredentialStoreLive } from "../adapters/index.js";
+import { credentialKey, type CredentialKey } from "./credential-key.js";
 
 /** A real, isolated restricted credential file; no operating-system keychain. */
 export const credentialFileFixture = Effect.gen(function* () {
@@ -22,3 +24,7 @@ export const credentialFileFixture = Effect.gen(function* () {
   );
   return { fs, home, directory, file, environment, layer };
 });
+
+/** The credential key of the http(s) Registry at `url`. */
+export const credentialKeyOf = (url: string): CredentialKey =>
+  credentialKey(decodeHttpRegistryEndpointSync(url));

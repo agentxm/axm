@@ -5,10 +5,10 @@
  * `FileSystem`, and `Path` against fixture-built deps. Test bodies call
  * {@link makeWorkspaceReadModel} directly to obtain a per-scope read model.
  *
- * The layer accepts an optional `options.allowedRoot`; when omitted, the
- * filesystem root (`/`) is used so any `workspaceRoot` / `userHome` from the
- * spec is allowed. Tests that want to verify root-escape failure pass an
- * `allowedRoot` outside the spec's `workspaceRoot`.
+ * The layer accepts an optional `options.allowedRoot`; when omitted, reads are
+ * unbounded so any `workspaceRoot` / `userHome` from the spec is allowed.
+ * Tests that want to verify root-escape failure pass an `allowedRoot` outside
+ * the spec's `workspaceRoot`.
  *
  * Tests that need to inject filesystem-level faults (e.g. simulate read
  * failures) provide `options.wrapFileSystem` to wrap the fixture's
@@ -18,6 +18,7 @@
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import type { MaterializationTargetId } from "@agentxm/extension-model/unstable/agents/types";
@@ -34,7 +35,7 @@ import { buildFixture, type FixtureSpec, type PathEscapeError } from "./builder.
  *
  * - `allowedRoot` — workspace-root containment boundary used by
  *   {@link makeWorkspaceReadModel} to validate `projectRoot` and `userHome`.
- *   Defaults to the filesystem root so tests opt into root-escape behaviour
+ *   Omitted, reads are unbounded, so tests opt into root-escape behaviour
  *   explicitly.
  * - `wrapFileSystem` — optional adapter applied to the fixture's
  *   `FileSystem` before it is provided. Tests that simulate IO faults (e.g.
@@ -82,12 +83,13 @@ export const WorkspaceReadModelTest = (
       const fs = options.wrapFileSystem === undefined ? deps.fs : options.wrapFileSystem(deps.fs);
       const fsLayer = Layer.succeed(FileSystem.FileSystem, fs);
       const pathLayer = Layer.succeed(Path.Path, deps.path);
-      const allowedRoot = options.allowedRoot ?? "/";
       const configLayer = Layer.succeed(WorkspaceReadModelConfig, {
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         projectRoot: makeAbsolutePath(deps.path, deps.workspaceRoot),
         userHome: makeAbsolutePath(deps.path, deps.userHome),
-        allowedRoot: makeAbsolutePath(deps.path, allowedRoot),
+        allowedRoot: Option.map(Option.fromUndefinedOr(options.allowedRoot), (root) =>
+          makeAbsolutePath(deps.path, root),
+        ),
       });
       const probeLayer = Layer.succeed(
         AgentPresenceProbe,

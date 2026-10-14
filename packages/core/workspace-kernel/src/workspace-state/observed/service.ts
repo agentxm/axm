@@ -153,7 +153,12 @@ export interface WorkspaceReadModelConfigService {
   readonly nativeDirectoryInputs: NativeDirectoryInputs;
   readonly projectRoot: AbsolutePath;
   readonly userHome: AbsolutePath;
-  readonly allowedRoot: AbsolutePath;
+  /**
+   * The directory every read root must stay within, when a composition
+   * bounds its reads. A production read is unbounded: its roots may sit on
+   * different drives, so no single directory contains them.
+   */
+  readonly allowedRoot: Option.Option<AbsolutePath>;
 }
 
 /** Service tag for the {@link WorkspaceReadModelConfigService} the factory requires. */
@@ -170,18 +175,18 @@ export class WorkspaceReadModelConfig extends ServiceMap.Service<
 export type ResolvedWorkspaceRoot = string & Brand.Brand<"ResolvedWorkspaceRoot">;
 const ResolvedWorkspaceRoot = Brand.nominal<ResolvedWorkspaceRoot>();
 
-/** Resolve and validate a workspace root resides within `allowedRoot`. */
+/** Resolve a workspace root, and validate it resides within `allowedRoot` when one bounds it. */
 export const validateWorkspaceReadRoot = (
   pathSvc: Path.Path,
   candidate: AbsolutePath,
-  allowedRoot: AbsolutePath,
+  allowedRoot: Option.Option<AbsolutePath>,
 ): Effect.Effect<ResolvedWorkspaceRoot, WorkspaceRootEscape> =>
   Effect.gen(function* () {
     const resolved = pathSvc.resolve(candidate);
-    if (!isWithinOrEqual(pathSvc, allowedRoot, resolved)) {
+    if (Option.isSome(allowedRoot) && !isWithinOrEqual(pathSvc, allowedRoot.value, resolved)) {
       return yield* new WorkspaceRootEscape({
         workspaceRoot: candidate,
-        allowedRoot,
+        allowedRoot: allowedRoot.value,
       });
     }
     return ResolvedWorkspaceRoot(resolved);

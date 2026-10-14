@@ -152,7 +152,11 @@
       "properties": {
         "name": { "$ref": "#/definitions/SourceName" },
         "type": { "type": "string", "enum": ["registry"] },
-        "location": { "type": "string" }
+        "location": {
+          "type": "string",
+          "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+          "examples": ["https://registry.agentxm.ai", "file:///srv/registry"]
+        }
       },
       "required": ["name", "type", "location"],
       "additionalProperties": false,
@@ -1151,7 +1155,7 @@
         },
         "sources": {
           "type": "array",
-          "description": "Named source hosts used to resolve source-scheme entry references.",
+          "description": "Named source hosts used to resolve source-scheme entry references. Each name appears once.",
           "items": { "$ref": "#/definitions/SourceHostConfig" }
         },
         "skills": {

@@ -53,9 +53,6 @@ export type PackUninstallGraphReadiness =
       readonly detail: string;
     };
 
-const normalizedPack = (identity: string): string =>
-  identity.startsWith("workspace:") ? identity.slice("workspace:".length) : identity;
-
 /**
  * Classify the selected Packs' own problems into retirements, or report that
  * some selected Pack disagrees with the workspace in a way confirmed absence
@@ -69,7 +66,7 @@ const retirementsFor = (
   for (const problem of problems) {
     const subject = desiredProblemSubject(problem);
     if (subject.kind !== "pack") return undefined;
-    const pack = normalizedPack(subject.pack);
+    const pack = subject.pack;
     const existing = problemsByPack.get(pack);
     if (existing === undefined) problemsByPack.set(pack, [problem]);
     else existing.push(problem);
@@ -111,8 +108,7 @@ const factFor = (
   scope: WorkspaceScope,
 ): PackUninstallGraphBlockerFact => {
   const about = desiredProblemSubject(problem);
-  const packs =
-    about.kind === "pack" ? [normalizedPack(about.pack)] : selectedPacks.map(normalizedPack);
+  const packs = about.kind === "pack" ? [about.pack] : selectedPacks;
   const authoritativeLocations = locationsFor(problem, scope);
   const member = about.kind === "extension" ? { type: about.type, name: about.name } : undefined;
   const subject =
@@ -136,6 +132,8 @@ const factFor = (
  * undecodable is positive evidence about the removal target, not the absent
  * evidence the gate guards against, so uninstall proceeds and removes only that
  * Pack's registration. Incompleteness the target did not cause still blocks.
+ * Selected Packs are named by fully qualified name, as every Pack problem
+ * names its subject, whatever authority the Pack is held under.
  */
 export const planPackUninstallGraphReadiness = (
   graph: DesiredStateGraph,
@@ -145,12 +143,12 @@ export const planPackUninstallGraphReadiness = (
   const decision = planDesiredStateGraph(graph);
   if (decision.readiness === "ready") return { ...decision, retirements: [] };
 
-  const selected = new Set(selectedPacks.map(normalizedPack));
+  const selected = new Set(selectedPacks);
   const foreign: Array<DesiredStateProblem> = [];
   const own: Array<DesiredStateProblem> = [];
   for (const problem of decision.problems) {
     const subject = desiredProblemSubject(problem);
-    if (subject.kind === "pack" && selected.has(normalizedPack(subject.pack))) own.push(problem);
+    if (subject.kind === "pack" && selected.has(subject.pack)) own.push(problem);
     else foreign.push(problem);
   }
 
@@ -164,7 +162,7 @@ export const planPackUninstallGraphReadiness = (
     ...new Set(
       foreign.flatMap((problem) => {
         const subject = desiredProblemSubject(problem);
-        return subject.kind === "pack" ? [normalizedPack(subject.pack)] : [];
+        return subject.kind === "pack" ? [subject.pack] : [];
       }),
     ),
   ];

@@ -4,7 +4,6 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Result from "effect/Result";
-import * as semver from "semver";
 import { computeMaterializedTreeIntegrity, type TreeIntegrity } from "./materialized-tree.js";
 import {
   toExtensionTypePlural,
@@ -22,10 +21,15 @@ import {
 import type { DesiredConstraintContributor, DesiredExtensionNode } from "./desired-state-graph.js";
 import type { WorkspaceLayout } from "./layout.js";
 import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./extension-paths.js";
-import { mcpResolutionKey } from "./mcp-source-identity.js";
-import { desiredMcpSourceKey, desiredPackageKey } from "./desired-identity.js";
+import { McpSourceKey } from "./mcp-source-identity.js";
+import { desiredPackageKey, sameSourceIdentity, desiredMcpSourceKey } from "./desired-identity.js";
 import { acceptedRegistryVersionForRef } from "../desired/lockfile/accepted-registry-version.js";
 import { isPathSafe } from "@agentxm/extension-model/unstable/path-types";
+import {
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { sameRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export type CanonicalObservationStatus =
   | "not-applicable"
@@ -132,17 +136,30 @@ export const desiredConstraintContributors = (
     : desired.constraint.failure.contributors;
 
 /**
- * Whether a version satisfies the node's effective constraint. A conflict
- * admits no version; an unconstrained node admits every version.
+ * Whether an accepted Registry version satisfies the node's effective
+ * constraint. A conflict admits no version; an unconstrained node admits what
+ * `*` admits, so an accepted prerelease needs a range that names it.
  */
-const satisfiesDesiredConstraint = (
+const registryVersionSatisfiesDesiredConstraint = (
+  desired: Pick<DesiredExtensionNode, "constraint">,
+  version: string,
+): boolean =>
+  Result.isSuccess(desired.constraint) &&
+  versionSatisfiesRequest(version, normalizeVersionRequest(desired.constraint.success.range));
+
+/**
+ * Whether authored, path, or Git content satisfies the node's effective
+ * constraint by its manifest version. A conflict admits no version; an
+ * unconstrained node admits every version.
+ */
+const contentVersionSatisfiesDesiredConstraint = (
   desired: Pick<DesiredExtensionNode, "constraint">,
   version: string | undefined,
 ): boolean =>
   Result.isSuccess(desired.constraint) &&
   Option.match(desired.constraint.success.range, {
     onNone: () => true,
-    onSome: (range) => version !== undefined && semver.satisfies(version, range),
+    onSome: (range) => version !== undefined && versionSatisfiesRequest(version, range),
   });
 
 /** Whether anything constrains the node at all. */
@@ -253,12 +270,12 @@ const acceptedOriginMatches = (
             desired.identity.authority === "registry" &&
             desired.identity.registry.endpoint !== undefined &&
             accepted.source.type === "registry" &&
-            accepted.source.url.href === desired.identity.registry.endpoint.href
+            sameRegistryEndpoint(accepted.source.url, desired.identity.registry.endpoint)
           );
         case "registry":
           return (
             accepted.source.type === "registry" &&
-            accepted.source.url.href === authority.endpoint.href
+            sameRegistryEndpoint(accepted.source.url, authority.endpoint)
           );
         case "path":
           return (
@@ -281,21 +298,24 @@ const acceptedOriginMatches = (
       }
     });
   }
-  if (
-    desired.identity.authority === "registry" &&
-    (accepted.source.type !== "registry" ||
-      desired.identity.registry.endpoint === undefined ||
-      accepted.source.url.href !== desired.identity.registry.endpoint.href)
-  )
-    return false;
+  // A Registry row comes from the desired authority exactly when it is the
+  // same package at the same canonical endpoint.
+  if (desired.identity.authority === "registry")
+    return (
+      accepted.source.type === "registry" &&
+      accepted.identity.owner !== undefined &&
+      sameSourceIdentity(desired.identity, {
+        authority: "registry",
+        fqn: `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`,
+        registry: { sourceName: undefined, endpoint: accepted.source.url },
+      })
+    );
   const acceptedIdentity =
     desired.type === "mcp-server" && !isHttpLockEntry(accepted)
-      ? mcpResolutionKey(accepted)
-      : isRegistryLockEntry(accepted)
-        ? `${accepted.identity.owner}/${toExtensionTypePlural(desired.type)}/${accepted.identity.name}`
-        : printSourceParams(lockEntryToSourceParams(accepted));
+      ? McpSourceKey.fromLockEntry(accepted)
+      : printSourceParams(lockEntryToSourceParams(accepted));
   return (
-    acceptedIdentity === desiredMcpSourceKey(desired.identity) ||
+    Option.exists(desiredMcpSourceKey(desired.identity), (key) => key === acceptedIdentity) ||
     acceptedIdentity === desiredPackageKey(desired.identity) ||
     acceptedIdentity === desired.source ||
     lockEntryMatchesSourceLocator(accepted, desired.source)
@@ -329,15 +349,12 @@ export const observeAcceptedResolution = (
   if (!bundled && accepted !== undefined && !acceptedOriginMatches(desired, accepted, path)) {
     return Option.some({ type: desired.type, name: desired.name, status: "wrong-origin" });
   }
+  // An accepted Registry version is always judged, an absent range standing
+  // for `*`; other content is judged by its manifest once it is read.
   if (
-    isConstrained(desired) &&
-    (Result.isFailure(desired.constraint) ||
-      (accepted !== undefined && isRegistryLockEntry(accepted))) &&
-    !(
-      accepted !== undefined &&
-      isRegistryLockEntry(accepted) &&
-      satisfiesDesiredConstraint(desired, accepted.resolved.version)
-    )
+    accepted !== undefined && isRegistryLockEntry(accepted)
+      ? !registryVersionSatisfiesDesiredConstraint(desired, accepted.resolved.version)
+      : Result.isFailure(desired.constraint)
   ) {
     return Option.some(
       constraintMismatchObservation({
@@ -430,7 +447,7 @@ export const observeCanonicalExtension = ({
         };
       }
 
-      if (isConstrained(desired) && !satisfiesDesiredConstraint(desired, undefined)) {
+      if (isConstrained(desired) && !contentVersionSatisfiesDesiredConstraint(desired, undefined)) {
         return constraintMismatchObservation({ desired, canonicalPath: root });
       }
 
@@ -498,7 +515,7 @@ export const observeCanonicalExtension = ({
     if (
       (accepted === undefined || !isRegistryLockEntry(accepted)) &&
       isConstrained(desired) &&
-      !satisfiesDesiredConstraint(desired, manifestVersion)
+      !contentVersionSatisfiesDesiredConstraint(desired, manifestVersion)
     ) {
       return constraintMismatchObservation({
         desired,

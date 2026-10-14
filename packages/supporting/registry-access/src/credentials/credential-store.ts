@@ -45,6 +45,7 @@ import type {
   StoredCredentials,
 } from "./schema.js";
 import { CredentialFileSchema } from "./schema.js";
+import type { CredentialKey } from "./credential-key.js";
 
 const decodeCredentialFileFromJsonString = Schema.decodeUnknownEffect(
   Schema.fromJsonString(CredentialFileSchema),
@@ -56,7 +57,7 @@ const decodeCredentialFileFromJsonString = Schema.decodeUnknownEffect(
 
 export interface CredentialStoreService {
   readonly save: (
-    registryUrl: string,
+    key: CredentialKey,
     handle: Handle,
     credentials: {
       readonly access_token: string;
@@ -65,7 +66,7 @@ export interface CredentialStoreService {
     },
   ) => Effect.Effect<void, RegistryAccessFailed | AuthTokenPolicyRequired>;
   readonly load: (
-    registryUrl: string,
+    key: CredentialKey,
   ) => Effect.Effect<Option.Option<StoredCredentials>, RegistryAccessFailed>;
   /**
    * Read the stored credential from storage, past any per-session memo.
@@ -76,9 +77,9 @@ export interface CredentialStoreService {
    * waiter spend a token that is already gone.
    */
   readonly reload: (
-    registryUrl: string,
+    key: CredentialKey,
   ) => Effect.Effect<Option.Option<StoredCredentials>, RegistryAccessFailed>;
-  readonly clear: (registryUrl: string) => Effect.Effect<void, RegistryAccessFailed>;
+  readonly clear: (key: CredentialKey) => Effect.Effect<void, RegistryAccessFailed>;
   /**
    * Run an effect while holding the credential home's refresh lock.
    *
@@ -772,7 +773,8 @@ export const CredentialStoreSessionLive = Layer.effect(
   Effect.gen(function* () {
     const store = yield* CredentialStore;
     const cache = yield* Cache.makeWith(
-      (registryUrl: string) => Effect.andThen(Effect.yieldNow, () => store.load(registryUrl)),
+      (registryUrl: CredentialKey) =>
+        Effect.andThen(Effect.yieldNow, () => store.load(registryUrl)),
       {
         capacity: Number.POSITIVE_INFINITY,
         timeToLive: (exit: Exit.Exit<Option.Option<StoredCredentials>, RegistryAccessFailed>) =>

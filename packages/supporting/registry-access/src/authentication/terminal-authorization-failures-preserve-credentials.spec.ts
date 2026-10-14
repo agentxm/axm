@@ -14,10 +14,11 @@ import {
   authExpiry,
   authFailureCategory,
   authHandle,
-  authRegistry,
   machineOutputPresenter,
   makeAuthPorts,
-  otherAuthRegistry,
+  authEndpoint,
+  authKey,
+  otherAuthKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -42,9 +43,9 @@ describe("Terminal authorization failure", () => {
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
+      yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
       // The code lives 60 seconds; the caller asked to wait for 300.
-      const waiting = yield* resumeDeviceLogin(authRegistry, { timeoutSeconds: 300 }).pipe(
+      const waiting = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 300 }).pipe(
         Effect.flip,
         Effect.forkChild,
       );
@@ -53,7 +54,7 @@ describe("Terminal authorization failure", () => {
 
       expect(authFailureCategory(error)).toBe("auth_expired");
       expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 
@@ -73,25 +74,25 @@ describe("Terminal authorization failure", () => {
         const credentials = yield* CredentialStore;
         // Start with no selected session so sign-in may initiate; keep the
         // other Registry as the preservation witness.
-        yield* credentials.clear(authRegistry);
-        yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
-        yield* credentials.save(authRegistry, authHandle, {
+        yield* credentials.clear(authKey);
+        yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
+        yield* credentials.save(authKey, authHandle, {
           access_token: "existing-access",
           refresh_token: "existing-refresh",
           expires_at: authExpiry,
         });
-        const before = yield* credentials.load(authRegistry);
-        const otherBefore = yield* credentials.load(otherAuthRegistry);
+        const before = yield* credentials.load(authKey);
+        const otherBefore = yield* credentials.load(otherAuthKey);
 
         if (outcome === "expired-locally") yield* TestClock.adjust("61 seconds");
-        const error = yield* resumeDeviceLogin(authRegistry).pipe(Effect.flip);
+        const error = yield* resumeDeviceLogin(authEndpoint).pipe(Effect.flip);
 
         expect(authFailureCategory(error)).toBe(
           outcome === "denied" ? "auth_denied" : "auth_expired",
         );
         expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
-        expect(yield* credentials.load(authRegistry)).toEqual(before);
-        expect(yield* credentials.load(otherAuthRegistry)).toEqual(otherBefore);
+        expect(yield* credentials.load(authKey)).toEqual(before);
+        expect(yield* credentials.load(otherAuthKey)).toEqual(otherBefore);
       }).pipe(Effect.provide(layer));
     });
   }

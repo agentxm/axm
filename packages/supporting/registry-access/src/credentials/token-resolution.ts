@@ -5,7 +5,11 @@
  * 1. AXM_TOKEN environment variable
  * 2. AXM_TOKEN_FILE
  * 3. The GitHub Actions identity, exchanged for a workload token
- * 4. Credential store lookup by registry URL
+ * 4. The stored session for the Registry's origin
+ *
+ * The first three are ambient: they are presented only to the
+ * settings-selected default Registry (see `ambientEligible`). Every other
+ * Registry is offered its own stored session or nothing.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -16,6 +20,10 @@ import * as Option from "effect/Option";
 import { envOption } from "../adapters/environment.js";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type {
+  HttpRegistryEndpoint,
+  RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   RegistryAccessFailed,
   signedOut,
@@ -32,60 +40,48 @@ import {
   type TokenSource,
 } from "./schema.js";
 import { WorkloadCredentials, githubActionsIdentity } from "./workload-credentials.js";
+import { ambientEligible, credentialKey } from "./credential-key.js";
 
 // -----------------------------------------------------------------------------
 // Token resolution
 // -----------------------------------------------------------------------------
 
-const parseOrigin = (url: string) =>
-  Effect.try({
-    try: () => new URL(url).origin,
-    catch: (error) =>
-      new RegistryAccessFailed({
-        category: "validation",
-        detail: `Invalid URL: ${url}`,
-        suggestions: [{ description: "Check the registry URL in your settings." }],
-        cause: error,
-      }),
-  });
-
 const makeStoredTokenSource = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   credentials: Pick<StoredCredentials, "access_token" | "refresh_token" | "expires_at">,
 ) =>
   new CredentialStoreTokenSource({
     token: credentials.access_token,
     refresh_token: credentials.refresh_token,
     expires_at: credentials.expires_at,
-    registryUrl,
+    endpoint,
   });
 
 /**
- * Read the locally-stored user handle for the given registry URL.
+ * Read the locally-stored user handle for a Registry.
  *
  * Offline only — does not call the registry. Returns Option.none() when
  * persisted credentials are unsupported, no credentials are stored, or the
  * stored entry has no handle.
  */
 export const getCurrentUserHandle = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
 ): Effect.Effect<Option.Option<Handle>, RegistryAccessFailed, CredentialStore> =>
   Effect.gen(function* () {
     const store = yield* CredentialStore;
     if (!store.allowsPersistedCredentials) {
       return Option.none<Handle>();
     }
-    const stored = yield* store.load(registryUrl);
+    const stored = yield* store.load(credentialKey(endpoint));
     return Option.map(stored, (credentials) => credentials.handle);
   });
 
 /**
- * Resolve a token from the credential store only.
- *
- * Looks up stored credentials by origin URL. Does not check env vars or flags.
+ * Resolve a token from the credential store only: the stored session kept
+ * under the Registry's credential key. Does not check ambient sources.
  */
 export const resolveStoredToken = (
-  origin: string,
+  endpoint: HttpRegistryEndpoint,
 ): Effect.Effect<
   Option.Option<CredentialStoreTokenSource>,
   RegistryAccessFailed,
@@ -97,8 +93,8 @@ export const resolveStoredToken = (
       return Option.none<CredentialStoreTokenSource>();
     }
 
-    const stored = yield* store.load(origin);
-    return Option.map(stored, (credentials) => makeStoredTokenSource(origin, credentials));
+    const stored = yield* store.load(credentialKey(endpoint));
+    return Option.map(stored, (credentials) => makeStoredTokenSource(endpoint, credentials));
   });
 
 /**
@@ -148,18 +144,17 @@ const resolveExplicitToken = Effect.gen(function* () {
 });
 
 /**
- * Resolve a token from ambient sources only.
- *
- * Does not access the credential store.
+ * Resolve a token from ambient sources only, for a Registry already known to
+ * be eligible for them. Does not access the credential store.
  *
  * Precedence:
  * 1. AXM_TOKEN env var
  * 2. AXM_TOKEN_FILE
  * 3. The GitHub Actions identity, exchanged for a workload token for
- *    `registryUrl`'s origin
+ *    `endpoint`'s origin
  */
-export const resolveAmbientToken = (
-  registryUrl: string,
+const resolveAmbientToken = (
+  endpoint: HttpRegistryEndpoint,
 ): Effect.Effect<
   Option.Option<TokenSource>,
   RegistryAccessFailed | WorkloadTokenUnavailable,
@@ -170,9 +165,8 @@ export const resolveAmbientToken = (
     if (Option.isSome(explicit)) return explicit;
     const identity = yield* githubActionsIdentity;
     if (Option.isNone(identity)) return Option.none<TokenSource>();
-    const origin = yield* parseOrigin(registryUrl);
     const workload = yield* WorkloadCredentials;
-    return Option.some<TokenSource>(yield* workload.tokenFor(identity.value, origin));
+    return Option.some<TokenSource>(yield* workload.tokenFor(identity.value, endpoint));
   });
 
 /** Where an invocation's ambient credential for its default Registry comes from. */
@@ -196,23 +190,20 @@ export const ambientCredentialSource: Effect.Effect<
 });
 
 /**
- * Whether an invocation carries a credential for a request target, decided
- * offline: the same sources in the same precedence as `resolveRequestToken`,
- * except that a GitHub Actions identity counts as present without being
- * exchanged.
+ * Whether an invocation carries a credential for a Registry, decided offline:
+ * the same sources in the same precedence as `resolveRequestToken`, except
+ * that a GitHub Actions identity counts as present without being exchanged.
  */
 export const hasRequestCredential = (
-  requestUrl: string,
-  defaultRegistryUrl: string,
+  endpoint: HttpRegistryEndpoint,
+  defaultEndpoint: RegistryEndpoint,
 ): Effect.Effect<boolean, RegistryAccessFailed, CredentialStore> =>
   Effect.gen(function* () {
-    const requestOrigin = yield* parseOrigin(requestUrl);
-    const defaultRegistryOrigin = yield* parseOrigin(defaultRegistryUrl);
-    if (requestOrigin === defaultRegistryOrigin) {
+    if (ambientEligible(endpoint, defaultEndpoint)) {
       if (Option.isSome(yield* resolveExplicitToken)) return true;
       if (Option.isSome(yield* githubActionsIdentity)) return true;
     }
-    return Option.isSome(yield* resolveStoredToken(requestOrigin));
+    return Option.isSome(yield* resolveStoredToken(endpoint));
   });
 
 /**
@@ -224,105 +215,71 @@ export const hasRequestCredential = (
  * for another purpose still reads what anyone may.
  */
 export const resolvePresentedToken = (
-  requestUrl: string,
-  defaultRegistryUrl: string,
+  endpoint: HttpRegistryEndpoint,
+  defaultEndpoint: RegistryEndpoint,
 ): Effect.Effect<
   Option.Option<TokenSource>,
   RegistryAccessFailed,
   CredentialStore | WorkloadCredentials
 > =>
   Effect.gen(function* () {
-    const requestOrigin = yield* parseOrigin(requestUrl);
-    const defaultRegistryOrigin = yield* parseOrigin(defaultRegistryUrl);
-
-    if (requestOrigin === defaultRegistryOrigin) {
+    if (ambientEligible(endpoint, defaultEndpoint)) {
       const explicit = yield* resolveExplicitToken;
       if (Option.isSome(explicit)) return explicit;
       if (Option.isSome(yield* githubActionsIdentity)) {
         const workload = yield* WorkloadCredentials;
-        const held = yield* workload.held(defaultRegistryOrigin);
+        const held = yield* workload.held(endpoint);
         return Option.map(held, (token): TokenSource => token);
       }
     }
 
-    return yield* resolveStoredToken(requestOrigin);
+    return yield* resolveStoredToken(endpoint);
   });
 
 /**
- * Resolve the token that should be attached to a specific request target.
- *
- * Ambient sources are only considered for the configured default registry.
- * Stored credentials remain scoped by request origin.
+ * Resolve the token an operation on `endpoint` presents: the ambient sources
+ * when it is the default Registry, then its stored session.
  */
 export const resolveRequestToken = (
-  requestUrl: string,
-  defaultRegistryUrl: string,
+  endpoint: HttpRegistryEndpoint,
+  defaultEndpoint: RegistryEndpoint,
 ): Effect.Effect<
   Option.Option<TokenSource>,
   RegistryAccessFailed | WorkloadTokenUnavailable,
   CredentialStore | WorkloadCredentials
 > =>
   Effect.gen(function* () {
-    const requestOrigin = yield* parseOrigin(requestUrl);
-    const defaultRegistryOrigin = yield* parseOrigin(defaultRegistryUrl);
-
-    if (requestOrigin === defaultRegistryOrigin) {
-      const ambient = yield* resolveAmbientToken(defaultRegistryOrigin);
-      if (Option.isSome(ambient)) {
-        return ambient;
-      }
+    if (ambientEligible(endpoint, defaultEndpoint)) {
+      const ambient = yield* resolveAmbientToken(endpoint);
+      if (Option.isSome(ambient)) return ambient;
     }
 
-    return yield* resolveStoredToken(requestOrigin);
+    return yield* resolveStoredToken(endpoint);
   });
 
 /**
- * Resolve a token from the precedence chain.
+ * Resolve the invocation's credential for `endpoint`, or say which of the two
+ * signed-out situations it is in.
  *
- * Precedence:
- * 1. AXM_TOKEN env var
- * 2. AXM_TOKEN_FILE
- * 3. The GitHub Actions identity, exchanged for a workload token
- * 4. CredentialStore lookup by registry URL
- *
- * Returns the stored token as it is. Renewal belongs to the auth middleware
- * and the session refresher behind it, so nothing here decides whether a
- * session is still alive.
- *
- * Returns `Option.none()` when no token is available from any source.
- */
-export const resolveToken = (
-  registryUrl: string,
-): Effect.Effect<
-  Option.Option<TokenSource>,
-  RegistryAccessFailed | WorkloadTokenUnavailable,
-  CredentialStore | WorkloadCredentials
-> =>
-  Effect.gen(function* () {
-    const ambient = yield* resolveAmbientToken(registryUrl);
-    if (Option.isSome(ambient)) return ambient;
-    return yield* resolveStoredToken(registryUrl);
-  });
-
-/**
- * Resolve the invocation's credential, or say which of the two signed-out
- * situations it is in.
+ * Returns the stored token as it is. Renewal belongs to the request
+ * authorization and the session refresher behind it, so nothing here decides
+ * whether a session is still alive.
  *
  * Where persisted credentials are disabled by policy — CI, most notably — an
  * ambient token or a GitHub Actions identity is the only way to be signed in,
- * so the refusal names that
- * rather than a sign-in the environment cannot perform. Everywhere else there
- * is one signed-out result, with one message.
+ * so the refusal names that rather than a sign-in the environment cannot
+ * perform. Everywhere else there is one signed-out result, with one message.
  */
 export const resolveRequiredToken = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
+  defaultEndpoint: RegistryEndpoint,
 ): Effect.Effect<
   TokenSource,
   RegistryAccessFailed | SignedOut | AuthTokenPolicyRequired | WorkloadTokenUnavailable,
   CredentialStore | WorkloadCredentials
 > =>
   Effect.gen(function* () {
-    const token = yield* resolveToken(registryUrl);
+    const token = yield* resolveRequestToken(endpoint, defaultEndpoint);
     if (Option.isSome(token)) {
       return token.value;
     }

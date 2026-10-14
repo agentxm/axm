@@ -11,6 +11,7 @@
  * @internal Test-only. Not part of the package's public API.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -31,7 +32,7 @@ import {
   WorkspaceLocation,
   computeMaterializedTreeIntegrity,
   computePackManifestContentIdentity,
-  mcpRegistryResolutionKey,
+  McpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 /** The Registry an accepted resolution in these specifications came from. */
@@ -76,7 +77,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
     const treeIntegrity = yield* computeMaterializedTreeIntegrity(canonicalPath);
     const name: ExtensionName = decodeExtensionNameSync(resolution.name);
     const shared = {
-      source: { type: "registry", url: new URL(SPEC_REGISTRY_ENDPOINT) },
+      source: { type: "registry", url: decodeRegistryEndpointSync(SPEC_REGISTRY_ENDPOINT) },
       identity: { owner, name },
       resolved: {
         version: decodeVersionSync(resolution.version),
@@ -114,8 +115,9 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
       case "mcp-server":
         return yield* accepted.setAccepted(
           "mcp-server",
-          mcpRegistryResolutionKey({
-            authority: SPEC_REGISTRY_ENDPOINT,
+          McpSourceKey.encode({
+            kind: "registry",
+            endpoint: decodeRegistryEndpointSync(SPEC_REGISTRY_ENDPOINT),
             owner,
             name: resolution.name,
           }),

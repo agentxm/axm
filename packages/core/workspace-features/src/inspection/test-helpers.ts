@@ -23,7 +23,8 @@ export const RegistryClientFactoryTestLive = (
   Layer.sync(RegistryClientFactory, () => {
     const client = makeStubRegistryClient(indices);
     return {
-      forLocation: () => Effect.succeed(client),
-      forDefaultRegistry: Effect.succeed(client),
+      forEndpoint: () => Effect.succeed(client),
+      lifecycle: () => Effect.die("Inspection never manages a Registry's lifecycle"),
+      wire: () => Effect.die("Inspection never authenticates with a Registry"),
     };
   });

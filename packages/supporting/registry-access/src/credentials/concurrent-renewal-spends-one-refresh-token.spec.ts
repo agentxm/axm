@@ -1,3 +1,5 @@
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKeyOf } from "./test-helpers.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -53,7 +55,7 @@ const held = new CredentialStoreTokenSource({
   token: "stored-access",
   refresh_token: "stored-refresh",
   expires_at: expiry,
-  registryUrl: registry,
+  endpoint: decodeHttpRegistryEndpointSync(registry),
 });
 
 const storedSession = {
@@ -81,11 +83,11 @@ const harness = (outcome: "rotates" | "ends") =>
   Effect.gen(function* () {
     const presented = yield* Ref.make<ReadonlyArray<string>>([]);
     const exchange = TokenExchangeTest({
-      refreshToken: (token, registryUrl) =>
+      refreshToken: (token, endpoint) =>
         Ref.modify(presented, (seen) => [seen.includes(token), [...seen, token]] as const).pipe(
           Effect.flatMap((reused) =>
             reused || outcome === "ends"
-              ? Effect.fail(new SessionEnded({ registryUrl }))
+              ? Effect.fail(new SessionEnded({ registryUrl: endpoint.href }))
               : Effect.succeed({
                   access_token: "renewed-access",
                   refresh_token: "renewed-refresh",
@@ -170,7 +172,7 @@ describe("Concurrent session renewal", () => {
         expect(yield* Ref.get(presented)).toEqual(["stored-refresh"]);
 
         const store = yield* CredentialStore;
-        expect(Option.getOrThrow(yield* store.load(registry))).toMatchObject({
+        expect(Option.getOrThrow(yield* store.load(credentialKeyOf(registry)))).toMatchObject({
           access_token: "renewed-access",
           refresh_token: "renewed-refresh",
         });

@@ -222,7 +222,7 @@ export const buildLintWorkspace = (
       nativeDirectoryInputs: args.nativeDirectoryInputs,
       projectRoot: makeAbsolutePath(args.platform.path, args.workspaceRoot),
       userHome: makeAbsolutePath(args.platform.path, args.userHome),
-      allowedRoot: makeAbsolutePath(args.platform.path, "/"),
+      allowedRoot: Option.none(),
     }),
     AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
   );

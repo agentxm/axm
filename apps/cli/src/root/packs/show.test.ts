@@ -22,6 +22,10 @@ describe("pack inspection output", () => {
             "workspace",
             "@acme/skills/review",
             ">=1.2.3",
+            "Declared source",
+            "inherited",
+            "Local names",
+            "Resolution",
             "satisfying",
           ])
             expect(stdout).toContain(fact);

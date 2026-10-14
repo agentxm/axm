@@ -26,7 +26,11 @@ import type {
 } from "../operations/index.js";
 import { proposeDesiredState, type DesiredStateProposal } from "./proposed-state.js";
 import { WorkspaceSyncFailed } from "./errors.js";
-import { acceptedRowKey, sameDesiredIdentity } from "../workspace-state/index.js";
+import {
+  acceptedRowKey,
+  acceptedRowReachability,
+  sameSourceIdentity,
+} from "../workspace-state/index.js";
 
 /** Describe retirement from the same proposed authority that decides retention. */
 export const prepareUninstallArtifact = (
@@ -50,11 +54,20 @@ export const prepareUninstallArtifact = (
     const after = state.after.nodes.find(
       (node) => node.type === target.type && node.name === target.name,
     );
+    // The remaining graph still holds the removed node's source when another
+    // node holds the same package from the same source, or when its accepted
+    // row is reached, or may be, without it.
     const sourceRemainsDesired =
       before !== undefined &&
-      state.after.nodes.some(
-        (node) => node.type === before.type && sameDesiredIdentity(node.identity, before.identity),
-      );
+      (state.after.nodes.some(
+        (node) => node.type === before.type && sameSourceIdentity(node.identity, before.identity),
+      ) ||
+        Option.exists(
+          acceptedRowKey(before),
+          (key) =>
+            acceptedRowReachability(state.after, { type: before.type, key }).decision !==
+            "not-reached",
+        ));
     const canonical = yield* acceptedCanonicalObservation({
       type: target.type,
       name: target.name,

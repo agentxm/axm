@@ -58,7 +58,8 @@ import type {
 } from "@agentxm/extension-model/unstable/extensions/release-age";
 import {
   decodeVersionRangeSync,
-  versionSatisfiesRange,
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -353,10 +354,7 @@ const preservableRegistryVersion = Effect.fn("UpdateExtensions.preservableVersio
   if (ref.refType !== "registry" || ref.owner !== intent.owner || ref.name !== intent.name) {
     return Option.none<string>();
   }
-  if (
-    Option.isSome(intent.versionRange) &&
-    !versionSatisfiesRange(ref.version, decodeVersionRangeSync(intent.versionRange.value))
-  ) {
+  if (!versionSatisfiesRequest(ref.version, normalizeVersionRequest(intent.versionRange))) {
     return Option.none<string>();
   }
 
@@ -456,7 +454,7 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
       const desired = desiredNodeForIntent(graph, intent);
       const localName = decodeExtensionNameSync(desired?.name ?? ref.server.name);
       const conversion = yield* StepFailureConversion;
-      const sourceIdentity = yield* settleMcpSourceIdentityFor(graph, ref, localName).pipe(
+      const sourceKey = yield* settleMcpSourceIdentityFor(graph, ref, localName).pipe(
         Effect.mapError(
           (cause) =>
             new ExtensionLifecycleFailed({
@@ -469,7 +467,7 @@ const planResolvedTarget = Effect.fn("UpdateExtensions.planResolvedTarget")(func
       return yield* planMcpServerInstall({
         ref,
         localName,
-        sourceIdentity,
+        sourceKey,
         versionRange: Option.map(versionRange, (range) => range),
         force: args.reinstall,
         nonInteractive: args.nonInteractive,
@@ -613,8 +611,7 @@ const prepareTargeted = Effect.fn("UpdateExtensions.prepareTargeted")(function* 
   if (
     Option.isSome(current) &&
     current.value.refType === "registry" &&
-    Option.isSome(intent.versionRange) &&
-    !versionSatisfiesRange(current.value.version, intent.versionRange.value)
+    !versionSatisfiesRequest(current.value.version, normalizeVersionRequest(intent.versionRange))
   ) {
     return yield* new ExtensionLifecycleFailed({
       category: "conflict",

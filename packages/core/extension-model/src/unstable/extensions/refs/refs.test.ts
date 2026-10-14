@@ -14,6 +14,7 @@ import type { McpServerExtensionRef } from "./mcp-server.js";
 import type { PackRef } from "./pack.js";
 import { extensionName, exactVersion, handle } from "../../test-helpers.js";
 
+import { decodeRegistryEndpointSync } from "../registry-endpoint.js";
 // -----------------------------------------------------------------------------
 // Ref detail interfaces
 // -----------------------------------------------------------------------------
@@ -101,7 +102,7 @@ describe("SkillExtensionRef", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("file:///reg"),
+        location: decodeRegistryEndpointSync("file:///reg"),
         owner: Option.none(),
       },
       owner: handle("@acme"),
@@ -202,7 +203,7 @@ describe("McpServerExtensionRef", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("file:///reg"),
+        location: decodeRegistryEndpointSync("file:///reg"),
         owner: Option.none(),
       },
       owner: handle("@acme"),
@@ -236,7 +237,7 @@ describe("PackRef", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("file:///reg"),
+        location: decodeRegistryEndpointSync("file:///reg"),
         owner: Option.none(),
       },
       owner: handle("@acme"),
@@ -302,7 +303,7 @@ describe("ExtensionRef", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("file:///reg"),
+        location: decodeRegistryEndpointSync("file:///reg"),
         owner: Option.none(),
       },
       name: extensionName("p"),
@@ -325,7 +326,7 @@ describe("ExtensionRef", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("file:///reg"),
+        location: decodeRegistryEndpointSync("file:///reg"),
         owner: Option.none(),
       },
       owner: handle("@acme"),

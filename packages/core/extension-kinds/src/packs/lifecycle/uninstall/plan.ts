@@ -36,7 +36,7 @@ import {
   desiredPackageKey,
   formatDesiredIdentity,
   isRequiredByAnotherOrigin,
-  sameDesiredIdentity,
+  sameSourceIdentity,
   type DesiredAuthority,
   type DesiredNodeIdentity,
   type DesiredStateGraph,
@@ -148,7 +148,7 @@ export const validateResolvedPackUninstallTargets = (
       }
 
       if (
-        !sameDesiredIdentity(current.identity, expected.desiredIdentity) ||
+        !sameSourceIdentity(current.identity, expected.desiredIdentity) ||
         current.identity.authority !== expected.authority ||
         decoded.owner !== expected.owner ||
         decoded.name !== expected.name
@@ -292,7 +292,8 @@ export const finalizePackUninstallIntent: (
           return yield* identityValidationError(formatDesiredIdentity(node.identity));
         }
         if (selector._tag === "ExactFqn" && identity.owner !== selector.identity.owner) continue;
-        targets.set(formatDesiredIdentity(node.identity), {
+        // One target per desired node, however many selectors name it.
+        targets.set(`${node.type}:${node.name}`, {
           type: "pack",
           name: identity.name,
           owner: identity.owner,

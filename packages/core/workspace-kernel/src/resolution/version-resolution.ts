@@ -35,9 +35,9 @@ export type ReleaseAgeVersionResolution =
 /**
  * The one release-age selection algorithm: resolve one visible Registry index
  * under one caller-supplied release-age evaluation. The supplied timestamp
- * makes a complete operation deterministic. An accepted version that
- * satisfies the requested range is a lower bound for unattended selection,
- * even while that version is itself under age.
+ * makes a complete operation deterministic. An accepted version the request
+ * admits is a lower bound for unattended selection, even while that version
+ * is itself under age; an absent request admits what `*` admits.
  */
 export const resolveVersionEntryForReleaseAge = (
   versions: ReadonlyArray<VersionEntry>,
@@ -64,13 +64,15 @@ export const resolveVersionEntryForReleaseAge = (
 
   const eligible = versions.filter((entry) => isVersionEntryEligibleAt(entry, evaluation));
   const eligibleSelection = resolveVersionEntry(eligible, versionRange);
-  const accepted = versions.find((entry) => {
-    if (entry.version !== acceptedVersion) return false;
-    if (Option.isNone(versionRange)) return true;
-    return semver.valid(versionRange.value) === versionRange.value
-      ? entry.version === versionRange.value
-      : semver.satisfies(entry.version, versionRange.value);
-  });
+  // The accepted version is a floor only when the request itself would select
+  // it: under a range (an absent one is `*`) it must be a non-yanked release
+  // the range admits, so an accepted prerelease or yanked release is no floor.
+  const accepted = Option.getOrUndefined(
+    resolveVersionEntry(
+      versions.filter((entry) => entry.version === acceptedVersion),
+      versionRange,
+    ),
+  );
   const selected =
     accepted !== undefined &&
     (Option.isNone(eligibleSelection) ||

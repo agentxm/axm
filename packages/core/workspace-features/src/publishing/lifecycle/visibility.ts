@@ -24,7 +24,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionVisibility } from "@agentxm/extension-model/unstable/extensions/common";
 import { manifestFilenameForType } from "@agentxm/extension-content";
-import { RegistryClientFactory, RegistryUrl } from "@agentxm/registry-client";
+import { selectedVisibilityRegistry } from "./registry.js";
 import type {
   VisibilityEvaluation,
   VisibilityIntent,
@@ -162,7 +162,7 @@ export const repositoryVisibilityIntent = Effect.fn("Visibility.repositoryIntent
 export const status = Effect.fn("ManagePublishedVisibility.status")(function* (target: string) {
   const parsed = yield* parseVisibilityTarget(target);
   const intent = yield* repositoryVisibilityIntent(parsed.parts);
-  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
+  const { client } = yield* selectedVisibilityRegistry();
   return yield* client.getExtensionVisibility({ ...parsed.parts, intent });
 });
 
@@ -192,8 +192,7 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
   request: VisibilitySetRequest,
 ) {
   const parsed = yield* parseVisibilityTarget(request.target);
-  const registryUrl = yield* RegistryUrl;
-  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
+  const { registry, client } = yield* selectedVisibilityRegistry();
   const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent: null });
   const missing = requireEstablishedVisibility(request.target, evaluation);
   if (Option.isSome(missing)) return yield* Effect.fail(missing.value);
@@ -213,7 +212,7 @@ export const set = Effect.fn("ManagePublishedVisibility.set")(function* (
     authority: { kind: "operator" },
   });
   return {
-    registry: registryUrl,
+    registry,
     mutation: mutation satisfies VisibilityMutationResult,
   };
 });
@@ -229,8 +228,7 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
       validation(`${request.target} has no manifest or workspace visibility intent to reconcile.`),
     );
   }
-  const registryUrl = yield* RegistryUrl;
-  const client = yield* (yield* RegistryClientFactory).forDefaultRegistry;
+  const { registry, client } = yield* selectedVisibilityRegistry();
   const evaluation = yield* client.getExtensionVisibility({ ...parsed.parts, intent });
   const missing = requireEstablishedVisibility(request.target, evaluation);
   if (Option.isSome(missing)) return yield* Effect.fail(missing.value);
@@ -254,7 +252,7 @@ export const reconcile = Effect.fn("ManagePublishedVisibility.reconcile")(functi
     },
   });
   return {
-    registry: registryUrl,
+    registry,
     mutation: mutation satisfies VisibilityMutationResult,
   };
 });

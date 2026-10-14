@@ -9,6 +9,7 @@ import type * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { HandleSchema, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 // -----------------------------------------------------------------------------
 // Credential Entry
@@ -83,7 +84,8 @@ export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStor
   readonly token: string;
   readonly refresh_token: string;
   readonly expires_at: DateTime.Utc;
-  readonly registryUrl: string;
+  /** The Registry whose stored session this is. */
+  readonly endpoint: HttpRegistryEndpoint;
 }> {}
 
 /**
@@ -94,7 +96,8 @@ export class CredentialStoreTokenSource extends Data.TaggedClass("CredentialStor
 export class WorkloadTokenSource extends Data.TaggedClass("Workload")<{
   readonly token: string;
   readonly expires_at: DateTime.Utc;
-  readonly registryUrl: string;
+  /** The Registry the workload token was issued for. */
+  readonly endpoint: HttpRegistryEndpoint;
 }> {}
 
 export type TokenSource =

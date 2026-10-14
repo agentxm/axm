@@ -20,16 +20,11 @@ import {
   parseFqn,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { DeprecationReason } from "@agentxm/extension-model/unstable/extensions/deprecation";
-import {
-  deprecateExtension,
-  getExtensionDeprecation,
-  undeprecateExtension,
-  RegistryUrl,
-} from "@agentxm/registry-client";
 import type { DeprecationReplacementIntent } from "@agentxm/registry-protocol/unstable/registry";
 
 import { PublishFailed } from "../errors.js";
 import { parseExtensionReference } from "./retirement.js";
+import { selectedLifecycleRegistry } from "./registry.js";
 
 /** The edit a caller expressed for one field of the guidance. */
 export interface DeprecationEdit {
@@ -77,12 +72,12 @@ const rejectConflictingEdit = (edit: DeprecationEdit) =>
 export const deprecate = Effect.fn("DeprecatePublishedExtension.deprecate")(function* (
   edit: DeprecationEdit,
 ) {
-  const registryUrl = yield* RegistryUrl;
   const ref = yield* parseExtensionReference(edit.ref);
   const conflicting = rejectConflictingEdit(edit);
   if (Option.isSome(conflicting)) return yield* Effect.fail(conflicting.value);
 
-  const current = yield* getExtensionDeprecation(ref);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Deprecating an extension");
+  const current = yield* lifecycle.getExtensionDeprecation(ref);
   const reason = Option.getOrUndefined(edit.reason) ?? current.deprecation?.reason;
   if (reason === undefined) {
     return yield* Effect.fail(
@@ -125,8 +120,8 @@ export const deprecate = Effect.fn("DeprecatePublishedExtension.deprecate")(func
     );
   }
   return {
-    registry: registryUrl,
-    transition: yield* deprecateExtension(ref, {
+    registry,
+    transition: yield* lifecycle.deprecateExtension(ref, {
       revision: current.revision,
       reason,
       message,
@@ -138,12 +133,12 @@ export const deprecate = Effect.fn("DeprecatePublishedExtension.deprecate")(func
 export const undeprecate = Effect.fn("DeprecatePublishedExtension.undeprecate")(function* (
   input: string,
 ) {
-  const registryUrl = yield* RegistryUrl;
   const ref = yield* parseExtensionReference(input);
-  const current = yield* getExtensionDeprecation(ref);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Undeprecating an extension");
+  const current = yield* lifecycle.getExtensionDeprecation(ref);
   return {
-    registry: registryUrl,
-    transition: yield* undeprecateExtension(ref, current.revision),
+    registry,
+    transition: yield* lifecycle.undeprecateExtension(ref, current.revision),
   };
 });
 

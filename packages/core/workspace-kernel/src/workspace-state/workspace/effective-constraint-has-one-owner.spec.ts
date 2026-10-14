@@ -1,16 +1,23 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as semver from "semver";
 import { describe, expect, it } from "@effect/vitest";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
+import {
+  decodeVersionSync,
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 
 import {
   desiredStateSettled,
   effectiveDesiredConstraint,
+  observeAcceptedResolution,
   type DesiredEffectiveConstraint,
 } from "../index.js";
+import { makeRegistrySkillLockEntry } from "./test-stubs.js";
 import {
   DISABLED_MCP,
   SHARED_MEMBER,
@@ -23,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "workspace/desired-state/effective-constraint-has-one-owner",
   title: "One effective constraint decides the version of every desired extension",
   statement:
-    "The desired state shall give each desired extension one effective constraint that intersects its direct declaration with the range of every Pack that requires it and names every contributor, and when no version satisfies that intersection it shall report one conflict naming every contributor rather than letting any contributor's range win.",
+    "The desired state shall give each desired extension one effective constraint that intersects its direct declaration with the range of every Pack that requires it and names every contributor, shall judge a Registry version that no contributor constrains exactly as `*` judges it, and when no version satisfies that intersection it shall report one conflict naming every contributor rather than letting any contributor's range win.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -37,14 +44,34 @@ export const specification = defineSpecification({
 
 const member = { type: "skill", name: SHARED_MEMBER.name } as const;
 
-/** The published versions an effective range admits. */
-const admitted = (effective: DesiredEffectiveConstraint): ReadonlyArray<string> =>
-  SHARED_MEMBER.versions.filter((version) =>
-    Option.match(effective.range, {
-      onNone: () => true,
-      onSome: (range) => semver.satisfies(version, range),
-    }),
+/** The published Registry versions an effective range admits; an absent range is `*`. */
+const admitted = (
+  effective: DesiredEffectiveConstraint,
+  versions: ReadonlyArray<string> = SHARED_MEMBER.versions,
+): ReadonlyArray<string> =>
+  versions.filter((version) =>
+    versionSatisfiesRequest(version, normalizeVersionRequest(effective.range)),
   );
+
+/** Published versions where the newest is a prerelease. */
+const PRERELEASE_LED = ["1.9.0", "2.0.0-beta.1"] as const;
+
+/** The scenario with only an unpinned direct declaration, or one spelled with `range`. */
+const directOnlyGraph = (range?: string) =>
+  sharedMemberGraph(SHARED_MEMBER_PIN.inside, {
+    skills: {
+      [SHARED_MEMBER.name]:
+        range === undefined ? SHARED_MEMBER.fqn : `${SHARED_MEMBER.fqn}@${range}`,
+    },
+    packs: {},
+  });
+
+const acceptedAt = (version: string) =>
+  makeRegistrySkillLockEntry({
+    owner: decodeHandleSync(SHARED_MEMBER.owner),
+    name: SHARED_MEMBER.name,
+    resolvedVersion: decodeVersionSync(version),
+  });
 
 const settingsContributor = (range: string) =>
   expect.objectContaining({ source: "settings", range, localName: SHARED_MEMBER.name });
@@ -188,6 +215,56 @@ describe("The effective constraint has one owner", () => {
         if (Result.isFailure(unpinned)) throw new Error("Expected a satisfiable constraint");
         expect(admitted(unpinned.success)).toEqual(["1.0.0", "1.1.0", "1.2.0"]);
         expect(unpinned.success.contributors).toEqual(packContributors);
+      }),
+  );
+
+  it.effect(
+    "an unconstrained Registry member admits exactly what the wildcard admits, never a newer prerelease",
+    () =>
+      Effect.gen(function* () {
+        const unpinned = effectiveDesiredConstraint(yield* directOnlyGraph(), member);
+        const wildcard = effectiveDesiredConstraint(yield* directOnlyGraph("*"), member);
+
+        if (Result.isFailure(unpinned) || Result.isFailure(wildcard))
+          throw new Error("Expected a satisfiable constraint");
+        expect(unpinned.success).toEqual({ range: Option.none(), contributors: [] });
+        expect(admitted(unpinned.success, PRERELEASE_LED)).toEqual(["1.9.0"]);
+        expect(admitted(unpinned.success, PRERELEASE_LED)).toEqual(
+          admitted(wildcard.success, PRERELEASE_LED),
+        );
+        expect(admitted(unpinned.success, ["2.0.0-beta.1"])).toEqual([]);
+      }),
+  );
+
+  it.effect(
+    "an accepted prerelease that no contributor's range names is a constraint mismatch",
+    () =>
+      Effect.gen(function* () {
+        for (const range of [undefined, "*"]) {
+          const graph = yield* directOnlyGraph(range);
+          const node = graph.nodes.find(
+            (candidate) => candidate.type === member.type && candidate.name === member.name,
+          );
+          if (node === undefined) throw new Error("Expected the member to be desired");
+
+          // The held prerelease blocks; the stable release the request admits stands.
+          expect(observeAcceptedResolution(node, acceptedAt("2.0.0-beta.1"))).toEqual(
+            Option.some(
+              expect.objectContaining({
+                status: "constraint-mismatch",
+                acceptedVersion: "2.0.0-beta.1",
+              }),
+            ),
+          );
+          expect(observeAcceptedResolution(node, acceptedAt("1.9.0"))).toEqual(Option.none());
+        }
+        const optedIn = (yield* directOnlyGraph(">=2.0.0-0")).nodes.find(
+          (candidate) => candidate.type === member.type && candidate.name === member.name,
+        );
+        if (optedIn === undefined) throw new Error("Expected the member to be desired");
+        expect(observeAcceptedResolution(optedIn, acceptedAt("2.0.0-beta.1"))).toEqual(
+          Option.none(),
+        );
       }),
   );
 });

@@ -12,6 +12,7 @@ import {
   makeInspectionFixture,
   inspectionRegistryUrl,
 } from "./testing.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 describe("inspection read phase", () => {
   it.effect("does not enumerate an unrelated Nx cache tree during inventory", () => {
@@ -63,7 +64,7 @@ describe("inspection read phase", () => {
               makeRegistryMcpServerLockEntry({
                 owner: decodeHandleSync("@acme"),
                 name: "context",
-                endpoint: new URL(inspectionRegistryUrl),
+                endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
               }),
           },
         },

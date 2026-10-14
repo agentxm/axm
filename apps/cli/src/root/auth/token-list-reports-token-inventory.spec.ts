@@ -1,3 +1,4 @@
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
@@ -11,7 +12,6 @@ import {
   WorkloadCredentialsTest,
   DeviceLoginInteractionTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -61,10 +61,10 @@ describe("Token inventory", () => {
       WorkloadCredentialsTest(),
       renderer.layer,
       TestFlagsLayer({ json: true }),
-      Layer.succeed(RegistryUrl, registry),
+      RegistryContextTest(registry),
       Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
       AuthClientTest({
-        listTokens: (page) =>
+        listTokens: (_endpoint, page) =>
           Effect.sync(() => {
             requests.push(page);
             const offset = page?.cursor === "after-2" ? 2 : page?.cursor === "after-4" ? 4 : 0;
@@ -147,10 +147,10 @@ describe("Token inventory", () => {
               WorkloadCredentialsTest(),
               renderer.layer,
               TestFlagsLayer({ json: machine }),
-              Layer.succeed(RegistryUrl, registry),
+              RegistryContextTest(registry),
               Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
               AuthClientTest({
-                listTokens: (page) =>
+                listTokens: (_endpoint, page) =>
                   Effect.sync(() => {
                     requests.push(page);
                     return {

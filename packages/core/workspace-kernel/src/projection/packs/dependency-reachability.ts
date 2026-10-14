@@ -1,9 +1,13 @@
-import * as semver from "semver";
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  isValidVersionRange,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
 
 type PackDependencyDeclarationValue =
   | string
   | {
-      readonly source: { readonly type: "registry"; readonly url: URL };
+      readonly source: { readonly type: "registry"; readonly url: RegistryEndpoint };
       readonly versionRange: string;
     };
 
@@ -39,7 +43,7 @@ const classifyPackDependencyReachability = (args: {
   readonly member?: PackDependencyMemberObservation;
 }): PackDependencyReachabilityClassification => {
   if (args.member === undefined) return "missing";
-  return semver.satisfies(args.member.version, args.constraint) ? "satisfying" : "excluded";
+  return versionSatisfiesRequest(args.member.version, args.constraint) ? "satisfying" : "excluded";
 };
 
 /**
@@ -59,7 +63,7 @@ export const buildPackDependencyReachability = (args: {
         .flatMap(([memberFqn, declaration]) => {
           const constraint =
             typeof declaration === "string" ? declaration : declaration.versionRange;
-          if (semver.validRange(constraint) === null) return [];
+          if (!isValidVersionRange(constraint)) return [];
           const member = members.get(memberFqn);
           return [
             {

@@ -8,6 +8,7 @@
  * captured credential writes, stderr documents, and Registry calls.
  */
 
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -20,7 +21,6 @@ import {
 } from "@agentxm/registry-access/testing";
 import { type AuthError } from "@agentxm/registry-access/authentication";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { CredentialDeliveryFailed, Screen } from "../screen/index.js";
@@ -103,12 +103,12 @@ export const makeTokenSpecContext = (options: TokenSpecContextOptions = {}) => {
     credentials,
     WorkloadCredentialsTest(),
     AuthClientTest({
-      createToken: (params) =>
+      createToken: (_endpoint, params) =>
         Effect.sync(() => {
           creations.push(params.name);
           return { ...issuedToken, name: params.name };
         }),
-      deleteToken: (tokenId) =>
+      deleteToken: (_endpoint, tokenId) =>
         Effect.suspend(() => {
           revocations.push(tokenId);
           return options.revoke?.(tokenId) ?? Effect.void;
@@ -116,7 +116,7 @@ export const makeTokenSpecContext = (options: TokenSpecContextOptions = {}) => {
     }),
     interaction.layer,
     Layer.provide(AuthLoginPresenterLive, Layer.mergeAll(screen, interaction.layer)),
-    Layer.succeed(RegistryUrl, TOKEN_REGISTRY_URL),
+    RegistryContextTest(TOKEN_REGISTRY_URL),
   );
 
   return {

@@ -16,6 +16,7 @@ import {
   type InstallWorld,
 } from "../../../testing/install-world.js";
 import { serveBareRepository } from "../../../testing/git-repositories.js";
+import { makeFileRegistry } from "@agentxm/registry-client/testing";
 import { applyUninstall, uninstallRequest } from "../../uninstall/test-helpers.js";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 
@@ -23,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/install/shared-pack-members-need-one-source-authority",
   title: "Shared Pack members come from one source authority",
   statement:
-    "When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.",
+    "When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint however a configured alias spells it, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it without changing the workspace, naming every conflicting declaration, when the authorities differ, including the same member name from a different Registry endpoint. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.",
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
@@ -166,6 +167,61 @@ describe("Pack member source authority", () => {
         )
         .pipe(Effect.provide(NodeServices.layer));
     },
+  );
+
+  it.effect(
+    "accepts a shared member through another alias of its Registry and refuses one from another Registry",
+    () => {
+      const primary = makeFileRegistry();
+      const mirror = makeFileRegistry();
+      cleanups.push(primary.cleanup, mirror.cleanup);
+      const member = { "@acme/skills/shared": "^1.0.0" };
+      for (const registry of [primary, mirror]) {
+        registry.writeSkill("shared", [{ version: "1.0.0", body: "Shared guidance." }]);
+      }
+      primary.writePack("alpha", [{ version: "1.0.0", dependencies: member }]);
+      primary.writePack("beta", [{ version: "1.0.0", dependencies: member }]);
+      mirror.writePack("gamma", [{ version: "1.0.0", dependencies: member }]);
+      const { workspace } = makeInstallWorld({
+        registry: primary,
+        settings: {
+          sources: [
+            primary.source,
+            { name: "alias", type: "registry", location: `${primary.url}/` },
+            { name: "mirror", type: "registry", location: mirror.url },
+          ],
+        },
+      });
+      cleanups.push(workspace.cleanup);
+
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const alpha = yield* applyInstall(packRequest("@acme/packs/alpha", "alpha"));
+            expect(deriveOperationOutcome(alpha)).toBe("applied");
+
+            // Another alias of the same endpoint is the same source view.
+            const beta = yield* applyInstall(packRequest("alias:@acme/packs/beta", "beta"));
+            expect(deriveOperationOutcome(beta), JSON.stringify(beta)).toBe("applied");
+            expect(beta.riskConditions ?? []).toEqual([]);
+
+            // The same member name from another Registry is another package.
+            const before = workspace.snapshot();
+            const gamma = yield* applyInstall(packRequest("mirror:@acme/packs/gamma", "gamma"));
+            expect(deriveOperationOutcome(gamma)).toBe("blocked");
+            const details = (gamma.riskConditions ?? []).map((condition) => condition.detail);
+            expect(details).toEqual([expect.stringContaining("@acme/skills/shared")]);
+            expect(details[0]).toContain("@acme/packs/alpha");
+            expect(details[0]).toContain("@acme/packs/beta");
+            expect(details[0]).toContain("@acme/packs/gamma");
+            expect(details[0]).toContain(mirror.url);
+            expect(gamma.units.filter((unit) => unit.state === "committed")).toEqual([]);
+            expect(workspace.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 20_000 },
   );
 
   it.effect(

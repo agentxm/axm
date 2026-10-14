@@ -1,3 +1,7 @@
+import {
+  sameRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/index.js";
 /**
  * Pure desired-state evaluation over one captured input view.
@@ -11,8 +15,8 @@ import type { McpDistribution, McpBinding, McpAuth } from "../../agent-adapters/
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as semver from "semver";
 import {
   extensionTypes,
   packMemberRegistrySource,
@@ -22,6 +26,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-files";
+import {
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import {
   configuredPackIdentity,
   configuredPackRegistrySource,
@@ -33,11 +41,12 @@ import {
 import type { DesiredEvaluationInputs } from "./desired-evaluation-inputs.js";
 import {
   formatDesiredIdentity,
-  desiredMcpSourceKey,
   sameDesiredPackage,
+  sameSourceIdentity,
   type DesiredNodeIdentity,
   type DesiredPackIdentity,
   type DesiredSourceAuthority,
+  desiredMcpSourceKey,
 } from "./desired-identity.js";
 import { authorizeExternalPackRoutes } from "./desired-pack-lock.js";
 import { effectiveExtensionActivation, isDesiredExtensionActive } from "./desired-state-enabled.js";
@@ -62,7 +71,7 @@ import { desiredProblemSubject } from "./desired-state-queries.js";
 import { lockEntryMatchesSourceLocator } from "./lock-entry.js";
 import { lockEntries } from "./entry-accessors.js";
 import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
-import { mcpResolutionKey } from "./mcp-source-identity.js";
+import { McpSourceIdentity, McpSourceKey } from "./mcp-source-identity.js";
 
 interface CandidateCommon {
   readonly type: ExtensionType;
@@ -91,11 +100,53 @@ const problemOrder = (problem: DesiredStateProblem): string => {
     : `1:${subject.type}:${subject.name}:${problem.type}`;
 };
 
-/** Whether two candidates name one package the graph can merge into one node. */
-const sharesPackage = (left: Candidate, right: Candidate): boolean =>
-  left.authority !== "inline" &&
-  right.authority !== "inline" &&
-  sameDesiredPackage(left.identity, right.identity);
+/**
+ * Where a candidate acquires its package: a Pack route's own source view
+ * decides for its member, and otherwise the authority its identity is held
+ * under. A Registry identity with no bound endpoint names no known Registry.
+ */
+type CandidateAcquisition =
+  | { readonly kind: "workspace" }
+  | { readonly kind: "registry"; readonly endpoint: RegistryEndpoint }
+  | { readonly kind: "unbound-registry" }
+  | { readonly kind: "other" };
+
+const candidateAcquisition = (candidate: Candidate): CandidateAcquisition => {
+  const routed = candidate.origin.type === "pack" ? candidate.origin.sourceAuthority : undefined;
+  if (routed !== undefined) {
+    return routed.authority === "workspace"
+      ? { kind: "workspace" }
+      : routed.authority === "registry"
+        ? { kind: "registry", endpoint: routed.endpoint }
+        : { kind: "other" };
+  }
+  const identity = candidate.identity;
+  if (identity.authority === "workspace") return { kind: "workspace" };
+  if (identity.authority !== "registry") return { kind: "other" };
+  return identity.registry.endpoint === undefined
+    ? { kind: "unbound-registry" }
+    : { kind: "registry", endpoint: identity.registry.endpoint };
+};
+
+/**
+ * Whether two candidates name one package the graph can merge into one node.
+ * Merge candidacy is by package name; the same FQN acquired from two
+ * different Registries is two packages, never one, and is a collision. An
+ * unbound Registry identity shares a package only with workspace-authored
+ * content, because which Registry it names is not known.
+ */
+const sharesPackage = (left: Candidate, right: Candidate): boolean => {
+  if (left.authority === "inline" || right.authority === "inline") return false;
+  if (!sameDesiredPackage(left.identity, right.identity)) return false;
+  const leftAcquisition = candidateAcquisition(left);
+  const rightAcquisition = candidateAcquisition(right);
+  if (leftAcquisition.kind === "workspace" || rightAcquisition.kind === "workspace") return true;
+  if (leftAcquisition.kind === "unbound-registry" || rightAcquisition.kind === "unbound-registry")
+    return false;
+  return leftAcquisition.kind === "registry" && rightAcquisition.kind === "registry"
+    ? sameRegistryEndpoint(leftAcquisition.endpoint, rightAcquisition.endpoint)
+    : true;
+};
 
 /** Settings candidates first, then Pack routes by Pack name: an order the declaration order cannot move. */
 const settledCandidateOrder = (left: Candidate, right: Candidate): number => {
@@ -106,17 +157,42 @@ const settledCandidateOrder = (left: Candidate, right: Candidate): number => {
   return 0;
 };
 
+/** A stable order for identities whose display text alone may tie. */
+const identityOrder = (identity: DesiredNodeIdentity): string =>
+  `${formatDesiredIdentity(identity)}\u0000${
+    identity.authority === "registry" ? (identity.registry.endpoint?.href ?? "") : ""
+  }`;
+
+/**
+ * Whether two identities are the same unbound Registry declaration: one FQN
+ * under one configured source name that binds no endpoint. They name no
+ * known source, so they are not one source, but they are one contender.
+ */
+const sameUnboundRegistry = (left: DesiredNodeIdentity, right: DesiredNodeIdentity): boolean =>
+  left.authority === "registry" &&
+  right.authority === "registry" &&
+  left.registry.endpoint === undefined &&
+  right.registry.endpoint === undefined &&
+  left.registry.sourceName === right.registry.sourceName &&
+  left.fqn === right.fqn;
+
+/** Every structurally distinct contender, in a declaration-independent order. */
 const distinctIdentities = (
   candidates: ReadonlyArray<Candidate>,
 ): ReadonlyArray<DesiredNodeIdentity> => {
-  const byText = new Map<string, DesiredNodeIdentity>();
+  const distinct: DesiredNodeIdentity[] = [];
   for (const candidate of candidates) {
-    const text = formatDesiredIdentity(candidate.identity);
-    if (!byText.has(text)) byText.set(text, candidate.identity);
+    if (
+      !distinct.some(
+        (identity) =>
+          sameSourceIdentity(identity, candidate.identity) ||
+          sameUnboundRegistry(identity, candidate.identity),
+      )
+    ) {
+      distinct.push(candidate.identity);
+    }
   }
-  return [...byText.entries()]
-    .sort(([left], [right]) => left.localeCompare(right))
-    .map(([, identity]) => identity);
+  return distinct.sort((left, right) => identityOrder(left).localeCompare(identityOrder(right)));
 };
 
 const unknownMembership = (
@@ -400,11 +476,16 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
         break;
     }
     const { manifest } = observed;
+    // A Registry Pack's version is judged against its request, an absent one
+    // standing for `*`; other authorities are judged only when constrained.
+    const request =
+      identity.identity.authority === "registry"
+        ? normalizeVersionRequest(Option.fromUndefinedOr(identity.constraint))
+        : identity.constraint;
     if (
       manifest.owner !== identity.owner ||
       manifest.name !== identity.name ||
-      (identity.constraint !== undefined &&
-        !semver.satisfies(manifest.version, identity.constraint))
+      (request !== undefined && !versionSatisfiesRequest(manifest.version, request))
     ) {
       if (packEnabled) {
         problems.push({
@@ -460,8 +541,6 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       // A member declared with its own Registry endpoint is bound to that
       // endpoint; one declared by name alone is bound to the Pack's Registry.
       const dependencyIdentity = registryIdentity(
-        parsed.type,
-        parsed,
         fqn,
         declaredSource === undefined
           ? { sourceName: configuredRegistrySource, endpoint: configuredRegistryEndpoint }
@@ -535,19 +614,19 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
       const matches = Object.entries(inputs.acceptedResolutions.mcpServers ?? {}).filter(
         ([key, entry]) =>
           entry.source.type === identity.authority &&
-          key === mcpResolutionKey(entry) &&
+          key === McpSourceKey.fromLockEntry(entry) &&
           lockEntryMatchesSourceLocator(entry, unresolved.source) &&
           (identity.fqn === undefined ||
             identity.fqn === `${entry.identity.owner}/mcps/${entry.identity.name}`),
       );
       const [accepted] = matches;
       if (matches.length === 1 && accepted !== undefined) {
-        const [resolutionKey, entry] = accepted;
+        const [, entry] = accepted;
         candidate = {
           ...unresolved,
           identity: {
             ...identity,
-            resolutionKey,
+            acceptedSource: McpSourceIdentity.fromLockEntry(entry),
             ...(entry.identity.owner === undefined
               ? {}
               : { fqn: `${entry.identity.owner}/mcps/${entry.identity.name}` }),
@@ -643,17 +722,20 @@ export const evaluateDesiredState = (inputs: DesiredEvaluationInputs): DesiredSt
     });
   }
 
-  const mcpClosuresByKey = new Map<string, DesiredMcpSourceClosure>();
+  // A source not yet bound or accepted has no key, so its connection stands
+  // alone until it is: no closure is ever joined by display text.
+  const mcpClosuresByKey = new Map<McpSourceKey, DesiredMcpSourceClosure>();
   for (const node of nodes.values()) {
-    if (node.type === "mcp-server" && isSourcedDesiredExtension(node)) {
-      const key = desiredMcpSourceKey(node.identity);
-      const existing = mcpClosuresByKey.get(key);
-      mcpClosuresByKey.set(key, {
-        key,
-        localNames: [...(existing?.localNames ?? []), node.name].sort(),
-        origins: [...(existing?.origins ?? []), ...node.origins],
-      });
-    }
+    if (node.type !== "mcp-server" || !isSourcedDesiredExtension(node)) continue;
+    const sourceKey = desiredMcpSourceKey(node.identity);
+    if (Option.isNone(sourceKey)) continue;
+    const key = sourceKey.value;
+    const existing = mcpClosuresByKey.get(key);
+    mcpClosuresByKey.set(key, {
+      key,
+      localNames: [...(existing?.localNames ?? []), node.name].sort(),
+      origins: [...(existing?.origins ?? []), ...node.origins],
+    });
   }
 
   const mcpSourceClosures = [...mcpClosuresByKey.values()].sort((left, right) =>

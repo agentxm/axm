@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Result from "effect/Result";
@@ -30,7 +31,7 @@ describe("extension path helpers", () => {
         source: {
           type: "registry",
           name: "agentxm",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
           owner: Option.none(),
         },
       },
@@ -216,7 +217,7 @@ describe("acquired source coordinates", () => {
             source: {
               type: "registry",
               name: alias,
-              location: new URL(endpoint),
+              location: decodeRegistryEndpointSync(endpoint),
               owner: Option.none(),
             },
           },
@@ -224,14 +225,14 @@ describe("acquired source coordinates", () => {
           "review",
         ),
       );
-    expect(locate("https://registry.example/team-a", "first")).toBe(
-      locate("https://registry.example/team-a", "renamed"),
+    expect(locate("https://team-a.registry.example", "first")).toBe(
+      locate("https://team-a.registry.example/", "renamed"),
     );
-    expect(locate("https://registry.example/team-a", "first")).toBe(
-      "registry.example/team-a/@acme/skills/review",
+    expect(locate("https://team-a.registry.example", "first")).toBe(
+      "team-a.registry.example/@acme/skills/review",
     );
-    expect(locate("https://registry.example/team-b", "first")).toBe(
-      "registry.example/team-b/@acme/skills/review",
+    expect(locate("https://team-b.registry.example", "first")).toBe(
+      "team-b.registry.example/@acme/skills/review",
     );
     expect(locate("file:///srv/registry", "local")).toBe(
       "_local/absolute/root/srv/registry/@acme/skills/review",

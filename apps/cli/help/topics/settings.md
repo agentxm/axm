@@ -52,8 +52,23 @@ source at `https://registry.agentxm.ai` is used.
 
 The selected name must identify a configured Registry source. Built-in and
 intrinsic source names are reserved and cannot be redefined in `sources`;
-notably, a configured source cannot shadow `agentxm`. Credentials selected for
-the default Registry are never sent to another configured Registry.
+notably, a configured source cannot shadow `agentxm`, and one settings file
+cannot name the same source twice. A name that no settings configure, or a
+settings file that cannot be read, is an error: AXM never selects another
+Registry in its place. Credentials selected for the default Registry are never
+sent to another configured Registry.
+
+A Registry `location` is an http(s) origin, such as
+`https://registry.example.com`, or a `file:` URL naming a directory Registry.
+It must not carry credentials, a query, a fragment, or (for http(s)) a path; a
+trailing slash is not significant, so equivalent spellings name one Registry
+and share its sign-in. A file Registry serves installs, discovery, publishing,
+and visibility; it has no sign-in, and deprecation, yank, and archive are not
+supported for it.
+
+`--registry` on publishing, lifecycle, visibility, view, and authentication
+commands names a configured source or an http(s) origin for that invocation
+only.
 
 `minimumReleaseAge` controls unattended Registry resolution wherever AXM
 selects a release without an explicit version request — `axm install <source>`,

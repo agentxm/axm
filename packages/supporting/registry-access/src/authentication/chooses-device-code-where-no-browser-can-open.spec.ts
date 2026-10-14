@@ -4,7 +4,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { login } from "./login.js";
 import { selectLoginStrategy, type LoginStrategyEnvironment } from "./login-strategy.js";
-import { authRegistry, deviceLoginRequest, makeAuthPorts } from "./test-support/test-helpers.js";
+import {
+  authSelectedRegistry,
+  deviceLoginRequest,
+  makeAuthPorts,
+} from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/login/chooses-device-code-where-no-browser-can-open",
@@ -72,7 +76,7 @@ describe("Interactive sign-in flow selection", () => {
     return Effect.gen(function* () {
       yield* login(
         deviceLoginRequest({ deviceCode: false, nonInteractive: false, machineOutput: false }),
-        authRegistry,
+        authSelectedRegistry,
       );
 
       expect(ports.presenterState.deviceCodeFallbacks).toEqual(["remote-or-headless"]);

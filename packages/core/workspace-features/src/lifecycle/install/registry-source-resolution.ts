@@ -121,7 +121,7 @@ export const resolveConfiguredRegistrySource: (
 
   const registryClients = yield* RegistryClientFactory;
   for (const registrySource of registrySources) {
-    const client = yield* registryClients.forLocation(registrySource.location);
+    const client = yield* registryClients.forEndpoint(registrySource.location);
     const matchResult = yield* Option.match(args.extensionName, {
       onNone: () => client.ownerExists(args.owner),
       onSome: (name) =>
@@ -165,7 +165,7 @@ export const resolveConfiguredRegistrySource: (
   }
 
   const loginSuggestions = yield* registryLoginSuggestions(
-    registrySources.map((source) => source.location.href),
+    registrySources.map((source) => source.location),
   );
   if (Option.isSome(args.extensionName)) {
     return yield* installRefused({
@@ -243,7 +243,7 @@ export const resolveDefaultRegistrySourceByName: ConfiguredDefaultRegistrySource
       ),
     );
     const loginSuggestions = yield* registryLoginSuggestions(
-      registryHosts.map((source) => source.location.href),
+      registryHosts.map((source) => source.location),
     );
     const resolved = yield* Effect.scoped(
       resolveIdentifier({

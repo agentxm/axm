@@ -46,11 +46,14 @@ import {
   TokenExchangeTest,
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
-import { AuthMiddlewareLive, SessionRefresherLive } from "@agentxm/registry-access/adapters";
-import { RegistryClientFactoryLive } from "@agentxm/registry-client";
+import {
+  RegistryRequestAuthorizationLive,
+  SessionRefresherLive,
+} from "@agentxm/registry-access/adapters";
+import { RegistryClientFactoryLive, RegistryHttpClient } from "@agentxm/registry-client";
 import {
   RegistryClientFactoryTest,
-  RegistryUrlTest,
+  RegistryContextTest,
   testRegistryUrl,
 } from "@agentxm/registry-client/testing";
 import { validateArchive } from "@agentxm/extension-content";
@@ -81,6 +84,7 @@ import { normalizePublishResult, type PublishResult } from "./publish/result.js"
 import type { PublishRequest } from "./publish/model.js";
 import { PublishExtensions, type PublishOutcome } from "./publish/use-case.js";
 import { PublishFailed } from "./errors.js";
+import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 import {
   makePublishTarget,
   publishRequest,
@@ -183,7 +187,7 @@ export interface PublishWorldOptions {
    * request dies, which is what a `file://` target example wants.
    */
   readonly httpClient?: HttpClient.HttpClient;
-  /** The default Registry endpoint, when a request names no override. */
+  /** Where the built-in default Registry is served, when settings name no other default. */
   readonly registryUrl?: string;
   /** The signed-in session a remote publish carries; omitted, the world is signed out. */
   readonly credentials?: NonNullable<Parameters<typeof CredentialStoreTest>[1]>;
@@ -267,23 +271,32 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
       // No example runs in a GitHub Actions job, so no identity is exchanged.
       WorkloadCredentialsTest(),
       GitDirectoryComparisonTest(options.compare),
-      RegistryUrlTest(options.registryUrl ?? testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),
+      Layer.succeed(RegistryHttpClient, transport),
       PlanInvocationTest,
       interaction.layer,
     ),
     platform,
   );
-  // The production auth middleware wraps the transport, so a seeded session
-  // authenticates every Registry request exactly as it does in the CLI. No
-  // example here exercises renewal, so the token endpoint stays unimplemented:
-  // a seeded session is valid and never reaches it.
-  const withRefresher = Layer.provideMerge(
-    Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), base)),
+  // The Registry a publish addresses is selected from the workspace settings,
+  // as the executable selects it.
+  const selected = Layer.provideMerge(
+    ProjectRegistryContextTest({
+      projectRoot: root,
+      builtInUrl: options.registryUrl ?? testRegistryUrl,
+    }),
     base,
   );
+  // The production request authorization wraps the transport, so a seeded
+  // session authenticates every Registry request exactly as it does in the
+  // CLI. No example here exercises renewal, so the token endpoint stays
+  // unimplemented: a seeded session is valid and never reaches it.
+  const withRefresher = Layer.provideMerge(
+    Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), selected)),
+    selected,
+  );
   const authenticated = Layer.provideMerge(
-    Layer.provide(AuthMiddlewareLive, withRefresher),
+    Layer.provide(RegistryRequestAuthorizationLive, withRefresher),
     withRefresher,
   );
   // Registry clients are built over the authenticated transport, as the
@@ -702,7 +715,7 @@ export const makeRegistryManagementWorld = (
   );
   const services = Layer.mergeAll(
     Layer.succeed(HttpClient.HttpClient, httpClient),
-    RegistryUrlTest(testRegistryUrl),
+    RegistryContextTest(testRegistryUrl),
     Layer.provide(
       RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, httpClient)),
       NodeServices.layer,

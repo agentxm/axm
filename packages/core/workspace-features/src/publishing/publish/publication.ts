@@ -313,7 +313,7 @@ export const publishCandidate: (
   onUploadDispatched: Effect.Effect<void> = Effect.void,
 ) =>
   Effect.gen(function* () {
-    const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
+    const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
     const metadata: VersionEntry = {
       version: candidate.version,
       published: yield* DateTime.now,

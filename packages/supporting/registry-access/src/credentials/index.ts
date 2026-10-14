@@ -34,13 +34,12 @@ export {
 export {
   ambientCredentialSource,
   getCurrentUserHandle,
-  resolveAmbientToken,
   resolveRequestToken,
   resolveRequiredToken,
   resolveStoredToken,
-  resolveToken,
   type AmbientCredentialSource,
 } from "./token-resolution.js";
+export { credentialKey, type CredentialKey } from "./credential-key.js";
 export { hasCredentialsForAll } from "./login-suggestion.js";
 
 export { SessionRefresher } from "./session-refresh.js";

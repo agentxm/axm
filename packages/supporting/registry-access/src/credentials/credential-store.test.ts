@@ -2,6 +2,7 @@
  * Unit tests for CredentialStore service.
  */
 
+import { credentialKeyOf } from "./test-helpers.js";
 import { describe, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -25,7 +26,7 @@ import type { StoredCredentials } from "./schema.js";
 
 describe("CredentialStore", () => {
   describe("CredentialStoreTest (in-memory)", () => {
-    const registryUrl = "https://registry.agentxm.ai";
+    const registryUrl = credentialKeyOf("https://registry.agentxm.ai");
     const credentials = {
       access_token: "axm_ses_abc",
       refresh_token: "axm_ref_def",
@@ -88,7 +89,7 @@ describe("CredentialStore", () => {
 
     it.effect("keeps separate registries independent", () => {
       const layer = CredentialStoreTest();
-      const otherUrl = "https://registry.corp.com";
+      const otherUrl = credentialKeyOf("https://registry.corp.com");
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
         yield* store.save(registryUrl, normalizeHandle("@alice"), credentials);
@@ -138,8 +139,8 @@ describe("CredentialStore", () => {
   });
 
   describe("CredentialStoreSessionLive (per-origin read memo)", () => {
-    const originA = "https://registry.agentxm.ai";
-    const originB = "https://registry.example.test";
+    const originA = credentialKeyOf("https://registry.agentxm.ai");
+    const originB = credentialKeyOf("https://registry.example.test");
 
     const credentialsFor = (token: string) => ({
       access_token: token,

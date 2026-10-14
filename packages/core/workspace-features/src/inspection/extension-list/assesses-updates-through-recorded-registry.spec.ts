@@ -12,6 +12,7 @@ import {
   makeInstalledSkillFixture,
   publishedSkillIndex,
 } from "../testing.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export const specification = defineSpecification({
   requirement: "cli/list/assesses-updates-through-recorded-registry",
@@ -107,7 +108,7 @@ describe("Recorded Registry update assessment", () => {
               owner: decodeHandleSync("@acme"),
               name: "review",
               sourceName: "company",
-              endpoint: new URL(inspectionRegistryUrl),
+              endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
             }),
           },
         },

@@ -72,7 +72,6 @@ export const readModelFor = (
   scope: WorkspaceScope,
 ): Effect.Effect<WorkspaceReadModel, WorkspaceRootEscape, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
-    const path = yield* Path.Path;
     return yield* makeWorkspaceReadModel(scope).pipe(
       Effect.provide(
         Layer.mergeAll(
@@ -80,7 +79,7 @@ export const readModelFor = (
             nativeDirectoryInputs: cells.nativeDirectoryInputs,
             projectRoot: cells.projectRoot,
             userHome: cells.userHome,
-            allowedRoot: makeAbsolutePath(path, "/"),
+            allowedRoot: Option.none(),
           }),
           AgentRootResolverLive,
         ),
@@ -93,9 +92,8 @@ const stateLoadersFor = (cells: StateCellPaths, scope: WorkspaceScope) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const allowedRoot = makeAbsolutePath(path, "/");
-    yield* validateWorkspaceReadRoot(path, cells.projectRoot, allowedRoot);
-    const userHome = yield* validateWorkspaceReadRoot(path, cells.userHome, allowedRoot);
+    yield* validateWorkspaceReadRoot(path, cells.projectRoot, Option.none());
+    const userHome = yield* validateWorkspaceReadRoot(path, cells.userHome, Option.none());
     const paths =
       scope === "project"
         ? resolveProjectWorkspaceStatePaths(path, cells.projectRoot)

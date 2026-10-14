@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -153,7 +154,7 @@ describe("canonical acquisition dispatch", () => {
           source: {
             type: "registry",
             name: "test",
-            location: new URL("https://registry.example"),
+            location: decodeRegistryEndpointSync("https://registry.example"),
             owner: Option.some(handle("@acme")),
           },
           owner: handle("@acme"),

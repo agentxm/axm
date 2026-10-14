@@ -2,6 +2,7 @@
  * Unit tests for the auth token command handler.
  */
 
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -14,7 +15,6 @@ import {
   CredentialStoreTest,
   WorkloadCredentialsTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
@@ -62,7 +62,7 @@ const makeLayers = (opts?: {
       )
     : CredentialStoreTest("restricted-file", undefined, opts?.allowsPersistedCredentials);
 
-  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const registryUrlLayer = RegistryContextTest(REGISTRY_URL);
 
   const FullLayer = Layer.mergeAll(
     rendererLayer,
@@ -188,7 +188,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       nonInteractive: false,
       authOverrides: {
-        createToken: (params) => {
+        createToken: (_endpoint, params) => {
           return Effect.succeed({
             id: "token_123",
             token: "axmt_created",
@@ -233,7 +233,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       machine: true,
       authOverrides: {
-        createToken: (params) =>
+        createToken: (_endpoint, params) =>
           Effect.succeed({
             id: "token_123",
             token: "axmt_created",
@@ -402,7 +402,7 @@ describe("auth token handler", () => {
     const { provide, rendererState } = makeLayers({
       hasCredentials: true,
       authOverrides: {
-        deleteToken: (tokenId) => {
+        deleteToken: (_endpoint, tokenId) => {
           revoked.push(tokenId);
           return Effect.void;
         },
@@ -437,7 +437,7 @@ describe("auth token handler", () => {
       hasCredentials: true,
       machine: true,
       authOverrides: {
-        deleteToken: (tokenId) => {
+        deleteToken: (_endpoint, tokenId) => {
           revoked.push(tokenId);
           return Effect.void;
         },

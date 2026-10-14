@@ -43,6 +43,7 @@ import {
   type MaterializedPackage,
 } from "../acquisition/index.js";
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 export interface RegistryPackageMaterializationMessages {
   readonly integrityMismatchDetail: string;
 }
@@ -56,7 +57,7 @@ export interface MaterializeRegistryPackageArgs<E = never, R = never> {
    * staging directory first and are swapped in after validation.
    */
   readonly destinationPath: string;
-  readonly sourceLocation: URL;
+  readonly sourceLocation: RegistryEndpoint;
   readonly owner: Handle;
   readonly type: ExtensionType;
   readonly name: ExtensionName;
@@ -119,7 +120,7 @@ export const materializeRegistryPackageWithTreeIntegrity = <E = never, R = never
     const source = Option.isSome(acquired)
       ? ({ kind: "prepared", directory: acquired.value.directory } as const)
       : yield* Effect.gen(function* () {
-          const client = yield* (yield* RegistryClientFactory).forLocation(args.sourceLocation);
+          const client = yield* (yield* RegistryClientFactory).forEndpoint(args.sourceLocation);
           // Continuous download progress reaches the lifecycle broadcast throttled:
           // tens of events per archive, attributed to the unit that is running and
           // to the attempt the request policy is on.

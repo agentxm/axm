@@ -103,8 +103,14 @@ Some defaults and policies are intentionally layered for project operations.
 Only registries are named in `sources`: a project definition takes precedence
 over a same-named user definition, while the built-in `agentxm` Registry cannot
 be shadowed. `defaultRegistry` resolves from project settings, then user
-settings, then `agentxm`. Git and path locators are self-describing and do not
-participate in named-source precedence. Project authoring and release policies
+settings, then `agentxm`. A Registry location is one canonical endpoint — an
+http(s) origin or a `file:` directory URL — so equivalent spellings name one
+Registry and one credential origin. A selection that names no configured
+source, or settings that cannot be read, is a failure and never selects
+another Registry; an invocation decides it only when a command first needs a
+Registry. Ambient credentials belong to the selected default alone. Git and
+path locators are self-describing and do not participate in named-source
+precedence. Project authoring and release policies
 may fall back to user settings when the project has not made an explicit choice.
 An explicit project value, including an empty exclusion list, wins. This
 inheritance never imports user extension roots, agent targets, or activation

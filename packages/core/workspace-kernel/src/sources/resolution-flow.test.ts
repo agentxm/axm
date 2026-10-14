@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,7 +17,7 @@ const Workspace = Layer.mergeAll(
       {
         type: "registry",
         name: "agentxm",
-        location: new URL("https://registry.agentxm.ai"),
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
       },
     ],
   }),

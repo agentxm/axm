@@ -8,7 +8,8 @@ import {
   evaluateDesiredState,
   acceptedRowKey,
   desiredReachesAcceptedRow,
-  mcpResolutionKey,
+  McpSourceIdentity,
+  McpSourceKey,
   type McpServerLockEntry,
 } from "../index.js";
 
@@ -69,19 +70,22 @@ describe("accepted external MCP source identity", () => {
   ])
     it(`retains exact ${row.source.type} authority for a local connection alias`, () => {
       const entry = accepted(row.source);
-      const key = mcpResolutionKey(entry);
+      const key = McpSourceKey.fromLockEntry(entry);
       const graph = evaluate(row.locator, { [key]: entry });
       const node = graph.nodes.find((candidate) => candidate.name === "local-alias");
       if (node === undefined) return expect.fail("Expected the desired connection");
       expect(acceptedRowKey(node)).toEqual(Option.some(key));
-      expect(node.identity).toMatchObject({ fqn: "@acme/mcps/context", resolutionKey: key });
+      expect(node.identity).toMatchObject({
+        fqn: "@acme/mcps/context",
+        acceptedSource: McpSourceIdentity.fromLockEntry(entry),
+      });
       expect(desiredReachesAcceptedRow(graph, { type: "mcp-server", key })).toBe(true);
     });
 
   it("does not bind a wrong source or a mismatched accepted key", () => {
     const entry = accepted({ type: "path", path: "vendor/context" });
     for (const graph of [
-      evaluate("./elsewhere/context", { [mcpResolutionKey(entry)]: entry }),
+      evaluate("./elsewhere/context", { [McpSourceKey.fromLockEntry(entry)]: entry }),
       evaluate("./vendor/context", { wrong: entry }),
     ]) {
       const node = graph.nodes[0];

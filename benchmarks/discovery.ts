@@ -16,7 +16,11 @@ import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import * as ChildProcess from "effect/process/ChildProcess";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
-import { createLocalRegistryClient } from "@agentxm/registry-client";
+import * as HttpClient from "effect/http/HttpClient";
+import { pathToFileURL } from "node:url";
+import { makeRegistryClientFactory } from "@agentxm/registry-client";
+import { passThroughRegistryAuthorization } from "@agentxm/registry-client/testing";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -164,7 +168,12 @@ const measureAll = Effect.gen(function* () {
         "registry-owners",
       ]) {
         const measured = yield* instrument(fs, admission);
-        const client = createLocalRegistryClient(path.join(root, "registry"), measured.fs, path);
+        const client = yield* makeRegistryClientFactory({
+          httpClient: HttpClient.make(() => Effect.die("A file Registry sends no requests.")),
+          fileSystem: measured.fs,
+          path,
+          authorization: passThroughRegistryAuthorization,
+        }).forEndpoint(decodeRegistryEndpointSync(pathToFileURL(path.join(root, "registry")).href));
         const operation =
           scenario === "workspace-scanners" || scenario === "acquired-scanner"
             ? makeWorkspaceReadModel("project").pipe(
@@ -178,7 +187,7 @@ const measureAll = Effect.gen(function* () {
                     path.join(root, scenario === "acquired-scanner" ? "acquired" : "workspace"),
                   ),
                   userHome: decodeAbsolutePathSync(path.join(root, "home")),
-                  allowedRoot: decodeAbsolutePathSync(root),
+                  allowedRoot: Option.some(decodeAbsolutePathSync(root)),
                 }),
                 Effect.provide(AgentRootResolverLive),
                 Effect.provideService(FileSystem.FileSystem, measured.fs),

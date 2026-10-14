@@ -6,8 +6,8 @@ import { afterEach } from "vitest";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { authoredSettingsKey, makePublishTarget } from "../testing.js";
+import { RegistrySelectionFailed, RegistrySourceUnknown } from "@agentxm/registry-client";
 import {
-  expectPublishFailed,
   makePublishWorld,
   makeRemotePublishWorld,
   remoteRequest,
@@ -215,10 +215,15 @@ describe("Explicit publication Registry target", () => {
           expect(fixture.selectedArchives()).toEqual([archive]);
           expect(publishDocument(outcome).counts.published).toBe(1);
         } else {
-          const failure = expectPublishFailed(
-            yield* fixture.world.provide(Effect.flip(runPublish(request))),
-          );
-          expect(failure.detail).toContain(target === "missing-name" ? "missing" : "--registry");
+          const failure = yield* fixture.world.provide(Effect.flip(runPublish(request)));
+          if (target === "missing-name") {
+            expect(failure).toBeInstanceOf(RegistrySourceUnknown);
+            if (failure instanceof RegistrySourceUnknown) expect(failure.name).toBe("missing");
+          } else {
+            expect(failure).toBeInstanceOf(RegistrySelectionFailed);
+            if (failure instanceof RegistrySelectionFailed)
+              expect(failure.detail).toContain("--registry");
+          }
           expect(fixture.selected.storedFiles()).toEqual([]);
         }
         expect(fixture.distractor.storedFiles()).toEqual([]);

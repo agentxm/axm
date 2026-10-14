@@ -14,6 +14,7 @@
  * boundary reads the same facts.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
@@ -247,5 +248,11 @@ export const sharedMemberGraph = (
       ...overrides,
     }),
     acceptedResolutions: scenarioAcceptedResolutions,
-    registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
+    builtInSources: [
+      {
+        name: "agentxm",
+        type: "registry",
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+      },
+    ],
   }).pipe(Effect.map(evaluateDesiredState));

@@ -5,28 +5,40 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
-import { RegistryUrl } from "@agentxm/registry-client";
+import * as Option from "effect/Option";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  RegistryHttpClient,
+  RegistryRequestAuthorization,
+  registryWire,
+} from "@agentxm/registry-client";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TokenExchangeLive } from "../authentication/auth-client.js";
 import { WorkloadTokenUnavailable } from "../authentication/errors.js";
 import { currentToken } from "../authentication/identity.js";
+import type { SelectedRegistry } from "../authentication/selected-registry.js";
 import { AuthEnvironment } from "../adapters/environment.js";
-import { AuthMiddlewareLive } from "../adapters/auth-middleware.js";
+import { RegistryRequestAuthorizationLive } from "../adapters/request-authorization.js";
 import { CredentialStoreSessionLive, CredentialStoreTest } from "./credential-store.js";
 import { SessionRefresherLive } from "./session-refresh.js";
-import { WorkloadCredentialsLive } from "./workload-credentials.js";
+import { WorkloadCredentials, WorkloadCredentialsLive } from "./workload-credentials.js";
 
 export const specification = defineSpecification({
   requirement: "cli/trusted-publishing/ci-identity-becomes-one-workload-token",
   title: "A GitHub Actions identity becomes one workload token for the default Registry",
   statement:
-    "When AXM runs in a GitHub Actions job that offers an ID token and no explicit token is supplied, AXM shall read anonymously until a command needs a credential for the default Registry; shall then request the ID token with that Registry's origin as its audience and exchange it at that Registry's token endpoint for a workload token with an RFC 8693 token-exchange grant; shall present the workload token only to the default Registry origin, for the rest of the invocation; shall exchange at most once per invocation; shall never renew a workload token the Registry rejects; and, when the identity cannot be exchanged, shall refuse as requiring authentication with guidance to grant the job the id-token permission and to register the workflow as a trusted publisher, keeping neither the job's request token nor its identity token in the refusal.",
+    "When AXM runs in a GitHub Actions job that offers an ID token and no explicit token is supplied, AXM shall read anonymously until a command needs a credential for the default Registry; shall then request the ID token with that Registry's origin as its audience, refusing a redirect of that request, and exchange it at that Registry's token endpoint for a workload token with an RFC 8693 token-exchange grant; shall present the workload token only to the default Registry origin, for the rest of the invocation, and never exchange the identity for a Registry another selection names; shall exchange at most once per invocation; shall never renew a workload token the Registry rejects; and, when the identity cannot be exchanged, shall refuse as requiring authentication with guidance to grant the job the id-token permission and to register the workflow as a trusted publisher, keeping neither the job's request token nor its identity token in the refusal.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["apps/cli/help/topics/environment.md", "apps/cli/site-content/docs/quickstart.md"],
+  derivedFrom: [
+    "apps/cli/help/topics/environment.md",
+    "apps/cli/site-content/docs/quickstart.md",
+    "cli/credentials-stay-with-their-registry",
+  ],
   supersedes: [],
   assumptions: [
     "GitHub Actions offers an ID token to a job through ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN, answering a request carrying the request token as a bearer and an `audience` query parameter with a JSON document whose `value` is the ID token.",
@@ -36,6 +48,20 @@ export const specification = defineSpecification({
 
 const registry = "https://registry.example.test";
 const otherRegistry = "https://other.example.test";
+const endpoint = decodeHttpRegistryEndpointSync(registry);
+const otherEndpoint = decodeHttpRegistryEndpointSync(otherRegistry);
+/** The default Registry, selected. */
+const selected: SelectedRegistry = {
+  endpoint,
+  defaultEndpoint: endpoint,
+  host: "registry.example.test",
+};
+/** Another Registry, selected explicitly while the default stays `registry`. */
+const otherSelected: SelectedRegistry = {
+  endpoint: otherEndpoint,
+  defaultEndpoint: endpoint,
+  host: "other.example.test",
+};
 const idTokenEndpoint = "https://actions.example.test/token";
 
 const githubActions = ConfigProvider.fromEnvRecord({
@@ -72,7 +98,7 @@ const formOf = (request: HttpClientRequest.HttpClientRequest): Record<string, st
  * Registry's token endpoint, and the Registry's reads.
  */
 const makeWorld = (options: {
-  readonly idToken: "issued" | "refused";
+  readonly idToken: "issued" | "refused" | "redirected";
   readonly exchange: "issued" | "refused";
   readonly readStatus: number;
 }) => {
@@ -90,11 +116,16 @@ const makeWorld = (options: {
         return respond(
           options.idToken === "issued"
             ? json(200, { value: "fixture-id-token" })
-            : json(403, { message: "Unable to get ACTIONS_ID_TOKEN_REQUEST_URL env variable" }),
+            : options.idToken === "redirected"
+              ? new Response(null, {
+                  status: 302,
+                  headers: { location: "https://elsewhere.example.test/token" },
+                })
+              : json(403, { message: "Unable to get ACTIONS_ID_TOKEN_REQUEST_URL env variable" }),
         );
       }
       if (url.pathname === "/v1/auth/token") {
-        observed.exchanges.push(formOf(request));
+        observed.exchanges.push({ url: request.url, ...formOf(request) });
         return respond(
           options.exchange === "issued"
             ? json(200, {
@@ -119,26 +150,31 @@ const makeWorld = (options: {
       return respond(new Response("{}", { status: options.readStatus }));
     }),
   );
-  const transportLayer = Layer.succeed(HttpClient.HttpClient, transport);
+  const transportLayer = Layer.succeed(RegistryHttpClient, transport);
   const store = Layer.provide(CredentialStoreSessionLive, CredentialStoreTest("restricted-file"));
   const exchange = Layer.provide(TokenExchangeLive, transportLayer);
   const workload = Layer.provide(WorkloadCredentialsLive, Layer.merge(transportLayer, exchange));
-  const middleware = Layer.provide(
-    AuthMiddlewareLive,
+  const authorization = Layer.provide(
+    RegistryRequestAuthorizationLive,
     Layer.mergeAll(
-      transportLayer,
       store,
       workload,
       Layer.provide(SessionRefresherLive, Layer.merge(exchange, store)),
-      Layer.succeed(RegistryUrl, registry),
+      RegistryContextTest(registry),
     ),
   );
-  return { observed, layer: Layer.mergeAll(middleware, store, workload) };
+  return { observed, layer: Layer.mergeAll(authorization, transportLayer, store, workload) };
 };
 
+/** A read through the transport a Registry client for `origin` travels on. */
 const read = (origin: string) =>
   Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient;
+    const authorization = yield* RegistryRequestAuthorization;
+    const registryEndpoint = decodeHttpRegistryEndpointSync(origin);
+    const client = authorization.authorize(
+      registryEndpoint,
+      registryWire(registryEndpoint, yield* RegistryHttpClient),
+    );
     return yield* client.execute(HttpClientRequest.get(`${origin}/v1/extensions/@alice`));
   });
 
@@ -154,10 +190,18 @@ describe("GitHub Actions identity", () => {
         expect(world.observed.idTokenRequests).toEqual([]);
         expect(world.observed.exchanges).toEqual([]);
 
-        expect(yield* currentToken(registry)).toBe("fixture-workload-token");
+        expect(yield* currentToken(selected)).toBe("fixture-workload-token");
         yield* read(registry);
         yield* read(otherRegistry);
-        expect(yield* currentToken(registry)).toBe("fixture-workload-token");
+        expect(yield* currentToken(selected)).toBe("fixture-workload-token");
+        // The workload token is held under the default Registry's key, so an
+        // equivalent spelling of it finds the same token without exchanging.
+        const held = yield* (yield* WorkloadCredentials).held(
+          decodeHttpRegistryEndpointSync(`${registry}:443/`),
+        );
+        expect(Option.map(held, (token) => token.token)).toEqual(
+          Option.some("fixture-workload-token"),
+        );
 
         expect(world.observed.idTokenRequests).toHaveLength(1);
         const idTokenRequest = new URL(world.observed.idTokenRequests[0]?.url ?? "");
@@ -169,6 +213,7 @@ describe("GitHub Actions identity", () => {
 
         expect(world.observed.exchanges).toEqual([
           {
+            url: `${registry}/v1/auth/token`,
             grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
             subject_token: "fixture-id-token",
             subject_token_type: "urn:ietf:params:oauth:token-type:jwt",
@@ -185,10 +230,34 @@ describe("GitHub Actions identity", () => {
     },
   );
 
+  it.effect("is never exchanged for a Registry another selection names", () => {
+    const world = makeWorld({ idToken: "issued", exchange: "issued", readStatus: 200 });
+    return Effect.gen(function* () {
+      const failure = yield* Effect.flip(currentToken(otherSelected));
+      expect(failure._tag).toBe("SignedOut");
+      expect(world.observed.idTokenRequests).toEqual([]);
+      expect(world.observed.exchanges).toEqual([]);
+    }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+  });
+
+  it.effect("refuses a redirected ID-token request rather than following it", () => {
+    const world = makeWorld({ idToken: "redirected", exchange: "issued", readStatus: 200 });
+    return Effect.gen(function* () {
+      const failure = yield* Effect.flip(currentToken(selected));
+      expect(failure).toBeInstanceOf(WorkloadTokenUnavailable);
+      expect(failure._tag === "WorkloadTokenUnavailable" ? failure.reason : undefined).toBe(
+        "id_token_request_failed",
+      );
+      expect(world.observed.idTokenRequests).toHaveLength(1);
+      expect(world.observed.exchanges).toEqual([]);
+      expect(JSON.stringify(failure)).not.toContain("fixture-request-token");
+    }).pipe(Effect.provide(world.layer), Effect.provideService(AuthEnvironment, githubActions));
+  });
+
   it.effect("keeps the Registry's rejection of a workload token rather than renewing it", () => {
     const world = makeWorld({ idToken: "issued", exchange: "issued", readStatus: 401 });
     return Effect.gen(function* () {
-      yield* currentToken(registry);
+      yield* currentToken(selected);
       const response = yield* read(registry);
       expect(response.status).toBe(401);
       expect(world.observed.reads).toHaveLength(1);
@@ -204,8 +273,8 @@ describe("GitHub Actions identity", () => {
         readStatus: 200,
       });
       return Effect.gen(function* () {
-        const first = yield* Effect.flip(currentToken(registry));
-        const second = yield* Effect.flip(currentToken(registry));
+        const first = yield* Effect.flip(currentToken(selected));
+        const second = yield* Effect.flip(currentToken(selected));
         for (const failure of [first, second]) {
           expect(failure).toBeInstanceOf(WorkloadTokenUnavailable);
           expect(failure._tag === "WorkloadTokenUnavailable" ? failure.reason : undefined).toBe(

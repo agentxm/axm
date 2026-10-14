@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -147,7 +148,7 @@ describe("acceptedResolutionFor", () => {
         source: {
           type: "registry",
           name: "enterprise",
-          location: new URL("https://registry.example"),
+          location: decodeRegistryEndpointSync("https://registry.example"),
           owner: Option.some(handle("@acme")),
         },
         owner: handle("@acme"),
@@ -162,7 +163,10 @@ describe("acceptedResolutionFor", () => {
         Option.some({
           key: "review",
           entry: {
-            source: { type: "registry", url: new URL("https://registry.example") },
+            source: {
+              type: "registry",
+              url: decodeRegistryEndpointSync("https://registry.example"),
+            },
             identity: { owner: handle("@acme"), name: extensionName("review") },
             resolved: {
               version: exactVersion("1.2.3"),

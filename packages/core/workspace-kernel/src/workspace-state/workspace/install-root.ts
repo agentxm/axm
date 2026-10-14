@@ -20,11 +20,10 @@ import {
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
 
-import { acceptedRowKey, desiredReachesAcceptedRow } from "./accepted-reachability.js";
+import { acceptedRowKey, acceptedRowReachability } from "./accepted-reachability.js";
 import { lockEntries } from "./entry-accessors.js";
 import { isInstallRootStagingName } from "./constants.js";
 import type { DesiredStateGraph } from "./desired-state-graph.js";
-import { unresolvedPackRoutes } from "./desired-state-queries.js";
 import { bundledSkillCanonicalRoot, computeExtensionPathsForLayout } from "./extension-paths.js";
 import { extensionPathSourceFromLockEntry } from "./lock-entry.js";
 import type { WorkspaceLayout } from "./layout.js";
@@ -114,7 +113,6 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
     }
     // A desired extension whose resolution is not yet accepted may still be
     // materialized into this path, so it reaches every same-named package.
-    const routesUnresolved = unresolvedPackRoutes(graph).length > 0;
     const unlockedDesired = graph.nodes.filter((node) =>
       Option.match(acceptedRowKey(node), {
         onNone: () => true,
@@ -158,9 +156,11 @@ export const observeInstallRoot = ({ layout, graph, locks }: ObserveInstallRootA
           const type = locked?.type;
           const packageName = locked?.entry.identity.name;
           if (type !== undefined && packageName !== undefined) {
+            // A row an unresolved Pack could still route is never a leftover.
             const reached =
-              routesUnresolved ||
-              bindings.some((row) => desiredReachesAcceptedRow(graph, row)) ||
+              bindings.some(
+                (row) => acceptedRowReachability(graph, row).decision !== "not-reached",
+              ) ||
               bindings.some((row) =>
                 unlockedDesired.some(
                   (node) => node.type === row.type && node.name === row.entry.identity.name,

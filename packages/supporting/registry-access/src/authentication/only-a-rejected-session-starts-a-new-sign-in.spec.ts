@@ -12,6 +12,7 @@ import {
   deviceLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
+  authSelectedRegistry,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -53,7 +54,7 @@ describe("Login over a stored session", () => {
       credentials: authCredentialFile,
       presenter: machineOutputPresenter,
       auth: {
-        getMe: (accessToken) =>
+        getMe: (_endpoint, accessToken) =>
           Effect.sync(() => {
             named.push(accessToken);
             return {
@@ -71,7 +72,7 @@ describe("Login over a stored session", () => {
       },
     });
     return Effect.gen(function* () {
-      expect(yield* login(deviceLoginRequest(), authRegistry)).toEqual({
+      expect(yield* login(deviceLoginRequest(), authSelectedRegistry)).toEqual({
         _tag: "SessionRetained",
         registryHost: authRegistryHost,
         handle: "@alice",
@@ -90,7 +91,7 @@ describe("Login over a stored session", () => {
       auth: { getMe: () => Effect.fail(rejected) },
     });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest(), authRegistry).pipe(Effect.exit);
+      yield* login(deviceLoginRequest(), authSelectedRegistry).pipe(Effect.exit);
       expect(context.deviceAuthorizations).toHaveLength(1);
     }).pipe(Effect.provide(context.layer));
   });
@@ -102,7 +103,7 @@ describe("Login over a stored session", () => {
       auth: { getMe: () => Effect.fail(unreachable) },
     });
     return Effect.gen(function* () {
-      const failure = yield* login(deviceLoginRequest(), authRegistry).pipe(Effect.flip);
+      const failure = yield* login(deviceLoginRequest(), authSelectedRegistry).pipe(Effect.flip);
       expect(failure).toBe(unreachable);
       expect(context.deviceAuthorizations).toEqual([]);
       expect(context.presenterState.rejectedStoredCredentials).toEqual([]);

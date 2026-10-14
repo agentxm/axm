@@ -4,10 +4,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { CredentialStore } from "../../credentials/credential-store.js";
 import {
+  authSelectedRegistry,
   authCredentialFile,
   authExpiry,
-  authRegistry,
   makeAuthPorts,
+  authKey,
 } from "../test-support/test-helpers.js";
 import { createToken } from "../tokens.js";
 
@@ -46,7 +47,7 @@ describe("Token creation", () => {
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
-          createToken: (params) =>
+          createToken: (_endpoint, params) =>
             Effect.sync(() => {
               requests.push({ params });
               return created;
@@ -55,7 +56,7 @@ describe("Token creation", () => {
       });
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        const before = yield* store.load(authRegistry);
+        const before = yield* store.load(authKey);
 
         const result = yield* createToken(
           {
@@ -65,7 +66,7 @@ describe("Token creation", () => {
             extensions: ["@alice/skills/review"],
             permission,
           },
-          authRegistry,
+          authSelectedRegistry,
         );
 
         expect(requests).toEqual([
@@ -82,7 +83,7 @@ describe("Token creation", () => {
           },
         ]);
         expect(result).toEqual({ token: created });
-        expect(yield* store.load(authRegistry)).toEqual(before);
+        expect(yield* store.load(authKey)).toEqual(before);
       }).pipe(Effect.provide(layer));
     });
   }

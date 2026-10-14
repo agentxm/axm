@@ -1,3 +1,4 @@
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { withInspectionReadView } from "../read-view.js";
 /**
  * Published metadata for one extension, read from the registry that supplies it.
@@ -35,7 +36,7 @@ import {
 import { DeprecationViewSchema } from "@agentxm/extension-model/unstable/extensions/deprecation";
 import { ArchivalViewSchema } from "@agentxm/extension-model/unstable/extensions/archival";
 import { resolveIdentifier, type IdentifierResourceType } from "@agentxm/workspace-kernel/sources";
-import { RegistryClientFactory } from "@agentxm/registry-client";
+import { RegistryClientFactory, RegistryContext } from "@agentxm/registry-client";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import { SettingsReader, DesiredStateReader } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -102,7 +103,9 @@ const isViewField = (field: string): field is ViewField =>
 /** The registry a view reads from, and the name it is configured under. */
 export interface ViewTargetRegistry {
   readonly registryName: string;
-  readonly registryUrl: string;
+  readonly endpoint: RegistryEndpoint;
+  /** The settings-selected default Registry, which alone receives ambient credentials. */
+  readonly defaultEndpoint: RegistryEndpoint;
 }
 
 /** The install command that resolves for `type`, given a fully qualified handle. */
@@ -111,23 +114,19 @@ const installCommandFor = (type: ExtensionType, handle: string): string =>
 
 /**
  * The registry a request selects: the configured default when none is named,
- * otherwise the named registry source this workspace configured — both
- * through the workspace's one Registry target owner.
+ * otherwise the named source or http(s) origin — through the invocation's
+ * one Registry selection.
  */
 export const resolveViewRegistry = Effect.fn("ViewExtension.resolveRegistry")(function* (
   registry: Option.Option<string>,
 ) {
-  const settings = yield* SettingsReader;
-  const selection = yield* settings.registryTarget(registry);
-  if (Option.isNone(selection.url)) {
-    return yield* new PublishedMetadataUnavailable({
-      reason: "registry-not-configured",
-      detail: `Registry source "${selection.name}" not found or not a registry source`,
-    });
-  }
+  const context = yield* RegistryContext;
+  const selected = yield* context.target(registry);
+  const defaultBound = yield* context.defaultBound;
   return {
-    registryName: selection.name,
-    registryUrl: selection.url.value,
+    registryName: selected.name,
+    endpoint: selected.endpoint,
+    defaultEndpoint: defaultBound.endpoint,
   } satisfies ViewTargetRegistry;
 });
 
@@ -245,7 +244,7 @@ export const ViewExtension = {
    */
   read: Effect.fn("ViewExtension.read")(function* (request: ReadPublishedExtensionRequest) {
     const factory = yield* RegistryClientFactory;
-    const client = yield* factory.forLocation(request.targetRegistry.registryUrl);
+    const client = yield* factory.forEndpoint(request.targetRegistry.endpoint);
     const index = yield* client.getExtensionIndex(request.parts);
     if (Option.isNone(index)) {
       return yield* new PublishedMetadataUnavailable({

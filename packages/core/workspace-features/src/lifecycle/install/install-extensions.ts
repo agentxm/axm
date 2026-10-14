@@ -23,8 +23,8 @@ import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type * as Config from "effect/Config";
 import * as Option from "effect/Option";
-import * as semver from "semver";
 import { isGlobPattern } from "@agentxm/extension-model/unstable/extensions/name-patterns";
+import { isExactVersionRequest } from "@agentxm/extension-model/unstable/version-constraints";
 import { extensionRefName } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 
 import {
@@ -226,10 +226,7 @@ const withInstallReleaseAge = <R>(plan: Plan<R>, evidence: Plan<R>["releaseAge"]
 
 const selectsRegistryRelease = (request: Pick<ParsedInstallRequest, "source" | "versionRange">) =>
   request.source.type === "registry" &&
-  !(
-    Option.isSome(request.versionRange) &&
-    semver.valid(request.versionRange.value) === request.versionRange.value
-  );
+  !(Option.isSome(request.versionRange) && isExactVersionRequest(request.versionRange.value));
 
 interface PlannedInstall {
   readonly types: ReadonlyArray<InstallableExtensionType>;

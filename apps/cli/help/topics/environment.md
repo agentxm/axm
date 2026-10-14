@@ -44,8 +44,14 @@ Prefer `AXM_TOKEN_FILE` in automation so the secret does not need to live in
 the process environment or command line. Restrict the file to the account that
 runs AXM. Diagnostics redact credential values, and ambient credentials are not
 persisted as login sessions. `axm token show --plain` writes the effective
-token, and nothing else, to stdout. Ambient credentials are never forwarded to
-any non-default Registry origin. Configure the durable Registry choice with
+token, and nothing else, to stdout. Ambient credentials are presented only to
+the default Registry: a `--registry` that names another Registry uses that
+Registry's stored session or no credential, while one naming the default by
+its source name or an equivalent origin keeps them. Stored sessions are kept
+per Registry origin and are never sent to a different scheme, host, or port.
+AXM does not follow a redirect from a Registry, so a credential never travels
+to wherever a response points. A file Registry has no sign-in, and AXM reads
+no token source for it. Configure the durable Registry choice with
 `defaultRegistry` and `sources` in settings; see `axm help settings`.
 
 ## Publishing from GitHub Actions
@@ -54,8 +60,8 @@ A GitHub Actions job granted `permissions: id-token: write` can authenticate
 without a stored secret. GitHub gives such a job `ACTIONS_ID_TOKEN_REQUEST_URL`
 and `ACTIONS_ID_TOKEN_REQUEST_TOKEN`. When both are set, no explicit token is
 supplied, and trusted publishing is enabled, AXM requests an ID token
-whose audience is the default Registry's origin and exchanges it at that
-Registry for a short-lived workload token. The exchange happens when a command
+whose audience is the default Registry's origin, refusing a redirect of that
+request, and exchanges it at that Registry for a short-lived workload token. The exchange happens when a command
 first needs a credential, such as publishing, `axm whoami`, or `axm token show`, at
 most once per invocation; reads that need no credential stay anonymous and ask
 for no ID token. From then on the workload token is presented only to the

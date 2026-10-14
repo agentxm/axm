@@ -34,6 +34,7 @@ import {
   queryLintWorkspace,
 } from "./lint-workspace.js";
 import { isolatedGitEnvironment } from "./staged-workspace.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/observes-selected-filesystem-view",
@@ -238,7 +239,11 @@ describe("Selected lint filesystem view", () => {
         const settings = yield* SettingsReader;
         expect(yield* settings.owner).toEqual(Option.none());
         expect(yield* settings.configuredSources).toEqual([
-          { name: "agentxm", type: "registry", location: new URL("https://registry.agentxm.ai") },
+          {
+            name: "agentxm",
+            type: "registry",
+            location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+          },
         ]);
         expect((yield* WorkspaceLocation).nativeDirectoryInputs.skillsDirectoryOverrides).toEqual({
           "claude-code": nodePath.join(selection.workspaceRoot, "selected-skills"),

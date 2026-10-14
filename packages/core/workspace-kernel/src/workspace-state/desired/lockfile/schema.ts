@@ -29,6 +29,7 @@ import {
 import * as SchemaIssue from "effect/SchemaIssue";
 import * as SchemaTransformation from "effect/SchemaTransformation";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions";
+import { RegistryEndpointFromString } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { SourceHashSchema } from "@agentxm/extension-model/unstable/sources/source-hash";
 import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
@@ -65,9 +66,25 @@ const GitSourceLocatorSchema = Schema.Struct({
   distribution: Schema.optional(DistributionDescriptorSchema),
 });
 
+/**
+ * A Registry endpoint as an accepted row stores it. Decoding goes through the
+ * one endpoint decoder; encoding keeps the URL serialization rows were always
+ * written with, so an http(s) origin keeps its root slash and stored bytes do
+ * not change.
+ */
+const StoredRegistryEndpointSchema = Schema.String.pipe(
+  Schema.decodeTo(
+    RegistryEndpointFromString,
+    SchemaTransformation.transform({
+      decode: (stored: string) => stored,
+      encode: (canonical: string) => new URL(canonical).href,
+    }),
+  ),
+);
+
 const RegistrySourceLocatorSchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  url: Schema.URLFromString,
+  url: StoredRegistryEndpointSchema,
 });
 
 const PathSourceLocatorSchema = Schema.Struct({
@@ -567,7 +584,7 @@ const RetainedPackageSourceBaseSchema = Schema.Union([
   }),
   Schema.Struct({
     type: Schema.Literal("registry"),
-    url: Schema.URLFromString,
+    url: StoredRegistryEndpointSchema,
     owner: HandleSchema,
     extensionType: Schema.String,
     name: ExtensionNameSchema,
@@ -591,11 +608,12 @@ const RetainedPackageSourceBaseSchema = Schema.Union([
 const RetainedPackageSourceSchema = RetainedPackageSourceBaseSchema.check(
   Schema.makeFilter((source) => {
     if (source.type === "path") return undefined;
-    if ((source.type === "registry" || source.type === "git") && source.url.protocol === "file:") {
-      const coordinates = fileSourceCoordinates(source.url);
+    const url = source.type === "registry" ? new URL(source.url.href) : source.url;
+    if ((source.type === "registry" || source.type === "git") && url.protocol === "file:") {
+      const coordinates = fileSourceCoordinates(url);
       return Result.isFailure(coordinates) ? coordinates.failure.detail : undefined;
     }
-    const address = sourceUrlCoordinates(source.url);
+    const address = sourceUrlCoordinates(url);
     if (Result.isFailure(address)) return address.failure.detail;
     const boundary =
       source.type === "registry"
@@ -626,7 +644,7 @@ export const retainedPackageKey = (source: typeof RetainedPackageSourceSchema.Ty
     case "registry":
       return JSON.stringify([
         source.type,
-        source.url.href.replace(/\/$/u, ""),
+        source.url.href,
         source.owner,
         source.extensionType,
         source.name,
@@ -708,7 +726,7 @@ export const packageSourceForEntry = (
     const owner = Schema.decodeUnknownSync(HandleSchema)(entry.identity.owner);
     return {
       type: "registry",
-      url: new URL(source.url.href.replace(/\/$/u, "")),
+      url: source.url,
       owner,
       extensionType: type,
       name: entry.identity.name,

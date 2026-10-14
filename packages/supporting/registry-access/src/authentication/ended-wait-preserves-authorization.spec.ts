@@ -14,6 +14,8 @@ import {
   authRegistry,
   machineOutputPresenter,
   makeAuthPorts,
+  authEndpoint,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -49,11 +51,11 @@ describe("A wait that ends without approval", () => {
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, { openBrowser: false });
+      yield* initiateDeviceLogin(authEndpoint, { openBrowser: false });
       const pendingStore = yield* PendingDeviceLoginStore;
       const before = yield* pendingStore.load();
 
-      const waiting = yield* resumeDeviceLogin(authRegistry, { timeoutSeconds: 5 }).pipe(
+      const waiting = yield* resumeDeviceLogin(authEndpoint, { timeoutSeconds: 5 }).pipe(
         Effect.flip,
         Effect.forkChild,
       );
@@ -66,7 +68,7 @@ describe("A wait that ends without approval", () => {
         ...pendingAuthorization,
       });
       expect(yield* pendingStore.load()).toEqual(before);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 
@@ -76,13 +78,13 @@ describe("A wait that ends without approval", () => {
       auth: { pollDeviceToken: () => Effect.never },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, {
+      yield* initiateDeviceLogin(authEndpoint, {
         openBrowser: false,
       });
       const pendingStore = yield* PendingDeviceLoginStore;
       const before = yield* pendingStore.load();
 
-      const failure = yield* Effect.flip(resumeDeviceLogin(authRegistry));
+      const failure = yield* Effect.flip(resumeDeviceLogin(authEndpoint));
 
       expect(failure).toBeInstanceOf(DeviceAuthorizationPending);
       expect(failure).toMatchObject({
@@ -90,7 +92,7 @@ describe("A wait that ends without approval", () => {
         ...pendingAuthorization,
       });
       expect(yield* pendingStore.load()).toEqual(before);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 });

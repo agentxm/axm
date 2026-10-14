@@ -12,10 +12,23 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
+import * as Path from "effect/Path";
+import type * as HttpClient from "effect/http/HttpClient";
+import {
+  RegistryClientFactory,
+  RegistryHttpClient,
+  makeRegistryClientFactory,
+} from "@agentxm/registry-client";
+import { passThroughRegistryAuthorization } from "@agentxm/registry-client/testing";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+
+import { credentialKey, type CredentialKey } from "../../credentials/credential-key.js";
+import type { SelectedRegistry } from "../selected-registry.js";
 
 import {
+  AuthClientLive,
   AuthClientTest,
   TokenExchangeTest,
   type AuthClientService,
@@ -53,6 +66,16 @@ export const authFailureDetail = (failure: unknown): string | undefined =>
 export const authRegistry = "https://registry.example.test";
 export const otherAuthRegistry = "https://other.example.test";
 export const authRegistryHost = "registry.example.test";
+export const authEndpoint = decodeHttpRegistryEndpointSync(authRegistry);
+export const otherAuthEndpoint = decodeHttpRegistryEndpointSync(otherAuthRegistry);
+export const authKey = credentialKey(authEndpoint);
+export const otherAuthKey = credentialKey(otherAuthEndpoint);
+/** The selected Registry every sign-in, token, and identity example addresses; also the default. */
+export const authSelectedRegistry: SelectedRegistry = {
+  endpoint: authEndpoint,
+  defaultEndpoint: authEndpoint,
+  host: authRegistryHost,
+};
 export const authHandle = normalizeHandle("@alice");
 export const authEmail = "alice@example.test";
 export const authExpiry = DateTime.makeUnsafe("2099-01-01T00:00:00.000Z");
@@ -81,7 +104,7 @@ export interface AuthPortsOptions {
   readonly credentials?: CredentialFile;
   readonly allowsPersistedCredentials?: boolean;
   /** Observe a backing-store read after its snapshot is captured. */
-  readonly afterCredentialRead?: (registryUrl: string) => Effect.Effect<void>;
+  readonly afterCredentialRead?: (key: CredentialKey) => Effect.Effect<void>;
   readonly pending?: PendingDeviceLogin;
   readonly auth?: Partial<AuthClientService>;
   /** The token endpoints a stored session is renewed and revoked through. */
@@ -121,7 +144,7 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
           expires_in: 60,
         };
       }),
-    pollDeviceToken: (code) =>
+    pollDeviceToken: (_endpoint, code) =>
       Effect.sync(() => {
         polledCodes.push(code);
         return {
@@ -151,10 +174,8 @@ export const makeAuthPorts = (options: AuthPortsOptions = {}) => {
       const store = yield* CredentialStore;
       return {
         ...store,
-        load: (registryUrl: string) =>
-          store
-            .load(registryUrl)
-            .pipe(Effect.tap(() => options.afterCredentialRead?.(registryUrl) ?? Effect.void)),
+        load: (key: CredentialKey) =>
+          store.load(key).pipe(Effect.tap(() => options.afterCredentialRead?.(key) ?? Effect.void)),
       };
     }),
   ).pipe(
@@ -221,3 +242,26 @@ export const deviceLoginRequest = (overrides: Partial<LoginRequest> = {}): Login
 /** A request that resumes a pending device sign-in instead of starting one. */
 export const resumeLoginRequest = (overrides: Partial<LoginRequest> = {}): LoginRequest =>
   deviceLoginRequest({ waitForHumanSeconds: 300, ...overrides });
+
+/**
+ * The live `AuthClient` over one transport: grants travel it directly and
+ * identity and token management through a factory over it. Nothing attaches
+ * a credential the caller did not name.
+ */
+export const authClientOver = (httpClient: HttpClient.HttpClient) =>
+  AuthClientLive.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        Layer.succeed(RegistryHttpClient, httpClient),
+        Layer.succeed(
+          RegistryClientFactory,
+          makeRegistryClientFactory({
+            httpClient,
+            fileSystem: FileSystem.makeNoop({}),
+            path: Effect.runSync(Effect.provide(Path.Path, Path.layer)),
+            authorization: passThroughRegistryAuthorization,
+          }),
+        ),
+      ),
+    ),
+  );

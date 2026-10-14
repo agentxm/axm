@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { SkillExtensionTarget } from "../../workspace-state/index.js";
 /**
  * Unit tests for extension operation helpers.
@@ -253,7 +254,7 @@ describe("buildInstallOperation", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("https://registry.agentxm.ai"),
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
         owner: Option.some(handle("@acme")),
       },
       owner: handle("@acme"),
@@ -306,7 +307,7 @@ describe("buildInstallOperation", () => {
         source: {
           type: "registry",
           name: "agentxm",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
         owner: handle("@acme"),
@@ -372,7 +373,7 @@ describe("buildInstallOperation", () => {
         source: {
           type: "registry",
           name: "agentxm",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
         owner: handle("@acme"),
@@ -429,7 +430,7 @@ describe("buildInstallOperation", () => {
         source: {
           type: "registry",
           name: "agentxm",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
         owner: handle("@acme"),
@@ -802,7 +803,7 @@ describe("buildMaterializeOperation", () => {
       source: {
         type: "registry",
         name: "agentxm",
-        location: new URL("https://registry.agentxm.ai"),
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
         owner: Option.some(handle("@acme")),
       },
       owner: handle("@acme"),
@@ -866,7 +867,7 @@ describe("buildMaterializeOperation", () => {
         source: {
           type: "registry",
           name: "agentxm",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
           owner: Option.some(handle("@acme")),
         },
         owner: handle("@acme"),

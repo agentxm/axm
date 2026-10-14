@@ -7,6 +7,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Option from "effect/Option";
 import {
   parseSourceQualifiedRegistrySourcePatternParts,
@@ -23,7 +24,6 @@ import {
   type DesiredSourceAuthority,
 } from "./desired-identity.js";
 import type { ProspectivePackRef } from "./desired-state-graph.js";
-import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
 import { packMemberSourceAuthority } from "./pack-member-source-authority.js";
 import { bindRegistrySource } from "./settings-reader.js";
 
@@ -32,23 +32,15 @@ export const desiredNodeKey = (type: ExtensionType, name: string): string => `${
 
 /** The Registry identity of one declaration, bound to its configured source. */
 export const registryIdentity = (
-  type: ExtensionType,
-  parsed: { readonly owner: string; readonly name: string },
   fqn: string,
-  binding: { readonly sourceName: string | undefined; readonly endpoint: URL | undefined },
+  binding: {
+    readonly sourceName: string | undefined;
+    readonly endpoint: RegistryEndpoint | undefined;
+  },
 ): Extract<DesiredNodeIdentity, { readonly authority: "registry" }> => ({
   authority: "registry",
   fqn,
   registry: binding,
-  ...(type === "mcp-server" && binding.endpoint !== undefined
-    ? {
-        resolutionKey: mcpRegistryResolutionKey({
-          authority: binding.endpoint,
-          owner: parsed.owner,
-          name: parsed.name,
-        }),
-      }
-    : {}),
 });
 
 /** The identity a direct declaration's source locator names, and the range it spells. */
@@ -58,7 +50,7 @@ export const sourceIdentity = (
   source: string,
   settings: Settings,
   defaultRegistry: string,
-  registryEndpoints: Readonly<Record<string, URL>>,
+  registryEndpoints: Readonly<Record<string, RegistryEndpoint>>,
 ): { readonly identity: DesiredNodeIdentity; readonly constraint?: string } => {
   if (isWorkspaceSourceLocator(source)) {
     // A missing owner is reported as a problem beside this node; the identity
@@ -80,7 +72,7 @@ export const sourceIdentity = (
     const sourceName = bindRegistrySource(parsed.sourceName, defaultRegistry);
     const fqn = `${parsed.owner}/${parsed.type}/${parsed.name}`;
     return {
-      identity: registryIdentity(type, { owner: parsed.owner, name: parsed.name }, fqn, {
+      identity: registryIdentity(fqn, {
         sourceName,
         endpoint: registryEndpoints[sourceName],
       }),
@@ -111,7 +103,7 @@ export const configuredPackIdentity = (
   source: string,
   settings: Settings,
   defaultRegistry: string,
-  registryEndpoints: Readonly<Record<string, URL>>,
+  registryEndpoints: Readonly<Record<string, RegistryEndpoint>>,
   accepted: PackLockEntry | undefined,
   prospective: ProspectivePackRef | undefined,
 ): ConfiguredPackIdentity | undefined => {
@@ -134,7 +126,7 @@ export const configuredPackIdentity = (
       owner: parsed.owner,
       name: parsed.name,
       fqn,
-      identity: registryIdentity("pack", { owner: parsed.owner, name: parsed.name }, fqn, {
+      identity: registryIdentity(fqn, {
         sourceName,
         endpoint: registryEndpoints[sourceName],
       }),
@@ -148,7 +140,7 @@ export const configuredPackIdentity = (
       owner: settings.owner,
       name: settingsName,
       fqn,
-      identity: registryIdentity("pack", { owner: settings.owner, name: settingsName }, fqn, {
+      identity: registryIdentity(fqn, {
         sourceName: defaultRegistry,
         endpoint: registryEndpoints[defaultRegistry],
       }),
@@ -171,7 +163,7 @@ export const configuredPackIdentity = (
       fqn,
       identity:
         authority === "registry"
-          ? registryIdentity("pack", { owner, name }, fqn, {
+          ? registryIdentity(fqn, {
               sourceName: undefined,
               endpoint: accepted?.source.type === "registry" ? accepted.source.url : undefined,
             })
@@ -190,7 +182,7 @@ export const inheritedMemberSourceAuthority = (
   configuredSource: string,
   accepted: PackLockEntry | undefined,
   workspaceFqn: string,
-  registryEndpoint: URL | undefined,
+  registryEndpoint: RegistryEndpoint | undefined,
 ): DesiredSourceAuthority | undefined => {
   if (isWorkspaceSourceLocator(configuredSource)) {
     return { authority: "workspace", fqn: workspaceFqn };

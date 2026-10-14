@@ -20,6 +20,7 @@ import {
   listTokens,
   revokeToken,
   selectedRegistry,
+  type SelectedRegistry,
   TOKEN_PERMISSION_LEVELS,
   TokenPermissionsSchema,
   type CreatedToken,
@@ -170,10 +171,10 @@ const resolveCredentialOutput = (requested: boolean | undefined) =>
 export const handleToken = Effect.fn("AuthToken.handle")(
   function* (args: TokenHandlerArgs) {
     yield* resolveCredentialOutput(args.plain);
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Showing a token");
     const screen = yield* Screen;
 
-    const token = yield* currentToken(registry.url);
+    const token = yield* currentToken(registry);
     yield* screen.credential(token + "\n");
   },
   Effect.catchTag("CredentialDeliveryFailed", (error) =>
@@ -201,7 +202,7 @@ const DELIVERY_CLEANUP_BUDGET = Duration.seconds(10);
 const reportCleanup = (
   screen: typeof Screen.Service,
   tokenId: string,
-  registryUrl: string,
+  registry: SelectedRegistry,
   outcome: CleanupOutcome,
 ) =>
   screen
@@ -212,7 +213,7 @@ const reportCleanup = (
         text:
           outcome === "revoked"
             ? `Revoked token ${tokenId} because it was not delivered to stdout.`
-            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: axm token revoke ${tokenId} --registry ${registryUrl}`,
+            : `Token ${tokenId} was not delivered to stdout and may still be active: automatic revocation ${outcome === "failed" ? "failed" : "timed out"}. Run: axm token revoke ${tokenId} --registry ${registry.endpoint.href}`,
       },
     ])
     .pipe(Effect.catchCause(() => Effect.void));
@@ -225,16 +226,16 @@ const reportCleanup = (
 const revokeUndeliveredToken = (
   screen: typeof Screen.Service,
   tokenId: string,
-  registryUrl: string,
+  registry: SelectedRegistry,
 ) =>
-  Effect.interruptible(revokeToken(tokenId, registryUrl)).pipe(
+  Effect.interruptible(revokeToken(tokenId, registry)).pipe(
     Effect.timeoutOption(DELIVERY_CLEANUP_BUDGET),
     Effect.exit,
     Effect.flatMap((exit) =>
       reportCleanup(
         screen,
         tokenId,
-        registryUrl,
+        registry,
         Exit.isFailure(exit) ? "failed" : Option.isNone(exit.value) ? "timed-out" : "revoked",
       ),
     ),
@@ -248,7 +249,7 @@ const revokeUndeliveredToken = (
 const createAndDeliverToken = <E, R>(
   screen: typeof Screen.Service,
   create: Effect.Effect<CreatedToken, E, R>,
-  registryUrl: string,
+  registry: SelectedRegistry,
 ) =>
   Effect.uninterruptibleMask((restore) =>
     Effect.gen(function* () {
@@ -265,9 +266,7 @@ const createAndDeliverToken = <E, R>(
           .pipe(Effect.andThen(screen.credential(token.token + "\n"))),
       ).pipe(
         Effect.onExit((exit) =>
-          Exit.isSuccess(exit)
-            ? Effect.void
-            : revokeUndeliveredToken(screen, token.id, registryUrl),
+          Exit.isSuccess(exit) ? Effect.void : revokeUndeliveredToken(screen, token.id, registry),
         ),
       );
       return created;
@@ -278,7 +277,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
   function* (args: CreateTokenHandlerArgs) {
     const screen = yield* Screen;
     const credentialOutput = yield* resolveCredentialOutput(args.plain);
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Creating a token");
     const request: CreateTokenRequest = {
       name: args.name,
       expires: args.expires,
@@ -286,7 +285,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
       extensions: args.extensions,
       permission: args.permission,
     };
-    const create = createToken(request, registry.url);
+    const create = createToken(request, registry);
     // The operation settles only after raw delivery, so no observer hears
     // "completed" for a token stdout has not acknowledged.
     const createResult = yield* withLiveOperation(
@@ -295,7 +294,7 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
         name: `Create registry token "${args.name}"`,
         mode: "apply",
       },
-      credentialOutput === "token" ? createAndDeliverToken(screen, create, registry.url) : create,
+      credentialOutput === "token" ? createAndDeliverToken(screen, create, registry) : create,
     );
     if (credentialOutput === "token") return;
 
@@ -333,11 +332,11 @@ export const handleCreateToken = Effect.fn("AuthTokenCreate.handle")(
 
 export const handleListTokens = Effect.fn("AuthTokenList.handle")(
   function* (page: { readonly limit?: number; readonly cursor?: string }) {
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Listing tokens");
     const limit = page.limit ?? 50;
     const result = yield* withLiveOperation(
       { command: "auth.token.list", name: "List registry tokens", mode: "query" },
-      listTokens(registry.url, {
+      listTokens(registry, {
         limit,
         ...(page.cursor === undefined ? {} : { cursor: page.cursor }),
       }),
@@ -348,7 +347,7 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
             retrySuggestion("List the next page of tokens", {
               command: ["token", "list"],
               arguments: [
-                recoveryOption("--registry", publicRecoveryValue(registry.url)),
+                recoveryOption("--registry", publicRecoveryValue(registry.endpoint.href)),
                 recoveryOption("--limit", publicRecoveryValue(String(limit))),
                 recoveryOption("--cursor", publicRecoveryValue(result.cursor)),
               ],
@@ -399,10 +398,10 @@ export const handleListTokens = Effect.fn("AuthTokenList.handle")(
 
 export const handleRevokeToken = Effect.fn("AuthTokenRevoke.handle")(
   function* (tokenId: string) {
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Revoking a token");
     yield* withLiveOperation(
       { command: "auth.token.revoke", name: `Revoke registry token ${tokenId}`, mode: "apply" },
-      revokeToken(tokenId, registry.url),
+      revokeToken(tokenId, registry),
     );
 
     yield* emitResult(

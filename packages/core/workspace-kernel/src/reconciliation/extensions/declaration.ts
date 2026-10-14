@@ -5,6 +5,7 @@ import {
   parseSourceQualifiedRegistrySourcePatternParts,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { sameRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   AcceptedResolutionWriter,
@@ -22,9 +23,10 @@ import {
  *
  * "The same binding" is the desired-state graph's canonical identity: the
  * node that entry declares is held under Registry authority with the resolved
- * FQN, bound to the resolved configured source and its endpoint. A bare entry
- * bound to the default Registry therefore stays bare, a qualified one stays
- * qualified, and an entry bound anywhere else is rewritten.
+ * FQN at the resolved endpoint. Which configured alias spells that endpoint
+ * takes no part, so a bare entry stays bare, an entry qualified by any alias
+ * of the endpoint keeps that alias, and an entry bound to another endpoint or
+ * package is rewritten.
  */
 const registryDeclarationSource = (args: {
   readonly ref: Extract<ExtensionRef, { readonly refType: "registry" }>;
@@ -50,11 +52,14 @@ const registryDeclarationSource = (args: {
     const sameBinding =
       identity?.authority === "registry" &&
       identity.fqn === fqn &&
-      identity.registry.sourceName === ref.source.name &&
-      identity.registry.endpoint?.href === ref.source.location.href;
-    if (!sameBinding) return qualified;
+      identity.registry.endpoint !== undefined &&
+      sameRegistryEndpoint(identity.registry.endpoint, ref.source.location);
     const spelledSource = parseSourceQualifiedRegistrySourcePatternParts(current)?.sourceName;
-    return spelledSource !== undefined && Option.isNone(spelledSource) ? unqualified : qualified;
+    if (!sameBinding || spelledSource === undefined) return qualified;
+    return Option.match(spelledSource, {
+      onNone: () => unqualified,
+      onSome: (alias) => `${alias}:${unqualified}`,
+    });
   });
 
 export interface AcceptedMaterialization<TRef extends ExtensionRef> {

@@ -12,7 +12,6 @@
  */
 
 import * as Option from "effect/Option";
-import * as semver from "semver";
 
 import type {
   NamedRegistryCandidate,
@@ -23,6 +22,11 @@ import type {
   ExtensionIndex,
   VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
+import {
+  isExactVersionRequest,
+  normalizeVersionRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { admittedReleases } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 import {
   isVersionEntryEligibleAt,
   releaseAgeEvidence,
@@ -38,9 +42,6 @@ const acceptedVersionFor = (
   options.accepted?.publisherBindingId === index.publisherBindingId
     ? options.accepted.version
     : undefined;
-
-const isExactRequest = (versionRange: Option.Option<string>): boolean =>
-  Option.isSome(versionRange) && semver.valid(versionRange.value) === versionRange.value;
 
 /**
  * Decide which version of a visible index a named request selects.
@@ -61,15 +62,15 @@ export const decideNamedRegistryVersion = (
     exemption,
     acceptedVersionFor(index, options),
   );
-  const newestVisible = versionsMatchingRequest(index.versions, Option.none())[0]?.version;
+  const newestVisible = admittedReleases(index.versions, Option.none())[0]?.version;
   const visible = newestVisible === undefined ? {} : { newestVisible };
   switch (resolution.kind) {
     case "version_unsatisfied":
-      return isExactRequest(options.versionRange)
+      return isExactVersionRequest(normalizeVersionRequest(options.versionRange))
         ? { kind: "not_found" }
         : {
             kind: "version_unsatisfied",
-            requestedRange: Option.getOrElse(options.versionRange, () => "*"),
+            requestedRange: normalizeVersionRequest(options.versionRange),
           };
     case "policy_held":
       return {
@@ -97,21 +98,6 @@ export const decideNamedRegistryVersion = (
   }
 };
 
-const versionsMatchingRequest = (
-  versions: ReadonlyArray<VersionEntry>,
-  versionRange: Option.Option<string>,
-): ReadonlyArray<VersionEntry> => {
-  const requested = Option.getOrElse(versionRange, () => "*");
-  const exact = isExactRequest(versionRange);
-  return versions
-    .filter((entry) =>
-      exact
-        ? entry.version === requested
-        : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
-    )
-    .sort((left, right) => semver.compareBuild(right.version, left.version));
-};
-
 /**
  * Candidates a provider may verify one by one when selection depends on
  * archive content (the official AXM skill): selectable versions newest
@@ -129,7 +115,7 @@ export const namedRegistryCandidates = (
     name: index.name,
   });
   const acceptedVersion = acceptedVersionFor(index, options);
-  const matching = versionsMatchingRequest(index.versions, options.versionRange);
+  const matching = admittedReleases(index.versions, options.versionRange);
   const eligible = (entry: VersionEntry) => isVersionEntryEligibleAt(entry, evaluation);
 
   const selectable: ReadonlyArray<NamedRegistryCandidate> = matching

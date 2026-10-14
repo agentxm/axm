@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { zipSync } from "fflate";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -52,7 +53,7 @@ describe("Registry package payload fidelity", () => {
         baseDir,
         destinationPath,
         transient: true,
-        sourceLocation: new URL(registry.url),
+        sourceLocation: decodeRegistryEndpointSync(registry.url),
         owner: decodeHandleSync("@acme"),
         type: "skill",
         name: decodeExtensionNameSync("review"),

@@ -17,6 +17,7 @@ import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
 
 import { createRemoteRegistryClient as createRemoteRegistryClientWithPolicy } from "./remote-client.js";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   RegistryRetryObservation,
   type RegistryRequestPolicy,
@@ -62,7 +63,13 @@ const createRemoteRegistryClient = (
   httpClient: HttpClient.HttpClient,
   archiveCache?: ArchiveCache,
   requestPolicy: RegistryRequestPolicy = TEST_REQUEST_POLICY,
-) => createRemoteRegistryClientWithPolicy(baseUrl, httpClient, archiveCache, requestPolicy);
+) =>
+  createRemoteRegistryClientWithPolicy(
+    decodeHttpRegistryEndpointSync(baseUrl),
+    httpClient,
+    archiveCache,
+    requestPolicy,
+  );
 
 const makeIndexArgs = (name = "test-skill") => ({
   owner: registryOwner,
@@ -1659,7 +1666,7 @@ describe("previewExtensionPublishes", () => {
 // =============================================================================
 
 describe("getExactExtensionVersion", () => {
-  it.effect("returns an exact digest and sends the ephemeral capability", () =>
+  it.effect("returns an exact digest without a credential of its own", () =>
     Effect.gen(function* () {
       let authorization: string | undefined;
       const httpClient = makeMockHttpClient((request) => {
@@ -1683,11 +1690,10 @@ describe("getExactExtensionVersion", () => {
       const result = yield* client.getExactExtensionVersion({
         ...makeIndexArgs(),
         version: exactVersion("1.0.0"),
-        accessToken: "exact-capability",
       });
 
       expect(Option.getOrThrow(result).integrity).toBe("sha512-abc123");
-      expect(authorization).toBe("Bearer exact-capability");
+      expect(authorization).toBeUndefined();
     }),
   );
 

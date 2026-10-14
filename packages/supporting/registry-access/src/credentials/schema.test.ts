@@ -2,6 +2,7 @@
  * Unit tests for auth schema validation.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as DateTime from "effect/DateTime";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
@@ -239,13 +240,13 @@ describe("Auth schema", () => {
         token: "axm_ses_abc",
         refresh_token: "axm_ref_def",
         expires_at: DateTime.makeUnsafe("2026-03-12T10:30:00Z"),
-        registryUrl: "https://registry.agentxm.ai",
+        endpoint: decodeHttpRegistryEndpointSync("https://registry.agentxm.ai"),
       });
 
       expect(source._tag).toBe("CredentialStore");
       expect(source.token).toBe("axm_ses_abc");
       expect(source.refresh_token).toBe("axm_ref_def");
-      expect(source.registryUrl).toBe("https://registry.agentxm.ai");
+      expect(source.endpoint.href).toBe("https://registry.agentxm.ai");
     });
 
     it("distinguishes token sources by tag", () => {
@@ -254,7 +255,7 @@ describe("Auth schema", () => {
         token: "t3",
         refresh_token: "r3",
         expires_at: DateTime.makeUnsafe("2026-01-01T00:00:00Z"),
-        registryUrl: "https://example.com",
+        endpoint: decodeHttpRegistryEndpointSync("https://example.com"),
       });
 
       expect(env._tag).not.toBe(store._tag);

@@ -7,7 +7,6 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { UpdateExtensions } from "../lifecycle/index.js";
 import { CredentialStoreTest, WorkloadCredentialsTest } from "@agentxm/registry-access/testing";
-import { RegistryUrlTest } from "@agentxm/registry-client/testing";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -17,6 +16,7 @@ import { preapprovedPlanExecution } from "@agentxm/workspace-kernel/planning/tes
 import { applySync, expectResolved, makeSyncFixture } from "./sync-fixture.js";
 import { PublishExtensions, normalizePublishResult } from "../publishing/index.js";
 import { PublishPortsTest, makePublishTarget, publishRequest } from "../publishing/testing.js";
+import { ProjectRegistryContextTest } from "./workspace-world.js";
 
 const body =
   "---\r\nname: review\r\nallowed-tools: [Read, Bash]\r\nhooks: { PreToolUse: [{ hooks: [{ type: command, command: '${CLAUDE_SKILL_DIR}/scripts/check.sh' }] }] }\r\nagentOverrides: { cursor: { preserve: true } }\r\n---\r\n# Review\r\nRead references/context.md.\r\n";
@@ -146,7 +146,7 @@ describe("Skill lifecycle fidelity", () => {
                     PublishPortsTest(),
                     CredentialStoreTest(),
                     WorkloadCredentialsTest(),
-                    RegistryUrlTest(target.url),
+                    ProjectRegistryContextTest({ projectRoot: publisher.root }),
                   ),
                 ),
               ),

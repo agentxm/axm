@@ -22,16 +22,13 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import { VersionSchema } from "@agentxm/extension-model/unstable/version-constraints";
 import {
-  RegistryUrl,
-  unyankExtensionVersion,
-  yankAvailableExtensionVersions,
-  yankExtensionVersion,
   type RegistryExtensionReference,
   type RegistryExtensionVersionReference,
   type YankCategory,
 } from "@agentxm/registry-client";
 import { PublishFailed } from "../errors.js";
 import { registryTransition } from "./remote-outcome.js";
+import { selectedLifecycleRegistry } from "./registry.js";
 
 const decodeVersion = Schema.decodeUnknownResult(VersionSchema);
 
@@ -103,7 +100,6 @@ export interface YankRequest {
 }
 
 export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request: YankRequest) {
-  const registryUrl = yield* RegistryUrl;
   const input = {
     ...(request.category === undefined ? {} : { category: request.category }),
     ...(request.message === undefined ? {} : { message: request.message }),
@@ -112,11 +108,12 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
   if (request.allVersions) {
     const ref = yield* parseExtensionReference(request.ref);
     const target = `${ref.owner}/${ref.type}/${ref.name}`;
-    const result = yield* yankAvailableExtensionVersions(ref, input);
+    const { registry, lifecycle } = yield* selectedLifecycleRegistry("Yanking versions");
+    const result = yield* lifecycle.yankAvailableExtensionVersions(ref, input);
     const affected = result.affectedVersions;
     return registryTransition({
       action: "yank",
-      registry: registryUrl,
+      registry,
       fqn: target,
       before: result.before,
       after: result.after,
@@ -128,10 +125,11 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
   }
 
   const ref = yield* parseExactVersionReference(request.ref);
-  const result = yield* yankExtensionVersion(ref, input);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Yanking a version");
+  const result = yield* lifecycle.yankExtensionVersion(ref, input);
   return registryTransition({
     action: "yank",
-    registry: registryUrl,
+    registry,
     fqn: `${ref.owner}/${ref.type}/${ref.name}`,
     version: ref.version,
     before: result.before,
@@ -150,12 +148,12 @@ export const yank = Effect.fn("RetirePublishedVersion.yank")(function* (request:
 });
 
 export const unyank = Effect.fn("RetirePublishedVersion.unyank")(function* (ref: string) {
-  const registryUrl = yield* RegistryUrl;
   const parsed = yield* parseExactVersionReference(ref);
-  const result = yield* unyankExtensionVersion(parsed);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Unyanking a version");
+  const result = yield* lifecycle.unyankExtensionVersion(parsed);
   return registryTransition({
     action: "unyank",
-    registry: registryUrl,
+    registry,
     fqn: `${parsed.owner}/${parsed.type}/${parsed.name}`,
     version: parsed.version,
     before: result.before,

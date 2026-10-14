@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Schema from "effect/Schema";
 import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import { startedUnits } from "../../test-support/presenter-test.js";
@@ -290,7 +291,7 @@ const makePackRollbackFixture = (
   const registrySource = {
     type: "registry",
     name: "test",
-    location: new URL("file:///tmp/test-registry"),
+    location: decodeRegistryEndpointSync("file:///tmp/test-registry"),
     owner: Option.none(),
   } satisfies PackRef["source"];
   const acceptedPackManifest = {
@@ -516,7 +517,7 @@ const makeConstraintMismatchFixture = (
   const registrySource = {
     type: "registry",
     name: "test",
-    location: new URL(`file://${registryRoot}`),
+    location: decodeRegistryEndpointSync(`file://${registryRoot}`),
     owner: Option.none(),
   } satisfies SkillExtensionRef["source"];
   const manifests = [

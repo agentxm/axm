@@ -5,8 +5,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+
 import {
   SettingsSchema,
+  acceptedRowReachability,
   desiredReachesAcceptedRow,
   evaluateDesiredState,
   type DesiredStateGraph,
@@ -27,7 +30,7 @@ export const specification = defineSpecification({
   requirement: "workspace/desired-state/uncertainty-never-proves-absence",
   title: "Unknown Pack membership never proves an extension absent",
   statement:
-    "When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.",
+    "When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about the absence of an extension that Pack could route, including whether an accepted row is reached, as unknown rather than not reached, naming only the Packs that could route it, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.",
   class: "functional",
   role: "supporting",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
@@ -77,7 +80,7 @@ const evaluate = (args: {
     manifests: documents(args.documents),
     baseDir: "/workspace",
     settings: settingsOf(args.settings),
-    registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
+    registryEndpoints: { agentxm: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
     ...(args.lockfile === undefined ? {} : { acceptedResolutions: args.lockfile }),
   }).pipe(Effect.map(evaluateDesiredState));
 
@@ -277,6 +280,50 @@ describe("Uncertainty never proves absence", () => {
         expect(unprovable.packMembership).toEqual([
           expect.objectContaining({ declared: { status: "unknown", reason: "absent" } }),
         ]);
+      }),
+  );
+
+  it.effect(
+    "an unresolved Pack withholds only the accepted rows it could route, so unrelated rows stay decidable",
+    () =>
+      Effect.gen(function* () {
+        const graph = yield* evaluate({
+          settings: {
+            owner: OWNER,
+            skills: { review: "@acme/skills/review@^1.0.0" },
+            packs: { toolkit: "workspace", platform: "workspace" },
+          },
+          documents: {
+            toolkit: { status: "absent" },
+            platform: decoded("platform", { "@acme/rules/guard": "^1.0.0" }),
+          },
+        });
+        const [toolkit] = graph.packMembership.filter((pack) => pack.settingsName === "toolkit");
+
+        expect(acceptedRowReachability(graph, { type: "skill", key: "review" })).toEqual({
+          decision: "reached",
+          node: expect.objectContaining({ name: "review" }),
+        });
+        expect(acceptedRowReachability(graph, { type: "rule", key: "guard" }).decision).toBe(
+          "reached",
+        );
+        // The Pack whose membership is unknown could route any member row.
+        expect(acceptedRowReachability(graph, { type: "skill", key: "stale" })).toEqual({
+          decision: "unknown",
+          blockers: [toolkit],
+        });
+        // A Pack never routes a Pack, so another Pack's stale row is decided.
+        expect(acceptedRowReachability(graph, { type: "pack", key: "retired" })).toEqual({
+          decision: "not-reached",
+        });
+
+        const settled = yield* evaluate({
+          settings: { owner: OWNER, packs: { platform: "workspace" } },
+          documents: { platform: decoded("platform", { "@acme/rules/guard": "^1.0.0" }) },
+        });
+        expect(acceptedRowReachability(settled, { type: "skill", key: "stale" })).toEqual({
+          decision: "not-reached",
+        });
       }),
   );
 

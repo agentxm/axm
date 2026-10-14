@@ -10,6 +10,8 @@
  * carried in the specification runs unchanged.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "@agentxm/registry-access/credentials";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -115,10 +117,14 @@ describe("Application-resource home", () => {
         expect(credentials.tier).toBe("restricted-file");
         const pendingStore = yield* PendingDeviceLoginStore;
         const metadata = yield* InstallMeta;
-        expect(Option.isNone(yield* credentials.load(registry))).toBe(true);
+        expect(
+          Option.isNone(
+            yield* credentials.load(credentialKey(decodeHttpRegistryEndpointSync(registry))),
+          ),
+        ).toBe(true);
         expect(Option.isNone(yield* pendingStore.load())).toBe(true);
         expect(Option.isNone(yield* metadata.read())).toBe(true);
-        yield* credentials.save(registry, handle, {
+        yield* credentials.save(credentialKey(decodeHttpRegistryEndpointSync(registry)), handle, {
           access_token: "fixture-access",
           refresh_token: "fixture-refresh",
           expires_at: pending.expiresAt,
@@ -129,9 +135,11 @@ describe("Application-resource home", () => {
           method: "script",
           installedAt: DateTime.makeUnsafe("2026-09-05T00:00:00Z"),
         });
-        expect(Option.getOrThrow(yield* credentials.load(registry)).access_token).toBe(
-          "fixture-access",
-        );
+        expect(
+          Option.getOrThrow(
+            yield* credentials.load(credentialKey(decodeHttpRegistryEndpointSync(registry))),
+          ).access_token,
+        ).toBe("fixture-access");
         expect(Option.getOrThrow(yield* pendingStore.load()).deviceCode).toBe(pending.deviceCode);
         expect(Option.getOrThrow(yield* metadata.read()).method).toBe("script");
         // The reviewed promise is containment in the selected home. The exact

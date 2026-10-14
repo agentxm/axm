@@ -39,11 +39,6 @@ export type {
   UpdateExtensionVisibilityArgs,
 } from "./client.js";
 
-// Local client
-export { createLocalRegistryClient } from "./local-client.js";
-
-// Remote client
-export { createRemoteRegistryClient } from "./remote-client.js";
 export {
   DEFAULT_REGISTRY_REQUEST_POLICY,
   PUBLISH_REGISTRY_REQUEST_POLICY,
@@ -101,26 +96,17 @@ export {
 export type {
   RegistryExtensionReference,
   RegistryExtensionVersionReference,
+  RegistryLifecycleClient,
   PutExtensionDeprecationInput,
   PutExtensionArchivalInput,
   YankCategory,
-} from "./admin-client.js";
-export {
-  archiveExtension,
-  getExtensionArchival,
-  unarchiveExtension,
-  yankExtensionVersion,
-  yankAvailableExtensionVersions,
-  unyankExtensionVersion,
-  deprecateExtension,
-  getExtensionDeprecation,
-  undeprecateExtension,
 } from "./admin-client.js";
 
 // Failure vocabulary
 export {
   REGISTRY_ERROR_CATEGORIES,
   RegistryOperationFailed,
+  RegistryOperationUnsupported,
   RegistryProblem,
   RegistryRequestFailed,
   isRegistryClientFailure,
@@ -171,13 +157,28 @@ export {
 } from "./utils.js";
 export { formatDeprecationWarning } from "./deprecation-warning.js";
 
-export { RegistryUrl } from "./registry-url.js";
 export {
   makeRegistryClientFactory,
   RegistryClientFactory,
   RegistryClientFactoryLive,
   type RegistryClientFactoryService,
 } from "./registry-client-factory.js";
+export { requireHttpRegistryEndpoint } from "./capabilities.js";
+export {
+  RegistryHttpClient,
+  RegistryRequestAuthorization,
+  refuseRegistryRedirects,
+  registryWire,
+} from "./registry-transport.js";
+export {
+  RegistryContext,
+  RegistrySelectionFailed,
+  RegistrySourceUnknown,
+  type BoundRegistry,
+  type RegistryContextService,
+  type RegistrySelectionFailure,
+  type RegistrySelectionReason,
+} from "./registry-context.js";
 
 export { purlIdentityMatch, purlMatch } from "./purl-match.js";
 

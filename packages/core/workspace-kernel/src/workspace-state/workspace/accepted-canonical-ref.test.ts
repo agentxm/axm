@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
 import * as nodePath from "node:path";
@@ -45,7 +46,10 @@ describe("accepted canonical source transitions", () => {
       nodeFs.mkdirSync(unrelatedPath, { recursive: true });
 
       const accepted = {
-        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+        source: {
+          type: "registry",
+          url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+        },
         identity: { owner: handle("@acme"), name: extensionName("review") },
         resolved: {
           version: exactVersion("1.0.0"),

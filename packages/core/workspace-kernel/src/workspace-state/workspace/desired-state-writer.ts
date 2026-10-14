@@ -10,6 +10,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  sameRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -50,7 +54,6 @@ import type {
 } from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
 import { acceptedRowKey } from "./accepted-reachability.js";
-import { desiredMcpSourceKey } from "./desired-identity.js";
 import { desiredReachability } from "./desired-state-queries.js";
 
 /** The declaration each installable extension type accepts. */
@@ -90,11 +93,12 @@ const registryLocator = (
 
 const configuredRegistryName = (
   sources: ReadonlyArray<SourceHostConfig>,
-  url: URL,
+  endpoint: RegistryEndpoint,
   defaultRegistry: string,
 ): string =>
-  sources.find((source) => source.type === "registry" && source.location.href === url.href)?.name ??
-  defaultRegistry;
+  sources.find(
+    (source) => source.type === "registry" && sameRegistryEndpoint(source.location, endpoint),
+  )?.name ?? defaultRegistry;
 
 const declarationSource = (
   sources: ReadonlyArray<SourceHostConfig>,
@@ -390,11 +394,9 @@ export const makeDesiredStateWriter = (
       const resolutionKey =
         desiredNode === undefined ? undefined : Option.getOrUndefined(acceptedRowKey(desiredNode));
       const closure =
-        desiredNode === undefined || desiredNode.authority === "inline"
+        resolutionKey === undefined
           ? undefined
-          : graph.mcpSourceClosures.find(
-              (candidate) => candidate.key === desiredMcpSourceKey(desiredNode.identity),
-            );
+          : graph.mcpSourceClosures.find((candidate) => candidate.key === resolutionKey);
       const current = yield* settings;
       if (Option.isSome(settingsEntries["mcp-server"].entry(current, name))) {
         yield* writeSettings(settingsEntries["mcp-server"].remove(current, name));

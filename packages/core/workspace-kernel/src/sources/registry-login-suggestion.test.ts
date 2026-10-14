@@ -8,12 +8,15 @@ import { afterEach, beforeEach, expect } from "vitest";
 import { RegistryAccessFailed } from "@agentxm/registry-access/authentication";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { CredentialStore, type CredentialStoreService } from "@agentxm/registry-access/credentials";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 
 import { registryLoginSuggestions } from "./registry-login-suggestion.js";
 
 const DEFAULT_REGISTRY = "https://registry.example.test";
 const SECOND_REGISTRY = "https://registry.other.test";
+const defaultEndpoint = decodeRegistryEndpointSync(DEFAULT_REGISTRY);
+const secondEndpoint = decodeRegistryEndpointSync(SECOND_REGISTRY);
 
 const storedCredentials = {
   handle: normalizeHandle("@test"),
@@ -22,19 +25,19 @@ const storedCredentials = {
   expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00Z"),
 };
 
+const credentialStore = (load: CredentialStoreService["load"]) =>
+  Layer.succeed(CredentialStore, {
+    tier: "restricted-file",
+    allowsPersistedCredentials: true,
+    withRefreshLock: (effect) => effect,
+    load,
+    reload: load,
+    save: () => Effect.void,
+    clear: () => Effect.void,
+  });
+
 const makeLayer = (load: CredentialStoreService["load"]) =>
-  Layer.mergeAll(
-    Layer.succeed(CredentialStore, {
-      tier: "restricted-file",
-      allowsPersistedCredentials: true,
-      withRefreshLock: (effect) => effect,
-      load,
-      reload: load,
-      save: () => Effect.void,
-      clear: () => Effect.void,
-    }),
-    Layer.succeed(RegistryUrl, DEFAULT_REGISTRY),
-  );
+  Layer.mergeAll(credentialStore(load), RegistryContextTest(DEFAULT_REGISTRY));
 
 describe("registryLoginSuggestions", () => {
   let originalToken: string | undefined;
@@ -57,9 +60,9 @@ describe("registryLoginSuggestions", () => {
   it.effect("suggests login when any consulted registry origin lacks credentials", () =>
     Effect.gen(function* () {
       const suggestions = yield* registryLoginSuggestions([
-        `${DEFAULT_REGISTRY}/v1/extensions/@test/skills/one`,
-        `${SECOND_REGISTRY}/v1/extensions/@test/skills/two`,
-        "file:///tmp/local-registry",
+        defaultEndpoint,
+        secondEndpoint,
+        decodeRegistryEndpointSync("file:///tmp/local-registry"),
       ]);
 
       expect(suggestions).toEqual([
@@ -81,7 +84,7 @@ describe("registryLoginSuggestions", () => {
 
   it.effect("suppresses login when every consulted registry origin has credentials", () =>
     Effect.gen(function* () {
-      const suggestions = yield* registryLoginSuggestions([DEFAULT_REGISTRY, SECOND_REGISTRY]);
+      const suggestions = yield* registryLoginSuggestions([defaultEndpoint, secondEndpoint]);
 
       expect(suggestions).toEqual([]);
     }).pipe(Effect.provide(makeLayer(() => Effect.succeed(Option.some(storedCredentials))))),
@@ -89,7 +92,7 @@ describe("registryLoginSuggestions", () => {
 
   it.effect("treats an unreadable credential store as unauthenticated", () =>
     Effect.gen(function* () {
-      const suggestions = yield* registryLoginSuggestions([DEFAULT_REGISTRY]);
+      const suggestions = yield* registryLoginSuggestions([defaultEndpoint]);
 
       expect(suggestions).toHaveLength(1);
     }).pipe(
@@ -101,5 +104,13 @@ describe("registryLoginSuggestions", () => {
         ),
       ),
     ),
+  );
+
+  it.effect("offers no suggestion when no Registry selection is composed", () =>
+    Effect.gen(function* () {
+      const suggestions = yield* registryLoginSuggestions([defaultEndpoint]);
+
+      expect(suggestions).toEqual([]);
+    }).pipe(Effect.provide(credentialStore(() => Effect.succeed(Option.none())))),
   );
 });

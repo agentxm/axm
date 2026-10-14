@@ -8,8 +8,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { createLocalRegistryClient } from "./index.js";
-import { exactVersion, extensionName, handle } from "./test-helpers.js";
+import { exactVersion, extensionName, handle, localRegistryClient } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "registry/local-publication-coordinates-owners",
@@ -57,10 +56,10 @@ describe("Local publication ownership", () => {
       const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-publication-owners-" });
       yield* Effect.forEach(
         ["1.0.0", "1.1.0", "1.2.0"],
-        (version) => createLocalRegistryClient(root, fs, path).publishExtension(publish(version)),
+        (version) => localRegistryClient(root, fs, path).publishExtension(publish(version)),
         { concurrency: 3 },
       );
-      const client = createLocalRegistryClient(root, fs, path);
+      const client = localRegistryClient(root, fs, path);
       expect(
         Option.getOrThrow(yield* client.getExtensionIndex(target))
           .versions.map((v) => v.version)
@@ -81,7 +80,7 @@ describe("Local publication ownership", () => {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-publication-cancellation-" });
-        const client = createLocalRegistryClient(root, fs, path);
+        const client = localRegistryClient(root, fs, path);
         yield* client.publishExtension(publish("1.0.0"));
         const directory = path.join(root, "extensions", "@test", "skills", "shared");
         const indexPath = path.join(directory, "index.json");
@@ -90,7 +89,7 @@ describe("Local publication ownership", () => {
         const held = yield* Deferred.make<void>();
         const release = yield* Deferred.make<void>();
         const attempted = yield* Deferred.make<void>();
-        const holder = createLocalRegistryClient(
+        const holder = localRegistryClient(
           root,
           FileSystem.FileSystem.of({
             ...fs,
@@ -107,7 +106,7 @@ describe("Local publication ownership", () => {
         const active = yield* Effect.forkChild(holder.publishExtension(publish("1.1.0")));
         yield* Deferred.await(held);
         const ownerBefore = yield* fs.readFileString(lockPath);
-        const waitingClient = createLocalRegistryClient(
+        const waitingClient = localRegistryClient(
           root,
           FileSystem.FileSystem.of({
             ...fs,
@@ -127,7 +126,7 @@ describe("Local publication ownership", () => {
           .pipe(Effect.timeout("1 second"));
         yield* Deferred.succeed(release, undefined);
         yield* Fiber.join(active);
-        yield* createLocalRegistryClient(root, fs, path).publishExtension(publish("1.2.0"));
+        yield* localRegistryClient(root, fs, path).publishExtension(publish("1.2.0"));
         expect(
           Option.getOrThrow(yield* client.getExtensionIndex(target))
             .versions.map((v) => v.version)

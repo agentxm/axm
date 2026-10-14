@@ -3,7 +3,11 @@ import * as Effect from "effect/Effect";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { login } from "./login.js";
-import { authRegistry, deviceLoginRequest, makeAuthPorts } from "./test-support/test-helpers.js";
+import {
+  deviceLoginRequest,
+  makeAuthPorts,
+  authSelectedRegistry,
+} from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/login/device-sign-in-copies-only-on-request",
@@ -29,7 +33,7 @@ describe("Device sign-in and the clipboard", () => {
   it.effect("a waited sign-in presents the code without copying it", () => {
     const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(interactiveRequest(), authRegistry);
+      yield* login(interactiveRequest(), authSelectedRegistry);
 
       expect(ports.presenterState.handoffs).toHaveLength(1);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);
@@ -39,7 +43,7 @@ describe("Device sign-in and the clipboard", () => {
   it.effect("a bounded wait a person watches copies nothing", () => {
     const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(interactiveRequest({ waitForHumanSeconds: 300 }), authRegistry);
+      yield* login(interactiveRequest({ waitForHumanSeconds: 300 }), authSelectedRegistry);
 
       expect(ports.presenterState.handoffs).toHaveLength(1);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);
@@ -49,7 +53,7 @@ describe("Device sign-in and the clipboard", () => {
   it.effect("a sign-in nothing waits on copies nothing", () => {
     const ports = makeAuthPorts();
     return Effect.gen(function* () {
-      yield* login(interactiveRequest({ nonInteractive: true }), authRegistry);
+      yield* login(interactiveRequest({ nonInteractive: true }), authSelectedRegistry);
 
       expect(ports.presenterState.pendingApprovals).toHaveLength(1);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);

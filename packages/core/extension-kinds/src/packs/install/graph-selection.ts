@@ -24,7 +24,8 @@ import {
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import {
-  versionSatisfiesRange,
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
@@ -38,6 +39,8 @@ import {
   effectiveDesiredConstraint,
   formatDesiredSourceAuthority,
   observeDesiredCanonical,
+  sameSourceAuthority,
+  sameSourceIdentity,
   packMemberSourceAuthority,
   usableAcceptedCanonical,
   usableAcceptedCanonicalFrom,
@@ -46,6 +49,7 @@ import {
   type DesiredConstraintConflict,
   type DesiredExtensionNode,
   type DesiredExtensionOrigin,
+  type DesiredSourceAuthority,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
@@ -100,7 +104,7 @@ export const readProposedGraph = (prospectivePacks: ReadonlyArray<PackRef>) =>
             (node) =>
               node.type === "pack" &&
               node.name === ref.name &&
-              desiredPackageKey(node.identity) === desiredPackageKey(desiredIdentityOfRef(ref)),
+              sameSourceIdentity(node.identity, desiredIdentityOfRef(ref)),
           )
         )
           return true;
@@ -218,44 +222,53 @@ export const scanWorkspaceAuthority: (
     const existingPackOrigins = (existing?.origins ?? []).flatMap((origin) =>
       origin.type === "pack" && origin.pack.fqn !== packIdentity ? [origin] : [],
     );
-    // The requested spelling and the held one come from one producer, so a
-    // second Pack from the same source view is never a source conflict.
-    const requestedAuthority = formatDesiredSourceAuthority(
+    // The requested authority and the held one come from one producer, so a
+    // second Pack from the same source view is never a source conflict; a
+    // held route whose source is unresolved cannot be shown to agree.
+    const requestedAuthority: DesiredSourceAuthority =
       declaredSource === undefined
         ? packMemberSourceAuthority({ kind: "resolved", source: pack.source, path, baseDir })
-        : { authority: "registry", endpoint: declaredSource.url },
-    );
-    const heldAuthority = (origin: Extract<DesiredExtensionOrigin, { readonly type: "pack" }>) =>
+        : { authority: "registry", endpoint: declaredSource.url };
+    const requestedText = formatDesiredSourceAuthority(requestedAuthority);
+    const heldText = (origin: Extract<DesiredExtensionOrigin, { readonly type: "pack" }>) =>
       origin.sourceAuthority === undefined
-        ? origin.source
+        ? `an unresolved source (${origin.source})`
         : formatDesiredSourceAuthority(origin.sourceAuthority);
     const existingPackDeclarations = existingPackOrigins.map(
-      (origin) => `${origin.pack.fqn} declares ${fqn} from ${heldAuthority(origin)}`,
+      (origin) => `${origin.pack.fqn} declares ${fqn} from ${heldText(origin)}`,
     );
-    if (existingPackDeclarations.length > 0) {
-      const heldAuthorities = [...new Set(existingPackOrigins.map(heldAuthority))];
-      if (heldAuthorities.some((authority) => authority !== requestedAuthority)) {
-        const declarations = [
-          ...existingPackDeclarations,
-          `${packIdentity} declares ${fqn} from ${requestedAuthority}`,
-        ];
-        blockers.push({
-          id: `pack-authority:member:${fqn}:source-conflict`,
-          target: { type: parsed.type, name: parsed.name, identity: fqn },
-          relationship: { kind: "member", root: packIdentity },
-          requestedSource: requestedAuthority,
-          configuredSource: heldAuthorities.join(", "),
-          cause: "pack-source-conflict",
-          detail: `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`,
-          recovery: [
-            {
-              description:
-                "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag.",
-            },
-          ],
-        });
-        continue;
-      }
+    const unresolved = existingPackOrigins.some((origin) => origin.sourceAuthority === undefined);
+    const conflicting = existingPackOrigins.some(
+      (origin) =>
+        origin.sourceAuthority !== undefined &&
+        !sameSourceAuthority(origin.sourceAuthority, requestedAuthority),
+    );
+    if (unresolved || conflicting) {
+      const heldAuthorities = [...new Set(existingPackOrigins.map(heldText))];
+      const declarations = [
+        ...existingPackDeclarations,
+        `${packIdentity} declares ${fqn} from ${requestedText}`,
+      ];
+      const cause = conflicting ? "pack-source-conflict" : "pack-source-unknown";
+      blockers.push({
+        id: `pack-authority:member:${fqn}:${conflicting ? "source-conflict" : "source-unknown"}`,
+        target: { type: parsed.type, name: parsed.name, identity: fqn },
+        relationship: { kind: "member", root: packIdentity },
+        requestedSource: requestedText,
+        configuredSource: heldAuthorities.join(", "),
+        cause,
+        detail: conflicting
+          ? `Pack member ${fqn} is held by ${heldAuthorities.join(", ")}; conflicting declarations: ${declarations.join(", ")}`
+          : `Pack member ${fqn} is held through a Pack whose source is unresolved, so one source authority cannot be established; declarations: ${declarations.join(", ")}`,
+        recovery: [
+          {
+            description: conflicting
+              ? "Remove or transition the conflicting Pack declaration before installing this Pack; Pack member authority has no override flag."
+              : "Repair or sync the Pack whose source is unresolved, then retry installing this Pack.",
+          },
+        ],
+      });
+      continue;
     }
 
     const desired = graph.nodes.find(
@@ -297,7 +310,7 @@ export const scanWorkspaceAuthority: (
         fqn: targetIdentity,
         registry: {
           sourceName: undefined,
-          endpoint: declaredSource === undefined ? undefined : declaredSource.url,
+          endpoint: declaredSource?.url,
         },
       },
       configured: { identity: desired.identity, status: canonical.status },
@@ -415,8 +428,10 @@ export const heldPackGraphPreservable: (
     currentPack.value.ref.refType !== "registry" ||
     currentPack.value.ref.owner !== intent.packToInstall.owner ||
     currentPack.value.ref.name !== intent.packToInstall.name ||
-    (Option.isSome(intent.versionRange) &&
-      !versionSatisfiesRange(currentPack.value.ref.version, intent.versionRange.value))
+    !versionSatisfiesRequest(
+      currentPack.value.ref.version,
+      normalizeVersionRequest(intent.versionRange),
+    )
   ) {
     return false;
   }

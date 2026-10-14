@@ -12,6 +12,8 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "../credentials/credential-key.js";
 
 import { AuthClient } from "../authentication/auth-client.js";
 import {
@@ -38,20 +40,20 @@ export const makePkceChallenge = (verifier: string): string =>
 
 export const makeOAuthState = (): string => randomBytes(32).toString("base64url");
 
-const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
+const persistLoginCredentials = (endpoint: HttpRegistryEndpoint, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
 
     const meResult = yield* authClient
-      .getMe(token.access_token)
+      .getMe(endpoint, token.access_token)
       .pipe(Effect.retry({ times: 1 }), Effect.option);
     const handle = Option.match(meResult, {
       onNone: () => UNKNOWN_HANDLE,
       onSome: (me) => me.userHandle,
     });
 
-    yield* credStore.save(registryUrl, handle, {
+    yield* credStore.save(credentialKey(endpoint), handle, {
       access_token: token.access_token,
       refresh_token: token.refresh_token,
       expires_at: token.expires_at,
@@ -63,14 +65,14 @@ const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResp
     }));
   });
 
-export const runLoopbackLogin = (registryUrl: string) =>
+export const runLoopbackLogin = (endpoint: HttpRegistryEndpoint) =>
   Effect.scoped(
     Effect.gen(function* () {
       const authClient = yield* AuthClient;
       const credStore = yield* CredentialStore;
       const presenter = yield* AuthLoginPresenter;
       const interaction = yield* DeviceLoginInteraction;
-      const registryHost = new URL(registryUrl).host;
+      const registryHost = new URL(endpoint.href).host;
 
       if (!credStore.allowsPersistedCredentials) {
         return yield* makePersistedCredentialsUnsupportedError();
@@ -80,7 +82,7 @@ export const runLoopbackLogin = (registryUrl: string) =>
       const challenge = makePkceChallenge(verifier);
       const state = makeOAuthState();
       const server = yield* startLoopbackServer(state);
-      const authorizeUrl = authClient.buildAuthorizeUrl({
+      const authorizeUrl = authClient.buildAuthorizeUrl(endpoint, {
         challenge,
         expiresAt: DateTime.addDuration(yield* DateTime.now, LOOPBACK_TIMEOUT),
         state,
@@ -120,7 +122,7 @@ export const runLoopbackLogin = (registryUrl: string) =>
             ),
           ),
         );
-      const expectedIssuer = authClient.getAuthorizationIssuer();
+      const expectedIssuer = authClient.getAuthorizationIssuer(endpoint);
       if (callback.iss !== expectedIssuer) {
         return yield* new LoopbackCallbackRejected({
           reason: "invalid_callback",
@@ -132,15 +134,15 @@ export const runLoopbackLogin = (registryUrl: string) =>
         { _tag: "CompletingSignIn", registryHost },
         () =>
           Effect.gen(function* () {
-            const token = yield* authClient.exchangePkceCode({
+            const token = yield* authClient.exchangePkceCode(endpoint, {
               code: callback.code,
               verifier,
               redirectUri: server.redirectUri,
             });
-            return yield* persistLoginCredentials(registryUrl, token);
+            return yield* persistLoginCredentials(endpoint, token);
           }),
       );
       yield* server.complete;
-      yield* emitLoginSuccess(registryUrl, identity);
+      yield* emitLoginSuccess(endpoint.href, identity);
     }),
   );

@@ -6,6 +6,7 @@
  * selection, hold, and recovery behavior across the port seam.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { createHash } from "node:crypto";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -87,7 +88,7 @@ const makeAxmSkillArchive = (version: string, range = version): Uint8Array =>
 const testSource: RegistrySource = {
   type: "registry",
   name: "agentxm",
-  location: new URL("file:///tmp/test-registry"),
+  location: decodeRegistryEndpointSync("file:///tmp/test-registry"),
   owner: Option.none(),
 };
 

@@ -36,11 +36,11 @@ const logoutSuggestions = (status: LogoutStatus): ReadonlyArray<SuggestedAction>
 
 export const handleLogout = Effect.fn("AuthLogout.handle")(
   function* () {
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Signing out");
 
     const outcome = yield* withLiveOperation(
       { command: "auth.logout", name: `Sign out of ${registry.host}`, mode: "apply" },
-      logout(registry.url),
+      logout(registry),
     );
 
     const status: LogoutStatus =

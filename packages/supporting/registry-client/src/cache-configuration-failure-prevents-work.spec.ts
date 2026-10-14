@@ -6,10 +6,12 @@ import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
 import * as HttpClient from "effect/http/HttpClient";
 import { defineSpecification } from "@agentxm/specification-metadata";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import { makeUserArchiveCache } from "./archive-cache.js";
 import { resolveAxmCacheRoot } from "./cache-root.js";
 import { makeRegistryClientFactory } from "./registry-client-factory.js";
+import { passThroughRegistryAuthorization } from "./testing.js";
 
 export const specification = defineSpecification({
   requirement: "cli/cache/configuration-failure-prevents-work",
@@ -64,7 +66,7 @@ describe("Cache placement configuration", () => {
           httpClient: http,
           fileSystem: fs,
           path,
-          defaultRegistryLocation: "https://registry.example.test",
+          authorization: passThroughRegistryAuthorization,
         });
         const effects = [
           resolveAxmCacheRoot().pipe(Effect.asVoid),
@@ -72,8 +74,9 @@ describe("Cache placement configuration", () => {
             Effect.flatMap((cache) => cache.prune()),
             Effect.asVoid,
           ),
-          factory.forLocation("https://registry.example.test").pipe(Effect.asVoid),
-          factory.forDefaultRegistry.pipe(Effect.asVoid),
+          factory
+            .forEndpoint(decodeRegistryEndpointSync("https://registry.example.test"))
+            .pipe(Effect.asVoid),
         ];
         for (const effect of effects) {
           const failure = yield* effect.pipe(

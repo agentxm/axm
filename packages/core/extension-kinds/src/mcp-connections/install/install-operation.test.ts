@@ -35,13 +35,13 @@ import {
   SettingsWriter,
   type SetMcpServerArgs,
   computeMaterializedTreeIntegrity,
-  mcpRegistryResolutionKey,
+  McpSourceKey,
   acquiredPackageRelativePath,
   registrySourceLockFields,
-  mcpWorkspaceSourceKey,
   type McpServerLockEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { type ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type {
   McpServerExtensionRef,
   RegistryMcpServerRef,
@@ -54,7 +54,6 @@ import { WorkspaceReadTest } from "@agentxm/workspace-kernel/workspace-state/tes
 import { makeCodingAgentStub } from "./test-helpers.js";
 import { type InstallMcpServerOperation } from "@agentxm/workspace-kernel/materialization";
 import { installMcpServer } from "./install-operation.js";
-import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import { McpServerManagerLive } from "../manager.js";
 
 // -----------------------------------------------------------------------------
@@ -96,7 +95,14 @@ const acceptedCanonicalTrees = (
         const treeIntegrity = yield* computeMaterializedTreeIntegrity(
           path.join(mcpsRoot, name),
         ).pipe(Effect.orDie);
-        mcpServers[mcpRegistryResolutionKey({ authority, owner, name })] = {
+        mcpServers[
+          McpSourceKey.encode({
+            kind: "registry",
+            endpoint: decodeRegistryEndpointSync(authority),
+            owner,
+            name,
+          })
+        ] = {
           ...registrySourceLockFields(
             makeRegistryRef({ location: authority }).source,
             decodeHandleSync(owner),
@@ -144,13 +150,13 @@ const makeServices = (
       Effect.succeed(
         ref.refType !== "registry"
           ? { directory: new URL(ref.location).pathname }
-          : { directory: ref.source.location.pathname },
+          : { directory: new URL(ref.source.location.href).pathname },
       ),
     acquireForTransition: (ref) =>
       Effect.succeed(
         ref.refType !== "registry"
           ? { directory: new URL(ref.location).pathname }
-          : { directory: ref.source.location.pathname },
+          : { directory: new URL(ref.source.location.href).pathname },
       ),
     cloneUrl: () => Option.none(),
     origin: (source) =>
@@ -203,7 +209,7 @@ const makeServices = (
                   return (
                     setAcceptedMcpServer?.({
                       name: entry.identity.name,
-                      resolutionKey: key,
+                      resolutionKey: McpSourceKey.fromLockEntry(lockEntry),
                       lockEntry,
                       versionRange: Option.none(),
                     }) ?? Effect.void
@@ -238,7 +244,7 @@ const makeRegistryRef = (
     source: {
       type: "registry",
       name: "agentxm",
-      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      location: decodeRegistryEndpointSync(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
     server: { name: decodeExtensionNameSync(name) },
@@ -283,7 +289,7 @@ const makeUnsafeRegistryRef = (
     source: {
       type: "registry",
       name: "agentxm",
-      location: new URL(overrides.location ?? "file:///tmp/reg"),
+      location: decodeRegistryEndpointSync(overrides.location ?? "file:///tmp/reg"),
       owner: Option.none(),
     },
     server: { name: decodeExtensionNameSync(name) },
@@ -306,29 +312,16 @@ const makeOp = (
     inherited?: boolean;
     strictAgentSync?: boolean;
     bindings?: ReadonlyArray<McpBinding>;
-    sourceIdentity?: string;
+    sourceKey?: McpSourceKey;
   } = {},
 ): InstallMcpServerOperation => {
   const ref = overrides.ref ?? makeRegistryRef();
-  const sourceIdentity =
-    overrides.sourceIdentity ??
-    (ref.refType === "registry"
-      ? mcpRegistryResolutionKey({
-          authority: ref.source.location,
-          owner: ref.owner,
-          name: ref.server.name,
-        })
-      : ref.refType === "workspace"
-        ? mcpWorkspaceSourceKey(ref.owner, ref.server.name)
-        : ref.refType === "local"
-          ? ref.source.path
-          : printSourceParams(ref.source));
   return {
     name: "install-mcp-server",
     args: {
       nonInteractive: true,
       ref,
-      sourceIdentity,
+      ...(overrides.sourceKey === undefined ? {} : { sourceKey: overrides.sourceKey }),
       force: overrides.force ?? false,
       ...(overrides.inherited === true
         ? {}

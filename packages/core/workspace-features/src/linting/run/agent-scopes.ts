@@ -99,7 +99,7 @@ export const observeUserScope = (
             nativeDirectoryInputs,
             projectRoot: makeAbsolutePath(path, userHome),
             userHome: makeAbsolutePath(path, userHome),
-            allowedRoot: makeAbsolutePath(path, "/"),
+            allowedRoot: Option.none(),
           }),
           AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
         ),

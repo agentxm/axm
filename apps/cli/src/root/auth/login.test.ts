@@ -2,6 +2,9 @@
  * Unit tests for the auth login command handler.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "@agentxm/registry-access/credentials";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
@@ -26,7 +29,7 @@ import {
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryProblem, RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryProblem, RegistryRequestFailed } from "@agentxm/registry-client";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { AuthLoginPresenterLive } from "../../auth-login-presenter.js";
@@ -140,7 +143,7 @@ const makeLayers = (opts?: {
         : () => Effect.succeed(meData),
   });
 
-  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const registryUrlLayer = RegistryContextTest(REGISTRY_URL);
 
   // The renderer-backed presenter keeps the output assertions observing real
   // CLI wording; only the one question a person answers is decided here.
@@ -681,7 +684,7 @@ describe("auth login handler", () => {
       CredentialStoreTest(),
       PendingDeviceLoginStoreTest(),
       authClientLayer,
-      Layer.succeed(RegistryUrl, REGISTRY_URL),
+      RegistryContextTest(REGISTRY_URL),
     );
 
     return Effect.gen(function* () {
@@ -697,7 +700,9 @@ describe("auth login handler", () => {
       ).toBe(false);
 
       const credStore = yield* CredentialStore;
-      const stored = yield* credStore.load(REGISTRY_URL);
+      const stored = yield* credStore.load(
+        credentialKey(decodeHttpRegistryEndpointSync(REGISTRY_URL)),
+      );
       expect(stored._tag).toBe("Some");
       if (stored._tag === "Some") {
         expect(stored.value.handle).toBe(UNKNOWN);

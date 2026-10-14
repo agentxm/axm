@@ -37,6 +37,7 @@ import type { WorkspaceRecordRow } from "../observed/records.js";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { ExtensionInventory } from "../observed/extensions/inventory.js";
 import type { AbsolutePath } from "@agentxm/extension-model/unstable/path-types";
+import type { McpSourceKey } from "./mcp-source-identity.js";
 
 // ---------------------------------------------------------------------------
 // CLI-specific types (inlined to avoid circular dependency with CLI)
@@ -201,7 +202,7 @@ export interface SetMcpServerArgs {
   readonly nativeComponent?: NativeMcpComponent;
   readonly name: string;
   /** Canonical source-resolution key. Unlike name, this is not connection-scoped. */
-  readonly resolutionKey: string;
+  readonly resolutionKey: McpSourceKey;
   readonly lockEntry: McpServerLockEntry;
   readonly versionRange: Option.Option<string>;
   readonly distribution?: McpDistribution;

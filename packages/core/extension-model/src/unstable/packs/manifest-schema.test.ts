@@ -1,6 +1,7 @@
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import { PackManifestSchema } from "./manifest-schema.js";
+import { decodeRegistryEndpointSync } from "../extensions/registry-endpoint.js";
 
 describe("PackManifestSchema", () => {
   const decode = Schema.decodeUnknownSync(PackManifestSchema);
@@ -52,7 +53,10 @@ describe("PackManifestSchema", () => {
     });
 
     expect(result.dependencies["@agentxm/skills/axm"]).toEqual({
-      source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+      source: {
+        type: "registry",
+        url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+      },
       versionRange: "^0.30.0",
     });
   });

@@ -19,7 +19,6 @@ import {
   WorkspaceRecords,
   type McpServerLockEntry,
   type McpServerExtensionTarget,
-  mcpRegistryResolutionKey,
   computeExtensionPathsForLayout,
   acquiredPackageRelativePath,
   validateExactResolvedVersion,
@@ -29,7 +28,7 @@ import {
   type TreeIntegrity,
   acceptedRowKey,
   desiredMcpSourceKey,
-  mcpResolutionKey,
+  McpSourceKey,
   registrySourceLockFields,
 } from "@agentxm/workspace-kernel/workspace-state";
 
@@ -245,8 +244,9 @@ export const McpServerManagerLive = Layer.effect(
 
       const lockedEntry = yield* lockfile.entry(
         "mcp-server",
-        mcpRegistryResolutionKey({
-          authority: registryRef.source.location,
+        McpSourceKey.encode({
+          kind: "registry",
+          endpoint: registryRef.source.location,
           owner: registryRef.owner,
           name: registryRef.server.name,
         }),
@@ -275,12 +275,17 @@ export const McpServerManagerLive = Layer.effect(
         const desiredNode = graph.nodes.find(
           (node) => node.type === "mcp-server" && node.name === target.name,
         );
-        const closure =
+        const sourceKey =
           desiredNode === undefined || desiredNode.authority === "inline"
-            ? undefined
-            : graph.mcpSourceClosures.find(
-                (candidate) => candidate.key === desiredMcpSourceKey(desiredNode.identity),
-              );
+            ? Option.none<McpSourceKey>()
+            : desiredMcpSourceKey(desiredNode.identity);
+        const closure = Option.getOrUndefined(
+          Option.flatMap(sourceKey, (key) =>
+            Option.fromUndefinedOr(
+              graph.mcpSourceClosures.find((candidate) => McpSourceKey.equals(candidate.key, key)),
+            ),
+          ),
+        );
         const retainShared =
           closure !== undefined && closure.localNames.some((name) => name !== target.name);
         const configuredAgents = yield* settings.configuredAgents;
@@ -456,8 +461,9 @@ export const McpServerManagerLive = Layer.effect(
         if (ref.refType === "registry") {
           const entry = buildMcpServerLockEntry(ref, treeIntegrity.value);
           return Option.some({
-            key: mcpRegistryResolutionKey({
-              authority: ref.source.location,
+            key: McpSourceKey.encode({
+              kind: "registry",
+              endpoint: ref.source.location,
               owner: ref.owner,
               name: ref.server.name,
             }),
@@ -472,7 +478,7 @@ export const McpServerManagerLive = Layer.effect(
               ? makeWorkspaceRelativeSourcePath(path, baseDir, fromFileLocation(ref.location))
               : Option.none(),
         });
-        return Option.some({ key: mcpResolutionKey(entry), entry });
+        return Option.some({ key: McpSourceKey.fromLockEntry(entry), entry });
       }),
 
       withdrawnResolutionKeys: ({

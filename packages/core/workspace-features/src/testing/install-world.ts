@@ -24,6 +24,7 @@ import {
 } from "../lifecycle/index.js";
 import { makeLifecycleFixture, type LifecycleFixture } from "../lifecycle/testing.js";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 /** The request every route builds, with the parts a given example leaves out. */
 export const installRequest = (args: {
   readonly type?: InstallableExtensionType;
@@ -138,7 +139,7 @@ export const fileRegistryPackagePath = (
         source: {
           type: "registry",
           name: registry.source.name,
-          location: new URL(registry.url),
+          location: decodeRegistryEndpointSync(registry.url),
           owner: Option.none(),
         },
       },

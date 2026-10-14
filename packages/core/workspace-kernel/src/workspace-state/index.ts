@@ -244,6 +244,7 @@ export {
 // Whether desired state reaches an accepted lock row.
 export {
   acceptedRowKey,
+  acceptedRowReachability,
   desiredNodeReachesRow,
   desiredReachesAcceptedRow,
   type AcceptedRowRef,
@@ -252,14 +253,16 @@ export {
 export {
   desiredIdentityFqn,
   desiredIdentityOfRef,
+  desiredMcpSource,
   desiredMcpSourceKey,
   desiredPackageKey,
   formatDesiredIdentity,
   formatDesiredSourceAuthority,
   locatorAuthority,
-  sameDesiredIdentity,
+  sameAcceptedResolution,
   sameDesiredPackage,
-  sameDesiredSourceAuthority,
+  sameSourceAuthority,
+  sameSourceIdentity,
   type DesiredAuthority,
   type DesiredNodeIdentity,
   type DesiredPackIdentity,
@@ -323,7 +326,6 @@ export {
   lockEntrySource,
   lockEntryToSourceParams,
   lockEntryMatchesSourceLocator,
-  printSkillLockSourceLocator,
   lockEntryVersion,
   isRegistryLockEntry,
   isGitLockEntry,
@@ -334,11 +336,7 @@ export {
   type LockEntrySourceLookupError,
   type LockEntryToRefError,
 } from "./workspace/lock-entry.js";
-export {
-  mcpRegistryResolutionKey,
-  mcpResolutionKey,
-  mcpWorkspaceSourceKey,
-} from "./workspace/mcp-source-identity.js";
+export { McpSourceIdentity, McpSourceKey } from "./workspace/mcp-source-identity.js";
 
 // Workspace read model
 export {
@@ -404,13 +402,20 @@ export {
 export {
   SettingsReader,
   bindRegistrySource,
-  registryBaseUrl,
   type BoundRegistrySource,
   type RegistrySourceHost,
-  type RegistryTarget,
-  type RegistryTargetSelection,
   type SettingsReaderService,
 } from "./workspace/settings-reader.js";
+export {
+  BUILT_IN_REGISTRY_NAME,
+  defaultRegistrySelection,
+  readSourceConfigurationSnapshot,
+  selectDefaultRegistry,
+  selectRegistry,
+  type DefaultRegistrySelection,
+  type SettingsDocumentSnapshot,
+  type SourceConfigurationSnapshot,
+} from "./workspace/registry-selection.js";
 export { LockfileReader, type LockfileReaderService } from "./workspace/lockfile-reader.js";
 export { readOtherScopeState, type OtherScopeState } from "./workspace/other-scope-reader.js";
 export {

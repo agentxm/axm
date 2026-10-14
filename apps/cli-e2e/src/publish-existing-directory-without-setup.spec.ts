@@ -38,7 +38,31 @@ describe("Publishing an existing directory", () => {
       fs.writeFileSync(path.join(creator.invoking, "run.sh"), "#!/bin/sh\necho review\n");
       fs.chmodSync(path.join(creator.invoking, "run.sh"), 0o755);
       const location = registry.url;
-      const credentials = { AXM_TOKEN: "e2e-test-token" };
+      // An explicit --registry is not the settings default, so the creator
+      // publishes with the session saved for that Registry rather than an
+      // ambient token. A saved session is not workspace configuration.
+      const credentialDirectory = path.join(creator.applicationHome, ".config", "axm");
+      fs.mkdirSync(credentialDirectory, { recursive: true, mode: 0o700 });
+      fs.writeFileSync(
+        path.join(credentialDirectory, "credentials.json"),
+        JSON.stringify({
+          version: 1,
+          registries: {
+            [location]: {
+              accounts: {
+                "@test": {
+                  access_token: "e2e-test-token",
+                  refresh_token: "e2e-test-refresh",
+                  expires_at: "2099-01-01T00:00:00.000Z",
+                  active: true,
+                },
+              },
+            },
+          },
+        }),
+        { mode: 0o600 },
+      );
+      const credentials = {};
       const command = [
         "publish",
         "@test/skills/review",

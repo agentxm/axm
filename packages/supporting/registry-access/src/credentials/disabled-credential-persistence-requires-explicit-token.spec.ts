@@ -13,9 +13,10 @@ import { login } from "../authentication/login.js";
 import { PendingDeviceLoginStore } from "../authentication/pending-device-login-store.js";
 import {
   authCredentialFile,
-  authRegistry,
   deviceLoginRequest,
   makeAuthPorts,
+  authSelectedRegistry,
+  authKey,
 } from "../authentication/test-support/test-helpers.js";
 import { WorkloadTokenSource } from "./schema.js";
 
@@ -48,36 +49,36 @@ describe("Disabled credential persistence", () => {
       credentials: authCredentialFile,
       allowsPersistedCredentials: false,
       workload: {
-        tokenFor: (_identity, registryOrigin) =>
+        tokenFor: (_identity, endpoint) =>
           Effect.succeed(
             new WorkloadTokenSource({
               token: "fixture-workload-token",
               expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
-              registryUrl: registryOrigin,
+              endpoint,
             }),
           ),
       },
     });
     return Effect.gen(function* () {
       const store = yield* CredentialStore;
-      const before = yield* store.load(authRegistry);
+      const before = yield* store.load(authKey);
 
       // Sign-in may not create a session it cannot persist.
-      expect(yield* login(deviceLoginRequest(), authRegistry).pipe(Effect.flip)).toBeInstanceOf(
-        AuthTokenPolicyRequired,
-      );
+      expect(
+        yield* login(deviceLoginRequest(), authSelectedRegistry).pipe(Effect.flip),
+      ).toBeInstanceOf(AuthTokenPolicyRequired);
       // A saved session may not be used either.
-      expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(
+      expect(yield* currentToken(authSelectedRegistry).pipe(Effect.flip)).toBeInstanceOf(
         AuthTokenPolicyRequired,
       );
 
       expect(ports.deviceAuthorizations).toEqual([]);
       expect(Option.isNone(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
-      expect(yield* store.load(authRegistry)).toEqual(before);
+      expect(yield* store.load(authKey)).toEqual(before);
 
       // An explicitly supplied token is still accepted in the same environment.
       expect(
-        yield* currentToken(authRegistry).pipe(
+        yield* currentToken(authSelectedRegistry).pipe(
           Effect.provideService(
             AuthEnvironment,
             ConfigProvider.fromEnvRecord({ AXM_TOKEN: "fixture-explicit-token" }),
@@ -87,7 +88,7 @@ describe("Disabled credential persistence", () => {
 
       // So is a GitHub Actions identity, which needs no stored secret at all.
       expect(
-        yield* currentToken(authRegistry).pipe(
+        yield* currentToken(authSelectedRegistry).pipe(
           Effect.provideService(
             AuthEnvironment,
             ConfigProvider.fromEnvRecord({
@@ -97,7 +98,7 @@ describe("Disabled credential persistence", () => {
           ),
         ),
       ).toBe("fixture-workload-token");
-      expect(yield* store.load(authRegistry)).toEqual(before);
+      expect(yield* store.load(authKey)).toEqual(before);
     }).pipe(Effect.provide(ports.layer));
   });
 });

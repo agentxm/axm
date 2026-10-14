@@ -30,7 +30,7 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 
 import { AgentPresenceProbeLive } from "@agentxm/workspace-kernel/agent-adapters/live";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
-import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryClientFactoryTest, RegistryContextTest } from "@agentxm/registry-client/testing";
 import {
   AxmSkillCandidateGateLive,
   RegistryResolutionPolicyLive,
@@ -172,7 +172,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
   // answerable without reaching a real keychain or network.
   const identity = Layer.mergeAll(
     CredentialStoreTest(),
-    Layer.succeed(RegistryUrl, "https://registry.example.com"),
+    RegistryContextTest("https://registry.example.com"),
   );
   const platform = Layer.provideMerge(
     WorkspaceFileWriteLocksLive,
@@ -196,7 +196,7 @@ export const authoringWorkspaceEnvironment = (workspace: AuthoringWorkspace) => 
         ArtifactHttpClient,
         HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
       ),
-      Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, identity)),
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
     ),
     projection,
   );

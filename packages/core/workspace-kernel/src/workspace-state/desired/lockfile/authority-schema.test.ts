@@ -2,6 +2,7 @@ import { storedLockfileFixture } from "../../observed/__fixtures__/decoders.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { computePackManifestContentIdentity } from "../../workspace/pack-manifest-content-identity.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import {
   LOCK_ENTRY_SCHEMA_BY_TYPE,
@@ -165,7 +166,7 @@ describe("authoritative external-resolution lockfile", () => {
       }),
     ).toEqual({
       ...registry,
-      source: { ...registry.source, url: new URL(registry.source.url) },
+      source: { ...registry.source, url: decodeRegistryEndpointSync(registry.source.url) },
     });
     expect(() =>
       Schema.decodeUnknownSync(SkillLockEntrySchema)(
@@ -205,7 +206,10 @@ describe("authoritative external-resolution lockfile", () => {
       Schema.decodeUnknownSync(PackLockEntrySchema)(pack, {
         onExcessProperty: "error",
       }),
-    ).toEqual({ ...pack, source: { ...pack.source, url: new URL(pack.source.url) } });
+    ).toEqual({
+      ...pack,
+      source: { ...pack.source, url: decodeRegistryEndpointSync(pack.source.url) },
+    });
     for (const invalid of [
       { ...pack, dependencies: undefined },
       { ...pack, dependencies: { "@acme/packs/nested": "*" } },

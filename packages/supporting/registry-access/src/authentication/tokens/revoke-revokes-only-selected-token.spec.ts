@@ -6,8 +6,8 @@ import { RegistryAccessFailed } from "../errors.js";
 import {
   authCredentialFile,
   authFailureCategory,
-  authRegistry,
   makeAuthPorts,
+  authSelectedRegistry,
 } from "../test-support/test-helpers.js";
 import { revokeToken } from "../tokens.js";
 
@@ -33,7 +33,7 @@ describe("Token revocation", () => {
       const { layer, presenterState, interactionState } = makeAuthPorts({
         credentials: authCredentialFile,
         auth: {
-          deleteToken: (id) =>
+          deleteToken: (_endpoint, id) =>
             Effect.gen(function* () {
               requests.push({ id });
               if (!accepted)
@@ -45,7 +45,7 @@ describe("Token revocation", () => {
         },
       });
       return Effect.gen(function* () {
-        const operation = revokeToken("selected-token", authRegistry);
+        const operation = revokeToken("selected-token", authSelectedRegistry);
         if (accepted) {
           expect(yield* operation).toEqual({ tokenId: "selected-token" });
         } else {

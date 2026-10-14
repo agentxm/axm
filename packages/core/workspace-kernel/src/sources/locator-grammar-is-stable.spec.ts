@@ -1,5 +1,6 @@
 /** Requirement: source-resolution/locator-grammar-is-stable. */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -41,7 +42,7 @@ export const specification = defineSpecification({
 const registry = {
   type: "registry" as const,
   name: "agentxm",
-  location: new URL("https://registry.example.com"),
+  location: decodeRegistryEndpointSync("https://registry.example.com"),
 };
 
 const OfflineHttp = Layer.succeed(
@@ -239,7 +240,7 @@ const cases: ReadonlyArray<{
     input: "@acme/skills/review",
     expected: {
       family: "registry",
-      url: "https://registry.example.com/",
+      url: "https://registry.example.com",
       owner: "@acme",
     },
   },

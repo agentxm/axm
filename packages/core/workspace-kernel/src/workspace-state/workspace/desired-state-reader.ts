@@ -7,6 +7,8 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import { defaultRegistrySelection, mergeSources } from "./registry-selection.js";
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as ServiceMap from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -38,7 +40,6 @@ import {
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { PackManifests, type PackManifestsPort } from "./pack-manifests.js";
-import { mergeSources } from "./settings-reader.js";
 
 /** Explicit candidate inputs for evaluating a proposal without publishing it. */
 export interface DesiredStateCandidateInputs {
@@ -94,7 +95,7 @@ export interface CaptureDesiredStateInputsArgs {
   readonly builtInSources?: ReadonlyArray<SourceHostConfig>;
   /** Explicit bindings replace derivation; a test seam supplies them directly. */
   readonly defaultRegistry?: string;
-  readonly registryEndpoints?: Readonly<Record<string, URL>>;
+  readonly registryEndpoints?: Readonly<Record<string, RegistryEndpoint>>;
   readonly layout?: WorkspaceLayout;
   readonly acceptedResolutions?: Lockfile;
   /** Proposed manifests that supersede the materialized copy of the Pack they name. */
@@ -107,7 +108,7 @@ export interface CaptureDesiredStateInputsArgs {
 
 const registryEndpointsOf = (
   sources: ReadonlyArray<SourceHostConfig>,
-): Readonly<Record<string, URL>> =>
+): Readonly<Record<string, RegistryEndpoint>> =>
   Object.fromEntries(
     sources.flatMap((source) =>
       source.type === "registry" ? [[source.name, source.location] as const] : [],
@@ -129,8 +130,7 @@ export const captureDesiredStateInputs = (
     const inheritedSettings = args.inheritedSettings ?? {};
     const project = scope === "project" ? settings : inheritedSettings;
     const user = scope === "project" ? inheritedSettings : settings;
-    const defaultRegistry =
-      args.defaultRegistry ?? project.defaultRegistry ?? user.defaultRegistry ?? "agentxm";
+    const defaultRegistry = args.defaultRegistry ?? defaultRegistrySelection(project, user).name;
     const registryEndpoints =
       args.registryEndpoints ??
       registryEndpointsOf(

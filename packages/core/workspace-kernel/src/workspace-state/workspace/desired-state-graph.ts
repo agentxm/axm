@@ -21,12 +21,13 @@ import {
   VersionRangeSchema,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
-import {
-  desiredMcpSourceKey,
-  type DesiredNodeIdentity,
-  type DesiredPackIdentity,
-  type DesiredSourceAuthority,
+import type {
+  DesiredNodeIdentity,
+  DesiredPackIdentity,
+  DesiredSourceAuthority,
 } from "./desired-identity.js";
+import { desiredMcpSourceKey } from "./desired-identity.js";
+import { McpSourceKey } from "./mcp-source-identity.js";
 import type { PackManifestSchemaIssue } from "./pack-manifests.js";
 
 export type DesiredExtensionOrigin =
@@ -256,8 +257,8 @@ export interface DesiredStateGraph {
 
 /** Every local MCP connection to one source, which share one accepted resolution. */
 export interface DesiredMcpSourceClosure {
-  /** The key the closure's resolution is recorded under; see {@link desiredMcpSourceKey}. */
-  readonly key: string;
+  /** The key the closure's resolution is recorded under. */
+  readonly key: McpSourceKey;
   readonly localNames: ReadonlyArray<string>;
   readonly origins: ReadonlyArray<DesiredExtensionOrigin>;
 }
@@ -402,7 +403,7 @@ export const effectiveDesiredConstraint = (
     readonly type: ExtensionType;
     readonly name: string;
     /** The source a prospective MCP connection joins, when it is not yet desired. */
-    readonly sourceKey?: string;
+    readonly sourceKey?: McpSourceKey;
   },
   proposed: ReadonlyArray<DesiredConstraintProposal> = [],
 ): Result.Result<DesiredEffectiveConstraint, DesiredConstraintConflict> => {
@@ -415,12 +416,12 @@ export const effectiveDesiredConstraint = (
       : node === undefined
         ? target.sourceKey
         : isSourcedDesiredExtension(node)
-          ? desiredMcpSourceKey(node.identity)
+          ? Option.getOrUndefined(desiredMcpSourceKey(node.identity))
           : undefined;
   const closure =
     closureKey === undefined
       ? undefined
-      : graph.mcpSourceClosures.find((candidate) => candidate.key === closureKey);
+      : graph.mcpSourceClosures.find((candidate) => McpSourceKey.equals(candidate.key, closureKey));
   const replaced = new Set(proposed.map(contributorOwner));
   const current = collectDesiredConstraintContributors(
     closure?.origins ?? node?.origins ?? [],

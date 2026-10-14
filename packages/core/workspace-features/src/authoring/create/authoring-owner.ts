@@ -18,7 +18,8 @@ import * as Ref from "effect/Ref";
 
 import type { Handle } from "@agentxm/extension-model/unstable/extensions";
 import { CredentialStore, getCurrentUserHandle } from "@agentxm/registry-access/credentials";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryContext } from "@agentxm/registry-client";
+import { isHttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   SettingsReader,
   type SettingsReaderService,
@@ -73,16 +74,19 @@ const ownerCandidates = (
 ): Effect.Effect<
   ReadonlyArray<Handle>,
   WorkspaceSettingsReadFailure,
-  CredentialStore | RegistryUrl
+  CredentialStore | RegistryContext
 > =>
   Effect.gen(function* () {
     const configured = yield* settings.owner;
-    const registryUrl = yield* RegistryUrl;
-    // A keychain that cannot be read must not mask the ownership refusal that
-    // this lookup only decorates.
-    const loggedIn = yield* getCurrentUserHandle(registryUrl).pipe(
-      Effect.catch(() => Effect.succeed(Option.none<Handle>())),
-    );
+    // A selection or keychain that cannot be read must not mask the ownership
+    // refusal that this lookup only decorates.
+    const defaultBound = yield* Effect.option((yield* RegistryContext).defaultBound);
+    const loggedIn =
+      Option.isSome(defaultBound) && isHttpRegistryEndpoint(defaultBound.value.endpoint)
+        ? yield* getCurrentUserHandle(defaultBound.value.endpoint).pipe(
+            Effect.catch(() => Effect.succeed(Option.none<Handle>())),
+          )
+        : Option.none<Handle>();
     const candidates = new Set<Handle>();
     if (Option.isSome(configured)) candidates.add(configured.value);
     if (Option.isSome(loggedIn)) candidates.add(loggedIn.value);
@@ -99,7 +103,12 @@ export const resolveAuthoringOwner = (
 ): Effect.Effect<
   AuthoringOwner,
   AuthoringOwnerRequired | AuthoringOwnerMismatch | WorkspaceSettingsReadFailure,
-  WorkspaceLocation | SettingsReader | SettingsWriter | Path.Path | CredentialStore | RegistryUrl
+  | WorkspaceLocation
+  | SettingsReader
+  | SettingsWriter
+  | Path.Path
+  | CredentialStore
+  | RegistryContext
 > =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;

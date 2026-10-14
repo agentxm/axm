@@ -8,13 +8,14 @@ import { currentToken } from "./identity.js";
 import { login } from "./login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
-  authRegistry,
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
   resumeLoginRequest,
+  authSelectedRegistry,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -36,10 +37,10 @@ describe("Approved authorization", () => {
   it.effect("uses the saved device code and exposes the new session afterward", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest(), authRegistry);
-      yield* login(resumeLoginRequest(), authRegistry);
+      yield* login(deviceLoginRequest(), authSelectedRegistry);
+      yield* login(resumeLoginRequest(), authSelectedRegistry);
 
-      const stored = yield* (yield* CredentialStore).load(authRegistry);
+      const stored = yield* (yield* CredentialStore).load(authKey);
       expect(Option.getOrThrow(stored)).toMatchObject({
         handle: "@alice",
         access_token: "fixture-new-access",
@@ -52,7 +53,7 @@ describe("Approved authorization", () => {
       ]);
 
       // The established session is what a subsequent command presents.
-      expect(yield* currentToken(authRegistry)).toBe("fixture-new-access");
+      expect(yield* currentToken(authSelectedRegistry)).toBe("fixture-new-access");
     }).pipe(Effect.provide(ports.layer));
   });
 });

@@ -42,9 +42,31 @@ const showFields: ReadonlyArray<ViewField<ShowRow>> = [
   },
 ];
 
-const memberColumns: ReadonlyArray<ViewColumn<PackShowResult["desiredDependencies"][number]>> = [
+type PackMemberRow = PackShowResult["desiredDependencies"][number];
+
+const memberResolution = (row: PackMemberRow): string =>
+  row.resolution.status === "unresolved"
+    ? `unresolved (${row.resolution.reason})`
+    : row.resolution.status;
+
+const memberColumns: ReadonlyArray<ViewColumn<PackMemberRow>> = [
   { header: "Member", value: (row) => row.fqn },
-  { header: "Constraint", value: (row) => row.constraint ?? "-" },
+  { header: "Constraint", value: (row) => row.declaration.constraint },
+  { header: "Declared source", value: (row) => row.declaration.endpoint ?? "inherited" },
+  {
+    header: "Local names",
+    value: (row) => (row.localNames.length === 0 ? "-" : row.localNames.join(", ")),
+  },
+  {
+    header: "Bound source",
+    value: (row) =>
+      row.sourceIdentity === null
+        ? "-"
+        : (row.sourceIdentity.endpoint ??
+          row.sourceIdentity.locator ??
+          row.sourceIdentity.authority),
+  },
+  { header: "Resolution", value: memberResolution },
   { header: "Reachability", value: (row) => row.reachability ?? "not established" },
 ];
 

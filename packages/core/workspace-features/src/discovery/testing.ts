@@ -24,9 +24,7 @@ import type * as Path from "effect/Path";
 
 import { RegistryClientFactory } from "@agentxm/registry-client";
 import {
-  RegistryUrlTest,
   makeRecordedRegistryTransport,
-  testRegistryUrl,
   type ObservedRegistryRequest,
   type RegistryResponseFixture,
 } from "@agentxm/registry-client/testing";
@@ -88,12 +86,11 @@ export const DiscoveryRegistryTest = (
   respond: (request: ObservedRegistryRequest) => RegistryResponseFixture = () => ({
     body: { packages: [] },
   }),
-  registryUrl: string = testRegistryUrl,
 ): DiscoveryRegistryPort => {
   const transport = makeRecordedRegistryTransport(respond);
   return {
     requests: transport.requests,
     firstRequest: transport.firstRequest,
-    layer: transport.factory.pipe(Layer.provide(RegistryUrlTest(registryUrl))),
+    layer: transport.factory,
   };
 };

@@ -5,6 +5,7 @@
  * using mock RegistryClient instances.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -97,7 +98,7 @@ const makeTestRegistry = (
     source: {
       type: "registry",
       name: "agentxm",
-      location: new URL(`file://${dir}`),
+      location: decodeRegistryEndpointSync(`file://${dir}`),
       owner: Option.none(),
     },
     cleanup: () => rmSync(dir, { recursive: true, force: true }),
@@ -107,7 +108,7 @@ const makeTestRegistry = (
 const testSource: RegistrySource = {
   type: "registry",
   name: "agentxm",
-  location: new URL("file:///tmp/test-registry"),
+  location: decodeRegistryEndpointSync("file:///tmp/test-registry"),
   owner: Option.none(),
 };
 

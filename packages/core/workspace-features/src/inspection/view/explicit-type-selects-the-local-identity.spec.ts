@@ -9,6 +9,7 @@ import { makeRegistrySkillLockEntry } from "@agentxm/workspace-kernel/workspace-
 
 import { resolveViewHandle, resolveViewRegistry, ViewExtension } from "./view-extension.js";
 import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export const specification = defineSpecification({
   requirement: "cli/view/explicit-type-selects-the-local-identity",
@@ -145,7 +146,7 @@ describe("Typed local-name lookup", () => {
             owner: decodeHandleSync("@stale"),
             name: "review",
             publisherBindingId: "hbnd_stale",
-            endpoint: new URL(inspectionRegistryUrl),
+            endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
           }),
         },
       },

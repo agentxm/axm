@@ -127,10 +127,36 @@ const ProjectionOutputUnrecordedProblemSchema = Schema.Struct({
     "Files at planned projection paths that differ from AXM's render and that AXM has no record of writing.",
 });
 
+const RegistryOperationUnsupportedProblemSchema = Schema.Struct({
+  code: Schema.Literal("registry-operation-unsupported"),
+  operation: Schema.String,
+  endpoint: Schema.String,
+  transport: Schema.Literals(["http", "file"] as const),
+}).annotate({
+  identifier: "RegistryOperationUnsupportedProblem",
+  title: "Unsupported Registry Operation",
+  description:
+    "The selected Registry's transport does not implement the operation; nothing was sent or changed.",
+});
+
+const RegistrySourceUnknownProblemSchema = Schema.Struct({
+  code: Schema.Literal("registry-source-unknown"),
+  name: Schema.String,
+  scope: Schema.Literals(["explicit", "project", "user", "built-in"] as const),
+  settingsPath: Schema.optional(Schema.String),
+}).annotate({
+  identifier: "RegistrySourceUnknownProblem",
+  title: "Unknown Registry Source",
+  description:
+    "A default or named Registry source no settings configure, with the scope and settings file that selected it.",
+});
+
 /** Structured details for a recognized failure, keyed by a stable problem code. */
 export const FailureProblemSchema = Schema.Union([
   WorkspaceLockfileVersionUnsupportedProblemSchema,
   ProjectionOutputUnrecordedProblemSchema,
+  RegistryOperationUnsupportedProblemSchema,
+  RegistrySourceUnknownProblemSchema,
 ]).annotate({
   identifier: "FailureProblem",
   title: "Failure Problem",

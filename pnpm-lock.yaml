@@ -586,9 +586,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.2
-      semver:
-        specifier: 'catalog:'
-        version: 7.8.5
     devDependencies:
       '@agentxm/specification-metadata':
         specifier: workspace:*
@@ -596,9 +593,6 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.2(effect@4.0.2)(vitest@5.0.3)
-      '@types/semver':
-        specifier: 'catalog:'
-        version: 7.8.0
       '@typescript/native':
         specifier: 'catalog:'
         version: typescript@7.0.2

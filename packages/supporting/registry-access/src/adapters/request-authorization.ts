@@ -1,21 +1,27 @@
 /**
- * Auth middleware — the one place a request acquires a credential.
+ * Request authorization — the one place a Registry request acquires a
+ * credential.
  *
- * Every outgoing request to a Registry origin is presented with whatever
- * credential the invocation resolved: an ambient token, the workload token its
- * GitHub Actions identity was exchanged for, or the stored session. The
- * transport never exchanges an identity itself: a command that needs a
- * credential resolves it first, and the transport presents the workload token
- * from then on. It is never renewed on a rejection: the Registry refusing it
- * is the answer.
+ * The Registry client factory applies it to the transport of every client it
+ * builds for one HTTP(S) Registry; it never wraps the process-wide client, so
+ * self-update and artifact downloads never pass through it. A request is
+ * presented with the credential the invocation holds for that Registry: an
+ * ambient token or the workload token its GitHub Actions identity was
+ * exchanged for, when the Registry is the settings-selected default, and
+ * otherwise only that Registry's stored session. The transport never
+ * exchanges an identity itself: a command that needs a credential resolves it
+ * first, and the transport presents the workload token from then on. It is
+ * never renewed on a rejection: the Registry refusing it is the answer.
  * A stored session is renewed here — before the request when it is about to
  * expire, and again if the Registry rejects it — through the single
  * `SessionRefresher` authority.
  *
- * A request that already carries an `Authorization` header is left exactly as
- * its caller built it. That is how a sign-in flow reads the identity of a
- * token the store does not hold yet, and it keeps the ambient rule simple:
- * this layer supplies a credential, it never replaces one.
+ * Every request must stay at the origin it was authorized for: one addressed
+ * elsewhere is refused before any credential is read, and the client below
+ * refuses it again at dispatch. A request that already carries an
+ * `Authorization` header is left exactly as its caller built it — that is how
+ * a sign-in flow reads the identity of a token the store does not hold yet —
+ * so this layer supplies a credential, it never replaces one.
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -33,10 +39,12 @@ import { CredentialStore } from "../credentials/credential-store.js";
 import { SessionRefresher, type SessionRefreshError } from "../credentials/session-refresh.js";
 import {
   REGISTRY_ERROR_CATEGORIES,
+  RegistryContext,
+  RegistryRequestAuthorization,
   RegistryRequestFailed,
-  RegistryUrl,
   type RegistryErrorCategory,
 } from "@agentxm/registry-client";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { RegistryAccessFailed, SessionEnded } from "../authentication/errors.js";
 import type { CredentialStoreTokenSource } from "../credentials/schema.js";
 import { resolvePresentedToken } from "../credentials/token-resolution.js";
@@ -125,22 +133,30 @@ const sessionRenewalFailure = (
 };
 
 // -----------------------------------------------------------------------------
-// AuthMiddleware layer
+// Request authorization layer
 // -----------------------------------------------------------------------------
 
 /**
- * The auth middleware layer: presents the invocation's credential and keeps a
- * stored session alive.
+ * The selection failed after a client was built for it: the client exists only
+ * because the selection succeeded, so this is a broken invariant reported as a
+ * typed failure rather than a guess about the default Registry.
  */
-export const AuthMiddlewareLive = Layer.effect(
-  HttpClient.HttpClient,
+const selectionUnavailable = (request: HttpClientRequest.HttpClientRequest, detail: string) =>
+  new RegistryRequestFailed({
+    category: "internal",
+    detail: `The default Registry could not be decided for this request: ${detail}`,
+    metadata: requestMetadata(request),
+  });
+
+/** The request authorization layer: presents the credential each Registry is owed. */
+export const RegistryRequestAuthorizationLive = Layer.effect(
+  RegistryRequestAuthorization,
   Effect.gen(function* () {
-    const baseClient = yield* HttpClient.HttpClient;
     const store = yield* CredentialStore;
     const workload = yield* WorkloadCredentials;
     const refresher = yield* SessionRefresher;
+    const context = yield* RegistryContext;
     const fs = yield* Effect.serviceOption(FileSystem.FileSystem);
-    const defaultRegistryUrl = yield* RegistryUrl;
     const storeLayerBase = Layer.merge(
       Layer.succeed(CredentialStore, store),
       Layer.succeed(WorkloadCredentials, workload),
@@ -185,51 +201,70 @@ export const AuthMiddlewareLive = Layer.effect(
      * credential, the request would be answered as if the person were nobody,
      * and a private extension would simply not exist.
      */
-    const credentialFor = (request: HttpClientRequest.HttpClientRequest) =>
-      resolvePresentedToken(request.url, defaultRegistryUrl).pipe(
-        Effect.provide(storeLayer),
+    const credentialFor = (
+      endpoint: HttpRegistryEndpoint,
+      request: HttpClientRequest.HttpClientRequest,
+    ) =>
+      context.defaultBound.pipe(
         Effect.mapError((error) =>
           asTransportFailure(
             request,
-            "The credential for this request could not be read.",
-            credentialUnreadable(request, error),
+            "The default Registry could not be decided.",
+            selectionUnavailable(request, error.detail),
+          ),
+        ),
+        Effect.flatMap((defaultBound) =>
+          resolvePresentedToken(endpoint, defaultBound.endpoint).pipe(
+            Effect.provide(storeLayer),
+            Effect.mapError((error) =>
+              asTransportFailure(
+                request,
+                "The credential for this request could not be read.",
+                credentialUnreadable(request, error),
+              ),
+            ),
           ),
         ),
       );
 
-    return HttpClient.make((request) =>
-      Effect.gen(function* () {
-        // A request that names its own credential keeps it, and one whose URL
-        // has no origin has no credential to look up; the transport reports
-        // that URL for what it is.
-        if (request.headers["authorization"] !== undefined || !URL.canParse(request.url)) {
-          return yield* baseClient.execute(request);
-        }
+    const authorize = (endpoint: HttpRegistryEndpoint, client: HttpClient.HttpClient) =>
+      HttpClient.make((request) =>
+        Effect.gen(function* () {
+          // A request addressed outside this Registry, or naming its own
+          // credential, gets nothing from here; the client below refuses one
+          // that would leave the origin before it is sent.
+          if (
+            request.headers["authorization"] !== undefined ||
+            !URL.canParse(request.url) ||
+            new URL(request.url).origin !== endpoint.href
+          ) {
+            return yield* client.execute(request);
+          }
 
-        const maybeToken = yield* credentialFor(request);
-        if (Option.isNone(maybeToken)) {
-          return yield* baseClient.execute(request);
-        }
+          const maybeToken = yield* credentialFor(endpoint, request);
+          if (Option.isNone(maybeToken)) {
+            return yield* client.execute(request);
+          }
 
-        const tokenSource = maybeToken.value;
-        if (tokenSource._tag !== "CredentialStore") {
-          return yield* baseClient.execute(
-            HttpClientRequest.bearerToken(request, tokenSource.token),
+          const tokenSource = maybeToken.value;
+          if (tokenSource._tag !== "CredentialStore") {
+            return yield* client.execute(HttpClientRequest.bearerToken(request, tokenSource.token));
+          }
+
+          const fresh = yield* renewed(request, refresher.fresh(tokenSource));
+          const current = Option.getOrElse(fresh, () => tokenSource);
+          const response = yield* client.execute(
+            HttpClientRequest.bearerToken(request, current.token),
           );
-        }
+          if (response.status !== 401) return response;
 
-        const fresh = yield* renewed(request, refresher.fresh(tokenSource));
-        const current = Option.getOrElse(fresh, () => tokenSource);
-        const response = yield* baseClient.execute(
-          HttpClientRequest.bearerToken(request, current.token),
-        );
-        if (response.status !== 401) return response;
+          const again = yield* renewed(request, refresher.renew(current));
+          return Option.isNone(again)
+            ? response
+            : yield* client.execute(HttpClientRequest.bearerToken(request, again.value.token));
+        }),
+      );
 
-        const again = yield* renewed(request, refresher.renew(current));
-        return Option.isNone(again)
-          ? response
-          : yield* baseClient.execute(HttpClientRequest.bearerToken(request, again.value.token));
-      }),
-    );
+    return { authorize };
   }),
 );

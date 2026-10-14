@@ -21,10 +21,13 @@ import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
+import * as NodePath from "@effect/platform-node/NodePath";
+import * as Path from "effect/Path";
+import { makeAbsolutePath } from "@agentxm/extension-model/unstable/path-types";
 import { absentAll, validAll } from "../__fixtures__/builder.js";
 import { WorkspaceReadModelTest } from "../__fixtures__/test-layer.js";
 import { WorkspaceRootEscape } from "../errors.js";
-import { makeWorkspaceReadModel } from "../service.js";
+import { makeWorkspaceReadModel, validateWorkspaceReadRoot } from "../service.js";
 
 const WORKSPACE_ROOT = "/test/workspace";
 const USER_HOME = "/test/home";
@@ -134,5 +137,25 @@ describe("workspace-root escape", () => {
         expect(result._tag).toBe("Success");
       }).pipe(Effect.provide(layer));
     }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// (e) Unbounded reads admit roots on different drives
+// ---------------------------------------------------------------------------
+
+describe("validateWorkspaceReadRoot", () => {
+  it.effect("admits a project root and a user home on different drives", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const project = makeAbsolutePath(path, "D:\\work\\project");
+      const home = makeAbsolutePath(path, "C:\\Users\\me");
+      expect(yield* validateWorkspaceReadRoot(path, project, Option.none())).toBe(project);
+      expect(yield* validateWorkspaceReadRoot(path, home, Option.none())).toBe(home);
+      const bounded = yield* Effect.exit(
+        validateWorkspaceReadRoot(path, home, Option.some(project)),
+      );
+      expect(Exit.isFailure(bounded)).toBe(true);
+    }).pipe(Effect.provide(NodePath.layerWin32)),
   );
 });

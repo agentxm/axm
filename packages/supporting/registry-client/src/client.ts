@@ -8,9 +8,6 @@
  * @packageDocumentation
  */
 
-import * as FileSystem from "effect/FileSystem";
-import * as HttpClient from "effect/http/HttpClient";
-import * as Path from "effect/Path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
@@ -44,10 +41,6 @@ import type {
 } from "@agentxm/registry-protocol/unstable/registry/resolution-metadata";
 import type { PackageUrlParts } from "@agentxm/extension-model/unstable/packaging/package-url";
 import type { AgentExtensionRecommendation } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
-import { makeUserArchiveCache } from "./archive-cache.js";
-import { createLocalRegistryClient } from "./local-client.js";
-import { createRemoteRegistryClient } from "./remote-client.js";
-import type { RegistryRequestPolicy } from "./request-policy.js";
 import type { Version, VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import type {
   PreviewPublicationSetRequest,
@@ -152,8 +145,6 @@ export interface GetExactExtensionVersionArgs {
   readonly type: ExtensionType;
   readonly name: ExtensionName;
   readonly version: Version;
-  /** Ephemeral exact publish capability used to settle an ambiguous upload. */
-  readonly accessToken?: string;
 }
 
 export interface ExactExtensionVersion {
@@ -189,8 +180,6 @@ export interface PublishExtensionArgs {
   readonly visibilityInput: PublicationVisibilityInput;
   /** Authoritative establishment value and provenance from publication preview. */
   readonly visibility?: PublishVisibility;
-  /** Ephemeral exact publish capability. Never persisted by the registry client. */
-  readonly accessToken?: string;
   /** Opaque authoritative preview condition, sent as If-Match. */
   readonly condition?: string;
   /** Digest of the complete publication set authorized by the preview. */
@@ -418,37 +407,3 @@ export interface RegistryClient {
     args: DiscoverPackagesArgs,
   ) => Effect.Effect<DiscoverPackagesResponse, RegistryClientFailure>;
 }
-
-// -----------------------------------------------------------------------------
-// Factory
-// -----------------------------------------------------------------------------
-
-/**
- * Create the appropriate registry client for a location the
- * `RegistryClientFactory` already settled.
- *
- * - Native filesystem paths -> `LocalRegistryClient`
- * - `http://` and `https://` URLs -> `RemoteRegistryClient`
- *
- * Features never call this directly: the factory owns the transport services
- * and the `file:` URL conversion, and is the only builder they see.
- *
- * @param location - Registry location (native path or http(s) URL)
- *
- * @experimental This API is unstable and may change without notice.
- */
-export const createRegistryClient = (
-  location: string,
-  options?: { readonly requestPolicy?: RegistryRequestPolicy },
-) =>
-  Effect.gen(function* () {
-    if (location.startsWith("https://") || location.startsWith("http://")) {
-      const httpClient = yield* HttpClient.HttpClient;
-      const archiveCache = yield* makeUserArchiveCache();
-      return createRemoteRegistryClient(location, httpClient, archiveCache, options?.requestPolicy);
-    }
-
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    return createLocalRegistryClient(location, fs, path);
-  });

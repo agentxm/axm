@@ -3,7 +3,12 @@ import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 
 import { decodeVersionSync } from "./version-constraints.js";
-import { resolveVersionEntry, selectVersion, type ReleasedVersion } from "./version-selection.js";
+import {
+  admittedReleases,
+  resolveVersionEntry,
+  selectVersion,
+  type ReleasedVersion,
+} from "./version-selection.js";
 
 interface Candidate extends ReleasedVersion {
   readonly integrity: string;
@@ -73,5 +78,30 @@ describe("resolveVersionEntry", () => {
     expect(Option.getOrThrow(resolveVersionEntry(versions, Option.some("^1.0.0"))).version).toBe(
       "1.1.0",
     );
+  });
+});
+
+describe("admittedReleases", () => {
+  const yanked = makeVersionEntry({
+    version: decodeVersionSync("1.2.0"),
+    yankedAt: DateTime.makeUnsafe("2025-02-01T00:00:00Z"),
+  });
+  const versions = [
+    makeVersionEntry({ version: decodeVersionSync("1.0.0") }),
+    yanked,
+    makeVersionEntry({ version: decodeVersionSync("2.0.0-beta.1") }),
+    makeVersionEntry({ version: decodeVersionSync("1.1.0") }),
+  ];
+  const admitted = (request: Option.Option<string>) =>
+    admittedReleases(versions, request).map((entry) => entry.version);
+
+  it("lists a range's non-yanked stable releases newest first", () => {
+    expect(admitted(Option.some("^1.0.0"))).toEqual(["1.1.0", "1.0.0"]);
+    expect(admitted(Option.none())).toEqual(admitted(Option.some("*")));
+  });
+
+  it("admits a yanked or prerelease version only through its exact request", () => {
+    expect(admitted(Option.some("1.2.0"))).toEqual(["1.2.0"]);
+    expect(admitted(Option.some("2.0.0-beta.1"))).toEqual(["2.0.0-beta.1"]);
   });
 });

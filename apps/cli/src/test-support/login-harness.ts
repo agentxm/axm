@@ -9,6 +9,9 @@
  * documents, the stored credentials, and the recorded prompt as evidence.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "@agentxm/registry-access/credentials";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -24,7 +27,6 @@ import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { AuthLoginPresenter, type MeResponse } from "@agentxm/registry-access/authentication";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { AuthLoginPresenterLive } from "../auth-login-presenter.js";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 
@@ -145,7 +147,7 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     credentialStore,
     PendingDeviceLoginStoreTest(),
     authClient,
-    Layer.succeed(RegistryUrl, LOGIN_REGISTRY_URL),
+    RegistryContextTest(LOGIN_REGISTRY_URL),
   );
 
   return {
@@ -159,7 +161,9 @@ export const makeLoginSpecContext = (options: LoginSpecContextOptions = {}) => {
     /** The access token the store holds for the registry after the command ran. */
     storedAccessToken: Effect.gen(function* () {
       const store = yield* CredentialStore;
-      const stored = yield* store.load(LOGIN_REGISTRY_URL);
+      const stored = yield* store.load(
+        credentialKey(decodeHttpRegistryEndpointSync(LOGIN_REGISTRY_URL)),
+      );
       return stored._tag === "Some" ? stored.value.access_token : undefined;
     }).pipe(Effect.provide(layer)),
   };

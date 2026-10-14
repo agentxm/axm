@@ -167,6 +167,7 @@ export const sourceResolutionFailureCategory = (error: SourceResolutionFailure):
     case "RegistryProblem":
     case "RegistryRequestFailed":
     case "RegistryOperationFailed":
+    case "RegistryOperationUnsupported":
       return error.category;
   }
 };

@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodeFs from "node:fs";
 import {
   UNCONSTRAINED_DESIRED_NODE,
@@ -210,7 +211,7 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
   it.effect("binds an authored Pack's acquired member to its configured Registry", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
-      const endpoint = new URL("https://registry.example.com/");
+      const endpoint = decodeRegistryEndpointSync("https://registry.example.com");
       const desired: DesiredExtensionNode = {
         ...desiredPackMember({ authority: "workspace", fqn: "@acme/packs/team" }),
         identity: {
@@ -233,7 +234,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
       for (const foreign of [
         {
           ...accepted,
-          source: { type: "registry" as const, url: new URL("https://other.example.com/") },
+          source: {
+            type: "registry" as const,
+            url: decodeRegistryEndpointSync("https://other.example.com"),
+          },
         },
         { ...accepted, identity: { owner: handle("@other"), name: extensionName("review") } },
         { ...accepted, identity: { owner: handle("@acme"), name: extensionName("other") } },
@@ -392,7 +396,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         identity: {
           authority: "registry",
           fqn: "@acme/rules/release",
-          registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
+          registry: {
+            sourceName: undefined,
+            endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+          },
         },
         source,
         enabled: true,
@@ -402,7 +409,10 @@ layer(NodeServices.layer, { excludeTestServices: true })("canonical observation"
         layout,
         desired,
         accepted: {
-          source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+          source: {
+            type: "registry",
+            url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+          },
           identity: { owner: handle("@acme"), name: extensionName("release") },
           resolved: {
             version: exactVersion("1.9.0"),

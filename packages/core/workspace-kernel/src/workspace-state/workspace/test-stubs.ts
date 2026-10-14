@@ -1,5 +1,9 @@
 /** @internal Test-only workspace read facts and fixture builders. */
 
+import {
+  decodeRegistryEndpointSync,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -346,7 +350,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly endpoint?: URL;
+  readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
@@ -354,7 +358,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 }): SkillLockEntry => ({
   source: {
     type: "registry",
-    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
   },
   identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
   resolved: {
@@ -371,14 +375,14 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly endpoint?: URL;
+  readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly installedAt?: unknown;
   readonly updatedAt?: unknown;
 }): McpServerLockEntry => ({
   source: {
     type: "registry",
-    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
   },
   identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
   resolved: {
@@ -395,7 +399,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly endpoint?: URL;
+  readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly dependencies?: PackManifest["dependencies"];
@@ -408,7 +412,7 @@ export const makeRegistryPackLockEntry = (opts: {
   buildRegistryPackLockEntry({
     source: {
       type: "registry",
-      url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+      url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
     },
     identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
     resolved: {

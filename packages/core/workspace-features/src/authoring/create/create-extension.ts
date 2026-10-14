@@ -84,7 +84,7 @@ import {
   nativeAuthorityRoots,
 } from "@agentxm/workspace-kernel/locations";
 import type { CredentialStore } from "@agentxm/registry-access/credentials";
-import type { RegistryUrl } from "@agentxm/registry-client";
+import type { RegistryContext } from "@agentxm/registry-client";
 import {
   AcceptedResolutionWriter,
   DesiredStateWriter,
@@ -252,7 +252,7 @@ export type PrepareCreateExtensionRequirements =
   | FileSystem.FileSystem
   | Path.Path
   | CredentialStore
-  | RegistryUrl
+  | RegistryContext
   | AcceptedResolutionWriter
   | DesiredStateWriter
   | SettingsWriter

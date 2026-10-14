@@ -8,12 +8,15 @@ import { initiateDeviceLogin, resumeDeviceLogin } from "./device-login.js";
 import { login } from "./login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
+  authSelectedRegistry,
   authFailureCategory,
-  authRegistry,
   machineOutputPresenter,
   makeAuthPorts,
-  otherAuthRegistry,
   resumeLoginRequest,
+  authEndpoint,
+  otherAuthEndpoint,
+  authKey,
+  otherAuthKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -35,21 +38,25 @@ describe("Resume eligibility", () => {
   it.effect("refuses another Registry's pending authorization", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, {
+      yield* initiateDeviceLogin(authEndpoint, {
         openBrowser: false,
       });
       const pending = yield* PendingDeviceLoginStore;
       const before = yield* pending.load();
 
-      const waited = yield* login(resumeLoginRequest(), otherAuthRegistry).pipe(Effect.flip);
+      const waited = yield* login(resumeLoginRequest(), {
+        ...authSelectedRegistry,
+        endpoint: otherAuthEndpoint,
+        host: "other.example.test",
+      }).pipe(Effect.flip);
       expect(authFailureCategory(waited)).toBe("conflict");
-      const resumed = yield* resumeDeviceLogin(otherAuthRegistry).pipe(Effect.flip);
+      const resumed = yield* resumeDeviceLogin(otherAuthEndpoint).pipe(Effect.flip);
       expect(authFailureCategory(resumed)).toBe("conflict");
 
       expect(yield* pending.load()).toEqual(before);
       expect(ports.deviceAuthorizations).toHaveLength(1);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(otherAuthRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(otherAuthKey))).toBe(true);
       expect(ports.polledCodes).toEqual([]);
     }).pipe(Effect.provide(ports.layer));
   });

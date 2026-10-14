@@ -6,13 +6,14 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import * as Schema from "effect/Schema";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { PackManifestSchema } from "@agentxm/extension-model/unstable/packs/manifest-schema";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 
 import {
   computeMaterializedTreeIntegrity,
   computePackManifestContentIdentity,
-  mcpRegistryResolutionKey,
+  McpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   makeRegistryMcpServerLockEntry,
@@ -30,7 +31,7 @@ export const specification = defineSpecification({
   requirement: "cli/packs/show/reports-authored-membership-and-observed-state",
   title: "Pack inspection reports declared members and observed state",
   statement:
-    "When inspecting a configured pack, AXM shall report the pack\u2019s source authority, canonical manifest, declared member constraints, and each declared member\u2019s desired reachability, judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack\u2019s range, excluded when that version is outside it, and missing when no desired route reaches it.",
+    "When inspecting a configured pack, AXM shall report the pack\u2019s source authority, canonical manifest, and, for each declared member, its authored declaration (constraint and explicit Registry endpoint or inherited source), the local names it is held under, the source identity it is bound to, its resolution status (accepted, authored, or unresolved with a reason), and its desired reachability judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack\u2019s range, excluded when that version is outside it, and missing when no desired route reaches it; inspection shall never invent an accepted resolution or expose a resolution key.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
@@ -67,12 +68,14 @@ describe("Pack state inspection", () => {
               desiredDependencies: expect.arrayContaining([
                 expect.objectContaining({
                   fqn: "@acme/skills/review",
-                  constraint: ">=1.2.3",
+                  declaration: { constraint: ">=1.2.3", endpoint: null },
+                  localNames: ["review"],
                   reachability: "satisfying",
                 }),
                 expect.objectContaining({
                   fqn: "@acme/skills/test-helper",
-                  constraint: ">=1.2.3",
+                  declaration: { constraint: ">=1.2.3", endpoint: null },
+                  localNames: ["test-helper"],
                   reachability: "satisfying",
                 }),
               ]),
@@ -116,9 +119,16 @@ describe("Pack state inspection", () => {
           expect(result.desiredDependencies).toEqual([
             {
               fqn: "@acme/skills/review",
-              constraint: ">=2.0.0",
+              declaration: { constraint: ">=2.0.0", endpoint: null },
+              localNames: ["review"],
+              sourceIdentity: {
+                authority: "workspace",
+                fqn: "@acme/skills/review",
+                endpoint: null,
+                locator: null,
+              },
+              resolution: { status: "authored" },
               version: "1.5.0",
-              source: "workspace",
               reachability: "excluded",
             },
           ]);
@@ -127,92 +137,146 @@ describe("Pack state inspection", () => {
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
   });
 
-  it.effect("reports a Pack-declared Registry MCP member from its accepted resolution", () => {
-    const endpoint = new URL(inspectionRegistryUrl);
-    const owner = decodeHandleSync("@acme");
-    const manifest = {
-      owner: "@acme",
-      type: "pack",
-      name: "toolkit",
-      version: "2.3.4",
-      dependencies: { "@acme/mcps/context": "^1.0.0" },
-    };
-    // An MCP source's accepted row is keyed by its resolution key, which the
-    // Pack member's desired identity carries once it is bound to the Registry.
-    const resolutionKey = mcpRegistryResolutionKey({ authority: endpoint, owner, name: "context" });
-    const fixture = makeInspectionFixture({
-      settings: {
-        agents: [],
-        defaultRegistry: "test",
-        sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
-        packs: { toolkit: { source: "@acme/packs/toolkit@2.3.4", enabled: true } },
+  it.effect.each([
+    { declared: "inherited", declaration: "^1.0.0", endpoint: null },
+    {
+      declared: "explicit",
+      declaration: {
+        versionRange: "^1.0.0",
+        source: { type: "registry", url: inspectionRegistryUrl },
       },
-      lockfile: {
-        packs: {
-          toolkit: makeRegistryPackLockEntry({
-            owner,
-            name: "toolkit",
-            resolvedVersion: decodeVersionSync("2.3.4"),
-            endpoint,
-            dependencies: Schema.decodeUnknownSync(PackManifestSchema)(manifest).dependencies,
-            sourceHash: computePackManifestContentIdentity(
-              Schema.decodeUnknownSync(PackManifestSchema)(manifest),
-            ),
-          }),
-        },
-        mcpServers: {
-          [resolutionKey]: makeRegistryMcpServerLockEntry({ owner, name: "context", endpoint }),
-        },
-      },
-      files: {
-        [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit/pack.json`]:
-          JSON.stringify(manifest),
-        [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context/mcp.json`]:
-          JSON.stringify({
-            owner: "@acme",
-            type: "mcp-server",
-            name: "context",
-            version: "1.0.0",
-            server: { name: "io.acme/context", description: "Context server", version: "1.0.0" },
-          }),
-      },
-    });
-    return fixture
-      .provide(
-        Effect.gen(function* () {
-          // Accept the materialized MCP package exactly as written.
-          const treeIntegrity = yield* computeMaterializedTreeIntegrity(
-            `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context`,
-          );
-          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            JSON.parse(fixture.readFile("axm-lock.yaml")),
-          );
-          const accepted = lockfile.mcpServers?.[resolutionKey];
-          if (accepted === undefined) throw new Error("Expected accepted MCP");
-          fixture.writeFile(
-            "axm-lock.yaml",
-            JSON.stringify(
-              Schema.encodeSync(LockfileSchema)({
-                ...lockfile,
-                mcpServers: { [resolutionKey]: { ...accepted, treeIntegrity } },
-              }),
-            ),
-          );
-
-          const result = yield* ShowPack.query({ target: "toolkit" });
-          expect(result.desiredDependencies).toEqual([
-            {
-              fqn: "@acme/mcps/context",
-              constraint: "^1.0.0",
-              version: "1.0.0",
-              source: "@acme/mcps/context@^1.0.0",
-              reachability: "satisfying",
+      endpoint: inspectionRegistryUrl,
+    },
+  ] as const)(
+    "reports a Pack-declared $declared Registry MCP member, its connections, and an unresolved member",
+    ({ declaration, endpoint: declaredEndpoint }) => {
+      const endpoint = decodeRegistryEndpointSync(inspectionRegistryUrl);
+      const owner = decodeHandleSync("@acme");
+      const manifest = {
+        owner: "@acme",
+        type: "pack",
+        name: "toolkit",
+        version: "2.3.4",
+        dependencies: { "@acme/mcps/context": declaration, "@acme/skills/missing": "^1.0.0" },
+      };
+      // An MCP source's accepted row is keyed by its resolution key, derived
+      // from the member's bound identity; inspection never shows the key.
+      const resolutionKey = McpSourceKey.encode({
+        kind: "registry",
+        endpoint,
+        owner,
+        name: "context",
+      });
+      const fixture = makeInspectionFixture({
+        settings: {
+          agents: [],
+          defaultRegistry: "test",
+          sources: [{ name: "test", type: "registry", location: inspectionRegistryUrl }],
+          packs: { toolkit: { source: "@acme/packs/toolkit@2.3.4", enabled: true } },
+          // A second local connection to the same source shares its resolution.
+          mcpServers: {
+            "work-context": {
+              source: "test:@acme/mcps/context@^1.0.0",
+              distribution: {
+                kind: "remote",
+                transport: "streamable-http",
+                url: "https://mcp.acme.test/mcp",
+              },
             },
-          ]);
-        }),
-      )
-      .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
-  });
+          },
+        },
+        lockfile: {
+          packs: {
+            toolkit: makeRegistryPackLockEntry({
+              owner,
+              name: "toolkit",
+              resolvedVersion: decodeVersionSync("2.3.4"),
+              endpoint,
+              dependencies: Schema.decodeUnknownSync(PackManifestSchema)(manifest).dependencies,
+              sourceHash: computePackManifestContentIdentity(
+                Schema.decodeUnknownSync(PackManifestSchema)(manifest),
+              ),
+            }),
+          },
+          mcpServers: {
+            [resolutionKey]: makeRegistryMcpServerLockEntry({ owner, name: "context", endpoint }),
+          },
+        },
+        files: {
+          [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/packs/toolkit/pack.json`]:
+            JSON.stringify(manifest),
+          [`agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context/mcp.json`]:
+            JSON.stringify({
+              owner: "@acme",
+              type: "mcp-server",
+              name: "context",
+              version: "1.0.0",
+              server: { name: "io.acme/context", description: "Context server", version: "1.0.0" },
+            }),
+        },
+      });
+      return fixture
+        .provide(
+          Effect.gen(function* () {
+            // Accept the materialized MCP package exactly as written.
+            const treeIntegrity = yield* computeMaterializedTreeIntegrity(
+              `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context`,
+            );
+            const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+              JSON.parse(fixture.readFile("axm-lock.yaml")),
+            );
+            const accepted = lockfile.mcpServers?.[resolutionKey];
+            if (accepted === undefined) throw new Error("Expected accepted MCP");
+            fixture.writeFile(
+              "axm-lock.yaml",
+              JSON.stringify(
+                Schema.encodeSync(LockfileSchema)({
+                  ...lockfile,
+                  mcpServers: { [resolutionKey]: { ...accepted, treeIntegrity } },
+                }),
+              ),
+            );
+            const lockBefore = fixture.readFile("axm-lock.yaml");
+
+            const result = yield* ShowPack.query({ target: "toolkit" });
+            expect(result.desiredDependencies).toEqual([
+              {
+                fqn: "@acme/mcps/context",
+                declaration: { constraint: "^1.0.0", endpoint: declaredEndpoint },
+                localNames: ["context", "work-context"],
+                sourceIdentity: {
+                  authority: "registry",
+                  fqn: "@acme/mcps/context",
+                  endpoint: inspectionRegistryUrl,
+                  locator: null,
+                },
+                resolution: { status: "accepted" },
+                version: "1.0.0",
+                reachability: "satisfying",
+              },
+              {
+                fqn: "@acme/skills/missing",
+                declaration: { constraint: "^1.0.0", endpoint: null },
+                localNames: ["missing"],
+                sourceIdentity: {
+                  authority: "registry",
+                  fqn: "@acme/skills/missing",
+                  endpoint: inspectionRegistryUrl,
+                  locator: null,
+                },
+                resolution: { status: "unresolved", reason: "not-accepted" },
+                version: null,
+                reachability: "satisfying",
+              },
+            ]);
+            expect(JSON.stringify(result)).not.toContain(resolutionKey);
+            // Inspection invents no accepted row.
+            expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
+    },
+  );
 
   it.effect("reports a Registry pack's accepted resolution", () => {
     const fixture = makeAcceptedPackFixture();

@@ -66,6 +66,7 @@ import type { NativeObservationView } from "@agentxm/workspace-kernel/locations"
 import { allCatalogRuleIds } from "./catalog/index.js";
 import type { LintWorkspaceRequirements } from "./run/lint-workspace.js";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 /** The severities a workspace may configure a catalog rule at. */
 export type ConfiguredLintSeverity = "off" | "info" | "warn" | "error";
 
@@ -164,7 +165,11 @@ export const lintWorkspaceServices = (args: {
     projectRoot: decodeAbsolutePathSync(args.workspaceRoot),
     allowUninitialized: true,
     builtInSources: [
-      { name: "agentxm", type: "registry", location: new URL("https://registry.agentxm.ai") },
+      {
+        name: "agentxm",
+        type: "registry",
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+      },
     ],
   });
   const agents = Layer.provideMerge(

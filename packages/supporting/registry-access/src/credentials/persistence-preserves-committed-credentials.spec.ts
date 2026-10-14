@@ -11,7 +11,7 @@ import * as PlatformError from "effect/PlatformError";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { CredentialStore } from "./index.js";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { credentialFileFixture } from "./test-helpers.js";
+import { credentialFileFixture, credentialKeyOf } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/auth/persistence-preserves-committed-credentials",
@@ -41,7 +41,9 @@ const credentials = {
   expires_at: DateTime.makeUnsafe("2030-01-01T00:00:00Z"),
 };
 const save = (origin = registry) =>
-  Effect.flatMap(CredentialStore, (store) => store.save(origin, handle, credentials));
+  Effect.flatMap(CredentialStore, (store) =>
+    store.save(credentialKeyOf(origin), handle, credentials),
+  );
 const failure = (method: string, path: string) =>
   PlatformError.systemError({
     _tag: "PermissionDenied",
@@ -101,7 +103,7 @@ describe("Committed credential integrity", () => {
       yield* Effect.gen(function* () {
         const store = yield* CredentialStore;
         for (const origin of [registry, otherRegistry]) {
-          expect(Option.isSome(yield* store.load(origin))).toBe(true);
+          expect(Option.isSome(yield* store.load(credentialKeyOf(origin)))).toBe(true);
         }
       }).pipe(Effect.provide(fixture.layer));
     }).pipe(Effect.provide(NodeServices.layer)),
@@ -171,7 +173,7 @@ describe("Committed credential integrity", () => {
       yield* Effect.gen(function* () {
         const store = yield* CredentialStore;
         for (const origin of registries) {
-          expect(Option.getOrThrow(yield* store.load(origin)).access_token).toBe(
+          expect(Option.getOrThrow(yield* store.load(credentialKeyOf(origin))).access_token).toBe(
             credentials.access_token,
           );
         }
@@ -186,7 +188,7 @@ describe("Committed credential integrity", () => {
       yield* save().pipe(Effect.provide(fixture.layer));
       yield* Effect.all(
         [
-          Effect.flatMap(CredentialStore, (store) => store.clear(registry)).pipe(
+          Effect.flatMap(CredentialStore, (store) => store.clear(credentialKeyOf(registry))).pipe(
             Effect.provide(fixture.layer),
           ),
           save(otherRegistry).pipe(Effect.provide(fixture.layer)),
@@ -195,10 +197,10 @@ describe("Committed credential integrity", () => {
       );
       yield* Effect.gen(function* () {
         const store = yield* CredentialStore;
-        expect(Option.isNone(yield* store.load(registry))).toBe(true);
-        expect(Option.getOrThrow(yield* store.load(otherRegistry)).access_token).toBe(
-          credentials.access_token,
-        );
+        expect(Option.isNone(yield* store.load(credentialKeyOf(registry)))).toBe(true);
+        expect(
+          Option.getOrThrow(yield* store.load(credentialKeyOf(otherRegistry))).access_token,
+        ).toBe(credentials.access_token);
       }).pipe(Effect.provide(fixture.layer));
     }).pipe(Effect.provide(NodeServices.layer)),
   );

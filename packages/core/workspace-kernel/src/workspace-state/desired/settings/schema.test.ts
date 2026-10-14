@@ -4,6 +4,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  decodeRegistryEndpointSync,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
 import {
@@ -22,8 +26,9 @@ import {
   SourceHostConfigSchema,
 } from "./schema.js";
 
-const getSourceLocation = (source: Schema.Schema.Type<typeof SourceHostConfigSchema>): URL =>
-  source.location;
+const getSourceLocation = (
+  source: Schema.Schema.Type<typeof SourceHostConfigSchema>,
+): RegistryEndpoint => source.location;
 
 describe("Settings schema", () => {
   describe("valid settings", () => {
@@ -376,18 +381,23 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("main-registry");
         expect(result.type).toBe("registry");
-        expect(getSourceLocation(result)).toEqual(new URL("https://registry.agentskills.io"));
+        expect(getSourceLocation(result)).toEqual(
+          decodeRegistryEndpointSync("https://registry.agentskills.io"),
+        );
       });
 
-      it("decodes location as URL object", () => {
+      it("decodes location as its canonical Registry endpoint", () => {
         const input = {
           name: "main-registry",
           type: "registry",
-          location: "https://registry.agentskills.io",
+          location: "https://registry.agentskills.io/",
         };
         const result = Schema.decodeUnknownSync(SourceHostConfigSchema)(input);
 
-        expect(getSourceLocation(result)).toBeInstanceOf(URL);
+        expect(getSourceLocation(result)).toEqual({
+          transport: "http",
+          href: "https://registry.agentskills.io",
+        });
       });
 
       it("encodes registry source without profiles", () => {
@@ -402,7 +412,7 @@ describe("Settings schema", () => {
         expect(encoded).toEqual({
           name: "public",
           type: "registry",
-          location: "https://registry.example.com/",
+          location: "https://registry.example.com",
         });
       });
 
@@ -416,7 +426,9 @@ describe("Settings schema", () => {
 
         expect(result.name).toBe("local-registry");
         expect(result.type).toBe("registry");
-        expect(getSourceLocation(result)).toEqual(new URL("file:///usr/local/axm/registry"));
+        expect(getSourceLocation(result)).toEqual(
+          decodeRegistryEndpointSync("file:///usr/local/axm/registry"),
+        );
       });
     });
 
@@ -550,7 +562,9 @@ describe("Settings schema", () => {
       expect(source?.name).toBe("main-registry");
       expect(source?.type).toBe("registry");
       if (source) {
-        expect(getSourceLocation(source)).toEqual(new URL("https://registry.agentskills.io"));
+        expect(getSourceLocation(source)).toEqual(
+          decodeRegistryEndpointSync("https://registry.agentskills.io"),
+        );
       }
     });
 

@@ -1,3 +1,4 @@
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { makeArtifactHttpClientLayer } from "../runtime.js";
 import {
   WorkspaceFileWriteLocksLive,
@@ -33,7 +34,6 @@ import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { AgentExecutableResolver } from "@agentxm/workspace-kernel/agent-adapters";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { TestFlagsLayer } from "../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "./presenter-test.js";
 import { recordingFileSystemLayer, type FileSystemWriteEvent } from "./test-helpers.js";
@@ -112,10 +112,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
     foundation,
     makeArtifactHttpClientLayer(globalThis.fetch),
     FetchHttpClient.layer,
-    Layer.provide(
-      RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
-      platformLayer,
-    ),
+    Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), platformLayer),
     // Setup applies the bundled official skill inside the initialization
     // closure, through the same asset layer the executable composes.
     BundledAxmSkillAssetLive,
@@ -127,7 +124,7 @@ export const makeSetupSpecContext = (options: SetupSpecContextOptions = {}) => {
       quiet: options.flags?.quiet ?? false,
     }),
     Layer.succeed(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
-    Layer.succeed(RegistryUrl, "https://registry.invalid"),
+    RegistryContextTest("https://registry.invalid"),
     Layer.succeed(AgentExecutableResolver, {
       exists: () => Effect.succeed(false),
     }),

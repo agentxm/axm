@@ -6,6 +6,9 @@ import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { RegistryHttpClient } from "@agentxm/registry-client";
+
 import { TokenExchangeTest } from "../authentication/auth-client.js";
 import {
   GitHubActionsIdentity,
@@ -13,7 +16,8 @@ import {
   WorkloadCredentialsLive,
 } from "./workload-credentials.js";
 
-const registry = "https://registry.example.test";
+const registry = decodeHttpRegistryEndpointSync("https://registry.example.test");
+const other = decodeHttpRegistryEndpointSync("https://other.example.test");
 const identity = new GitHubActionsIdentity({
   requestUrl: "https://actions.example.test/token?api-version=2.0",
   requestToken: "fixture-request-token",
@@ -47,7 +51,7 @@ const makeLayer = (expiresIn: (exchange: number) => { readonly seconds: number }
     counts,
     layer: Layer.provide(
       WorkloadCredentialsLive,
-      Layer.merge(Layer.succeed(HttpClient.HttpClient, transport), exchange),
+      Layer.merge(Layer.succeed(RegistryHttpClient, transport), exchange),
     ),
   };
 };
@@ -86,7 +90,7 @@ describe("WorkloadCredentialsLive", () => {
       expect(counts).toEqual({ idTokens: 0, exchanges: 0 });
       const token = yield* workload.tokenFor(identity, registry);
       expect(yield* workload.held(registry)).toEqual(Option.some(token));
-      expect(Option.isNone(yield* workload.held("https://other.example.test"))).toBe(true);
+      expect(Option.isNone(yield* workload.held(other))).toBe(true);
     }).pipe(Effect.provide(layer));
   });
 
@@ -95,8 +99,8 @@ describe("WorkloadCredentialsLive", () => {
     return Effect.gen(function* () {
       const workload = yield* WorkloadCredentials;
       yield* workload.tokenFor(identity, registry);
-      const other = yield* workload.tokenFor(identity, "https://other.example.test");
-      expect(other.registryUrl).toBe("https://other.example.test");
+      const otherToken = yield* workload.tokenFor(identity, other);
+      expect(otherToken.endpoint).toEqual(other);
       expect(counts).toEqual({ idTokens: 2, exchanges: 2 });
     }).pipe(Effect.provide(layer));
   });

@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -7,14 +8,13 @@ import * as Schema from "effect/Schema";
 import { SkillLockEntrySchema, PackLockEntrySchema } from "../desired/lockfile/index.js";
 import { installableExtensionTypes } from "@agentxm/extension-model/unstable/extensions/installable-types";
 import { TreeIntegritySchema } from "./materialized-tree.js";
-import { exactVersion, extensionName, handle } from "../testing.js";
+import { extensionName, handle } from "../testing.js";
 import type { SourceHostConfig } from "../desired/settings/index.js";
 import {
   lockEntryToRef,
   lockEntrySource,
   lockEntryToSourceParams,
   lockEntryMatchesSourceLocator,
-  printSkillLockSourceLocator,
 } from "./lock-entry.js";
 import { computePackManifestContentIdentity } from "./pack-manifest-content-identity.js";
 import { LockEntryEndpointConflict } from "./errors.js";
@@ -50,7 +50,7 @@ it("derives Registry, Git, and local sources from accepted rows", () => {
   expect(lockEntrySource(registryEntry)).toEqual({
     type: "registry",
     name: "registry",
-    location: new URL("https://registry.example.test"),
+    location: decodeRegistryEndpointSync("https://registry.example.test"),
     owner: Option.some(registryEntry.identity.owner),
   });
   expect(lockEntrySource(entry)).toEqual({
@@ -139,7 +139,16 @@ describe("lock entry source authority", () => {
           type: "pack",
           name: "toolkit",
           version: "1.0.0",
-          dependencies,
+          dependencies: {
+            ...dependencies,
+            "@other/rules/guard": {
+              ...dependencies["@other/rules/guard"],
+              source: {
+                type: "registry",
+                url: decodeRegistryEndpointSync(dependencies["@other/rules/guard"].source.url),
+              },
+            },
+          },
         }),
         dependencies,
         treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
@@ -190,7 +199,7 @@ describe("lock entry source authority", () => {
       const configured = {
         type: "registry",
         name: "enterprise",
-        location: new URL("https://registry.changed.test"),
+        location: decodeRegistryEndpointSync("https://registry.changed.test"),
       } satisfies SourceHostConfig;
 
       const error = yield* lockEntryToRef
@@ -206,8 +215,8 @@ describe("lock entry source authority", () => {
 
       expect(error).toBeInstanceOf(LockEntryEndpointConflict);
       if (error instanceof LockEntryEndpointConflict) {
-        expect(error.acceptedEndpoint).toBe("https://registry.example.test/");
-        expect(error.resolvedEndpoint).toBe("https://registry.changed.test/");
+        expect(error.acceptedEndpoint).toBe("https://registry.example.test");
+        expect(error.resolvedEndpoint).toBe("https://registry.changed.test");
       }
     }).pipe(Effect.provide(NodeServices.layer)),
   );
@@ -247,21 +256,6 @@ describe("lock entry printers", () => {
     ).toEqual({ type: "local", path: "/sources/review" });
   });
 
-  it("prints a Registry accepted resolution as an exact locator", () => {
-    expect(
-      printSkillLockSourceLocator("ignored", {
-        source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
-        identity: { owner: handle("@acme"), name: extensionName("review") },
-        resolved: {
-          version: exactVersion("1.2.3"),
-          integrity: "sha512-archive",
-          publisherBindingId: "binding-1",
-        },
-        treeIntegrity,
-      }),
-    ).toBe("registry:https://registry.agentxm.ai/:@acme/skills/review@1.2.3");
-  });
-
   it("matches hosted Git shorthand after trimming URL path separators", () => {
     expect(
       lockEntryMatchesSourceLocator(
@@ -279,6 +273,30 @@ describe("lock entry printers", () => {
         "github:acme/extensions//skills/review@main",
       ),
     ).toBe(true);
+  });
+
+  it.each([
+    ["https://github.com/acme/extensions.git#axm:path=skills%2Freview&ref=main", true],
+    ["https://github.com/acme/extensions.git#axm:ref=main&path=skills", true],
+    ["git@github.com:acme/extensions.git#main", true],
+    ["https://github.com/acme/other.git#main", false],
+  ])("matches a clone URL spelling of the accepted GitHub source: %s", (locator, matches) => {
+    expect(
+      lockEntryMatchesSourceLocator(
+        {
+          source: {
+            type: "git",
+            url: new URL("https://github.com/acme/extensions.git"),
+            revision: "main",
+            path: "skills/review",
+          },
+          identity: { owner: handle("@acme"), name: extensionName("review") },
+          resolved: { commit: "commit-1", tree: "tree-1" },
+          treeIntegrity,
+        },
+        locator,
+      ),
+    ).toBe(matches);
   });
 
   it("matches a bare GitHub locator with subpath and revision", () => {

@@ -908,10 +908,38 @@
       "title": "Unrecorded Projection Output",
       "description": "Files at planned projection paths that differ from AXM's render and that AXM has no record of writing."
     },
+    "RegistryOperationUnsupportedProblem": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "enum": ["registry-operation-unsupported"] },
+        "operation": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "transport": { "type": "string", "enum": ["http", "file"] }
+      },
+      "required": ["code", "operation", "endpoint", "transport"],
+      "additionalProperties": false,
+      "title": "Unsupported Registry Operation",
+      "description": "The selected Registry's transport does not implement the operation; nothing was sent or changed."
+    },
+    "RegistrySourceUnknownProblem": {
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "enum": ["registry-source-unknown"] },
+        "name": { "type": "string" },
+        "scope": { "type": "string", "enum": ["explicit", "project", "user", "built-in"] },
+        "settingsPath": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+      },
+      "required": ["code", "name", "scope"],
+      "additionalProperties": false,
+      "title": "Unknown Registry Source",
+      "description": "A default or named Registry source no settings configure, with the scope and settings file that selected it."
+    },
     "FailureProblem": {
       "anyOf": [
         { "$ref": "#/$defs/WorkspaceLockfileVersionUnsupportedProblem" },
-        { "$ref": "#/$defs/ProjectionOutputUnrecordedProblem" }
+        { "$ref": "#/$defs/ProjectionOutputUnrecordedProblem" },
+        { "$ref": "#/$defs/RegistryOperationUnsupportedProblem" },
+        { "$ref": "#/$defs/RegistrySourceUnknownProblem" }
       ],
       "title": "Failure Problem",
       "description": "Structured details for a recognized failure."
@@ -8167,9 +8195,77 @@
             "type": "object",
             "properties": {
               "fqn": { "type": "string" },
-              "constraint": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+              "declaration": {
+                "type": "object",
+                "properties": {
+                  "constraint": { "type": "string" },
+                  "endpoint": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                },
+                "required": ["constraint", "endpoint"],
+                "additionalProperties": false
+              },
+              "localNames": { "type": "array", "items": { "type": "string" } },
+              "sourceIdentity": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "authority": {
+                        "type": "string",
+                        "enum": [
+                          "workspace",
+                          "registry",
+                          "git",
+                          "http",
+                          "path",
+                          "bundled",
+                          "inline"
+                        ]
+                      },
+                      "fqn": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "endpoint": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
+                      "locator": { "anyOf": [{ "type": "string" }, { "type": "null" }] }
+                    },
+                    "required": ["authority", "fqn", "endpoint", "locator"],
+                    "additionalProperties": false
+                  },
+                  { "type": "null" }
+                ]
+              },
+              "resolution": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": { "status": { "type": "string", "enum": ["accepted"] } },
+                    "required": ["status"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": { "status": { "type": "string", "enum": ["authored"] } },
+                    "required": ["status"],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "object",
+                    "properties": {
+                      "status": { "type": "string", "enum": ["unresolved"] },
+                      "reason": {
+                        "type": "string",
+                        "enum": [
+                          "not-desired",
+                          "unbound-source",
+                          "not-accepted",
+                          "authority-mismatch"
+                        ]
+                      }
+                    },
+                    "required": ["status", "reason"],
+                    "additionalProperties": false
+                  }
+                ]
+              },
               "version": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
-              "source": { "anyOf": [{ "type": "string" }, { "type": "null" }] },
               "reachability": {
                 "anyOf": [
                   { "type": "string", "enum": ["satisfying", "excluded", "missing"] },
@@ -8177,7 +8273,15 @@
                 ]
               }
             },
-            "required": ["fqn", "constraint", "version", "source", "reachability"],
+            "required": [
+              "fqn",
+              "declaration",
+              "localNames",
+              "sourceIdentity",
+              "resolution",
+              "version",
+              "reachability"
+            ],
             "additionalProperties": false
           }
         },

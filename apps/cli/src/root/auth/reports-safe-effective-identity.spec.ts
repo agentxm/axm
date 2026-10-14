@@ -1,3 +1,4 @@
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
@@ -10,7 +11,6 @@ import {
 } from "@agentxm/registry-access/testing";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { RegistryUrl } from "@agentxm/registry-client";
 
 import { TestFlagsLayer } from "../../cli-flags/index.js";
 import { TestMachineRenderer, TestRenderer } from "../../test-support/presenter-test.js";
@@ -59,7 +59,7 @@ describe("Safe effective identity", () => {
         () =>
           Effect.gen(function* () {
             const renderer = machine ? TestMachineRenderer.make() : TestRenderer.make();
-            const registryLayer = Layer.succeed(RegistryUrl, registry);
+            const registryLayer = RegistryContextTest(registry);
             const authLayer = AuthClientTest({
               // The transport carries the credential, so the identity read
               // names none: whoami reports what the Registry answers for
@@ -151,7 +151,7 @@ describe("Safe effective identity", () => {
           const layer = Layer.mergeAll(
             renderer.layer,
             TestFlagsLayer(),
-            Layer.succeed(RegistryUrl, registry),
+            RegistryContextTest(registry),
             AuthClientTest({
               getMe: () =>
                 Effect.sync(() => ({

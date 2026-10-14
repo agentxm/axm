@@ -6,6 +6,7 @@ import {
   WorkspaceTransactionScopesLive,
   WorkspaceFileWriteLocksLive,
 } from "@agentxm/workspace-kernel/settlement/live";
+import type { WorkspaceFileWriteLocks } from "@agentxm/workspace-kernel/settlement";
 import { UpdateCheckCacheLive } from "./cli-runtime/update-cache.js";
 import { CliUpgradeObservationLive } from "./cli-runtime/upgrade-observation.js";
 import { recordingConfigurationFailure } from "./cli-runtime/configuration-failure.js";
@@ -13,6 +14,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as ConfigProvider from "effect/ConfigProvider";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -82,28 +84,36 @@ import {
 import {
   AuthClientLive,
   AuthLoginInteractionLive,
-  AuthMiddlewareLive,
   CredentialStoreLive,
   CredentialStoreSessionLive,
   PendingDeviceLoginStoreLive,
+  RegistryRequestAuthorizationLive,
   SessionRefresherLive,
   TokenExchangeLive,
   WorkloadCredentialsLive,
 } from "@agentxm/registry-access/adapters";
 import { ambientCredentialSource } from "@agentxm/registry-access/credentials";
-import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
+import {
+  RegistryClientFactoryLive,
+  RegistryContext,
+  RegistryHttpClient,
+  RegistrySelectionFailed,
+  type RegistryContextService,
+  type RegistrySelectionFailure,
+} from "@agentxm/registry-client";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { detectCallerAgent } from "./telemetry/caller-agent.js";
 import { resolveTelemetryMode, type TelemetryClientOptions } from "./telemetry/index.js";
 import {
-  SettingsReader,
   resolveUserWorkspaceRoot,
-  type RegistryTarget,
+  selectRegistry,
   type WorkspaceStateOptions,
   type SourceHostConfig,
 } from "@agentxm/workspace-kernel/workspace-state";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import {
   layer as coreWorkspaceLayer,
+  readProjectSourceConfiguration,
   WorkspaceLocationLive,
 } from "@agentxm/workspace-kernel/workspace-state/live";
 import {
@@ -142,7 +152,6 @@ export { axmGlobalFlags } from "./cli-flags/index.js";
 
 // -- Runtime layers --
 const LATEST_RELEASE_URL = "https://releases.axm.sh/latest.txt";
-const registryUrlLayer = (registryUrl: string) => Layer.succeed(RegistryUrl, registryUrl);
 
 export const withAxmUserAgent = (httpClient: HttpClient.HttpClient, version: string) =>
   httpClient.pipe(
@@ -197,20 +206,36 @@ export const makeArtifactHttpClientLayer = (fetchImplementation: typeof globalTh
     ),
   );
 
+/**
+ * The plain Registry transport. Redirects are left unfollowed so every
+ * Registry client can refuse them: a request — and any credential it carries —
+ * is never replayed to wherever a response points.
+ */
+export const makeRegistryHttpClientLayer = (fetchImplementation: typeof globalThis.fetch) =>
+  Layer.effect(
+    RegistryHttpClient,
+    Effect.map(HttpClient.HttpClient, (client) => withAxmUserAgent(client, loadVersion())),
+  ).pipe(
+    Layer.provide(
+      FetchHttpClient.layer.pipe(
+        Layer.provide(Layer.succeed(FetchHttpClient.Fetch, fetchImplementation)),
+        Layer.provide(Layer.succeed(FetchHttpClient.RequestInit, { redirect: "manual" })),
+      ),
+    ),
+  );
+
 export const PlatformLayer = Layer.mergeAll(
   NodeServices.layer,
   CanonicalNativePathLive,
   AxmHttpClientLayer,
   makeArtifactHttpClientLayer(globalThis.fetch),
+  makeRegistryHttpClientLayer(globalThis.fetch),
 );
-const registryRuntimeLayer = (registryUrl: string) =>
-  Layer.mergeAll(PlatformLayer, registryUrlLayer(registryUrl));
 
-const credentialStoreLayer = (registryUrl: string) =>
-  Layer.provide(
-    CredentialStoreSessionLive,
-    Layer.provide(CredentialStoreLive, registryRuntimeLayer(registryUrl)),
-  );
+const credentialStoreLayer = Layer.provide(
+  CredentialStoreSessionLive,
+  Layer.provide(CredentialStoreLive, PlatformLayer),
+);
 
 // Renewing and revoking a session are the calls that must not travel through
 // the authenticated transport: the refresh grant is what the transport asks
@@ -228,50 +253,92 @@ const WorkloadCredentialsLayer = Layer.provide(
   Layer.merge(PlatformLayer, TokenExchangeLayer),
 );
 
-const sessionRefreshLayer = (registryUrl: string) =>
-  Layer.provide(
-    SessionRefresherLive,
-    Layer.mergeAll(TokenExchangeLayer, credentialStoreLayer(registryUrl)),
-  );
+const sessionRefreshLayer = Layer.provide(
+  SessionRefresherLive,
+  Layer.mergeAll(TokenExchangeLayer, credentialStoreLayer),
+);
 
 /**
- * The transport every Registry call uses. It presents the invocation's
- * credential and keeps a stored session alive, so no caller decides for itself
- * whether it is authenticated — including the reads, which is what lets a
- * signed-in person see their own private extensions.
+ * How every Registry request acquires its credential. The client factory
+ * applies it per Registry, so it presents the invocation's credential and keeps
+ * a stored session alive for the reads too — which is what lets a signed-in
+ * person see their own private extensions — and never reaches a request that
+ * is not a Registry's.
  */
-const authenticatedHttpLayer = (registryUrl: string) =>
-  Layer.provide(
-    AuthMiddlewareLive,
-    Layer.mergeAll(
-      sessionRefreshLayer(registryUrl),
-      credentialStoreLayer(registryUrl),
-      registryRuntimeLayer(registryUrl),
-    ),
+const requestAuthorizationLayer = Layer.provide(
+  RegistryRequestAuthorizationLive,
+  Layer.mergeAll(sessionRefreshLayer, credentialStoreLayer, PlatformLayer),
+);
+
+// Registry clients are constructed here, once, over the Registry transport and
+// its authorization; features keep the factory in `R` and name the endpoint.
+const registryClientFactoryLayer = Layer.provide(
+  RegistryClientFactoryLive,
+  Layer.merge(requestAuthorizationLayer, PlatformLayer),
+);
+
+/**
+ * Every Registry service an invocation composes. Nothing here reads settings
+ * or selects a Registry: that happens the first time a command asks the
+ * `RegistryContext` it requires.
+ */
+export const registryAccessLayer = Layer.provideMerge(
+  Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
+  Layer.mergeAll(registryClientFactoryLayer, credentialStoreLayer, PlatformLayer),
+);
+
+/**
+ * The invocation's Registry selection, decided lazily and at most once from
+ * the execution directory's project and user settings. A selection that cannot
+ * be made is a typed failure recorded as a configuration failure; nothing
+ * falls back to another Registry.
+ */
+export const makeRegistryContextLayer = (
+  projectRoot: AbsolutePath,
+  explicit: Option.Option<string>,
+  builtInSources: ReadonlyArray<SourceHostConfig> = getBuiltInSources(),
+): Layer.Layer<
+  RegistryContext,
+  never,
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+> =>
+  Layer.effect(
+    RegistryContext,
+    Effect.gen(function* () {
+      // The selection is read later, from whichever command first asks; it
+      // reads the settings through the invocation's own file services and
+      // write locks, under the configuration it was composed with.
+      const services = yield* Effect.context<
+        FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+      >();
+      const configProvider = yield* ConfigProvider.ConfigProvider;
+      const snapshot = yield* Effect.cached(
+        readProjectSourceConfiguration({ projectRoot, builtInSources }).pipe(
+          Effect.provide(services),
+          Effect.provideService(ConfigProvider.ConfigProvider, configProvider),
+          Effect.mapError(
+            (cause) =>
+              new RegistrySelectionFailed({
+                detail: "The settings that select the Registry could not be read.",
+                cause,
+              }),
+          ),
+        ),
+      );
+      const select = (selector: Option.Option<string>) =>
+        snapshot.pipe(
+          Effect.flatMap((current) => Effect.fromResult(selectRegistry(current, selector))),
+          recordingConfigurationFailure((error: RegistrySelectionFailure) => error),
+        );
+      const bound = yield* Effect.cached(select(explicit));
+      const defaultBound = yield* Effect.cached(select(Option.none()));
+      return { bound, defaultBound, target: select } satisfies RegistryContextService;
+    }),
   );
-
-const authenticatedRuntimeLayer = (registryUrl: string) =>
-  Layer.provideMerge(authenticatedHttpLayer(registryUrl), registryRuntimeLayer(registryUrl));
-
-// Registry clients are constructed here, once, from the authenticated
-// transport and the configured default registry; features keep the factory in
-// `R`.
-const registryClientFactoryLayer = (registryUrl: string) =>
-  Layer.provide(RegistryClientFactoryLive, authenticatedRuntimeLayer(registryUrl));
-
-const authServicesLayer = (registryUrl: string) =>
-  Layer.provideMerge(
-    Layer.mergeAll(PendingDeviceLoginStoreLive, AuthClientLive, TokenExchangeLayer),
-    Layer.mergeAll(authenticatedRuntimeLayer(registryUrl), credentialStoreLayer(registryUrl)),
-  );
-
-export const makeAuthLayer = (registryUrl: string) =>
-  Layer.mergeAll(authServicesLayer(registryUrl), authenticatedHttpLayer(registryUrl));
 
 export const runtimeBaseLayer = Layer.mergeAll(
   NodeServices.layer,
   CanonicalNativePathLive,
-  registryUrlLayer(AGENTXM_REGISTRY_URL),
   makeAxmSkillCompatibilityPolicyLayer(loadVersion()),
   // AuthLoginInteractionLive spawns platform commands via ChildProcessSpawner,
   // provided by NodeServices (memoized with the merged instance above).
@@ -329,7 +396,7 @@ interface RuntimeEnvConfig {
 }
 
 export const getBuiltInSources = (): ReadonlyArray<SourceHostConfig> => [
-  { name: "agentxm", type: "registry", location: new URL(AGENTXM_REGISTRY_URL) },
+  { name: "agentxm", type: "registry", location: decodeRegistryEndpointSync(AGENTXM_REGISTRY_URL) },
 ];
 
 const readRuntimeEnvConfig = (): RuntimeEnvConfig => ({
@@ -354,56 +421,6 @@ export const resolveProcessTelemetryOptions = (
   detectCaller: detectCallerAgent(environment),
   client: { name: "cli", version: loadVersion() },
 });
-
-/**
- * The Registry this invocation binds its transport, credentials, and clients
- * to: the settings-selected default, read through the workspace's one target
- * owner before any command's own workspace boundary is reached.
- */
-export const resolveDefaultRegistryTarget = (
-  projectRoot: AbsolutePath,
-  requested: Option.Option<string> = Option.none(),
-) => {
-  const stateLayer = Layer.provide(
-    coreWorkspaceLayer({
-      scope: "project",
-      projectRoot,
-      builtInSources: getBuiltInSources(),
-      allowUninitialized: true,
-    }),
-    AgentPresenceProbeLive,
-  );
-  return Effect.scoped(
-    Effect.gen(function* () {
-      const settings = yield* SettingsReader;
-      const selection = yield* settings.registryTarget(requested);
-      if (Option.isNone(selection.url)) {
-        return yield* makeAppError({
-          code: "usage",
-          detail: Option.isSome(requested)
-            ? "--registry must name a configured Registry source or an HTTP(S) URL without credentials, a query, or a fragment."
-            : `Default registry source "${selection.name}" is not configured.`,
-          recover: Option.isSome(requested)
-            ? "Check --registry syntax with axm help sources."
-            : `Add a Registry source named "${selection.name}" or change defaultRegistry in axm.json.`,
-        });
-      }
-      return { name: selection.name, url: selection.url.value } satisfies RegistryTarget;
-    }).pipe(Effect.provide(stateLayer)),
-  ).pipe(
-    Effect.matchEffect({
-      onFailure: (cause) =>
-        cause instanceof AppError || Option.isSome(requested)
-          ? Effect.fail(failureToAppError(cause))
-          : // Settings validity belongs to the command's workspace boundary,
-            // where its canonical path-aware diagnostic is preserved. Runtime
-            // bootstrap only needs a safe transport default until that boundary
-            // is reached.
-            Effect.succeed({ name: "agentxm", url: AGENTXM_REGISTRY_URL } satisfies RegistryTarget),
-      onSuccess: Effect.succeed,
-    }),
-  );
-};
 
 const makeWorkspaceProgramLayer = (workspace: Omit<WorkspaceStateOptions, "builtInSources">) => {
   // -- Workspace-state foundation --
@@ -663,10 +680,6 @@ export const withRuntime =
       yield* fs.stat(`${canonical}${path.sep}.`).pipe(Effect.mapError(directoryError));
       const executionDirectory = { path: decodeAbsolutePathSync(canonical) };
       const config = resolveRuntimeConfig();
-      const defaultRegistry = yield* resolveDefaultRegistryTarget(
-        executionDirectory.path,
-        options?.registry,
-      );
       const format = yield* resolveCliFormat;
       // Only the recovery a refusal names depends on this, so a configuration
       // source that cannot be read leaves the Registry's own recovery rather
@@ -704,7 +717,6 @@ export const withRuntime =
       return yield* withCliErrorHandling(
         program.pipe(
           Effect.provideService(ExecutionDirectory, executionDirectory),
-          Effect.provide(makeAuthLayer(defaultRegistry.url)),
           Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
           Effect.mapError((error) =>
             error instanceof AppError
@@ -716,13 +728,11 @@ export const withRuntime =
         { command, format },
       ).pipe(
         Effect.provide(appLayer),
-        Effect.provide(
-          Layer.mergeAll(
-            authenticatedRuntimeLayer(defaultRegistry.url),
-            registryClientFactoryLayer(defaultRegistry.url),
-          ),
-        ),
+        Effect.provide(registryAccessLayer),
         Effect.provide(WorkloadCredentialsLayer),
+        Effect.provide(
+          makeRegistryContextLayer(executionDirectory.path, options?.registry ?? Option.none()),
+        ),
         Effect.scoped,
         Effect.catchTag("RegistryAccessFailed", (error) => Effect.fail(failureToAppError(error))),
       );

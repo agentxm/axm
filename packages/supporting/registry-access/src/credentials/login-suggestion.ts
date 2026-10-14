@@ -2,7 +2,7 @@
  * Offline credential-presence probe.
  *
  * Answers "could this invocation be missing a private item because it is not
- * signed in to that origin?" without contacting any Registry. A successful
+ * signed in to that Registry?" without contacting any Registry. A successful
  * ambient or stored token suppresses the hint even when that identity cannot
  * see the requested item.
  *
@@ -10,33 +10,34 @@
  */
 
 import * as Effect from "effect/Effect";
+import {
+  isHttpRegistryEndpoint,
+  sameRegistryEndpoint,
+  type HttpRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import { CredentialStore } from "./credential-store.js";
 import { hasRequestCredential } from "./token-resolution.js";
 
-const remoteOrigins = (locations: ReadonlyArray<string>): ReadonlyArray<string> => {
-  const origins = new Set<string>();
-  for (const location of locations) {
-    try {
-      const url = new URL(location);
-      if (url.protocol === "http:" || url.protocol === "https:") origins.add(url.origin);
-    } catch {
-      // Invalid source locations are reported by their owning resolution path.
-    }
-  }
-  return [...origins];
-};
+const remoteEndpoints = (
+  endpoints: ReadonlyArray<RegistryEndpoint>,
+): ReadonlyArray<HttpRegistryEndpoint> =>
+  endpoints
+    .filter(isHttpRegistryEndpoint)
+    .filter(
+      (endpoint, index, all) =>
+        all.findIndex((other) => sameRegistryEndpoint(other, endpoint)) === index,
+    );
 
 /**
- * Whether every remote origin among `locations` already has a credential this
- * invocation would present. False when at least one does not.
+ * Whether every HTTP(S) Registry among `endpoints` already has a credential
+ * this invocation would present. False when at least one does not.
  */
 export const hasCredentialsForAll = (
-  locations: ReadonlyArray<string>,
-  defaultRegistryUrl: string,
+  endpoints: ReadonlyArray<RegistryEndpoint>,
+  defaultEndpoint: RegistryEndpoint,
 ): Effect.Effect<boolean, never, CredentialStore> =>
-  Effect.forEach(remoteOrigins(locations), (origin) =>
-    hasRequestCredential(origin, defaultRegistryUrl).pipe(
-      Effect.catch(() => Effect.succeed(false)),
-    ),
+  Effect.forEach(remoteEndpoints(endpoints), (endpoint) =>
+    hasRequestCredential(endpoint, defaultEndpoint).pipe(Effect.catch(() => Effect.succeed(false))),
   ).pipe(Effect.map((present) => present.every((hasCredential) => hasCredential)));

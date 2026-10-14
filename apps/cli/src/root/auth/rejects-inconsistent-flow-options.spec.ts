@@ -1,3 +1,6 @@
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "@agentxm/registry-access/credentials";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as DateTime from "effect/DateTime";
@@ -14,7 +17,6 @@ import {
   CredentialStoreTest,
   PendingDeviceLoginStoreTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -71,7 +73,7 @@ describe("Sign-in option validation", () => {
       const ports = Layer.mergeAll(
         renderer.layer,
         TestFlagsLayer({ json: true, nonInteractive: true }),
-        Layer.succeed(RegistryUrl, registry),
+        RegistryContextTest(registry),
         Layer.succeed(AuthEnvironment, ConfigProvider.fromEnvRecord({})),
         FileSystem.layerNoop({}),
         AuthLoginInteractionTest().layer,
@@ -111,7 +113,7 @@ describe("Sign-in option validation", () => {
 
       return Effect.gen(function* () {
         const store = yield* CredentialStore;
-        const before = yield* store.load(registry);
+        const before = yield* store.load(credentialKey(decodeHttpRegistryEndpointSync(registry)));
         const pending = yield* PendingDeviceLoginStore;
         const pendingBefore = yield* pending.load();
 
@@ -120,7 +122,9 @@ describe("Sign-in option validation", () => {
         expect(getAppError(failure).code).toBe("usage");
         // The refusal precedes every sign-in effect.
         expect(deviceFlowStarts).toEqual([]);
-        expect(yield* store.load(registry)).toEqual(before);
+        expect(yield* store.load(credentialKey(decodeHttpRegistryEndpointSync(registry)))).toEqual(
+          before,
+        );
         expect(yield* pending.load()).toEqual(pendingBefore);
         expect(renderer.state.results).toEqual([]);
       }).pipe(Effect.provide(layer));

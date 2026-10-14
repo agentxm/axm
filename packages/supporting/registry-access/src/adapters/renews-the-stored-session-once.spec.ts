@@ -1,3 +1,4 @@
+import { credentialKeyOf } from "../credentials/test-helpers.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -6,8 +7,9 @@ import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TokenExchangeTest } from "../authentication/auth-client.js";
@@ -22,7 +24,7 @@ import {
   CredentialStoreTest,
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
-import { AuthMiddlewareLive } from "./auth-middleware.js";
+import { AuthorizedTransportAt } from "./test-helpers.js";
 import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
 export const specification = defineSpecification({
@@ -35,7 +37,7 @@ export const specification = defineSpecification({
   goals: ["actionable-diagnostics", "machine-automation"],
   methods: ["example"],
   derivedFrom: [
-    "packages/supporting/registry-access/src/adapters/auth-middleware.ts",
+    "packages/supporting/registry-access/src/adapters/request-authorization.ts",
     "packages/supporting/registry-access/src/credentials/session-refresh.ts",
   ],
   supersedes: ["cli/whoami/refreshes-rejected-stored-credentials"],
@@ -110,18 +112,18 @@ const harness = ({ expiresAt, refresh, lock, respond }: Harness) => {
     SessionRefresherLive,
     Layer.mergeAll(exchangeLayer, storeLayer),
   );
-  const registryUrlLayer = Layer.succeed(RegistryUrl, registry);
+  const registryContextLayer = RegistryContextTest(registry);
   const middleware = Layer.provide(
-    AuthMiddlewareLive,
+    AuthorizedTransportAt(registry),
     Layer.mergeAll(
       WorkloadCredentialsTest(),
       transportLayer,
       storeLayer,
       refresherLayer,
-      registryUrlLayer,
+      registryContextLayer,
     ),
   );
-  return { presented, layer: Layer.mergeAll(middleware, storeLayer, registryUrlLayer) };
+  return { presented, layer: Layer.mergeAll(middleware, storeLayer, registryContextLayer) };
 };
 
 const call = Effect.gen(function* () {
@@ -140,7 +142,9 @@ describe("Stored session renewal", () => {
       expect((yield* call).status).toBe(200);
       // The expiring token is never spent: the renewed one goes out first.
       expect(presented).toEqual(["renewed-access"]);
-      expect(Option.getOrThrow(yield* (yield* CredentialStore).load(registry))).toMatchObject({
+      expect(
+        Option.getOrThrow(yield* (yield* CredentialStore).load(credentialKeyOf(registry))),
+      ).toMatchObject({
         access_token: "renewed-access",
         refresh_token: "renewed-refresh",
       });
@@ -171,7 +175,8 @@ describe("Stored session renewal", () => {
     const { presented, layer } = harness({
       expiresAt: farFuture(),
       refresh: TokenExchangeTest({
-        refreshToken: (_token, registryUrl) => Effect.fail(new SessionEnded({ registryUrl })),
+        refreshToken: (_token, endpoint) =>
+          Effect.fail(new SessionEnded({ registryUrl: endpoint.href })),
       }),
       respond: () => new Response("unauthorized", { status: 401 }),
     });
@@ -188,9 +193,12 @@ describe("Stored session renewal", () => {
     const { layer } = harness({
       expiresAt: insideSkew(),
       refresh: TokenExchangeTest({
-        refreshToken: (_token, registryUrl) =>
+        refreshToken: (_token, endpoint) =>
           Effect.fail(
-            new RefreshUnavailable({ registryUrl, detail: "The Registry could not be reached." }),
+            new RefreshUnavailable({
+              registryUrl: endpoint.href,
+              detail: "The Registry could not be reached.",
+            }),
           ),
       }),
       respond: () => new Response("ok", { status: 200 }),
@@ -200,7 +208,9 @@ describe("Stored session renewal", () => {
       const failure = yield* call.pipe(Effect.flip);
       expect(failure.reason._tag).toBe("TransportError");
       // Nothing was signed out: the credential is exactly where it was.
-      expect(Option.getOrThrow(yield* (yield* CredentialStore).load(registry))).toMatchObject({
+      expect(
+        Option.getOrThrow(yield* (yield* CredentialStore).load(credentialKeyOf(registry))),
+      ).toMatchObject({
         access_token: "stored-access",
       });
     }).pipe(Effect.provide(layer));

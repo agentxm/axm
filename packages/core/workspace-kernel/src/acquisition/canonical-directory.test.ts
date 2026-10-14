@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as nodeFs from "node:fs";
 import { spawnSync } from "node:child_process";
 import * as os from "node:os";
@@ -37,7 +38,7 @@ const requestedReview = {
 /** The accepted Registry row for `@acme/hooks/review` at the given version and tree. */
 const acceptedReview = (version: string, treeIntegrity: TreeIntegrity) =>
   Option.some<LockEntry>({
-    source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+    source: { type: "registry", url: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
     identity: { owner: handle("@acme"), name: extensionName("review") },
     resolved: {
       version: exactVersion(version),

@@ -26,6 +26,7 @@ import {
 import { ReleaseAgeExcludePatternSchema } from "@agentxm/extension-model/unstable/extensions/fqn-pattern";
 import type { CatalogExtensionType } from "@agentxm/extension-model/unstable/extension-types/schema";
 import { HandleSchema } from "@agentxm/extension-model/unstable/extensions/handle";
+import { RegistryEndpointFromString } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { HookConfigurationValuesSchema } from "@agentxm/extension-model/unstable/hooks/manifest-schema";
 import { LintConfigSchema } from "@agentxm/extension-content/lint";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
@@ -89,11 +90,11 @@ const sourceNameFieldSchema = SourceNameSchema.pipe(
 const RegistrySourceHostConfigSchema = Schema.Struct({
   name: sourceNameFieldSchema,
   type: Schema.Literal("registry"),
-  location: Schema.URLFromString.pipe(
+  location: RegistryEndpointFromString.pipe(
     Schema.annotateKey({ messageMissingKey: "source location is required" }),
     Schema.annotate({
       description:
-        "Registry endpoint for this source; accepts http(s)://, file://, or local paths.",
+        "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
     }),
   ),
 }).annotate({
@@ -1475,9 +1476,21 @@ const SettingsBaseSchema = Schema.Struct({
     }),
   ),
   sources: Schema.optionalKey(
-    Schema.Array(SourceHostConfigSchema).annotate({
-      description: "Named source hosts used to resolve source-scheme entry references.",
-    }),
+    Schema.Array(SourceHostConfigSchema)
+      .annotate({
+        description:
+          "Named source hosts used to resolve source-scheme entry references. Each name appears once.",
+      })
+      .check(
+        Schema.makeFilter((sources) => {
+          const seen = new Set<string>();
+          for (const source of sources) {
+            if (seen.has(source.name)) return `source name "${source.name}" is configured twice`;
+            seen.add(source.name);
+          }
+          return undefined;
+        }),
+      ),
   ),
   skills: Schema.optionalKey(
     Schema.Union([SkillsMapSchema]).annotate({

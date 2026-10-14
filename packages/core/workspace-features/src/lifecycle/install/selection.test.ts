@@ -29,6 +29,7 @@ import {
   InstallSelectionUnavailable,
 } from "@agentxm/workspace-kernel/operations";
 import { selectAcrossSourceTypes, selectInstallRefs } from "./selection.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 const localRef = (value: string) => {
   const name = Schema.decodeUnknownSync(ExtensionNameSchema)(value);
@@ -82,7 +83,7 @@ const pack = (
 const registrySource = {
   type: "registry" as const,
   name: "example",
-  location: new URL("https://registry.example/"),
+  location: decodeRegistryEndpointSync("https://registry.example"),
   owner: Option.none(),
 };
 /** A release a Registry resolved, which has no place in a source tree. */

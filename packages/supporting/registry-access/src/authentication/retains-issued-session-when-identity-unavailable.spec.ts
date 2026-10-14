@@ -14,6 +14,9 @@ import {
   authRegistryHost,
   machineOutputPresenter,
   makeAuthPorts,
+  authSelectedRegistry,
+  authEndpoint,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -61,12 +64,12 @@ describe("Identity lookup recovery", () => {
       },
     });
     return Effect.gen(function* () {
-      yield* initiateDeviceLogin(authRegistry, {
+      yield* initiateDeviceLogin(authEndpoint, {
         openBrowser: false,
       });
-      yield* resumeDeviceLogin(authRegistry);
+      yield* resumeDeviceLogin(authEndpoint);
 
-      const credentials = Option.getOrThrow(yield* (yield* CredentialStore).load(authRegistry));
+      const credentials = Option.getOrThrow(yield* (yield* CredentialStore).load(authKey));
       expect(credentials.access_token).toBe("fixture-new-access");
       // No handle is presented while the Registry cannot confirm one.
       expect(ports.presenterState.loginSuccesses).toEqual([
@@ -74,7 +77,7 @@ describe("Identity lookup recovery", () => {
       ]);
 
       identityAvailable = true;
-      expect(yield* currentIdentity(authRegistry)).toMatchObject({
+      expect(yield* currentIdentity(authSelectedRegistry)).toMatchObject({
         user: "@alice",
         registry: authRegistry,
         authority: "account",

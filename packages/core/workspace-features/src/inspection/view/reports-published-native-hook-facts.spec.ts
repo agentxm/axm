@@ -59,7 +59,11 @@ describe("Published native Hook facts", () => {
             const query = ViewExtension.read({
               handle: "@acme/hooks/audit",
               parts,
-              targetRegistry: { registryName: registry.source.name, registryUrl: registry.url },
+              targetRegistry: {
+                registryName: registry.source.name,
+                endpoint: registry.endpoint,
+                defaultEndpoint: registry.endpoint,
+              },
               field: Option.none(),
               hookContext: { scope: "project", agents: ["claude-code", "cursor"] },
             });

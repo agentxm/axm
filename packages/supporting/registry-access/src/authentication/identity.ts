@@ -20,6 +20,11 @@ import { CredentialStore } from "../credentials/credential-store.js";
 import { isRejectedCredential, signedOut } from "./errors.js";
 import { hasRequestCredential, resolveRequiredToken } from "../credentials/token-resolution.js";
 import type { WorkloadCredentials } from "../credentials/workload-credentials.js";
+import type { SelectedRegistry } from "./selected-registry.js";
+import type {
+  HttpRegistryEndpoint,
+  RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 /** The Registry's canonical answer to "who is this credential". */
 export interface RegistryIdentity {
@@ -44,15 +49,17 @@ export interface RegistryIdentity {
  * A credential the Registry rejects here has already been through renewal, so
  * there is nothing left to try: the person is signed out.
  */
-export const currentIdentity = Effect.fn("Identity.current")(function* (registryUrl: string) {
+export const currentIdentity = Effect.fn("Identity.current")(function* (
+  registry: SelectedRegistry,
+) {
   const authClient = yield* AuthClient;
-  yield* requireSignedIn(registryUrl);
+  yield* requireSignedIn(registry);
   const identity = yield* authClient
-    .getMe()
+    .getMe(registry.endpoint)
     .pipe(Effect.mapError((error) => (isRejectedCredential(error) ? signedOut(error) : error)));
   return {
     user: identity.userHandle,
-    registry: registryUrl,
+    registry: registry.endpoint.href,
     credentialType: identity.tokenType,
     authority: identity.authority,
     permissions: identity.permissions,
@@ -71,9 +78,9 @@ export const currentIdentity = Effect.fn("Identity.current")(function* (registry
  * to whatever their permissions allow.
  */
 export const requireSignedIn = Effect.fn("Identity.requireSignedIn")(function* (
-  registryUrl: string,
+  registry: SelectedRegistry,
 ) {
-  yield* resolveRequiredToken(registryUrl);
+  yield* resolveRequiredToken(registry.endpoint, registry.defaultEndpoint);
 });
 
 /**
@@ -84,12 +91,14 @@ export const requireSignedIn = Effect.fn("Identity.requireSignedIn")(function* (
  * decided offline and a storage failure reads as signed out rather than
  * becoming the result.
  */
-export const isSignedIn = (registryUrl: string) =>
-  hasRequestCredential(registryUrl, registryUrl).pipe(Effect.catch(() => Effect.succeed(false)));
+export const isSignedIn = (endpoint: HttpRegistryEndpoint, defaultEndpoint: RegistryEndpoint) =>
+  hasRequestCredential(endpoint, defaultEndpoint).pipe(Effect.catch(() => Effect.succeed(false)));
 
 /** The token an invocation would present to the selected Registry. */
-export const currentToken = Effect.fn("Identity.currentToken")(function* (registryUrl: string) {
-  const token = yield* resolveRequiredToken(registryUrl);
+export const currentToken = Effect.fn("Identity.currentToken")(function* (
+  registry: SelectedRegistry,
+) {
+  const token = yield* resolveRequiredToken(registry.endpoint, registry.defaultEndpoint);
   return token.token;
 });
 

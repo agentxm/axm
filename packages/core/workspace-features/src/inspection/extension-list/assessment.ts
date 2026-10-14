@@ -157,7 +157,7 @@ const registryAssessment = Effect.fn("Workspace.registryExtensionAssessment")(fu
 ) {
   const identity = { owner: record.identity.owner, type: item.type, name: record.identity.name };
   const factory = yield* RegistryClientFactory;
-  const client = yield* factory.forLocation(record.source.url.href);
+  const client = yield* factory.forEndpoint(record.source.url);
   const index = yield* client.getExtensionIndex({
     owner: identity.owner,
     type: identity.type,

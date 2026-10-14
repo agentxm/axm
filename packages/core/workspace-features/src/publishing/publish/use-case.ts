@@ -35,9 +35,10 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry";
 import {
   RegistryClientFactory,
-  RegistryUrl,
+  RegistryContext,
   type RegistryPublishWarning,
 } from "@agentxm/registry-client";
+import { isHttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { GitDirectoryComparison, GitOperationFailed } from "@agentxm/workspace-kernel/sources";
 import {
   AuthClient,
@@ -223,8 +224,6 @@ export interface PublishCandidateSet {
   readonly candidateFqns: ReadonlyArray<string>;
 }
 
-const isRemote = (url: string): boolean => url.startsWith("https://") || url.startsWith("http://");
-
 /** The one refusal a signed-out publish gets, wherever it is caught. */
 const publishingSignedOut = (registryName: string) =>
   signedOut(undefined, `Publishing to ${registryName} requires you to be signed in.`);
@@ -270,8 +269,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     resolveTargetRegistry(request.registry),
   );
   const settings = yield* SettingsReader;
-  const registryUrl = yield* RegistryUrl;
-  const remoteRegistry = isRemote(registry.url);
+  const remoteRegistry = isHttpRegistryEndpoint(registry.endpoint);
 
   const prepared = yield* observeUnit(
     { id: "candidates", label: "publish candidates" },
@@ -279,7 +277,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
       const catalog = request.from === undefined ? yield* catalogEntries() : [];
       const selection = yield* selectEntries(catalog, request);
       if (remoteRegistry && selection.entries.length > 0) {
-        const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
+        const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
         yield* validatePublishOwners(
           selection.entries.map((entry) => entry.owner),
           client,
@@ -380,7 +378,12 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
     return preparation;
   }
 
-  const storedToken = yield* resolveRequestToken(registry.url, registryUrl);
+  // The same eligibility the transport applies: ambient credentials only for
+  // the settings-selected default Registry, else that Registry's own session.
+  const defaultBound = yield* (yield* RegistryContext).defaultBound;
+  const storedToken = isHttpRegistryEndpoint(registry.endpoint)
+    ? yield* resolveRequestToken(registry.endpoint, defaultBound.endpoint)
+    : Option.none();
   // Publishing is a write the person makes as themselves. A signed-out apply
   // says so before anything is previewed or uploaded, so no server state is
   // created and nothing has to be undone. A preview stays available and
@@ -408,7 +411,7 @@ export const prepare = Effect.fn("PublishExtensions.prepare")(function* (request
   > = shouldPreviewAuthoritatively
     ? yield* Effect.result(
         Effect.gen(function* () {
-          const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
+          const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
           return yield* previewPublishCandidates(
             sourceAssessedCandidates,
             client,

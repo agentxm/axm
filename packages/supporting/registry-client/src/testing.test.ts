@@ -17,7 +17,6 @@ import { extensionName } from "./test-helpers.js";
 import {
   FIXTURE_OWNER,
   OfflineHttpClient,
-  RegistryUrlTest,
   makeFileRegistry,
   makeRecordedRegistryTransport,
   testRegistryUrl,
@@ -61,7 +60,7 @@ describe("@agentxm/registry-client/testing", () => {
     const transport = makeRecordedRegistryTransport(() => ({ body: {} }));
     return Effect.gen(function* () {
       const factory = yield* RegistryClientFactory;
-      const client = yield* factory.forLocation(registry.url);
+      const client = yield* factory.forEndpoint(registry.endpoint);
       const index = yield* client.getExtensionIndex({
         owner: decodeHandleSync(FIXTURE_OWNER),
         type: "skill",
@@ -77,11 +76,7 @@ describe("@agentxm/registry-client/testing", () => {
         `extensions/${FIXTURE_OWNER}/skills/review/index.json`,
       ]);
     }).pipe(
-      Effect.provide(
-        transport.factory.pipe(
-          Layer.provideMerge(Layer.mergeAll(RegistryUrlTest(testRegistryUrl), NodeServices.layer)),
-        ),
-      ),
+      Effect.provide(transport.factory.pipe(Layer.provideMerge(NodeServices.layer))),
       Effect.ensuring(Effect.sync(registry.cleanup)),
     );
   });

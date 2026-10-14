@@ -472,10 +472,11 @@ describe("classifyTargetedUpdate", () => {
 });
 
 describe("targeted update fingerprints", () => {
-  /** Two configured Registries; the default one is `primary`. */
+  /** Two configured Registries, `alias` naming the first again; the default one is `primary`. */
   const sources = [
     { name: "primary", type: "registry", location: "https://primary.example.com" },
     { name: "mirror", type: "registry", location: "https://mirror.example.com" },
+    { name: "alias", type: "registry", location: "https://primary.example.com/" },
   ];
 
   /** The shared-member context with the direct declaration spelled `declared`. */
@@ -503,6 +504,16 @@ describe("targeted update fingerprints", () => {
 
       expect(qualified.fingerprint).toBe(unqualified.fingerprint);
       expect(qualified.bindingFingerprint).toBe(unqualified.bindingFingerprint);
+    }),
+  );
+
+  it.effect("agrees for two configured aliases of one Registry endpoint", () =>
+    Effect.gen(function* () {
+      const primary = yield* contextFor(`primary:${bare}`);
+      const alias = yield* contextFor(`alias:${bare}`);
+
+      expect(alias.fingerprint).toBe(primary.fingerprint);
+      expect(alias.bindingFingerprint).toBe(primary.bindingFingerprint);
     }),
   );
 

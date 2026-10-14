@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -16,12 +17,12 @@ const catalog = WorkspaceCatalogTest({
     {
       type: "registry",
       name: "agentxm",
-      location: new URL("https://registry.example.com"),
+      location: decodeRegistryEndpointSync("https://registry.example.com"),
     },
     {
       type: "registry",
       name: "company",
-      location: new URL("https://registry.company.test"),
+      location: decodeRegistryEndpointSync("https://registry.company.test"),
     },
   ],
   defaultRegistry: "company",

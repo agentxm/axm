@@ -1,3 +1,13 @@
+## 0.46.0 (2026-10-14)
+
+### ⚠️ Breaking Changes
+
+- Fence managed regions by name alone, as `<!-- axm:<name> -->` and `<!-- /axm:<name> -->`, and record projection generation currency and last-written digests in a `projections` section of the lockfile, now version 12. AXM refuses version 11 lockfiles: recreate the lockfile as the workspace-state help topic describes, then run `axm sync --replace-unrecorded` once so AXM records the projections it already wrote. Subagent files carry no banner, and instruction copies, `.gitignore` regions and Subagent files are guarded by recorded rows: `--replace-unrecorded` overwrites a planned file AXM has no record of writing, and `--discard-modified` deletes a projected file edited since AXM wrote it. `axm instructions adopt` no longer takes `--file`. Blocks written in the old `axm:start`/`axm:end`/`axm:point` and `axm:file` grammar are left in place as plain text; delete them by hand after syncing. ([c3334f99c](https://github.com/agentxm/axm/commit/c3334f99c))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.45.0 (2026-10-12)
 
 ### 🩹 Fixes

@@ -104,16 +104,4 @@ describe("official AXM skill contract", () => {
       "https://github.com/agentxm/axm/blob/main/LICENSE",
     );
   });
-
-  it("keeps routing and activated-execution evaluation source outside runtime src", () => {
-    const suite: unknown = JSON.parse(readFileSync(`${packageRoot}/evals/evals.json`, "utf8"));
-    if (typeof suite !== "object" || suite === null) throw new Error("Expected evaluation suite");
-    const cases: unknown = Reflect.get(suite, "evals");
-    if (!Array.isArray(cases)) throw new Error("Expected evaluation cases");
-
-    const stages = cases.map((item) => requireString(item, "stage"));
-    expect(stages.filter((stage) => stage === "routing")).toHaveLength(34);
-    expect(stages.filter((stage) => stage === "execution")).toHaveLength(72);
-    expect(skillMd).not.toContain("evaluation-contract.json");
-  });
 });

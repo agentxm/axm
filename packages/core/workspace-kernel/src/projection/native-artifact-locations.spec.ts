@@ -17,7 +17,7 @@ export const specification = defineSpecification({
   requirement: "workspace/native-locations/reports-independent-policy-and-readers",
   title: "Native location observations distinguish policy and reader evidence",
   statement:
-    "AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, refresh region consumers after dependent instruction aliases are reconciled, retain conditional reader applicability as explicit uncertainty, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.",
+    "AXM shall report one physical ownership unit with all declared aliases, distinguish configured consumers from potential native readers and shared Skill policy, refresh region consumers after dependent instruction aliases are reconciled, observe a dangling link at a region reader path as a reader exactly when its link target addresses the region, even while the region file is missing, and otherwise as neither a reader nor an observation failure, retain conditional reader applicability as explicit uncertainty, preserve actual mutation state across duplicate consumers, distinguish completed removal from bounded retirement that retains user contents, and keep native availability unverified without runtime evidence.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
@@ -127,6 +127,78 @@ describe("Native artifact location outcomes", () => {
       });
       expect(result[0]?.aliases).not.toContain(alias);
       expect(result[0]?.potentialReaders).not.toContain("claude-code");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("ignores a foreign dangling link at an unconfigured agent's reader path", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      const foreign = path.join(root, "GEMINI.md");
+      yield* fs.writeFileString(source, "# Discovery\n");
+      yield* fs.symlink("does-not-exist.md", foreign);
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "project",
+            address: { kind: "region", path: source, region: "rules" },
+            aliases: [source],
+            configuredConsumers: [],
+            potentialReaders: [],
+            policyReasons: [],
+            ownership: "owned",
+            state: "unchanged",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["claude-code"],
+        },
+      );
+      expect(result[0]?.aliases).not.toContain(foreign);
+      expect(result[0]?.potentialReaders).not.toContain("gemini-cli");
+      expect(yield* fs.readLink(foreign)).toBe("does-not-exist.md");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("counts an alias link to a missing region file as that region's reader", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* fs.makeTempDirectoryScoped();
+      const source = path.join(root, "AGENTS.md");
+      const alias = path.join(root, "CLAUDE.md");
+      yield* fs.symlink("AGENTS.md", alias);
+      const result = yield* refreshNativeRegionReaders(
+        [
+          {
+            scope: "project",
+            address: { kind: "region", path: source, region: "rules" },
+            aliases: [source],
+            configuredConsumers: [],
+            potentialReaders: [],
+            policyReasons: [],
+            ownership: "absent",
+            state: "created",
+            mechanism: "managed-region",
+            availability: [],
+          },
+        ],
+        {
+          workspaceRoot: root,
+          nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
+          configuredAgentIds: ["claude-code"],
+        },
+      );
+      expect(result[0]).toMatchObject({
+        state: "created",
+        aliases: expect.arrayContaining([source, alias]),
+        configuredConsumers: ["claude-code"],
+      });
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 

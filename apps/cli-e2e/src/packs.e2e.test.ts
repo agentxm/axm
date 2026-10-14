@@ -11,8 +11,10 @@ export const executionBinding = {
     "cli/packs/new/records-workspace-authorship",
     "cli/packs/add/records-member-as-pack-dependency",
     "cli/sync/reports-aggregate-projection-drift-at-unit-precision",
+    "cli/projection-currency-follows-state-authority",
+    "workspace/native-locations/reports-independent-policy-and-readers",
   ],
   boundary: "process",
   rationale:
-    "Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose and how sync previews, repairs, and preserves it.",
+    "Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose; how sync previews, repairs, and preserves it, including regenerating a deleted canonical file beside its alias link; and that a foreign dangling reader link leaves a current workspace unchanged.",
 } as const;

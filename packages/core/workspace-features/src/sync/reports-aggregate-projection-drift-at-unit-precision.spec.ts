@@ -112,6 +112,39 @@ describe("Aggregate projection drift diagnostics", () => {
       .pipe(Effect.provide(NodeServices.layer));
   });
 
+  it.effect("reports missing regions at their owning units while an alias link remains", () => {
+    const workspace = fixture({
+      agents: ["claude-code"],
+      rules: { alpha: "workspace" },
+      knowledge: { guide: "workspace" },
+    });
+    writeAuthoredRule(workspace.root, "alpha", "Alpha guidance.");
+    writeAuthoredKnowledge(workspace.root, "guide", "Reference guide.");
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* applySync();
+          workspace.remove("AGENTS.md");
+          const missing = expectResolved(yield* previewSync());
+          expect(missing.units.filter((unit) => unit.error !== undefined)).toEqual([]);
+          const regions = missing.units.find((unit) =>
+            unit.label.includes("instruction files (missing)"),
+          );
+          expect(regions).toMatchObject({ state: "ready" });
+          expect(regions?.label).toContain("Knowledge discovery (missing)");
+          expect(regions?.artifact?.managedRegions).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({ unitId: "rule:instructions-region" }),
+              expect.objectContaining({ unitId: "knowledge:discovery-region" }),
+            ]),
+          );
+          if (regions === undefined) throw new Error("Expected the missing regions' unit");
+          expectNoContributorAttribution(regions, ["@acme/rules/alpha", "@acme/knowledge/guide"]);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
   it.effect(
     "does not report a hand-edited region as drift but flags it when a rewrite is planned",
     () => {

@@ -61,6 +61,12 @@ export const specification = defineSpecification({
       retirementCondition:
         "Retain the same instruction-copy currency observations through real symlink-unavailable environments on each supported platform, alongside separately attributable Windows execution.",
     },
+    {
+      limitation:
+        "A deleted canonical instruction file is regenerated beside a retained modified copy only when one contributor region writes it. When Rules and Knowledge regions both regenerate it in one operation, Knowledge discovery reconciles aliases against the intermediate file before the Rules region is written, so a modified copy is rewritten even though the final canonical bytes equal its recorded input.",
+      retirementCondition:
+        "Sync reconciles instruction aliases once, after every contributor region is written, and the modified-copy example runs with both Rules and Knowledge contributors.",
+    },
   ],
 });
 
@@ -296,6 +302,137 @@ describe("Generated document projection currency", () => {
           .pipe(Effect.provide(copyPlatform));
       },
       { timeout: FIXTURE_TIMEOUT },
+    );
+  }
+
+  const aliasedContributorWorkspace = (): SyncFixture => {
+    const workspace = makeSyncFixture({
+      settings: {
+        owner: "@acme",
+        agents: ["claude-code"],
+        instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+        rules: { review: "workspace" },
+        knowledge: { guide: "workspace" },
+      },
+    });
+    cleanups.push(workspace.cleanup);
+    writeAuthoredRule(workspace.root, "review", "Authoritative review guidance.");
+    writeAuthoredKnowledge(workspace.root, "guide", "Authoritative reference guide.");
+    return workspace;
+  };
+
+  it.effect(
+    "regenerates a deleted canonical instruction file while its alias link remains",
+    () => {
+      const workspace = aliasedContributorWorkspace();
+      const aliasPath = nodePath.join(workspace.root, "CLAUDE.md");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            const link = fs.readlinkSync(aliasPath);
+            workspace.remove("AGENTS.md");
+            workspace.remove("CLAUDE.md");
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            const recovered = {
+              instructions: workspace.readFile("AGENTS.md"),
+              lockfile: workspace.readFile("axm-lock.yaml"),
+            };
+            expect(fs.readlinkSync(aliasPath)).toBe(link);
+
+            workspace.remove("AGENTS.md");
+            const before = workspace.snapshot();
+            const planned = expectResolved(yield* previewSync());
+            expect(deriveOperationOutcome(planned)).toBe("previewed");
+            expect(operationNativeLocations(planned)).toContainEqual(
+              expect.objectContaining({
+                address: {
+                  kind: "region",
+                  path: nodePath.join(workspace.root, "AGENTS.md"),
+                  region: "rules",
+                },
+                state: "created",
+                configuredConsumers: ["claude-code"],
+              }),
+            );
+            expect(workspace.snapshot()).toEqual(before);
+            expect(fs.readlinkSync(aliasPath)).toBe(link);
+
+            const applied = expectResolved(yield* applySync());
+            expect(
+              applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
+            ).toBeUndefined();
+            expect(deriveOperationOutcome(applied)).toBe("applied");
+            expect(workspace.readFile("AGENTS.md")).toBe(recovered.instructions);
+            expect(workspace.readFile("axm-lock.yaml")).toBe(recovered.lockfile);
+            expect(fs.readlinkSync(aliasPath)).toBe(link);
+            expectNothingToReconcile(yield* applySync());
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 60_000 },
+  );
+
+  it.effect(
+    "keeps a current workspace current beside a foreign dangling reader link",
+    () => {
+      const workspace = aliasedContributorWorkspace();
+      const foreign = nodePath.join(workspace.root, "GEMINI.md");
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            fs.symlinkSync("does-not-exist.md", foreign);
+            const before = workspace.snapshot();
+            expectNothingToReconcile(yield* previewSync());
+            expectNothingToReconcile(yield* applySync());
+            expect(workspace.snapshot()).toEqual(before);
+            expect(fs.readlinkSync(foreign)).toBe("does-not-exist.md");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 60_000 },
+  );
+
+  for (const modified of [false, true]) {
+    it.effect(
+      `${modified ? "retains a modified" : "keeps an unmodified"} instruction copy when the canonical file is regenerated`,
+      () => {
+        const workspace = makeSyncFixture({
+          settings: {
+            owner: "@acme",
+            agents: ["claude-code"],
+            instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
+            rules: { review: "workspace" },
+          },
+        });
+        cleanups.push(workspace.cleanup);
+        writeAuthoredRule(workspace.root, "review", "Authoritative review guidance.");
+        return workspace
+          .provide(
+            Effect.gen(function* () {
+              expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+              const instructions = workspace.readFile("AGENTS.md");
+              const copy = modified
+                ? `${workspace.readFile("CLAUDE.md")}\nLocal Claude-only note.\n`
+                : workspace.readFile("CLAUDE.md");
+              workspace.writeFile("CLAUDE.md", copy);
+              workspace.remove("AGENTS.md");
+              const applied = expectResolved(yield* applySync());
+              expect(
+                applied.failure ?? applied.units.find((unit) => unit.error !== undefined)?.error,
+              ).toBeUndefined();
+              expect(deriveOperationOutcome(applied)).toBe("applied");
+              expect(workspace.readFile("AGENTS.md")).toBe(instructions);
+              expect(workspace.readFile("CLAUDE.md")).toBe(copy);
+              expectNothingToReconcile(yield* applySync());
+            }),
+          )
+          .pipe(Effect.provide(copyPlatform));
+      },
+      { timeout: 60_000 },
     );
   }
 

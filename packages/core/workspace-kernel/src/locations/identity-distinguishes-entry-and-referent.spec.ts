@@ -151,6 +151,12 @@ describe("native physical addresses", () => {
       const leaf = yield* resolveNativeEntry(path.join(root, "dangling"));
       expect(leaf.kind).toBe("symlink");
       expect(leaf.referentPath).toBeUndefined();
+      const leafReferent = yield* resolveNativeReferent(path.join(root, "dangling")).pipe(
+        Effect.result,
+      );
+      expect(leafReferent._tag).toBe("Failure");
+      if (leafReferent._tag === "Failure")
+        expect(leafReferent.failure.reason).toBe("dangling-leaf");
       const ancestor = yield* resolveNativeEntry(path.join(root, "dangling", "config")).pipe(
         Effect.result,
       );

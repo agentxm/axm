@@ -1,4 +1,8 @@
 import {
+  sameRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
   buildReconciliationClosure,
   buildInstallOperation,
   buildPackMemberStep,
@@ -237,10 +241,13 @@ const collectResolvedDependencyNames = (
 
 const formatRegistrySourceLabel = (args: {
   readonly source: RegistrySource;
-  readonly registryHosts: ReadonlyArray<{ readonly name: string; readonly location: URL }>;
+  readonly registryHosts: ReadonlyArray<{
+    readonly name: string;
+    readonly location: RegistryEndpoint;
+  }>;
 }): string => {
-  const matched = args.registryHosts.find(
-    (host) => host.location.href === args.source.location.href,
+  const matched = args.registryHosts.find((host) =>
+    sameRegistryEndpoint(host.location, args.source.location),
   );
   return matched === undefined
     ? args.source.location.href
@@ -479,6 +486,7 @@ export const discoverPackRef: (
       versionRange: request.versionRange,
     });
   const probes: Array<RegistryLookupProbe> = [];
+  const probedEndpoints: Array<RegistryEndpoint> = [request.source.location];
 
   const initialResult = yield* findWith(request.source).pipe(Effect.result);
   if (initialResult._tag === "Failure" && initialResult.failure._tag === "ConfigError") {
@@ -517,7 +525,7 @@ export const discoverPackRef: (
       ),
     );
     const fallbackSources = registryHosts
-      .filter((host) => host.location.protocol === "file:")
+      .filter((host) => host.location.transport === "file")
       .map(
         (host) =>
           ({
@@ -529,7 +537,8 @@ export const discoverPackRef: (
       );
 
     for (const fallbackSource of fallbackSources) {
-      if (fallbackSource.location.href === request.source.location.href) continue;
+      if (sameRegistryEndpoint(fallbackSource.location, request.source.location)) continue;
+      probedEndpoints.push(fallbackSource.location);
       const fallbackResult = yield* findWith(fallbackSource).pipe(Effect.result);
       probes.push(
         fallbackResult._tag === "Success"
@@ -581,7 +590,7 @@ export const discoverPackRef: (
 
   const ref = resolvedRefs?.[0];
   if (ref === undefined) {
-    const loginSuggestions = yield* registryLoginSuggestions(probes.map((probe) => probe.location));
+    const loginSuggestions = yield* registryLoginSuggestions(probedEndpoints);
     return yield* installRefused({
       category: "not_found",
       detail: `Pack "${packName}" not found in registry`,

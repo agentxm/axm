@@ -15,7 +15,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as semver from "semver";
+import { versionSatisfiesRequest } from "@agentxm/extension-model/unstable/version-constraints";
 
 import type { DesiredConstraintContributor } from "../../workspace-state/index.js";
 
@@ -32,7 +32,7 @@ export const heldBackReleaseWarnings = (args: {
         .filter(
           (contributor) =>
             contributor.source === "pack" &&
-            !semver.satisfies(args.latestVersion, contributor.range),
+            !versionSatisfiesRequest(args.latestVersion, contributor.range),
         )
         .map(
           (contributor) =>

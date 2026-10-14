@@ -44,7 +44,7 @@ describe("pack uninstall graph readiness", () => {
           reason: "absent",
         },
       ]),
-      ["workspace:@acme/packs/toolkit"],
+      ["@acme/packs/toolkit"],
       "project",
     );
 
@@ -111,7 +111,7 @@ describe("pack uninstall graph readiness", () => {
           reason: "absent",
         },
       ]),
-      ["workspace:@acme/packs/toolkit"],
+      ["@acme/packs/toolkit"],
       "project",
     );
 
@@ -132,7 +132,7 @@ describe("pack uninstall graph readiness", () => {
         },
         { type: "workspace-owner-missing", extensionType: "skill", name: "orphan" },
       ]),
-      ["workspace:@acme/packs/toolkit"],
+      ["@acme/packs/toolkit"],
       "project",
     );
 
@@ -149,7 +149,7 @@ describe("pack uninstall graph readiness", () => {
           detail: "Expected @acme/packs/toolkit, found @other/packs/toolkit@1.0.0.",
         },
       ]),
-      ["workspace:@acme/packs/toolkit"],
+      ["@acme/packs/toolkit"],
       "project",
     );
 

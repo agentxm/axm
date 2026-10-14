@@ -8,6 +8,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import type { RegistrySkillRef } from "@agentxm/extension-model/unstable/extensions/refs/skill";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import { WorkspaceFileWriteLocksLive } from "../../settlement/live.js";
 import { WorkspaceTransactionScopeTest } from "../../settlement/testing.js";
@@ -18,9 +19,10 @@ import { declareMaterialization } from "./declaration.js";
 const SKILL = "review";
 const FQN = `@acme/skills/${SKILL}`;
 
-/** Two configured Registries; a bare locator binds to `primary`. */
+/** Two configured Registries and a second alias of `primary`; a bare locator binds to `primary`. */
 const primary = { name: "primary", location: "https://primary.example.com/" };
 const mirror = { name: "mirror", location: "https://mirror.example.com/" };
+const alias = { name: "alias", location: "https://primary.example.com" };
 
 let root: string;
 
@@ -39,7 +41,7 @@ const writeSettings = (declared: string) =>
       owner: "@acme",
       agents: [],
       defaultRegistry: primary.name,
-      sources: [primary, mirror].map((source) => ({ ...source, type: "registry" })),
+      sources: [primary, mirror, alias].map((source) => ({ ...source, type: "registry" })),
       skills: { [SKILL]: declared },
     }),
   );
@@ -65,7 +67,7 @@ const declareFromPrimary = (range: string) => {
     source: {
       type: "registry",
       name: primary.name,
-      location: new URL(primary.location),
+      location: decodeRegistryEndpointSync(primary.location),
       owner: Option.some(handle("@acme")),
     },
     owner: handle("@acme"),
@@ -84,7 +86,7 @@ const declareFromPrimary = (range: string) => {
       entry: makeRegistrySkillLockEntry({
         owner: handle("@acme"),
         name: SKILL,
-        endpoint: new URL(primary.location),
+        endpoint: decodeRegistryEndpointSync(primary.location),
       }),
     }),
   }).pipe(
@@ -118,6 +120,14 @@ describe("declareMaterialization", () => {
       writeSettings(`${primary.name}:${FQN}@1.0.0`);
       yield* declareFromPrimary("^1.1.0");
       expect(declaredSource()).toBe(`${primary.name}:${FQN}@^1.1.0`);
+    }),
+  );
+
+  it.effect("keeps another alias of the same endpoint and replaces only its range", () =>
+    Effect.gen(function* () {
+      writeSettings(`${alias.name}:${FQN}@1.0.0`);
+      yield* declareFromPrimary("^1.1.0");
+      expect(declaredSource()).toBe(`${alias.name}:${FQN}@^1.1.0`);
     }),
   );
 

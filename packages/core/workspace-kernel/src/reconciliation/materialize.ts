@@ -82,6 +82,7 @@ import {
   type DesiredStateGraph,
   type ExtensionInventory,
   desiredMcpSourceKey,
+  McpSourceKey,
   desiredPackageKey,
   type DesiredNodeIdentity,
 } from "../workspace-state/index.js";
@@ -388,7 +389,7 @@ const subagentSyncArtifact = (args: {
 const buildMcpServerSyncOperation = ({
   manager,
   ref,
-  sourceIdentity,
+  sourceKey,
   force,
   transitionLabel,
   nativeLocations,
@@ -397,7 +398,7 @@ const buildMcpServerSyncOperation = ({
 }: {
   readonly manager: McpServerManagerService;
   readonly ref: McpServerExtensionRef;
-  readonly sourceIdentity: string;
+  readonly sourceKey: Option.Option<McpSourceKey>;
   readonly force: boolean;
   readonly transitionLabel: string;
   readonly nativeLocations: ReadonlyArray<NativeLocationOutcome>;
@@ -426,7 +427,7 @@ const buildMcpServerSyncOperation = ({
         name: "install-mcp-server",
         args: {
           ref,
-          sourceIdentity,
+          ...Option.match(sourceKey, { onNone: () => ({}), onSome: (key) => ({ sourceKey: key }) }),
           nonInteractive: true,
           force,
         },
@@ -998,7 +999,7 @@ export const collectMaterializeSteps = (args: {
     const skillRefs: Array<Reconciled<SkillExtensionRef>> = [];
     const packRefs: Array<Reconciled<PackRef>> = [];
     const mcpServerRefs: Array<
-      Reconciled<McpServerExtensionRef> & { readonly sourceIdentity: string }
+      Reconciled<McpServerExtensionRef> & { readonly sourceKey: Option.Option<McpSourceKey> }
     > = [];
     const subagentRefs: Array<Reconciled<SubagentExtensionRef>> = [];
     const ruleRefs: Array<Reconciled<RuleExtensionRef>> = [];
@@ -1019,7 +1020,7 @@ export const collectMaterializeSteps = (args: {
         case "mcp-server":
           mcpServerRefs.push({
             ref: item.ref,
-            sourceIdentity: desiredMcpSourceKey(item.node.identity),
+            sourceKey: desiredMcpSourceKey(item.node.identity),
             force: item.force,
             materialize: item.materialize,
             transitionLabel: item.transitionLabel,
@@ -1544,12 +1545,12 @@ export const collectMaterializeSteps = (args: {
         ...skillSteps,
         ...mcpServerRefs
           .filter(({ materialize }) => materialize)
-          .map(({ ref, sourceIdentity, force, transitionLabel, nativeLocations }) =>
+          .map(({ ref, sourceKey, force, transitionLabel, nativeLocations }) =>
             desiredActivation(ref)
               ? buildMcpServerSyncOperation({
                   manager: mcpManager,
                   ref,
-                  sourceIdentity,
+                  sourceKey,
                   nativeLocations,
                   scope: location.scope,
                   force,

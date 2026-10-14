@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { AcquiredContent, sourceRefContentKey } from "@agentxm/workspace-kernel/acquisition";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -57,7 +58,7 @@ const ref: RegistryPackRef = {
   source: {
     type: "registry",
     name: "test",
-    location: new URL("https://registry.example/"),
+    location: decodeRegistryEndpointSync("https://registry.example"),
     owner: Option.none(),
   },
   version: manifest.version,

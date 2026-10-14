@@ -23,7 +23,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
+import type {
+  ExtensionIndex,
+  VersionEntry,
+} from "@agentxm/registry-protocol/unstable/registry/schema";
+import { intersectVersionConstraints } from "@agentxm/extension-model/unstable/version-constraints";
 import { WorkspaceStateLive } from "../../workspace-state/live.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -37,7 +41,7 @@ export const specification = defineSpecification({
   requirement: "source-resolution/minimum-release-age-withholds-unaged-releases",
   title: "Resolution withholds a release that has not aged, unless it is exempt",
   statement:
-    "When a resolution selects a release without an explicit version request, the resolution shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.",
+    "A resolution shall never let an exemption or a previously accepted version admit a release that its version request — `*` when absent — would not select, when it selects a release without an explicit version request it shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
@@ -160,6 +164,54 @@ const decide = (
       }),
     };
   });
+
+/** One release of the configured skill, aged relative to the evaluation. */
+interface Release {
+  readonly version: string;
+  /** Days before the evaluation; zero is just published and under age. */
+  readonly ageDays: number;
+  readonly yanked?: boolean;
+}
+
+/** The index the given releases form at one evaluation instant. */
+const indexOf =
+  (releases: ReadonlyArray<Release>) =>
+  (evaluatedAt: DateTime.Utc): ExtensionIndex => ({
+    ...indexPublished(evaluatedAt),
+    versions: releases.map((release): VersionEntry => ({
+      version: exactVersion(release.version),
+      published: DateTime.subtractDuration(evaluatedAt, Duration.days(release.ageDays)),
+      integrity: "sha512-0000",
+      ...(release.yanked === true ? { yankedAt: evaluatedAt } : {}),
+    })),
+  });
+
+/** The decision for an explicit request, with the version the workspace accepted. */
+const decideRequest = (args: {
+  readonly releases: ReadonlyArray<Release>;
+  readonly request?: string;
+  readonly accepted?: string;
+  readonly scenario?: Scenario;
+}) =>
+  Effect.gen(function* () {
+    const releaseAgeEvaluation = yield* evaluationFor(args.scenario);
+    return decideNamedRegistryVersion(indexOf(args.releases)(releaseAgeEvaluation.evaluatedAt), {
+      name: SKILL,
+      type: "skill",
+      owner: handle(OWNER),
+      versionRange: Option.fromUndefinedOr(args.request),
+      releaseAgeEvaluation,
+      ...(args.accepted === undefined
+        ? {}
+        : { accepted: { version: args.accepted, publisherBindingId: "hbnd_acme" } }),
+    });
+  });
+
+/** A stable release and a newer prerelease, both aged. */
+const PRERELEASE_LED: ReadonlyArray<Release> = [
+  { version: "1.9.0", ageDays: 3 },
+  { version: "2.0.0-beta.1", ageDays: 3 },
+];
 
 /**
  * Each row states one exemption input and the cause and scope the exempted
@@ -311,6 +363,99 @@ describe("Minimum release age", () => {
       });
 
       expect(decision.kind).toBe("policy_held");
+    }),
+  );
+
+  it.effect.each([{ spelling: "absent" }, { spelling: "*" }])(
+    "keeps no accepted prerelease as a floor under an $spelling request",
+    ({ spelling }) =>
+      Effect.gen(function* () {
+        const decision = yield* decideRequest({
+          releases: PRERELEASE_LED,
+          ...(spelling === "absent" ? {} : { request: spelling }),
+          accepted: "2.0.0-beta.1",
+        });
+
+        expect(decision).toMatchObject({ kind: "selected", version: "1.9.0" });
+      }),
+  );
+
+  it.effect("keeps an accepted prerelease only under a range that names its tuple", () =>
+    Effect.gen(function* () {
+      const decision = yield* decideRequest({
+        releases: PRERELEASE_LED,
+        request: ">=2.0.0-0",
+        accepted: "2.0.0-beta.1",
+      });
+
+      expect(decision).toMatchObject({ kind: "selected", version: "2.0.0-beta.1" });
+    }),
+  );
+
+  it.effect("finds no candidate when only prereleases are published and none is requested", () =>
+    Effect.gen(function* () {
+      const decision = yield* decideRequest({
+        releases: [{ version: "2.0.0-beta.1", ageDays: 3 }],
+        accepted: "2.0.0-beta.1",
+      });
+
+      expect(decision).toEqual({ kind: "version_unsatisfied", requestedRange: "*" });
+    }),
+  );
+
+  it.effect("keeps no yanked accepted version as a floor under a range", () =>
+    Effect.gen(function* () {
+      const releases: ReadonlyArray<Release> = [
+        { version: "1.2.0", ageDays: 3 },
+        { version: "1.3.0", ageDays: 3, yanked: true },
+        { version: "1.4.0", ageDays: 0 },
+      ];
+
+      const ranged = yield* decideRequest({ releases, request: "^1.0.0", accepted: "1.3.0" });
+      const exact = yield* decideRequest({ releases, request: "1.3.0", accepted: "1.3.0" });
+
+      expect(ranged).toMatchObject({
+        kind: "selected",
+        version: "1.2.0",
+        newerHeld: expect.objectContaining({ version: "1.4.0" }),
+      });
+      // An exact request still names the yanked release it accepted.
+      expect(exact).toMatchObject({ kind: "selected", version: "1.3.0" });
+    }),
+  );
+
+  it.effect("lets no exemption admit a release outside the request", () =>
+    Effect.gen(function* () {
+      const releases: ReadonlyArray<Release> = [
+        { version: "1.0.0", ageDays: 3 },
+        { version: "2.0.0", ageDays: 0 },
+        { version: "2.1.0-beta.1", ageDays: 0 },
+      ];
+      const scenario: Scenario = { posture: "ignore" };
+
+      const ranged = yield* decideRequest({ releases, request: "^1.0.0", scenario });
+      const unconstrained = yield* decideRequest({ releases, scenario });
+
+      expect(ranged).toMatchObject({ kind: "selected", version: "1.0.0" });
+      expect(unconstrained).toMatchObject({ kind: "exempted", version: "2.0.0" });
+    }),
+  );
+
+  it.effect("keeps no accepted version outside the intersection of contributing ranges", () =>
+    Effect.gen(function* () {
+      const request = intersectVersionConstraints(["^1.0.0", ">=1.2.0"]);
+      if (request === undefined) throw new Error("Expected a satisfiable intersection");
+      const releases: ReadonlyArray<Release> = [
+        { version: "1.1.0", ageDays: 3 },
+        { version: "1.2.0", ageDays: 0 },
+      ];
+
+      const decision = yield* decideRequest({ releases, request, accepted: "1.1.0" });
+
+      expect(decision).toMatchObject({
+        kind: "policy_held",
+        candidate: expect.objectContaining({ version: "1.2.0" }),
+      });
     }),
   );
 });

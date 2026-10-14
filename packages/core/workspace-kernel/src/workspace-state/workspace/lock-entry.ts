@@ -13,16 +13,11 @@ import { LockEntryEndpointConflict, LockEntryNameInvalid } from "./errors.js";
 import type { SettingsReadError, WorkspaceRootEscape } from "../observed/errors.js";
 import {
   decodeExtensionNameSync,
-  formatFqn,
   toExtensionTypePlural,
   type ExtensionName,
   type ExtensionTypePlural,
 } from "@agentxm/extension-model/unstable/extensions";
 import type { InstallableExtensionType } from "@agentxm/extension-model/unstable/extensions/installable-types";
-import {
-  forgeCoordinateFromGitUrl,
-  printForgeCoordinateBody,
-} from "@agentxm/extension-model/unstable/sources/forge-grammar";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import type {
   KnowledgeLockEntry,
@@ -50,6 +45,7 @@ import type {
 } from "@agentxm/extension-model/unstable/sources/types";
 import { acquiredExtensionDisplayPath, type ExtensionPathSource } from "./extension-paths.js";
 import { acquiredRootDisplayPath } from "./display-paths.js";
+import { canonicalSourceLocator } from "./source-locator.js";
 import type { LockEntryByType } from "./entry-accessors.js";
 
 /** Failure of the caller-supplied configured-source lookup. */
@@ -606,9 +602,10 @@ export const lockEntryToSourceParams = (entry: LockEntry): SourceParams => {
   return source;
 };
 
-/** Whether a declaration locator denotes the accepted source. */
+/** Whether a declaration locator denotes the accepted source, however the locator spells it. */
 export const lockEntryMatchesSourceLocator = (entry: LockEntry, locator: string): boolean => {
-  if (printSourceParams(lockEntryToSourceParams(entry)) === locator) return true;
+  const canonical = canonicalSourceLocator(locator);
+  if (printSourceParams(lockEntryToSourceParams(entry)) === canonical) return true;
   if (!isGitLockEntry(entry)) return false;
   // A declaration can select a named member from any containing source view.
   // Keep repository and revision exact while comparing the accepted path's ancestors.
@@ -617,29 +614,16 @@ export const lockEntryMatchesSourceLocator = (entry: LockEntry, locator: string)
     .filter((part) => part !== "" && part !== ".");
   return Array.from({ length: segments.length + 1 }, (_, length) =>
     length === 0 ? Option.none<string>() : Option.some(segments.slice(0, length).join("/")),
-  ).some((subPath) => {
-    const source = {
-      type: "git",
-      url: entry.source.url,
-      ref: Option.fromUndefinedOr(entry.source.revision),
-      subPath,
-    } as const;
-    return (
-      printSourceParams(source) === locator ||
-      Option.exists(
-        forgeCoordinateFromGitUrl(source.url, source.ref, subPath),
-        (coordinate) =>
-          coordinate.forge === "github" && locator === printForgeCoordinateBody(coordinate),
-      )
-    );
-  });
+  ).some(
+    (subPath) =>
+      printSourceParams({
+        type: "git",
+        url: entry.source.url,
+        ref: Option.fromUndefinedOr(entry.source.revision),
+        subPath,
+      }) === canonical,
+  );
 };
-
-/** Print an accepted Skill source locator with its immutable Registry identity. */
-export const printSkillLockSourceLocator = (_lockName: string, entry: SkillLockEntry): string =>
-  isRegistryLockEntry(entry) && entry.identity.owner !== undefined
-    ? `registry:${entry.source.url.href}:${formatFqn({ owner: entry.identity.owner, type: "skill", name: entry.identity.name })}@${entry.resolved.version}`
-    : printSourceParams(lockEntryToSourceParams(entry));
 
 /** Resolved Registry version, when present on this lock row. */
 export const lockEntryVersion = (entry: LockEntry): string | undefined =>

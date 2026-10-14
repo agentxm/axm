@@ -2,12 +2,15 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
+import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
 import { readSettings } from "./test-helpers.js";
 import {
   applyInstall,
@@ -117,4 +120,64 @@ describe("Pack and MCP shared source resolution", () => {
       )
       .pipe(Effect.provide(NodeServices.layer));
   });
+
+  it.effect(
+    "shares one accepted resolution between an explicit Pack member and a settings connection",
+    () => {
+      const created = world();
+      created.registry.writeMcp("context", [{ version: "1.0.0" }]);
+      const source = nodePath.join(created.workspace.root, "fixtures", "toolkit");
+      fs.mkdirSync(source, { recursive: true });
+      fs.writeFileSync(
+        nodePath.join(source, "pack.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "pack",
+          name: "toolkit",
+          version: "1.0.0",
+          description: "A local pack naming its member's Registry",
+          dependencies: {
+            // The member names the Registry by its endpoint, spelled with a
+            // trailing slash, rather than inheriting the Pack's source.
+            "@acme/mcps/context": {
+              source: { type: "registry", url: `${created.registry.url}/` },
+              versionRange: "^1.0.0",
+            },
+          },
+        }),
+      );
+
+      return created.workspace
+        .provide(
+          Effect.gen(function* () {
+            const resolutions = (): ReadonlyArray<string> =>
+              Object.keys(
+                Schema.decodeUnknownSync(LockfileSchema)(
+                  YAML.parse(created.workspace.readFile("axm-lock.yaml")),
+                ).mcpServers ?? {},
+              );
+            const accepted = `registry:${encodeURIComponent(created.registry.endpoint.href)}:@acme/mcps/context`;
+            const pack = yield* applyInstall(
+              installRequest({ type: "pack", subject: { kind: "source", source } }),
+            );
+            expect(deriveOperationOutcome(pack), JSON.stringify(pack)).toBe("applied");
+            expect(resolutions()).toEqual([accepted]);
+
+            // The settings declaration reaches the same Registry through its
+            // configured source name, and shares the member's resolution.
+            const connection = yield* applyInstall(
+              installRequest({
+                type: "mcp-server",
+                subject: { kind: "source", source: "test:@acme/mcps/context" },
+                localName: "personal-context",
+              }),
+            );
+            expect(deriveOperationOutcome(connection), JSON.stringify(connection)).toBe("applied");
+            expect(JSON.stringify(readSettings(created.workspace))).toContain("personal-context");
+            expect(resolutions()).toEqual([accepted]);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
 });

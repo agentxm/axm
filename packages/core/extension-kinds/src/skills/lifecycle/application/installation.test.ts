@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -31,7 +32,7 @@ it.effect(
         source: {
           type: "registry",
           name: "example",
-          location: new URL("https://registry.example.test"),
+          location: decodeRegistryEndpointSync("https://registry.example.test"),
           owner: Option.none(),
         },
         skill: { name, description: Option.none(), metadata: Option.none() },

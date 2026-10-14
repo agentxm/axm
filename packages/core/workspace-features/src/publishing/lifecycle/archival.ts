@@ -10,13 +10,7 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 
-import {
-  archiveExtension,
-  getExtensionArchival,
-  unarchiveExtension,
-  RegistryUrl,
-} from "@agentxm/registry-client";
-
+import { selectedLifecycleRegistry } from "./registry.js";
 import { parseExtensionReference } from "./retirement.js";
 import { PublishFailed } from "../errors.js";
 
@@ -31,15 +25,15 @@ export const archive = Effect.fn("ArchivePublishedExtension.archive")(function* 
       detail: "--message and --clear-message cannot be combined",
     });
   }
-  const registryUrl = yield* RegistryUrl;
   const ref = yield* parseExtensionReference(input.ref);
-  const current = yield* getExtensionArchival(ref);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Archiving an extension");
+  const current = yield* lifecycle.getExtensionArchival(ref);
   const message = input.clearMessage
     ? Option.some(null)
     : Option.map(input.message, (value) => value.trim() || null);
   return {
-    registry: registryUrl,
-    transition: yield* archiveExtension(ref, {
+    registry,
+    transition: yield* lifecycle.archiveExtension(ref, {
       revision: current.revision,
       ...(Option.isNone(message) ? {} : { message: message.value }),
     }),
@@ -49,12 +43,12 @@ export const archive = Effect.fn("ArchivePublishedExtension.archive")(function* 
 export const unarchive = Effect.fn("ArchivePublishedExtension.unarchive")(function* (
   input: string,
 ) {
-  const registryUrl = yield* RegistryUrl;
   const ref = yield* parseExtensionReference(input);
-  const current = yield* getExtensionArchival(ref);
+  const { registry, lifecycle } = yield* selectedLifecycleRegistry("Unarchiving an extension");
+  const current = yield* lifecycle.getExtensionArchival(ref);
   return {
-    registry: registryUrl,
-    transition: yield* unarchiveExtension(ref, current.revision),
+    registry,
+    transition: yield* lifecycle.unarchiveExtension(ref, current.revision),
   };
 });
 

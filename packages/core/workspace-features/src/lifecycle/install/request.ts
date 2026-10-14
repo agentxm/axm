@@ -92,7 +92,7 @@ export const resolveRegistryInstallRefs = <T extends InstallableExtensionType>(
               if (cause._tag === "ConfigError") return yield* Effect.fail(cause);
               const suggestions =
                 sourceResolutionFailureCategory(cause) === "not_found"
-                  ? yield* registryLoginSuggestions([source.location.href])
+                  ? yield* registryLoginSuggestions([source.location])
                   : [];
               return yield* sourceResolutionRefused(cause, suggestions);
             }),
@@ -101,7 +101,7 @@ export const resolveRegistryInstallRefs = <T extends InstallableExtensionType>(
             Effect.gen(function* () {
               const login =
                 resolution.kind === "not_found"
-                  ? yield* registryLoginSuggestions([source.location.href])
+                  ? yield* registryLoginSuggestions([source.location])
                   : [];
               return yield* settleRegistryResolution({
                 ...resolution,
@@ -338,7 +338,7 @@ export const discoverInstallRefs = <T extends SourceInstallType>(
     if (refs.length === 0) {
       const login =
         request.source.type === "registry"
-          ? yield* registryLoginSuggestions([request.source.location.href])
+          ? yield* registryLoginSuggestions([request.source.location])
           : [];
       return yield* installRefused({
         category: "not_found",

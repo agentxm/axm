@@ -457,7 +457,7 @@ const runLint = (selection: LintSelection, options: { readonly strict: boolean }
                     }
                     const ref = accepted.value;
                     return Effect.gen(function* () {
-                      const client = yield* registryClients.forLocation(ref.source.location);
+                      const client = yield* registryClients.forEndpoint(ref.source.location);
                       const index = yield* client.getExtensionIndex({
                         owner: ref.owner,
                         type: ref.type,

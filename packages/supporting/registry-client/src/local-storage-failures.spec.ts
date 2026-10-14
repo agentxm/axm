@@ -8,7 +8,6 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import {
-  createLocalRegistryClient,
   RegistryOperationFailed,
   type RegistryClient,
   type RegistryClientFailure,
@@ -18,7 +17,13 @@ import {
   archiveSha256Hex,
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry/schema";
-import { exactVersion, extensionName, handle, versionRange } from "./test-helpers.js";
+import {
+  exactVersion,
+  extensionName,
+  handle,
+  versionRange,
+  localRegistryClient,
+} from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "registry/local-storage-failures-remain-failures",
@@ -91,7 +96,7 @@ const fixture = Effect.gen(function* () {
     archivePath,
     originalIndex,
     client: (overrides: Partial<FileSystem.FileSystem> = {}) =>
-      createLocalRegistryClient(root, FileSystem.FileSystem.of({ ...fs, ...overrides }), path),
+      localRegistryClient(root, FileSystem.FileSystem.of({ ...fs, ...overrides }), path),
   };
 });
 

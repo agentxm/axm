@@ -1,16 +1,20 @@
 /**
- * RegistryClientFactory — the port features ask for a Registry client.
+ * RegistryClientFactory — the one place a Registry client is built.
  *
  * Constructing a client needs transport services (HTTP, file system, path)
- * that belong to the composition root, and the location a client speaks to is
- * a workspace decision (the configured default registry, or a named
- * configured registry source). Features therefore keep this factory in `R` and
- * never build a client themselves.
+ * that belong to the composition root, and which Registry a client speaks to
+ * is a workspace decision. Features therefore keep this factory in `R` and
+ * ask it for a client by validated endpoint; they never build a client
+ * themselves.
  *
- * The factory is also the one place a configured location becomes what a
- * client speaks to: a `file:` URL becomes the native filesystem path it names
- * (percent-decoded, so `file:///tmp/my%20registry` is `/tmp/my registry`),
- * and an HTTP(S) URL is the request base as written.
+ * Every transport's client serves reads, publication, and visibility; a file
+ * Registry implements nothing that needs a server, so `lifecycle` and `wire`
+ * check the endpoint's transport before building anything and refuse a file
+ * Registry before any request, credential, or file is touched. An HTTP(S)
+ * client travels on the Registry transport, confined to its origin, refusing
+ * redirects, and authorized for that origin alone; a file client is opened at
+ * the native directory its `file:` URL names (percent-decoded, so
+ * `file:///tmp/my%20registry` is `/tmp/my registry`).
  *
  * @experimental This API is unstable and may change without notice.
  */
@@ -21,20 +25,55 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
-import * as HttpClient from "effect/http/HttpClient";
+import type * as HttpClient from "effect/http/HttpClient";
+import { fromFileLocation } from "@agentxm/host-primitives";
+import {
+  isHttpRegistryEndpoint,
+  type HttpRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import type { RegistryClient } from "./client.js";
-import { createRegistryClient } from "./client.js";
-import { fromFileLocation } from "@agentxm/host-primitives";
-import { RegistryUrl } from "./registry-url.js";
+import { makeUserArchiveCache } from "./archive-cache.js";
+import { createLocalRegistryClient } from "./local-client.js";
+import { createRemoteRegistryClient } from "./remote-client.js";
+import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./admin-client.js";
+import { requireHttpRegistryEndpoint } from "./capabilities.js";
+import type { RegistryOperationUnsupported } from "./errors.js";
+import type { RegistryRequestPolicy } from "./request-policy.js";
+import {
+  RegistryHttpClient,
+  RegistryRequestAuthorization,
+  registryWire,
+  type RegistryRequestAuthorizationService,
+} from "./registry-transport.js";
 
 export interface RegistryClientFactoryService {
-  /** A client for one registry location: an HTTP(S) URL, a `file:` URL, or a path. */
-  readonly forLocation: (
-    location: URL | string,
+  /**
+   * A client for one Registry. Every transport serves its reads,
+   * publication, and visibility, so building one is never refused.
+   */
+  readonly forEndpoint: (
+    endpoint: RegistryEndpoint,
+    options?: { readonly requestPolicy?: RegistryRequestPolicy },
   ) => Effect.Effect<RegistryClient, Config.ConfigError>;
-  /** A client for the configured default registry. */
-  readonly forDefaultRegistry: Effect.Effect<RegistryClient, Config.ConfigError>;
+  /** Lifecycle management for one Registry; refused for a file Registry. */
+  readonly lifecycle: (
+    endpoint: RegistryEndpoint,
+    operation: string,
+  ) => Effect.Effect<RegistryLifecycleClient, RegistryOperationUnsupported>;
+  /**
+   * The authorized transport an HTTP(S) Registry's authentication API
+   * travels on: confined to its origin, refusing redirects, and presenting
+   * the invocation's credential. Refused for a file Registry.
+   */
+  readonly wire: (
+    endpoint: RegistryEndpoint,
+    options: { readonly operation: string },
+  ) => Effect.Effect<
+    { readonly endpoint: HttpRegistryEndpoint; readonly httpClient: HttpClient.HttpClient },
+    RegistryOperationUnsupported
+  >;
 }
 
 export class RegistryClientFactory extends ServiceMap.Service<
@@ -42,41 +81,71 @@ export class RegistryClientFactory extends ServiceMap.Service<
   RegistryClientFactoryService
 >()("@agentxm/registry-client/registry-client-factory/RegistryClientFactory") {}
 
-/** The location a client is constructed over: a native path for `file:`, else the URL as written. */
-const clientLocation = (location: URL | string): string =>
-  fromFileLocation(location instanceof URL ? location.href : location);
-
+/**
+ * Build the factory over the Registry transport. Every HTTP(S) client it
+ * builds travels on `authorization` applied to the plain Registry wire.
+ */
 export const makeRegistryClientFactory = (services: {
   readonly httpClient: HttpClient.HttpClient;
   readonly fileSystem: FileSystem.FileSystem;
   readonly path: Path.Path;
-  readonly defaultRegistryLocation: string;
+  readonly authorization: RegistryRequestAuthorizationService;
 }): RegistryClientFactoryService => {
-  const forLocation = (location: URL | string): Effect.Effect<RegistryClient, Config.ConfigError> =>
-    createRegistryClient(clientLocation(location)).pipe(
-      Effect.provideService(HttpClient.HttpClient, services.httpClient),
-      Effect.provideService(FileSystem.FileSystem, services.fileSystem),
-      Effect.provideService(Path.Path, services.path),
-    );
-  return { forLocation, forDefaultRegistry: forLocation(services.defaultRegistryLocation) };
+  const transport = (endpoint: HttpRegistryEndpoint) =>
+    services.authorization.authorize(endpoint, registryWire(endpoint, services.httpClient));
+
+  const forEndpoint: RegistryClientFactoryService["forEndpoint"] = (endpoint, options) =>
+    Effect.gen(function* () {
+      if (!isHttpRegistryEndpoint(endpoint)) {
+        return createLocalRegistryClient(
+          fromFileLocation(endpoint.href),
+          services.fileSystem,
+          services.path,
+        );
+      }
+      const archiveCache = yield* makeUserArchiveCache().pipe(
+        Effect.provideService(FileSystem.FileSystem, services.fileSystem),
+        Effect.provideService(Path.Path, services.path),
+      );
+      return createRemoteRegistryClient(
+        endpoint,
+        transport(endpoint),
+        archiveCache,
+        options?.requestPolicy,
+      );
+    });
+
+  return {
+    forEndpoint,
+    lifecycle: (endpoint, operation) =>
+      Effect.map(requireHttpRegistryEndpoint(endpoint, "lifecycle", operation), (http) =>
+        makeRegistryLifecycleClient(http, transport(http)),
+      ),
+    wire: (endpoint, options) =>
+      Effect.map(requireHttpRegistryEndpoint(endpoint, "auth", options.operation), (http) => ({
+        endpoint: http,
+        httpClient: transport(http),
+      })),
+  };
 };
 
 /**
- * The transport services are bound once, here, at the composition root; every
- * member the factory hands out is already `R = never`.
+ * The authorized factory every feature uses. The transport services are
+ * bound once, here, at the composition root; every member the factory hands
+ * out is already `R = never`.
  */
 export const RegistryClientFactoryLive: Layer.Layer<
   RegistryClientFactory,
   never,
-  HttpClient.HttpClient | FileSystem.FileSystem | Path.Path | RegistryUrl
+  RegistryHttpClient | RegistryRequestAuthorization | FileSystem.FileSystem | Path.Path
 > = Layer.effect(
   RegistryClientFactory,
   Effect.gen(function* () {
     return makeRegistryClientFactory({
-      httpClient: yield* HttpClient.HttpClient,
+      httpClient: yield* RegistryHttpClient,
       fileSystem: yield* FileSystem.FileSystem,
       path: yield* Path.Path,
-      defaultRegistryLocation: yield* RegistryUrl,
+      authorization: yield* RegistryRequestAuthorization,
     });
   }),
 );

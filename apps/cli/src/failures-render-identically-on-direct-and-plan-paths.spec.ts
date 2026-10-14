@@ -38,8 +38,11 @@ import {
 } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   RegistryOperationFailed,
+  RegistryOperationUnsupported,
   RegistryProblem,
   RegistryRequestFailed,
+  RegistrySelectionFailed,
+  RegistrySourceUnknown,
 } from "@agentxm/registry-client";
 import {
   AuthExchangeFailed,
@@ -709,6 +712,30 @@ const representatives: Representatives = {
   ],
   RegistryOperationFailed: [
     new RegistryOperationFailed({ category: "internal", detail: "Archive extraction failed." }),
+  ],
+  RegistryOperationUnsupported: [
+    new RegistryOperationUnsupported({
+      category: "validation",
+      operation: "Deprecating an extension",
+      endpoint: "file:///srv/registry",
+      transport: "file",
+      detail:
+        "Deprecating an extension is not supported for the file Registry at file:///srv/registry.",
+    }),
+  ],
+  RegistrySourceUnknown: [
+    new RegistrySourceUnknown({
+      name: "corp",
+      scope: "project",
+      settingsPath: Option.some("/workspace/axm.json"),
+    }),
+    new RegistrySourceUnknown({ name: "corp", scope: "explicit", settingsPath: Option.none() }),
+  ],
+  RegistrySelectionFailed: [
+    new RegistrySelectionFailed({
+      detail: "--registry must name a configured Registry source or an http(s) origin.",
+      cause: "ftp://registry.example.test",
+    }),
   ],
   ExtensionResolutionFailed: [
     new ExtensionResolutionFailed({

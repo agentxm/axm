@@ -792,12 +792,12 @@ const resolveMcpServerIntent = (
               versionRange,
               force: reinstall || reacquiresContent(ref),
               nonInteractive,
-            } satisfies Omit<McpServerInstallIntent, "sourceIdentity">)
+            } satisfies Omit<McpServerInstallIntent, "sourceKey">)
           : undefined,
     });
     if (resolution.kind !== "selected") return resolution;
     const conversion = yield* StepFailureConversion;
-    const sourceIdentity = yield* settleMcpSourceIdentityFor(
+    const sourceKey = yield* settleMcpSourceIdentityFor(
       graph,
       resolution.intent.ref,
       resolution.intent.localName,
@@ -813,7 +813,7 @@ const resolveMcpServerIntent = (
     );
     return {
       ...resolution,
-      intent: { ...resolution.intent, sourceIdentity },
+      intent: { ...resolution.intent, sourceKey },
     } satisfies ConfiguredUpdateResolution<McpServerInstallIntent>;
   });
 
@@ -1188,10 +1188,12 @@ const collectMcpServerPlans = (
         return [entry];
       }
       // Every local connection to one source shares one resolution, so the
-      // closure advances once, through its first connection.
+      // closure advances once, through its first connection. A source not yet
+      // bound or accepted has no closure to share.
       const sourceKey = desiredMcpSourceKey(desired.identity);
-      if (seenSourceClosures.has(sourceKey)) return [];
-      seenSourceClosures.add(sourceKey);
+      if (Option.isNone(sourceKey)) return [entry];
+      if (seenSourceClosures.has(sourceKey.value)) return [];
+      seenSourceClosures.add(sourceKey.value);
       return [entry];
     });
 

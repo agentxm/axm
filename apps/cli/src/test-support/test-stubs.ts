@@ -1,5 +1,7 @@
 /** @internal Test-only CLI workspace fixtures. */
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Path from "effect/Path";
@@ -475,7 +477,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly endpoint?: URL;
+  readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly agents?: ReadonlyArray<string>;
   readonly installedAt?: unknown;
@@ -483,7 +485,7 @@ export const makeRegistrySkillLockEntry = (opts: {
 }): SkillLockEntry => ({
   source: {
     type: "registry",
-    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
   },
   identity: { owner: normalizeHandle(opts.owner), name: extensionName(opts.name) },
   resolved: {
@@ -500,7 +502,7 @@ export const makeRegistryPackLockEntry = (opts: {
   readonly resolvedVersion?: Version;
   readonly integrity?: string;
   readonly sourceName?: string;
-  readonly endpoint?: URL;
+  readonly endpoint?: RegistryEndpoint;
   readonly publisherBindingId?: string;
   readonly sourceHash?: string;
   readonly dependencies?: PackMemberConstraintMap;
@@ -512,7 +514,7 @@ export const makeRegistryPackLockEntry = (opts: {
 }): RegistryPackLockEntry => ({
   source: {
     type: "registry",
-    url: opts.endpoint ?? new URL("https://registry.agentxm.ai"),
+    url: opts.endpoint ?? decodeRegistryEndpointSync("https://registry.agentxm.ai"),
   },
   identity: { owner: normalizeHandle(opts.owner), name: extensionName(opts.name) },
   resolved: {

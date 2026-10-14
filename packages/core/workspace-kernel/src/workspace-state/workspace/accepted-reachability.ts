@@ -1,5 +1,5 @@
 /**
- * Whether desired state reaches an accepted lock row: the one predicate the
+ * Whether desired state reaches an accepted lock row: the one query the
  * install-root inventory, retirement, and the lockfile-alignment lint apply,
  * so a row is retained, retired, and reported by one rule.
  *
@@ -9,13 +9,21 @@
 import * as Option from "effect/Option";
 import type { ExtensionType } from "@agentxm/extension-model/unstable/extensions/common";
 
-import type { DesiredExtensionNode, DesiredStateGraph } from "./desired-state-graph.js";
+import type {
+  DesiredExtensionNode,
+  DesiredPackMembership,
+  DesiredStateGraph,
+} from "./desired-state-graph.js";
+import { unresolvedPackRoutes, type DesiredReachability } from "./desired-state-queries.js";
+import { desiredMcpSourceKey } from "./desired-identity.js";
 
 /** An accepted lock row named by the type map it sits in and its key there. */
 export interface AcceptedRowRef {
   readonly type: ExtensionType;
   /** The workspace name, or an MCP source's resolution key. */
   readonly key: string;
+  /** The row itself, when the caller holds it: it names the package an MCP key does not. */
+  readonly entry?: { readonly identity: { readonly name: string } };
 }
 
 /**
@@ -34,14 +42,11 @@ export const acceptedRowKey = (
     case "inline":
       return Option.none();
     case "registry":
-      return node.type === "mcp-server"
-        ? Option.fromUndefinedOr(node.identity.resolutionKey)
-        : Option.some(node.name);
     case "http":
     case "git":
     case "path":
       return node.type === "mcp-server"
-        ? Option.fromUndefinedOr(node.identity.resolutionKey)
+        ? desiredMcpSourceKey(node.identity)
         : Option.some(node.name);
   }
 };
@@ -73,3 +78,53 @@ export const desiredReachesAcceptedRow = (
         desiredNodeReachesRow({ type: row.type, name: problem.name, identity }, row),
       ),
   );
+
+/** The desired node that reaches the row, or that represents a collision contender reaching it. */
+const reachingNode = (
+  graph: Pick<DesiredStateGraph, "nodes" | "problems">,
+  row: AcceptedRowRef,
+): DesiredExtensionNode | undefined =>
+  graph.nodes.find((node) => desiredNodeReachesRow(node, row)) ??
+  graph.problems.flatMap((problem) =>
+    problem.type === "projection-collision" &&
+    problem.extensionType === row.type &&
+    problem.identities.some((identity) =>
+      desiredNodeReachesRow({ type: row.type, name: problem.name, identity }, row),
+    )
+      ? graph.nodes.filter((node) => node.type === row.type && node.name === problem.name)
+      : [],
+  )[0];
+
+/**
+ * Whether an unresolved Pack could route the row: a Pack never routes a Pack;
+ * a Pack whose membership is unknown could route any other row; one whose
+ * members are known could route only a row naming one of them.
+ */
+const couldRoute = (membership: DesiredPackMembership, row: AcceptedRowRef): boolean => {
+  if (row.type === "pack") return false;
+  if (membership.declared.status === "unknown") return true;
+  return membership.declared.members.some(
+    (member) =>
+      member.type === row.type &&
+      (member.name === row.key ||
+        (row.type === "mcp-server" &&
+          (row.entry === undefined || member.name === row.entry.identity.name))),
+  );
+};
+
+/**
+ * Whether desired state reaches one accepted row, with the evidence the
+ * answer rests on. A reaching node proves the positive answer; the negative
+ * answer needs every unresolved Pack that could route the row ruled out, so
+ * an unresolved Pack blocks only the rows it could reach and every other row
+ * is decided normally.
+ */
+export const acceptedRowReachability = (
+  graph: Pick<DesiredStateGraph, "nodes" | "problems" | "packMembership">,
+  row: AcceptedRowRef,
+): DesiredReachability => {
+  const node = reachingNode(graph, row);
+  if (node !== undefined) return { decision: "reached", node };
+  const blockers = unresolvedPackRoutes(graph).filter((membership) => couldRoute(membership, row));
+  return blockers.length === 0 ? { decision: "not-reached" } : { decision: "unknown", blockers };
+};

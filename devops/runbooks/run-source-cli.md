@@ -53,7 +53,7 @@ in telemetry; set it yourself when invoking `bun` directly.
 # select a local Registry when the project does not override defaultRegistry
 mkdir -p /tmp/axm-source-user
 mkdir -p /tmp/axm-source-user/.axm/workspace
-printf '%s\n' '{"defaultRegistry":"local","sources":[{"name":"local","type":"registry","location":"http://localhost:4300"}]}' \
+printf '%s\n' '{"defaultRegistry":"fixture","sources":[{"name":"fixture","type":"registry","location":"http://localhost:4300"}]}' \
   > /tmp/axm-source-user/.axm/workspace/axm.json
 AXM_USER_HOME=/tmp/axm-source-user \
   /path/to/axm/scripts/axm-local -C /path/to/workspace list

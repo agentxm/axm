@@ -8,6 +8,7 @@
  * @packageDocumentation
  */
 
+import { fromFileLocation } from "@agentxm/host-primitives";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Array from "effect/Array";
@@ -200,7 +201,7 @@ const readRegistryIndex = (
   Effect.serviceOption(RegistryIndexMemo).pipe(
     Effect.flatMap((memo) =>
       Option.isSome(memo)
-        ? memo.value.get(source.location.href, source.name, args)
+        ? memo.value.get(source.location, source.name, args)
         : client.getExtensionIndex(args),
     ),
   );
@@ -730,7 +731,7 @@ export const createLocalRegistrySourceHostProvider = (
 
       const fsService = yield* FileSystem.FileSystem;
       const pathService = yield* Path.Path;
-      const extensionsDir = pathService.join(source.location.pathname, "extensions");
+      const extensionsDir = pathService.join(fromFileLocation(source.location.href), "extensions");
       const dirExists = yield* fsService
         .exists(extensionsDir)
         .pipe(Effect.orElseSucceed(() => false));
@@ -811,17 +812,17 @@ export const createRemoteRegistrySourceHostProvider = (
 /**
  * Create a registry source host provider for a given RegistrySourceHost.
  *
- * Creates the appropriate RegistryClient internally based on the host's
- * location protocol, then wraps it in the matching host provider.
+ * Creates the RegistryClient for the host's endpoint, then wraps it in the
+ * provider matching the endpoint's transport.
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const createRegistrySourceHostProviderFromHost = (host: RegistrySourceHost) =>
   Effect.gen(function* () {
     const location = host.location;
-    const client = yield* (yield* RegistryClientFactory).forLocation(location);
+    const client = yield* (yield* RegistryClientFactory).forEndpoint(location);
 
-    if (location.protocol === "file:" || !location.protocol.startsWith("http")) {
+    if (location.transport === "file") {
       return createLocalRegistrySourceHostProvider(client);
     }
 

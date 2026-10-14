@@ -9,6 +9,7 @@ import {
   AcceptedResolutionWriter,
   ProjectionUnitPathSchema,
   UNCONSTRAINED_DESIRED_NODE,
+  type DesiredNodeIdentity,
   type Lockfile,
   type SubagentLockEntry,
   type Settings,
@@ -47,6 +48,7 @@ import {
 import { SourceHostProvidersTest } from "@agentxm/workspace-kernel/sources/testing";
 import { SubagentManagerLive } from "./manager.js";
 import { decodeRelativePathSync } from "@agentxm/extension-model/unstable/path-types";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -116,6 +118,8 @@ const makeMockCodingAgent = (
   ...overrides,
 });
 
+const TEST_REGISTRY_ENDPOINT = decodeRegistryEndpointSync("https://registry.agentxm.ai");
+
 const makeTestLayer = (overrides?: {
   readonly agents?: ReadonlyArray<CodingAgent>;
   readonly axmDir?: string;
@@ -125,6 +129,15 @@ const makeTestLayer = (overrides?: {
   const axmDir = overrides?.axmDir ?? "/tmp/test-project/.axm";
   const testAgents = overrides?.agents ?? [makeMockCodingAgent("claude-code")];
   const configuredSubagents = overrides?.configuredSubagents ?? {};
+  // A Registry locator binds to the default Registry; any other names its source.
+  const identityOf = (source: string): DesiredNodeIdentity =>
+    source.startsWith("@")
+      ? {
+          authority: "registry",
+          fqn: source,
+          registry: { sourceName: "agentxm", endpoint: TEST_REGISTRY_ENDPOINT },
+        }
+      : { authority: "git", locator: source };
   const graph = {
     packMembership: [],
     // A configuration-only entry declares no source, so it contributes no node
@@ -137,7 +150,7 @@ const makeTestLayer = (overrides?: {
         {
           type: "subagent" as const,
           name,
-          identity: { authority: "git" as const, locator: source },
+          identity: identityOf(source),
           source,
           enabled,
           constraint: UNCONSTRAINED_DESIRED_NODE,
@@ -771,7 +784,7 @@ describe("SubagentManager", () => {
               planner: {
                 source: {
                   type: "registry",
-                  url: new URL("https://registry.agentxm.ai"),
+                  url: TEST_REGISTRY_ENDPOINT,
                 },
                 identity: { owner: handle("@test"), name: extensionName("planner") },
                 resolved: {

@@ -4,6 +4,7 @@ import {
   makeWorkspaceReadModel,
   type CanonicalObservation,
   type DesiredExtensionNode,
+  type DesiredPackMembership,
 } from "@agentxm/workspace-kernel/workspace-state";
 import {
   desiredConstraintOf,
@@ -38,6 +39,7 @@ const contextFor = (
   state: WorkspaceState,
   nodes: ReadonlyArray<DesiredExtensionNode>,
   observations: ReadonlyArray<CanonicalObservation>,
+  packMembership: ReadonlyArray<DesiredPackMembership>,
 ): Effect.Effect<WorkspaceRuleContext> => {
   const project = scopeFilesFromWorkspaceState(state);
   return Effect.gen(function* () {
@@ -48,7 +50,7 @@ const contextFor = (
       axmDirExists: Effect.succeed(state.existingPaths.has(".axm")),
       health: {
         desiredState: Effect.succeed({
-          packMembership: [],
+          packMembership,
           nodes,
           mcpSourceClosures: [],
           problems: [],
@@ -80,9 +82,10 @@ const runCheck = (
   state: WorkspaceState,
   nodes: ReadonlyArray<DesiredExtensionNode> = [],
   observations: ReadonlyArray<CanonicalObservation> = [],
+  packMembership: ReadonlyArray<DesiredPackMembership> = [],
 ) =>
   Effect.gen(function* () {
-    const context = yield* contextFor(state, nodes, observations);
+    const context = yield* contextFor(state, nodes, observations, packMembership);
     return yield* skillsLockfileAlignedRule.check(context);
   });
 
@@ -127,6 +130,33 @@ describe("workspace/skills-lockfile-aligned", () => {
       );
       expect(findings[0]?.message).not.toContain("axm ");
     }),
+  );
+
+  it.effect(
+    "leaves a row an unresolved Pack could route to the root blocker, as sync keeps it",
+    () =>
+      Effect.gen(function* () {
+        const state = emptyWorkspaceState();
+        state.settings = { agents: ["claude-code"], skills: {} };
+        state.lockfile = { lockfileVersion: 12, skills: { review: registryResolution("1.0.0") } };
+
+        const findings = yield* runCheck(
+          state,
+          [],
+          [],
+          [
+            {
+              settingsName: "toolkit",
+              pack: "@acme/packs/toolkit",
+              enabled: true,
+              declared: { status: "unknown", reason: "absent" },
+              routes: "unknown",
+            },
+          ],
+        );
+
+        expect(findings).toEqual([]);
+      }),
   );
 
   it.effect("reports the absent accepted resolution the canonical observation found", () =>

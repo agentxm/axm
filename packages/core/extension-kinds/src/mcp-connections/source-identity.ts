@@ -10,62 +10,98 @@ import { printSourceParams } from "@agentxm/extension-model/unstable/sources/pri
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
 import { fromFileLocation } from "@agentxm/host-primitives";
 import {
-  desiredMcpSourceKey,
-  mcpRegistryResolutionKey,
-  mcpResolutionKey,
-  mcpWorkspaceSourceKey,
+  formatDesiredIdentity,
+  desiredMcpSource,
+  McpSourceIdentity,
+  McpSourceKey,
   WorkspaceLocation,
   type DesiredStateGraph,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { McpConnectionConflict } from "./errors.js";
-import { settleMcpSourceIdentity } from "./lifecycle/domain/source-admission.js";
+import {
+  settleMcpSourceIdentity,
+  type McpSourceAdmissionCodec,
+} from "./lifecycle/domain/source-admission.js";
 
-/** Derive a source key from the selected package, before any install writes. */
+/** How a structured source is shown in a refusal; never its key. */
+const formatMcpSourceIdentity = (identity: McpSourceIdentity): string => {
+  const pkg = `${identity.owner ?? ""}/mcps/${identity.name}`;
+  switch (identity.kind) {
+    case "registry":
+      return `${pkg} from ${identity.endpoint.href}`;
+    case "git":
+      return `${pkg} from ${identity.url.href}`;
+    case "path":
+      return `${pkg} from ${identity.path}`;
+    case "workspace":
+      return `workspace:${pkg}`;
+  }
+};
+
+const admissionCodec: McpSourceAdmissionCodec<McpSourceIdentity, McpSourceKey> = {
+  encode: McpSourceKey.encode,
+  equals: McpSourceIdentity.equals,
+  display: formatMcpSourceIdentity,
+};
+
+/**
+ * The structured source a selected request names: the same fields its
+ * accepted row will record, derived before any install writes.
+ */
 export const requestedMcpSourceIdentity = (
   ref: McpServerExtensionRef,
   sourceForIdentity?: Source,
-): Effect.Effect<string, never, WorkspaceLocation | Path.Path> =>
+): Effect.Effect<McpSourceIdentity, never, WorkspaceLocation | Path.Path> =>
   Effect.gen(function* () {
     switch (ref.refType) {
       case "registry":
-        return mcpRegistryResolutionKey({
-          authority:
+        return {
+          kind: "registry",
+          endpoint:
             sourceForIdentity?.type === "registry"
               ? sourceForIdentity.location
               : ref.source.location,
           owner: ref.owner,
           name: ref.server.name,
-        });
+        };
       case "workspace":
-        return mcpWorkspaceSourceKey(ref.owner, ref.server.name);
+        return { kind: "workspace", owner: ref.owner, name: ref.server.name };
       case "local": {
         const location = yield* WorkspaceLocation;
         const path = yield* Path.Path;
-        return Option.getOrElse(
-          makeWorkspaceRelativeSourcePath(path, location.baseDir, fromFileLocation(ref.location)),
-          () => ref.source.path,
-        );
+        return {
+          kind: "path",
+          path:
+            ref.sourcePath ??
+            Option.getOrElse(
+              makeWorkspaceRelativeSourcePath(
+                path,
+                location.baseDir,
+                fromFileLocation(ref.location),
+              ),
+              () => ref.source.path,
+            ),
+          owner: ref.owner,
+          name: ref.name,
+        };
       }
       case "git-hosted":
-        return ref.nativeComponent === undefined
-          ? printSourceParams(ref.source)
-          : mcpResolutionKey({
-              source: { type: "git", url: ref.source.url },
-              identity: {
-                name: ref.name,
-                ...(ref.owner === undefined ? {} : { owner: ref.owner }),
-              },
-            });
+        return { kind: "git", url: ref.source.url, owner: ref.owner, name: ref.name };
     }
   });
 
-/** Apply the one admission rule using the graph's existing local connection. */
+/**
+ * Admit a request for one local connection against the graph's existing
+ * connection of that name, and settle the source closure it joins. The
+ * request is matched by structured location, never by comparing locator text
+ * with a key, so an update or reinstall matches its own accepted source.
+ */
 export const settleMcpSourceIdentityFor = (
   graph: DesiredStateGraph,
   ref: McpServerExtensionRef,
   localName: ExtensionName,
   sourceForIdentity?: Source,
-): Effect.Effect<string, McpConnectionConflict, WorkspaceLocation | Path.Path> =>
+): Effect.Effect<McpSourceKey, McpConnectionConflict, WorkspaceLocation | Path.Path> =>
   Effect.gen(function* () {
     const location = yield* WorkspaceLocation;
     const path = yield* Path.Path;
@@ -74,23 +110,27 @@ export const settleMcpSourceIdentityFor = (
     );
     return yield* settleMcpSourceIdentity({
       localName,
-      requestedIdentity: yield* requestedMcpSourceIdentity(ref, sourceForIdentity),
+      requested: yield* requestedMcpSourceIdentity(ref, sourceForIdentity),
       requestedLocalPath:
         ref.refType === "local"
           ? path.resolve(location.baseDir, ref.sourcePath ?? fromFileLocation(ref.location))
           : null,
+      requestedLocator: ref.refType === "workspace" ? "workspace" : printSourceParams(ref.source),
       existing:
         existingNode === undefined
           ? undefined
-          : {
-              sourceIdentity:
-                existingNode.authority === "inline"
-                  ? null
-                  : desiredMcpSourceKey(existingNode.identity),
-              localPath:
-                existingNode.identity.authority === "path"
-                  ? path.resolve(location.baseDir, existingNode.identity.locator)
-                  : null,
-            },
+          : existingNode.authority === "inline"
+            ? { kind: "inline" }
+            : {
+                kind: "sourced",
+                identity: desiredMcpSource(existingNode.identity),
+                localPath:
+                  existingNode.identity.authority === "path"
+                    ? path.resolve(location.baseDir, existingNode.identity.locator)
+                    : null,
+                locator: existingNode.source,
+                display: formatDesiredIdentity(existingNode.identity),
+              },
+      codec: admissionCodec,
     }).pipe(Effect.mapError((conflict) => new McpConnectionConflict(conflict)));
   });

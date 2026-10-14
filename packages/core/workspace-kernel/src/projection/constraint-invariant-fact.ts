@@ -4,11 +4,16 @@
  * @experimental This API is unstable and may change without notice.
  */
 
-import * as semver from "semver";
 import {
   parseExtensionFqnParts,
   type ExtensionType,
 } from "@agentxm/extension-model/unstable/extensions";
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
+import * as Option from "effect/Option";
 import type {
   PackDependencyAuthority,
   PackDependencyReachability,
@@ -65,7 +70,7 @@ export interface ProspectiveExtensionConstraintCandidate {
       string,
       | string
       | {
-          readonly source: { readonly type: "registry"; readonly url: URL };
+          readonly source: { readonly type: "registry"; readonly url: RegistryEndpoint };
           readonly versionRange: string;
         }
     >
@@ -128,7 +133,7 @@ export const makeProspectiveExtensionConstraintFacts = (args: {
         })
         .sort(constraintContributorOrder);
       const violations = constraints.filter(
-        (constraint) => !semver.satisfies(candidate.version, constraint.range),
+        (constraint) => !versionSatisfiesRequest(candidate.version, constraint.range),
       );
       if (violations.length === 0) return [];
       return [
@@ -188,9 +193,14 @@ export const makeExtensionConstraintInvariantFact = (
   },
   expectation: {
     status: "satisfied",
-    ranges: [...new Set(observation.authority.constraints.map(({ range }) => range))].sort(
-      (left, right) => left.localeCompare(right),
-    ),
+    // An unconstrained Registry version is judged against the request an
+    // absent constraint stands for.
+    ranges:
+      observation.authority.constraints.length === 0
+        ? [normalizeVersionRequest(Option.none())]
+        : [...new Set(observation.authority.constraints.map(({ range }) => range))].sort(
+            (left, right) => left.localeCompare(right),
+          ),
   },
 });
 

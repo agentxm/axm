@@ -3,6 +3,7 @@
  * source) spell one source view identically, whatever each records.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
@@ -124,7 +125,7 @@ describe("packMemberSourceAuthority", () => {
   it.effect("spells a Registry source by its endpoint from either side", () =>
     Effect.gen(function* () {
       const path = yield* Path.Path;
-      const location = new URL("https://registry.example.test/");
+      const location = decodeRegistryEndpointSync("https://registry.example.test");
       expect(
         spelled({
           kind: "accepted",

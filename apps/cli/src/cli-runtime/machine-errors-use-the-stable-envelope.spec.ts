@@ -8,6 +8,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
 
 import { JsonErrorEnvelopeSchema, classifyError } from "./index.js";
+import { RegistryOperationUnsupported, RegistrySourceUnknown } from "@agentxm/registry-client";
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { PlanResolutionDocumentSchema, emitOperationResolution } from "../operation-output.js";
 import { makeOperationResolution, StepFailure } from "@agentxm/workspace-kernel/operations";
@@ -256,5 +257,50 @@ describe("Machine error envelope", () => {
         );
         expect(JSON.stringify(envelope)).not.toContain("commandScope");
       }),
+  );
+
+  it.effect.each([
+    {
+      label: "an unknown default Registry source",
+      failure: new RegistrySourceUnknown({
+        name: "corp",
+        scope: "project",
+        settingsPath: Option.some("/workspace/axm.json"),
+      }),
+      code: "usage",
+      problem: {
+        code: "registry-source-unknown",
+        name: "corp",
+        scope: "project",
+        settingsPath: "/workspace/axm.json",
+      },
+    },
+    {
+      label: "an operation a file Registry does not implement",
+      failure: new RegistryOperationUnsupported({
+        category: "validation",
+        operation: "Deprecating an extension",
+        endpoint: "file:///srv/registry",
+        transport: "file",
+        detail:
+          "Deprecating an extension is not supported for the file Registry at file:///srv/registry.",
+      }),
+      code: "validation",
+      problem: {
+        code: "registry-operation-unsupported",
+        operation: "Deprecating an extension",
+        endpoint: "file:///srv/registry",
+        transport: "file",
+      },
+    },
+  ])("$label carries its structured problem inside the stable envelope", (row) =>
+    Effect.gen(function* () {
+      const classified = classifyError(row.failure, "json");
+      expect(classified.exitCode).not.toBe(0);
+      const parsed: unknown = JSON.parse(classified.stdout ?? "");
+      expect(parsed).not.toHaveProperty("diagnostic");
+      const envelope = yield* decodeEnvelope(parsed);
+      expect(envelope).toMatchObject({ ok: false, code: row.code, problem: row.problem });
+    }),
   );
 });

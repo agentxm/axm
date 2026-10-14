@@ -47,7 +47,6 @@ const readback = (
       type: args.type,
       name: args.name,
       version: args.version,
-      ...(args.accessToken === undefined ? {} : { accessToken: args.accessToken }),
     })
     .pipe(
       Effect.matchEffect({

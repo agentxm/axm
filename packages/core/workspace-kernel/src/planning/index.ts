@@ -49,6 +49,9 @@ export {
 
 // Rendering of the source, registry, and dependency-resolution families
 export {
+  registryOperationUnsupportedStepFailure,
+  registrySelectionFailedStepFailure,
+  registrySourceUnknownStepFailure,
   resolutionFailureToStepFailure,
   type ResolutionFamilyFailure,
 } from "./resolution-step-failure.js";

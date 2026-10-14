@@ -9,6 +9,7 @@ import type * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import type { ExtensionName, ExtensionType } from "../extensions/common.js";
 import type { Handle } from "../extensions/handle.js";
+import type { RegistryEndpoint } from "../extensions/registry-endpoint.js";
 
 // -----------------------------------------------------------------------------
 // Source Type Schema
@@ -126,13 +127,13 @@ export interface GitSourceHost {
 }
 
 /**
- * Registry source host with URL.
+ * Registry source host with its canonical endpoint.
  * @experimental
  */
 export interface RegistrySourceHost {
   readonly type: "registry";
   readonly name: string;
-  readonly location: URL;
+  readonly location: RegistryEndpoint;
 }
 
 /** Self-describing — the filesystem path lives in SourceParams. @experimental */

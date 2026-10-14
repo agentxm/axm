@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { AuthClient, AuthClientLive } from "./auth-client.js";
+import { AuthClient } from "./auth-client.js";
+import { authClientOver } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/login/uses-matching-hosted-authorization-origin",
@@ -34,9 +34,8 @@ export const specification = defineSpecification({
 });
 
 /** Constructing an authorization URL is a pure derivation; no request is sent. */
-const refusesHttp = Layer.succeed(
-  HttpClient.HttpClient,
-  HttpClient.make(() => Effect.die("Authorization URL construction must not send HTTP requests")),
+const refusesHttp = HttpClient.make(() =>
+  Effect.die("Authorization URL construction must not send HTTP requests"),
 );
 
 describe("Browser sign-in authorization origin", () => {
@@ -50,22 +49,17 @@ describe("Browser sign-in authorization origin", () => {
     it.effect(`pairs ${registry} with ${web}`, () =>
       Effect.gen(function* () {
         const client = yield* AuthClient;
+        const endpoint = decodeHttpRegistryEndpointSync(registry);
         const url = new URL(
-          client.buildAuthorizeUrl({
+          client.buildAuthorizeUrl(endpoint, {
             challenge: "fixture-challenge",
             state: "fixture-state",
             redirectUri: "http://127.0.0.1:49152/callback",
           }),
         );
         expect(url.origin).toBe(web);
-        expect(client.getAuthorizationIssuer()).toBe(web);
-      }).pipe(
-        Effect.provide(
-          AuthClientLive.pipe(
-            Layer.provide(Layer.mergeAll(Layer.succeed(RegistryUrl, registry), refusesHttp)),
-          ),
-        ),
-      ),
+        expect(client.getAuthorizationIssuer(endpoint)).toBe(web);
+      }).pipe(Effect.provide(authClientOver(refusesHttp))),
     );
   }
 });

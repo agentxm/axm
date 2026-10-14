@@ -85,7 +85,7 @@ describe("Local-only discovery", () => {
           },
         ],
       });
-      expect(locations).toEqual(["https://registry.agentxm.ai/"]);
+      expect(locations).toEqual(["https://registry.agentxm.ai"]);
       expect(registry.requests.length).toBeGreaterThan(0);
     }).pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(project.cleanup)));
   });

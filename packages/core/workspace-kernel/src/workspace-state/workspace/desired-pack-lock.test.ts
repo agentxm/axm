@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
@@ -30,7 +31,10 @@ const externalPackNode: DesiredExtensionNode = {
   identity: {
     authority: "registry",
     fqn: "@acme/packs/toolkit",
-    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
+    registry: {
+      sourceName: undefined,
+      endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+    },
   },
   source: "@acme/packs/toolkit",
   enabled: true,
@@ -41,7 +45,7 @@ const externalPackNode: DesiredExtensionNode = {
 const accepted = (
   manifestContentIdentity = computePackManifestContentIdentity(manifest),
 ): PackLockEntry => ({
-  source: { type: "registry", url: new URL("https://registry.agentxm.ai") },
+  source: { type: "registry", url: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
   identity: { owner, name },
   resolved: {
     version,

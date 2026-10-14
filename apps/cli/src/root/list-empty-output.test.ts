@@ -6,6 +6,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { afterEach, beforeEach } from "vitest";
 
 import {
@@ -20,7 +21,7 @@ import { handleList as handleListHook } from "./hooks/list.js";
 import { handleList as handleListMcpServers } from "./mcps/list.js";
 import {
   acquiredPackageRelativePath,
-  mcpRegistryResolutionKey,
+  McpSourceKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { humanScreenLayer, makeRecordingStreams } from "../test-support/screen-harness.js";
 
@@ -69,7 +70,7 @@ describe("list command empty output", () => {
             source: {
               type: "registry",
               name: "test",
-              location: new URL("file:///tmp/test-registry"),
+              location: decodeRegistryEndpointSync("file:///tmp/test-registry"),
               owner: Option.none(),
             },
           },
@@ -107,8 +108,9 @@ describe("list command empty output", () => {
         },
       },
       lockfileMcpServers: {
-        [mcpRegistryResolutionKey({
-          authority: "file:///tmp/test-registry",
+        [McpSourceKey.encode({
+          kind: "registry",
+          endpoint: decodeRegistryEndpointSync("file:///tmp/test-registry"),
           owner: "@acme",
           name: "context",
         })]: {

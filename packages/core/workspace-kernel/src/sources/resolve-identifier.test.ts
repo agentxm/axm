@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as Effect from "effect/Effect";
@@ -49,7 +50,9 @@ const provide = (
             {
               name: "agentxm",
               type: "registry",
-              location: new URL(`file://${options?.registryDir ?? "/tmp/registry"}`),
+              location: decodeRegistryEndpointSync(
+                `file://${options?.registryDir ?? "/tmp/registry"}`,
+              ),
             },
           ],
         }),
@@ -97,7 +100,7 @@ describe("resolveIdentifier", () => {
                   {
                     name: "agentxm",
                     type: "registry",
-                    location: new URL("https://registry.example.test"),
+                    location: decodeRegistryEndpointSync("https://registry.example.test"),
                   },
                 ],
               }),

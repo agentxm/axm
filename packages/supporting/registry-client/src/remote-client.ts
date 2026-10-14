@@ -61,6 +61,10 @@ import { extensionLifecycleWarnings, pluralizeType } from "./utils.js";
 import { collectBufferedArchive, MAX_BUFFERED_ARCHIVE_BYTES } from "./archive-limits.js";
 import { collectResolutionMetadataPages } from "./resolution-metadata-pages.js";
 import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
+import {
+  registryRequestUrl,
+  type HttpRegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type {
   DiscoverPackagesArgs,
   ExtensionExistsArgs,
@@ -427,17 +431,18 @@ const registryRequestMetadata = (method: string, url: string): RegistryRequestMe
  * Uses the generated registry client for all HTTP transport and maps
  * generated errors to typed registry failure categories per-operation.
  *
- * @param baseUrl - Base URL of the remote registry (e.g. `https://registry.example.com`)
+ * @param endpoint - The Registry origin every request is built beneath
  * @param httpClient - Effect HttpClient instance for making HTTP requests
  *
  * @experimental This API is unstable and may change without notice.
  */
 export const createRemoteRegistryClient = (
-  baseUrl: string,
+  endpoint: HttpRegistryEndpoint,
   httpClient: HttpClient.HttpClient,
   archiveCache?: ArchiveCache,
   requestPolicy?: RegistryRequestPolicy,
 ): RegistryClient => {
+  const baseUrl = endpoint.href;
   const remoteHttpClient = captureRegistryErrorResponseBodies(
     httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(baseUrl))),
   );
@@ -459,7 +464,7 @@ export const createRemoteRegistryClient = (
     executeRegistryRequest(effect, {
       operation: args.operation,
       request: {
-        ...registryRequestMetadata(args.method, new URL(args.path, baseUrl).href),
+        ...registryRequestMetadata(args.method, registryRequestUrl(endpoint, args.path)),
         operation: args.operation,
       },
       replaySafety: args.replaySafety,
@@ -536,18 +541,8 @@ export const createRemoteRegistryClient = (
   const getExactExtensionVersion = (
     args: GetExactExtensionVersionArgs,
   ): Effect.Effect<Option.Option<ExactExtensionVersion>, RegistryClientFailure> => {
-    const exactClient = GeneratedRegistryClient.make(remoteHttpClient, {
-      transformClient: (baseClient) =>
-        Effect.succeed(
-          args.accessToken === undefined
-            ? baseClient
-            : baseClient.pipe(
-                HttpClient.mapRequest(HttpClientRequest.bearerToken(args.accessToken)),
-              ),
-        ),
-    });
     return executeRemoteRequest(
-      exactClient
+      client
         .ExtensionsGetVersion(
           args.owner,
           pluralizeType(args.type),
@@ -1091,9 +1086,7 @@ export const createRemoteRegistryClient = (
                   "content-length": String(args.archive.byteLength),
                 }),
               );
-              return args.accessToken === undefined
-                ? archiveRequest
-                : HttpClientRequest.bearerToken(archiveRequest, args.accessToken);
+              return archiveRequest;
             }),
           ),
         ),

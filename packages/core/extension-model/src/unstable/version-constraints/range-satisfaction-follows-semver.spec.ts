@@ -7,11 +7,14 @@ import * as Option from "effect/Option";
 import {
   decodeVersionRangeSync,
   decodeVersionSync,
+  normalizeVersionRequest,
   resolveVersionInRange,
   versionSatisfiesRange,
+  versionSatisfiesRequest,
   VersionRangeSchema,
   VersionSchema,
 } from "./version-constraints.js";
+import { admittedReleases } from "./version-selection.js";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -19,14 +22,12 @@ export const specification = defineSpecification({
   requirement: "version-constraints/range-satisfaction-follows-semver",
   title: "A version constraint accepts exactly the versions its semver range allows",
   statement:
-    "A version constraint shall be accepted only as a valid semver range and shall match a version exactly when semver allows it, and an exact version shall be accepted only in strict semver form with no leading v, missing part, or leading zero.",
+    "A version constraint shall be accepted only as a valid semver range and shall match a version exactly when semver allows it, an absent constraint on a Registry version shall admit exactly the versions `*` admits — every stable version and no prerelease — and an exact version shall be accepted only in strict semver form with no leading v, missing part, or leading zero and shall admit only itself.",
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "trustworthy-distribution"],
   methods: ["property", "decision-table", "example"],
-  assumptions: [
-    "A wildcard or absent constraint admits every stable version and no prerelease, exactly as semver does; a prerelease-only extension is selected only through a range that names its version tuple.",
-  ],
+  assumptions: [],
   derivedFrom: [],
   supersedes: [],
   openQuestions: [],
@@ -59,6 +60,20 @@ const caretAccepts = (candidate: VersionTriple, base: VersionTriple): boolean =>
   return candidate.major === 0 && candidate.minor === 0 && candidate.patch === base.patch;
 };
 
+const prereleaseArbitrary = FastCheck.option(
+  FastCheck.constantFrom("0", "alpha.1", "beta.2", "rc.1"),
+  {
+    nil: undefined,
+  },
+);
+
+const releaseArbitrary = FastCheck.record({
+  triple: tripleArbitrary,
+  prerelease: prereleaseArbitrary,
+}).map(({ triple, prerelease }) =>
+  prerelease === undefined ? render(triple) : `${render(triple)}-${prerelease}`,
+);
+
 const satisfies = (version: string, range: string): boolean =>
   versionSatisfiesRange(decodeVersionSync(version), decodeVersionRangeSync(range));
 
@@ -85,6 +100,45 @@ describe("Version constraint satisfaction", () => {
     ({ candidate }) => {
       expect(satisfies(render(candidate), "*")).toBe(true);
     },
+  );
+
+  fastCheckIt.prop({ candidate: releaseArbitrary }, { numRuns: 300 })(
+    "an absent constraint admits exactly the versions the wildcard admits",
+    ({ candidate }) => {
+      expect(versionSatisfiesRequest(candidate, normalizeVersionRequest(Option.none()))).toBe(
+        versionSatisfiesRequest(candidate, "*"),
+      );
+      expect(versionSatisfiesRequest(candidate, "*")).toBe(!candidate.includes("-"));
+    },
+  );
+
+  fastCheckIt.prop(
+    {
+      releases: FastCheck.uniqueArray(releaseArbitrary, { maxLength: 12, selector: (v) => v }),
+    },
+    { numRuns: 150 },
+  )(
+    "an absent constraint and the wildcard select from identical admission sets",
+    ({ releases }) => {
+      const index = releases.map((version) => ({ version: decodeVersionSync(version) }));
+      expect(admittedReleases(index, Option.none())).toEqual(
+        admittedReleases(index, Option.some("*")),
+      );
+    },
+  );
+
+  it.effect.each([
+    { spelling: "absent", version: "1.9.0", admitted: true },
+    { spelling: "absent", version: "2.0.0-beta.1", admitted: false },
+    { spelling: "*", version: "2.0.0-beta.1", admitted: false },
+    { spelling: ">=2.0.0-0", version: "2.0.0-beta.1", admitted: true },
+    { spelling: "2.0.0-beta.1", version: "2.0.0-beta.1", admitted: true },
+    { spelling: "1.0.0", version: "1.0.0+build.1", admitted: false },
+  ] as const)("a $spelling request admits $version: $admitted", ({ spelling, version, admitted }) =>
+    Effect.sync(() => {
+      const request = spelling === "absent" ? Option.none() : Option.some(spelling);
+      expect(versionSatisfiesRequest(version, normalizeVersionRequest(request))).toBe(admitted);
+    }),
   );
 
   it.effect.each([

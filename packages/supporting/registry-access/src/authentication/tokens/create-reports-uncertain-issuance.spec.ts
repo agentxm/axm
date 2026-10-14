@@ -7,7 +7,11 @@ import {
 } from "@agentxm/registry-client";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
-import { authCredentialFile, authRegistry, makeAuthPorts } from "../test-support/test-helpers.js";
+import {
+  authCredentialFile,
+  makeAuthPorts,
+  authSelectedRegistry,
+} from "../test-support/test-helpers.js";
 import { createToken } from "../tokens.js";
 
 export const specification = defineSpecification({
@@ -55,7 +59,7 @@ const createFailingWith = (failure: RegistryClientFailure) => {
         }),
     },
   });
-  return createToken(request, authRegistry).pipe(
+  return createToken(request, authSelectedRegistry).pipe(
     Effect.flip,
     Effect.map((reported) => ({ reported, submissions })),
     Effect.provide(layer),

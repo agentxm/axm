@@ -9,10 +9,10 @@ import * as Option from "effect/Option";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
 import { AuthEnvironment } from "../adapters/environment.js";
 import { CredentialStore, CredentialStoreLive, KeyringEntryLoader } from "./credential-store.js";
-import { credentialFileFixture } from "./test-helpers.js";
+import { credentialFileFixture, credentialKeyOf } from "./test-helpers.js";
 
-const registry = "https://registry.example.test";
-const otherRegistry = "https://other.example.test";
+const registry = credentialKeyOf("https://registry.example.test");
+const otherRegistry = credentialKeyOf("https://other.example.test");
 const handle = normalizeHandle("@alice");
 const credentials = {
   access_token: "fixture-access",

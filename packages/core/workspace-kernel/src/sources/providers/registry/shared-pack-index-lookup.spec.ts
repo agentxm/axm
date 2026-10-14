@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
@@ -5,13 +6,12 @@ import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
-import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as Path from "effect/Path";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
-import { createLocalRegistryClient, RegistryOperationFailed } from "@agentxm/registry-client";
+import { RegistryClientFactory, RegistryOperationFailed } from "@agentxm/registry-client";
+import { OfflineHttpClient, RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import type { ExtensionIndex } from "@agentxm/registry-protocol/unstable/registry";
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 
@@ -41,7 +41,7 @@ export const specification = defineSpecification({
 const source: RegistrySource = {
   type: "registry",
   name: "test",
-  location: new URL("https://registry.example.test"),
+  location: decodeRegistryEndpointSync("https://registry.example.test"),
   owner: Option.some(handle("@test")),
 };
 
@@ -81,10 +81,9 @@ const options = (versionRange: string) => ({
 describe("Shared Registry index for pack planning", () => {
   it.effect("coalesces concurrent index reads and preserves both incoming ranges", () =>
     Effect.gen(function* () {
-      const client = createLocalRegistryClient(
-        "/tmp/axm-unused-index-provider",
-        yield* FileSystem.FileSystem,
-        yield* Path.Path,
+      const factory = yield* RegistryClientFactory;
+      const client = yield* factory.forEndpoint(
+        decodeRegistryEndpointSync("file:///tmp/axm-unused-index-provider"),
       );
       const provider = createRemoteRegistrySourceHostProvider(client);
       const started = yield* Deferred.make<void>();
@@ -116,7 +115,11 @@ describe("Shared Registry index for pack planning", () => {
     }).pipe(
       Effect.scoped,
       Effect.provide(
-        Layer.mergeAll(NodeServices.layer, makeTestAxmSkillGate(), RegistryResolutionPolicyTest),
+        Layer.mergeAll(
+          Layer.provideMerge(RegistryClientFactoryTest(OfflineHttpClient), NodeServices.layer),
+          makeTestAxmSkillGate(),
+          RegistryResolutionPolicyTest,
+        ),
       ),
     ),
   );
@@ -133,9 +136,9 @@ describe("Shared Registry index for pack planning", () => {
           : Effect.succeed(Option.some(index));
       });
       const args = { owner: index.owner, type: index.type, name: index.name };
-      const failure = yield* memo.get(source.location.href, source.name, args).pipe(Effect.flip);
+      const failure = yield* memo.get(source.location, source.name, args).pipe(Effect.flip);
       expect(failure).toMatchObject({ category: "network" });
-      expect(yield* memo.get(source.location.href, source.name, args)).toEqual(Option.some(index));
+      expect(yield* memo.get(source.location, source.name, args)).toEqual(Option.some(index));
       expect(reads).toBe(2);
     }),
   );

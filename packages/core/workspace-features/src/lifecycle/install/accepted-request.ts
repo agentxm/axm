@@ -8,6 +8,7 @@ import {
 } from "@agentxm/extension-model/unstable/extensions";
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import type { Source } from "@agentxm/extension-model/unstable/sources/types";
+import { sameRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
 import { acceptedConfiguredResolution } from "@agentxm/workspace-kernel/resolution";
 import { DesiredStateReader, desiredPackageKey } from "@agentxm/workspace-kernel/workspace-state";
@@ -19,7 +20,7 @@ const sameSource = (left: Source, right: Source): boolean => {
     case "registry":
       return (
         right.type === "registry" &&
-        left.location.href === right.location.href &&
+        sameRegistryEndpoint(left.location, right.location) &&
         Option.getOrUndefined(left.owner) === Option.getOrUndefined(right.owner)
       );
     case "git":

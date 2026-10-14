@@ -6,6 +6,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -49,7 +50,7 @@ import {
   validateArchive,
 } from "@agentxm/extension-content";
 import { inspectKnowledgeBundle } from "@agentxm/extension-content/knowledge";
-import { RegistryClientFactory } from "@agentxm/registry-client";
+import { RegistryClientFactory, RegistryContext } from "@agentxm/registry-client";
 import {
   SettingsReader,
   acceptedCanonicalObservation,
@@ -181,7 +182,7 @@ export const preparationFailure = (
 
 export interface TargetRegistry {
   readonly name: string;
-  readonly url: string;
+  readonly endpoint: RegistryEndpoint;
 }
 
 /** The inputs one publish invocation supplies. */
@@ -711,34 +712,14 @@ export const selectEntries = Effect.fn("Publish.selectEntries")(function* (
 
 /**
  * The registry a publish addresses: a configured name or absolute HTTP(S) URL,
- * otherwise the default configured source, through one target owner.
+ * otherwise the default configured source, through the invocation's one
+ * Registry selection.
  */
 export const resolveTargetRegistry = Effect.fn("Publish.resolveTargetRegistry")(function* (
   requested: Option.Option<string>,
 ) {
-  const settings = yield* SettingsReader;
-  const selection = yield* settings.registryTarget(requested);
-  if (Option.isNone(selection.url)) {
-    if (Option.isSome(requested) && URL.canParse(requested.value)) {
-      return yield* new PublishFailed({
-        category: "usage",
-        detail:
-          "--registry must name a configured registry or an absolute HTTP(S) URL without credentials, query or fragment",
-      });
-    }
-    return yield* Effect.fail(
-      Option.isNone(requested)
-        ? new PublishFailed({
-            category: "usage",
-            detail: `Default registry source "${selection.name}" not found`,
-          })
-        : new PublishFailed({
-            category: "not_found",
-            detail: `Registry source "${selection.name}" not found`,
-          }),
-    );
-  }
-  return { name: selection.name, url: selection.url.value } satisfies TargetRegistry;
+  const selected = yield* (yield* RegistryContext).target(requested);
+  return { name: selected.name, endpoint: selected.endpoint } satisfies TargetRegistry;
 });
 
 const developmentRootWarning = (
@@ -870,7 +851,7 @@ export const decodeCandidate = Effect.fn("Publish.decodeCandidate")(function* (
       validation(`Manifest identity does not match configured extension ${selected.fqn}`),
     );
   }
-  const client = yield* (yield* RegistryClientFactory).forLocation(registry.url);
+  const client = yield* (yield* RegistryClientFactory).forEndpoint(registry.endpoint);
   const index = yield* client.getExtensionIndex({
     owner: selected.owner,
     type: selected.type,

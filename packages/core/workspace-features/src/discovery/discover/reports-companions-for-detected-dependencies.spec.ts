@@ -101,7 +101,7 @@ describe("Dependency-backed companion discovery", () => {
         ],
       });
       expect(registry.requests).toHaveLength(1);
-      expect(locations).toEqual(["https://extensions.example.test/"]);
+      expect(locations).toEqual(["https://extensions.example.test"]);
       expect(registry.requests[0]).toMatchObject({
         method: "POST",
         body: {

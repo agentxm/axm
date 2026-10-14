@@ -201,7 +201,7 @@ describe("skill installation application", () => {
             );
             const writer = yield* AcceptedResolutionWriter;
             yield* writer.setAccepted("skill", "axm", {
-              source: { type: "registry", url: new URL(registry.source.location) },
+              source: { type: "registry", url: registry.endpoint },
               identity: { owner: handle("@agentxm"), name: extensionName("axm") },
               resolved: {
                 version: exactVersion("1.0.0"),
@@ -226,7 +226,7 @@ describe("skill installation application", () => {
                 source: {
                   type: "registry",
                   name: registry.source.name,
-                  location: new URL(registry.source.location),
+                  location: registry.endpoint,
                   owner: Option.none(),
                 },
                 skill: {

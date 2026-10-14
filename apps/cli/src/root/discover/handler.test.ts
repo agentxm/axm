@@ -37,8 +37,9 @@ const companion = (name: string, official: boolean, attestedBy: ReadonlyArray<st
 /** The composition root's factory, stubbed to answer discovery without transport. */
 const stubFactoryLayer = (respond: () => DiscoverPackagesResponse | undefined) =>
   Layer.succeed(RegistryClientFactory, {
-    forLocation: () => Effect.succeed(makeStubClient(respond)),
-    forDefaultRegistry: Effect.die("Discover must resolve each declared source directly"),
+    forEndpoint: () => Effect.succeed(makeStubClient(respond)),
+    lifecycle: () => Effect.die("Discover manages no lifecycle"),
+    wire: () => Effect.die("Discover authenticates nothing"),
   });
 
 const makeStubClient = (respond: () => DiscoverPackagesResponse | undefined): RegistryClient =>

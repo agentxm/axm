@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -71,7 +72,7 @@ const registry = (): RegistrySkillRef => ({
   source: {
     type: "registry",
     name: "private-alias",
-    location: new URL("https://registry.agentxm.ai"),
+    location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
     owner: Option.none(),
   },
 });
@@ -225,7 +226,10 @@ describe("Public skill install telemetry", () => {
           installed(unknown),
           installed({
             ...ref,
-            source: { ...ref.source, location: new URL("https://registry.example") },
+            source: {
+              ...ref.source,
+              location: decodeRegistryEndpointSync("https://registry.example"),
+            },
           }),
         ]);
         expect(result.probes).toEqual([]);

@@ -2,7 +2,14 @@
  * Shared decode helpers for registry-client internal tests.
  */
 
+import { pathToFileURL } from "node:url";
+
+import * as Effect from "effect/Effect";
+import type * as FileSystem from "effect/FileSystem";
+import * as HttpClient from "effect/http/HttpClient";
+import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   decodeExtensionNameSync,
   ExtensionDependencyConstraintMapSchema,
@@ -25,6 +32,10 @@ import {
   AgentExtensionRecommendationSchema,
   type AgentExtensionRecommendation,
 } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
+
+import type { RegistryClient } from "./client.js";
+import { makeRegistryClientFactory } from "./registry-client-factory.js";
+import { passThroughRegistryAuthorization } from "./testing.js";
 
 export const handle = (value: string): Handle => decodeHandleSync(value);
 
@@ -59,3 +70,22 @@ const expectDefined = <T>(value: T | null | undefined, message = "Expected value
 
 export const at = <T>(values: ReadonlyArray<T>, index: number, message?: string): T =>
   expectDefined(values[index], message ?? `Expected value at index ${index}`);
+
+/**
+ * A client for the file Registry at a native directory, opened through the
+ * published factory over `fileSystem`. A file Registry sends no requests, so
+ * the transport refuses every one.
+ */
+export const localRegistryClient = (
+  root: string,
+  fileSystem: FileSystem.FileSystem,
+  path: Path.Path,
+): RegistryClient =>
+  Effect.runSync(
+    makeRegistryClientFactory({
+      httpClient: HttpClient.make(() => Effect.die("A file Registry sends no requests.")),
+      fileSystem,
+      path,
+      authorization: passThroughRegistryAuthorization,
+    }).forEndpoint(decodeRegistryEndpointSync(pathToFileURL(root).href)),
+  );

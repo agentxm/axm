@@ -121,7 +121,7 @@ const releaseAge = (ref: Extract<SkillExtensionRef, { readonly refType: "registr
     if (exemption !== undefined) return Option.none<ReleaseAgeFact>();
 
     return yield* Effect.gen(function* () {
-      const client = yield* (yield* RegistryClientFactory).forLocation(ref.source.location);
+      const client = yield* (yield* RegistryClientFactory).forEndpoint(ref.source.location);
       const index = yield* client.getExtensionIndex({
         owner: ref.owner,
         type: "skill",

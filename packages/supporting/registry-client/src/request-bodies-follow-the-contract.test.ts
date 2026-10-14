@@ -4,7 +4,6 @@
  * undeclared fields, so a body that only decodes leniently would fail there.
  */
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import type * as HttpClientRequest from "effect/http/HttpClientRequest";
@@ -17,18 +16,14 @@ import {
 } from "@agentxm/registry-protocol/unstable/registry/publication-set";
 
 import * as Generated from "./__generated__/registry-client.js";
-import {
-  archiveExtension,
-  deprecateExtension,
-  yankAvailableExtensionVersions,
-  yankExtensionVersion,
-} from "./admin-client.js";
+import { makeRegistryLifecycleClient, type RegistryLifecycleClient } from "./admin-client.js";
 import type { RegistryClientFailure } from "./errors.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
-import { RegistryUrl } from "./registry-url.js";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { exactVersion, extensionName, handle, packageUrl } from "./test-helpers.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 
 /** Records each request body and answers with a declared unavailable problem. */
 const makeRecordingClient = () => {
@@ -73,7 +68,7 @@ const strictly = <S extends Schema.Decoder<unknown>>(schema: S, body: unknown) =
   Schema.decodeUnknownSync(schema)(body, { onExcessProperty: "error" });
 
 const remote = (httpClient: HttpClient.HttpClient) =>
-  createRemoteRegistryClient(REGISTRY_URL, httpClient, undefined, {
+  createRemoteRegistryClient(REGISTRY, httpClient, undefined, {
     requestTimeout: "1 second",
     totalDeadline: "2 seconds",
     maxAttempts: 1,
@@ -82,16 +77,9 @@ const remote = (httpClient: HttpClient.HttpClient) =>
   });
 
 const admin =
-  <A>(effect: Effect.Effect<A, RegistryClientFailure, HttpClient.HttpClient | RegistryUrl>) =>
+  <A>(call: (lifecycle: RegistryLifecycleClient) => Effect.Effect<A, RegistryClientFailure>) =>
   (httpClient: HttpClient.HttpClient) =>
-    effect.pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          Layer.succeed(HttpClient.HttpClient, httpClient),
-          Layer.succeed(RegistryUrl, REGISTRY_URL),
-        ),
-      ),
-    );
+    call(makeRegistryLifecycleClient(REGISTRY, httpClient));
 
 const ref = { owner: "@acme", type: "skills", name: "review" };
 
@@ -156,7 +144,9 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
   it.effect("archival", () =>
     Effect.gen(function* () {
       const body = yield* sentBody(
-        admin(archiveExtension(ref, { revision: "rev_1", message: "Replaced" })),
+        admin((lifecycle) =>
+          lifecycle.archiveExtension(ref, { revision: "rev_1", message: "Replaced" }),
+        ),
       );
       expect(() => strictly(Generated.ExtensionsPutArchivalRequestJson, body)).not.toThrow();
     }),
@@ -165,8 +155,8 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
   it.effect("deprecation", () =>
     Effect.gen(function* () {
       const body = yield* sentBody(
-        admin(
-          deprecateExtension(ref, {
+        admin((lifecycle) =>
+          lifecycle.deprecateExtension(ref, {
             revision: "rev_1",
             reason: "superseded",
             message: "Use the successor.",
@@ -181,8 +171,8 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
   it.effect("version yank", () =>
     Effect.gen(function* () {
       const body = yield* sentBody(
-        admin(
-          yankExtensionVersion(
+        admin((lifecycle) =>
+          lifecycle.yankExtensionVersion(
             { ...ref, version: "1.0.0" },
             { category: "security", message: "Do not install." },
           ),
@@ -195,7 +185,7 @@ describe("Mutating Registry calls send bodies the contract accepts strictly", ()
   it.effect("yank of every available version", () =>
     Effect.gen(function* () {
       const body = yield* sentBody(
-        admin(yankAvailableExtensionVersions(ref, { category: "broken" })),
+        admin((lifecycle) => lifecycle.yankAvailableExtensionVersions(ref, { category: "broken" })),
       );
       expect(() =>
         strictly(Generated.ExtensionsYankAvailableVersionsRequestJson, body),

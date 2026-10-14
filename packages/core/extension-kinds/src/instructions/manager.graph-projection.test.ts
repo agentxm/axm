@@ -8,6 +8,7 @@
  * incomplete-graph cases behind the last-writer-wins projection defect.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import {
   UNCONSTRAINED_DESIRED_NODE,
@@ -86,7 +87,10 @@ const settingsRuleNode = (name: string): DesiredExtensionNode => ({
   identity: {
     authority: "registry",
     fqn: `${OWNER}/rules/${name}`,
-    registry: { sourceName: "agentxm", endpoint: new URL("https://registry.agentxm.ai") },
+    registry: {
+      sourceName: "agentxm",
+      endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+    },
   },
   source: `agentxm:${OWNER}/rules/${name}`,
   enabled: true,
@@ -110,7 +114,10 @@ const packRuleNode = (name: string, pack: string): DesiredExtensionNode => ({
   identity: {
     authority: "registry",
     fqn: `${OWNER}/rules/${name}`,
-    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
+    registry: {
+      sourceName: undefined,
+      endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+    },
   },
   source: `${OWNER}/rules/${name}@^1.0.0`,
   enabled: true,

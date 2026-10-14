@@ -94,8 +94,11 @@ describe("Registry-selected extension view", () => {
           Effect.gen(function* () {
             const result = yield* Effect.result(resolveViewRegistry(Option.some(registry)));
             expect(Result.isFailure(result)).toBe(true);
-            if (Result.isFailure(result) && result.failure._tag === "PublishedMetadataUnavailable")
-              expect(result.failure.detail).toContain(registry);
+            if (Result.isFailure(result)) {
+              expect(result.failure._tag).toBe("RegistrySourceUnknown");
+              if (result.failure._tag === "RegistrySourceUnknown")
+                expect(result.failure.name).toBe(registry);
+            }
             expect(fixture.requests).toEqual([]);
           }),
         )

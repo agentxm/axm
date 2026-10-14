@@ -7,10 +7,10 @@ import { initiateDeviceLogin } from "./device-login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
   authFailureCategory,
-  authRegistry,
   machineOutputPresenter,
   makeAuthPorts,
-  otherAuthRegistry,
+  authEndpoint,
+  otherAuthEndpoint,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -32,7 +32,7 @@ describe("Pending authorization reuse", () => {
   it.effect("reuses the pending sign-in and requires explicit replacement", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     const start = (restart = false) =>
-      initiateDeviceLogin(authRegistry, { openBrowser: false, restart });
+      initiateDeviceLogin(authEndpoint, { openBrowser: false, restart });
 
     return Effect.gen(function* () {
       yield* start();
@@ -46,7 +46,7 @@ describe("Pending authorization reuse", () => {
       expect(ports.deviceAuthorizations).toHaveLength(1);
       expect(reused.flow).toBe("re-emitted");
 
-      const changedRegistry = yield* initiateDeviceLogin(otherAuthRegistry, {
+      const changedRegistry = yield* initiateDeviceLogin(otherAuthEndpoint, {
         openBrowser: false,
       }).pipe(Effect.flip);
       expect(authFailureCategory(changedRegistry)).toBe("conflict");

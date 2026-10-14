@@ -1,11 +1,12 @@
 /**
- * Unit tests for auth middleware.
+ * Unit tests for the Registry request authorization.
  *
- * Covers: header injection, pass-through when no token, non-registry URL
- * pass-through, automatic 401 refresh, proactive refresh, single-retry-only,
- * no refresh for env-var tokens.
+ * Covers: header injection, pass-through when no token, refusal of a request
+ * off the Registry origin, automatic 401 refresh, proactive refresh,
+ * single-retry-only, no refresh for env-var tokens.
  */
 
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, it } from "@effect/vitest";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
@@ -24,9 +25,16 @@ import {
   type CredentialStoreService,
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
-import { AuthMiddlewareLive } from "./auth-middleware.js";
+import { AuthorizedTransportAt } from "./test-helpers.js";
 import { RegistryAccessFailed } from "../authentication/errors.js";
-import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
+import {
+  RegistryHttpClient,
+  RegistryRequestAuthorization,
+  RegistryRequestFailed,
+} from "@agentxm/registry-client";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKeyOf } from "../credentials/test-helpers.js";
+import { RegistryRequestAuthorizationLive } from "./request-authorization.js";
 import { handle } from "../test-helpers.js";
 import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
@@ -64,37 +72,57 @@ const authorizationHeader = (request: HttpClientRequest.HttpClientRequest): stri
   return typeof header === "string" ? header : null;
 };
 
+/** The mock answers the authorized transport and the plain Registry transport alike. */
+const mockTransportLayer = (client: HttpClient.HttpClient) =>
+  Layer.merge(
+    Layer.succeed(HttpClient.HttpClient, client),
+    Layer.succeed(RegistryHttpClient, client),
+  );
+
 const makeTestLayers = (
   handler: (request: HttpClientRequest.HttpClientRequest) => MockResponse,
   credentialData?: Parameters<typeof CredentialStoreTest>[1],
   credentialStoreService?: CredentialStoreService,
+  /** The Registry the client is built for; the default stays REGISTRY_URL. */
+  boundRegistry: string = REGISTRY_URL,
 ) => {
-  const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
+  const baseClientLayer = mockTransportLayer(makeMockHttpClient(handler));
   const rawCredStoreLayer =
     credentialStoreService === undefined
       ? CredentialStoreTest("restricted-file", credentialData)
       : Layer.succeed(CredentialStore, credentialStoreService);
   const credStoreLayer = Layer.provide(CredentialStoreSessionLive, rawCredStoreLayer);
-  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const registryContextLayer = RegistryContextTest(REGISTRY_URL);
   const refresherLayer = Layer.provide(
     SessionRefresherLive,
     Layer.mergeAll(Layer.provide(TokenExchangeLive, baseClientLayer), credStoreLayer),
   );
 
-  // Auth middleware depends on HttpClient, CredentialStore, SessionRefresher, RegistryUrl
+  // Request authorization depends on the base transport, the credential store, the session refresher, and the Registry selection
   const middlewareLayer = Layer.provide(
-    AuthMiddlewareLive,
+    AuthorizedTransportAt(boundRegistry),
     Layer.mergeAll(
       WorkloadCredentialsTest(),
       baseClientLayer,
       credStoreLayer,
       refresherLayer,
-      registryUrlLayer,
+      registryContextLayer,
     ),
   );
 
-  // Merge credential store so tests can access it
-  return Layer.mergeAll(middlewareLayer, credStoreLayer, refresherLayer, registryUrlLayer);
+  const authorizationLayer = Layer.provide(
+    RegistryRequestAuthorizationLive,
+    Layer.mergeAll(WorkloadCredentialsTest(), credStoreLayer, refresherLayer, registryContextLayer),
+  );
+
+  // Merge credential store and the authorization so tests can reach them
+  return Layer.mergeAll(
+    middlewareLayer,
+    authorizationLayer,
+    credStoreLayer,
+    refresherLayer,
+    registryContextLayer,
+  );
 };
 
 const futureExpiry = () => DateTime.add(DateTime.nowUnsafe(), { hours: 1 });
@@ -157,7 +185,7 @@ const makeCountingCredentialStore = (
 // Tests
 // -----------------------------------------------------------------------------
 
-describe("AuthMiddleware", () => {
+describe("RegistryRequestAuthorization", () => {
   let origAxmToken: string | undefined;
 
   beforeEach(() => {
@@ -247,19 +275,25 @@ describe("AuthMiddleware", () => {
       }).pipe(Effect.provide(layers));
     });
 
-    it.effect("does not inject auth for non-registry URLs", () => {
-      let capturedAuth: string | null = null;
+    it.effect("refuses a request addressed off the Registry origin before it is sent", () => {
+      let sent = false;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = authorizationHeader(req);
+      const layers = makeTestLayers(() => {
+        sent = true;
         return new Response("ok", { status: 200 });
       }, storedCredentials());
 
       return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get("https://other-api.example.com/data");
-        yield* client.execute(request);
-        expect(capturedAuth).toBeNull();
+        const error = yield* client.execute(request).pipe(Effect.flip);
+        expect(error.reason._tag).toBe("TransportError");
+        const carried = error.reason._tag === "TransportError" ? error.reason.cause : undefined;
+        expect(carried).toBeInstanceOf(RegistryRequestFailed);
+        expect(carried instanceof RegistryRequestFailed ? carried.reason : null).toBe(
+          "request-construction",
+        );
+        expect(sent).toBe(false);
       }).pipe(Effect.provide(layers));
     });
   });
@@ -440,7 +474,7 @@ describe("AuthMiddleware", () => {
         return new Response("ok", { status: 200 });
       };
 
-      const baseClientLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
+      const baseClientLayer = mockTransportLayer(makeMockHttpClient(handler));
       const credStoreLayer = CredentialStoreTest("restricted-file", {
         version: 1,
         registries: {
@@ -456,27 +490,29 @@ describe("AuthMiddleware", () => {
           },
         },
       });
-      const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+      const registryContextLayer = RegistryContextTest(REGISTRY_URL);
       const refresherLayer = Layer.provide(
         SessionRefresherLive,
         Layer.mergeAll(Layer.provide(TokenExchangeLive, baseClientLayer), credStoreLayer),
       );
 
+      // A client for the non-default Registry presents that Registry's own
+      // saved session.
       const middlewareLayer = Layer.provide(
-        AuthMiddlewareLive,
+        AuthorizedTransportAt(NON_DEFAULT_REGISTRY),
         Layer.mergeAll(
           WorkloadCredentialsTest(),
           baseClientLayer,
           credStoreLayer,
           refresherLayer,
-          registryUrlLayer,
+          registryContextLayer,
         ),
       );
       const layers = Layer.mergeAll(
         middlewareLayer,
         credStoreLayer,
         refresherLayer,
-        registryUrlLayer,
+        registryContextLayer,
       );
 
       return Effect.gen(function* () {
@@ -491,10 +527,15 @@ describe("AuthMiddleware", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env_scoped";
       let capturedAuth: string | null = null;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = authorizationHeader(req);
-        return new Response("ok", { status: 200 });
-      });
+      const layers = makeTestLayers(
+        (req) => {
+          capturedAuth = authorizationHeader(req);
+          return new Response("ok", { status: 200 });
+        },
+        undefined,
+        undefined,
+        "https://other-registry.example.com",
+      );
 
       return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
@@ -505,20 +546,21 @@ describe("AuthMiddleware", () => {
       }).pipe(Effect.provide(layers));
     });
 
-    it.effect("does not leak AXM_TOKEN to non-registry hosts", () => {
+    it.effect("does not send AXM_TOKEN to non-registry hosts", () => {
       process.env["AXM_TOKEN"] = "axm_ses_env_leak_test";
-      let capturedAuth: string | null = null;
+      let sent = false;
 
-      const layers = makeTestLayers((req) => {
-        capturedAuth = authorizationHeader(req);
+      const layers = makeTestLayers(() => {
+        sent = true;
         return new Response("ok", { status: 200 });
       });
 
       return Effect.gen(function* () {
         const client = yield* HttpClient.HttpClient;
         const request = HttpClientRequest.get("https://github.com/some/repo");
-        yield* client.execute(request);
-        expect(capturedAuth).toBeNull();
+        const error = yield* client.execute(request).pipe(Effect.flip);
+        expect(error.reason._tag).toBe("TransportError");
+        expect(sent).toBe(false);
       }).pipe(Effect.provide(layers));
     });
 
@@ -599,7 +641,7 @@ describe("AuthMiddleware", () => {
         const store = yield* CredentialStore;
         const request = HttpClientRequest.get(`${REGISTRY_URL}/v1/extensions`);
         yield* client.execute(request);
-        yield* store.save(REGISTRY_URL, handle("@alice"), {
+        yield* store.save(credentialKeyOf(REGISTRY_URL), handle("@alice"), {
           access_token: "axm_ses_new",
           refresh_token: "axm_ref_new",
           expires_at: futureExpiry(),
@@ -632,9 +674,12 @@ describe("AuthMiddleware", () => {
       );
 
       return Effect.gen(function* () {
-        const client = yield* HttpClient.HttpClient;
+        const authorization = yield* RegistryRequestAuthorization;
+        const base = makeMockHttpClient(() => new Response("ok", { status: 200 }));
         for (const origin of [REGISTRY_URL, secondRegistry, REGISTRY_URL, secondRegistry]) {
-          yield* client.execute(HttpClientRequest.get(`${origin}/v1/extensions`));
+          yield* authorization
+            .authorize(decodeHttpRegistryEndpointSync(origin), base)
+            .execute(HttpClientRequest.get(`${origin}/v1/extensions`));
         }
         expect(counting.loadCounts.get(REGISTRY_URL)).toBe(1);
         expect(counting.loadCounts.get(secondRegistry)).toBe(1);

@@ -18,9 +18,9 @@ import {
   WorkspaceLocation,
   desiredStateProblemText,
   effectiveDesiredConstraint,
+  McpSourceKey,
   type DesiredConstraintProposal,
   type DesiredStateGraph,
-  mcpRegistryResolutionKey,
 } from "@agentxm/workspace-kernel/workspace-state";
 
 import * as FileSystem from "effect/FileSystem";
@@ -86,7 +86,8 @@ import { settleMcpSourceIdentityFor } from "../../source-identity.js";
 export interface McpServerInstallIntent {
   readonly ref: McpServerExtensionRef;
   readonly localName: ExtensionName;
-  readonly sourceIdentity: string;
+  /** The source closure the connection joins. */
+  readonly sourceKey: McpSourceKey;
   readonly versionRange: Option.Option<string>;
   readonly force: boolean;
   readonly nonInteractive: boolean;
@@ -336,7 +337,7 @@ const selectMcpSourceConstraint = (
   graph: DesiredStateGraph,
   input: {
     readonly localName: ExtensionName;
-    readonly sourceIdentity: string;
+    readonly sourceKey: McpSourceKey;
     readonly versionRange: Option.Option<string>;
   },
 ): Effect.Effect<Option.Option<string>, ExtensionLifecycleFailed> =>
@@ -351,7 +352,7 @@ const selectMcpSourceConstraint = (
       : { source: "settings", localName: input.localName };
     const effective = effectiveDesiredConstraint(
       graph,
-      { type: "mcp-server", name: input.localName, sourceKey: input.sourceIdentity },
+      { type: "mcp-server", name: input.localName, sourceKey: input.sourceKey },
       [declaration],
     );
     if (Result.isFailure(effective)) {
@@ -411,8 +412,9 @@ export const resolveMcpServerSourceRequest: (
         }),
       onSome: Effect.succeed,
     });
-    const identity = mcpRegistryResolutionKey({
-      authority: source.location,
+    const sourceKey = McpSourceKey.encode({
+      kind: "registry",
+      endpoint: source.location,
       owner,
       name: serverName,
     });
@@ -428,7 +430,7 @@ export const resolveMcpServerSourceRequest: (
     );
     const versionRange = yield* selectMcpSourceConstraint(graph, {
       localName,
-      sourceIdentity: identity,
+      sourceKey,
       versionRange: request.versionRange,
     });
     return {
@@ -498,7 +500,7 @@ export const finalizeMcpServerInstallIntent: (
                 }),
               ),
               Effect.flatMap((hosts) =>
-                registryLoginSuggestions(hosts.map((host) => host.location.href)),
+                registryLoginSuggestions(hosts.map((host) => host.location)),
               ),
             )
           : [];
@@ -529,7 +531,7 @@ export const finalizeMcpServerInstallIntent: (
         }),
       ),
     );
-    const sourceIdentity = yield* settleMcpSourceIdentityFor(
+    const sourceKey = yield* settleMcpSourceIdentityFor(
       graph,
       ref,
       localName,
@@ -545,13 +547,13 @@ export const finalizeMcpServerInstallIntent: (
     );
     yield* selectMcpSourceConstraint(graph, {
       localName,
-      sourceIdentity,
+      sourceKey,
       versionRange: request.versionRange,
     });
     return {
       ref,
       localName,
-      sourceIdentity,
+      sourceKey,
       versionRange: request.versionRange,
       force: request.force,
       nonInteractive: request.nonInteractive,
@@ -704,8 +706,8 @@ export const planMcpServerInstall: (
         ...(auth === undefined ? {} : { auth }),
       };
       const graph = yield* (yield* DesiredStateReader).graph();
-      const closure = graph.mcpSourceClosures.find(
-        (candidate) => candidate.key === intent.sourceIdentity,
+      const closure = graph.mcpSourceClosures.find((candidate) =>
+        McpSourceKey.equals(candidate.key, intent.sourceKey),
       );
       for (const name of closure?.localNames ?? []) {
         if (name === intent.localName) continue;
@@ -804,7 +806,7 @@ export const planMcpServerInstall: (
               args: {
                 ref: intent.ref,
                 localName: intent.localName,
-                sourceIdentity: intent.sourceIdentity,
+                sourceKey: intent.sourceKey,
                 nonInteractive: intent.nonInteractive,
                 force: intent.force,
                 declaration: { name: intent.localName, versionRange: intent.versionRange },

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import * as Schema from "effect/Schema";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 import {
   decodeExtensionNameSync,
@@ -89,7 +90,7 @@ describe("publication set contract", () => {
             range: decodeVersionRangeSync("^0.30.0"),
             source: {
               type: "registry",
-              url: new URL("https://registry.agentxm.ai"),
+              url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
             },
           },
         ],

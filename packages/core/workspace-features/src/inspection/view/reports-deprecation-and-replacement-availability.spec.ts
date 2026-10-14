@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { ViewExtension } from "./view-extension.js";
 import { inspectionRegistryUrl, makeRecordedRegistryPort } from "../testing.js";
 
@@ -65,7 +65,8 @@ describe("Extension deprecation details", () => {
       const parts = parseExtensionFqnParts(handle);
       if (parts === undefined) throw new Error("Expected a fully qualified handle");
       return Effect.gen(function* () {
-        const targetRegistry = { registryName: "agentxm", registryUrl: inspectionRegistryUrl };
+        const endpoint = decodeRegistryEndpointSync(inspectionRegistryUrl);
+        const targetRegistry = { registryName: "agentxm", endpoint, defaultEndpoint: endpoint };
         const result = yield* ViewExtension.read({
           handle,
           parts,
@@ -81,13 +82,6 @@ describe("Extension deprecation details", () => {
         });
         if (replacement.status === "unavailable")
           expect(deprecation.replacement?.fqn).toBeUndefined();
-      }).pipe(
-        Effect.provide(
-          Layer.provideMerge(
-            registry.layer,
-            Layer.merge(NodeServices.layer, Layer.succeed(RegistryUrl, inspectionRegistryUrl)),
-          ),
-        ),
-      );
+      }).pipe(Effect.provide(Layer.provideMerge(registry.layer, NodeServices.layer)));
     });
 });

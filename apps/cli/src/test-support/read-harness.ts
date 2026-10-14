@@ -8,7 +8,6 @@ import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
-import { RegistryUrl } from "@agentxm/registry-client";
 import { ExecutionDirectory } from "../execution-directory.js";
 import { makeWorkspaceHandlerTestContext } from "./test-helpers.js";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
@@ -87,7 +86,6 @@ export const makeReadSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     respondWith = respond;
     return program.pipe(
       Effect.provideService(HttpClient.HttpClient, port),
-      Effect.provideService(RegistryUrl, readRegistry),
       Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(workspace.root) }),
       workspace.provide,
     );

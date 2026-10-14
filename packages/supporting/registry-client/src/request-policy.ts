@@ -304,6 +304,8 @@ const withRequestPolicyMetadata = (
         ...(error.suggestions === undefined ? {} : { suggestions: error.suggestions }),
         ...(error.cause === undefined ? {} : { cause: error.cause }),
       });
+    case "RegistryOperationUnsupported":
+      return error;
   }
 };
 

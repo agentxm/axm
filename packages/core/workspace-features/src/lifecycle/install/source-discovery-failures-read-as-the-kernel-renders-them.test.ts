@@ -29,11 +29,12 @@ import {
 import type { ExtensionLifecycleFailed } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture } from "../testing.js";
 import { discoverInstallRefs } from "./request.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 const registry: RegistrySource = {
   type: "registry",
   name: "test",
-  location: new URL("https://registry.example.test"),
+  location: decodeRegistryEndpointSync("https://registry.example.test"),
   owner: Option.none(),
 };
 

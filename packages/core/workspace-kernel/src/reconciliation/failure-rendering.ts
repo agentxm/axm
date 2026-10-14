@@ -24,7 +24,10 @@ import { AxmSkillCompatibilityUnavailable } from "@agentxm/cli-maintenance/offic
 import { AxmSkillIncompatible } from "@agentxm/cli-maintenance/official-skill/domain";
 import {
   RegistryOperationFailed,
+  RegistryOperationUnsupported,
   RegistryProblem,
+  RegistrySelectionFailed,
+  RegistrySourceUnknown,
   RegistryRequestFailed,
 } from "@agentxm/registry-client";
 import {
@@ -297,6 +300,9 @@ const kernelFailureClasses = () =>
     RegistryProblem,
     RegistryRequestFailed,
     RegistryOperationFailed,
+    RegistryOperationUnsupported,
+    RegistrySourceUnknown,
+    RegistrySelectionFailed,
     ExtensionResolutionFailed,
     SourceAuthorityBlocked,
     PackDependencyInvalid,
@@ -479,6 +485,9 @@ const renderKernelFailureDetails = (
     case "RegistryProblem":
     case "RegistryRequestFailed":
     case "RegistryOperationFailed":
+    case "RegistryOperationUnsupported":
+    case "RegistrySourceUnknown":
+    case "RegistrySelectionFailed":
     case "ExtensionResolutionFailed":
     case "SourceAuthorityBlocked":
     case "PackDependencyInvalid":

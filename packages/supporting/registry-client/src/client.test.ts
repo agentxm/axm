@@ -28,9 +28,9 @@ import type {
   VersionEntry,
 } from "@agentxm/registry-protocol/unstable/registry/schema";
 import type { GetExtensionsByOwnerArgs } from "./client.js";
-import { createRegistryClient } from "./client.js";
 import { createLocalRegistryClient } from "./local-client.js";
 import { createRemoteRegistryClient } from "./remote-client.js";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   PUBLICATION_SET_CONTRACT,
   archiveSha256Hex,
@@ -194,20 +194,6 @@ const createTestZip = (fileName: string, content: string): Uint8Array => {
 };
 
 const makeRegistryDir = (): string => mkdtempSync(nodePath.join(tmpdir(), "test-registry-"));
-
-const remoteHttpLayer = Layer.succeed(
-  HttpClient.HttpClient,
-  HttpClient.make((request) =>
-    Effect.succeed(
-      HttpClientResponse.fromWeb(
-        request,
-        new Response(JSON.stringify({ extensions: [], cursor: null, hasMore: false }), {
-          status: 200,
-        }),
-      ),
-    ),
-  ),
-);
 
 // -----------------------------------------------------------------------------
 // LocalRegistryClient.getExtensionsByScope
@@ -1748,7 +1734,10 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           return HttpClientResponse.fromWeb(request, new Response("", { status: 200 }));
         }),
       );
-      const client = createRemoteRegistryClient("https://registry.example.com", stubHttpClient);
+      const client = createRemoteRegistryClient(
+        decodeHttpRegistryEndpointSync("https://registry.example.com"),
+        stubHttpClient,
+      );
 
       it.effect("getExtensions supports list mode discovery", () =>
         Effect.gen(function* () {
@@ -1801,7 +1790,7 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
             ),
           );
           const publishClient = createRemoteRegistryClient(
-            "https://registry.example.com",
+            decodeHttpRegistryEndpointSync("https://registry.example.com"),
             publishHttpClient,
           );
           const result = yield* publishClient.publishExtension(
@@ -1830,111 +1819,6 @@ layer(Layer.merge(NodeServices.layer, FetchHttpClient.layer), { excludeTestServi
           const result = yield* client.extensionExists(makeExistsArgs());
           expect(result).toEqual({ exists: true });
         }),
-      );
-    });
-
-    // -----------------------------------------------------------------------------
-    // createRegistryClient factory
-    // -----------------------------------------------------------------------------
-
-    describe("createRegistryClient", () => {
-      it.effect("creates a local client for a plain path", () => {
-        const registryRoot = makeRegistryDir();
-        const skillDir = nodePath.join(registryRoot, "extensions", "@test", "skills", "my-skill");
-
-        return Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
-          yield* fs.makeDirectory(skillDir, { recursive: true });
-          yield* fs.writeFileString(
-            nodePath.join(skillDir, "index.json"),
-            JSON.stringify(makeIndex()),
-          );
-
-          const client = yield* createRegistryClient(registryRoot);
-          const result = yield* client.getExtensionsByScope({
-            ...defaultSearchOptions,
-            names: ["my-skill"],
-          });
-          expect(result.extensions).toHaveLength(1);
-          expect(at(result.extensions, 0).name).toBe("my-skill");
-        }).pipe(
-          Effect.ensuring(
-            Effect.sync(() => rmSync(registryRoot, { recursive: true })).pipe(Effect.ignore),
-          ),
-        );
-      });
-
-      it.effect("creates a remote client for an https:// URL", () =>
-        Effect.gen(function* () {
-          const client = yield* createRegistryClient("https://registry.example.com");
-          expect(typeof client.getExtensionsByScope).toBe("function");
-          expect(typeof client.ownerExists).toBe("function");
-          expect(typeof client.getExtensionPackage).toBe("function");
-        }).pipe(Effect.provide(remoteHttpLayer)),
-      );
-
-      it.effect("uses the ambient HttpClient for remote publish requests", () => {
-        let requestCount = 0;
-
-        const httpLayer = Layer.succeed(
-          HttpClient.HttpClient,
-          HttpClient.make((request) =>
-            Effect.sync(() => {
-              requestCount += 1;
-              return HttpClientResponse.fromWeb(
-                request,
-                new Response(
-                  JSON.stringify({
-                    owner: "@test",
-                    type: "skill",
-                    name: "my-skill",
-                    version: "1.0.0",
-                    integrity: "sha512-AAAA==",
-                    sha256Hex: "aaaa",
-                    publishedAt: "2025-01-01T00:00:00Z",
-                    visibility: {
-                      value: "public",
-                      disposition: "establish",
-                      source: "platform",
-                    },
-                    warnings: [],
-                    links: { html: "https://agentxm.ai/test/skills/my-skill" },
-                  }),
-                  { status: 201 },
-                ),
-              );
-            }),
-          ),
-        );
-
-        return Effect.gen(function* () {
-          const client = yield* createRegistryClient("https://registry.example.com");
-
-          const archive = createTestZip("SKILL.md", "# ambient auth");
-          const integrity = yield* computeIntegrity(archive);
-
-          yield* client.publishExtension(
-            makeRemotePublishArgs(
-              archive,
-              makeVersionEntry({
-                version: "1.0.0",
-                published: DateTime.makeUnsafe("2025-01-01T00:00:00Z"),
-                integrity,
-              }),
-            ),
-          );
-
-          expect(requestCount).toBe(1);
-        }).pipe(Effect.provide(httpLayer));
-      });
-
-      it.effect("creates a remote client for an http:// URL", () =>
-        Effect.gen(function* () {
-          const client = yield* createRegistryClient("http://registry.example.com");
-          expect(typeof client.getExtensionsByScope).toBe("function");
-          expect(typeof client.ownerExists).toBe("function");
-          expect(typeof client.getExtensionPackage).toBe("function");
-        }).pipe(Effect.provide(remoteHttpLayer)),
       );
     });
   },

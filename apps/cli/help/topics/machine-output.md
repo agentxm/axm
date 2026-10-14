@@ -275,6 +275,15 @@ requiring message parsing:
 }
 ```
 
+The Registry problems are `registry-source-unknown` — a default or named
+Registry source no settings configure, with its `name`, the selecting `scope`
+(`explicit`, `project`, `user`, or `built-in`), and the `settingsPath` that
+selected it — and `registry-operation-unsupported` — an operation the selected
+Registry's transport does not implement, such as signing in to or deprecating on
+a file Registry, with the `operation`, the canonical `endpoint`, and its
+`transport`.
+Neither sends a request or changes any state.
+
 The matching stderr stream ends with an event such as:
 
 ```json

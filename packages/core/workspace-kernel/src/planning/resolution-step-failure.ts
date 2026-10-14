@@ -11,10 +11,14 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import * as Option from "effect/Option";
 import type {
   RegistryOperationFailed,
+  RegistryOperationUnsupported,
   RegistryProblem,
   RegistryRequestFailed,
+  RegistrySelectionFailed,
+  RegistrySourceUnknown,
 } from "@agentxm/registry-client";
 
 import {
@@ -48,7 +52,28 @@ import {
   type SourceSyntaxInvalid,
   type WorkspaceCatalogUnavailable,
 } from "../sources/index.js";
-import { makeStepFailure, type StepFailure } from "../operations/index.js";
+import {
+  makeStepFailure,
+  type FailureSuggestedAction,
+  type StepFailure,
+} from "../operations/index.js";
+
+/** An operation the Registry's transport does not implement, with its stable problem. */
+export const registryOperationUnsupportedStepFailure = (
+  error: RegistryOperationUnsupported,
+): StepFailure =>
+  makeStepFailure({
+    category: error.category,
+    detail: error.detail,
+    suggestions: error.suggestions,
+    problem: {
+      code: "registry-operation-unsupported",
+      operation: error.operation,
+      endpoint: error.endpoint,
+      transport: error.transport,
+    },
+    cause: error,
+  });
 
 /** Every source, registry, and dependency-resolution failure. */
 export type ResolutionFamilyFailure =
@@ -62,6 +87,9 @@ export type ResolutionFamilyFailure =
   | RegistryProblem
   | RegistryRequestFailed
   | RegistryOperationFailed
+  | RegistryOperationUnsupported
+  | RegistrySourceUnknown
+  | RegistrySelectionFailed
   | ExtensionResolutionFailed
   | SourceAuthorityBlocked
   | PackDependencyInvalid
@@ -79,6 +107,85 @@ const isWorkspaceStateReadFailure = (value: unknown): value is WorkspaceStateRea
   value instanceof LockfileDecodeError ||
   value instanceof LockfileVersionUnsupported ||
   value instanceof WorkspaceRootEscape;
+
+/**
+ * The recovery for an unknown Registry source: the selection that named it,
+ * or the setting that chose it. A missing built-in is this installation's
+ * defect, which no change to `defaultRegistry` repairs.
+ */
+const registrySourceUnknownSuggestions = (
+  error: RegistrySourceUnknown,
+): ReadonlyArray<FailureSuggestedAction> => {
+  switch (error.scope) {
+    case "explicit":
+      return [
+        {
+          description: "Name a configured Registry source or an http(s) origin with --registry.",
+          cmd: "axm help settings",
+          commandScope: "global",
+        },
+      ];
+    case "built-in":
+      return [
+        {
+          description: `This AXM installation does not configure its built-in Registry source "${error.name}"; reinstall AXM.`,
+        },
+      ];
+    case "project":
+    case "user":
+      return [
+        {
+          description: Option.match(error.settingsPath, {
+            onNone: () => `Add a Registry source named "${error.name}" or change defaultRegistry.`,
+            onSome: (path) =>
+              `Add a Registry source named "${error.name}" or change defaultRegistry in ${path}.`,
+          }),
+        },
+      ];
+  }
+};
+
+/**
+ * A default or named Registry source no settings configure. Nothing else is
+ * selected in its place; the recovery names the setting that chose it.
+ */
+export const registrySourceUnknownStepFailure = (error: RegistrySourceUnknown): StepFailure =>
+  makeStepFailure({
+    category: "usage",
+    detail: error.detail,
+    problem: {
+      code: "registry-source-unknown",
+      name: error.name,
+      scope: error.scope,
+      ...Option.match(error.settingsPath, {
+        onNone: () => ({}),
+        onSome: (settingsPath) => ({ settingsPath }),
+      }),
+    },
+    suggestions: registrySourceUnknownSuggestions(error),
+    cause: error,
+  });
+
+/**
+ * The Registry selection could not be decided: settings keep their own
+ * path-aware rendering, and an explicit selection that is not a Registry is a
+ * usage error.
+ */
+export const registrySelectionFailedStepFailure = (error: RegistrySelectionFailed): StepFailure =>
+  isWorkspaceStateReadFailure(error.cause)
+    ? workspaceStateReadFailureToStepFailure(error.cause)
+    : makeStepFailure({
+        category: "usage",
+        detail: error.detail,
+        suggestions: [
+          {
+            description: "Check --registry syntax.",
+            cmd: "axm help settings",
+            commandScope: "global",
+          },
+        ],
+        cause: error,
+      });
 
 const packConstraintShadowedFailure = (error: PackConstraintShadowed): StepFailure =>
   error.packSource === "workspace"
@@ -176,6 +283,12 @@ export const resolutionFailureToStepFailure = (error: ResolutionFamilyFailure): 
         suggestions: error.suggestions,
         cause: error.cause,
       });
+    case "RegistryOperationUnsupported":
+      return registryOperationUnsupportedStepFailure(error);
+    case "RegistrySourceUnknown":
+      return registrySourceUnknownStepFailure(error);
+    case "RegistrySelectionFailed":
+      return registrySelectionFailedStepFailure(error);
     case "ExtensionResolutionFailed":
       return makeStepFailure({
         category: error.category,

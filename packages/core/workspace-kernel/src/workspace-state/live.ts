@@ -37,6 +37,11 @@ import { WorkspaceStateShared, makeWorkspaceStateShared } from "./workspace/shar
 import { WorkspaceRecords, WorkspaceRecordsLive } from "./workspace/workspace-records.js";
 
 import { WorkspaceReadViews, WorkspaceReadViewsLive } from "./workspace/read-view.js";
+import {
+  readSourceConfigurationSnapshot,
+  type SourceConfigurationSnapshot,
+} from "./workspace/registry-selection.js";
+import type { WorkspaceSettingsReadFailure } from "./workspace/contracts.js";
 
 export type { WorkspaceStateOptions } from "./workspace/contracts.js";
 
@@ -139,3 +144,30 @@ export const layer = (
   WorkspaceStateError,
   FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
 > => Layer.provideMerge(WorkspaceTransactionScopeLive, WorkspaceStateLive(options));
+
+/**
+ * Read the project and user settings that select an invocation's Registry,
+ * from a project root that need not be initialized. Only the documents are
+ * read: no workspace services are composed.
+ */
+export const readProjectSourceConfiguration = (args: {
+  readonly projectRoot: WorkspaceStateOptions["projectRoot"];
+  readonly builtInSources: NonNullable<WorkspaceStateOptions["builtInSources"]>;
+}): Effect.Effect<
+  SourceConfigurationSnapshot,
+  WorkspaceStateError | WorkspaceSettingsReadFailure,
+  FileSystem.FileSystem | Path.Path | WorkspaceFileWriteLocks
+> =>
+  readSourceConfigurationSnapshot.pipe(
+    Effect.provide(
+      Layer.provideMerge(
+        FilesystemWorkspaceDocuments,
+        WorkspaceLocationLive({
+          scope: "project",
+          projectRoot: args.projectRoot,
+          builtInSources: args.builtInSources,
+          allowUninitialized: true,
+        }),
+      ),
+    ),
+  );

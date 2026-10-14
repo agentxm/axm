@@ -2,6 +2,8 @@
  * Unit tests for the shared device login flow.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "../credentials/credential-key.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -21,6 +23,7 @@ import {
 } from "./pending-device-login-store.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const REGISTRY = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 
 const makeLayers = (opts?: {
   readonly browserOpens?: boolean;
@@ -105,7 +108,7 @@ describe("runDeviceLogin", () => {
   it.effect("opens the complete verification URL and keeps the clean fallback plus code", () => {
     const { layer, presenterState, interactionState } = makeLayers({ browserOpens: true });
 
-    return runDeviceLogin(REGISTRY_URL).pipe(
+    return runDeviceLogin(REGISTRY).pipe(
       Effect.provide(layer),
       Effect.map(() => {
         // Nothing reaches the clipboard unless the person asks during the wait.
@@ -133,7 +136,7 @@ describe("runDeviceLogin", () => {
   it.effect("presents the flow without opening a browser when browser launch is disabled", () => {
     const { layer, presenterState, interactionState } = makeLayers({ browserOpens: false });
 
-    return runDeviceLogin(REGISTRY_URL, { openBrowser: false }).pipe(
+    return runDeviceLogin(REGISTRY, { openBrowser: false }).pipe(
       Effect.provide(layer),
       Effect.map(() => {
         expect(interactionState.openBrowserCalls).toEqual([]);
@@ -151,14 +154,14 @@ describe("runDeviceLogin", () => {
     const { layer } = makeLayers({ deviceCodeExpired: true });
 
     return Effect.gen(function* () {
-      const error = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      const error = yield* Effect.flip(runDeviceLogin(REGISTRY, { openBrowser: false }));
       expect(error).toMatchObject({
         category: "auth_expired",
         detail: "That code expired. Run axm login to get a new one.",
       });
 
       const store = yield* CredentialStore;
-      expect((yield* store.load(REGISTRY_URL))._tag).toBe("None");
+      expect((yield* store.load(credentialKey(REGISTRY)))._tag).toBe("None");
     }).pipe(Effect.provide(layer));
   });
 
@@ -166,14 +169,14 @@ describe("runDeviceLogin", () => {
     const { layer } = makeLayers({ deviceLoginDenied: true });
 
     return Effect.gen(function* () {
-      const error = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      const error = yield* Effect.flip(runDeviceLogin(REGISTRY, { openBrowser: false }));
       expect(error).toMatchObject({
         category: "auth_denied",
         detail: "Sign-in canceled in the browser. Nothing changed.",
       });
 
       const store = yield* CredentialStore;
-      expect((yield* store.load(REGISTRY_URL))._tag).toBe("None");
+      expect((yield* store.load(credentialKey(REGISTRY)))._tag).toBe("None");
       const pendingStore = yield* PendingDeviceLoginStore;
       expect(Option.isNone(yield* pendingStore.load())).toBe(true);
     }).pipe(Effect.provide(layer));
@@ -183,7 +186,7 @@ describe("runDeviceLogin", () => {
     const { layer } = makeLayers({ abandonWaits: true });
 
     return Effect.gen(function* () {
-      const stopped = yield* Effect.flip(runDeviceLogin(REGISTRY_URL, { openBrowser: false }));
+      const stopped = yield* Effect.flip(runDeviceLogin(REGISTRY, { openBrowser: false }));
       expect(stopped).toMatchObject({
         _tag: "DeviceAuthorizationPending",
         waitEnded: { _tag: "Stopped" },
@@ -199,10 +202,10 @@ describe("runDeviceLogin", () => {
     const { layer, presenterState } = makeLayers({ getMeFails: true });
 
     return Effect.gen(function* () {
-      yield* runDeviceLogin(REGISTRY_URL).pipe(Effect.provide(layer));
+      yield* runDeviceLogin(REGISTRY).pipe(Effect.provide(layer));
 
       const store = yield* CredentialStore;
-      const stored = yield* store.load(REGISTRY_URL);
+      const stored = yield* store.load(credentialKey(REGISTRY));
 
       expect(presenterState.loginSuccesses).toEqual([
         { status: "logged-in", registryHost: "registry.agentxm.ai" },
@@ -221,7 +224,7 @@ describe("resumable device login", () => {
     const { layer, presenterState, interactionState } = makeLayers({ machine: true });
 
     return Effect.gen(function* () {
-      const result = yield* initiateDeviceLogin(REGISTRY_URL);
+      const result = yield* initiateDeviceLogin(REGISTRY);
       expect(result.status).toBe("pending-human");
       expect(presenterState.pendingEmissions).toHaveLength(1);
       expect(interactionState.openBrowserCalls).toEqual([]);
@@ -235,7 +238,7 @@ describe("resumable device login", () => {
     const { layer, presenterState, interactionState } = makeLayers({ browserOpens: true });
 
     return Effect.gen(function* () {
-      const result = yield* initiateDeviceLogin(REGISTRY_URL);
+      const result = yield* initiateDeviceLogin(REGISTRY);
       expect(result.status).toBe("pending-human");
       expect(presenterState.pendingEmissions).toHaveLength(1);
       expect(interactionState.copyToClipboardCalls).toEqual([]);
@@ -255,7 +258,7 @@ describe("resumable device login", () => {
       const { layer } = makeLayers({ machine: true });
 
       return Effect.gen(function* () {
-        const result = yield* initiateDeviceLogin(REGISTRY_URL, { openBrowser: false });
+        const result = yield* initiateDeviceLogin(REGISTRY, { openBrowser: false });
         expect(result).toMatchObject({
           status: "pending-human",
           blockedOn: "human",

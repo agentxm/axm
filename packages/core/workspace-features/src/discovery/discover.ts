@@ -6,6 +6,11 @@
  * @packageDocumentation
  */
 
+import {
+  parseRegistryEndpoint,
+  sameRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as HashMap from "effect/HashMap";
 import * as Option from "effect/Option";
@@ -206,25 +211,35 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
         ];
       });
 
-      const registryLocations = [
-        ...new Set(
-          declaredPackages.flatMap((pkg) =>
-            pkg.recommendations.flatMap((entry) =>
-              entry.source.type === "registry" ? [entry.source.url.href] : [],
-            ),
-          ),
-        ),
-      ];
+      // A recommendation names its Registry by URL; only a location that is a
+      // Registry endpoint is asked, and each Registry once.
+      const recommendationEndpoint = (
+        entry: DeclaredRecommendation,
+      ): Option.Option<RegistryEndpoint> => {
+        if (entry.source.type !== "registry") return Option.none();
+        const endpoint = parseRegistryEndpoint(entry.source.url.href);
+        return Result.isSuccess(endpoint) ? Option.some(endpoint.success) : Option.none();
+      };
+      const registryEndpoints = declaredPackages
+        .flatMap((pkg) =>
+          pkg.recommendations.flatMap((entry) => Option.toArray(recommendationEndpoint(entry))),
+        )
+        .filter(
+          (endpoint, index, all) =>
+            all.findIndex((other) => sameRegistryEndpoint(other, endpoint)) === index,
+        );
 
       const registryQueries = yield* Effect.forEach(
-        registryLocations,
-        (location) =>
+        registryEndpoints,
+        (endpoint) =>
           Effect.gen(function* () {
-            const client = yield* registryFactory.forLocation(location);
+            const client = yield* registryFactory.forEndpoint(endpoint);
             const packages = declaredPackages.flatMap((pkg) => {
               const declaredExtensions = pkg.recommendations
-                .filter(
-                  (entry) => entry.source.type === "registry" && entry.source.url.href === location,
+                .filter((entry) =>
+                  Option.exists(recommendationEndpoint(entry), (declared) =>
+                    sameRegistryEndpoint(declared, endpoint),
+                  ),
                 )
                 .map((entry) => entry.declaration);
               return declaredExtensions.length === 0
@@ -235,9 +250,9 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
             if (Result.isFailure(result)) {
               yield* Effect.logWarning(
                 "Registry source is unreachable; recommendations remain unresolved",
-              ).pipe(Effect.annotateLogs({ registry: location }));
+              ).pipe(Effect.annotateLogs({ registry: endpoint.href }));
             }
-            return { location, result };
+            return { endpoint, result };
           }).pipe(Effect.withSpan("discover.queryRegistry")),
         { concurrency: 4 },
       );
@@ -249,8 +264,10 @@ export const discover = (projectDir: string, registryFactory: RegistryClientFact
         if (recommendation.source.type !== "registry") {
           return unresolvedEntry(recommendation);
         }
-        const location = recommendation.source.url.href;
-        const query = registryQueries.find((candidate) => candidate.location === location);
+        const declared = recommendationEndpoint(recommendation);
+        const query = registryQueries.find((candidate) =>
+          Option.exists(declared, (endpoint) => sameRegistryEndpoint(candidate.endpoint, endpoint)),
+        );
         if (query === undefined || Result.isFailure(query.result)) {
           return unresolvedEntry(recommendation);
         }

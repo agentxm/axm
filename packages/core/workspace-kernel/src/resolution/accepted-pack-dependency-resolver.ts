@@ -11,7 +11,6 @@
  */
 
 import * as Effect from "effect/Effect";
-import * as semver from "semver";
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -32,7 +31,10 @@ import { acceptedConfiguredResolution } from "./accepted-configured-entry.js";
 import { SourceHostProviders, type SourceResolutionFailure } from "../sources/index.js";
 import type { PackDependencyRefResolver } from "./pack-dependency-resolution.js";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
-import { decodeVersionRangeSync } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  decodeVersionRangeSync,
+  versionSatisfiesRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import { settleRegistryResolution } from "./configured-entry-resolution.js";
 import { requireAcceptedRegistryContent } from "./accepted-registry-content.js";
 
@@ -69,7 +71,7 @@ export const acceptedPackDependencyResolver =
           candidate.type === type &&
           candidate.owner === owner &&
           candidate.name === name &&
-          !semver.satisfies(candidate.version, constraint)
+          !versionSatisfiesRequest(candidate.version, constraint)
         ) {
           return yield* new AcceptedPackMemberIncompatible({
             type,

@@ -515,7 +515,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Boundary: platform; selection: per-change
 - Boundary rationale: The live credential adapter reads real isolated files so malformed and unreadable persisted credentials cannot become anonymous requests.
 - Methods: example
-- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`
+- Derived from: `packages/supporting/registry-access/src/adapters/request-authorization.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/rejected-read-credential.e2e.test.ts`](../apps/cli-e2e/src/rejected-read-credential.e2e.test.ts) — Only a real invocation against a real HTTP origin shows a rejected read travelling the same renewal as a rejected write, and a rejected or unreadable ambient credential reported for what it is rather than hidden behind a not-found.
 - Source: [`packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts`](../packages/supporting/registry-access/src/adapters/reads-carry-the-invocations-credential.spec.ts)
 
@@ -542,7 +542,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Product goals: `actionable-diagnostics`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-access/src/adapters/auth-middleware.ts`, `packages/supporting/registry-access/src/credentials/session-refresh.ts`
+- Derived from: `packages/supporting/registry-access/src/adapters/request-authorization.ts`, `packages/supporting/registry-access/src/credentials/session-refresh.ts`
 - Supersedes: `cli/whoami/refreshes-rejected-stored-credentials`
 - Source: [`packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts`](../packages/supporting/registry-access/src/adapters/renews-the-stored-session-once.spec.ts)
 
@@ -656,7 +656,7 @@ People and agents can understand invalid workspace state and recover it through 
 
 - Requirement: `cli/errors-do-not-disclose-credentials`
 - Owner: `cli`
-- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.
+- Statement: AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream; and a refused Registry location or redirect shall be reported without the credentials, query, or fragment it carried.
 - Class: quality (security)
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
@@ -1510,7 +1510,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/mcps/install/local-connection-names-share-source-resolution`
 - Owner: `workspace-features`
-- Statement: Installing a Registry MCP server under a local name with --as shall add one connection per name, sharing one accepted resolution per source, and shall use each local name verbatim as the agent-native key.
+- Statement: Installing a Registry, Git, or local-path MCP server under a local name with --as shall add one connection per name, sharing one accepted resolution per source, and shall use each local name verbatim as the agent-native key; updating or reinstalling any of those connections shall match its own accepted source rather than conflict with it.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
@@ -1653,7 +1653,7 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `cli/update/advances-resolution-within-intent`
 - Owner: `workspace-features`
-- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported.
+- Statement: Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported. A bare declaration, one qualified by the configured Registry it binds to, and one qualified by another alias of the same endpoint shall advance identically and keep the author's spelling, while a binding that moves to another Registry endpoint between planning and apply shall commit nothing.
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
@@ -2151,7 +2151,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/credentials-follow-explicit-source-precedence`
 - Owner: `registry-access`
-- Statement: For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity, and a GitHub Actions identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is neither 0 nor false.
+- Statement: For commands using the settings-selected default Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity exchanged for a workload token, and that identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source; a Registry selected in place of the default shall use only its own saved credentials. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is neither 0 nor false.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
@@ -2327,13 +2327,13 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/logout/erases-selected-registry-credentials`
 - Owner: `registry-access`
-- Statement: When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.
+- Statement: When logout finds saved credentials, AXM shall remove the session saved for the selected Registry's origin, whichever equivalent spelling selected it, even if remote revocation fails, leaving every other origin's credentials available.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`
+- Derived from: `packages/supporting/registry-access/src/authentication/logout.ts`, `cli/credentials-stay-with-their-registry`
 - Source: [`packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts`](../packages/supporting/registry-access/src/credentials/erases-selected-registry-credentials.spec.ts)
 
 ##### A creation the Registry did not refuse is reported as possibly issued
@@ -2406,13 +2406,13 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/trusted-publishing/ci-identity-becomes-one-workload-token`
 - Owner: `registry-access`
-- Statement: When AXM runs in a GitHub Actions job that offers an ID token and no explicit token is supplied, AXM shall read anonymously until a command needs a credential for the default Registry; shall then request the ID token with that Registry's origin as its audience and exchange it at that Registry's token endpoint for a workload token with an RFC 8693 token-exchange grant; shall present the workload token only to the default Registry origin, for the rest of the invocation; shall exchange at most once per invocation; shall never renew a workload token the Registry rejects; and, when the identity cannot be exchanged, shall refuse as requiring authentication with guidance to grant the job the id-token permission and to register the workflow as a trusted publisher, keeping neither the job's request token nor its identity token in the refusal.
+- Statement: When AXM runs in a GitHub Actions job that offers an ID token and no explicit token is supplied, AXM shall read anonymously until a command needs a credential for the default Registry; shall then request the ID token with that Registry's origin as its audience, refusing a redirect of that request, and exchange it at that Registry's token endpoint for a workload token with an RFC 8693 token-exchange grant; shall present the workload token only to the default Registry origin, for the rest of the invocation, and never exchange the identity for a Registry another selection names; shall exchange at most once per invocation; shall never renew a workload token the Registry rejects; and, when the identity cannot be exchanged, shall refuse as requiring authentication with guidance to grant the job the id-token permission and to register the workflow as a trusted publisher, keeping neither the job's request token nor its identity token in the refusal.
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/site-content/docs/quickstart.md`
+- Derived from: `apps/cli/help/topics/environment.md`, `apps/cli/site-content/docs/quickstart.md`, `cli/credentials-stay-with-their-registry`
 - Assumptions: GitHub Actions offers an ID token to a job through ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN, answering a request carrying the request token as a bearer and an `audience` query parameter with a JSON document whose `value` is the ID token.
 - Additional evidence: process via [`apps/cli-e2e/src/trusted-publishing.e2e.test.ts`](../apps/cli-e2e/src/trusted-publishing.e2e.test.ts) — Only a built CLI invoked with a CI job's environment against real HTTP endpoints shows the ID token requested for the Registry audience, one exchange shared by every command layer of the invocation, and the workload token carrying a publish with no stored secret.
 - Source: [`packages/supporting/registry-access/src/credentials/ci-identity-becomes-one-workload-token.spec.ts`](../packages/supporting/registry-access/src/credentials/ci-identity-becomes-one-workload-token.spec.ts)
@@ -3533,7 +3533,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 
 - Requirement: `cli/install/shared-pack-members-need-one-source-authority`
 - Owner: `workspace-features`
-- Statement: When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it, naming every conflicting declaration, when the authorities differ. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.
+- Statement: When install resolves a Pack that declares a member another installed Pack already holds, it shall accept the Pack when both inherit the member from one source view — the same Registry endpoint however a configured alias spells it, the same Git repository, ref, and subdirectory, or the same local directory — and shall refuse it without changing the workspace, naming every conflicting declaration, when the authorities differ, including the same member name from a different Registry endpoint. A shared member shall remain while any direct or Pack route requires it and retire only after the final route is removed.
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
@@ -4045,13 +4045,13 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/credentials-stay-with-their-registry`
 - Owner: `registry-access`
-- Statement: When authenticating a Registry request, AXM shall use ambient tokens only for the configured Registry origin and otherwise use credentials saved for the request origin or send no credential.
+- Statement: When authenticating a Registry request, AXM shall present ambient tokens only to the Registry the settings select as the default and otherwise a credential saved under the request's Registry origin or none, shall treat equivalent spellings of one origin as one Registry and any other scheme, host, or port as another, shall make the same decision for request authorization and publication preflight, and shall refuse a Registry redirect rather than send the request on.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
 - Boundary: memory; selection: per-change
 - Methods: example
-- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`, `packages/supporting/registry-access/src/credentials/credential-key.ts`, `packages/supporting/registry-access/src/adapters/request-authorization.ts`
 - Source: [`packages/supporting/registry-access/src/credentials/credentials-stay-with-their-registry.spec.ts`](../packages/supporting/registry-access/src/credentials/credentials-stay-with-their-registry.spec.ts)
 
 ##### Override flags bypass only the one policy they name
@@ -4435,7 +4435,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/lock-state-never-creates-reachability`
 - Owner: `workspace-features`
-- Statement: An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present.
+- Statement: An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present: sync shall retire such a row, including one a workspace-authored declaration of the same name shadows, without touching the authored content and with no further change on a second sync, while a row an unresolved Pack could still route is never read as unreached and the unresolved Pack is reported rather than any clean result.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
@@ -4621,7 +4621,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `cli/packs/show/reports-authored-membership-and-observed-state`
 - Owner: `workspace-features`
-- Statement: When inspecting a configured pack, AXM shall report the pack’s source authority, canonical manifest, declared member constraints, and each declared member’s desired reachability, judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack’s range, excluded when that version is outside it, and missing when no desired route reaches it.
+- Statement: When inspecting a configured pack, AXM shall report the pack’s source authority, canonical manifest, and, for each declared member, its authored declaration (constraint and explicit Registry endpoint or inherited source), the local names it is held under, the source identity it is bound to, its resolution status (accepted, authored, or unresolved with a reason), and its desired reachability judged from the canonical observation of the member: satisfying when the member is desired and its accepted or authored version is inside this pack’s range, excluded when that version is outside it, and missing when no desired route reaches it; inspection shall never invent an accepted resolution or expose a resolution key.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
@@ -5096,7 +5096,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `source-resolution/minimum-release-age-withholds-unaged-releases`
 - Owner: `workspace-kernel`
-- Statement: When a resolution selects a release without an explicit version request, the resolution shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.
+- Statement: A resolution shall never let an exemption or a previously accepted version admit a release that its version request — `*` when absent — would not select, when it selects a release without an explicit version request it shall withhold a candidate that has not reached the configured minimum release age unless that candidate's identity matches a declared exemption, and every withheld and every exempted candidate shall be reported with its eligibility time and, when exempted, its exemption cause and scope.
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
@@ -5303,6 +5303,21 @@ People and agents can understand invalid workspace state and recover it through 
 - Methods: decision-table, contract, example
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose; how sync previews, repairs, and preserves it, including regenerating a deleted canonical file beside its alias link; and that a foreign dangling reader link leaves a current workspace unchanged.
 - Source: [`packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
+
+##### A Registry operation runs only on a transport that implements it
+
+- Requirement: `registry/operations-require-supported-transport`
+- Owner: `registry-client`
+- Statement: AXM shall serve reads, discovery, publication, and visibility from both http(s) and file Registries, and shall refuse lifecycle management and authentication against a file Registry with a typed unsupported-operation result naming the operation and the Registry, before any request, credential, or filesystem change.
+- Class: functional
+- Role: interface
+- Product goals: `actionable-diagnostics`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example
+- Derived from: `packages/supporting/registry-client/src/capabilities.ts`
+- Open questions: Whether a file Registry should later implement lifecycle management is undecided; this delivery refuses it.
+- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire, an invalid selection being refused before any credential is read or request leaves the process, and a file Registry refusing lifecycle and authentication commands.
+- Source: [`packages/supporting/registry-client/src/operations-require-supported-transport.spec.ts`](../packages/supporting/registry-client/src/operations-require-supported-transport.spec.ts)
 
 ### Goal: agent-interoperability
 
@@ -5750,13 +5765,12 @@ People and agents can find, install, update, and remove reusable extensions acro
 
 - Requirement: `version-constraints/range-satisfaction-follows-semver`
 - Owner: `extension-model`
-- Statement: A version constraint shall be accepted only as a valid semver range and shall match a version exactly when semver allows it, and an exact version shall be accepted only in strict semver form with no leading v, missing part, or leading zero.
+- Statement: A version constraint shall be accepted only as a valid semver range and shall match a version exactly when semver allows it, an absent constraint on a Registry version shall admit exactly the versions `*` admits — every stable version and no prerelease — and an exact version shall be accepted only in strict semver form with no leading v, missing part, or leading zero and shall admit only itself.
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
 - Methods: property, decision-table, example
-- Assumptions: A wildcard or absent constraint admits every stable version and no prerelease, exactly as semver does; a prerelease-only extension is selected only through a range that names its version tuple.
 - Source: [`packages/core/extension-model/src/unstable/version-constraints/range-satisfaction-follows-semver.spec.ts`](../packages/core/extension-model/src/unstable/version-constraints/range-satisfaction-follows-semver.spec.ts)
 
 ### Goal: knowledge-access
@@ -6168,14 +6182,14 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/registry-input-selects-services`
 - Owner: `cli-e2e`
-- Statement: Published lifecycle, visibility, and view commands shall resolve --registry as a configured source name or absolute HTTP(S) URL before composing Registry transport and credentials. An explicit selection shall override the settings default without sending its credential or requests to the unselected Registry.
+- Statement: Published lifecycle, visibility, and view commands shall resolve --registry as a configured source name or absolute http(s) origin before composing Registry transport and credentials. An explicit selection shall override the settings default without sending requests to the unselected Registry, and shall present an ambient credential only when it names the settings-selected default Registry.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `trustworthy-distribution`
 - Boundary: process; selection: per-change
-- Boundary rationale: Two real loopback servers distinguish selected and default origins under the built CLI; the selected server records the bearer header.
+- Boundary rationale: Two real loopback servers distinguish selected and default origins under the built CLI; each server records the bearer header it receives.
 - Methods: decision-table
-- Derived from: `cli/settings-select-default-registry`, `cli/publication-uses-explicit-registry-target`
+- Derived from: `cli/settings-select-default-registry`, `cli/publication-uses-explicit-registry-target`, `cli/credentials-stay-with-their-registry`
 - Limitation: The selected server refuses lookup with not_found. These examples establish target and credential composition before a possible write; transition effects are exercised by their owning specifications. Retires when: Retain composition checks alongside the owning acknowledged-transition evidence.
 - Source: [`apps/cli-e2e/src/explicit-registry-selects-services.spec.ts`](../apps/cli-e2e/src/explicit-registry-selects-services.spec.ts)
 
@@ -6211,16 +6225,16 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 
 - Requirement: `cli/settings-select-default-registry`
 - Owner: `cli`
-- Statement: AXM shall select one effective default Registry from project settings, then user settings, then the built-in AgentXM source, and shall use that destination for unqualified resolution, authentication, and publishing without forwarding its credentials to another Registry.
+- Statement: AXM shall select one effective default Registry from project settings, then user settings, then the built-in AgentXM source, and an explicit Registry only by a configured source name or an http(s) origin; shall treat a malformed settings document, an invalid, reserved, or duplicate source name, an unknown selected source, or a Registry location that is not an http(s) origin or a file URL as a typed failure naming the settings that caused it, never selecting another Registry; and shall read and validate that selection only when a command first needs a Registry.
 - Class: functional
 - Role: interface
-- Product goals: `machine-automation`, `extension-adoption`
+- Product goals: `machine-automation`, `extension-adoption`, `actionable-diagnostics`
 - Boundary: memory; selection: per-change
-- Boundary rationale: The composition root reads real project and user settings through the production workspace layer; built-CLI install, authentication, and publish-preview rows are bound evidence for the process boundary.
+- Boundary rationale: The composition root reads real project and user settings through the production document loaders; built-CLI authentication, non-Registry commands, and publish rows are bound evidence for the process boundary.
 - Methods: example, decision-table
-- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/core/workspace-kernel/src/workspace-state/workspace/settings-reader.ts`, `packages/supporting/registry-access/src/credentials/token-resolution.ts`
+- Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/core/workspace-kernel/src/workspace-state/workspace/registry-selection.ts`, `extension-identity/registry-endpoints-have-one-meaning`
 - Supersedes: `cli/environment-selects-built-in-extension-source`, `cli/environment-selects-registry-services`
-- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire and an invalid selection being refused before any request leaves the process.
+- Additional evidence: process via [`apps/cli-e2e/src/registry-service-origin.e2e.test.ts`](../apps/cli-e2e/src/registry-service-origin.e2e.test.ts) — Only a real invocation against a controlled HTTP origin shows the settings-selected default Registry reaching the wire, an invalid selection being refused before any credential is read or request leaves the process, and a file Registry refusing lifecycle and authentication commands.
 - Source: [`apps/cli/src/settings-select-default-registry.spec.ts`](../apps/cli/src/settings-select-default-registry.spec.ts)
 
 ##### Share selects one ecosystem and uses the global execution directory
@@ -6560,6 +6574,19 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Assumptions: A source root carries workspace settings when `axm.json` sits directly in it, and keeps the packages it acquired beneath `agent_extensions/` directly in it.
 - Open questions: Should a workspace source offer a package that sits in an authored root but that its settings do not declare, as it does today, or only its declared entries?; Should a workspace beneath the source root, with settings of its own, contribute what it authors to the enclosing source's offer?
 - Source: [`packages/core/workspace-kernel/src/sources/workspace-sources-offer-their-authored-roots.spec.ts`](../packages/core/workspace-kernel/src/sources/workspace-sources-offer-their-authored-roots.spec.ts)
+
+##### A Registry location names one Registry however it is spelled
+
+- Requirement: `extension-identity/registry-endpoints-have-one-meaning`
+- Owner: `extension-model`
+- Statement: A Registry location shall be accepted only as an http(s) origin or a file URL without credentials, query, or fragment, and two accepted locations shall name the same Registry exactly when their scheme, normalized host, and effective port (or canonical file directory) agree, while any other location shall be rejected without echoing its secret-bearing parts.
+- Class: functional
+- Role: interface
+- Product goals: `trustworthy-distribution`, `actionable-diagnostics`
+- Boundary: memory; selection: per-change
+- Methods: property, example
+- Derived from: `cli/settings-select-default-registry`, `cli/credentials-stay-with-their-registry`
+- Source: [`packages/core/extension-model/src/unstable/extensions/registry-endpoints-have-one-meaning.spec.ts`](../packages/core/extension-model/src/unstable/extensions/registry-endpoints-have-one-meaning.spec.ts)
 
 ##### Distributed Hook extensions preserve all runtime resources
 
@@ -7730,7 +7757,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/desired-state/effective-constraint-has-one-owner`
 - Owner: `workspace-kernel`
-- Statement: The desired state shall give each desired extension one effective constraint that intersects its direct declaration with the range of every Pack that requires it and names every contributor, and when no version satisfies that intersection it shall report one conflict naming every contributor rather than letting any contributor's range win.
+- Statement: The desired state shall give each desired extension one effective constraint that intersects its direct declaration with the range of every Pack that requires it and names every contributor, shall judge a Registry version that no contributor constrains exactly as `*` judges it, and when no version satisfies that intersection it shall report one conflict naming every contributor rather than letting any contributor's range win.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
@@ -7756,7 +7783,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 
 - Requirement: `workspace/desired-state/uncertainty-never-proves-absence`
 - Owner: `workspace-kernel`
-- Statement: When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about an extension's absence as unknown rather than not reached, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.
+- Statement: When a configured authored Pack's document is absent, unreadable, malformed, or schema-invalid, or an acquired Pack has no matching accepted resolution, the desired state shall record that Pack's membership or routes as unresolved with its distinct reason and shall answer every question about the absence of an extension that Pack could route, including whether an accepted row is reached, as unknown rather than not reached, naming only the Packs that could route it, while an acquired Pack's matching accepted dependency declaration remains authoritative regardless of installed content, and a valid empty declaration, disabled Pack, identity collision, and constraint conflict shall each prove exactly what they declare.
 - Class: functional
 - Role: supporting
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`

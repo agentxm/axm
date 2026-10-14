@@ -110,14 +110,32 @@ export class RegistryOperationFailed extends Data.TaggedError("RegistryOperation
   readonly cause?: unknown;
 }> {}
 
+/**
+ * The Registry's transport does not implement the operation: a file Registry
+ * serves reads, publication, and visibility, but no lifecycle management or
+ * authentication. Raised before any request, credential, or filesystem work,
+ * so a refused operation changes nothing.
+ */
+export class RegistryOperationUnsupported extends Data.TaggedError("RegistryOperationUnsupported")<{
+  readonly category: "validation";
+  readonly operation: string;
+  /** The canonical endpoint, which never carries a secret. */
+  readonly endpoint: string;
+  readonly transport: "http" | "file";
+  readonly detail: string;
+  readonly metadata?: RegistryErrorMetadata;
+  readonly suggestions?: ReadonlyArray<SuggestedAction>;
+}> {}
+
 /** Every typed failure the registry-client modules construct. */
 export type RegistryClientFailure =
-  RegistryProblem | RegistryRequestFailed | RegistryOperationFailed;
+  RegistryProblem | RegistryRequestFailed | RegistryOperationFailed | RegistryOperationUnsupported;
 
 export const isRegistryClientFailure = (error: unknown): error is RegistryClientFailure =>
   error instanceof RegistryProblem ||
   error instanceof RegistryRequestFailed ||
-  error instanceof RegistryOperationFailed;
+  error instanceof RegistryOperationFailed ||
+  error instanceof RegistryOperationUnsupported;
 
 /**
  * Change endpoint semantics while preserving failure evidence and recovery:
@@ -170,5 +188,8 @@ export const withRegistrySemantics = (
           : { suggestions: semantics.suggestions ?? error.suggestions }),
         ...(error.cause === undefined ? {} : { cause: error.cause }),
       });
+    case "RegistryOperationUnsupported":
+      // What a transport implements is not a semantic a caller can reword.
+      return error;
   }
 };

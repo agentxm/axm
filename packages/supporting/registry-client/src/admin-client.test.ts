@@ -1,14 +1,14 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
 import type * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
-import { RegistryUrl } from "./registry-url.js";
-import { getExtensionDeprecation } from "./admin-client.js";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
-const REGISTRY_URL = "https://registry.agentxm.ai";
+import { makeRegistryLifecycleClient } from "./admin-client.js";
+
+const REGISTRY = decodeHttpRegistryEndpointSync("https://registry.agentxm.ai");
 
 const makeHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   HttpClient.make((request) =>
@@ -24,24 +24,23 @@ describe("Registry admin failure mapping", () => {
       code: "registry_overloaded",
       requestId: "req_admin_123",
     };
-    const layer = Layer.mergeAll(
-      Layer.succeed(
-        HttpClient.HttpClient,
-        makeHttpClient(() =>
-          Response.json(body, {
-            status: 418,
-          }),
-        ),
+    const lifecycle = makeRegistryLifecycleClient(
+      REGISTRY,
+      makeHttpClient(() =>
+        Response.json(body, {
+          status: 418,
+        }),
       ),
-      Layer.succeed(RegistryUrl, REGISTRY_URL),
     );
 
     return Effect.gen(function* () {
-      const error = yield* getExtensionDeprecation({
-        owner: "@acme",
-        type: "skill",
-        name: "review",
-      }).pipe(Effect.flip);
+      const error = yield* lifecycle
+        .getExtensionDeprecation({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+        })
+        .pipe(Effect.flip);
 
       expect(error.category).toBe("internal");
       expect(error._tag).toBe("RegistryProblem");
@@ -55,6 +54,6 @@ describe("Registry admin failure mapping", () => {
         body,
       });
       expect(error.cause).toMatchObject({ _tag: "HttpClientError" });
-    }).pipe(Effect.provide(layer));
+    });
   });
 });

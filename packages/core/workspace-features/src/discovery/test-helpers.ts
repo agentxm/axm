@@ -11,6 +11,7 @@ import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import type { PackageType } from "@agentxm/extension-model/unstable/packaging";
 import {
@@ -18,17 +19,19 @@ import {
   type RegistryClient,
   type RegistryClientFactoryService,
 } from "@agentxm/registry-client";
+import { passThroughRegistryAuthorization } from "@agentxm/registry-client/testing";
 
 export const registryFactoryForClient = (
   client: RegistryClient,
   observeLocation: (location: string) => void = () => undefined,
 ): RegistryClientFactoryService => ({
-  forLocation: (location) =>
+  forEndpoint: (endpoint) =>
     Effect.sync(() => {
-      observeLocation(location instanceof URL ? location.href : location);
+      observeLocation(endpoint.href);
       return client;
     }),
-  forDefaultRegistry: Effect.succeed(client),
+  lifecycle: () => Effect.die("Discovery never manages a Registry's lifecycle"),
+  wire: () => Effect.die("Discovery never authenticates with a Registry"),
 });
 
 export const packageType = (value: string): PackageType =>
@@ -95,9 +98,9 @@ export const makeRecordedRegistryPort = (
         httpClient,
         fileSystem: yield* FileSystem.FileSystem,
         path: yield* Path.Path,
-        defaultRegistryLocation: discoveryRegistryUrl,
+        authorization: passThroughRegistryAuthorization,
       });
-      return yield* factory.forLocation(discoveryRegistryUrl);
+      return yield* factory.forEndpoint(decodeRegistryEndpointSync(discoveryRegistryUrl));
     }),
   };
 };

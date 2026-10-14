@@ -82,7 +82,7 @@ const sourceLocator = (ref: ExtensionRef, path: Path.Path, baseDir: string): str
     case "http":
       return `${publicUrl(ref.source.url)}#skill=${encodeURIComponent(ref.source.entry ?? ref.sourcePath)}`;
     case "registry":
-      return publicUrl(ref.source.location);
+      return ref.source.location.href;
     case "git-hosted": {
       const selectedPath = ref.sourcePath ?? ".";
       return `${publicUrl(ref.source.url)}${selectedPath === "." ? "" : `//${selectedPath}`}`;
@@ -129,7 +129,7 @@ const packMemberEndpoint = (
     case "registry":
       return {
         family: "registry",
-        locator: publicUrl(ref.source.location),
+        locator: ref.source.location.href,
         resolution: `version ${ref.version}`,
       };
     case "git-hosted":

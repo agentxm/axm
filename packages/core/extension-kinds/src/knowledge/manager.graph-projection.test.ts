@@ -6,6 +6,7 @@
  * that never appear in settings.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   desiredConstraintOf,
   WorkspaceReadTest,
@@ -56,7 +57,10 @@ const packKnowledgeNode = (name: string, pack: string): DesiredExtensionNode => 
   identity: {
     authority: "registry",
     fqn: `${OWNER}/knowledge/${name}`,
-    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
+    registry: {
+      sourceName: undefined,
+      endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+    },
   },
   source: `${OWNER}/knowledge/${name}@^1.0.0`,
   enabled: true,
@@ -81,7 +85,10 @@ const completeGraph = (nodes: ReadonlyArray<DesiredExtensionNode>): DesiredState
 });
 
 const localLock = (baseDir: string, name: string) => ({
-  source: { type: "registry" as const, url: new URL("https://registry.agentxm.ai") },
+  source: {
+    type: "registry" as const,
+    url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+  },
   identity: { owner: handle(OWNER), name: extensionName(name) },
   resolved: {
     version: exactVersion("1.0.0"),

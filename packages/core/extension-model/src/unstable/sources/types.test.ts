@@ -15,6 +15,7 @@ import {
   type SourceParams,
 } from "./types.js";
 
+import { decodeRegistryEndpointSync } from "../extensions/registry-endpoint.js";
 describe("source types", () => {
   it("defines only the source families that survive input expansion", () => {
     const decode = Schema.decodeUnknownSync(SourceTypeSchema);
@@ -53,7 +54,7 @@ describe("source types", () => {
     const host: ConfiguredSourceHost = {
       type: "registry",
       name: "company",
-      location: new URL("https://registry.example"),
+      location: decodeRegistryEndpointSync("https://registry.example"),
     } satisfies RegistrySourceHost;
     expect(host.type).toBe("registry");
   });

@@ -51,7 +51,7 @@ export const sourceEndpointsAlignedConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message:
-        "Accepted resolution 'skill:react-router' binds source 'company' to registry https://registry.example.test/, but the configured source now resolves to registry https://registry.changed.test/. Use an explicit source transition before syncing.",
+        "Accepted resolution 'skill:react-router' was resolved from registry https://registry.example.test, but source 'company' now binds it to registry https://registry.changed.test. Use an explicit source transition before syncing.",
       location: { file: "axm.json" },
     },
   ],

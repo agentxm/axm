@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { DistributionDescriptor } from "@agentxm/extension-model/unstable/extensions/refs/ref-base";
 /**
  * Shared extension directory path helpers.
@@ -97,7 +98,8 @@ export const acquiredPackageRelativePath = (
       Result.map(encodeSourcePath(coordinates), (path) => `_local/${path}`),
     );
   }
-  const url = source.refType === "registry" ? source.source.location : source.source.url;
+  const url =
+    source.refType === "registry" ? new URL(source.source.location.href) : source.source.url;
   if (
     (source.refType === "registry" || source.refType === "git-hosted") &&
     url.protocol === "file:"
@@ -208,7 +210,7 @@ export const bundledSkillCanonicalRoot = (
           source: {
             type: "registry",
             name: "agentxm",
-            location: new URL("https://registry.agentxm.ai"),
+            location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
             owner: Option.none(),
           },
         },

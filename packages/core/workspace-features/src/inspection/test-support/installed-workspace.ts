@@ -59,8 +59,11 @@ import {
 } from "@agentxm/workspace-kernel/sources/live";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
 import { CredentialStoreTest } from "@agentxm/registry-access/testing";
-import { RegistryClientFactoryLive, RegistryUrl } from "@agentxm/registry-client";
-import type { FileRegistry } from "@agentxm/registry-client/testing";
+import {
+  RegistryClientFactoryTest,
+  RegistryContextTest,
+  type FileRegistry,
+} from "@agentxm/registry-client/testing";
 import { StepFailure } from "@agentxm/workspace-kernel/operations";
 import {
   CodingAgentRepositoryLive,
@@ -100,7 +103,7 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
   const credentials: Layer.Layer<CredentialStore> = CredentialStoreTest();
   const environment = Layer.mergeAll(
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
-    Layer.succeed(RegistryUrl, "https://inspection-registry.example.test"),
+    RegistryContextTest("https://inspection-registry.example.test"),
     Layer.succeed(ReleaseAgePosture, "enforce" as const),
     credentials,
   );
@@ -129,7 +132,7 @@ export const makeInstalledWorkspace = (options: InstalledWorkspaceOptions = {}) 
         ArtifactHttpClient,
         HttpClient.make(() => Effect.die("Unexpected HTTP artifact request")),
       ),
-      Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(platform, environment)),
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), platform),
     ),
     projection,
   );

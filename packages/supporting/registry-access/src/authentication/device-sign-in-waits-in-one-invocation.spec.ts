@@ -9,13 +9,14 @@ import { CredentialStore } from "../credentials/credential-store.js";
 import { login } from "./login.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import {
-  authRegistry,
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
   resumeLoginRequest,
+  authSelectedRegistry,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -40,7 +41,7 @@ describe("Single-invocation device sign-in", () => {
   it.effect("starts, waits, and saves credentials without an intermediate result", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* login(resumeLoginRequest(), authRegistry);
+      yield* login(resumeLoginRequest(), authSelectedRegistry);
 
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
@@ -48,7 +49,7 @@ describe("Single-invocation device sign-in", () => {
       expect(ports.presenterState.loginSuccesses).toEqual([
         { status: "logged-in", registryHost: authRegistryHost, handle: "@alice", email: authEmail },
       ]);
-      expect(Option.isSome(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);
     }).pipe(Effect.provide(ports.layer));
@@ -57,10 +58,10 @@ describe("Single-invocation device sign-in", () => {
   it.effect("a bounded wait selects device-code sign-in without naming it", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* login(resumeLoginRequest({ deviceCode: false }), authRegistry);
+      yield* login(resumeLoginRequest({ deviceCode: false }), authSelectedRegistry);
 
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
-      expect(Option.isSome(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
     }).pipe(Effect.provide(ports.layer));
   });
@@ -68,8 +69,8 @@ describe("Single-invocation device sign-in", () => {
   it.effect("reuses the pending authorization an earlier invocation started", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest(), authRegistry);
-      yield* login(resumeLoginRequest(), authRegistry);
+      yield* login(deviceLoginRequest(), authSelectedRegistry);
+      yield* login(resumeLoginRequest(), authSelectedRegistry);
 
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
       expect(ports.polledCodes).toEqual(["fixture-device-secret-1"]);
@@ -84,14 +85,14 @@ describe("Single-invocation device sign-in", () => {
     return Effect.gen(function* () {
       const waiting = yield* login(
         resumeLoginRequest({ waitForHumanSeconds: 5 }),
-        authRegistry,
+        authSelectedRegistry,
       ).pipe(Effect.flip, Effect.forkChild);
       yield* TestClock.adjust("6 seconds");
       const error = yield* Fiber.join(waiting);
 
       expect(error._tag).toBe("DeviceAuthorizationPending");
       expect(Option.isSome(yield* (yield* PendingDeviceLoginStore).load())).toBe(true);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(ports.layer));
   });
 });

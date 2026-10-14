@@ -25,6 +25,8 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { RegistryHttpClient } from "@agentxm/registry-client";
 import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
@@ -37,6 +39,7 @@ import {
   type WorkloadTokenUnavailable,
 } from "../authentication/errors.js";
 import { WorkloadTokenSource } from "./schema.js";
+import { credentialKey, type CredentialKey } from "./credential-key.js";
 
 /** Where this job asks GitHub for its ID token, and the token it asks with. */
 export class GitHubActionsIdentity extends Data.Class<{
@@ -74,22 +77,23 @@ export const githubActionsIdentity: Effect.Effect<
 
 export interface WorkloadCredentialsService {
   /**
-   * The workload token `identity` is exchanged for at `registryOrigin`. One
-   * invocation exchanges an identity at most once per origin, and again only
+   * The workload token `identity` is exchanged for at `endpoint`. One
+   * invocation exchanges an identity at most once per Registry, and again only
    * when the token it holds is about to lapse; a refusal is the answer for
    * the rest of the invocation.
    */
   readonly tokenFor: (
     identity: GitHubActionsIdentity,
-    registryOrigin: string,
+    endpoint: HttpRegistryEndpoint,
   ) => Effect.Effect<WorkloadTokenSource, WorkloadTokenUnavailable>;
   /**
-   * The workload token this invocation already holds for `registryOrigin`,
-   * without exchanging anything. A request that does not need a credential
-   * carries it once a command has needed one, and goes out anonymously
-   * before then.
+   * The workload token this invocation already holds for `endpoint`, without
+   * exchanging anything. A request that does not need a credential carries it
+   * once a command has needed one, and goes out anonymously before then.
    */
-  readonly held: (registryOrigin: string) => Effect.Effect<Option.Option<WorkloadTokenSource>>;
+  readonly held: (
+    endpoint: HttpRegistryEndpoint,
+  ) => Effect.Effect<Option.Option<WorkloadTokenSource>>;
 }
 
 export class WorkloadCredentials extends ServiceMap.Service<
@@ -106,7 +110,7 @@ const ID_TOKEN_REQUEST_DEADLINE = Duration.seconds(30);
 const IdTokenResponseSchema = Schema.Struct({ value: Schema.String });
 
 class ExchangeKey extends Data.Class<{
-  readonly registryOrigin: string;
+  readonly endpoint: HttpRegistryEndpoint;
   readonly requestUrl: string;
   readonly requestToken: string;
 }> {}
@@ -123,13 +127,15 @@ class IdTokenRequestFailed extends Data.TaggedError("IdTokenRequestFailed")<{
 const idTokenRequestFailed = (key: ExchangeKey, cause: unknown): WorkloadTokenUnavailable =>
   workloadTokenUnavailable(
     "id_token_request_failed",
-    key.registryOrigin,
+    credentialKey(key.endpoint),
     new IdTokenRequestFailed({
       message: !HttpClientError.isHttpClientError(cause)
         ? "GitHub Actions answered the ID-token request without an ID token."
         : cause.response === undefined
           ? "The GitHub Actions ID-token endpoint could not be reached."
-          : `GitHub Actions answered the ID-token request with HTTP ${String(cause.response.status)}.`,
+          : cause.response.status >= 300 && cause.response.status < 400
+            ? "GitHub Actions redirected the ID-token request; AXM does not follow it."
+            : `GitHub Actions answered the ID-token request with HTTP ${String(cause.response.status)}.`,
     }),
   );
 
@@ -137,7 +143,8 @@ const idTokenRequest = (key: ExchangeKey) =>
   Effect.try({
     try: () => {
       const url = new URL(key.requestUrl);
-      url.searchParams.set("audience", key.registryOrigin);
+      // The Registry accepts only an ID token whose audience is its origin.
+      url.searchParams.set("audience", credentialKey(key.endpoint));
       return HttpClientRequest.get(url).pipe(
         HttpClientRequest.bearerToken(key.requestToken),
         HttpClientRequest.acceptJson,
@@ -146,14 +153,16 @@ const idTokenRequest = (key: ExchangeKey) =>
     catch: () =>
       workloadTokenUnavailable(
         "id_token_request_failed",
-        key.registryOrigin,
+        credentialKey(key.endpoint),
         new IdTokenRequestFailed({ message: "ACTIONS_ID_TOKEN_REQUEST_URL is not a URL." }),
       ),
   });
 
 /**
  * Ask GitHub for an ID token whose audience is the Registry origin, so the
- * token proves nothing to any other service it might reach.
+ * token proves nothing to any other service it might reach. The request
+ * carries the job's request token, so a redirect is refused rather than
+ * followed: the transport leaves it unfollowed and only a 2xx answer counts.
  */
 const requestIdToken = (httpClient: HttpClient.HttpClient, key: ExchangeKey) =>
   Effect.gen(function* () {
@@ -168,7 +177,9 @@ const requestIdToken = (httpClient: HttpClient.HttpClient, key: ExchangeKey) =>
     Effect.timeoutOrElse({
       duration: ID_TOKEN_REQUEST_DEADLINE,
       orElse: () =>
-        Effect.fail(workloadTokenUnavailable("id_token_request_failed", key.registryOrigin)),
+        Effect.fail(
+          workloadTokenUnavailable("id_token_request_failed", credentialKey(key.endpoint)),
+        ),
     }),
   );
 
@@ -188,37 +199,40 @@ const requestIdToken = (httpClient: HttpClient.HttpClient, key: ExchangeKey) =>
 export const WorkloadCredentialsLive = Layer.effect(
   WorkloadCredentials,
   Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
+    const httpClient = yield* RegistryHttpClient;
     const exchange = yield* TokenExchange;
     const cache = yield* Cache.makeWith(
       (key: ExchangeKey) =>
         Effect.gen(function* () {
           const idToken = yield* requestIdToken(httpClient, key);
-          const grant = yield* exchange.exchangeWorkloadToken(idToken, key.registryOrigin);
+          const grant = yield* exchange.exchangeWorkloadToken(idToken, key.endpoint);
           return new WorkloadTokenSource({
             token: grant.access_token,
             expires_at: grant.expires_at,
-            registryUrl: key.registryOrigin,
+            endpoint: key.endpoint,
           });
         }),
       { capacity: Number.POSITIVE_INFINITY, timeToLive: () => Duration.infinity },
     );
 
-    const holdings = yield* Ref.make<ReadonlyMap<string, WorkloadTokenSource>>(new Map());
+    const holdings = yield* Ref.make<ReadonlyMap<CredentialKey, WorkloadTokenSource>>(new Map());
 
     const lookup = (key: ExchangeKey) =>
       Cache.get(cache, key).pipe(
         Effect.onInterrupt(() => Cache.invalidate(cache, key)),
         Effect.tap((token) =>
-          Ref.update(holdings, (current) => new Map([...current, [key.registryOrigin, token]])),
+          Ref.update(
+            holdings,
+            (current) => new Map([...current, [credentialKey(key.endpoint), token]]),
+          ),
         ),
       );
 
     const tokenFor: WorkloadCredentialsService["tokenFor"] = Effect.fn(
       "WorkloadCredentials.tokenFor",
-    )(function* (identity, registryOrigin) {
+    )(function* (identity, endpoint) {
       const key = new ExchangeKey({
-        registryOrigin,
+        endpoint,
         requestUrl: identity.requestUrl,
         requestToken: identity.requestToken,
       });
@@ -236,9 +250,9 @@ export const WorkloadCredentialsLive = Layer.effect(
       return yield* lookup(key);
     });
 
-    const held: WorkloadCredentialsService["held"] = (registryOrigin) =>
+    const held: WorkloadCredentialsService["held"] = (endpoint) =>
       Effect.map(Ref.get(holdings), (current) =>
-        Option.fromUndefinedOr(current.get(registryOrigin)),
+        Option.fromUndefinedOr(current.get(credentialKey(endpoint))),
       );
 
     return { tokenFor, held } satisfies WorkloadCredentialsService;
@@ -251,8 +265,8 @@ export const WorkloadCredentialsLive = Layer.effect(
  */
 export const WorkloadCredentialsTest = (overrides?: Partial<WorkloadCredentialsService>) =>
   Layer.succeed(WorkloadCredentials, {
-    tokenFor: (_identity, registryOrigin) =>
-      Effect.fail(workloadTokenUnavailable("exchange_unavailable", registryOrigin)),
+    tokenFor: (_identity, endpoint) =>
+      Effect.fail(workloadTokenUnavailable("exchange_unavailable", endpoint.href)),
     held: () => Effect.succeed(Option.none()),
     ...overrides,
   } satisfies WorkloadCredentialsService);

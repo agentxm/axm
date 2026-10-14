@@ -1,3 +1,4 @@
+import { isHttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { SettingsReader } from "@agentxm/workspace-kernel/workspace-state";
@@ -66,7 +67,9 @@ const readAndEmit = (args: {
     // The read itself carries the invocation's credential, so a signed-in
     // person sees their own private extensions here. What being signed in
     // changes for a miss is only whether signing in is offered as a recovery.
-    const signedIn = yield* isSignedIn(args.targetRegistry.registryUrl);
+    const signedIn = isHttpRegistryEndpoint(args.targetRegistry.endpoint)
+      ? yield* isSignedIn(args.targetRegistry.endpoint, args.targetRegistry.defaultEndpoint)
+      : false;
     const settings = yield* SettingsReader;
     const agents = yield* settings.configuredAgents;
     const result = yield* withLiveOperation(
@@ -99,7 +102,7 @@ export const handleView = Effect.fn("View.handle")(function* (args: ViewHandlerA
     resolveViewHandle({ handle: args.handle, type: args.type ?? Option.none() }),
     unresolvable,
   );
-  const targetRegistry = yield* Effect.catchTags(resolveViewRegistry(args.registry), unresolvable);
+  const targetRegistry = yield* resolveViewRegistry(args.registry);
   yield* readAndEmit({ handle: args.handle, field: args.field, targetRegistry, parts });
 });
 
@@ -110,10 +113,7 @@ export const handleDefaultRegistryFqnView = Effect.fn("View.handleDefaultRegistr
     readonly field: Option.Option<string>;
     readonly parts: ExtensionFqnParts;
   }) {
-    const targetRegistry = yield* Effect.catchTags(
-      resolveViewRegistry(Option.none()),
-      unresolvable,
-    );
+    const targetRegistry = yield* resolveViewRegistry(Option.none());
     yield* readAndEmit({ ...args, targetRegistry });
   },
 );

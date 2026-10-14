@@ -1,3 +1,4 @@
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -12,8 +13,10 @@ import { currentToken } from "../authentication/identity.js";
 import {
   authCredentialFile,
   authFailureDetail,
-  authRegistry,
   makeAuthPorts,
+  otherAuthEndpoint,
+  authEndpoint,
+  authSelectedRegistry,
 } from "../authentication/test-support/test-helpers.js";
 import { WorkloadTokenSource } from "./schema.js";
 
@@ -21,7 +24,7 @@ export const specification = defineSpecification({
   requirement: "cli/credentials-follow-explicit-source-precedence",
   title: "Explicit token sources take precedence over saved sessions",
   statement:
-    "For commands using the selected Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity, and a GitHub Actions identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is neither 0 nor false.",
+    "For commands using the settings-selected default Registry, AXM shall use a nonempty AXM_TOKEN before AXM_TOKEN_FILE, a valid token file before a GitHub Actions identity exchanged for a workload token, and that identity before saved Registry credentials, refusing an unreadable or empty selected token file instead of silently using another source; a Registry selected in place of the default shall use only its own saved credentials. A GitHub Actions identity is offered when both ACTIONS_ID_TOKEN_REQUEST_URL and ACTIONS_ID_TOKEN_REQUEST_TOKEN are nonempty and AXM_TRUSTED_PUBLISHING is neither 0 nor false.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
@@ -43,12 +46,12 @@ const githubActions = {
 
 /** A workload source that exchanges any identity for one fixed token. */
 const workload = {
-  tokenFor: (_identity: unknown, registryOrigin: string) =>
+  tokenFor: (_identity: unknown, endpoint: HttpRegistryEndpoint) =>
     Effect.succeed(
       new WorkloadTokenSource({
         token: "fixture-workload-token",
         expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
-        registryUrl: registryOrigin,
+        endpoint,
       }),
     ),
 };
@@ -126,12 +129,41 @@ describe("Credential selection", () => {
 
         yield* Effect.gen(function* () {
           if (source === "empty-file" || source === "missing-file") {
-            const failure = yield* currentToken(authRegistry).pipe(Effect.flip);
+            const failure = yield* currentToken(authSelectedRegistry).pipe(Effect.flip);
             expect(authFailureDetail(failure)).toContain("AXM_TOKEN_FILE");
           } else {
-            expect(yield* currentToken(authRegistry)).toBe(expected[source]);
+            expect(yield* currentToken(authSelectedRegistry)).toBe(expected[source]);
           }
         }).pipe(Effect.provide(Layer.mergeAll(layer, NodeServices.layer)));
+      }),
+    );
+  }
+
+  for (const source of ["environment", "file", "github-actions", "missing-file"] as const) {
+    it.effect(`a Registry selected in place of the default ignores ${source}`, () =>
+      Effect.gen(function* () {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), "axm-token-source-spec-"));
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => fs.rmSync(directory, { recursive: true, force: true })),
+        );
+        const tokenPath = path.join(directory, "token");
+        if (source !== "missing-file") fs.writeFileSync(tokenPath, "fixture-file-token\n");
+        const { layer } = makeAuthPorts({
+          credentials: authCredentialFile,
+          environment: environmentFor(source, tokenPath),
+          workload,
+        });
+        const other = {
+          endpoint: otherAuthEndpoint,
+          defaultEndpoint: authEndpoint,
+          host: "other.example.test",
+        };
+        // Not even an unreadable token file is consulted for it.
+        expect(
+          yield* currentToken(other).pipe(
+            Effect.provide(Layer.mergeAll(layer, NodeServices.layer)),
+          ),
+        ).toBe("fixture-other-access");
       }),
     );
   }

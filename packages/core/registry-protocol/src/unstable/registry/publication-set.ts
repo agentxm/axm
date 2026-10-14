@@ -1,7 +1,6 @@
 import { createHash } from "node:crypto";
 
 import * as Schema from "effect/Schema";
-import * as semver from "semver";
 
 import { SuggestedActionSchema, type SuggestedAction } from "../suggested-action.js";
 import type { PackDependencyPolicyFinding } from "@agentxm/extension-model/unstable/packs/dependency-policy";
@@ -24,6 +23,7 @@ import {
 import {
   VersionRangeSchema,
   VersionSchema,
+  versionSatisfiesRequest,
   type Version,
   type VersionRange,
 } from "@agentxm/extension-model/unstable/version-constraints";
@@ -305,6 +305,11 @@ export const comparePublicationTargets = (
   compareText(left.name, right.name) ||
   compareText(left.version, right.version);
 
+// The publication-set contract orders and hashes a member's Registry by the
+// WHATWG URL serialization of its location, so an origin keeps its `/`.
+const contractSourceUrl = (source: PackMemberRegistrySource | undefined): string =>
+  source === undefined ? "" : new URL(source.url.href).href;
+
 const compareDependencies = (
   left: PackDependencyDescriptor,
   right: PackDependencyDescriptor,
@@ -313,7 +318,7 @@ const compareDependencies = (
   compareText(left.type, right.type) ||
   compareText(left.name, right.name) ||
   compareText(left.range, right.range) ||
-  compareText(left.source?.url.href ?? "", right.source?.url.href ?? "");
+  compareText(contractSourceUrl(left.source), contractSourceUrl(right.source));
 
 export const normalizePublicationDescriptor = (input: unknown): PublicationDescriptor => {
   const descriptor = Schema.decodeUnknownSync(PublicationDescriptorInputSchema)(input);
@@ -389,7 +394,7 @@ const canonicalPublicationDescriptor = (input: unknown): unknown => {
                 : {
                     source: {
                       type: dependency.source.type,
-                      url: dependency.source.url.href,
+                      url: contractSourceUrl(dependency.source),
                     },
                   }),
             })),
@@ -554,7 +559,7 @@ export const validatePublicationSetResponse = (
         resolutionKeys.has(dependencyKey) ||
         expected === undefined ||
         expected.range !== resolution.dependency.range ||
-        !semver.satisfies(resolution.effectiveVersion, resolution.dependency.range)
+        !versionSatisfiesRequest(resolution.effectiveVersion, resolution.dependency.range)
       ) {
         throw new TypeError(
           "The publication-set response contains an incompatible effective dependency resolution.",

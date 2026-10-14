@@ -134,7 +134,10 @@ describe("axm skills publish", () => {
 
         const quietResult = await runCli(
           ["skills", "publish", "@test/skills/my-publish-skill", "--quiet"],
-          { cwd: temp.path, env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1" } },
+          {
+            cwd: temp.path,
+            env: { AXM_TOKEN: "e2e-test-token", NO_COLOR: "1", AXM_NO_UPDATE_CHECK: "1" },
+          },
         );
         expect(quietResult.exitCode).toBe(0);
         expect(quietResult.stdout).toBe("");

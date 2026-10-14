@@ -202,8 +202,26 @@ export const hasMinorOrMajorVersionBump = (
 export const versionSatisfiesRange = (version: Version, range: VersionRange): boolean =>
   semver.satisfies(version, range);
 
-/** The range an absent constraint stands for: every stable version. */
-const UNCONSTRAINED_RANGE = "*";
+/**
+ * The request a Registry selection or retention judges: the authored
+ * constraint, or `*` when none was authored, so an absent constraint admits
+ * exactly what `*` admits — every stable version and no prerelease. The
+ * authored spelling stays with the caller, for diagnostics only.
+ */
+export const normalizeVersionRequest = (request: Option.Option<string>): string =>
+  Option.getOrElse(request, () => "*");
+
+/** Whether a request names one exact version rather than a range. */
+export const isExactVersionRequest = (request: string): boolean =>
+  semver.valid(request) === request;
+
+/**
+ * Whether a version satisfies a normalized request: an exact request admits
+ * only its own version, build metadata included; a range admits what
+ * {@link versionSatisfiesRange} admits; an invalid request admits nothing.
+ */
+export const versionSatisfiesRequest = (version: string, request: string): boolean =>
+  isExactVersionRequest(request) ? version === request : semver.satisfies(version, request);
 
 /**
  * Select the highest version the range admits, independent of input order.
@@ -213,7 +231,7 @@ export const resolveVersionInRange = <T extends VersionEntryLike>(
   versions: ReadonlyArray<T>,
   range: Option.Option<string>,
 ): Option.Option<T> => {
-  const decoded = decodeVersionRangeOption(Option.getOrElse(range, () => UNCONSTRAINED_RANGE));
+  const decoded = decodeVersionRangeOption(normalizeVersionRequest(range));
   if (Option.isNone(decoded)) return Option.none();
 
   let selected: T | undefined;

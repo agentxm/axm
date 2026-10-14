@@ -11,6 +11,7 @@ import * as nodePath from "node:path";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
+import { SettingsRegistryContextTest, testBuiltInSources } from "./settings-registry-context.js";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -18,7 +19,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as HttpClient from "effect/http/HttpClient";
 
-import { layer as WorkspaceLayerLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import {
+  layer as WorkspaceLayerLive,
+  readProjectSourceConfiguration,
+} from "@agentxm/workspace-kernel/workspace-state/live";
 import {
   snapshotTree,
   withTestRegistryDefault,
@@ -258,3 +262,21 @@ export const withAllManagers = <P>(layer: ReturnType<typeof withLiveSources<P>>)
     withParticipants,
   ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
 };
+
+/**
+ * The Registry selection a fixture project's settings make, with the built-in
+ * Registry served at `builtInUrl`: the settings are read as the executable
+ * reads them.
+ */
+export const ProjectRegistryContextTest = (options: {
+  readonly projectRoot: string;
+  readonly builtInUrl?: string;
+  readonly explicit?: Option.Option<string>;
+}) =>
+  SettingsRegistryContextTest({
+    snapshot: readProjectSourceConfiguration({
+      projectRoot: decodeAbsolutePathSync(options.projectRoot),
+      builtInSources: testBuiltInSources(options.builtInUrl),
+    }),
+    ...(options.explicit === undefined ? {} : { explicit: options.explicit }),
+  });

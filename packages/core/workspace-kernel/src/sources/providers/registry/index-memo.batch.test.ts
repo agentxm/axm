@@ -5,7 +5,7 @@ import * as Layer from "effect/Layer";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 import * as Option from "effect/Option";
-import { RegistryTransportTest } from "@agentxm/registry-client/testing";
+import { RegistryTransportTest, testRegistryEndpoint } from "@agentxm/registry-client/testing";
 import { extensionName, handle } from "../../test-helpers.js";
 import { makeLiveRegistryIndexMemo } from "./index-memo.js";
 
@@ -50,12 +50,12 @@ describe("Registry planning metadata batches", () => {
         const memo = yield* makeLiveRegistryIndexMemo();
         return yield* Effect.all(
           [
-            memo.get("https://registry.example.test", "trusted", {
+            memo.get(testRegistryEndpoint, "trusted", {
               owner: handle("@acme"),
               type: "skill",
               name: extensionName("first"),
             }),
-            memo.get("https://registry.example.test", "trusted", {
+            memo.get(testRegistryEndpoint, "trusted", {
               owner: handle("@acme"),
               type: "skill",
               name: extensionName("second"),

@@ -32,7 +32,7 @@ import {
 } from "@agentxm/registry-access/testing";
 import {
   RegistryClientFactoryTest,
-  RegistryUrlTest,
+  RegistryContextTest,
   testRegistryUrl,
 } from "@agentxm/registry-client/testing";
 import { layer as WorkspaceStateLayer } from "@agentxm/workspace-kernel/workspace-state/live";
@@ -130,7 +130,7 @@ export const makeVisibilityWorld = (
       AuthLoginInteractionTest().layer,
       AuthLoginPresenterTest().layer,
       CredentialStoreTest(),
-      RegistryUrlTest(testRegistryUrl),
+      RegistryContextTest(testRegistryUrl),
       Layer.succeed(HttpClient.HttpClient, transport),
       RegistryClientFactoryTest(Layer.succeed(HttpClient.HttpClient, transport)),
     ),

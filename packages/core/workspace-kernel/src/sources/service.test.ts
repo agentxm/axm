@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as HttpClient from "effect/http/HttpClient";
 import { ArtifactHttpClient } from "./index.js";
 /**
@@ -232,7 +233,7 @@ describe("registry meta-provider owner routing", () => {
         {
           name: "local",
           type: "registry" as const,
-          location: new URL(`file://${registryRoot}`),
+          location: decodeRegistryEndpointSync(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {
@@ -249,7 +250,7 @@ describe("registry meta-provider owner routing", () => {
           {
             type: "registry",
             name: "agentxm",
-            location: new URL(`file://${registryRoot}`),
+            location: decodeRegistryEndpointSync(`file://${registryRoot}`),
             owner: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -272,7 +273,7 @@ describe("registry meta-provider owner routing", () => {
           {
             type: "registry",
             name: "agentxm",
-            location: new URL("file:///tmp/registry"),
+            location: decodeRegistryEndpointSync("file:///tmp/registry"),
             owner: Option.none(),
           },
           { ...defaultFindOptions, names: ["my-skill"] },
@@ -301,7 +302,7 @@ describe("registry meta-provider owner routing", () => {
         {
           name: "local",
           type: "registry" as const,
-          location: new URL(`file://${registryRoot}`),
+          location: decodeRegistryEndpointSync(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {
@@ -334,7 +335,7 @@ describe("registry meta-provider owner routing", () => {
           {
             type: "registry",
             name: "agentxm",
-            location: new URL(`file://${registryRoot}`),
+            location: decodeRegistryEndpointSync(`file://${registryRoot}`),
             owner: Option.none(),
           },
           { ...defaultFindOptions, owner: Option.some(handle("@acme")) },
@@ -360,12 +361,12 @@ describe("registry meta-provider owner routing", () => {
         {
           name: "remote",
           type: "registry" as const,
-          location: new URL("http://localhost:4300"),
+          location: decodeRegistryEndpointSync("http://localhost:4300"),
         },
         {
           name: "local",
           type: "registry" as const,
-          location: new URL(`file://${registryRoot}`),
+          location: decodeRegistryEndpointSync(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {
@@ -374,7 +375,7 @@ describe("registry meta-provider owner routing", () => {
           {
             type: "registry",
             name: "agentxm",
-            location: new URL(`file://${registryRoot}`),
+            location: decodeRegistryEndpointSync(`file://${registryRoot}`),
             owner: Option.some(handle("@test")),
           },
           { ...defaultFindOptions, names: ["missing"] },
@@ -501,7 +502,7 @@ describe("SourceHostProviders dispatch", () => {
         {
           name: "local",
           type: "registry" as const,
-          location: new URL(`file://${registryRoot}`),
+          location: decodeRegistryEndpointSync(`file://${registryRoot}`),
         },
       ],
       Effect.gen(function* () {
@@ -510,7 +511,7 @@ describe("SourceHostProviders dispatch", () => {
           {
             type: "registry",
             name: "agentxm",
-            location: new URL(`file://${registryRoot}`),
+            location: decodeRegistryEndpointSync(`file://${registryRoot}`),
             owner: Option.none(),
           },
           { ...defaultFindOptions, names: ["nonexistent"] },

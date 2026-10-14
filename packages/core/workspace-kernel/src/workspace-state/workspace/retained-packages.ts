@@ -33,7 +33,7 @@ export const retainedPackageSourceForRef = (
   if (ref.refType === "registry")
     return {
       type: "registry",
-      url: new URL(ref.source.location.href.replace(/\/$/u, "")),
+      url: ref.source.location,
       owner: ref.owner,
       extensionType: lockMapNames[ref.type],
       name: ref.name,

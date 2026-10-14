@@ -14,6 +14,7 @@ import {
   getBuiltInSources,
   makeArtifactHttpClientLayer,
   makeCliLoggerLayer,
+  makeRegistryHttpClientLayer,
   withAxmFetchPolicy,
   withAxmUserAgent,
   withWorkspace,
@@ -21,13 +22,15 @@ import {
 import { makeWorkspaceHandlerTestContext } from "./test-support/test-helpers.js";
 import { makeTestScreen } from "./test-support/screen-test.js";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { RegistryHttpClient } from "@agentxm/registry-client";
 describe("getBuiltInSources", () => {
   it("defines only the built-in registry because Git locators are self-describing", () => {
     expect(getBuiltInSources()).toEqual([
       {
         name: "agentxm",
         type: "registry",
-        location: new URL("https://registry.agentxm.ai"),
+        location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
       },
     ]);
   });
@@ -199,6 +202,36 @@ describe("artifact transport policy", () => {
             cookie: expect.anything(),
           }),
         }),
+      );
+    }),
+  );
+});
+
+describe("Registry transport policy", () => {
+  it.effect("leaves redirects unfollowed so every Registry client can refuse them", () =>
+    Effect.gen(function* () {
+      const fetchImplementation = Object.assign(
+        vi.fn(() =>
+          Promise.resolve(
+            new Response(null, {
+              status: 302,
+              headers: { location: "https://elsewhere.example.test/v1/extensions" },
+            }),
+          ),
+        ),
+        { preconnect: vi.fn() },
+      );
+      const client = yield* RegistryHttpClient.pipe(
+        Effect.provide(makeRegistryHttpClientLayer(fetchImplementation)),
+      );
+      const response = yield* client.execute(
+        HttpClientRequest.get("https://registry.example.test/v1/extensions"),
+      );
+      expect(response.status).toBe(302);
+      expect(fetchImplementation).toHaveBeenCalledTimes(1);
+      expect(fetchImplementation).toHaveBeenCalledWith(
+        expect.any(URL),
+        expect.objectContaining({ redirect: "manual" }),
       );
     }),
   );

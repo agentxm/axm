@@ -61,7 +61,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
     readonly restart?: boolean;
     readonly waitForHumanSeconds?: number;
   }) {
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Signing in");
     const machineOutput = Option.getOrElse(yield* jsonFlag, () => false);
     const nonInteractive = !(yield* (yield* Screen).canAsk);
 
@@ -78,7 +78,7 @@ export const handleLogin = Effect.fn("AuthLogin.handle")(
           nonInteractive,
           machineOutput,
         },
-        registry.url,
+        registry,
       ),
     );
 

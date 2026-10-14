@@ -220,7 +220,11 @@
       "type": "object",
       "properties": {
         "type": { "type": "string", "enum": ["registry"] },
-        "url": { "type": "string" }
+        "url": {
+          "type": "string",
+          "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+          "examples": ["https://registry.agentxm.ai", "file:///srv/registry"]
+        }
       },
       "required": ["type", "url"],
       "additionalProperties": false,

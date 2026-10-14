@@ -14,6 +14,8 @@ import * as ServiceMap from "effect/Context";
 import * as Layer from "effect/Layer";
 
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions/handle";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKey } from "../credentials/credential-key.js";
 import {
   DeviceAuthorizationPending,
   DeviceLoginCodeExpired,
@@ -95,20 +97,20 @@ const CODE_EXPIRED = "That code expired. Run axm login to get a new one.";
 const wholeMinutesLeft = (remainingSeconds: number): number =>
   Math.max(1, Math.floor(remainingSeconds / 60));
 
-const persistLoginCredentials = (registryUrl: string, token: NormalizedTokenResponse) =>
+const persistLoginCredentials = (endpoint: HttpRegistryEndpoint, token: NormalizedTokenResponse) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
 
     const meResult = yield* authClient
-      .getMe(token.access_token)
+      .getMe(endpoint, token.access_token)
       .pipe(Effect.retry({ times: 1 }), Effect.option);
     const handle = Option.match(meResult, {
       onNone: () => UNKNOWN_HANDLE,
       onSome: (me) => me.userHandle,
     });
 
-    yield* credStore.save(registryUrl, handle, {
+    yield* credStore.save(credentialKey(endpoint), handle, {
       access_token: token.access_token,
       refresh_token: token.refresh_token,
       expires_at: token.expires_at,
@@ -242,13 +244,16 @@ const emitPendingDeviceLogin = (
     return result;
   });
 
-export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
+export const initiateDeviceLogin = (
+  endpoint: HttpRegistryEndpoint,
+  options: RunDeviceLoginOptions = {},
+) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
     const presenter = yield* AuthLoginPresenter;
-    const registryHost = new URL(registryUrl).host;
+    const registryHost = new URL(endpoint.href).host;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -259,7 +264,7 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
       const expired = yield* DateTime.isPast(existing.value.expiresAt);
       if (expired || options.restart === true) {
         yield* pendingStore.clear();
-      } else if (existing.value.registryUrl === registryUrl) {
+      } else if (existing.value.registryUrl === credentialKey(endpoint)) {
         // A pending sign-in asks for exactly what every sign-in asks for, so
         // the registry it belongs to is the only thing that can make it the
         // wrong one to resume.
@@ -288,12 +293,12 @@ export const initiateDeviceLogin = (registryUrl: string, options: RunDeviceLogin
 
     const deviceFlow = yield* presenter.withProgress(
       { _tag: "StartingDeviceAuthorization", registryHost },
-      () => authClient.initiateDeviceFlow(),
+      () => authClient.initiateDeviceFlow(endpoint),
     );
 
     const pending: PendingDeviceLogin = {
       version: 3,
-      registryUrl,
+      registryUrl: credentialKey(endpoint),
       deviceCode: deviceFlow.device_code,
       userCode: deviceFlow.user_code,
       verificationUri: deviceFlow.verification_uri,
@@ -320,13 +325,16 @@ const pendingLoginNotFound = () =>
     ],
   });
 
-export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLoginOptions = {}) =>
+export const resumeDeviceLogin = (
+  endpoint: HttpRegistryEndpoint,
+  options: ResumeDeviceLoginOptions = {},
+) =>
   Effect.gen(function* () {
     const authClient = yield* AuthClient;
     const credStore = yield* CredentialStore;
     const pendingStore = yield* PendingDeviceLoginStore;
     const presenter = yield* AuthLoginPresenter;
-    const registryHost = new URL(registryUrl).host;
+    const registryHost = new URL(endpoint.href).host;
 
     if (!credStore.allowsPersistedCredentials) {
       return yield* makePersistedCredentialsUnsupportedError();
@@ -335,7 +343,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     const loaded = yield* pendingStore.load();
     if (Option.isNone(loaded)) return yield* pendingLoginNotFound();
     const pending = loaded.value;
-    if (pending.registryUrl !== registryUrl) {
+    if (pending.registryUrl !== credentialKey(endpoint)) {
       return yield* new RegistryAccessFailed({
         category: "conflict",
         detail: `The pending sign-in belongs to ${new URL(pending.registryUrl).host}, not ${registryHost}.`,
@@ -362,7 +370,7 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
       });
     }
 
-    const polling = authClient.pollDeviceToken(pending.deviceCode, pending.interval);
+    const polling = authClient.pollDeviceToken(endpoint, pending.deviceCode, pending.interval);
     // The sign-in itself is untouched by how the terminal stopped waiting, so
     // both endings resolve to the same pending outcome and the same resume.
     const stillPending = (waitEnded: DeviceWaitEnded) =>
@@ -466,20 +474,23 @@ export const resumeDeviceLogin = (registryUrl: string, options: ResumeDeviceLogi
     yield* pendingStore.clear();
     const identity = yield* presenter.withProgress(
       { _tag: "SavingCredentials", registryHost },
-      () => persistLoginCredentials(registryUrl, token),
+      () => persistLoginCredentials(endpoint, token),
     );
 
-    yield* emitLoginSuccess(registryUrl, identity);
+    yield* emitLoginSuccess(endpoint.href, identity);
   });
 
-export const runDeviceLogin = (registryUrl: string, options: RunDeviceLoginOptions = {}) =>
+export const runDeviceLogin = (
+  endpoint: HttpRegistryEndpoint,
+  options: RunDeviceLoginOptions = {},
+) =>
   Effect.gen(function* () {
-    const pending = yield* initiateDeviceLogin(registryUrl, {
+    const pending = yield* initiateDeviceLogin(endpoint, {
       ...options,
       emitPendingResult: false,
     });
     const sideEffects = yield* openDeviceHandoff(pending, options);
-    yield* resumeDeviceLogin(registryUrl, {
+    yield* resumeDeviceLogin(endpoint, {
       sideEffects,
       ...(options.timeoutSeconds === undefined ? {} : { timeoutSeconds: options.timeoutSeconds }),
     });

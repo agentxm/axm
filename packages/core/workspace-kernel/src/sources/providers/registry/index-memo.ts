@@ -1,3 +1,7 @@
+import {
+  parseRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Cache from "effect/Cache";
 import type * as Config from "effect/Config";
 import * as ServiceMap from "effect/Context";
@@ -5,6 +9,7 @@ import * as Data from "effect/Data";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
+import * as Result from "effect/Result";
 import * as Request from "effect/Request";
 import * as RequestResolver from "effect/RequestResolver";
 import * as Schema from "effect/Schema";
@@ -69,7 +74,7 @@ const indexFromMetadata = (
 
 export interface RegistryIndexMemoService {
   readonly get: (
-    location: string,
+    endpoint: RegistryEndpoint,
     sourceName: string,
     args: GetExtensionIndexArgs,
   ) => Effect.Effect<Option.Option<ExtensionIndex>, RegistryClientFailure | Config.ConfigError>;
@@ -93,8 +98,11 @@ export const makeRegistryIndexMemo = <R>(
     Effect.map(
       (cache) =>
         ({
-          get: (location, sourceName, args) =>
-            Cache.get(cache, new RegistryIndexKey({ location, sourceName, ...args })),
+          get: (endpoint, sourceName, args) =>
+            Cache.get(
+              cache,
+              new RegistryIndexKey({ location: endpoint.href, sourceName, ...args }),
+            ),
         }) satisfies RegistryIndexMemoService,
     ),
   );
@@ -114,7 +122,16 @@ export const makeLiveRegistryIndexMemo = (): Effect.Effect<
         Effect.gen(function* () {
           const first = entries[0].request.key;
           const run = Effect.gen(function* () {
-            const client = yield* registryClients.forLocation(first.location);
+            // The key holds the canonical endpoint text, which decodes back to
+            // exactly the endpoint it was made from.
+            const endpoint = parseRegistryEndpoint(first.location);
+            if (Result.isFailure(endpoint)) {
+              return yield* new RegistryRequestFailed({
+                category: "internal",
+                detail: endpoint.failure.message,
+              });
+            }
+            const client = yield* registryClients.forEndpoint(endpoint.success);
             if (client.getResolutionMetadata === undefined) {
               return yield* Effect.forEach(entries, ({ request }) =>
                 client.getExtensionIndex(request.key),

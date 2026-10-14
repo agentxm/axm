@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it, vi } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
@@ -76,7 +77,7 @@ const localSkill = (): LocalSkillRef => {
 const registrySource = {
   type: "registry" as const,
   name: "agentxm",
-  location: new URL("https://registry.agentxm.ai"),
+  location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
   owner: Option.none(),
 };
 
@@ -219,7 +220,7 @@ describe("Pack member resolution without Registry release dates", () => {
           "@agentxm/skills/axm": {
             source: {
               type: "registry",
-              url: new URL("https://registry.agentxm.ai"),
+              url: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
             },
             versionRange: versionRange("^2.0.0"),
           },
@@ -236,7 +237,7 @@ describe("Pack member resolution without Registry release dates", () => {
       expect(resolveNamedRegistry).toHaveBeenCalledWith(
         expect.objectContaining({
           type: "registry",
-          location: new URL("https://registry.agentxm.ai"),
+          location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
         }),
         expect.objectContaining({
           name: "axm",

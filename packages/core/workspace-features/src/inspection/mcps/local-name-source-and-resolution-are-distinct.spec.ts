@@ -8,6 +8,7 @@ import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-kernel/worksp
 
 import { listMcpServers } from "../type-list/type-lists.js";
 import { inspectionRegistryUrl, makeInspectionFixture } from "../testing.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 export const specification = defineSpecification({
   requirement: "cli/mcps/list/local-name-source-and-resolution-are-distinct",
@@ -34,7 +35,7 @@ const sharedIdentity = `registry:${encodeURIComponent(inspectionRegistryUrl)}:@a
 const acceptedResolution = makeRegistryMcpServerLockEntry({
   owner: decodeHandleSync("@acme"),
   name: "context",
-  endpoint: new URL(inspectionRegistryUrl),
+  endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
 });
 
 describe("List locally named MCP connections as a machine document", () => {

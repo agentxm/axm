@@ -6,9 +6,16 @@ import * as Schema from "effect/Schema";
 import * as Result from "effect/Result";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import { AGENTXM_REGISTRY_URL } from "@agentxm/extension-model/unstable/recommendations/agent-extensions";
+import {
+  decodeRegistryEndpointSync,
+  sameRegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { AgentId, type SkillInstallEvent } from "./__generated__/telemetry-client.js";
 
 type InstallProperties = SkillInstallEvent["properties"];
+/** Only installs from the AgentXM Registry report a Registry skill. */
+const agentxmRegistry = decodeRegistryEndpointSync(AGENTXM_REGISTRY_URL);
 const repositoryPattern = /^[A-Za-z0-9][A-Za-z0-9-]*\/[A-Za-z0-9_.-]+$/;
 const PublicRepository = Schema.Struct({
   private: Schema.Literal(false),
@@ -86,17 +93,15 @@ export const makeSkillInstallEligibility = Effect.gen(function* () {
         return Result.isSuccess(decoded) ? [decoded.success] : [];
       });
       if (ref.refType === "registry") {
-        const url = ref.source.location;
         if (
           ref.visibility !== "public" ||
-          url.origin !== "https://registry.agentxm.ai" ||
-          (url.pathname !== "/" && url.pathname !== "")
+          !sameRegistryEndpoint(ref.source.location, agentxmRegistry)
         )
           return Option.none();
         return Option.some({
           skill: {
             kind: "registry",
-            registryUrl: "https://registry.agentxm.ai",
+            registryUrl: AGENTXM_REGISTRY_URL,
             publisherBindingId: ref.publisherBindingId,
             extensionType: "skill",
             packageName: ref.name,

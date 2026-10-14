@@ -4,7 +4,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import {
-  desiredReachesAcceptedRow,
+  acceptedRowReachability,
   lockfileDisplayPath,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { canonicalObservationFactText } from "@agentxm/workspace-kernel/projection";
@@ -45,10 +45,16 @@ export const skillsLockfileAlignedRule: AdvisoryRule<WorkspaceRuleContext> = {
           finding(`${canonicalObservationFactText(desired, observation)}.`, lockfilePath),
       );
       // A row no desired Skill reaches is retirement's to remove; the same
-      // predicate decides it here, so lint never reports what sync keeps.
-      const undesired = Object.keys(lockfile.success.value.skills)
-        .filter((name) => !desiredReachesAcceptedRow(graph.success, { type: "skill", key: name }))
-        .map((name) =>
+      // query decides it here, so lint never reports what sync keeps. A row an
+      // unresolved Pack could still route is unknown, and the root blocker
+      // diagnostic already reports it.
+      const undesired = Object.entries(lockfile.success.value.skills)
+        .filter(
+          ([name, entry]) =>
+            acceptedRowReachability(graph.success, { type: "skill", key: name, entry }).decision ===
+            "not-reached",
+        )
+        .map(([name]) =>
           finding(`Skill '${name}' has an accepted resolution but is not desired.`, lockfilePath),
         );
       return [...unresolved, ...undesired];

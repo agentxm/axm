@@ -4,6 +4,7 @@ import type {
   DesiredStateWriter,
   ExtensionTargetFor,
   LockfileReader,
+  McpSourceKey,
   SettingsWriter,
   WorkspaceLocation,
 } from "../workspace-state/index.js";
@@ -175,11 +176,10 @@ export interface InstallMcpServerOperationArgs {
   readonly authorizeDistributionSelection?: boolean;
   readonly ref: McpServerExtensionRef;
   /**
-   * The source identity the connection's credentials and lock rows are keyed
-   * by, when the caller already settled it. Absent, the identity of the
-   * requested package itself is used.
+   * The source closure the connection joins, when the caller already settled
+   * it. Absent, the closure of the requested package itself is used.
    */
-  readonly sourceIdentity?: string;
+  readonly sourceKey?: McpSourceKey;
   /** Local connection identity and exact agent-native MCP key. */
   readonly localName?: string;
   readonly force: boolean;

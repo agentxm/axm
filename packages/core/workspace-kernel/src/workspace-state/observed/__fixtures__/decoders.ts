@@ -22,14 +22,27 @@ export const decodedSettings = (input: unknown): Effect.Effect<Settings, Schema.
 export const decodedLockfile = (input: unknown): Effect.Effect<Lockfile, Schema.SchemaError> =>
   Schema.decodeUnknownEffect(LockfileViewSchema)(input);
 
+/** A decoded Registry endpoint serializes as the location it names. */
+const storedRegistryEndpoint = (_key: string, value: unknown): unknown =>
+  typeof value === "object" &&
+  value !== null &&
+  "transport" in value &&
+  "href" in value &&
+  typeof value.href === "string"
+    ? value.href
+    : value;
+
 /** Construct current wire fixtures from explicitly selected per-kind resolution facts. */
 export const storedLockfileFixture = (entries: object) => {
   const serialized: unknown = JSON.parse(
-    JSON.stringify({
-      lockfileVersion: LOCKFILE_VERSION,
-      skills: {},
-      ...entries,
-    }),
+    JSON.stringify(
+      {
+        lockfileVersion: LOCKFILE_VERSION,
+        skills: {},
+        ...entries,
+      },
+      storedRegistryEndpoint,
+    ),
   );
   return Schema.encodeSync(LockfileSchema)(
     Schema.decodeUnknownSync(LockfileViewSchema)(serialized, { onExcessProperty: "error" }),

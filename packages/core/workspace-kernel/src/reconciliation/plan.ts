@@ -1002,7 +1002,8 @@ export const makeSyncPlan = <R>({
           continue;
         keys.add(`subject:${node.type}:${node.name}`);
         if (node.type === "mcp-server" && isSourcedDesiredExtension(node)) {
-          keys.add(`mcp-source:${desiredMcpSourceKey(node.identity)}`);
+          for (const sourceKey of Option.toArray(desiredMcpSourceKey(node.identity)))
+            keys.add(`mcp-source:${sourceKey}`);
         }
         if (node.type === "pack") {
           const identity = desiredPackageKey(node.identity);
@@ -1061,7 +1062,9 @@ export const makeSyncPlan = <R>({
           keys.has(`subject:${node.type}:${node.name}`) ||
           (node.type === "mcp-server" &&
             isSourcedDesiredExtension(node) &&
-            keys.has(`mcp-source:${desiredMcpSourceKey(node.identity)}`)) ||
+            Option.exists(desiredMcpSourceKey(node.identity), (sourceKey) =>
+              keys.has(`mcp-source:${sourceKey}`),
+            )) ||
           node.origins.some(
             (origin) => origin.type === "pack" && keys.has(`pack:${origin.pack.fqn}`),
           ) ||

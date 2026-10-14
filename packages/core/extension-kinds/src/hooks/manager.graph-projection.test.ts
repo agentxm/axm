@@ -7,6 +7,7 @@
  * hooks that never appear in settings.
  */
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   desiredConstraintOf,
   WorkspaceReadTest,
@@ -83,7 +84,10 @@ const packHookNode = (name: string, pack: string): DesiredExtensionNode => ({
   identity: {
     authority: "registry",
     fqn: `${OWNER}/hooks/${name}`,
-    registry: { sourceName: undefined, endpoint: new URL("https://registry.agentxm.ai") },
+    registry: {
+      sourceName: undefined,
+      endpoint: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+    },
   },
   source: `${OWNER}/hooks/${name}@^1.0.0`,
   enabled: true,

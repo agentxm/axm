@@ -8,6 +8,7 @@ import * as EffectRecord from "effect/Record";
 import * as Schema from "effect/Schema";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
+import { RegistryEndpointFromString } from "./registry-endpoint.js";
 import { AgentIdSchema, CONFIGURABLE_AGENT_IDS } from "../agent-capabilities/identity.js";
 import { HANDLE_PATTERN_SOURCE, HandleSchema } from "./handle.js";
 import { parseLicenseExpression } from "./license.js";
@@ -917,7 +918,7 @@ export type NonPackExtensionDependencyConstraintMap = Schema.Schema.Type<
  */
 export const PackMemberRegistrySourceSchema = Schema.Struct({
   type: Schema.Literal("registry"),
-  url: Schema.URLFromString,
+  url: RegistryEndpointFromString,
 }).annotate({
   identifier: "PackMemberRegistrySource",
   description: "A self-describing Registry locator for one Pack member.",

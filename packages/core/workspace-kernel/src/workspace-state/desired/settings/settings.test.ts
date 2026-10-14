@@ -210,7 +210,7 @@ describe("settings", () => {
     {
       "name": "primary",
       "type": "registry",
-      "location": "https://registry.example.com/"
+      "location": "https://registry.example.com"
     }
   ]
 }\n`,
@@ -233,12 +233,12 @@ describe("settings", () => {
     {
       "name": "primary",
       "type": "registry",
-      "location": "https://registry.example.com/"
+      "location": "https://registry.example.com"
     },
     {
       "name": "secondary",
       "type": "registry",
-      "location": "https://registry.secondary.example.com/"
+      "location": "https://registry.secondary.example.com"
     }
   ]
 }\n`,

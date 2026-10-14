@@ -69,7 +69,7 @@ export const prepareDeprecatedMigration = Effect.fn("MigrateDeprecated.prepare")
     });
   }
   const factory = yield* RegistryClientFactory;
-  const client = yield* factory.forLocation(accepted.value.source.location);
+  const client = yield* factory.forEndpoint(accepted.value.source.location);
   const index = yield* client.getExtensionIndex({
     owner: accepted.value.owner,
     type: accepted.value.type,

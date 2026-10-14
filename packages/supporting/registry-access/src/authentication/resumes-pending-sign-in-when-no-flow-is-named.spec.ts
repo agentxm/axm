@@ -8,7 +8,12 @@ import { AuthInteractionAbandoned } from "./errors.js";
 import { login } from "./login.js";
 import type { HumanHandoff } from "./login-presenter.js";
 import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
-import { authRegistry, deviceLoginRequest, makeAuthPorts } from "./test-support/test-helpers.js";
+import {
+  deviceLoginRequest,
+  makeAuthPorts,
+  authSelectedRegistry,
+  authKey,
+} from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/login/resumes-pending-sign-in-when-no-flow-is-named",
@@ -54,7 +59,9 @@ describe("Signing in again with a pending sign-in", () => {
     });
 
     return Effect.gen(function* () {
-      const stopped = yield* Effect.flip(login({ ...plainLogin, deviceCode: true }, authRegistry));
+      const stopped = yield* Effect.flip(
+        login({ ...plainLogin, deviceCode: true }, authSelectedRegistry),
+      );
       expect(stopped).toMatchObject({
         _tag: "DeviceAuthorizationPending",
         waitEnded: { _tag: "Stopped" },
@@ -63,7 +70,7 @@ describe("Signing in again with a pending sign-in", () => {
       const kept = yield* pendingStore.load();
       expect(Option.isSome(kept)).toBe(true);
 
-      yield* login(plainLogin, authRegistry);
+      yield* login(plainLogin, authSelectedRegistry);
 
       // The second sign-in waited on the first one's code; it started none.
       expect(ports.deviceAuthorizations).toEqual(["fixture-device-secret-1"]);
@@ -73,7 +80,7 @@ describe("Signing in again with a pending sign-in", () => {
       expect(ports.presenterState.loopbackStarts).toEqual([]);
       expect(ports.presenterState.loginSuccesses).toHaveLength(1);
       expect(Option.isNone(yield* pendingStore.load())).toBe(true);
-      expect(Option.isSome(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isSome(yield* (yield* CredentialStore).load(authKey))).toBe(true);
     }).pipe(Effect.provide(ports.layer));
   });
 });

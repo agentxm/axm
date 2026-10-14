@@ -181,6 +181,11 @@
       "axm-source": "./src/unstable/extensions/refs/subagent.ts",
       "default": "./dist/src/unstable/extensions/refs/subagent.js"
     },
+    "./unstable/extensions/registry-endpoint": {
+      "types": "./dist/src/unstable/extensions/registry-endpoint.d.ts",
+      "axm-source": "./src/unstable/extensions/registry-endpoint.ts",
+      "default": "./dist/src/unstable/extensions/registry-endpoint.js"
+    },
     "./unstable/extensions/registry-source": {
       "types": "./dist/src/unstable/extensions/registry-source.d.ts",
       "axm-source": "./src/unstable/extensions/registry-source.ts",

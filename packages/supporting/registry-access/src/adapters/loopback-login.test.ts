@@ -1,3 +1,5 @@
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { credentialKeyOf } from "../credentials/test-helpers.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeHttp from "node:http";
 import * as DateTime from "effect/DateTime";
@@ -40,7 +42,7 @@ const callbackFromAuthorizeUrl = (authorizeUrl: string): URL => {
 
 const makeAuthClientLayer = () =>
   AuthClientTest({
-    buildAuthorizeUrl: ({ redirectUri, state }) => {
+    buildAuthorizeUrl: (_endpoint, { redirectUri, state }) => {
       const url = new URL("https://agentxm.ai/oauth/authorize");
       url.searchParams.set("redirect_uri", redirectUri);
       url.searchParams.set("state", state);
@@ -87,7 +89,7 @@ describe("runLoopbackLogin", () => {
     );
 
     return Effect.gen(function* () {
-      yield* runLoopbackLogin(REGISTRY_URL);
+      yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(REGISTRY_URL));
 
       const [handoff] = presenter.state.handoffs;
       expect(handoff?._tag).toBe("LoopbackLogin");
@@ -106,7 +108,7 @@ describe("runLoopbackLogin", () => {
       expect(interaction.state.openBrowserCalls).toHaveLength(1);
 
       const store = yield* CredentialStore;
-      const saved = yield* store.load(REGISTRY_URL);
+      const saved = yield* store.load(credentialKeyOf(REGISTRY_URL));
       expect(saved._tag).toBe("Some");
     }).pipe(Effect.provide(layer));
   });
@@ -129,7 +131,7 @@ describe("runLoopbackLogin", () => {
         makeAuthClientLayer(),
       );
 
-      const fiber = yield* runLoopbackLogin(REGISTRY_URL).pipe(
+      const fiber = yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(REGISTRY_URL)).pipe(
         Effect.provide(layer),
         Effect.forkChild,
       );
@@ -141,7 +143,7 @@ describe("runLoopbackLogin", () => {
 
       const stored = yield* Effect.gen(function* () {
         const store = yield* CredentialStore;
-        return yield* store.load(REGISTRY_URL);
+        return yield* store.load(credentialKeyOf(REGISTRY_URL));
       }).pipe(Effect.provide(credentialLayer));
       expect(stored._tag).toBe("None");
     }),

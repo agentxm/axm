@@ -250,10 +250,7 @@ const inProjectWorkspace = <A, R>(
     Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
     // Building the workspace never reaches the Registry here.
     Effect.provide(
-      Layer.provide(
-        RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
-        NodeServices.layer,
-      ),
+      Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
     ),
   );
 
@@ -292,10 +289,7 @@ describe("Terminal failure reporting", () => {
             Layer.mergeAll(
               baseLayer,
               makeArtifactHttpClientLayer(globalThis.fetch),
-              Layer.provide(
-                RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
-                NodeServices.layer,
-              ),
+              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
             ),
           ),
           Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),
@@ -348,10 +342,7 @@ describe("Terminal failure reporting", () => {
             Layer.mergeAll(
               baseLayer,
               makeArtifactHttpClientLayer(globalThis.fetch),
-              Layer.provide(
-                RegistryClientFactoryTest(FetchHttpClient.layer, "https://registry.invalid"),
-                NodeServices.layer,
-              ),
+              Layer.provide(RegistryClientFactoryTest(FetchHttpClient.layer), NodeServices.layer),
             ),
           ),
           Effect.provideService(ExecutionDirectory, { path: decodeAbsolutePathSync(root) }),

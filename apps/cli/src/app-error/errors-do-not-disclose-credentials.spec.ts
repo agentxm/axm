@@ -1,6 +1,19 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Option from "effect/Option";
-import { REDACTED_SECRET, RegistryProblem, redactRegistryText } from "@agentxm/registry-client";
+import * as Effect from "effect/Effect";
+import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientRequest from "effect/http/HttpClientRequest";
+import * as HttpClientResponse from "effect/http/HttpClientResponse";
+import * as Result from "effect/Result";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  REDACTED_SECRET,
+  RegistryProblem,
+  RegistrySelectionFailed,
+  redactRegistryText,
+  refuseRegistryRedirects,
+} from "@agentxm/registry-client";
+import { SettingsDecodeError, selectRegistry } from "@agentxm/workspace-kernel/workspace-state";
 import { PublishFailed, publishCause } from "@agentxm/workspace-features/publishing";
 import { StepFailure, makeOperationResolution } from "@agentxm/workspace-kernel/operations";
 import { GitOperationFailed } from "@agentxm/workspace-kernel/sources";
@@ -15,7 +28,7 @@ export const specification = defineSpecification({
   requirement: "cli/errors-do-not-disclose-credentials",
   title: "Error reports keep credentials out of diagnostic details",
   statement:
-    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream.",
+    "AXM shall redact credential values, including an exact credential the Registry echoed under a sensitive key and an AgentXM session, refresh, personal access, or workload token wherever it appears, from error reports and their diagnostic details in human and machine output at every supported verbosity level, from the plan result document, from the publish result's cause including a Git reason it reports, and from the failure detail a resolved unit publishes on the lifecycle event stream; and a refused Registry location or redirect shall be reported without the credentials, query, or fragment it carried.",
   class: "quality",
   characteristic: "security",
   role: "experience",
@@ -189,6 +202,76 @@ describe("Credential-safe error reports", () => {
 
   for (const format of ["text", "json"] as const) {
     for (const level of levels) {
+      it(`${format} ${level.name} Registry location refusals never echo the secret they carried`, () => {
+        const secret = "DISPOSABLE_LOCATION_SECRET";
+        const explicit = selectRegistry(
+          {
+            project: { path: "/workspace/axm.json", settings: {} },
+            user: { path: "/home/.axm/workspace/axm.json", settings: {} },
+            builtInSources: [
+              {
+                name: "agentxm",
+                type: "registry",
+                location: decodeRegistryEndpointSync("https://registry.agentxm.ai"),
+              },
+            ],
+          },
+          Option.some(`https://user:${secret}@registry.test/?token=${secret}#${secret}`),
+        );
+        const settings = new RegistrySelectionFailed({
+          detail: "The settings that select the Registry could not be read.",
+          cause: new SettingsDecodeError({
+            path: "/workspace/axm.json",
+            issues: [
+              'sources.0.location: Registry location "https://registry.test/" must not embed credentials.',
+            ],
+            raw: {
+              sources: [
+                { name: "corp", type: "registry", location: `https://u:${secret}@registry.test` },
+              ],
+            },
+          }),
+        });
+        for (const failure of [
+          Result.isFailure(explicit) ? explicit.failure : undefined,
+          settings,
+        ]) {
+          expect(failure).toBeDefined();
+          const rendered = JSON.stringify(classifyError(failure, format, level));
+          expect(rendered).not.toContain(secret);
+          expect(rendered).toContain("registry.test");
+        }
+      });
+
+      it.effect(
+        `${format} ${level.name} a refused Registry redirect names only the target origin`,
+        () =>
+          Effect.gen(function* () {
+            const secret = "DISPOSABLE_REDIRECT_SECRET";
+            const request = HttpClientRequest.get("https://registry.test/v1/me");
+            const refused = yield* refuseRegistryRedirects(
+              HttpClient.make(() =>
+                Effect.succeed(
+                  HttpClientResponse.fromWeb(
+                    request,
+                    new Response(null, {
+                      status: 302,
+                      headers: { location: `https://elsewhere.test/collect?token=${secret}` },
+                    }),
+                  ),
+                ),
+              ),
+            )
+              .execute(request)
+              .pipe(Effect.flip);
+            const carried =
+              refused.reason._tag === "TransportError" ? refused.reason.cause : undefined;
+            const rendered = JSON.stringify(classifyError(carried, format, level));
+            expect(rendered).not.toContain(secret);
+            expect(rendered).toContain("https://elsewhere.test");
+          }),
+      );
+
       it(`${format} ${level.name} errors redact AgentXM tokens quoted outside any sensitive key`, () => {
         const credentials = ["axms_", "axmr_", "axmt_", "axmw_"].map(
           (prefix) => `${prefix}${"k".repeat(30)}${"c".repeat(6)}`,

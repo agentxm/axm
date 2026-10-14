@@ -25,6 +25,11 @@ Update has three distinct forms:
 - `--reinstall` reacquires the accepted external resolution without changing
   version intent.
 
+An accepted Registry version that the effective constraint does not admit — for
+example a prerelease under a declaration without a range, which admits what `*`
+admits — blocks sync and restoration until an explicit update accepts the
+newest admitted version, even when that version is lower.
+
 A targeted update classifies the complete desired graph before consulting the
 Registry. Direct-only targets update through their direct declaration.
 Pack-only targets update as one member-scoped pack transition and never acquire

@@ -10,7 +10,6 @@
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
-import * as semver from "semver";
 
 import type { ExtensionRef } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
 import {
@@ -29,7 +28,10 @@ import {
 } from "@agentxm/extension-model/unstable/extensions/refs/pack";
 import type { ReleaseAgeEvaluation } from "@agentxm/extension-model/unstable/extensions/release-age";
 import type { RegistrySource, Source } from "@agentxm/extension-model/unstable/sources/types";
-import type { VersionRange } from "@agentxm/extension-model/unstable/version-constraints";
+import {
+  versionSatisfiesRequest,
+  type VersionRange,
+} from "@agentxm/extension-model/unstable/version-constraints";
 import type { SourceHostProvidersService, SourceResolutionFailure } from "../sources/index.js";
 import {
   desiredStateProblemText,
@@ -83,12 +85,14 @@ type PartitionedDependency = readonly [
 const explicitRegistrySource = (
   source: PackMemberRegistrySource,
   owner: Handle,
-): RegistrySource => ({
-  type: "registry",
-  name: source.url.href,
-  location: source.url,
-  owner: Option.some(owner),
-});
+): RegistrySource => {
+  return {
+    type: "registry",
+    name: source.url.href,
+    location: source.url,
+    owner: Option.some(owner),
+  };
+};
 
 export type WorkspacePackDependencyResolution =
   | { readonly kind: "absent" }
@@ -164,7 +168,7 @@ const validateSelectedDependency = (
   }
   if (
     (candidate.refType === "registry" || candidate.refType === "workspace") &&
-    !semver.satisfies(candidate.version, constraint)
+    !versionSatisfiesRequest(candidate.version, constraint)
   ) {
     return new PackDependencyConflict({
       detail: `Authorized dependency ${fqn}@${candidate.version} does not satisfy ${constraint}`,
@@ -305,7 +309,7 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
             detail: `Configured workspace authority does not match pack dependency ${fqn}`,
           });
         }
-        if (!semver.satisfies(candidate.version, constraint)) {
+        if (!versionSatisfiesRequest(candidate.version, constraint)) {
           return yield* workspaceConstraintConflict(pack, fqn, candidate.version, constraint);
         }
         return selectedWithoutReleaseAge({
@@ -334,7 +338,7 @@ const resolveDependencyRefWithReleaseAge = <E = never, R = never>(
           candidate.type === expectedType &&
           candidate.owner === parsed.owner &&
           candidate.name === parsed.name &&
-          !semver.satisfies(candidate.version, constraint)
+          !versionSatisfiesRequest(candidate.version, constraint)
         ) {
           return yield* new AcceptedPackMemberIncompatible({
             type: expectedType,

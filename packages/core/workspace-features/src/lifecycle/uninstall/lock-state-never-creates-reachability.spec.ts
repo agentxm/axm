@@ -17,20 +17,23 @@ import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/li
 import * as Option from "effect/Option";
 import {
   acceptedRowKey,
+  acceptedRowReachability,
   computePackManifestContentIdentity,
   desiredReachesAcceptedRow,
+  LockfileReader,
   DesiredStateReader,
   WorkspaceRecords,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { makeLifecycleFixture } from "../testing.js";
+import { applySync, expectResolved, makeSyncFixture } from "../../testing/sync-fixture.js";
 import { applyUninstall, uninstallRequest } from "./test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/lock-state-never-creates-reachability",
   title: "A lockfile row alone never makes an extension desired or retained",
   statement:
-    "An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present.",
+    "An accepted-resolution row in the lockfile that no settings entry desires shall not cause the workspace to acquire, realize, or report that extension or pack as present: sync shall retire such a row, including one a workspace-authored declaration of the same name shadows, without touching the authored content and with no further change on a second sync, while a row an unresolved Pack could still route is never read as unreached and the unresolved Pack is reported rather than any clean result.",
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
@@ -161,6 +164,96 @@ describe("Lock state and desired-state reachability", () => {
       expect(node && Option.isNone(acceptedRowKey(node))).toBe(true);
       expect(desiredReachesAcceptedRow(desired, { type: "skill", key: "review" })).toBe(false);
     }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect(
+    "sync retires a stale external row an authored declaration shadows, once, keeping the authored content",
+    () => {
+      const authored = {
+        "skills/review/skill.json": `${JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+          description: "Authored review.",
+        })}\n`,
+        "skills/review/src/SKILL.md":
+          "---\nname: review\ndescription: Authored review.\n---\n# Authored\n",
+      };
+      const workspace = makeSyncFixture({
+        settings: { owner: "@acme", agents: ["claude-code"], skills: { review: "workspace" } },
+        lockfile: { skills: { review: acceptedRegistryRow("review", "skill") } },
+        files: authored,
+      });
+      cleanups.push(workspace.cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const shadowed = yield* Effect.flatMap(DesiredStateReader, (reader) => reader.graph());
+            // The query lint reports from and retirement acts on agrees: not reached.
+            expect(
+              acceptedRowReachability(shadowed, { type: "skill", key: "review" }).decision,
+            ).toBe("not-reached");
+
+            expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
+            expect(Option.isNone(yield* (yield* LockfileReader).entry("skill", "review"))).toBe(
+              true,
+            );
+            for (const [file, contents] of Object.entries(authored))
+              expect(workspace.readFile(file)).toBe(contents);
+
+            const settled = workspace.snapshot();
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+            expect(workspace.snapshot()).toEqual(settled);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 20_000 },
+  );
+
+  it.effect(
+    "an unresolved Pack withholds only the rows it could route, and sync never reads it as clean",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code"],
+          // An authored Pack whose manifest is missing: its membership is unknown.
+          packs: { toolkit: "workspace" },
+        },
+        lockfile: {
+          skills: { phantom: acceptedRegistryRow("phantom", "skill") },
+          packs: { "phantom-pack": acceptedRegistryRow("phantom-pack", "pack") },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            const graph = yield* Effect.flatMap(DesiredStateReader, (reader) => reader.graph());
+            // The skill row could be a member of the unknown Pack; no Pack routes a Pack.
+            expect(acceptedRowReachability(graph, { type: "skill", key: "phantom" })).toEqual({
+              decision: "unknown",
+              blockers: [expect.objectContaining({ pack: "@acme/packs/toolkit" })],
+            });
+            expect(
+              acceptedRowReachability(graph, { type: "pack", key: "phantom-pack" }).decision,
+            ).toBe("not-reached");
+
+            // The unresolved Pack is the root diagnostic; nothing is retired around it.
+            const before = workspace.snapshot();
+            const refusal = yield* applySync().pipe(Effect.flip);
+            expect(refusal).toMatchObject({
+              _tag: "WorkspaceSyncFailed",
+              detail: expect.stringContaining("@acme/packs/toolkit"),
+            });
+            expect(workspace.snapshot()).toEqual(before);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: 20_000 },
   );
 
   it.effect("a lock-only Knowledge row is not a removal target", () =>

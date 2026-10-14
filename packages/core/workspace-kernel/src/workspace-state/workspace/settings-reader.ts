@@ -36,6 +36,7 @@ import { WorkspaceDocuments, type WorkspaceDocumentsService } from "./documents.
 import { WorkspaceLocation, type WorkspaceLocationService } from "./location.js";
 import type { WorkspaceSettingsReadFailure } from "./contracts.js";
 import { WorkspaceStateShared } from "./shared.js";
+import { defaultRegistrySelection, mergeSources } from "./registry-selection.js";
 
 type Read<A> = Effect.Effect<A, WorkspaceSettingsReadFailure>;
 
@@ -61,26 +62,6 @@ export const bindRegistrySource = (
   sourceName: Option.Option<string>,
   defaultRegistry: string,
 ): string => Option.getOrElse(sourceName, () => defaultRegistry);
-/** A configured Registry, rendered as the one base URL every Registry request uses. */
-export interface RegistryTarget {
-  readonly name: string;
-  readonly url: string;
-}
-
-/** Which Registry a name selects: the name settled, and its base URL when a registry source carries it. */
-export interface RegistryTargetSelection {
-  readonly name: string;
-  readonly url: Option.Option<string>;
-}
-
-/**
- * The one rendering of a configured Registry location: its `href` without a
- * trailing slash. A bare origin renders as that origin, so a credential stored
- * under it keeps its key; a path segment is kept, so a Registry served under
- * one is addressed there; a `file:` location is kept whole.
- */
-export const registryBaseUrl = (location: URL): string => location.href.replace(/\/$/u, "");
-
 export interface SettingsReaderService {
   /** The selected scope's settings, defaulting when the file is absent. */
   readonly settings: Read<Settings>;
@@ -100,13 +81,6 @@ export interface SettingsReaderService {
   readonly bindRegistrySource: (locator: {
     readonly sourceName: Option.Option<string>;
   }) => Read<BoundRegistrySource>;
-  /**
-   * The Registry a request targets: the named configured source, or the
-   * effective default when none is named, rendered through
-   * {@link registryBaseUrl}. The one decision every publish, lifecycle,
-   * inspection, and authentication request addresses a Registry through.
-   */
-  readonly registryTarget: (nameOrUrl: Option.Option<string>) => Read<RegistryTargetSelection>;
   /** Owner: project settings, then user-scope settings, then none. */
   readonly owner: Read<Option.Option<Handle>>;
   /** Repository publication default for this exact workspace scope. */
@@ -126,30 +100,6 @@ export class SettingsReader extends ServiceMap.Service<SettingsReader, SettingsR
   "@agentxm/workspace-kernel/workspace-state/SettingsReader",
 ) {}
 
-/**
- * Three-layer merge: project sources, then user-scope sources, then built-in
- * sources. Name-based deduplication: earlier layers win. Desired-state
- * collection applies the same merge to the settings it captured.
- */
-export const mergeSources = (
-  projectSources: ReadonlyArray<SourceHostConfig>,
-  globalSources: ReadonlyArray<SourceHostConfig>,
-  builtInSources: ReadonlyArray<SourceHostConfig>,
-): ReadonlyArray<SourceHostConfig> => {
-  const builtInNames = new Set(builtInSources.map((source) => source.name));
-  const filteredProject = projectSources.filter((source) => !builtInNames.has(source.name));
-  const projectNames = new Set(filteredProject.map((source) => source.name));
-  const filteredGlobal = globalSources.filter(
-    (source) => !builtInNames.has(source.name) && !projectNames.has(source.name),
-  );
-  const projectGlobalNames = new Set([...projectNames, ...filteredGlobal.map((s) => s.name)]);
-  return [
-    ...filteredProject,
-    ...filteredGlobal,
-    ...builtInSources.filter((s) => !projectGlobalNames.has(s.name)),
-  ];
-};
-
 export const makeSettingsReader = (
   location: WorkspaceLocationService,
   documents: WorkspaceDocumentsService,
@@ -160,10 +110,7 @@ export const makeSettingsReader = (
   const projectSettings = documents.settings("project");
 
   const defaultRegistry: Read<string> = Effect.gen(function* () {
-    const project = yield* projectSettings;
-    if (project.defaultRegistry !== undefined) return project.defaultRegistry;
-    const user = yield* userSettings;
-    return user.defaultRegistry ?? "agentxm";
+    return defaultRegistrySelection(yield* projectSettings, yield* userSettings).name;
   }).pipe(Effect.withSpan("SettingsReader.defaultRegistry"));
 
   const configuredSources: Read<ReadonlyArray<SourceHostConfig>> = Effect.gen(function* () {
@@ -200,31 +147,6 @@ export const makeSettingsReader = (
           host: Option.fromUndefinedOr(hosts.find((host) => host.name === sourceName)),
         };
       }).pipe(Effect.withSpan("SettingsReader.bindRegistrySource")),
-    registryTarget: (requested) =>
-      Effect.gen(function* () {
-        const name = Option.isSome(requested) ? requested.value : yield* defaultRegistry;
-        if (Option.isSome(requested) && URL.canParse(name)) {
-          const location = new URL(name);
-          const permitted =
-            (location.protocol === "https:" || location.protocol === "http:") &&
-            location.username === "" &&
-            location.password === "" &&
-            location.search === "" &&
-            location.hash === "";
-          return {
-            name,
-            url: permitted ? Option.some(registryBaseUrl(location)) : Option.none(),
-          } satisfies RegistryTargetSelection;
-        }
-        const sources = yield* configuredSources;
-        const source = sources.find(
-          (candidate) => candidate.name === name && candidate.type === "registry",
-        );
-        return {
-          name,
-          url: source === undefined ? Option.none() : Option.some(registryBaseUrl(source.location)),
-        } satisfies RegistryTargetSelection;
-      }).pipe(Effect.withSpan("SettingsReader.registryTarget")),
     owner: Effect.gen(function* () {
       const project = yield* projectSettings;
       if (project.owner) return Option.some(project.owner);

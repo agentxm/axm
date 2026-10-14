@@ -29,6 +29,8 @@ import {
 } from "../authentication/errors.js";
 import { CredentialStore } from "./credential-store.js";
 import { CredentialStoreTokenSource, type StoredCredentials } from "./schema.js";
+import { credentialKey, type CredentialKey } from "./credential-key.js";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 /**
  * Every way asking for a usable session can fail: the session is over, the
@@ -62,15 +64,17 @@ export class SessionRefresher extends ServiceMap.Service<
 >()("@agentxm/registry-access/credentials/SessionRefresher") {}
 
 const asTokenSource = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   credentials: Pick<StoredCredentials, "access_token" | "refresh_token" | "expires_at">,
 ): CredentialStoreTokenSource =>
   new CredentialStoreTokenSource({
     token: credentials.access_token,
     refresh_token: credentials.refresh_token,
     expires_at: credentials.expires_at,
-    registryUrl,
+    endpoint,
   });
+
+const keyOf = (credential: CredentialStoreTokenSource) => credentialKey(credential.endpoint);
 
 /**
  * What a completed renewal attempt for one access token settled on.
@@ -90,14 +94,14 @@ export const SessionRefresherLive = Layer.effect(
     const store = yield* CredentialStore;
     const exchange = yield* TokenExchange;
     // Borrow each origin while renewing or waiting; idle lock keys disappear.
-    const locks = yield* RcMap.make({ lookup: (_registryUrl: string) => Semaphore.make(1) });
+    const locks = yield* RcMap.make({ lookup: (_key: CredentialKey) => Semaphore.make(1) });
     const outcomes = yield* Ref.make(
       new Map<string, { readonly spentToken: string; readonly outcome: RefreshOutcome }>(),
     );
 
     const recall = (credential: CredentialStoreTokenSource) =>
       Effect.map(Ref.get(outcomes), (current) => {
-        const previous = current.get(credential.registryUrl);
+        const previous = current.get(keyOf(credential));
         return previous === undefined || previous.spentToken !== credential.token
           ? Option.none<RefreshOutcome>()
           : Option.some(previous.outcome);
@@ -106,14 +110,14 @@ export const SessionRefresherLive = Layer.effect(
     const remember = (credential: CredentialStoreTokenSource, outcome: RefreshOutcome) =>
       Ref.update(outcomes, (current) => {
         const updated = new Map(current);
-        updated.set(credential.registryUrl, { spentToken: credential.token, outcome });
+        updated.set(keyOf(credential), { spentToken: credential.token, outcome });
         return updated;
       });
 
-    const settle = (outcome: RefreshOutcome, registryUrl: string) =>
+    const settle = (outcome: RefreshOutcome, endpoint: HttpRegistryEndpoint) =>
       outcome._tag === "Renewed"
         ? Effect.succeed(outcome.credential)
-        : Effect.fail(new SessionEnded({ registryUrl }));
+        : Effect.fail(new SessionEnded({ registryUrl: endpoint.href }));
 
     /**
      * A session the Registry ended is erased, still under the lock. The memo
@@ -122,8 +126,8 @@ export const SessionRefresherLive = Layer.effect(
      * refused refresh token again. Failing to erase changes nothing about the
      * answer, which is still that the session ended.
      */
-    const forget = (registryUrl: string) =>
-      store.clear(registryUrl).pipe(
+    const forget = (key: CredentialKey) =>
+      store.clear(key).pipe(
         Effect.catch((error) =>
           Effect.logWarning("An ended session could not be erased from credential storage.", {
             error,
@@ -143,9 +147,9 @@ export const SessionRefresherLive = Layer.effect(
       Effect.uninterruptibleMask((restore) =>
         Effect.gen(function* () {
           const renewed = yield* restore(
-            exchange.refreshToken(stored.refresh_token, credential.registryUrl),
+            exchange.refreshToken(stored.refresh_token, credential.endpoint),
           );
-          yield* store.save(credential.registryUrl, stored.handle, {
+          yield* store.save(keyOf(credential), stored.handle, {
             access_token: renewed.access_token,
             refresh_token: renewed.refresh_token,
             expires_at: renewed.expires_at,
@@ -158,7 +162,7 @@ export const SessionRefresherLive = Layer.effect(
             ? Effect.void
             : remember(credential, { _tag: "Ended" }).pipe(
                 Effect.andThen(
-                  error._tag === "SessionEnded" ? forget(credential.registryUrl) : Effect.void,
+                  error._tag === "SessionEnded" ? forget(keyOf(credential)) : Effect.void,
                 ),
               ),
         ),
@@ -175,19 +179,19 @@ export const SessionRefresherLive = Layer.effect(
     const renewUnderLock = (credential: CredentialStoreTokenSource) =>
       Effect.gen(function* () {
         const memoized = yield* recall(credential);
-        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.registryUrl);
+        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.endpoint);
 
-        const stored = yield* store.reload(credential.registryUrl);
+        const stored = yield* store.reload(keyOf(credential));
         if (Option.isNone(stored)) {
           yield* remember(credential, { _tag: "Ended" });
-          return yield* new SessionEnded({ registryUrl: credential.registryUrl });
+          return yield* new SessionEnded({ registryUrl: credential.endpoint.href });
         }
         if (stored.value.access_token !== credential.token) {
-          return asTokenSource(credential.registryUrl, stored.value);
+          return asTokenSource(credential.endpoint, stored.value);
         }
 
         const renewed = yield* exchangeAndSave(credential, stored.value);
-        const result = asTokenSource(credential.registryUrl, renewed);
+        const result = asTokenSource(credential.endpoint, renewed);
         yield* remember(credential, { _tag: "Renewed", credential: result });
         return result;
       });
@@ -195,10 +199,10 @@ export const SessionRefresherLive = Layer.effect(
     const renew: SessionRefresherService["renew"] = Effect.fn("SessionRefresher.renew")(
       function* (credential) {
         const memoized = yield* recall(credential);
-        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.registryUrl);
+        if (Option.isSome(memoized)) return yield* settle(memoized.value, credential.endpoint);
 
         return yield* Effect.scoped(
-          Effect.flatMap(RcMap.get(locks, credential.registryUrl), (lock) =>
+          Effect.flatMap(RcMap.get(locks, keyOf(credential)), (lock) =>
             lock.withPermits(1)(store.withRefreshLock(renewUnderLock(credential))),
           ),
         );

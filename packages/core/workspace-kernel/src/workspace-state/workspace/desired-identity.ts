@@ -1,4 +1,3 @@
-import { httpSourceKind } from "@agentxm/extension-model/unstable/sources/http-artifact";
 /**
  * The typed identity of a desired node: who is authoritative for the
  * package a node names, and the name it carries under that authority. The
@@ -9,13 +8,33 @@ import { httpSourceKind } from "@agentxm/extension-model/unstable/sources/http-a
  */
 
 import * as Option from "effect/Option";
-import { toExtensionTypePlural } from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  parseExtensionFqnParts,
+  toExtensionTypePlural,
+} from "@agentxm/extension-model/unstable/extensions/common";
+import {
+  sameRegistryEndpoint,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import {
+  httpSourceKind,
+  type HttpArtifactSnapshot,
+} from "@agentxm/extension-model/unstable/sources/http-artifact";
 import { parseInputPattern } from "@agentxm/extension-model/unstable/sources/parser";
 import { printSourceParams } from "@agentxm/extension-model/unstable/sources/printer";
 import {
   extensionRefName,
   type ExtensionRef,
 } from "@agentxm/extension-model/unstable/extensions/refs/extension-ref";
+import {
+  isGitLockEntry,
+  isHttpLockEntry,
+  isPathLockEntry,
+  isRegistryLockEntry,
+  type LockEntry,
+} from "./lock-entry.js";
+import { McpSourceKey, type McpSourceIdentity } from "./mcp-source-identity.js";
+import { canonicalSourceLocator } from "./source-locator.js";
 
 /** Who is authoritative for the package a desired node names. */
 export type DesiredAuthority =
@@ -30,7 +49,7 @@ export interface DesiredRegistryBinding {
    */
   readonly sourceName: string | undefined;
   /** The Registry endpoint the binding resolves to, when one is configured. */
-  readonly endpoint: URL | undefined;
+  readonly endpoint: RegistryEndpoint | undefined;
 }
 
 /** A desired node's identity under one authority. */
@@ -50,12 +69,6 @@ export type DesiredNodeIdentity =
       readonly authority: "registry";
       readonly fqn: string;
       readonly registry: DesiredRegistryBinding;
-      /**
-       * The accepted-resolution key an MCP source closure is recorded under:
-       * the lock removal key and the secret-store namespace. Present only for
-       * an MCP server whose Registry endpoint is known.
-       */
-      readonly resolutionKey?: string;
     }
   | {
       /** Acquired from a git repository or a local path the declaration spells. */
@@ -63,8 +76,8 @@ export type DesiredNodeIdentity =
       readonly locator: string;
       /** The name accepted state gives the package, once it has been resolved. */
       readonly fqn?: string;
-      /** Exact accepted MCP source row, when source and package identity match. */
-      readonly resolutionKey?: string;
+      /** The accepted MCP source an MCP declaration resolved to, when exactly one row matches. */
+      readonly acceptedSource?: McpSourceIdentity;
     }
   | {
       /** An MCP connection the settings define in place. */
@@ -85,7 +98,7 @@ export interface DesiredPackIdentity {
  */
 export type DesiredSourceAuthority =
   | { readonly authority: "workspace"; readonly fqn: string }
-  | { readonly authority: "registry"; readonly endpoint: URL }
+  | { readonly authority: "registry"; readonly endpoint: RegistryEndpoint }
   | {
       readonly authority: "path";
       /** The workspace-relative source view root, as the lock records it. */
@@ -145,23 +158,41 @@ export const formatDesiredIdentity = (identity: DesiredNodeIdentity): string => 
 };
 
 /**
- * The key one sourced MCP node's source closure is recorded under: its
- * accepted-resolution key when the Registry endpoint is known, else its
- * authority and name. Every local connection to one source shares this key;
- * it is the lock removal key and the secret-store namespace, so it is opaque
- * to every consumer.
+ * Whether two identities hold one package from one source: the same
+ * authority and FQN, and the same canonical Registry endpoint or canonical
+ * locator spelling. A
+ * Registry identity with no bound endpoint equals nothing, because which
+ * Registry it names is not known. Configured aliases and display text take
+ * no part.
  */
-export const desiredMcpSourceKey = (identity: DesiredNodeIdentity): string =>
-  (identity.authority === "registry" ||
-    identity.authority === "git" ||
-    identity.authority === "path") &&
-  identity.resolutionKey !== undefined
-    ? identity.resolutionKey
-    : formatDesiredIdentity(identity);
-
-/** Whether two identities hold one package under one authority. */
-export const sameDesiredIdentity = (left: DesiredNodeIdentity, right: DesiredNodeIdentity) =>
-  left.authority === right.authority && desiredMcpSourceKey(left) === desiredMcpSourceKey(right);
+export const sameSourceIdentity = (
+  left: DesiredNodeIdentity,
+  right: DesiredNodeIdentity,
+): boolean => {
+  switch (left.authority) {
+    case "workspace":
+    case "bundled":
+      return right.authority === left.authority && right.fqn === left.fqn;
+    case "registry":
+      return (
+        right.authority === "registry" &&
+        left.registry.endpoint !== undefined &&
+        right.registry.endpoint !== undefined &&
+        sameRegistryEndpoint(left.registry.endpoint, right.registry.endpoint) &&
+        left.fqn === right.fqn
+      );
+    case "git":
+    case "http":
+    case "path":
+      return (
+        right.authority === left.authority &&
+        canonicalSourceLocator(right.locator) === canonicalSourceLocator(left.locator) &&
+        right.fqn === left.fqn
+      );
+    case "inline":
+      return right.authority === "inline" && right.name === left.name;
+  }
+};
 
 /** Terminal text for one source authority. */
 export const formatDesiredSourceAuthority = (authority: DesiredSourceAuthority): string => {
@@ -180,11 +211,101 @@ export const formatDesiredSourceAuthority = (authority: DesiredSourceAuthority):
   }
 };
 
-/** Whether two source authorities are one authority. */
-export const sameDesiredSourceAuthority = (
+/** Whether two source authorities are one authority, compared field by field. */
+export const sameSourceAuthority = (
   left: DesiredSourceAuthority,
   right: DesiredSourceAuthority,
-): boolean => formatDesiredSourceAuthority(left) === formatDesiredSourceAuthority(right);
+): boolean => {
+  switch (left.authority) {
+    case "workspace":
+      return right.authority === "workspace" && right.fqn === left.fqn;
+    case "registry":
+      return right.authority === "registry" && sameRegistryEndpoint(left.endpoint, right.endpoint);
+    case "path":
+      return right.authority === "path" && right.root === left.root;
+    case "git":
+      return (
+        right.authority === "git" &&
+        right.url.href === left.url.href &&
+        right.revision === left.revision &&
+        Option.getOrUndefined(right.root) === Option.getOrUndefined(left.root)
+      );
+  }
+};
+
+const sameLockSource = (left: LockEntry["source"], right: LockEntry["source"]): boolean => {
+  switch (left.type) {
+    case "registry":
+      return right.type === "registry" && sameRegistryEndpoint(left.url, right.url);
+    case "git":
+      return (
+        right.type === "git" &&
+        right.url.href === left.url.href &&
+        right.path === left.path &&
+        right.revision === left.revision
+      );
+    case "http":
+      return right.type === "http" && right.url.href === left.url.href && right.path === left.path;
+    case "path":
+      return right.type === "path" && right.path === left.path;
+  }
+};
+
+const sameHttpArtifact = (
+  left: { readonly url: URL; readonly digest: string },
+  right: { readonly url: URL; readonly digest: string },
+): boolean => left.url.href === right.url.href && left.digest === right.digest;
+
+const sameHttpSnapshot = (left: HttpArtifactSnapshot, right: HttpArtifactSnapshot): boolean => {
+  if (left.format === "files") {
+    return (
+      right.format === "files" &&
+      left.files.length === right.files.length &&
+      left.files.every((file, index) => {
+        const other = right.files[index];
+        return other !== undefined && file.path === other.path && sameHttpArtifact(file, other);
+      })
+    );
+  }
+  return right.format === left.format && sameHttpArtifact(left, right);
+};
+
+/** Whether two entries record the same resolved version, commit, tree, or artifact snapshot. */
+const sameResolved = (left: LockEntry, right: LockEntry): boolean => {
+  if (isRegistryLockEntry(left)) {
+    return (
+      isRegistryLockEntry(right) &&
+      left.resolved.version === right.resolved.version &&
+      left.resolved.integrity === right.resolved.integrity &&
+      left.resolved.publisherBindingId === right.resolved.publisherBindingId
+    );
+  }
+  if (isGitLockEntry(left)) {
+    return (
+      isGitLockEntry(right) &&
+      left.resolved.commit === right.resolved.commit &&
+      left.resolved.tree === right.resolved.tree
+    );
+  }
+  if (isPathLockEntry(left)) {
+    return isPathLockEntry(right) && left.resolved.tree === right.resolved.tree;
+  }
+  return isHttpLockEntry(left) && isHttpLockEntry(right)
+    ? sameHttpSnapshot(left.resolved, right.resolved)
+    : false;
+};
+
+/**
+ * Whether two accepted resolutions are one immutable resolution: the same
+ * source and package, and the same version, commit, or tree. A range is not
+ * part of it; the resolved version or commit always is.
+ */
+export const sameAcceptedResolution = (left: LockEntry, right: LockEntry): boolean =>
+  sameLockSource(left.source, right.source) &&
+  left.identity.owner === right.identity.owner &&
+  left.identity.name === right.identity.name &&
+  left.treeIntegrity === right.treeIntegrity &&
+  sameResolved(left, right);
 
 /**
  * The authority a source locator that is neither a workspace nor a Registry
@@ -225,3 +346,53 @@ export const desiredIdentityOfRef = (ref: ExtensionRef): DesiredNodeIdentity => 
       return { authority: "git", locator: printSourceParams(ref.source), fqn };
   }
 };
+
+/** The MCP package an FQN names, when it names one. */
+const mcpPackage = (
+  fqn: string | undefined,
+): Option.Option<{ readonly owner: string; readonly name: string }> => {
+  const parsed = fqn === undefined ? undefined : parseExtensionFqnParts(fqn);
+  return parsed?.type === "mcp-server"
+    ? Option.some({ owner: parsed.owner, name: parsed.name })
+    : Option.none();
+};
+
+/**
+ * The source identity a desired MCP node is bound to: its Registry endpoint
+ * and package, its workspace package, or the accepted row a git or path
+ * declaration resolved to. A Registry node with no bound endpoint, and a git
+ * or path node not yet accepted, have none; nothing is recovered from display
+ * text.
+ */
+export const desiredMcpSource = (
+  identity: DesiredNodeIdentity,
+): Option.Option<McpSourceIdentity> => {
+  switch (identity.authority) {
+    case "registry": {
+      const endpoint = identity.registry.endpoint;
+      return endpoint === undefined
+        ? Option.none()
+        : Option.map(mcpPackage(identity.fqn), (pkg) => ({
+            kind: "registry" as const,
+            endpoint,
+            ...pkg,
+          }));
+    }
+    case "workspace":
+      return Option.map(mcpPackage(identity.fqn), (pkg) => ({
+        kind: "workspace" as const,
+        ...pkg,
+      }));
+    case "git":
+    case "path":
+      return Option.fromUndefinedOr(identity.acceptedSource);
+    case "http":
+    case "bundled":
+    case "inline":
+      return Option.none();
+  }
+};
+
+/** The key a desired MCP node's closure is recorded under, when its source is bound. */
+export const desiredMcpSourceKey = (identity: DesiredNodeIdentity): Option.Option<McpSourceKey> =>
+  Option.map(desiredMcpSource(identity), McpSourceKey.encode);

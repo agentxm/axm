@@ -1,3 +1,4 @@
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeHttp from "node:http";
 import * as DateTime from "effect/DateTime";
@@ -61,7 +62,7 @@ describe("Truthful browser sign-in completion", () => {
             openBrowser: (url) => Deferred.succeed(browserUrl, url).pipe(Effect.as(true)),
           }).layer,
           AuthClientTest({
-            buildAuthorizeUrl: ({ redirectUri, state }) => {
+            buildAuthorizeUrl: (_endpoint, { redirectUri, state }) => {
               const callback = new URL(redirectUri);
               callback.searchParams.set("state", state);
               callback.searchParams.set("code", "fixture-code");
@@ -115,7 +116,7 @@ describe("Truthful browser sign-in completion", () => {
               ),
           }),
         );
-        const login = yield* runLoopbackLogin(registry).pipe(
+        const login = yield* runLoopbackLogin(decodeHttpRegistryEndpointSync(registry)).pipe(
           Effect.provide(layer),
           Effect.exit,
           Effect.forkChild,

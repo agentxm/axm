@@ -9,6 +9,7 @@
  */
 
 import { parseExtensionFqnParts } from "@agentxm/extension-model/unstable/extensions";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 
@@ -122,6 +123,33 @@ describe("pack uninstall target precondition", () => {
       "conflict",
     ),
   );
+
+  describe("for a Registry Pack", () => {
+    const bound = (sourceName: string, endpoint: string): DesiredNodeIdentity => ({
+      authority: "registry",
+      fqn: "@acme/packs/toolkit",
+      registry: { sourceName, endpoint: decodeRegistryEndpointSync(endpoint) },
+    });
+    const planned: ResolvedPackUninstallTarget = {
+      ...targetFor("@acme/packs/toolkit"),
+      desiredIdentity: bound("primary", "https://registry.example"),
+    };
+
+    it.effect("accepts another alias of the same endpoint", () =>
+      validateResolvedPackUninstallTargets(
+        completeGraph([packNode(bound("alias", "https://registry.example/"))]),
+        [planned],
+      ),
+    );
+
+    it.effect("fails with conflict when an alias now names another endpoint", () =>
+      expectFailureCategory(
+        completeGraph([packNode(bound("primary", "https://mirror.example"))]),
+        [planned],
+        "conflict",
+      ),
+    );
+  });
 
   it.effect("fails with conflict when the selected node disappears", () =>
     expectFailureCategory(completeGraph([]), [selected], "conflict"),

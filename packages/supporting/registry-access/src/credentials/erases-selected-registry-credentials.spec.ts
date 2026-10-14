@@ -3,6 +3,7 @@ import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { CredentialStore } from "./credential-store.js";
@@ -12,22 +13,26 @@ import { currentToken } from "../authentication/identity.js";
 import { logout } from "../authentication/logout.js";
 import {
   authCredentialFile,
-  authRegistry,
   authRegistryHost,
   makeAuthPorts,
-  otherAuthRegistry,
+  authSelectedRegistry,
+  authKey,
+  otherAuthKey,
 } from "../authentication/test-support/test-helpers.js";
 
 export const specification = defineSpecification({
   requirement: "cli/logout/erases-selected-registry-credentials",
   title: "Sign-out removes only the selected Registry session",
   statement:
-    "When logout finds saved credentials, AXM shall remove the selected Registry session even if remote revocation fails, leaving other Registry credentials available.",
+    "When logout finds saved credentials, AXM shall remove the session saved for the selected Registry's origin, whichever equivalent spelling selected it, even if remote revocation fails, leaving every other origin's credentials available.",
   class: "functional",
   role: "experience",
   goals: ["machine-automation", "actionable-diagnostics"],
   methods: ["example"],
-  derivedFrom: ["packages/supporting/registry-access/src/authentication/logout.ts"],
+  derivedFrom: [
+    "packages/supporting/registry-access/src/authentication/logout.ts",
+    "cli/credentials-stay-with-their-registry",
+  ],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -39,22 +44,24 @@ describe("Local sign-out", () => {
       const readStarted = yield* Deferred.make<void>();
       const { layer } = makeAuthPorts({
         credentials: authCredentialFile,
-        afterCredentialRead: (registryUrl) =>
-          registryUrl === authRegistry
+        afterCredentialRead: (key) =>
+          key === authKey
             ? Deferred.succeed(readStarted, undefined).pipe(Effect.asVoid)
             : Effect.void,
       });
       yield* Effect.gen(function* () {
         const store = yield* CredentialStore;
-        const otherBefore = yield* store.load(otherAuthRegistry);
-        const reader = yield* Effect.forkChild(store.load(authRegistry));
+        const otherBefore = yield* store.load(otherAuthKey);
+        const reader = yield* Effect.forkChild(store.load(authKey));
         yield* Deferred.await(readStarted);
 
-        expect(yield* logout(authRegistry)).toMatchObject({ _tag: "SignedOut" });
+        expect(yield* logout(authSelectedRegistry)).toMatchObject({ _tag: "SignedOut" });
         yield* Fiber.join(reader);
 
-        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(SignedOut);
-        expect(yield* store.load(otherAuthRegistry)).toEqual(otherBefore);
+        expect(yield* currentToken(authSelectedRegistry).pipe(Effect.flip)).toBeInstanceOf(
+          SignedOut,
+        );
+        expect(yield* store.load(otherAuthKey)).toEqual(otherBefore);
       }).pipe(Effect.provide(layer));
     }),
   );
@@ -78,22 +85,24 @@ describe("Local sign-out", () => {
       });
       return Effect.gen(function* () {
         const credentials = yield* CredentialStore;
-        const otherBefore = yield* credentials.load(otherAuthRegistry);
+        const otherBefore = yield* credentials.load(otherAuthKey);
 
-        expect(yield* logout(authRegistry)).toEqual({
+        expect(yield* logout(authSelectedRegistry)).toEqual({
           _tag: "SignedOut",
           registryHost: authRegistryHost,
           handle: "@alice",
           revokedRemotely: remoteRevoke === "succeeds",
         });
         expect(revoked).toEqual(["fixture-stored-refresh"]);
-        expect(Option.isNone(yield* credentials.load(authRegistry))).toBe(true);
-        expect(yield* credentials.load(otherAuthRegistry)).toEqual(otherBefore);
+        expect(Option.isNone(yield* credentials.load(authKey))).toBe(true);
+        expect(yield* credentials.load(otherAuthKey)).toEqual(otherBefore);
 
         // The removed session is no longer available to a subsequent command.
-        expect(yield* currentToken(authRegistry).pipe(Effect.flip)).toBeInstanceOf(SignedOut);
+        expect(yield* currentToken(authSelectedRegistry).pipe(Effect.flip)).toBeInstanceOf(
+          SignedOut,
+        );
 
-        expect(yield* logout(authRegistry)).toEqual({
+        expect(yield* logout(authSelectedRegistry)).toEqual({
           _tag: "NotSignedIn",
           registryHost: authRegistryHost,
         });
@@ -101,4 +110,19 @@ describe("Local sign-out", () => {
       }).pipe(Effect.provide(layer));
     });
   }
+
+  it.effect("an equivalent spelling of the selected Registry signs out the same session", () => {
+    const { layer } = makeAuthPorts({ credentials: authCredentialFile });
+    return Effect.gen(function* () {
+      const credentials = yield* CredentialStore;
+      const otherBefore = yield* credentials.load(otherAuthKey);
+      const spelled = {
+        ...authSelectedRegistry,
+        endpoint: decodeHttpRegistryEndpointSync("https://REGISTRY.example.test:443/"),
+      };
+      expect(yield* logout(spelled)).toMatchObject({ _tag: "SignedOut", handle: "@alice" });
+      expect(Option.isNone(yield* credentials.load(authKey))).toBe(true);
+      expect(yield* credentials.load(otherAuthKey)).toEqual(otherBefore);
+    }).pipe(Effect.provide(layer));
+  });
 });

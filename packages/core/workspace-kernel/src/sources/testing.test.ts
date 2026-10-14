@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect } from "vitest";
 import { it } from "@effect/vitest";
 
@@ -28,7 +29,7 @@ import {
 const registrySource = {
   name: "company",
   type: "registry",
-  location: new URL("https://registry.example.test"),
+  location: decodeRegistryEndpointSync("https://registry.example.test"),
 } as const satisfies RegistrySourceHost;
 
 const versionEntry = (version: string): VersionEntry => ({

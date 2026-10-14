@@ -13,7 +13,12 @@ import * as Option from "effect/Option";
 import * as semver from "semver";
 
 import type * as DateTime from "effect/DateTime";
-import { resolveVersionInRange, type VersionEntryLike } from "./version-constraints.js";
+import {
+  isExactVersionRequest,
+  normalizeVersionRequest,
+  versionSatisfiesRequest,
+  type VersionEntryLike,
+} from "./version-constraints.js";
 
 /** The release facts needed for selection, independent of index serialization. */
 export interface ReleasedVersion extends VersionEntryLike {
@@ -21,40 +26,37 @@ export interface ReleasedVersion extends VersionEntryLike {
 }
 
 /**
- * Select the highest non-yanked version, independent of index order.
+ * Every release a request admits, newest first. An absent request is `*`; an
+ * exact request admits its version even when yanked; a range admits each
+ * non-yanked release that satisfies it.
  */
-export const selectVersion = <T extends ReleasedVersion>(
+export const admittedReleases = <T extends ReleasedVersion>(
   versions: ReadonlyArray<T>,
-): Option.Option<T> => {
-  const availableVersions = versions.filter((entry) => entry.yankedAt === undefined);
-  return resolveVersionInRange(availableVersions, Option.none());
+  request: Option.Option<string>,
+): ReadonlyArray<T> => {
+  const normalized = normalizeVersionRequest(request);
+  const exact = isExactVersionRequest(normalized);
+  return versions
+    .filter(
+      (entry) =>
+        (exact || entry.yankedAt === undefined) &&
+        versionSatisfiesRequest(entry.version, normalized),
+    )
+    .sort((left, right) => semver.compareBuild(right.version, left.version));
 };
 
 /**
- * Resolve an optional exact version or range against an index: an exact
- * version matches even when yanked; a range excludes yanked versions.
+ * Resolve an optional exact version or range against an index: the newest
+ * release {@link admittedReleases} admits.
  */
 export const resolveVersionEntry = <T extends ReleasedVersion>(
   versions: ReadonlyArray<T>,
   versionRange: Option.Option<string>,
-): Option.Option<T> => {
-  if (Option.isNone(versionRange)) {
-    return selectVersion(versions);
-  }
+): Option.Option<T> => Option.fromUndefinedOr(admittedReleases(versions, versionRange)[0]);
 
-  if (semver.valid(versionRange.value) === versionRange.value) {
-    return Option.fromUndefinedOr(
-      versions.find((candidate) => candidate.version === versionRange.value),
-    );
-  }
-
-  const availableVersions = versions.filter((entry) => entry.yankedAt === undefined);
-  const resolved = resolveVersionInRange(availableVersions, versionRange);
-  if (Option.isNone(resolved)) {
-    return Option.none();
-  }
-
-  return Option.fromUndefinedOr(
-    availableVersions.find((candidate) => candidate.version === resolved.value.version),
-  );
-};
+/**
+ * Select the highest non-yanked version, independent of index order.
+ */
+export const selectVersion = <T extends ReleasedVersion>(
+  versions: ReadonlyArray<T>,
+): Option.Option<T> => resolveVersionEntry(versions, Option.none());

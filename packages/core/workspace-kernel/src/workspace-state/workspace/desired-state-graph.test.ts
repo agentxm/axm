@@ -2,7 +2,8 @@ import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import * as Layer from "effect/Layer";
 import { desiredConstraintContributors } from "./canonical-observation.js";
 import { PackManifests } from "./pack-manifests.js";
-import { mcpRegistryResolutionKey } from "./mcp-source-identity.js";
+import { McpSourceKey } from "./mcp-source-identity.js";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { FilesystemPackManifests } from "./adapters/filesystem/pack-manifests.js";
 import * as nodeFs from "node:fs";
 import * as nodeOs from "node:os";
@@ -70,12 +71,13 @@ const writeAuthoredPack = (
 const prospectivePack = (
   name: string,
   dependencies: Readonly<Record<string, string>>,
+  version = "1.0.0",
 ): ProspectivePackRef => {
   const manifest = Schema.decodeUnknownSync(PackManifestSchema)({
     owner: "@acme",
     type: "pack",
     name,
-    version: "1.0.0",
+    version,
     dependencies,
   });
   return {
@@ -85,10 +87,18 @@ const prospectivePack = (
   };
 };
 
+/** The built-in Registry a running AXM always configures. */
+const builtInEndpoint = decodeRegistryEndpointSync("https://registry.agentxm.test");
+const builtInSources = [{ name: "agentxm", type: "registry" as const, location: builtInEndpoint }];
+
 /** Capture over the filesystem port, then evaluate: the reader's two steps, in a test's hands. */
 const evaluate = (args: Omit<CaptureDesiredStateInputsArgs, "manifests">) =>
   Effect.gen(function* () {
-    const inputs = yield* captureDesiredStateInputs({ manifests: yield* PackManifests, ...args });
+    const inputs = yield* captureDesiredStateInputs({
+      manifests: yield* PackManifests,
+      builtInSources,
+      ...args,
+    });
     return evaluateDesiredState(inputs);
   });
 
@@ -140,6 +150,27 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
     }),
   );
 
+  it.effect.each([
+    { source: "@acme/packs/reviewers", routes: false },
+    { source: "@acme/packs/reviewers@*", routes: false },
+    { source: "@acme/packs/reviewers@>=2.0.0-0", routes: true },
+  ])("judges a Registry Pack prerelease under $source: routes=$routes", ({ source, routes }) =>
+    Effect.gen(function* () {
+      const graph = yield* evaluate({
+        baseDir: root,
+        settings: { packs: { reviewers: { source, enabled: true } } },
+        prospectivePacks: [
+          prospectivePack("reviewers", { "@acme/skills/review": "^1.0.0" }, "2.0.0-beta.1"),
+        ],
+      });
+
+      expect(graph.problems).toEqual(
+        routes ? [] : [expect.objectContaining({ type: "pack-identity-mismatch" })],
+      );
+      expect(graph.nodes.some((node) => node.name === "review")).toBe(routes);
+    }),
+  );
+
   it.effect("routes a proposed pack's members across every leaf extension type", () =>
     Effect.gen(function* () {
       const graph = yield* evaluate({
@@ -181,8 +212,8 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
 
   it.effect("binds a Pack member to its declared Registry under the accepted-resolution key", () =>
     Effect.gen(function* () {
-      const declared = new URL("https://registry.example/");
-      const configured = new URL("https://corp.example.test/");
+      const declared = decodeRegistryEndpointSync("https://registry.example/");
+      const configured = decodeRegistryEndpointSync("https://corp.example.test/");
       const manifest = Schema.decodeUnknownSync(PackManifestSchema)({
         owner: "@acme",
         type: "pack",
@@ -219,30 +250,27 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
         authority: "registry",
         fqn: "@acme/mcps/context",
         registry: { sourceName: undefined, endpoint: declared },
-        resolutionKey: mcpRegistryResolutionKey({
-          authority: declared,
-          owner: "@acme",
-          name: "context",
-        }),
       });
       expect(inherited?.identity).toEqual({
         authority: "registry",
         fqn: "@acme/mcps/inherited",
         registry: { sourceName: "corp", endpoint: configured },
-        resolutionKey: mcpRegistryResolutionKey({
-          authority: configured,
-          owner: "@acme",
-          name: "inherited",
-        }),
       });
       expect(graph.mcpSourceClosures.map((closure) => closure.key)).toEqual(
-        [context, inherited]
-          .flatMap((node) =>
-            node?.identity.authority === "registry" && node.identity.resolutionKey !== undefined
-              ? [node.identity.resolutionKey]
-              : [],
-          )
-          .sort(),
+        [
+          McpSourceKey.encode({
+            kind: "registry",
+            endpoint: declared,
+            owner: "@acme",
+            name: "context",
+          }),
+          McpSourceKey.encode({
+            kind: "registry",
+            endpoint: configured,
+            owner: "@acme",
+            name: "inherited",
+          }),
+        ].sort(),
       );
     }),
   );
@@ -623,6 +651,131 @@ layer(Layer.provideMerge(FilesystemPackManifests, NodeServices.layer), {
           ],
         }),
       ]);
+    }),
+  );
+
+  it.effect("keeps one FQN from two Registries as two packages, and two aliases as one", () =>
+    Effect.gen(function* () {
+      const pack = prospectivePack("platform", { "@acme/skills/review": "^1.0.0" });
+      const corp = decodeRegistryEndpointSync("https://corp.example.test");
+      const settingsFor = (source: string) => ({
+        sources: [
+          { name: "corp", type: "registry" as const, location: corp },
+          {
+            name: "alias",
+            type: "registry" as const,
+            location: decodeRegistryEndpointSync("https://registry.agentxm.test/"),
+          },
+        ],
+        skills: { review: { source, enabled: true } },
+        packs: { platform: { source: "@acme/packs/platform", enabled: true } },
+      });
+
+      const elsewhere = yield* evaluate({
+        baseDir: root,
+        settings: settingsFor("corp:@acme/skills/review@^1.0.0"),
+        prospectivePacks: [pack],
+      });
+      expect(elsewhere.problems).toEqual([
+        {
+          type: "projection-collision",
+          extensionType: "skill",
+          name: "review",
+          identities: [
+            {
+              authority: "registry",
+              fqn: "@acme/skills/review",
+              registry: { sourceName: "corp", endpoint: corp },
+            },
+            {
+              authority: "registry",
+              fqn: "@acme/skills/review",
+              registry: { sourceName: "agentxm", endpoint: builtInEndpoint },
+            },
+          ],
+        },
+      ]);
+
+      const aliased = yield* evaluate({
+        baseDir: root,
+        settings: settingsFor("alias:@acme/skills/review@^1.0.0"),
+        prospectivePacks: [pack],
+      });
+      expect(aliased.problems).toEqual([]);
+      expect(
+        aliased.nodes.find((node) => node.name === "review")?.origins.map((origin) => origin.type),
+      ).toEqual(["settings", "pack"]);
+    }),
+  );
+
+  it.effect("never merges an unbound Registry declaration into a bound Pack member", () =>
+    Effect.gen(function* () {
+      const graph = yield* evaluate({
+        baseDir: root,
+        settings: {
+          skills: { review: { source: "missing:@acme/skills/review@^1.0.0", enabled: true } },
+          packs: { platform: { source: "@acme/packs/platform", enabled: true } },
+        },
+        prospectivePacks: [prospectivePack("platform", { "@acme/skills/review": "^1.0.0" })],
+      });
+
+      expect(graph.problems).toContainEqual({
+        type: "projection-collision",
+        extensionType: "skill",
+        name: "review",
+        identities: [
+          {
+            authority: "registry",
+            fqn: "@acme/skills/review",
+            registry: { sourceName: "missing", endpoint: undefined },
+          },
+          {
+            authority: "registry",
+            fqn: "@acme/skills/review",
+            registry: { sourceName: "agentxm", endpoint: builtInEndpoint },
+          },
+        ],
+      });
+      expect(
+        graph.nodes.find((node) => node.name === "review")?.origins.map((origin) => origin.type),
+      ).toEqual(["settings"]);
+    }),
+  );
+
+  it.effect("names one unbound contender once however many routes declare it", () =>
+    Effect.gen(function* () {
+      const graph = yield* evaluate({
+        baseDir: root,
+        settings: {
+          skills: { review: { source: "@acme/skills/review@^1.0.0", enabled: true } },
+          packs: {
+            one: { source: "missing:@acme/packs/one", enabled: true },
+            two: { source: "missing:@acme/packs/two", enabled: true },
+          },
+        },
+        prospectivePacks: [
+          prospectivePack("one", { "@acme/skills/review": "^1.0.0" }),
+          prospectivePack("two", { "@acme/skills/review": "^1.0.0" }),
+        ],
+      });
+
+      expect(graph.problems).toContainEqual({
+        type: "projection-collision",
+        extensionType: "skill",
+        name: "review",
+        identities: [
+          {
+            authority: "registry",
+            fqn: "@acme/skills/review",
+            registry: { sourceName: "missing", endpoint: undefined },
+          },
+          {
+            authority: "registry",
+            fqn: "@acme/skills/review",
+            registry: { sourceName: "agentxm", endpoint: builtInEndpoint },
+          },
+        ],
+      });
     }),
   );
 

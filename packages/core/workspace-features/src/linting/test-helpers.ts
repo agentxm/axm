@@ -19,8 +19,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
 
-import { RegistryClientFactoryLive } from "@agentxm/registry-client";
-import { RegistryUrlTest } from "@agentxm/registry-client/testing";
+import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 
 import { NoProjectionParticipants } from "@agentxm/workspace-kernel/projection/testing";
 
@@ -46,8 +45,8 @@ export const OfflineHttpClient: Layer.Layer<HttpClient.HttpClient> = Layer.succe
 
 /** Registry clients over the refusing transport: no request leaves the process. */
 const OfflineRegistryClients = Layer.provide(
-  RegistryClientFactoryLive,
-  Layer.mergeAll(NodeServices.layer, OfflineHttpClient, RegistryUrlTest()),
+  RegistryClientFactoryTest(OfflineHttpClient),
+  NodeServices.layer,
 );
 
 /** Every service a lint run over `fixture` reads the workspace through. */

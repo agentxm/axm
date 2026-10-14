@@ -14,7 +14,6 @@ import {
   ExtensionInventorySchema,
   ExtensionInventoryLifecycleSchema,
   desiredIdentityFqn,
-  desiredMcpSourceKey,
   formatDesiredIdentity,
   lockEntryToSourceParams,
   lockEntryVersion,
@@ -134,11 +133,7 @@ const sourceFor = (
           locator: node.source ?? formatDesiredIdentity(identity),
         };
       case "registry":
-        return {
-          kind: "registry",
-          locator: node.source ?? identity.fqn,
-          identity: desiredMcpSourceKey(identity),
-        };
+        return { kind: "registry", locator: node.source ?? identity.fqn, identity: identity.fqn };
       case "git":
       case "http":
       case "path":

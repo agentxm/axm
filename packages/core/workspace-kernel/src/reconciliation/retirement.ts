@@ -17,10 +17,10 @@ import {
   computeExtensionPathsForLayout,
   extensionPathSourceFromLockEntry,
   computeMaterializedTreeIntegrity,
-  desiredReachesAcceptedRow,
+  acceptedRowReachability,
   validatePathSafety,
   lockEntrySemanticallyEqual,
-  unresolvedPackRoutes,
+  sameAcceptedResolution,
   type DesiredStateGraph,
   type ExtensionTarget,
 } from "../workspace-state/index.js";
@@ -47,10 +47,6 @@ export const collectUnreachableRetirement = (
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const graph = observedGraph ?? scope?.resultingGraph ?? (yield* desiredState.graph());
-    // Retiring a row rests on proving no desired route reaches it; while an
-    // active Pack's routes are unresolved, that proof is unavailable.
-    if (unresolvedPackRoutes(graph).length > 0)
-      return Option.none<PlannedJobStep<SyncStepRequirements | LockfileReader>>();
     const accepted = (yield* Effect.forEach(extensionTypes, (type) =>
       locks
         .entries(type)
@@ -78,19 +74,26 @@ export const collectUnreachableRetirement = (
         toExtensionTypePlural(type),
         entry.identity.name,
       ).canonicalPath;
+    // Retiring a row rests on proving no desired route reaches it. An
+    // unresolved Pack withholds that proof only for the rows it could route;
+    // those rows, like reached ones, keep their content.
+    const unreached = (candidate: DesiredStateGraph, row: (typeof accepted)[number]) =>
+      acceptedRowReachability(candidate, row).decision === "not-reached";
     const retainedPaths = new Set(
-      accepted.filter((row) => desiredReachesAcceptedRow(graph, row)).map(canonicalPath),
+      accepted.filter((row) => !unreached(graph, row)).map(canonicalPath),
     );
     const retired = yield* Effect.forEach(
       accepted.filter(
         (row) =>
-          !desiredReachesAcceptedRow(graph, row) &&
+          unreached(graph, row) &&
           (scope === undefined ||
             scope.subjects.some(
               (subject) => subject.type === row.type && subject.name === row.entry.identity.name,
             ) ||
             (row.type === "mcp-server" &&
-              scopedMcpEntries.some((scoped) => lockEntrySemanticallyEqual(scoped, row.entry)))),
+              scopedMcpEntries.some(
+                (scoped) => scoped !== undefined && sameAcceptedResolution(scoped, row.entry),
+              ))),
       ),
       (row) =>
         Effect.gen(function* () {
@@ -190,10 +193,7 @@ export const collectUnreachableRetirement = (
         transition: Effect.gen(function* () {
           const current = yield* (yield* DesiredStateReader).graph();
           const currentLocks = yield* LockfileReader;
-          if (
-            unresolvedPackRoutes(current).length > 0 ||
-            retired.some((row) => desiredReachesAcceptedRow(current, row))
-          ) {
+          if (retired.some((row) => !unreached(current, row))) {
             return yield* new WorkspaceSyncFailed({
               category: "conflict",
               detail: "Desired reachability changed before retirement",

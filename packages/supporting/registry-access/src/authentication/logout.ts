@@ -15,6 +15,8 @@ import * as Option from "effect/Option";
 import { TokenExchange } from "./auth-client.js";
 import { CredentialStore } from "../credentials/credential-store.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
+import { credentialKey } from "../credentials/credential-key.js";
+import type { SelectedRegistry } from "./selected-registry.js";
 
 /** What one `logout` invocation settled on. */
 export type LogoutOutcome =
@@ -30,14 +32,15 @@ export type LogoutOutcome =
 /** `normalizeHandle("@unknown")` — the anonymous credential sentinel. */
 const ANONYMOUS_HANDLE = "@unknown";
 
-export const logout = Effect.fn("Logout.run")(function* (registryUrl: string) {
+export const logout = Effect.fn("Logout.run")(function* (registry: SelectedRegistry) {
   const exchange = yield* TokenExchange;
   const credentials = yield* CredentialStore;
   const presenter = yield* AuthLoginPresenter;
-  const registryHost = new URL(registryUrl).host;
+  const registryHost = registry.host;
+  const key = credentialKey(registry.endpoint);
   const notSignedIn = { _tag: "NotSignedIn", registryHost } as const satisfies LogoutOutcome;
 
-  if (Option.isNone(yield* credentials.load(registryUrl))) return notSignedIn;
+  if (Option.isNone(yield* credentials.load(key))) return notSignedIn;
 
   // Sign-out holds the refresh lock and reads the session again inside it. A
   // renewal in another invocation would otherwise write its rotated session
@@ -45,13 +48,13 @@ export const logout = Effect.fn("Logout.run")(function* (registryUrl: string) {
   // renewal had already spent.
   return yield* credentials.withRefreshLock(
     Effect.gen(function* () {
-      const stored = yield* credentials.reload(registryUrl);
+      const stored = yield* credentials.reload(key);
       if (Option.isNone(stored)) return notSignedIn;
 
       const revokedRemotely = yield* presenter.withProgress(
         { _tag: "RevokingRegistrySession", registryHost },
         () =>
-          exchange.revokeToken(stored.value.refresh_token, registryUrl).pipe(
+          exchange.revokeToken(stored.value.refresh_token, registry.endpoint).pipe(
             Effect.as(true),
             Effect.catch((error) =>
               Effect.logWarning(
@@ -60,7 +63,7 @@ export const logout = Effect.fn("Logout.run")(function* (registryUrl: string) {
             ),
           ),
       );
-      yield* credentials.clear(registryUrl);
+      yield* credentials.clear(key);
 
       const handle = stored.value.handle;
       return {

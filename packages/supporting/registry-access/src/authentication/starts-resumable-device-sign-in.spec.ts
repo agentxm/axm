@@ -1,3 +1,4 @@
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -14,6 +15,8 @@ import {
   resumeLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
+  authSelectedRegistry,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -40,13 +43,14 @@ describe("Unattended device sign-in", () => {
       () => {
         const ports = makeAuthPorts({ presenter: machineOutputPresenter });
         return Effect.gen(function* () {
-          yield* login(deviceLoginRequest(), authRegistry);
+          yield* login(deviceLoginRequest(), authSelectedRegistry);
           const before = yield* (yield* PendingDeviceLoginStore).load();
           const failure = yield* Effect.flip(
-            login(
-              wait ? resumeLoginRequest() : deviceLoginRequest(),
-              "https://other-registry.example.test",
-            ),
+            login(wait ? resumeLoginRequest() : deviceLoginRequest(), {
+              ...authSelectedRegistry,
+              endpoint: decodeHttpRegistryEndpointSync("https://other-registry.example.test"),
+              host: "other-registry.example.test",
+            }),
           );
           expect(failure._tag).toBe("RegistryAccessFailed");
           if (failure._tag !== "RegistryAccessFailed") return;
@@ -67,11 +71,11 @@ describe("Unattended device sign-in", () => {
   it.effect("returns the action without credentials or polling", () => {
     const ports = makeAuthPorts({ presenter: machineOutputPresenter });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest(), authRegistry);
+      yield* login(deviceLoginRequest(), authSelectedRegistry);
 
       const pending = yield* (yield* PendingDeviceLoginStore).load();
       expect(Option.isSome(pending)).toBe(true);
-      expect(Option.isNone(yield* (yield* CredentialStore).load(authRegistry))).toBe(true);
+      expect(Option.isNone(yield* (yield* CredentialStore).load(authKey))).toBe(true);
       expect(ports.polledCodes).toEqual([]);
       expect(ports.deviceInteractionState.openBrowserCalls).toEqual([]);
       expect(ports.deviceInteractionState.copyToClipboardCalls).toEqual([]);

@@ -4,7 +4,10 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 
 import { RegistryRequestFailed, type RegistryClientFailure } from "./errors.js";
-import { RegistryUrl } from "./registry-url.js";
+import {
+  registryRequestUrl,
+  type HttpRegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 import { executeRegistryRequest, type RegistryRequestReplaySafety } from "./request-policy.js";
 import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
@@ -152,10 +155,10 @@ const normalizeTransition = (value: GeneratedRegistryClient.DeprecationTransitio
   );
 
 const mapAdminClientError =
-  (registryUrl: string) =>
+  (endpoint: HttpRegistryEndpoint) =>
   (error: unknown, nowMillis: number): RegistryClientFailure =>
     mapRegistryFailure(error, {
-      baseUrl: registryUrl,
+      baseUrl: endpoint.href,
       nowMillis,
       networkDetail: "Registry request failed.",
       incompatibleDetail: "Registry response did not match the expected schema.",
@@ -163,48 +166,48 @@ const mapAdminClientError =
       fallbackDetail: "Unexpected registry client failure.",
     });
 
-const makeLifecycleClient = () =>
-  Effect.gen(function* () {
-    const registryUrl = yield* RegistryUrl;
-    const httpClient = yield* HttpClient.HttpClient;
-    const remoteHttpClient = captureRegistryErrorResponseBodies(
-      httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl))),
-    );
-    return { registryUrl, client: GeneratedRegistryClient.make(remoteHttpClient) };
-  });
-
-const runAdminCall = <A, R>(
-  registryUrl: string,
-  effect: Effect.Effect<A, unknown, R>,
-  args: {
-    readonly operation: string;
-    readonly method: string;
-    readonly path: string;
-    readonly replaySafety: RegistryRequestReplaySafety;
-  },
-): Effect.Effect<A, RegistryClientFailure, R> =>
-  executeRegistryRequest(effect, {
-    operation: args.operation,
-    request: {
-      service: "registry",
-      method: args.method,
-      url: new URL(args.path, registryUrl).href,
-    },
-    replaySafety: args.replaySafety,
-    mapError: mapAdminClientError(registryUrl),
-  });
-
 const safe = { kind: "safe" } as const;
 const mutation = { kind: "mutation" } as const;
 
-export const yankExtensionVersion = (
-  ref: RegistryExtensionVersionReference,
-  input: { readonly category?: YankCategory; readonly message?: string },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    return yield* runAdminCall(
-      registryUrl,
+/**
+ * Lifecycle management for one HTTP(S) Registry: yank, deprecation, and
+ * archival, with their management reads. Only the Registry client factory
+ * builds one, after the endpoint's transport is known to implement them.
+ */
+export const makeRegistryLifecycleClient = (
+  endpoint: HttpRegistryEndpoint,
+  httpClient: HttpClient.HttpClient,
+) => {
+  const client = GeneratedRegistryClient.make(
+    captureRegistryErrorResponseBodies(
+      httpClient.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(endpoint.href))),
+    ),
+  );
+  const runAdminCall = <A, R>(
+    effect: Effect.Effect<A, unknown, R>,
+    args: {
+      readonly operation: string;
+      readonly method: string;
+      readonly path: string;
+      readonly replaySafety: RegistryRequestReplaySafety;
+    },
+  ): Effect.Effect<A, RegistryClientFailure, R> =>
+    executeRegistryRequest(effect, {
+      operation: args.operation,
+      request: {
+        service: "registry",
+        method: args.method,
+        url: registryRequestUrl(endpoint, args.path),
+      },
+      replaySafety: args.replaySafety,
+      mapError: mapAdminClientError(endpoint),
+    });
+
+  const yankExtensionVersion = (
+    ref: RegistryExtensionVersionReference,
+    input: { readonly category?: YankCategory; readonly message?: string },
+  ) =>
+    runAdminCall(
       client.ExtensionsYankVersion(ref.owner, ref.type, ref.name, ref.version, {
         payload: {
           ...(input.category === undefined ? {} : { category: input.category }),
@@ -218,16 +221,12 @@ export const yankExtensionVersion = (
         replaySafety: mutation,
       },
     );
-  });
 
-export const yankAvailableExtensionVersions = (
-  ref: RegistryExtensionReference,
-  input: { readonly category?: YankCategory; readonly message?: string },
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    return yield* runAdminCall(
-      registryUrl,
+  const yankAvailableExtensionVersions = (
+    ref: RegistryExtensionReference,
+    input: { readonly category?: YankCategory; readonly message?: string },
+  ) =>
+    runAdminCall(
       client.ExtensionsYankAvailableVersions(ref.owner, ref.type, ref.name, {
         payload: {
           selection: "all-available",
@@ -242,13 +241,9 @@ export const yankAvailableExtensionVersions = (
         replaySafety: mutation,
       },
     );
-  });
 
-export const unyankExtensionVersion = (ref: RegistryExtensionVersionReference) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    return yield* runAdminCall(
-      registryUrl,
+  const unyankExtensionVersion = (ref: RegistryExtensionVersionReference) =>
+    runAdminCall(
       client.ExtensionsUnyankVersion(ref.owner, ref.type, ref.name, ref.version, undefined),
       {
         operation: "unyank extension version",
@@ -257,116 +252,115 @@ export const unyankExtensionVersion = (ref: RegistryExtensionVersionReference) =
         replaySafety: mutation,
       },
     );
-  });
 
-export const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
-      {
-        operation: "get extension deprecation",
-        method: "GET",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-        replaySafety: safe,
-      },
-    );
-    return yield* normalizeManagementView(result);
-  });
+  const getExtensionDeprecation = (ref: RegistryExtensionReference) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsGetDeprecation(ref.owner, ref.type, ref.name, undefined),
+        {
+          operation: "get extension deprecation",
+          method: "GET",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+          replaySafety: safe,
+        },
+      );
+      return yield* normalizeManagementView(result);
+    });
 
-export const getExtensionArchival = (ref: RegistryExtensionReference) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsGetArchival(ref.owner, ref.type, ref.name, undefined),
-      {
-        operation: "get extension archival",
-        method: "GET",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-        replaySafety: safe,
-      },
-    );
-    return normalizeArchivalManagementView(result);
-  });
+  const getExtensionArchival = (ref: RegistryExtensionReference) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsGetArchival(ref.owner, ref.type, ref.name, undefined),
+        {
+          operation: "get extension archival",
+          method: "GET",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+          replaySafety: safe,
+        },
+      );
+      return normalizeArchivalManagementView(result);
+    });
 
-export const archiveExtension = (
-  ref: RegistryExtensionReference,
-  input: PutExtensionArchivalInput,
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
-        params: { "if-match": input.revision },
-        payload: input.message === undefined ? {} : { message: input.message },
-      }),
-      {
-        operation: "archive extension",
-        method: "PUT",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-        replaySafety: mutation,
-      },
-    );
-    return normalizeArchivalTransition(result);
-  });
+  const archiveExtension = (ref: RegistryExtensionReference, input: PutExtensionArchivalInput) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsPutArchival(ref.owner, ref.type, ref.name, {
+          params: { "if-match": input.revision },
+          payload: input.message === undefined ? {} : { message: input.message },
+        }),
+        {
+          operation: "archive extension",
+          method: "PUT",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+          replaySafety: mutation,
+        },
+      );
+      return normalizeArchivalTransition(result);
+    });
 
-export const unarchiveExtension = (ref: RegistryExtensionReference, revision: string) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsDeleteArchival(ref.owner, ref.type, ref.name, {
-        params: { "if-match": revision },
-      }),
-      {
-        operation: "unarchive extension",
-        method: "DELETE",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
-        replaySafety: mutation,
-      },
-    );
-    return normalizeArchivalTransition(result);
-  });
+  const unarchiveExtension = (ref: RegistryExtensionReference, revision: string) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsDeleteArchival(ref.owner, ref.type, ref.name, {
+          params: { "if-match": revision },
+        }),
+        {
+          operation: "unarchive extension",
+          method: "DELETE",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/archival`,
+          replaySafety: mutation,
+        },
+      );
+      return normalizeArchivalTransition(result);
+    });
 
-export const deprecateExtension = (
-  ref: RegistryExtensionReference,
-  input: PutExtensionDeprecationInput,
-) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
-        params: { "if-match": input.revision },
-        payload: { reason: input.reason, message: input.message, replacement: input.replacement },
-      }),
-      {
-        operation: "deprecate extension",
-        method: "PUT",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-        replaySafety: mutation,
-      },
-    );
-    return yield* normalizeTransition(result);
-  });
+  const deprecateExtension = (
+    ref: RegistryExtensionReference,
+    input: PutExtensionDeprecationInput,
+  ) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsPutDeprecation(ref.owner, ref.type, ref.name, {
+          params: { "if-match": input.revision },
+          payload: { reason: input.reason, message: input.message, replacement: input.replacement },
+        }),
+        {
+          operation: "deprecate extension",
+          method: "PUT",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+          replaySafety: mutation,
+        },
+      );
+      return yield* normalizeTransition(result);
+    });
 
-export const undeprecateExtension = (ref: RegistryExtensionReference, revision: string) =>
-  Effect.gen(function* () {
-    const { client, registryUrl } = yield* makeLifecycleClient();
-    const result = yield* runAdminCall(
-      registryUrl,
-      client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
-        params: { "if-match": revision },
-      }),
-      {
-        operation: "undeprecate extension",
-        method: "DELETE",
-        path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
-        replaySafety: mutation,
-      },
-    );
-    return yield* normalizeTransition(result);
-  });
+  const undeprecateExtension = (ref: RegistryExtensionReference, revision: string) =>
+    Effect.gen(function* () {
+      const result = yield* runAdminCall(
+        client.ExtensionsDeleteDeprecation(ref.owner, ref.type, ref.name, {
+          params: { "if-match": revision },
+        }),
+        {
+          operation: "undeprecate extension",
+          method: "DELETE",
+          path: `/v1/extensions/${ref.owner}/${ref.type}/${ref.name}/deprecation`,
+          replaySafety: mutation,
+        },
+      );
+      return yield* normalizeTransition(result);
+    });
+
+  return {
+    yankExtensionVersion,
+    yankAvailableExtensionVersions,
+    unyankExtensionVersion,
+    getExtensionDeprecation,
+    getExtensionArchival,
+    archiveExtension,
+    unarchiveExtension,
+    deprecateExtension,
+    undeprecateExtension,
+  };
+};
+
+export type RegistryLifecycleClient = ReturnType<typeof makeRegistryLifecycleClient>;

@@ -15,7 +15,10 @@ import {
   collectSensitiveStrings,
   isRegistryClientFailure,
   redactRegistryText,
+  RegistrySelectionFailed,
+  RegistrySourceUnknown,
   type RegistryClientFailure,
+  type RegistrySelectionFailure,
 } from "@agentxm/registry-client";
 import type { AuthError } from "@agentxm/registry-access/authentication";
 import { ConfigError } from "effect/Config";
@@ -26,10 +29,15 @@ import { PublishFailed } from "./errors.js";
 import { isPublishFamilyFailure, publishFailureToStepFailure } from "./step-failure.js";
 
 /** Every typed failure a publish use case can surface. */
-export type PublishFailure = PublishFailed | RegistryClientFailure | ConfigError;
+export type PublishFailure =
+  PublishFailed | RegistryClientFailure | RegistrySelectionFailure | ConfigError;
 
 export const isPublishFailure = (error: unknown): error is PublishFailure =>
-  error instanceof PublishFailed || error instanceof ConfigError || isRegistryClientFailure(error);
+  error instanceof PublishFailed ||
+  error instanceof ConfigError ||
+  error instanceof RegistrySourceUnknown ||
+  error instanceof RegistrySelectionFailed ||
+  isRegistryClientFailure(error);
 
 /** Error classes the publish document reports beside the category. */
 export type PublishCauseClass = "internal" | "user" | "external";

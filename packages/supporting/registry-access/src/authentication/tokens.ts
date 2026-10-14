@@ -28,6 +28,7 @@ import {
 import { CredentialStore } from "../credentials/credential-store.js";
 import { RegistryAccessFailed, type AuthError } from "./errors.js";
 import { AuthLoginPresenter } from "./login-presenter.js";
+import type { SelectedRegistry } from "./selected-registry.js";
 import { requireSignedIn } from "./identity.js";
 import { maxTokenLifetimeSeconds, type TokenPermissionLevel } from "./tokens/permissions.js";
 
@@ -137,15 +138,19 @@ const reportUncertainIssuance =
 
 export const createToken = Effect.fn("Tokens.create")(function* (
   request: CreateTokenRequest,
-  registryUrl: string,
+  registry: SelectedRegistry,
 ) {
   const authClient = yield* AuthClient;
-  yield* requireSignedIn(registryUrl);
+  yield* requireSignedIn(registry);
   const expiresIn = yield* parseExpiresInSeconds(request.expires).pipe(
     Effect.flatMap((seconds) => validateExpiresInSeconds(seconds, request.permission)),
   );
   const token = yield* authClient
-    .createToken({ name: request.name, expiresIn, permissions: tokenPermissions(request) })
+    .createToken(registry.endpoint, {
+      name: request.name,
+      expiresIn,
+      permissions: tokenPermissions(request),
+    })
     .pipe(Effect.mapError(reportUncertainIssuance(request.name)));
   return { token } satisfies CreatedToken;
 });
@@ -156,23 +161,23 @@ export const createToken = Effect.fn("Tokens.create")(function* (
  */
 export const revokeToken = Effect.fn("Tokens.revoke")(function* (
   tokenId: string,
-  registryUrl: string,
+  registry: SelectedRegistry,
 ) {
   const authClient = yield* AuthClient;
-  yield* requireSignedIn(registryUrl);
-  yield* authClient.deleteToken(tokenId);
+  yield* requireSignedIn(registry);
+  yield* authClient.deleteToken(registry.endpoint, tokenId);
   return { tokenId };
 });
 
 export const listTokens = Effect.fn("Tokens.list")(function* (
-  registryUrl: string,
+  registry: SelectedRegistry,
   page?: { readonly limit?: number; readonly cursor?: string },
 ) {
   const authClient = yield* AuthClient;
   const presenter = yield* AuthLoginPresenter;
-  yield* requireSignedIn(registryUrl);
+  yield* requireSignedIn(registry);
   return yield* presenter.withProgress({ _tag: "ListingRegistryTokens" }, () =>
-    authClient.listTokens(page),
+    authClient.listTokens(registry.endpoint, page),
   );
 });
 

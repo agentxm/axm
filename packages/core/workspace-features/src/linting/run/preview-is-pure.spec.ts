@@ -43,8 +43,9 @@ describe("Lint normalization preview", () => {
       const settingsBefore = workspace.readFile("axm.json");
       const selection = projectSelection(workspace, true);
       const noRegistryAccess = {
-        forLocation: () => Effect.die("Lint normalization accessed a registry"),
-        forDefaultRegistry: Effect.die("Lint normalization accessed the default registry"),
+        forEndpoint: () => Effect.die("Lint normalization accessed a registry"),
+        lifecycle: () => Effect.die("Lint normalization managed a registry"),
+        wire: () => Effect.die("Lint normalization authenticated with a registry"),
       };
       return Effect.gen(function* () {
         const preview = yield* LintWorkspace.fix(selection, { strict: false, preview: true });

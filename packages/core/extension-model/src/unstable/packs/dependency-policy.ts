@@ -1,4 +1,4 @@
-import * as semver from "semver";
+import * as Option from "effect/Option";
 import type {
   ExtensionFqnParts,
   ExtensionType,
@@ -6,11 +6,8 @@ import type {
 } from "../extensions/common.js";
 import type { DeprecationView } from "../extensions/deprecation.js";
 import { formatFqn } from "../extensions/fqn.js";
-import {
-  decodeVersionSync,
-  type Version,
-  type VersionRange,
-} from "../version-constraints/version-constraints.js";
+import type { Version, VersionRange } from "../version-constraints/version-constraints.js";
+import { resolveVersionEntry } from "../version-constraints/version-selection.js";
 
 export interface PackDependencyTarget extends ExtensionFqnParts {
   readonly type: Exclude<ExtensionType, "pack">;
@@ -129,11 +126,8 @@ const evaluateDependency = (
     (version) => version.status === "available" && !version.yanked && !version.purged,
   );
   if (installable.length === 0) return reject("no-installable-version", state);
-  const effectiveVersion = semver.maxSatisfying(
-    installable.map((version) => version.version),
-    dependency.range,
-  );
-  if (effectiveVersion === null) return reject("range-unsatisfied", state);
+  const effective = resolveVersionEntry(installable, Option.some(dependency.range));
+  if (Option.isNone(effective)) return reject("range-unsatisfied", state);
   return {
     findings:
       prospective.deprecation === null
@@ -148,7 +142,7 @@ const evaluateDependency = (
               deprecation: prospective.deprecation,
             },
           ],
-    resolutions: [{ dependency, effectiveVersion: decodeVersionSync(effectiveVersion) }],
+    resolutions: [{ dependency, effectiveVersion: effective.value.version }],
   };
 };
 

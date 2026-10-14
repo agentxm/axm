@@ -1,3 +1,4 @@
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Array from "effect/Array";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
@@ -44,7 +45,7 @@ export interface ResolvedIdentifier {
   readonly name: ExtensionName;
   readonly fqn: string;
   readonly installedName: Option.Option<string>;
-  readonly registryLocation: Option.Option<URL>;
+  readonly registryLocation: Option.Option<RegistryEndpoint>;
   readonly registrySourceName: Option.Option<string>;
   readonly source: "installed" | "registry" | "passthrough";
 }
@@ -65,7 +66,7 @@ interface IdentifierCandidate {
   readonly name: ExtensionName;
   readonly fqn: string;
   readonly installedName: Option.Option<string>;
-  readonly registryLocation: Option.Option<URL>;
+  readonly registryLocation: Option.Option<RegistryEndpoint>;
   readonly registrySourceName: Option.Option<string>;
   readonly source: "installed" | "registry";
 }
@@ -251,7 +252,7 @@ const registryCandidates = (
       registrySources,
       (sourceConfig) =>
         Effect.gen(function* () {
-          const client = yield* registryClients.forLocation(sourceConfig.location);
+          const client = yield* registryClients.forEndpoint(sourceConfig.location);
           const result = yield* client.getExtensionsByScope({
             owner: "*",
             names: [name],

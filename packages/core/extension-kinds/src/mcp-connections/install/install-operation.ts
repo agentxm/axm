@@ -30,7 +30,6 @@ import {
 import { CodingAgentRepository } from "@agentxm/workspace-kernel/projection";
 import {
   desiredReachability,
-  mcpRegistryResolutionKey,
   acceptedRegistryVersionForRef,
   AcceptedResolutionWriter,
   DesiredStateReader,
@@ -40,8 +39,8 @@ import {
   SettingsWriter,
   WorkspaceLocation,
   computeExtensionPathsForLayout,
+  McpSourceKey,
   type McpServerLockEntry,
-  mcpResolutionKey,
   type McpServerEntry,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { appendWarningsToMessage, type JobStepResult } from "@agentxm/workspace-kernel/operations";
@@ -236,25 +235,18 @@ export const installMcpServer: (
     const footprintBefore = (yield* readFootprint).length;
 
     const strictAgentSync = Option.getOrElse(op.args.strictAgentSync ?? Option.none(), () => false);
-    const requestedRegistryKey =
-      ref.refType === "registry"
-        ? mcpRegistryResolutionKey({
-            authority: ref.source.location,
-            owner: ref.owner,
-            name: ref.server.name,
-          })
-        : undefined;
+    const requestedIdentity = yield* requestedMcpSourceIdentity(ref);
     const desiredGraph = yield* desiredStateReader.graph();
     const firstDeclaration =
       desiredReachability(desiredGraph, { type: "mcp-server", name: localName }).decision ===
       "not-reached";
-    const sourceIdentity = op.args.sourceIdentity ?? (yield* requestedMcpSourceIdentity(ref));
-    const existingClosure = desiredGraph.mcpSourceClosures.find(
-      (closure) => closure.key === sourceIdentity,
+    const sourceKey = op.args.sourceKey ?? McpSourceKey.encode(requestedIdentity);
+    const existingClosure = desiredGraph.mcpSourceClosures.find((closure) =>
+      McpSourceKey.equals(closure.key, sourceKey),
     );
     const acceptedEntry =
       ref.refType === "registry"
-        ? yield* lockfile.entry("mcp-server", requestedRegistryKey ?? "")
+        ? yield* lockfile.entry("mcp-server", McpSourceKey.encode(requestedIdentity))
         : Option.none<McpServerLockEntry>();
     const lockedVersion =
       ref.refType === "registry" ? acceptedRegistryVersionForRef(acceptedEntry, ref) : undefined;
@@ -380,7 +372,7 @@ export const installMcpServer: (
             })
           : desiredStateWriter.declare("mcp-server", {
               name: localName,
-              resolutionKey: resolutionKey ?? mcpResolutionKey(lockEntry),
+              resolutionKey: McpSourceKey.fromLockEntry(lockEntry),
               lockEntry,
               versionRange: op.args.declaration.versionRange,
               ...preferences,
@@ -445,7 +437,7 @@ export const installMcpServer: (
     return {
       result: "success",
       message: appendWarningsToMessage(
-        `Installed ${localName} from ${sourceIdentity} (canonical=success, agent-sync=${agentSync.status})`,
+        `Installed ${localName} from ${settingsEntry.source} (canonical=success, agent-sync=${agentSync.status})`,
         warnings,
       ),
       ...(change === "unchanged" ? { disposition: "unchanged" as const } : {}),

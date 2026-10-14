@@ -2,6 +2,7 @@
  * Unit tests for the auth logout command handler.
  */
 
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { describe, expect, it } from "@effect/vitest";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -12,7 +13,7 @@ import {
   DeviceLoginInteractionTest,
   TokenExchangeTest,
 } from "@agentxm/registry-access/testing";
-import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
 import { TestMachineRenderer, TestRenderer, logsByTag } from "../../test-support/presenter-test.js";
 import { TestFlagsLayer } from "../../cli-flags/index.js";
@@ -67,7 +68,7 @@ const makeLayers = (opts?: {
         },
   });
 
-  const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
+  const registryUrlLayer = RegistryContextTest(REGISTRY_URL);
   const interactionLayer = DeviceLoginInteractionTest().layer;
 
   const FullLayer = Layer.mergeAll(

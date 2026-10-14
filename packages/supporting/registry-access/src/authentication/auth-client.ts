@@ -24,11 +24,17 @@ import * as Schedule from "effect/Schedule";
 import * as Schema from "effect/Schema";
 import { DateTimeUtcSchema } from "@agentxm/extension-model/unstable/date-time";
 import { normalizeHandle, type Handle } from "@agentxm/extension-model/unstable/extensions/handle";
+import {
+  registryRequestUrl,
+  type HttpRegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { type NormalizedTokenResponse } from "./oauth-contract.js";
 import {
   GeneratedRegistryClient,
+  RegistryClientFactory,
+  RegistryHttpClient,
   RegistryRequestFailed,
-  RegistryUrl,
+  registryWire,
   captureRegistryErrorResponseBodies,
   getString,
   isHttpClientError,
@@ -186,31 +192,52 @@ export type PollResult =
 // Service interface
 // -----------------------------------------------------------------------------
 
+/**
+ * Every operation addresses one HTTP(S) Registry, named by the caller after
+ * the Registry was selected and its transport found able to authenticate.
+ */
 export interface AuthClientService {
-  readonly buildAuthorizeUrl: (params: BuildAuthorizeUrlParams) => string;
-  readonly getAuthorizationIssuer: () => string;
+  readonly buildAuthorizeUrl: (
+    endpoint: HttpRegistryEndpoint,
+    params: BuildAuthorizeUrlParams,
+  ) => string;
+  readonly getAuthorizationIssuer: (endpoint: HttpRegistryEndpoint) => string;
   readonly exchangePkceCode: (
+    endpoint: HttpRegistryEndpoint,
     params: ExchangePkceCodeParams,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
-  readonly initiateDeviceFlow: () => Effect.Effect<DeviceFlowResponse, AuthError>;
+  readonly initiateDeviceFlow: (
+    endpoint: HttpRegistryEndpoint,
+  ) => Effect.Effect<DeviceFlowResponse, AuthError>;
   readonly pollDeviceToken: (
+    endpoint: HttpRegistryEndpoint,
     deviceCode: string,
     interval: number,
   ) => Effect.Effect<NormalizedTokenResponse, AuthError>;
   /**
    * Read the credential's identity. The transport carries the caller's
    * credential, so only a flow holding a token the store has not persisted yet
-   * — a just-issued sign-in — names one.
+   * — a just-issued sign-in — names one; it is sent only to `endpoint`.
    */
-  readonly getMe: (accessToken?: string) => Effect.Effect<MeResponse, AuthError>;
+  readonly getMe: (
+    endpoint: HttpRegistryEndpoint,
+    accessToken?: string,
+  ) => Effect.Effect<MeResponse, AuthError>;
   readonly createToken: (
+    endpoint: HttpRegistryEndpoint,
     params: CreateTokenParams,
   ) => Effect.Effect<CreatedTokenResponse, AuthError>;
-  readonly listTokens: (params?: {
-    readonly limit?: number;
-    readonly cursor?: string;
-  }) => Effect.Effect<TokenListResponse, AuthError>;
-  readonly deleteToken: (tokenId: string) => Effect.Effect<void, AuthError>;
+  readonly listTokens: (
+    endpoint: HttpRegistryEndpoint,
+    params?: {
+      readonly limit?: number;
+      readonly cursor?: string;
+    },
+  ) => Effect.Effect<TokenListResponse, AuthError>;
+  readonly deleteToken: (
+    endpoint: HttpRegistryEndpoint,
+    tokenId: string,
+  ) => Effect.Effect<void, AuthError>;
 }
 
 export class AuthClient extends ServiceMap.Service<AuthClient, AuthClientService>()(
@@ -238,11 +265,11 @@ export interface TokenExchangeService {
    */
   readonly exchangeWorkloadToken: (
     subjectToken: string,
-    registryOrigin: string,
+    endpoint: HttpRegistryEndpoint,
   ) => Effect.Effect<WorkloadTokenGrant, WorkloadTokenUnavailable>;
   readonly refreshToken: (
     refreshTokenValue: string,
-    registryUrl: string,
+    endpoint: HttpRegistryEndpoint,
   ) => Effect.Effect<
     NormalizedTokenResponse,
     SessionEnded | RefreshUnavailable | RegistryAccessFailed
@@ -250,7 +277,7 @@ export interface TokenExchangeService {
   /** Revoke a refresh token and, with it, the session it belongs to. */
   readonly revokeToken: (
     refreshTokenValue: string,
-    registryUrl: string,
+    endpoint: HttpRegistryEndpoint,
   ) => Effect.Effect<void, RegistryClientFailure>;
 }
 
@@ -295,8 +322,8 @@ const SessionTokenResponseSchema = Schema.Struct({
   expires_at: DateTimeUtcSchema,
 });
 
-const deriveAuthorizationOrigin = (registryUrl: string): string => {
-  const url = new URL(registryUrl);
+const deriveAuthorizationOrigin = (endpoint: HttpRegistryEndpoint): string => {
+  const url = new URL(endpoint.href);
   if (url.origin === "https://registry.agentxm.ai") {
     return "https://agentxm.ai";
   }
@@ -324,14 +351,14 @@ const isRetryableDevicePollError = (
 ): error is RetryableDevicePollError => error._tag === "RetryableDevicePollError";
 
 const registryAccessFailure = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   operation: string,
   error: unknown,
 ): RegistryClientFailure =>
   isRegistryClientFailure(error)
     ? error
     : mapRegistryFailure(error, {
-        baseUrl: registryUrl,
+        baseUrl: endpoint.href,
         networkDetail: `${operation}: the Registry could not be reached.`,
         incompatibleDetail: `${operation}: the Registry response does not match the expected contract.`,
         requestConstructionDetail: `${operation}: the Registry request could not be constructed.`,
@@ -339,27 +366,26 @@ const registryAccessFailure = (
       });
 
 const mapRegistryAccessError = (
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   operation: string,
   error: unknown,
-): RegistryClientFailure => registryAccessFailure(registryUrl, operation, error);
+): RegistryClientFailure => registryAccessFailure(endpoint, operation, error);
 
-const makeGeneratedAuthClient = (
-  httpClient: HttpClient.HttpClient,
-  registryUrl: string,
-  accessToken?: string,
-) => {
-  const remoteHttpClient = httpClient.pipe(
-    HttpClient.mapRequest(HttpClientRequest.prependUrl(registryUrl)),
-  );
-  return GeneratedRegistryClient.make(
+/**
+ * The generated client over a Registry transport that is already confined to
+ * `endpoint`: the plain wire for grants and revocation, or the authorized one
+ * for identity and token management.
+ */
+const makeGeneratedAuthClient = (wire: HttpClient.HttpClient, endpoint: HttpRegistryEndpoint) =>
+  GeneratedRegistryClient.make(
     captureRegistryErrorResponseBodies(
-      accessToken === undefined
-        ? remoteHttpClient
-        : remoteHttpClient.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken))),
+      wire.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(endpoint.href))),
     ),
   );
-};
+
+/** The generated client over the plain wire to `endpoint`. */
+const makePlainAuthClient = (httpClient: HttpClient.HttpClient, endpoint: HttpRegistryEndpoint) =>
+  makeGeneratedAuthClient(registryWire(endpoint, httpClient), endpoint);
 
 /**
  * Retry transient device-poll failures with exponential backoff, capped at
@@ -368,7 +394,7 @@ const makeGeneratedAuthClient = (
  * survives retry exhaustion is translated to a typed registry failure.
  */
 const retryTransientDevicePollFailure = <A>(
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   effect: Effect.Effect<A, AuthError | RetryableDevicePollError>,
 ): Effect.Effect<A, AuthError> =>
   effect.pipe(
@@ -378,7 +404,7 @@ const retryTransientDevicePollFailure = <A>(
       while: isRetryableDevicePollError,
     }),
     Effect.catchTag("RetryableDevicePollError", (e) =>
-      Effect.fail(registryAccessFailure(registryUrl, "Device token exchange failed", e.cause)),
+      Effect.fail(registryAccessFailure(endpoint, "Device token exchange failed", e.cause)),
     ),
   );
 
@@ -388,10 +414,10 @@ const retryTransientDevicePollFailure = <A>(
 
 const postTokenForm = (
   httpClient: HttpClient.HttpClient,
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   body: typeof GeneratedRegistryClient.AuthExchangeTokenRequestFormUrlEncoded.Encoded,
 ): Effect.Effect<NormalizedTokenResponse, RegistryClientFailure | OAuthTokenResponseError> => {
-  const client = makeGeneratedAuthClient(httpClient, registryUrl);
+  const client = makePlainAuthClient(httpClient, endpoint);
   return client.AuthExchangeToken({ payload: body }).pipe(
     Effect.catch((error) => {
       const oauthCode = isRegistryClientError("AuthExchangeToken400")(error)
@@ -410,7 +436,7 @@ const postTokenForm = (
         ? Effect.succeed(response)
         : Effect.fail(
             registryAccessFailure(
-              registryUrl,
+              endpoint,
               "Token exchange failed: the Registry response does not match the expected contract",
               response,
             ),
@@ -426,16 +452,16 @@ const postTokenForm = (
  * Surfaces transient HTTP failures as RetryableDevicePollError so callers can
  * decide whether to retry; other failures surface as typed registry failures.
  *
- * @param httpClient - Effect HTTP client
- * @param registryUrl - Registry API origin
+ * @param httpClient - The plain Registry transport
+ * @param endpoint - The Registry the sign-in addresses
  * @param deviceCode - Device verification code from the initial authorization
  */
 const pollOnceInternal = (
   httpClient: HttpClient.HttpClient,
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   deviceCode: string,
 ): Effect.Effect<PollResult, AuthError | RetryableDevicePollError> =>
-  postTokenForm(httpClient, registryUrl, {
+  postTokenForm(httpClient, endpoint, {
     client_id: CLIENT_ID,
     device_code: deviceCode,
     grant_type: DEVICE_CODE_GRANT_TYPE,
@@ -464,7 +490,7 @@ const pollOnceInternal = (
         return Effect.fail(new RetryableDevicePollError({ cause: error.cause }));
       }
 
-      return Effect.fail(registryAccessFailure(registryUrl, "Token exchange failed", error.cause));
+      return Effect.fail(registryAccessFailure(endpoint, "Token exchange failed", error.cause));
     }),
   );
 
@@ -476,12 +502,12 @@ const pollOnceInternal = (
  */
 export const pollOnce = (
   httpClient: HttpClient.HttpClient,
-  registryUrl: string,
+  endpoint: HttpRegistryEndpoint,
   deviceCode: string,
 ): Effect.Effect<PollResult, AuthError> =>
-  pollOnceInternal(httpClient, registryUrl, deviceCode).pipe(
+  pollOnceInternal(httpClient, endpoint, deviceCode).pipe(
     Effect.catchTag("RetryableDevicePollError", (e) =>
-      Effect.fail(registryAccessFailure(registryUrl, "Device token exchange failed", e.cause)),
+      Effect.fail(registryAccessFailure(endpoint, "Device token exchange failed", e.cause)),
     ),
   );
 
@@ -492,18 +518,22 @@ export const pollOnce = (
 export const AuthClientLive = Layer.effect(
   AuthClient,
   Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
-    const registryUrl = yield* RegistryUrl;
-    const authorizationOrigin = deriveAuthorizationOrigin(registryUrl);
-    const client = makeGeneratedAuthClient(httpClient, registryUrl);
+    // Grants and device codes travel the plain wire; identity and token
+    // management travel the authorized one, which presents the invocation's
+    // credential — or a just-issued token a caller names — to this Registry
+    // and nowhere else.
+    const httpClient = yield* RegistryHttpClient;
+    const factory = yield* RegistryClientFactory;
+    const authorizedClient = (endpoint: HttpRegistryEndpoint, operation: string) =>
+      factory
+        .wire(endpoint, { operation })
+        .pipe(Effect.map(({ httpClient: wire }) => makeGeneratedAuthClient(wire, endpoint)));
 
-    const buildAuthorizeUrl: AuthClientService["buildAuthorizeUrl"] = ({
-      challenge,
-      expiresAt,
-      state,
-      redirectUri,
-    }) => {
-      const url = new URL("/oauth/authorize", authorizationOrigin);
+    const buildAuthorizeUrl: AuthClientService["buildAuthorizeUrl"] = (
+      endpoint,
+      { challenge, expiresAt, state, redirectUri },
+    ) => {
+      const url = new URL("/oauth/authorize", deriveAuthorizationOrigin(endpoint));
       url.searchParams.set("response_type", "code");
       url.searchParams.set("client_id", CLIENT_ID);
       url.searchParams.set("code_challenge", challenge);
@@ -517,13 +547,13 @@ export const AuthClientLive = Layer.effect(
       return url.href;
     };
 
-    const getAuthorizationIssuer: AuthClientService["getAuthorizationIssuer"] = () =>
-      authorizationOrigin;
+    const getAuthorizationIssuer: AuthClientService["getAuthorizationIssuer"] = (endpoint) =>
+      deriveAuthorizationOrigin(endpoint);
 
     const exchangePkceCode: AuthClientService["exchangePkceCode"] = Effect.fn(
       "AuthClient.exchangePkceCode",
-    )(function* ({ code, verifier, redirectUri }) {
-      const response = yield* postTokenForm(httpClient, registryUrl, {
+    )(function* (endpoint, { code, verifier, redirectUri }) {
+      const response = yield* postTokenForm(httpClient, endpoint, {
         grant_type: AUTHORIZATION_CODE_GRANT_TYPE,
         code,
         code_verifier: verifier,
@@ -535,7 +565,7 @@ export const AuthClientLive = Layer.effect(
             new AuthExchangeFailed({
               detail: "Authorization code exchange failed",
               suggestions: [{ description: "Try signing in again.", cmd: "axm login" }],
-              cause: registryAccessFailure(registryUrl, "Token exchange failed", error.cause),
+              cause: registryAccessFailure(endpoint, "Token exchange failed", error.cause),
             }),
           ),
         ),
@@ -546,14 +576,14 @@ export const AuthClientLive = Layer.effect(
 
     const initiateDeviceFlow: AuthClientService["initiateDeviceFlow"] = Effect.fn(
       "AuthClient.initiateDeviceFlow",
-    )(function* () {
-      const response = yield* client
+    )(function* (endpoint) {
+      const response = yield* makePlainAuthClient(httpClient, endpoint)
         .AuthIssueDeviceCode({
           payload: { client_id: CLIENT_ID, scope: LOGIN_SCOPE },
         })
         .pipe(
           Effect.mapError((error) =>
-            mapRegistryAccessError(registryUrl, "Could not start sign-in", error),
+            mapRegistryAccessError(endpoint, "Could not start sign-in", error),
           ),
         );
 
@@ -569,14 +599,14 @@ export const AuthClientLive = Layer.effect(
 
     const pollDeviceToken: AuthClientService["pollDeviceToken"] = Effect.fn(
       "AuthClient.pollDeviceToken",
-    )(function* (deviceCode, interval) {
+    )(function* (endpoint, deviceCode, interval) {
       let currentInterval = interval * 1000;
 
       while (true) {
         yield* Effect.sleep(currentInterval);
         const result = yield* retryTransientDevicePollFailure(
-          registryUrl,
-          pollOnceInternal(httpClient, registryUrl, deviceCode),
+          endpoint,
+          pollOnceInternal(httpClient, endpoint, deviceCode),
         );
 
         switch (result._tag) {
@@ -596,17 +626,30 @@ export const AuthClientLive = Layer.effect(
     });
 
     const getMe: AuthClientService["getMe"] = Effect.fn("AuthClient.getMe")(
-      function* (accessToken) {
+      function* (endpoint, accessToken) {
         // The transport carries whichever credential the invocation resolved.
         // A caller only names a token when the store does not hold it yet —
-        // the identity read that follows a just-issued sign-in.
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl, accessToken);
+        // the identity read that follows a just-issued sign-in. The authorized
+        // wire leaves a named token in place and still confines it to this
+        // Registry's origin.
+        const authedClient = yield* factory
+          .wire(endpoint, { operation: "Reading the signed-in identity" })
+          .pipe(
+            Effect.map(({ httpClient: wire }) =>
+              makeGeneratedAuthClient(
+                accessToken === undefined
+                  ? wire
+                  : wire.pipe(HttpClient.mapRequest(HttpClientRequest.bearerToken(accessToken))),
+                endpoint,
+              ),
+            ),
+          );
 
         const decoded = yield* authedClient
           .AuthGetMe(undefined)
           .pipe(
             Effect.mapError((error) =>
-              mapRegistryAccessError(registryUrl, "Could not read authenticated user", error),
+              mapRegistryAccessError(endpoint, "Could not read authenticated user", error),
             ),
           );
 
@@ -628,8 +671,8 @@ export const AuthClientLive = Layer.effect(
     );
 
     const createToken: AuthClientService["createToken"] = Effect.fn("AuthClient.createToken")(
-      function* (params) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
+      function* (endpoint, params) {
+        const authedClient = yield* authorizedClient(endpoint, "Creating a token");
         const decoded = yield* authedClient
           .TokensCreate({
             payload: {
@@ -640,7 +683,7 @@ export const AuthClientLive = Layer.effect(
           })
           .pipe(
             Effect.mapError((error) =>
-              mapRegistryAccessError(registryUrl, "Could not create token", error),
+              mapRegistryAccessError(endpoint, "Could not create token", error),
             ),
           );
 
@@ -656,8 +699,8 @@ export const AuthClientLive = Layer.effect(
     );
 
     const listTokens: AuthClientService["listTokens"] = Effect.fn("AuthClient.listTokens")(
-      function* (params) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
+      function* (endpoint, params) {
+        const authedClient = yield* authorizedClient(endpoint, "Listing tokens");
         const decoded = yield* authedClient
           .TokensList({
             params: {
@@ -667,7 +710,7 @@ export const AuthClientLive = Layer.effect(
           })
           .pipe(
             Effect.mapError((error) =>
-              mapRegistryAccessError(registryUrl, "Could not list tokens", error),
+              mapRegistryAccessError(endpoint, "Could not list tokens", error),
             ),
           );
 
@@ -688,13 +731,13 @@ export const AuthClientLive = Layer.effect(
     );
 
     const deleteToken: AuthClientService["deleteToken"] = Effect.fn("AuthClient.deleteToken")(
-      function* (tokenId) {
-        const authedClient = makeGeneratedAuthClient(httpClient, registryUrl);
+      function* (endpoint, tokenId) {
+        const authedClient = yield* authorizedClient(endpoint, "Revoking a token");
         yield* authedClient
           .TokensDelete(tokenId, undefined)
           .pipe(
             Effect.mapError((error) =>
-              mapRegistryAccessError(registryUrl, "Could not revoke token", error),
+              mapRegistryAccessError(endpoint, "Could not revoke token", error),
             ),
           );
       },
@@ -758,11 +801,11 @@ const refreshAnswer = (error: unknown): "refused" | "unusable" | "undecided" => 
  * text redaction cannot see; a CI log is no place for an identity token that
  * might still be exchanged.
  */
-const exchangeAnswer = (registryOrigin: string, error: unknown): RegistryRequestFailed => {
+const exchangeAnswer = (endpoint: HttpRegistryEndpoint, error: unknown): RegistryRequestFailed => {
   const request = {
     service: "registry",
     method: "POST",
-    url: `${registryOrigin}/v1/auth/token`,
+    url: registryRequestUrl(endpoint, "/v1/auth/token"),
   } as const;
   if (
     isRegistryClientError("AuthExchangeToken400")(error) ||
@@ -810,11 +853,12 @@ const exchangeAnswer = (registryOrigin: string, error: unknown): RegistryRequest
 export const TokenExchangeLive = Layer.effect(
   TokenExchange,
   Effect.gen(function* () {
-    const httpClient = yield* HttpClient.HttpClient;
+    const httpClient = yield* RegistryHttpClient;
 
     const refreshToken: TokenExchangeService["refreshToken"] = Effect.fn(
       "TokenExchange.refreshToken",
-    )(function* (refreshTokenValue, registryUrl) {
+    )(function* (refreshTokenValue, endpoint) {
+      const registryUrl = endpoint.href;
       const unusable = (cause: unknown) =>
         new RegistryAccessFailed({
           category: "internal",
@@ -823,7 +867,7 @@ export const TokenExchangeLive = Layer.effect(
           suggestions: [{ description: "Sign in again.", cmd: "axm login" }],
           cause,
         });
-      return yield* postTokenForm(httpClient, registryUrl, {
+      return yield* postTokenForm(httpClient, endpoint, {
         grant_type: "refresh_token",
         refresh_token: refreshTokenValue,
         client_id: CLIENT_ID,
@@ -863,8 +907,10 @@ export const TokenExchangeLive = Layer.effect(
      */
     const exchangeWorkloadToken: TokenExchangeService["exchangeWorkloadToken"] = Effect.fn(
       "TokenExchange.exchangeWorkloadToken",
-    )(function* (subjectToken, registryOrigin) {
-      const issued = yield* makeGeneratedAuthClient(httpClient, registryOrigin)
+    )(function* (subjectToken, endpoint) {
+      // The Registry binds a workload token to its origin as audience.
+      const registryOrigin = endpoint.href;
+      const issued = yield* makePlainAuthClient(httpClient, endpoint)
         .AuthExchangeToken({
           payload: {
             grant_type: TOKEN_EXCHANGE_GRANT_TYPE,
@@ -881,7 +927,7 @@ export const TokenExchangeLive = Layer.effect(
                 ? "exchange_refused"
                 : "exchange_unavailable",
               registryOrigin,
-              exchangeAnswer(registryOrigin, error),
+              exchangeAnswer(endpoint, error),
             ),
           ),
           Effect.timeoutOrElse({
@@ -894,14 +940,14 @@ export const TokenExchangeLive = Layer.effect(
     });
 
     const revokeToken: TokenExchangeService["revokeToken"] = Effect.fn("TokenExchange.revokeToken")(
-      function* (refreshTokenValue, registryUrl) {
-        yield* makeGeneratedAuthClient(httpClient, registryUrl)
+      function* (refreshTokenValue, endpoint) {
+        yield* makePlainAuthClient(httpClient, endpoint)
           .AuthRevokeOAuthToken({
             payload: { token: refreshTokenValue, token_type_hint: "refresh_token" },
           })
           .pipe(
             Effect.mapError((error) =>
-              mapRegistryAccessError(registryUrl, "Token revocation failed", error),
+              mapRegistryAccessError(endpoint, "Token revocation failed", error),
             ),
             Effect.timeoutOrElse({
               duration: TOKEN_ENDPOINT_DEADLINE,
@@ -923,12 +969,12 @@ export const TokenExchangeLive = Layer.effect(
 
 export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
   Layer.succeed(TokenExchange, {
-    exchangeWorkloadToken: (_subjectToken, registryOrigin) =>
-      Effect.fail(workloadTokenUnavailable("exchange_unavailable", registryOrigin)),
-    refreshToken: (_token, registryUrl) =>
+    exchangeWorkloadToken: (_subjectToken, endpoint) =>
+      Effect.fail(workloadTokenUnavailable("exchange_unavailable", endpoint.href)),
+    refreshToken: (_token, endpoint) =>
       Effect.fail(
         new RefreshUnavailable({
-          registryUrl,
+          registryUrl: endpoint.href,
           detail: "Not implemented in test",
         }),
       ),
@@ -942,7 +988,7 @@ export const TokenExchangeTest = (overrides?: Partial<TokenExchangeService>) =>
 
 export const AuthClientTest = (overrides?: Partial<AuthClientService>) =>
   Layer.succeed(AuthClient, {
-    buildAuthorizeUrl: ({ redirectUri }) =>
+    buildAuthorizeUrl: (_endpoint, { redirectUri }) =>
       `https://agentxm.ai/oauth/authorize?redirect_uri=${redirectUri}`,
     getAuthorizationIssuer: () => "https://agentxm.ai",
     exchangePkceCode: () =>

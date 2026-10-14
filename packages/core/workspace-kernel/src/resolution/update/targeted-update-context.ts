@@ -35,6 +35,8 @@ import { SETTINGS_FILENAME } from "@agentxm/extension-model/unstable/workspace-f
 import type {
   ConfiguredRecordRow,
   DesiredExtensionOrigin,
+  DesiredNodeIdentity,
+  DesiredSourceAuthority,
   DesiredStateGraph,
   WorkspaceLockfileReadFailure,
   WorkspaceSettingsReadFailure,
@@ -48,7 +50,6 @@ import {
   configuredRowsByName,
   desiredStateProblemText,
   effectiveDesiredConstraint,
-  formatDesiredSourceAuthority,
 } from "../../workspace-state/index.js";
 import { desiredPackageKey } from "../../workspace-state/index.js";
 
@@ -181,6 +182,48 @@ const plannedEffects = (
   packRoot: "unchanged",
   packManifest: "unchanged",
 });
+
+const UNRESOLVED = "unresolved";
+
+/** The fields one identity is compared by; a configured alias is not one of them. */
+const canonicalIdentity = (identity: DesiredNodeIdentity) => {
+  switch (identity.authority) {
+    case "registry":
+      return {
+        authority: identity.authority,
+        fqn: identity.fqn,
+        endpoint: identity.registry.endpoint?.href ?? UNRESOLVED,
+      };
+    case "git":
+    case "http":
+    case "path":
+      return { authority: identity.authority, locator: identity.locator, fqn: identity.fqn };
+    case "workspace":
+    case "bundled":
+      return { authority: identity.authority, fqn: identity.fqn };
+    case "inline":
+      return { authority: identity.authority, name: identity.name };
+  }
+};
+
+/** The fields one source authority is compared by. */
+const canonicalSourceAuthority = (authority: DesiredSourceAuthority) => {
+  switch (authority.authority) {
+    case "workspace":
+      return { authority: authority.authority, fqn: authority.fqn };
+    case "registry":
+      return { authority: authority.authority, endpoint: authority.endpoint.href };
+    case "path":
+      return { authority: authority.authority, root: authority.root };
+    case "git":
+      return {
+        authority: authority.authority,
+        url: authority.url.href,
+        revision: authority.revision,
+        root: Option.getOrNull(authority.root),
+      };
+  }
+};
 
 const publicFingerprint = (value: unknown): string =>
   crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -315,18 +358,18 @@ export const classifyTargetedUpdate = (args: ClassifyTargetedUpdateArgs): Target
     ...(blocker === undefined ? {} : { blocker }),
   };
 
-  // Canonical facts, never the settings text: a bare FQN and a locator
-  // qualified by the configured Registry it binds to are one binding. The
-  // identity serializes its Registry endpoint as its href.
+  // Canonical facts, never the settings text: a bare FQN, a default-qualified
+  // locator, and one qualified by any alias of the same endpoint are one
+  // binding. A Pack route whose source is not resolved stays unresolved.
   const bindings = {
-    identity: node?.identity,
+    identity: node === undefined ? undefined : canonicalIdentity(node.identity),
     localName: directOrigin?.localName,
     packSources: packOrigins.map((origin) => ({
       pack: origin.pack,
-      source:
+      sourceAuthority:
         origin.sourceAuthority === undefined
-          ? origin.source
-          : formatDesiredSourceAuthority(origin.sourceAuthority),
+          ? UNRESOLVED
+          : canonicalSourceAuthority(origin.sourceAuthority),
     })),
   };
 

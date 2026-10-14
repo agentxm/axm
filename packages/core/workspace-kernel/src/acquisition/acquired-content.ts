@@ -14,8 +14,9 @@ import type { StepFailure } from "../operations/index.js";
 import { PackageMaterializationFailed } from "./errors.js";
 import { gitTransportContextFingerprint } from "./git-transport-context.js";
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 export interface RegistryContentIdentity {
-  readonly sourceLocation: URL;
+  readonly sourceLocation: RegistryEndpoint;
   readonly owner: string;
   readonly type: string;
   readonly name: string;

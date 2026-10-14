@@ -12,6 +12,7 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import type { RegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
 import type { Lockfile } from "../desired/lockfile/schema.js";
 import type { Settings } from "../desired/settings/schema.js";
@@ -63,7 +64,7 @@ export interface DesiredEvaluationInputs {
   /** The effective default Registry an unqualified `@owner/...` locator binds to. */
   readonly defaultRegistry: string;
   /** Configured Registry source names mapped to their endpoints. */
-  readonly registryEndpoints: Readonly<Record<string, URL>>;
+  readonly registryEndpoints: Readonly<Record<string, RegistryEndpoint>>;
   readonly acceptedResolutions: Lockfile;
   /** One document per configured Pack whose identity could be established, in settings order. */
   readonly packDocuments: ReadonlyArray<ObservedPackDocument>;

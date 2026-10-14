@@ -30,40 +30,76 @@ import * as HttpClient from "effect/http/HttpClient";
 import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
+import * as Option from "effect/Option";
 import {
-  RegistryClientFactory,
-  RegistryClientFactoryLive,
-  makeRegistryClientFactory,
-} from "./registry-client-factory.js";
-import { RegistryUrl } from "./registry-url.js";
+  decodeRegistryEndpointSync,
+  type RegistryEndpoint,
+} from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+
+import { RegistryClientFactory, makeRegistryClientFactory } from "./registry-client-factory.js";
+import {
+  RegistryContext,
+  makeFixedRegistryContext,
+  type BoundRegistry,
+} from "./registry-context.js";
+import type { RegistryRequestAuthorizationService } from "./registry-transport.js";
 
 /** The endpoint fixtures name when the test does not care which Registry it is. */
 export const testRegistryUrl = "https://registry.example.test";
 
-/** The Registry endpoint one run targets. */
-export const RegistryUrlTest = (url: string = testRegistryUrl): Layer.Layer<RegistryUrl> =>
-  Layer.succeed(RegistryUrl, url);
+/** {@link testRegistryUrl} as the endpoint it names. */
+export const testRegistryEndpoint = decodeRegistryEndpointSync(testRegistryUrl);
+
+/** A selection of the Registry at `url`, as the default a run's settings name. */
+const boundTestRegistry = (url: string = testRegistryUrl, name = "agentxm"): BoundRegistry => ({
+  name,
+  endpoint: decodeRegistryEndpointSync(url),
+  reason: "built-in",
+  settingsPath: Option.none(),
+});
+
+/** The Registry one run targets, already selected and also its default. */
+export const RegistryContextTest = (url: string = testRegistryUrl): Layer.Layer<RegistryContext> =>
+  Layer.succeed(RegistryContext, makeFixedRegistryContext(boundTestRegistry(url)));
+
+/**
+ * A request authorization that attaches no credential: every client it
+ * authorizes is returned unchanged.
+ */
+export const passThroughRegistryAuthorization: RegistryRequestAuthorizationService = {
+  authorize: (_endpoint, client) => client,
+};
 
 /**
  * The production `RegistryClientFactory` over one transport, for a fixture
  * that binds the platform itself. Every client it hands out speaks through
- * `transport`, so a refusing transport proves a run reached no Registry.
+ * `transport`, so a refusing transport proves a run reached no Registry. No
+ * credential is attached: a fixture that needs one composes it into
+ * `transport`.
  */
 export const RegistryClientFactoryTest = (
   transport: Layer.Layer<HttpClient.HttpClient>,
-  url: string = testRegistryUrl,
 ): Layer.Layer<RegistryClientFactory, never, FileSystem.FileSystem | Path.Path> =>
-  Layer.provide(RegistryClientFactoryLive, Layer.mergeAll(transport, RegistryUrlTest(url)));
+  Layer.effect(
+    RegistryClientFactory,
+    Effect.gen(function* () {
+      return makeRegistryClientFactory({
+        httpClient: yield* HttpClient.HttpClient,
+        fileSystem: yield* FileSystem.FileSystem,
+        path: yield* Path.Path,
+        authorization: passThroughRegistryAuthorization,
+      });
+    }),
+  ).pipe(Layer.provide(transport));
 
 /** One transport together with the factory over it: what a run that may reach a Registry binds. */
 export const RegistryTransportTest = (
   transport: Layer.Layer<HttpClient.HttpClient>,
-  url: string = testRegistryUrl,
 ): Layer.Layer<
   HttpClient.HttpClient | RegistryClientFactory,
   never,
   FileSystem.FileSystem | Path.Path
-> => Layer.merge(transport, RegistryClientFactoryTest(transport, url));
+> => Layer.merge(transport, RegistryClientFactoryTest(transport));
 
 /** One request the recorded transport observed, in the shape a test asserts on. */
 export interface ObservedRegistryRequest {
@@ -87,11 +123,7 @@ export interface RecordedRegistryTransport {
   /** The transport, ready to provide. */
   readonly layer: Layer.Layer<HttpClient.HttpClient>;
   /** A `RegistryClientFactory` over this transport. */
-  readonly factory: Layer.Layer<
-    RegistryClientFactory,
-    never,
-    FileSystem.FileSystem | Path.Path | RegistryUrl
-  >;
+  readonly factory: Layer.Layer<RegistryClientFactory, never, FileSystem.FileSystem | Path.Path>;
   /** Resolves as soon as the run issues its first request. */
   readonly firstRequest: Effect.Effect<void>;
 }
@@ -134,14 +166,11 @@ export const makeRecordedRegistryTransport = (
   const factory = Layer.effect(
     RegistryClientFactory,
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const defaultRegistryLocation = yield* RegistryUrl;
       return makeRegistryClientFactory({
         httpClient,
-        fileSystem,
-        path,
-        defaultRegistryLocation,
+        fileSystem: yield* FileSystem.FileSystem,
+        path: yield* Path.Path,
+        authorization: passThroughRegistryAuthorization,
       });
     }),
   );
@@ -228,6 +257,8 @@ export interface FileRegistry {
   readonly root: string;
   /** `file://` URL, usable as a configured settings source location. */
   readonly url: string;
+  /** The endpoint {@link url} names. */
+  readonly endpoint: RegistryEndpoint;
   /** The settings `sources` entry that names this Registry. */
   readonly source: {
     readonly name: string;
@@ -569,6 +600,7 @@ export const makeFileRegistry = (options: { readonly root?: string } = {}): File
   return {
     root,
     url: pathToFileURL(root).href,
+    endpoint: decodeRegistryEndpointSync(pathToFileURL(root).href),
     source: { name: "test", type: "registry", location: pathToFileURL(root).href },
     writeSkill,
     writeSubagent: (name, versions) => writeDocumentPackage("subagent", name, versions),

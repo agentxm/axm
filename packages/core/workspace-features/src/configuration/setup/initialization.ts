@@ -756,7 +756,7 @@ const readSettingsFromReadModel = (
         nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
         projectRoot: makeAbsolutePath(path, projectRoot),
         userHome: makeAbsolutePath(path, userHome),
-        allowedRoot: makeAbsolutePath(path, "/"),
+        allowedRoot: Option.none(),
       }),
       AgentRootResolverLive.pipe(Layer.provide(platformLayer)),
     );

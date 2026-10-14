@@ -5,7 +5,8 @@ import * as Option from "effect/Option";
 
 import type { RegistrySource } from "@agentxm/extension-model/unstable/sources/types";
 import { CredentialStore } from "@agentxm/registry-access/credentials";
-import { RegistryUrl } from "@agentxm/registry-client";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import {
   SourceHostProviders,
   type SourceHostProvidersService,
@@ -23,7 +24,7 @@ import {
 const registry: RegistrySource = {
   type: "registry",
   name: "test",
-  location: new URL("https://registry.example.test"),
+  location: decodeRegistryEndpointSync("https://registry.example.test"),
   owner: Option.none(),
 };
 
@@ -129,7 +130,7 @@ describe("source-backed install requests", () => {
           }).pipe(
             Effect.provideService(SourceHostProviders, emptyProviders),
             Effect.provideService(CredentialStore, noCredentials),
-            Effect.provideService(RegistryUrl, registry.location.href),
+            Effect.provide(RegistryContextTest(registry.location.href)),
             Effect.flip,
           ),
         );

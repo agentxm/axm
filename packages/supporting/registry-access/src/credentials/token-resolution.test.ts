@@ -2,6 +2,7 @@
  * Unit tests for token resolution precedence chain.
  */
 
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -23,14 +24,13 @@ import * as DateTime from "effect/DateTime";
 import { WorkloadTokenSource } from "./schema.js";
 import {
   resolveRequiredToken,
-  resolveToken,
   resolveStoredToken,
-  resolveAmbientToken,
   resolvePresentedToken,
   resolveRequestToken,
 } from "./token-resolution.js";
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ENDPOINT = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 const futureExpiry = () => new Date(Date.now() + 60 * 60 * 1000).toISOString();
 const nearExpiry = () => new Date(Date.now() + 60 * 1000).toISOString();
 
@@ -52,7 +52,7 @@ const makeRuntimeLayer = (
     NodeServices.layer,
   );
 
-describe("resolveToken", () => {
+describe("resolveRequestToken for the default Registry", () => {
   let origAxmToken: string | undefined;
   let origAxmTokenFile: string | undefined;
 
@@ -74,7 +74,7 @@ describe("resolveToken", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_token";
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("EnvVar");
@@ -90,7 +90,7 @@ describe("resolveToken", () => {
     process.env["AXM_TOKEN_FILE"] = tokenPath;
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("File");
@@ -110,7 +110,7 @@ describe("resolveToken", () => {
     process.env["AXM_TOKEN_FILE"] = tokenPath;
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) expect(result.value._tag).toBe("EnvVar");
     }).pipe(
@@ -136,7 +136,7 @@ describe("resolveToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("CredentialStore");
@@ -148,7 +148,7 @@ describe("resolveToken", () => {
   it.effect("returns none when no token source is available", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
@@ -157,7 +157,7 @@ describe("resolveToken", () => {
     process.env["AXM_TOKEN"] = "";
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
@@ -179,7 +179,7 @@ describe("resolveToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveToken(REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("CredentialStore");
@@ -207,7 +207,7 @@ describe("resolveRequiredToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveRequiredToken(REGISTRY_URL);
+      const result = yield* resolveRequiredToken(ENDPOINT, ENDPOINT);
       expect(result._tag).toBe("CredentialStore");
       expect(result.token).toBe("axm_ses_stored");
     }).pipe(Effect.provide(layer));
@@ -216,7 +216,7 @@ describe("resolveRequiredToken", () => {
   it.effect("returns a non-circular human handoff when no token is available", () => {
     const layer = makeRuntimeLayer();
     return Effect.gen(function* () {
-      const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
+      const error = yield* Effect.flip(resolveRequiredToken(ENDPOINT, ENDPOINT));
       expect(error._tag).toBe("SignedOut");
       if (error._tag !== "SignedOut") throw new Error("Expected SignedOut");
       expect(error.message).toBe("You are not signed in.");
@@ -226,7 +226,7 @@ describe("resolveRequiredToken", () => {
   it.effect("offers token-file recovery when persisted credentials are disabled", () => {
     const layer = makeRuntimeLayer(undefined, AuthClientTest(), false);
     return Effect.gen(function* () {
-      const error = yield* Effect.flip(resolveRequiredToken(REGISTRY_URL));
+      const error = yield* Effect.flip(resolveRequiredToken(ENDPOINT, ENDPOINT));
       expect(error._tag).toBe("AuthTokenPolicyRequired");
     }).pipe(Effect.provide(layer));
   });
@@ -263,7 +263,7 @@ describe("resolveStoredToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveStoredToken(REGISTRY_URL);
+      const result = yield* resolveStoredToken(ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("CredentialStore");
@@ -275,7 +275,7 @@ describe("resolveStoredToken", () => {
   it.effect("returns none when no credentials exist", () => {
     const layer = CredentialStoreTest();
     return Effect.gen(function* () {
-      const result = yield* resolveStoredToken(REGISTRY_URL);
+      const result = yield* resolveStoredToken(ENDPOINT);
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
@@ -284,7 +284,7 @@ describe("resolveStoredToken", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env_should_be_ignored";
     const layer = CredentialStoreTest();
     return Effect.gen(function* () {
-      const result = yield* resolveStoredToken(REGISTRY_URL);
+      const result = yield* resolveStoredToken(ENDPOINT);
       // Should return none — env var is not checked by resolveStoredToken
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
@@ -309,51 +309,10 @@ describe("resolveStoredToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveStoredToken(REGISTRY_URL);
+      const result = yield* resolveStoredToken(ENDPOINT);
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
-});
-
-describe("resolveAmbientToken", () => {
-  let origAxmToken: string | undefined;
-
-  beforeEach(() => {
-    origAxmToken = process.env["AXM_TOKEN"];
-    delete process.env["AXM_TOKEN"];
-  });
-
-  afterEach(() => {
-    if (origAxmToken !== undefined) process.env["AXM_TOKEN"] = origAxmToken;
-    else delete process.env["AXM_TOKEN"];
-  });
-
-  it.effect("returns EnvVar token when AXM_TOKEN is set", () => {
-    process.env["AXM_TOKEN"] = "axm_ses_env_ambient";
-    return Effect.gen(function* () {
-      const result = yield* resolveAmbientToken(REGISTRY_URL);
-      expect(Option.isSome(result)).toBe(true);
-      if (Option.isSome(result)) {
-        expect(result.value._tag).toBe("EnvVar");
-        expect(result.value.token).toBe("axm_ses_env_ambient");
-      }
-    }).pipe(Effect.provide(WorkloadCredentialsTest()));
-  });
-
-  it.effect("returns none when neither is available", () =>
-    Effect.gen(function* () {
-      const result = yield* resolveAmbientToken(REGISTRY_URL);
-      expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(WorkloadCredentialsTest())),
-  );
-
-  it.effect("does not access credential store (no CredentialStore layer needed)", () =>
-    Effect.gen(function* () {
-      // resolveAmbientToken does not require CredentialStore
-      const result = yield* resolveAmbientToken(REGISTRY_URL);
-      expect(Option.isNone(result)).toBe(true);
-    }).pipe(Effect.provide(WorkloadCredentialsTest())),
-  );
 });
 
 describe("resolveRequestToken", () => {
@@ -387,7 +346,7 @@ describe("resolveRequestToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveRequestToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL);
+      const result = yield* resolveRequestToken(ENDPOINT, ENDPOINT);
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("EnvVar");
@@ -400,8 +359,8 @@ describe("resolveRequestToken", () => {
     process.env["AXM_TOKEN"] = "axm_ses_env";
     return Effect.gen(function* () {
       const result = yield* resolveRequestToken(
-        "https://other-registry.example.com/v1/extensions",
-        REGISTRY_URL,
+        decodeHttpRegistryEndpointSync("https://other-registry.example.com"),
+        ENDPOINT,
       );
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(makeRuntimeLayer()));
@@ -425,7 +384,10 @@ describe("resolveRequestToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      const result = yield* resolveRequestToken(
+        decodeHttpRegistryEndpointSync(otherRegistryUrl),
+        ENDPOINT,
+      );
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("CredentialStore");
@@ -454,7 +416,10 @@ describe("resolveRequestToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      const result = yield* resolveRequestToken(
+        decodeHttpRegistryEndpointSync(otherRegistryUrl),
+        ENDPOINT,
+      );
       expect(Option.isNone(result)).toBe(true);
     }).pipe(Effect.provide(layer));
   });
@@ -477,7 +442,10 @@ describe("resolveRequestToken", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* resolveRequestToken(`${otherRegistryUrl}/v1/extensions`, REGISTRY_URL);
+      const result = yield* resolveRequestToken(
+        decodeHttpRegistryEndpointSync(otherRegistryUrl),
+        ENDPOINT,
+      );
       expect(Option.isSome(result)).toBe(true);
       if (Option.isSome(result)) {
         expect(result.value._tag).toBe("CredentialStore");
@@ -507,13 +475,13 @@ describe("resolvePresentedToken", () => {
   const heldToken = new WorkloadTokenSource({
     token: "fixture-held-workload",
     expires_at: DateTime.makeUnsafe("2099-01-01T00:00:00.000Z"),
-    registryUrl: REGISTRY_URL,
+    endpoint: ENDPOINT,
   });
   const presented = (
     environment: Record<string, string>,
     held: Option.Option<WorkloadTokenSource>,
   ) =>
-    resolvePresentedToken(`${REGISTRY_URL}/v1/extensions`, REGISTRY_URL).pipe(
+    resolvePresentedToken(ENDPOINT, ENDPOINT).pipe(
       Effect.map(Option.map((source) => source.token)),
       Effect.provide(
         Layer.mergeAll(

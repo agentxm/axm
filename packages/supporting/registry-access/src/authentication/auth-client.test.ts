@@ -24,7 +24,6 @@ import { expect } from "vitest";
 
 import {
   AuthClient,
-  AuthClientLive,
   LOGIN_SCOPE,
   TokenExchange,
   TokenExchangeLive,
@@ -33,9 +32,11 @@ import {
 import {
   GeneratedRegistryClient,
   isRegistryClientFailure,
-  RegistryUrl,
+  RegistryHttpClient,
   type RegistryClientFailure,
 } from "@agentxm/registry-client";
+import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { authClientOver } from "./test-support/test-helpers.js";
 import { RegistryAccessFailed, type AuthError } from "./errors.js";
 
 const asRegistryFailure = (error: AuthError): RegistryClientFailure => {
@@ -48,6 +49,7 @@ const asRegistryFailure = (error: AuthError): RegistryClientFailure => {
 // -----------------------------------------------------------------------------
 
 const REGISTRY_URL = "https://registry.agentxm.ai";
+const ENDPOINT = decodeHttpRegistryEndpointSync(REGISTRY_URL);
 
 const makeMockHttpClient = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   HttpClient.make((request) =>
@@ -67,14 +69,8 @@ const makeNetworkErrorHttpClient = () =>
     ),
   );
 
-const makeTestLayer = (
-  handler: (request: HttpClientRequest.HttpClientRequest) => Response,
-  registryUrl = REGISTRY_URL,
-) => {
-  const httpLayer = Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler));
-  const registryUrlLayer = Layer.succeed(RegistryUrl, registryUrl);
-  return Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
-};
+const makeTestLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+  authClientOver(makeMockHttpClient(handler));
 
 /** Build a valid token endpoint JSON response body. */
 const makeTokenResponse = (overrides?: {
@@ -170,18 +166,19 @@ describe("AuthClient.buildAuthorizeUrl", () => {
     ["http://[::1]:4399", "http://[::1]:4299"],
   ] as const) {
     it.effect(`uses ${authorizationOrigin} for ${registryUrl}`, () => {
-      const layer = makeTestLayer(() => new Response(null, { status: 204 }), registryUrl);
+      const layer = makeTestLayer(() => new Response(null, { status: 204 }));
+      const endpoint = decodeHttpRegistryEndpointSync(registryUrl);
       return Effect.gen(function* () {
         const client = yield* AuthClient;
         const authorizeUrl = new URL(
-          client.buildAuthorizeUrl({
+          client.buildAuthorizeUrl(endpoint, {
             challenge: "challenge",
             state: "state",
             redirectUri: "http://127.0.0.1:49152/callback",
           }),
         );
         expect(authorizeUrl.origin).toBe(authorizationOrigin);
-        expect(client.getAuthorizationIssuer()).toBe(authorizationOrigin);
+        expect(client.getAuthorizationIssuer(endpoint)).toBe(authorizationOrigin);
       }).pipe(Effect.provide(layer));
     });
   }
@@ -193,7 +190,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const url = new URL(
-        client.buildAuthorizeUrl({
+        client.buildAuthorizeUrl(ENDPOINT, {
           challenge: "challenge",
           expiresAt,
           state: "state",
@@ -216,7 +213,7 @@ describe("AuthClient.buildAuthorizeUrl", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const url = new URL(
-        client.buildAuthorizeUrl({
+        client.buildAuthorizeUrl(ENDPOINT, {
           challenge: "fixture-challenge",
           state: "fixture-state",
           redirectUri: "http://127.0.0.1:49152/callback",
@@ -255,7 +252,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const result = yield* client.initiateDeviceFlow();
+      const result = yield* client.initiateDeviceFlow(ENDPOINT);
       expect(result.device_code).toBe("dev_123");
       expect(result.user_code).toBe("ABCD-1234");
       expect(result.verification_uri).toBe("https://agentxm.ai/device");
@@ -278,7 +275,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.initiateDeviceFlow().pipe(Effect.flip));
+      const error = asRegistryFailure(yield* client.initiateDeviceFlow(ENDPOINT).pipe(Effect.flip));
       expect(error.category).toBe("validation");
       expect(error.detail).toBe("Decode error: unknown_client");
       expect(error.metadata?.response).toMatchObject({
@@ -291,13 +288,11 @@ describe("AuthClient.initiateDeviceFlow", () => {
   });
 
   it.effect("classifies a transport-only failure as network", () => {
-    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
-    const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-    const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
+    const layer = authClientOver(makeNetworkErrorHttpClient());
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.initiateDeviceFlow().pipe(Effect.flip));
+      const error = asRegistryFailure(yield* client.initiateDeviceFlow(ENDPOINT).pipe(Effect.flip));
       expect(error.category).toBe("network");
     }).pipe(Effect.provide(layer));
   });
@@ -321,7 +316,7 @@ describe("AuthClient.initiateDeviceFlow", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      yield* client.initiateDeviceFlow();
+      yield* client.initiateDeviceFlow(ENDPOINT);
     }).pipe(Effect.provide(layer));
   });
 });
@@ -342,7 +337,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
+      const result = yield* pollOnce(httpClient, ENDPOINT, "dev_123");
       expect(result._tag).toBe("Success");
       if (result._tag === "Success") {
         expect(result.token.access_token).toBe("axm_ses_new");
@@ -361,7 +356,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
+      const result = yield* pollOnce(httpClient, ENDPOINT, "dev_123");
       expect(result._tag).toBe("Pending");
     });
   });
@@ -376,7 +371,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
+      const result = yield* pollOnce(httpClient, ENDPOINT, "dev_123");
       expect(result._tag).toBe("SlowDown");
     });
   });
@@ -391,7 +386,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
+      const result = yield* pollOnce(httpClient, ENDPOINT, "dev_123");
       expect(result._tag).toBe("AccessDenied");
     });
   });
@@ -406,7 +401,7 @@ describe("pollOnce", () => {
     );
 
     return Effect.gen(function* () {
-      const result = yield* pollOnce(httpClient, REGISTRY_URL, "dev_123");
+      const result = yield* pollOnce(httpClient, ENDPOINT, "dev_123");
       expect(result._tag).toBe("ExpiredToken");
     });
   });
@@ -422,7 +417,7 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = asRegistryFailure(
-        yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip),
+        yield* pollOnce(httpClient, ENDPOINT, "dev_123").pipe(Effect.flip),
       );
       expect(error.category).toBe("internal");
       expect(error.metadata?.response).toMatchObject({
@@ -443,7 +438,7 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = asRegistryFailure(
-        yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip),
+        yield* pollOnce(httpClient, ENDPOINT, "dev_123").pipe(Effect.flip),
       );
       expect(error.category).toBe("internal");
       expect(error.metadata?.response).toMatchObject({
@@ -464,7 +459,7 @@ describe("pollOnce", () => {
 
     return Effect.gen(function* () {
       const error = asRegistryFailure(
-        yield* pollOnce(httpClient, REGISTRY_URL, "dev_123").pipe(Effect.flip),
+        yield* pollOnce(httpClient, ENDPOINT, "dev_123").pipe(Effect.flip),
       );
       expect(error.category).toBe("internal");
       expect(error.detail).toBe(
@@ -494,7 +489,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const result = yield* client.pollDeviceToken("dev_123", 0);
+      const result = yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0);
       expect(result.access_token).toBe("axm_ses_polled");
     }).pipe(Effect.provide(layer));
   });
@@ -521,7 +516,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const result = yield* client.pollDeviceToken("dev_123", 0);
+      const result = yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0);
       expect(result.access_token).toBe("axm_ses_after_pending");
       expect(callCount).toBe(3);
     }).pipe(Effect.provide(layer));
@@ -551,7 +546,7 @@ describe("AuthClient.pollDeviceToken", () => {
       const client = yield* AuthClient;
       // Fork so we can advance the TestClock past the exponential retry
       // backoff (250 ms + 500 ms = 750 ms across two retries).
-      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0));
+      const fiber = yield* Effect.forkChild(client.pollDeviceToken(ENDPOINT, "dev_123", 0));
       yield* Effect.yieldNow;
       yield* TestClock.adjust("1 second");
       const result = yield* Fiber.join(fiber);
@@ -573,7 +568,9 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0).pipe(Effect.flip));
+      const fiber = yield* Effect.forkChild(
+        client.pollDeviceToken(ENDPOINT, "dev_123", 0).pipe(Effect.flip),
+      );
       yield* Effect.yieldNow;
       yield* TestClock.adjust("1 second");
       const error = asRegistryFailure(yield* Fiber.join(fiber));
@@ -600,7 +597,7 @@ describe("AuthClient.pollDeviceToken", () => {
     return Effect.gen(function* () {
       const client = yield* AuthClient;
       const error = asRegistryFailure(
-        yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip),
+        yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0).pipe(Effect.flip),
       );
       expect(error.category).toBe("internal");
       expect(error.cause).toMatchObject({ _tag: "SchemaError" });
@@ -619,7 +616,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
+      const error = yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0).pipe(Effect.flip);
       expect(error._tag).toBe("DeviceLoginDenied");
     }).pipe(Effect.provide(layer));
   });
@@ -635,7 +632,7 @@ describe("AuthClient.pollDeviceToken", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = yield* client.pollDeviceToken("dev_123", 0).pipe(Effect.flip);
+      const error = yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0).pipe(Effect.flip);
       expect(error._tag).toBe("DeviceLoginCodeExpired");
     }).pipe(Effect.provide(layer));
   });
@@ -664,7 +661,7 @@ describe("AuthClient.pollDeviceToken", () => {
       const client = yield* AuthClient;
       // Fork the polling effect so we can advance the TestClock past the
       // slow_down back-off interval (5 000 ms) without waiting real time.
-      const fiber = yield* Effect.forkChild(client.pollDeviceToken("dev_123", 0));
+      const fiber = yield* Effect.forkChild(client.pollDeviceToken(ENDPOINT, "dev_123", 0));
       yield* Effect.yieldNow;
       // Advance past the 5 s slow-down increment so the second poll fires.
       yield* TestClock.adjust("6 seconds");
@@ -686,7 +683,7 @@ describe("AuthClient token operations", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      yield* client.deleteToken("token_123");
+      yield* client.deleteToken(ENDPOINT, "token_123");
       expect(stepUpRequestHeader).toBeUndefined();
     }).pipe(Effect.provide(layer));
   });
@@ -700,7 +697,7 @@ describe("TokenExchange.refreshToken", () => {
   const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
     Layer.provide(
       TokenExchangeLive,
-      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+      Layer.succeed(RegistryHttpClient, makeMockHttpClient(handler)),
     );
 
   it.effect("returns new tokens on success", () => {
@@ -724,7 +721,7 @@ describe("TokenExchange.refreshToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const result = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL);
+      const result = yield* exchange.refreshToken("axm_ref_old", ENDPOINT);
       expect(result.access_token).toBe("axm_ses_refreshed");
       expect(result.refresh_token).toBe("axm_ref_refreshed");
       expect(DateTime.formatIso(result.expires_at)).toBe(expiresAt);
@@ -742,7 +739,7 @@ describe("TokenExchange.refreshToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.refreshToken("axm_ref_expired", ENDPOINT).pipe(Effect.flip);
       expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
@@ -758,7 +755,7 @@ describe("TokenExchange.refreshToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.refreshToken("axm_ref_expired", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.refreshToken("axm_ref_expired", ENDPOINT).pipe(Effect.flip);
       expect(error._tag).toBe("SessionEnded");
     }).pipe(Effect.provide(layer));
   });
@@ -768,7 +765,7 @@ describe("TokenExchange.refreshToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.refreshToken("axm_ref_old", ENDPOINT).pipe(Effect.flip);
       expect(error._tag).toBe("RefreshUnavailable");
     }).pipe(Effect.provide(layer));
   });
@@ -776,12 +773,12 @@ describe("TokenExchange.refreshToken", () => {
   it.effect("keeps the session when the Registry cannot be reached", () => {
     const layer = Layer.provide(
       TokenExchangeLive,
-      Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+      Layer.succeed(RegistryHttpClient, makeNetworkErrorHttpClient()),
     );
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.refreshToken("axm_ref_old", ENDPOINT).pipe(Effect.flip);
       expect(error._tag).toBe("RefreshUnavailable");
     }).pipe(Effect.provide(layer));
   });
@@ -803,7 +800,7 @@ describe("TokenExchange.refreshToken", () => {
     it.effect(`keeps the session on ${name}`, () =>
       Effect.gen(function* () {
         const exchange = yield* TokenExchange;
-        const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+        const error = yield* exchange.refreshToken("axm_ref_old", ENDPOINT).pipe(Effect.flip);
         expect(error._tag).toBe("RefreshUnavailable");
       }).pipe(Effect.provide(exchangeLayer(response))),
     );
@@ -820,7 +817,7 @@ describe("TokenExchange.refreshToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.refreshToken("axm_ref_old", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.refreshToken("axm_ref_old", ENDPOINT).pipe(Effect.flip);
       expect(error._tag).toBe("RegistryAccessFailed");
       expect(error instanceof RegistryAccessFailed ? error.category : null).toBe("internal");
     }).pipe(Effect.provide(layer));
@@ -835,7 +832,7 @@ describe("TokenExchange.exchangeWorkloadToken", () => {
   const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
     Layer.provide(
       TokenExchangeLive,
-      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+      Layer.succeed(RegistryHttpClient, makeMockHttpClient(handler)),
     );
 
   it.effect("returns the workload token without a refresh token", () => {
@@ -856,7 +853,7 @@ describe("TokenExchange.exchangeWorkloadToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const grant = yield* exchange.exchangeWorkloadToken("fixture-id-token", REGISTRY_URL);
+      const grant = yield* exchange.exchangeWorkloadToken("fixture-id-token", ENDPOINT);
       expect(grant.access_token).toBe("fixture-workload-token");
       expect(DateTime.formatIso(grant.expires_at)).toBe("2099-01-01T00:15:00.000Z");
     }).pipe(Effect.provide(layer));
@@ -887,7 +884,7 @@ describe("TokenExchange.exchangeWorkloadToken", () => {
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
       const failure = yield* exchange
-        .exchangeWorkloadToken("fixture-id-token", REGISTRY_URL)
+        .exchangeWorkloadToken("fixture-id-token", ENDPOINT)
         .pipe(Effect.flip);
       expect(failure.reason).toBe(reason);
       expect(failure.registryUrl).toBe(REGISTRY_URL);
@@ -898,14 +895,14 @@ describe("TokenExchange.exchangeWorkloadToken", () => {
     Effect.gen(function* () {
       const exchange = yield* TokenExchange;
       const failure = yield* exchange
-        .exchangeWorkloadToken("fixture-id-token", REGISTRY_URL)
+        .exchangeWorkloadToken("fixture-id-token", ENDPOINT)
         .pipe(Effect.flip);
       expect(failure.reason).toBe("exchange_unavailable");
     }).pipe(
       Effect.provide(
         Layer.provide(
           TokenExchangeLive,
-          Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+          Layer.succeed(RegistryHttpClient, makeNetworkErrorHttpClient()),
         ),
       ),
     ),
@@ -916,7 +913,7 @@ describe("TokenExchange.revokeToken", () => {
   const exchangeLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
     Layer.provide(
       TokenExchangeLive,
-      Layer.succeed(HttpClient.HttpClient, makeMockHttpClient(handler)),
+      Layer.succeed(RegistryHttpClient, makeMockHttpClient(handler)),
     );
 
   it.effect("succeeds on 200", () => {
@@ -928,7 +925,7 @@ describe("TokenExchange.revokeToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL);
+      yield* exchange.revokeToken("axm_ref_revoke", ENDPOINT);
     }).pipe(Effect.provide(layer));
   });
 
@@ -939,7 +936,7 @@ describe("TokenExchange.revokeToken", () => {
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.revokeToken("axm_ref_revoke", ENDPOINT).pipe(Effect.flip);
       expect(error.category).toBe("internal");
     }).pipe(Effect.provide(layer));
   });
@@ -947,12 +944,12 @@ describe("TokenExchange.revokeToken", () => {
   it.effect("reports an unreachable Registry", () => {
     const layer = Layer.provide(
       TokenExchangeLive,
-      Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient()),
+      Layer.succeed(RegistryHttpClient, makeNetworkErrorHttpClient()),
     );
 
     return Effect.gen(function* () {
       const exchange = yield* TokenExchange;
-      const error = yield* exchange.revokeToken("axm_ref_revoke", REGISTRY_URL).pipe(Effect.flip);
+      const error = yield* exchange.revokeToken("axm_ref_revoke", ENDPOINT).pipe(Effect.flip);
       expect(error.category).toBe("network");
     }).pipe(Effect.provide(layer));
   });
@@ -978,7 +975,7 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const result = yield* client.getMe("axm_ses_test");
+      const result = yield* client.getMe(ENDPOINT, "axm_ses_test");
       expect(capturedAuth).toBe("Bearer axm_ses_test");
       expect(result.userHandle).toBe("@alice");
       expect(result.email).toBe("alice@example.com");
@@ -1023,7 +1020,7 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const result = yield* client.getMe();
+      const result = yield* client.getMe(ENDPOINT);
       expect(result.tokenType).toBe("oidc");
       expect(result.trustedPublisher).toEqual({ name: "release" });
     }).pipe(Effect.provide(layer));
@@ -1040,7 +1037,9 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.getMe("axm_ses_bad").pipe(Effect.flip));
+      const error = asRegistryFailure(
+        yield* client.getMe(ENDPOINT, "axm_ses_bad").pipe(Effect.flip),
+      );
       expect(error.category).toBe("auth");
       expect(error.detail).toBe("Invalid or expired token");
       expect(error.metadata?.response).toMatchObject({
@@ -1063,7 +1062,9 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.getMe("axm_ses_bad").pipe(Effect.flip));
+      const error = asRegistryFailure(
+        yield* client.getMe(ENDPOINT, "axm_ses_bad").pipe(Effect.flip),
+      );
       expect(error.category).toBe("validation");
       expect(error.metadata?.response).toMatchObject({
         status: 400,
@@ -1080,7 +1081,9 @@ describe("AuthClient.getMe", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.getMe("axm_ses_bad").pipe(Effect.flip));
+      const error = asRegistryFailure(
+        yield* client.getMe(ENDPOINT, "axm_ses_bad").pipe(Effect.flip),
+      );
       expect(error.category).toBe("not_found");
       expect(error.metadata?.response).toMatchObject({
         status: 404,
@@ -1090,13 +1093,13 @@ describe("AuthClient.getMe", () => {
   });
 
   it.effect("classifies a transport-only failure as network", () => {
-    const httpLayer = Layer.succeed(HttpClient.HttpClient, makeNetworkErrorHttpClient());
-    const registryUrlLayer = Layer.succeed(RegistryUrl, REGISTRY_URL);
-    const layer = Layer.provide(AuthClientLive, Layer.mergeAll(httpLayer, registryUrlLayer));
+    const layer = authClientOver(makeNetworkErrorHttpClient());
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const error = asRegistryFailure(yield* client.getMe("axm_ses_bad").pipe(Effect.flip));
+      const error = asRegistryFailure(
+        yield* client.getMe(ENDPOINT, "axm_ses_bad").pipe(Effect.flip),
+      );
       expect(error.category).toBe("network");
     }).pipe(Effect.provide(layer));
   });
@@ -1126,7 +1129,11 @@ describe("AuthClient tokens on the wire", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const created = yield* client.createToken({ name: "ci", expiresIn: 86_400, permissions });
+      const created = yield* client.createToken(ENDPOINT, {
+        name: "ci",
+        expiresIn: 86_400,
+        permissions,
+      });
 
       expect(sent).toEqual([{ name: "ci", permissions, expiresIn: 86_400 }]);
       expect(() =>
@@ -1164,7 +1171,7 @@ describe("AuthClient tokens on the wire", () => {
 
     return Effect.gen(function* () {
       const client = yield* AuthClient;
-      const page = yield* client.listTokens({ limit: 10, cursor: "this-page" });
+      const page = yield* client.listTokens(ENDPOINT, { limit: 10, cursor: "this-page" });
 
       expect(queries).toEqual([{ limit: "10", cursor: "this-page" }]);
       expect(page.hasMore).toBe(true);

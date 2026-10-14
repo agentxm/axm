@@ -17,10 +17,13 @@
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import * as semver from "semver";
 
 import type { RegistrySourceHost } from "@agentxm/extension-model/unstable/sources/types";
-import { resolveVersionEntry } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
+import {
+  isExactVersionRequest,
+  normalizeVersionRequest,
+} from "@agentxm/extension-model/unstable/version-constraints";
+import { admittedReleases } from "@agentxm/extension-model/unstable/version-constraints/version-selection";
 
 import { AxmSkillCandidateGate, type AxmSkillCandidateGateService } from "./axm-skill-gate.js";
 import { SourceNotResolvable } from "./errors.js";
@@ -98,27 +101,20 @@ export const RegistryResolutionPolicyTest: Layer.Layer<RegistryResolutionPolicy>
   RegistryResolutionPolicy,
   {
     decideNamedVersion: (index, options) => {
-      const selected = resolveVersionEntry(index.versions, options.versionRange);
-      if (Option.isSome(selected)) {
-        return { kind: "selected", version: selected.value.version };
+      const [selected] = admittedReleases(index.versions, options.versionRange);
+      if (selected !== undefined) {
+        return { kind: "selected", version: selected.version };
       }
-      const requested = Option.getOrElse(options.versionRange, () => "*");
-      return semver.valid(requested) === requested
+      const requested = normalizeVersionRequest(options.versionRange);
+      return isExactVersionRequest(requested)
         ? { kind: "not_found" }
         : { kind: "version_unsatisfied", requestedRange: requested };
     },
-    namedCandidates: (index, options) => {
-      const requested = Option.getOrElse(options.versionRange, () => "*");
-      const exact = semver.valid(requested) === requested;
-      return index.versions
-        .filter((entry) =>
-          exact
-            ? entry.version === requested
-            : entry.yankedAt === undefined && semver.satisfies(entry.version, requested),
-        )
-        .sort((left, right) => semver.compareBuild(right.version, left.version))
-        .map((entry) => ({ version: entry.version, outcome: { kind: "selected" } }));
-    },
+    namedCandidates: (index, options) =>
+      admittedReleases(index.versions, options.versionRange).map((entry) => ({
+        version: entry.version,
+        outcome: { kind: "selected" },
+      })),
   },
 );
 

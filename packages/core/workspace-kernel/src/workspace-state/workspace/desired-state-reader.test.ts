@@ -1,3 +1,4 @@
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "@effect/vitest";
@@ -129,7 +130,7 @@ describe("desired-state collection", () => {
           manifests,
           baseDir: "/workspace",
           settings: settings({ packs: { alpha: "@acme/packs/alpha" } }),
-          registryEndpoints: { agentxm: new URL("https://registry.agentxm.ai") },
+          registryEndpoints: { agentxm: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
           acceptedResolutions: { lockfileVersion: 12, skills: {}, packs: { alpha: accepted } },
           readSet: [{ path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" }],
         });
@@ -147,7 +148,10 @@ describe("desired-state collection", () => {
         expect(graph.nodes.find((node) => node.type === "rule")?.origins).toEqual([
           expect.objectContaining({
             manifestPath: 'axm-lock.yaml#packs.alpha.dependencies["@acme/rules/guard"]',
-            sourceAuthority: { authority: "registry", endpoint: new URL("https://other.example/") },
+            sourceAuthority: {
+              authority: "registry",
+              endpoint: decodeRegistryEndpointSync("https://other.example"),
+            },
             constraint: "^2.0.0",
           }),
         ]);

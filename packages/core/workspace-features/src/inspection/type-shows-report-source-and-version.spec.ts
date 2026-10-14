@@ -8,7 +8,8 @@ import { makeFileRegistry } from "@agentxm/registry-client/testing";
 
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
-import { mcpRegistryResolutionKey } from "@agentxm/workspace-kernel/workspace-state";
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { McpSourceKey } from "@agentxm/workspace-kernel/workspace-state";
 import { makeRegistryMcpServerLockEntry } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { ShowExtension } from "./show/show-extension.js";
 import {
@@ -80,7 +81,7 @@ describe("Installed extension detail", () => {
   // A sourced MCP connection is shown under its local name, while its
   // accepted resolution is recorded once under the source it resolves to.
   it.effect("reports a sourced MCP connection's accepted version under its local name", () => {
-    const authority = new URL(inspectionRegistryUrl);
+    const authority = decodeRegistryEndpointSync(inspectionRegistryUrl);
     const fixture = makeInspectionFixture({
       settings: {
         agents: [],
@@ -90,13 +91,17 @@ describe("Installed extension detail", () => {
       },
       lockfile: {
         mcpServers: {
-          [mcpRegistryResolutionKey({ authority, owner: "@acme", name: "context" })]:
-            makeRegistryMcpServerLockEntry({
-              owner: decodeHandleSync("@acme"),
-              name: "context",
-              resolvedVersion: decodeVersionSync("1.2.0"),
-              endpoint: authority,
-            }),
+          [McpSourceKey.encode({
+            kind: "registry",
+            endpoint: authority,
+            owner: "@acme",
+            name: "context",
+          })]: makeRegistryMcpServerLockEntry({
+            owner: decodeHandleSync("@acme"),
+            name: "context",
+            resolvedVersion: decodeVersionSync("1.2.0"),
+            endpoint: authority,
+          }),
         },
       },
       files: {

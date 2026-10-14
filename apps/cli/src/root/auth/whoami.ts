@@ -36,13 +36,13 @@ export type WhoamiDocument = typeof WhoamiDocumentSchema.Type;
 
 export const handleWhoami = Effect.fn("AuthWhoami.handle")(
   function* () {
-    const registry = yield* selectedRegistry;
+    const registry = yield* selectedRegistry("Reading the signed-in identity");
 
     const identity = yield* withLiveOperation(
       { command: "auth.whoami", name: `Check identity on ${registry.host}`, mode: "query" },
       observeUnit(
         { id: "identity", label: `identity on ${registry.host}` },
-        currentIdentity(registry.url),
+        currentIdentity(registry),
       ),
     );
 

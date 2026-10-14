@@ -39,15 +39,14 @@ import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
 import { decodeVersionSync } from "@agentxm/extension-model/unstable/version-constraints";
 import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
 import type { WorkspaceScope } from "@agentxm/extension-model/unstable/workspace-scope";
-import {
-  RegistryClientFactory,
-  RegistryUrl,
-  makeRegistryClientFactory,
-} from "@agentxm/registry-client";
+import { RegistryClientFactory, makeRegistryClientFactory } from "@agentxm/registry-client";
+import { passThroughRegistryAuthorization } from "@agentxm/registry-client/testing";
 import { CodingAgentRepositoryLive } from "@agentxm/workspace-kernel/projection/live";
 import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
 import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
+import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 
+import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 
 export interface ObservedRegistryRequest {
@@ -89,14 +88,11 @@ export const makeRecordedRegistryPort = (
   const layer = Layer.effect(
     RegistryClientFactory,
     Effect.gen(function* () {
-      const fileSystem = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const defaultRegistryLocation = yield* RegistryUrl;
       return makeRegistryClientFactory({
         httpClient,
-        fileSystem,
-        path,
-        defaultRegistryLocation,
+        fileSystem: yield* FileSystem.FileSystem,
+        path: yield* Path.Path,
+        authorization: passThroughRegistryAuthorization,
       });
     }),
   );
@@ -170,9 +166,8 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
       })),
   );
 
-  const environment = Layer.mergeAll(
-    ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),
-    Layer.succeed(RegistryUrl, inspectionRegistryUrl),
+  const environment = ConfigProvider.layer(
+    ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } }),
   );
   const transport = Layer.succeed(HttpClient.HttpClient, registry.httpClient);
   // Registry assessment is exercised through the recorded port; Git host
@@ -202,10 +197,16 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
     ),
     environment,
   );
-  // The catalog identifier resolution consults sits over the same workspace.
-  const services = Layer.provideMerge(WorkspaceCatalogLive, workspaceState).pipe(
-    Layer.provideMerge(WorkspaceFileWriteLocksLive),
-  );
+  // The catalog identifier resolution consults, and the Registry selection the
+  // workspace settings decide, sit over the same workspace. The built-in
+  // Registry is the recorded port's.
+  const services = Layer.provideMerge(
+    Layer.mergeAll(
+      WorkspaceCatalogLive,
+      ProjectRegistryContextTest({ projectRoot: root, builtInUrl: inspectionRegistryUrl }),
+    ),
+    workspaceState,
+  ).pipe(Layer.provideMerge(WorkspaceFileWriteLocksLive));
 
   return {
     root,
@@ -284,7 +285,7 @@ export const makeInstalledSkillFixture = (
           owner: decodeHandleSync("@acme"),
           name: "review",
           sourceName: "company",
-          endpoint: new URL(inspectionRegistryUrl),
+          endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
         }),
       },
     },
@@ -451,7 +452,7 @@ export const makeAcceptedPackFixture = (
           owner: decodeHandleSync("@acme"),
           name,
           resolvedVersion: decodeVersionSync(version),
-          endpoint: new URL(inspectionRegistryUrl),
+          endpoint: decodeRegistryEndpointSync(inspectionRegistryUrl),
         }),
       },
     },

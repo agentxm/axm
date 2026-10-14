@@ -11,8 +11,9 @@ import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as PlatformError from "effect/PlatformError";
 import { credentialFileFixture } from "../credentials/test-helpers.js";
-import { RegistryRequestFailed, RegistryUrl } from "@agentxm/registry-client";
+import { RegistryRequestFailed } from "@agentxm/registry-client";
 import { normalizeHandle } from "@agentxm/extension-model/unstable/extensions";
+import { RegistryContextTest } from "@agentxm/registry-client/testing";
 import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { TokenExchangeTest } from "../authentication/auth-client.js";
@@ -23,7 +24,7 @@ import {
   CredentialStoreTest,
 } from "../credentials/credential-store.js";
 import { SessionRefresherLive } from "../credentials/session-refresh.js";
-import { AuthMiddlewareLive } from "./auth-middleware.js";
+import { AuthorizedTransportAt } from "./test-helpers.js";
 import { AuthEnvironment } from "./environment.js";
 import { WorkloadCredentialsTest } from "../credentials/workload-credentials.js";
 
@@ -39,7 +40,7 @@ export const specification = defineSpecification({
   boundaryRationale:
     "The live credential adapter reads real isolated files so malformed and unreadable persisted credentials cannot become anonymous requests.",
   methods: ["example"],
-  derivedFrom: ["packages/supporting/registry-access/src/adapters/auth-middleware.ts"],
+  derivedFrom: ["packages/supporting/registry-access/src/adapters/request-authorization.ts"],
   supersedes: [],
   assumptions: [],
   openQuestions: [],
@@ -79,13 +80,13 @@ const readWith = (credentials?: typeof signedIn) => {
     CredentialStoreTest("restricted-file", credentials),
   );
   const layer = Layer.provide(
-    AuthMiddlewareLive,
+    AuthorizedTransportAt(registry),
     Layer.mergeAll(
       WorkloadCredentialsTest(),
       transportLayer,
       store,
       Layer.provide(SessionRefresherLive, Layer.merge(TokenExchangeTest(), store)),
-      Layer.succeed(RegistryUrl, registry),
+      RegistryContextTest(registry),
     ),
   );
   return { layer, read: () => presented };
@@ -136,13 +137,13 @@ const rejectingReadsOf = (options: {
   // provided to the reader, not only to the transport's construction.
   return Layer.merge(
     Layer.provide(
-      AuthMiddlewareLive,
+      AuthorizedTransportAt(registry),
       Layer.mergeAll(
         WorkloadCredentialsTest(),
         Layer.succeed(HttpClient.HttpClient, transport),
         store,
         Layer.provide(SessionRefresherLive, Layer.merge(exchange, store)),
-        Layer.succeed(RegistryUrl, registry),
+        RegistryContextTest(registry),
         NodeServices.layer,
       ),
     ),
@@ -184,14 +185,14 @@ describe("Reads carry the invocation's credential", () => {
           }),
         );
         const store = fixture.layer;
-        const layer = AuthMiddlewareLive.pipe(
+        const layer = AuthorizedTransportAt(registry).pipe(
           Layer.provide(
             Layer.mergeAll(
               WorkloadCredentialsTest(),
               Layer.succeed(HttpClient.HttpClient, transport),
               store,
               SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),
-              Layer.succeed(RegistryUrl, registry),
+              RegistryContextTest(registry),
             ),
           ),
         );
@@ -269,14 +270,14 @@ describe("Reads carry the invocation's credential", () => {
         const store = fixture.layer.pipe(
           Layer.provide(Layer.succeed(FileSystem.FileSystem, failedFs)),
         );
-        const layer = AuthMiddlewareLive.pipe(
+        const layer = AuthorizedTransportAt(registry).pipe(
           Layer.provide(
             Layer.mergeAll(
               WorkloadCredentialsTest(),
               Layer.succeed(HttpClient.HttpClient, transport),
               store,
               SessionRefresherLive.pipe(Layer.provide(Layer.merge(TokenExchangeTest(), store))),
-              Layer.succeed(RegistryUrl, registry),
+              RegistryContextTest(registry),
             ),
           ),
         );

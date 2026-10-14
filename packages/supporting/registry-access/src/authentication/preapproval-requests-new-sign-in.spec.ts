@@ -8,12 +8,13 @@ import { login } from "./login.js";
 import type { SessionReplacementDecision } from "./login-presenter.js";
 import {
   authCredentialFile,
-  authRegistry,
   authEmail,
   authRegistryHost,
   deviceLoginRequest,
   machineOutputPresenter,
   makeAuthPorts,
+  authSelectedRegistry,
+  authKey,
 } from "./test-support/test-helpers.js";
 
 export const specification = defineSpecification({
@@ -58,7 +59,7 @@ const ports = (options: {
   });
 
 const storedAccessToken = Effect.gen(function* () {
-  const stored = yield* (yield* CredentialStore).load(authRegistry);
+  const stored = yield* (yield* CredentialStore).load(authKey);
   return Option.map(stored, (credentials) => credentials.access_token);
 });
 
@@ -69,7 +70,7 @@ describe("Login preapproval over a valid session", () => {
       const context = ports({ machineOutput: true });
       return Effect.gen(function* () {
         const before = yield* storedAccessToken;
-        const outcome = yield* login(deviceLoginRequest(), authRegistry);
+        const outcome = yield* login(deviceLoginRequest(), authSelectedRegistry);
 
         expect(outcome).toEqual({
           _tag: "SessionRetained",
@@ -89,7 +90,7 @@ describe("Login preapproval over a valid session", () => {
     return Effect.gen(function* () {
       yield* login(
         deviceLoginRequest({ yes: true, nonInteractive: false, machineOutput: false }),
-        authRegistry,
+        authSelectedRegistry,
       );
 
       expect(context.presenterState.sessionReplacementPrompts).toEqual([]);
@@ -105,7 +106,7 @@ describe("Login preapproval over a valid session", () => {
   it.effect("machine output with preapproval signs in again and reports the new session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      yield* login(deviceLoginRequest({ yes: true, nonInteractive: false }), authRegistry);
+      yield* login(deviceLoginRequest({ yes: true, nonInteractive: false }), authSelectedRegistry);
 
       expect(context.deviceAuthorizations).toHaveLength(1);
       expect(yield* storedAccessToken).toEqual(Option.some("fixture-new-access"));
@@ -123,7 +124,7 @@ describe("Login preapproval over a valid session", () => {
     () => {
       const context = ports({ machineOutput: true });
       return Effect.gen(function* () {
-        yield* login(deviceLoginRequest({ yes: true }), authRegistry);
+        yield* login(deviceLoginRequest({ yes: true }), authSelectedRegistry);
 
         expect(context.deviceAuthorizations).toHaveLength(1);
         expect(context.presenterState.pendingEmissions.at(-1)).toMatchObject({
@@ -140,7 +141,7 @@ describe("Login preapproval over a valid session", () => {
   it.effect("a non-interactive session without preapproval keeps the session", () => {
     const context = ports({ machineOutput: true });
     return Effect.gen(function* () {
-      const outcome = yield* login(deviceLoginRequest({}), authRegistry);
+      const outcome = yield* login(deviceLoginRequest({}), authSelectedRegistry);
 
       expect(outcome).toEqual({
         _tag: "SessionRetained",
@@ -157,7 +158,10 @@ describe("Login preapproval over a valid session", () => {
     () => {
       const context = ports({ machineOutput: true, sessionReplacement: "replace" });
       return Effect.gen(function* () {
-        const outcome = yield* login(deviceLoginRequest({ nonInteractive: false }), authRegistry);
+        const outcome = yield* login(
+          deviceLoginRequest({ nonInteractive: false }),
+          authSelectedRegistry,
+        );
 
         expect(outcome).toEqual({
           _tag: "SessionRetained",
@@ -175,7 +179,7 @@ describe("Login preapproval over a valid session", () => {
     return Effect.gen(function* () {
       const outcome = yield* login(
         deviceLoginRequest({ nonInteractive: false, machineOutput: false }),
-        authRegistry,
+        authSelectedRegistry,
       );
 
       expect(context.presenterState.sessionReplacementPrompts).toEqual([true]);

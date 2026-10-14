@@ -35,6 +35,9 @@ import { PendingDeviceLoginStore } from "./pending-device-login-store.js";
 import { runLoopbackLogin } from "../adapters/loopback-login.js";
 import { selectLoginStrategy } from "./login-strategy.js";
 import { loginStrategyEnvironment } from "../adapters/environment.js";
+import { credentialKey } from "../credentials/credential-key.js";
+import type { SelectedRegistry } from "./selected-registry.js";
+import type { HttpRegistryEndpoint } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 
 /** The invocation's sign-in inputs, parsed from the command line. */
 export interface LoginRequest {
@@ -144,17 +147,23 @@ const shouldReplaceValidSession = (request: LoginRequest, handle: string) =>
  * Registry. A sign-in that names no flow picks it up, so stopping a wait
  * never strands a code that is still good.
  */
-const hasResumableDeviceLogin = (registryUrl: string) =>
+const hasResumableDeviceLogin = (endpoint: HttpRegistryEndpoint) =>
   Effect.gen(function* () {
     const pending = yield* (yield* PendingDeviceLoginStore).load();
-    if (Option.isNone(pending) || pending.value.registryUrl !== registryUrl) return false;
+    if (Option.isNone(pending) || pending.value.registryUrl !== credentialKey(endpoint)) {
+      return false;
+    }
     return !(yield* DateTime.isPast(pending.value.expiresAt));
   });
 
-export const login = Effect.fn("Login.run")(function* (request: LoginRequest, registryUrl: string) {
+export const login = Effect.fn("Login.run")(function* (
+  request: LoginRequest,
+  registry: SelectedRegistry,
+) {
   const credentials = yield* CredentialStore;
   const presenter = yield* AuthLoginPresenter;
-  const registryHost = new URL(registryUrl).host;
+  const registryHost = registry.host;
+  const endpoint = registry.endpoint;
 
   const incoherent = rejectIncoherentFlags(request);
   if (Option.isSome(incoherent)) return yield* Effect.fail(incoherent.value);
@@ -163,7 +172,7 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     return yield* makePersistedCredentialsUnsupportedError();
   }
 
-  const existing = yield* credentials.load(registryUrl);
+  const existing = yield* credentials.load(credentialKey(endpoint));
   if (Option.isSome(existing)) {
     const authClient = yield* AuthClient;
     // The identity read travels the renewing transport, so a session whose
@@ -174,7 +183,7 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     const identity = yield* presenter.withProgress(
       { _tag: "CheckingRegistrySession", registryHost },
       () =>
-        authClient.getMe().pipe(
+        authClient.getMe(endpoint).pipe(
           Effect.asSome,
           Effect.catchIf(isRejectedCredential, () => Effect.succeed(Option.none<MeResponse>())),
         ),
@@ -193,7 +202,7 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
   }
 
   const namesFlow = request.deviceCode || request.waitForHumanSeconds !== undefined;
-  const resumesPending = !namesFlow && (yield* hasResumableDeviceLogin(registryUrl));
+  const resumesPending = !namesFlow && (yield* hasResumableDeviceLogin(endpoint));
   const strategy =
     request.waitForHumanSeconds !== undefined || resumesPending
       ? "device-code"
@@ -211,17 +220,17 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     if (request.waitForHumanSeconds !== undefined && unattended) {
       // No person is at this process, so it opens no browser: it starts or
       // reuses the sign-in and waits on it.
-      yield* initiateDeviceLogin(registryUrl, {
+      yield* initiateDeviceLogin(endpoint, {
         restart: request.restart,
         emitPendingResult: false,
       });
-      yield* resumeDeviceLogin(registryUrl, { timeoutSeconds: request.waitForHumanSeconds });
+      yield* resumeDeviceLogin(endpoint, { timeoutSeconds: request.waitForHumanSeconds });
     } else if (request.waitForHumanSeconds !== undefined) {
-      yield* runDeviceLogin(registryUrl, deviceOptions(!request.deviceCode));
+      yield* runDeviceLogin(endpoint, deviceOptions(!request.deviceCode));
     } else if (request.nonInteractive) {
-      yield* initiateDeviceLogin(registryUrl, deviceOptions(false));
+      yield* initiateDeviceLogin(endpoint, deviceOptions(false));
     } else {
-      yield* runDeviceLogin(registryUrl, deviceOptions(false));
+      yield* runDeviceLogin(endpoint, deviceOptions(false));
     }
     return { _tag: "SignInAttempted" } as const satisfies LoginOutcome;
   }
@@ -239,12 +248,12 @@ export const login = Effect.fn("Login.run")(function* (request: LoginRequest, re
     });
   }
 
-  yield* Effect.suspend(() => runLoopbackLogin(registryUrl)).pipe(
+  yield* Effect.suspend(() => runLoopbackLogin(endpoint)).pipe(
     Effect.catchTag("LoopbackLoginFallback", (error) =>
       error.reason === "bind_failed"
         ? presenter
             .noteDeviceCodeFallback("loopback-bind-failed")
-            .pipe(Effect.andThen(runDeviceLogin(registryUrl, deviceOptions(true))))
+            .pipe(Effect.andThen(runDeviceLogin(endpoint, deviceOptions(true))))
         : Effect.fail(classifyLoopbackFailure(error)),
     ),
     Effect.catchTag("LoopbackCallbackRejected", (error) =>

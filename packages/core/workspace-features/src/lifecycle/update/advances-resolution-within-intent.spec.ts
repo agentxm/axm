@@ -14,6 +14,7 @@ import YAML from "yaml";
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
+import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
@@ -59,7 +60,7 @@ export const specification = defineSpecification({
   requirement: "cli/update/advances-resolution-within-intent",
   title: "Update advances the accepted resolution within durable intent",
   statement:
-    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported.",
+    "Update of a desired Registry extension shall advance its accepted resolution and realized content to the newest version within its effective constraint — the intersection of its durable direct constraint with the range of every Pack that requires it — without changing axm.json or any other extension, shall be a no-op when already current, and when that intersection admits no version shall change nothing and report a conflict naming every contributor. Every type-group spelling of update shall be the root sweep narrowed to one type, so a range never selects a yanked release, a release under the minimum age is taken only under a declared exemption or the one-shot override and is otherwise reported as held, an edited or missing canonical tree is reacquired and reported as updated, and an entry pinned to a Git tag or commit is held unchanged while a newer tag is reported. A bare declaration, one qualified by the configured Registry it binds to, and one qualified by another alias of the same endpoint shall advance identically and keep the author's spelling, while a binding that moves to another Registry endpoint between planning and apply shall commit nothing.",
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity", "safe-repetition"],
@@ -139,12 +140,32 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
 });
 
 /** The two spellings of one Registry binding a direct declaration may carry. */
-const DECLARATION_SPELLINGS = ["bare", "registry-qualified"] as const;
+const DECLARATION_SPELLINGS = ["bare", "registry-qualified", "alias-qualified"] as const;
 type DeclarationSpelling = (typeof DECLARATION_SPELLINGS)[number];
 
-/** A Registry locator spelled bare, or qualified by the configured source it binds to. */
+/** The configured alias every scenario declares for its Registry's own endpoint. */
+const ALIAS = "alias";
+
+/**
+ * A Registry locator spelled bare, qualified by the configured source it
+ * binds to, or qualified by another alias of that source's endpoint.
+ */
 const spelled = (locator: string, spelling: DeclarationSpelling, sourceName: string): string =>
-  spelling === "bare" ? locator : `${sourceName}:${locator}`;
+  spelling === "bare"
+    ? locator
+    : `${spelling === "alias-qualified" ? ALIAS : sourceName}:${locator}`;
+
+/** The workspace's configured sources, with a second alias of the Registry's endpoint. */
+const withRegistryAlias = (
+  settings: Readonly<Record<string, unknown>>,
+  registry: FileRegistry,
+) => ({
+  ...settings,
+  sources: [
+    ...(Array.isArray(settings["sources"]) ? settings["sources"] : []),
+    { ...registry.source, name: ALIAS, location: registry.url },
+  ],
+});
 
 /** `axm skills update <name>`: the configured sweep narrowed to one skill. */
 const typeGroupSkillUpdate = (name: string) =>
@@ -258,7 +279,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
         "axm.json",
         `${JSON.stringify(
           {
-            ...readSettings(created.workspace),
+            ...withRegistryAlias(readSettings(created.workspace), created.registry),
             subagents: {
               [SHARED_SUBAGENT.name]: spelled(
                 pin === undefined ? SHARED_SUBAGENT.fqn : `${SHARED_SUBAGENT.fqn}@${pin}`,
@@ -707,8 +728,9 @@ describe.each(["configured", "targeted", "type-group"] as const)(
 
     /**
      * The shared-member scenario accepted at 1.0.0, after which the person
-     * re-pins the direct declaration, spelled as a bare FQN or qualified by
-     * the configured Registry it binds to. Both spellings name one binding.
+     * re-pins the direct declaration, spelled as a bare FQN, qualified by the
+     * configured Registry it binds to, or qualified by another alias of that
+     * Registry's endpoint. Every spelling names one binding.
      */
     const acceptedThenRepinned = (pin: string, spelling: DeclarationSpelling = "bare") =>
       Effect.gen(function* () {
@@ -720,7 +742,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
           "axm.json",
           `${JSON.stringify(
             {
-              ...readSettings(created.workspace),
+              ...withRegistryAlias(readSettings(created.workspace), created.registry),
               skills: {
                 [SHARED_MEMBER.name]: spelled(
                   `${SHARED_MEMBER.fqn}@${pin}`,
@@ -818,6 +840,62 @@ describe.each(["configured", "targeted", "type-group"] as const)(
       );
     }
 
+    if (route === "targeted") {
+      it.effect(
+        "an alias re-pointed at another Registry after planning commits nothing and is reported stale",
+        () =>
+          Effect.gen(function* () {
+            const workspace = yield* acceptedThenRepinned(
+              SHARED_MEMBER_PIN.inside,
+              "alias-qualified",
+            );
+            const mirror = makeFileRegistry();
+            cleanups.push(mirror.cleanup);
+            const settings = readSettings(workspace);
+            const lockBefore = workspace.readFile("axm-lock.yaml");
+
+            const resolution = yield* workspace.provide(
+              Effect.gen(function* () {
+                const candidate = yield* UpdateExtensions.prepare(
+                  targetedUpdateRequest({ source: SHARED_MEMBER.fqn }),
+                );
+                if (candidate.outcome === "nothing-configured") {
+                  throw new Error("Expected a planned targeted update");
+                }
+                // The declaration's spelling is unchanged; its alias now names another endpoint.
+                workspace.writeFile(
+                  "axm.json",
+                  `${JSON.stringify(
+                    {
+                      ...settings,
+                      sources: (Array.isArray(settings["sources"]) ? settings["sources"] : []).map(
+                        (source: unknown) =>
+                          typeof source === "object" &&
+                          source !== null &&
+                          "name" in source &&
+                          source.name === ALIAS
+                            ? { ...source, location: mirror.url }
+                            : source,
+                      ),
+                    },
+                    null,
+                    2,
+                  )}\n`,
+                );
+                return yield* UpdateExtensions.previewOrApply(
+                  candidate,
+                  preapprovedPlanExecution,
+                ).pipe(Effect.map((result) => result.resolution));
+              }),
+            );
+
+            expect(countUnitStates(resolution.units).committed).toBe(0);
+            expect(resolution.blocking?.class).toBe("stale-candidate");
+            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+          }).pipe(Effect.provide(NodeServices.layer)),
+      );
+    }
+
     it.effect(
       "a direct pin outside every Pack range changes nothing and names all three contributors",
       () =>
@@ -850,3 +928,135 @@ describe.each(["configured", "targeted", "type-group"] as const)(
     );
   },
 );
+
+describe("an accepted prerelease an unconstrained declaration does not admit", () => {
+  const cleanups: Array<() => void> = [];
+  afterEach(() => {
+    for (const cleanup of cleanups.splice(0)) cleanup();
+  });
+
+  const PRERELEASE = "2.0.0-beta.1";
+  const prerelease: RegistrySkillVersion = { version: PRERELEASE, body: "Beta guidance." };
+
+  const world = () => {
+    const registry = makeFileRegistry();
+    cleanups.push(registry.cleanup);
+    const workspace = makeLifecycleFixture({
+      sources: "live",
+      settings: { owner: "@acme", agents: ["claude-code"], sources: [registry.source] },
+    });
+    cleanups.push(workspace.cleanup);
+    return { workspace, registry };
+  };
+
+  /**
+   * Accept the prerelease through an exact pin, then drop the pin so the
+   * declaration admits what `*` admits, and publish the later releases.
+   */
+  const acceptThenUnpin = (
+    workspace: LifecycleFixture,
+    registry: FileRegistry,
+    later: ReadonlyArray<RegistrySkillVersion>,
+  ) =>
+    Effect.gen(function* () {
+      registry.writeSkill(REVIEW, [prerelease]);
+      yield* applyInstall(
+        installRequest({ subject: { kind: "source", source: `${FQN}@${PRERELEASE}` } }),
+      );
+      workspace.writeFile(
+        "axm.json",
+        `${JSON.stringify({ ...readSettings(workspace), skills: { [REVIEW]: `test:${FQN}` } }, null, 2)}\n`,
+      );
+      registry.writeSkill(REVIEW, [prerelease, ...later]);
+    });
+
+  it.effect(
+    "blocks sync and restore without mutation until an explicit update downgrades it",
+    () => {
+      const { workspace, registry } = world();
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* acceptThenUnpin(workspace, registry, [
+              { version: "1.9.0", body: "Stable guidance." },
+            ]);
+            const settings = workspace.readFile("axm.json");
+            const before = workspace.snapshot();
+
+            const refusal = yield* applySync().pipe(Effect.flip);
+            if (!(refusal instanceof WorkspaceSyncFailed)) throw refusal;
+            expect(refusal.category).toBe("conflict");
+            expect(refusal.detail).toContain(`constraints=*; accepted version=${PRERELEASE}`);
+            expect(refusal.detail).toContain("reason=accepted-resolution-incompatible");
+            const restore = yield* applyUpdate(
+              targetedUpdateRequest({ source: FQN, reinstall: true }),
+            ).pipe(Effect.flip);
+            expect(restore).toMatchObject({ category: "conflict" });
+            expect(workspace.snapshot()).toEqual(before);
+
+            const updated = expectResolved(
+              yield* applyUpdate(targetedUpdateRequest({ source: FQN })),
+            );
+            expect(deriveOperationOutcome(updated)).toBe("applied");
+            // The explicit update reports the move below the accepted prerelease.
+            expect(updated.units[0]?.artifact?.members).toEqual([
+              expect.objectContaining({
+                artifact: expect.objectContaining({
+                  version: "1.9.0",
+                  previousVersion: PRERELEASE,
+                }),
+              }),
+            ]);
+            expect(lockSkill(workspace.readFile("axm-lock.yaml"), REVIEW)).toMatchObject({
+              resolved: { version: "1.9.0" },
+            });
+            expect(workspace.readFile("axm.json")).toBe(settings);
+            expect((yield* applySync())._tag).toBe("AlreadyReconciled");
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+  );
+
+  it.effect("reports no satisfying version and changes nothing when only prereleases exist", () => {
+    const { workspace, registry } = world();
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          yield* acceptThenUnpin(workspace, registry, []);
+          const before = workspace.snapshot();
+
+          const refusal = yield* applyUpdate(targetedUpdateRequest({ source: FQN })).pipe(
+            Effect.flip,
+          );
+
+          expect(refusal).toMatchObject({ category: "conflict", title: "No compatible version" });
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+
+  it.effect("reports the stable release as held and changes nothing while it is under age", () => {
+    const { workspace, registry } = world();
+    return workspace
+      .provide(
+        Effect.gen(function* () {
+          const published = DateTime.formatIso(yield* DateTime.now);
+          yield* acceptThenUnpin(workspace, registry, [
+            { version: "1.9.0", body: "Stable guidance.", published },
+          ]);
+          const before = workspace.snapshot();
+
+          const held = expectResolved(yield* applyUpdate(targetedUpdateRequest({ source: FQN })));
+
+          expect(held.blocking?.reference).toBe("release-age-held");
+          expect(held.releaseAge?.holdbacks).toEqual([
+            expect.objectContaining({ target: FQN, candidateVersion: "1.9.0" }),
+          ]);
+          expect(workspace.snapshot()).toEqual(before);
+        }),
+      )
+      .pipe(Effect.provide(NodeServices.layer));
+  });
+});

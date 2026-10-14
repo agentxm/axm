@@ -191,7 +191,6 @@ export type RegistryProblemCode =
   | "archive_read_failed"
   | "publish_internal_error"
   | "service_unavailable"
-  | "publish_publish_disabled"
   | "publish_database_contention";
 export const RegistryProblemCode = Schema.Literals([
   "invalid_request",
@@ -273,7 +272,6 @@ export const RegistryProblemCode = Schema.Literals([
   "archive_read_failed",
   "publish_internal_error",
   "service_unavailable",
-  "publish_publish_disabled",
   "publish_database_contention",
 ]).annotate({
   title: "Registry Problem Code",

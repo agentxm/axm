@@ -4,10 +4,10 @@ okf_version: "0.2"
 
 # Agent engineering
 
-Portable knowledge for building goal-directed AI agent systems: deciding when
-an agent is the right shape at all, designing its behavior, shaping what the
-model sees, building the runtime around it, measuring whether it works, and
-operating it over time.
+Portable knowledge for building goal-directed AI agent systems: deciding when an
+agent is the right shape at all, designing its behavior, shaping what the model
+sees, building the runtime around it, measuring whether it works, and operating
+it over time.
 
 The scope is foundation-model software agents. Robotics, autonomous vehicles,
 and reinforcement learning are neighboring fields rather than covered domains.
@@ -22,8 +22,8 @@ and reinforcement learning are neighboring fields rather than covered domains.
 
 - [Agent design](agents/) - Goals, control loops, planning, observation and
   tool-use policy, memory policy, and human collaboration.
-- [Multi-agent systems](multi-agent/) - Roles, topologies, delegation,
-  handoffs, coordination, and failure containment.
+- [Multi-agent systems](multi-agent/) - Roles, topologies, delegation, handoffs,
+  coordination, and failure containment.
 
 ## Shape what the model sees
 
@@ -36,8 +36,8 @@ and reinforcement learning are neighboring fields rather than covered domains.
 
 - [Harness](harness/) - Runtime, environments, action and observation
   interfaces, state, feedback, authority, and containment.
-- [Skills](skills/) - Packaging reusable workflows behind routing metadata,
-  with resources, contracts, portability, and platform profiles.
+- [Skills](skills/) - Packaging reusable workflows behind routing metadata, with
+  resources, contracts, portability, and platform profiles.
 
 ## Measure it and trust it
 
@@ -59,5 +59,4 @@ and reinforcement learning are neighboring fields rather than covered domains.
 ## Shared vocabulary
 
 - [Glossary](glossary.md) - Working definitions for agency, control, system
-  composition, context, interfaces, authority, harness elements, and
-  evaluation.
+  composition, context, interfaces, authority, harness elements, and evaluation.

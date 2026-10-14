@@ -16,11 +16,10 @@ responsible for, how it decides, and how it stops.
   When and why capabilities are selected, and how results affect the next
   decision.
 - [Memory, state, and adaptation policy](memory-state-and-adaptation-policy.md) -
-  What may influence future decisions, separating policy from storage
-  mechanics.
+  What may influence future decisions, separating policy from storage mechanics.
 - [Human control and collaboration](human-control-and-collaboration.md) -
-  Oversight, approvals, intervention, explanation, and responsibility
-  throughout a run.
+  Oversight, approvals, intervention, explanation, and responsibility throughout
+  a run.
 - [How to design agent-mediated user experience](agent-mediated-user-experience.md) -
   How to make a user-facing agent workflow legible, actionable, and
   authority-aware across openings, progress, questions, gates, and closeouts.

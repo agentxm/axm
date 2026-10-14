@@ -1,8 +1,19 @@
 ---
 type: Explanation
 title: Agent legibility
-description: How agent legibility makes task-relevant intent, state, capabilities, constraints, and feedback discoverable and usable by an agent.
-tags: [harness, agents, legibility, observability, interfaces, feedback, environment]
+description:
+  How agent legibility makes task-relevant intent, state, capabilities,
+  constraints, and feedback discoverable and usable by an agent.
+tags:
+  [
+    harness,
+    agents,
+    legibility,
+    observability,
+    interfaces,
+    feedback,
+    environment,
+  ]
 status: stable
 sources:
   - id: openai-harness-engineering
@@ -10,7 +21,9 @@ sources:
     title: OpenAI — Harness engineering
   - id: ai-harness-runtime
     resource: https://arxiv.org/abs/2605.13357
-    title: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents
+    title:
+      AI Harness Engineering — A Runtime Substrate for Foundation-Model Software
+      Agents
 generated: { by: "codex/gpt-5.6", at: 2026-08-09T20:53:20Z }
 verified:
   - by: codex/gpt-5.6
@@ -26,17 +39,17 @@ consequences in forms an agent can discover, interpret, use, and verify.
 
 From an agent's perspective, inaccessible or uninterpretable state is
 operationally similar to missing state. OpenAI describes agent legibility as a
-goal of making the business domain and application behavior directly
-available for reasoning through repository knowledge, tools, user-interface
+goal of making the business domain and application behavior directly available
+for reasoning through repository knowledge, tools, user-interface
 representations, logs, metrics, and traces.[^openai-harness-engineering]
 
-Legibility does not require exposing everything. It requires exposing the
-right distinctions at the point where they can change a decision.
+Legibility does not require exposing everything. It requires exposing the right
+distinctions at the point where they can change a decision.
 
 ## A relational quality
 
-Legibility is not an intrinsic property of a file, interface, or system. It is
-a relationship among:
+Legibility is not an intrinsic property of a file, interface, or system. It is a
+relationship among:
 
 - an agent's capabilities;
 - the task it is trying to perform;
@@ -44,44 +57,44 @@ a relationship among:
 - the actions and feedback available in the environment.
 
 A dashboard may be legible to a human but unavailable to a headless agent. A
-large JSON response may be machine-readable but too noisy to guide a decision.
-A concise error may identify a failure without offering any action that can
+large JSON response may be machine-readable but too noisy to guide a decision. A
+concise error may identify a failure without offering any action that can
 resolve it. The same environment can therefore be legible for one task and
 opaque for another.
 
 ## Dimensions of legibility
 
-| Dimension | Question |
-| --- | --- |
-| Discoverability | Can the agent find the relevant source, capability, or state? |
-| Interpretability | Does its representation expose meaningful structure and distinctions? |
-| Actionability | Can the agent use what it learned through an available interface? |
-| Feedback | Are the consequences of action returned compactly and specifically? |
-| Verifiability | Can the agent establish whether the intended outcome now holds? |
-| Continuity | Can another turn, session, or worker recover what remains current? |
-| Authority | Are permissions, limits, and escalation boundaries visible before action? |
+| Dimension        | Question                                                                  |
+| ---------------- | ------------------------------------------------------------------------- |
+| Discoverability  | Can the agent find the relevant source, capability, or state?             |
+| Interpretability | Does its representation expose meaningful structure and distinctions?     |
+| Actionability    | Can the agent use what it learned through an available interface?         |
+| Feedback         | Are the consequences of action returned compactly and specifically?       |
+| Verifiability    | Can the agent establish whether the intended outcome now holds?           |
+| Continuity       | Can another turn, session, or worker recover what remains current?        |
+| Authority        | Are permissions, limits, and escalation boundaries visible before action? |
 
 These dimensions reinforce one another. Discoverable documentation without an
 action interface may explain a system the agent cannot affect. An action
-interface without feedback creates blind mutation. Feedback without task
-intent reports events without saying whether they matter.
+interface without feedback creates blind mutation. Feedback without task intent
+reports events without saying whether they matter.
 
 ## What a harness makes legible
 
-| Concern | Possible representations |
-| --- | --- |
-| Intent | Task specification, acceptance criteria, examples, plan |
-| Domain and structure | Vocabulary, schemas, architecture maps, dependency graphs |
-| Capabilities | Tool summaries, help, skills, supported operations |
-| Environment state | Files, structured queries, snapshots, resource inventories |
-| Effects | Diffs, receipts, events, test results, screenshots |
-| Runtime behavior | Logs, metrics, traces, timelines |
-| Constraints | Scoped instructions, schemas, policies, actionable check failures |
-| Continuity | Checkpoints, decision logs, task records, execution state |
+| Concern              | Possible representations                                          |
+| -------------------- | ----------------------------------------------------------------- |
+| Intent               | Task specification, acceptance criteria, examples, plan           |
+| Domain and structure | Vocabulary, schemas, architecture maps, dependency graphs         |
+| Capabilities         | Tool summaries, help, skills, supported operations                |
+| Environment state    | Files, structured queries, snapshots, resource inventories        |
+| Effects              | Diffs, receipts, events, test results, screenshots                |
+| Runtime behavior     | Logs, metrics, traces, timelines                                  |
+| Constraints          | Scoped instructions, schemas, policies, actionable check failures |
+| Continuity           | Checkpoints, decision logs, task records, execution state         |
 
 The runtime substrate proposed in recent harness-engineering research similarly
-joins context, tools, state, observability, verification, and permissions
-rather than treating any one representation as sufficient.[^ai-harness-runtime]
+joins context, tools, state, observability, verification, and permissions rather
+than treating any one representation as sufficient.[^ai-harness-runtime]
 
 ## Legibility is not context dumping
 
@@ -96,44 +109,44 @@ itself belongs to context; see
 indexes, queries, filters, and structured tools can make a large environment
 more legible precisely because they avoid showing everything at once.
 
-The quality test is not “could the agent theoretically access the bytes?” It
-is “could the agent find and interpret the evidence needed for this decision
+The quality test is not “could the agent theoretically access the bytes?” It is
+“could the agent find and interpret the evidence needed for this decision
 without hidden human translation?”
 
 ## Legibility and abstraction
 
 An abstraction improves legibility when it hides irrelevant mechanics while
-preserving the distinctions needed for correct action. It harms legibility
-when important behavior becomes observable only through undocumented side
-effects, human intuition, or opaque upstream systems.
+preserving the distinctions needed for correct action. It harms legibility when
+important behavior becomes observable only through undocumented side effects,
+human intuition, or opaque upstream systems.
 
-Stable schemas, narrow tools, conventional structures, deterministic checks,
-and inspectable state transitions often make better agent interfaces than
-free-form prose around an opaque operation. Conversely, exposing every
-internal detail can bind the agent to accidental complexity and make the
-intended contract harder to see.
+Stable schemas, narrow tools, conventional structures, deterministic checks, and
+inspectable state transitions often make better agent interfaces than free-form
+prose around an opaque operation. Conversely, exposing every internal detail can
+bind the agent to accidental complexity and make the intended contract harder to
+see.
 
 The goal is an inspectable boundary, not maximal transparency.
 
 ## Relationship to observability and agent experience
 
-**Observability** supplies evidence about a running system. **Agent
-legibility** asks whether that evidence—and the surrounding intent,
-capabilities, and constraints—can actually guide agent decisions. Logs may be
-observable yet illegible if the agent cannot query them, correlate them with a
-task, or distinguish expected noise from failure.
+**Observability** supplies evidence about a running system. **Agent legibility**
+asks whether that evidence—and the surrounding intent, capabilities, and
+constraints—can actually guide agent decisions. Logs may be observable yet
+illegible if the agent cannot query them, correlate them with a task, or
+distinguish expected noise from failure.
 
-**Agent experience (AX)** is broader. It describes how effectively an agent
-can operate with a technology, harness, and environment. Legibility is one
-dimension of that experience; reliability, latency, safety, recoverability,
-and capability also matter. A highly legible tool that fails frequently still
-provides poor agent experience.
+**Agent experience (AX)** is broader. It describes how effectively an agent can
+operate with a technology, harness, and environment. Legibility is one dimension
+of that experience; reliability, latency, safety, recoverability, and capability
+also matter. A highly legible tool that fails frequently still provides poor
+agent experience.
 
 ## Relationship to context gardening
 
-**Context gardening**, a context-engineering practice, maintains legibility
-over time. Observed searches, misunderstandings, stale answers, hidden state,
-and failed verifications reveal where representations or routes need repair.
+**Context gardening**, a context-engineering practice, maintains legibility over
+time. Observed searches, misunderstandings, stale answers, hidden state, and
+failed verifications reveal where representations or routes need repair.
 Gardening then changes the responsible context surface and checks whether the
 next agent can navigate it more successfully.
 
@@ -155,20 +168,20 @@ mistaking their preferred representations for universal harness elements.
 
 ## Common failure modes
 
-- **Hidden truth** — necessary knowledge remains in people, private channels,
-  or inaccessible systems.
+- **Hidden truth** — necessary knowledge remains in people, private channels, or
+  inaccessible systems.
 - **Human-only surface** — the state is visible, but only through an interface
   the agent cannot inspect reliably.
 - **Raw exhaust** — large undifferentiated outputs obscure decision-relevant
   signals.
-- **Action without observation** — the agent can mutate state but cannot see
-  the result.
+- **Action without observation** — the agent can mutate state but cannot see the
+  result.
 - **Feedback without recovery** — an error names a problem without locating it
   or suggesting the next valid action.
 - **Stale representation** — documentation or cached state remains plausible
   after reality changes.
-- **Invisible authority** — permissions or approval boundaries appear only
-  after attempted action.
+- **Invisible authority** — permissions or approval boundaries appear only after
+  attempted action.
 - **Transcript dependence** — essential intent or progress cannot survive the
   current conversation.
 
@@ -180,4 +193,7 @@ mistaking their preferred representations for universal harness elements.
 - [Glossary](../glossary.md)
 
 [^openai-harness-engineering]: OpenAI — Harness engineering
-[^ai-harness-runtime]: AI Harness Engineering — A Runtime Substrate for Foundation-Model Software Agents
+
+[^ai-harness-runtime]:
+    AI Harness Engineering — A Runtime Substrate for Foundation-Model Software
+    Agents

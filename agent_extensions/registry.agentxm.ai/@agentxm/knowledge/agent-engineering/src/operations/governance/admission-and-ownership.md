@@ -1,7 +1,9 @@
 ---
 type: How-to guide
 title: How to admit a skill and assign ownership
-description: How to decide whether a skill should enter or change the library and who accepts its continuing obligations.
+description:
+  How to decide whether a skill should enter or change the library and who
+  accepts its continuing obligations.
 tags: [agent-skills, admission, ownership, review, stewardship]
 status: stable
 stale_after: 2027-02-14
@@ -15,15 +17,17 @@ sources:
     title: GitHub — About code owners
   - id: dynamic-agent-skills
     resource: https://arxiv.org/abs/2607.10113
-    title: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
+    title:
+      Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill
+      Libraries
 ---
 
 # How to admit a skill and assign ownership
 
-Admission asks whether an exact candidate should alter the governed library,
-not merely whether its package is valid. Run it for a new skill and for a
-material revision whose compatibility, risk, provenance, owner, or supported
-environment changed.
+Admission asks whether an exact candidate should alter the governed library, not
+merely whether its package is valid. Run it for a new skill and for a material
+revision whose compatibility, risk, provenance, owner, or supported environment
+changed.
 
 ## Admission flow
 
@@ -57,12 +61,16 @@ judge the workflow and obligated to respond when it drifts. Require:
 - an orphan policy when the team dissolves or declines responsibility.
 
 Use repository ownership and required review mechanics to route changes, while
-protecting the ownership policy itself from unilateral edits.[^github-codeowners]
-Automation may recommend owners from history; a team must explicitly accept.
-Current lifecycle research treats verification and admission as distinct
-stages whose quality determines library quality.[^dynamic-agent-skills]
+protecting the ownership policy itself from unilateral
+edits.[^github-codeowners] Automation may recommend owners from history; a team
+must explicitly accept. Current lifecycle research treats verification and
+admission as distinct stages whose quality determines library
+quality.[^dynamic-agent-skills]
 
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-[^github-codeowners]: GitHub — About code owners
-[^dynamic-agent-skills]: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
 
+[^github-codeowners]: GitHub — About code owners
+
+[^dynamic-agent-skills]:
+    Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill
+    Libraries

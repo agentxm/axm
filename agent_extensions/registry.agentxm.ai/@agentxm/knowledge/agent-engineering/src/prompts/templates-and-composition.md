@@ -1,8 +1,18 @@
 ---
 type: Reference
 title: Templates and composition
-description: How fixed and variable content combine without confusing instructions, data, or ownership.
-tags: [prompt-template, variables, composition, fixed-content, dynamic-content, escaping]
+description:
+  How fixed and variable content combine without confusing instructions, data,
+  or ownership.
+tags:
+  [
+    prompt-template,
+    variables,
+    composition,
+    fixed-content,
+    dynamic-content,
+    escaping,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
 stale_after: 2027-02-14
@@ -54,4 +64,5 @@ least privilege, approval, output validation, and monitoring remain outside the
 template.
 
 [^anthropic-tools]: Anthropic — Console prompting tools
+
 [^owasp-injection]: OWASP — LLM Prompt Injection Prevention Cheat Sheet

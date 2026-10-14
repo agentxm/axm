@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Agent skills
-description: How agent skills package reusable workflows behind a routing description and progressively disclose instructions, resources, and deterministic helpers.
+description:
+  How agent skills package reusable workflows behind a routing description and
+  progressively disclose instructions, resources, and deterministic helpers.
 tags: [harness, skills, workflows, routing, progressive-disclosure]
 status: stable
 sources:
@@ -47,10 +49,10 @@ name + description  →  SKILL.md body  →  referenced resources
 catalog / routing      activated work     only when the step needs them
 ```
 
-The first stage is small but decisive. An agent cannot use instructions it
-never discovers, so the description is part of the skill's behavior rather
-than merely catalog prose. It must distinguish both the intended tasks and the
-adjacent tasks that should not activate the skill.
+The first stage is small but decisive. An agent cannot use instructions it never
+discovers, so the description is part of the skill's behavior rather than merely
+catalog prose. It must distinguish both the intended tasks and the adjacent
+tasks that should not activate the skill.
 
 Once selected, the full instruction body enters context. Larger references,
 scripts, and assets remain outside until the workflow calls for them. OpenAI's
@@ -59,29 +61,29 @@ both explicit and implicit invocation.[^openai-build-skills]
 
 ## The contracts inside a skill
 
-| Contract | Question it answers | Typical owner |
-| --- | --- | --- |
-| Routing | When should this skill activate? | `name` and `description` |
-| Workflow | What sequence, decisions, and checks should the agent follow? | `SKILL.md` body |
-| Inputs and outputs | What must be available, and what constitutes a useful result? | Body and examples |
-| Resources | What deeper facts or templates are needed only sometimes? | `references/`, `assets/` |
-| Determinism | Which fragile or repetitive operations should code perform? | `scripts/` |
-| Environment | Which tools, permissions, runtimes, or network access are required? | Portable metadata or host configuration |
+| Contract           | Question it answers                                                 | Typical owner                           |
+| ------------------ | ------------------------------------------------------------------- | --------------------------------------- |
+| Routing            | When should this skill activate?                                    | `name` and `description`                |
+| Workflow           | What sequence, decisions, and checks should the agent follow?       | `SKILL.md` body                         |
+| Inputs and outputs | What must be available, and what constitutes a useful result?       | Body and examples                       |
+| Resources          | What deeper facts or templates are needed only sometimes?           | `references/`, `assets/`                |
+| Determinism        | Which fragile or repetitive operations should code perform?         | `scripts/`                              |
+| Environment        | Which tools, permissions, runtimes, or network access are required? | Portable metadata or host configuration |
 
-A reliable skill makes these contracts visible. A bag of tips called a skill
-may be helpful prose, but it gives the harness little basis for activation,
+A reliable skill makes these contracts visible. A bag of tips called a skill may
+be helpful prose, but it gives the harness little basis for activation,
 completion, or recovery.
 
 ## Relationship to neighboring elements
 
-| Element | Primary job | Why it is not a skill |
-| --- | --- | --- |
-| Instruction file | Establish always-on invariants and routes | It applies before the harness knows which workflow is needed |
-| Knowledge document | Supply facts, context, or explanation | It informs cognition rather than owning a procedure |
-| Tool | Provide an action or observation primitive | It can be invoked but does not define the surrounding workflow |
-| Script | Execute deterministic logic | It cannot supply judgment across the whole task |
-| Agent definition | Configure a role, model, tools, and authority | It defines an actor rather than one reusable job |
-| Hook | Run automatically at a lifecycle event | It is event-driven rather than selected for a user goal |
+| Element            | Primary job                                   | Why it is not a skill                                          |
+| ------------------ | --------------------------------------------- | -------------------------------------------------------------- |
+| Instruction file   | Establish always-on invariants and routes     | It applies before the harness knows which workflow is needed   |
+| Knowledge document | Supply facts, context, or explanation         | It informs cognition rather than owning a procedure            |
+| Tool               | Provide an action or observation primitive    | It can be invoked but does not define the surrounding workflow |
+| Script             | Execute deterministic logic                   | It cannot supply judgment across the whole task                |
+| Agent definition   | Configure a role, model, tools, and authority | It defines an actor rather than one reusable job               |
+| Hook               | Run automatically at a lifecycle event        | It is event-driven rather than selected for a user goal        |
 
 A skill may use all of these. It should not absorb their responsibilities.
 
@@ -99,16 +101,16 @@ Good boundaries usually have these properties:
 - neighboring work can be excluded without a long exception list;
 - supporting resources belong to the same capability and can travel with it.
 
-A skill is too broad when its description resembles a department, discipline,
-or product area. It is too narrow when it merely aliases one obvious tool call
+A skill is too broad when its description resembles a department, discipline, or
+product area. It is too narrow when it merely aliases one obvious tool call
 without adding judgment, sequencing, or reusable context.
 
 ## Instructions versus scripts
 
-Natural-language instructions are appropriate for decisions that depend on
-task context: selecting an approach, interpreting evidence, or adapting to a
-working environment. Scripts are appropriate when the same transformation
-must be exact, repeatable, and cheaply testable.
+Natural-language instructions are appropriate for decisions that depend on task
+context: selecting an approach, interpreting evidence, or adapting to a working
+environment. Scripts are appropriate when the same transformation must be exact,
+repeatable, and cheaply testable.
 
 The division should follow semantics rather than prestige:
 
@@ -120,16 +122,16 @@ The division should follow semantics rather than prestige:
 ## Portability and host behavior
 
 The Agent Skills specification standardizes the core package, but activation,
-installation, tool permissions, and optional metadata still vary by host.[^agent-skills-spec]
-A portable skill therefore keeps its core workflow self-contained, states real
-environment requirements, and isolates host-specific configuration from the
-portable instructions.
+installation, tool permissions, and optional metadata still vary by
+host.[^agent-skills-spec] A portable skill therefore keeps its core workflow
+self-contained, states real environment requirements, and isolates host-specific
+configuration from the portable instructions.
 
-Portability does not mean lowest-common-denominator behavior. It means the
-skill tells the truth about its assumptions and does not accidentally depend
-on files or credentials that are present only on its author's machine. It
-never reaches another extension by path; a required sibling is named and
-resolved through the host's or manager's own discovery.
+Portability does not mean lowest-common-denominator behavior. It means the skill
+tells the truth about its assumptions and does not accidentally depend on files
+or credentials that are present only on its author's machine. It never reaches
+another extension by path; a required sibling is named and resolved through the
+host's or manager's own discovery.
 
 ## Common failure modes
 
@@ -143,17 +145,18 @@ resolved through the host's or manager's own discovery.
   outcome, or verification step.
 - **Script-shaped prose** — deterministic mechanics are repeatedly improvised
   from instructions and drift between runs.
-- **Hidden environment** — required tools, permissions, network access, or
-  side effects appear only after execution fails.
+- **Hidden environment** — required tools, permissions, network access, or side
+  effects appear only after execution fails.
 - **Incidental coupling** — the skill relies on another local element without
   packaging or declaring that relationship.
 
 ## Related
 
 - [Agent instruction files](../domains/software-engineering/agent-instruction-files.md)
-- [System elements and boundaries](../foundations/system-elements-and-boundaries.md) —
-  for progressive disclosure, context gardening, and other context-owned
+- [System elements and boundaries](../foundations/system-elements-and-boundaries.md)
+  — for progressive disclosure, context gardening, and other context-owned
   patterns a skill depends on
 
 [^agent-skills-spec]: Agent Skills specification
+
 [^openai-build-skills]: OpenAI — Build skills

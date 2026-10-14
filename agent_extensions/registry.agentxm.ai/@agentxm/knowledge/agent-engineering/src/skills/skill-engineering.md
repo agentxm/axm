@@ -1,7 +1,8 @@
 ---
 type: Explanation
 title: Skill engineering
-description: Why Agent Skills need an engineering lifecycle beyond valid SKILL.md syntax.
+description:
+  Why Agent Skills need an engineering lifecycle beyond valid SKILL.md syntax.
 tags: [agent-skills, skill-engineering, lifecycle, evaluation, trust]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }
@@ -12,7 +13,9 @@ sources:
     title: Agent Skills specification
   - id: dynamic-agent-skills
     resource: https://arxiv.org/abs/2607.10113
-    title: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
+    title:
+      Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill
+      Libraries
 ---
 
 # Skill engineering
@@ -35,9 +38,9 @@ A valid package can still fail because it:
 - contains unsafe code, deceptive metadata, or untrusted dependencies; or
 - remains installed after its workflow, environment, or evidence becomes stale.
 
-Skills therefore resemble small software products more than disposable
-prompts. They have contracts, dependencies, tests, releases, trust boundaries,
-consumers, and a retirement point.
+Skills therefore resemble small software products more than disposable prompts.
+They have contracts, dependencies, tests, releases, trust boundaries, consumers,
+and a retirement point.
 
 ## The lifecycle
 
@@ -54,17 +57,20 @@ rather than static prompt collections.[^dynamic-agent-skills]
 ## Scope
 
 Skill engineering owns an individual skill's routing, workflow, capabilities,
-outcomes, trust, compatibility, and behavioral lifecycle. It also owns
-portfolio decisions that emerge from many skills: admission, ownership,
-capability governance, collision, utility, composition intent, version intent,
-and retirement criteria.
+outcomes, trust, compatibility, and behavioral lifecycle. It also owns portfolio
+decisions that emerge from many skills: admission, ownership, capability
+governance, collision, utility, composition intent, version intent, and
+retirement criteria.
 
 It does not own the whole harness, an agent's identity and tool policy, an MCP
-server's implementation, an extension manager's package and projection state,
-a plugin distribution system, or repository-wide instructions. Those surfaces
-constrain skills and must be observed, but they remain separate authorities.
-For AXM's concrete management layer, read the
+server's implementation, an extension manager's package and projection state, a
+plugin distribution system, or repository-wide instructions. Those surfaces
+constrain skills and must be observed, but they remain separate authorities. For
+AXM's concrete management layer, read the
 [AXM extension-management profile](platforms/axm.md).
 
 [^agent-skills-spec]: Agent Skills specification
-[^dynamic-agent-skills]: Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill Libraries
+
+[^dynamic-agent-skills]:
+    Dynamic Agent Skills — A Lifecycle Survey and Taxonomy of Evolving Skill
+    Libraries

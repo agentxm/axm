@@ -1,7 +1,9 @@
 ---
 type: Reference
 title: Capability boundaries and risk tiers
-description: How declared, approved, effective, and observed authority determine controls and reviewers for a skill.
+description:
+  How declared, approved, effective, and observed authority determine controls
+  and reviewers for a skill.
 tags: [agent-skills, capabilities, allowed-tools, least-privilege, risk-tier]
 status: stable
 stale_after: 2027-02-14
@@ -22,20 +24,20 @@ sources:
 
 Govern four different capability sets:
 
-| Set | Meaning |
-| --- | --- |
-| Requested | What the package says the job needs |
-| Approved | What reviewers authorize for an exact artifact and use |
+| Set       | Meaning                                                      |
+| --------- | ------------------------------------------------------------ |
+| Requested | What the package says the job needs                          |
+| Approved  | What reviewers authorize for an exact artifact and use       |
 | Effective | What the host, identity, sandbox, and policy actually permit |
-| Observed | What execution evidence shows the skill attempted or used |
+| Observed  | What execution evidence shows the skill attempted or used    |
 
 The effective set must be no broader than the approved set. A mismatch is a
 deployment defect even when the skill behaves safely in one evaluation.
 
 The portable `allowed-tools` field is experimental and host support varies. It
-describes pre-approved tools, not a universal deny-by-default maximum.[^agent-skills-spec]
-Use it when supported, but record the complete capability envelope separately
-and verify host enforcement.
+describes pre-approved tools, not a universal deny-by-default
+maximum.[^agent-skills-spec] Use it when supported, but record the complete
+capability envelope separately and verify host enforcement.
 
 ## Capability envelope
 
@@ -54,11 +56,11 @@ Use local policy tiers whose names fit the organization. At minimum distinguish:
 - network, credentials, package installation, or external mutation; and
 - destructive, production, privileged, or regulated-data actions.
 
-Higher tiers require stronger isolation, provenance, evaluation, review,
-runtime confirmation, monitoring, and evidence refresh. Google demonstrates
-intercepting skill loading, resource access, and script execution with
-context-sensitive policy.[^google-governance] Microsoft distinguishes automatic
-approval of read-only skill operations from explicit approval of script
+Higher tiers require stronger isolation, provenance, evaluation, review, runtime
+confirmation, monitoring, and evidence refresh. Google demonstrates intercepting
+skill loading, resource access, and script execution with context-sensitive
+policy.[^google-governance] Microsoft distinguishes automatic approval of
+read-only skill operations from explicit approval of script
 execution.[^microsoft-agent-skills]
 
 Skill engineering owns the declared envelope, risk decision, and proof that
@@ -66,6 +68,7 @@ effective policy matches it. Harness engineering owns the runtime policy engine,
 identity, sandbox, approval middleware, and telemetry implementation.
 
 [^agent-skills-spec]: Agent Skills specification
-[^google-governance]: Google Cloud — Governing Agent Skills
-[^microsoft-agent-skills]: Microsoft Agent Framework — Agent Skills
 
+[^google-governance]: Google Cloud — Governing Agent Skills
+
+[^microsoft-agent-skills]: Microsoft Agent Framework — Agent Skills

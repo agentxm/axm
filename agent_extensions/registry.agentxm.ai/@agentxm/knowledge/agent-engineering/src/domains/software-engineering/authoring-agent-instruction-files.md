@@ -1,8 +1,19 @@
 ---
 type: How-to guide
 title: How to author agent instruction files
-description: How to create or revise a scoped agent instruction system such as AGENTS.md or CLAUDE.md without assuming one coding agent's loading or precedence behavior.
-tags: [agent-instructions, instruction-files, authoring, agents.md, claude.md, scope, progressive-disclosure]
+description:
+  How to create or revise a scoped agent instruction system such as AGENTS.md or
+  CLAUDE.md without assuming one coding agent's loading or precedence behavior.
+tags:
+  [
+    agent-instructions,
+    instruction-files,
+    authoring,
+    agents.md,
+    claude.md,
+    scope,
+    progressive-disclosure,
+  ]
 status: stable
 generated: { by: "codex/gpt-6", at: 2026-09-12T18:30:03Z }
 stale_after: 2027-02-24
@@ -21,18 +32,18 @@ sources:
 # How to author agent instruction files
 
 Use this guide to create or revise `AGENTS.md`, `CLAUDE.md`, or another
-persistent agent instruction surface. It supplies a portable authoring
-process; the active repository, harness, and their authoritative documentation
-must supply current file-discovery and precedence behavior.
+persistent agent instruction surface. It supplies a portable authoring process;
+the active repository, harness, and their authoritative documentation must
+supply current file-discovery and precedence behavior.
 
 For the underlying model and tradeoffs, read
 [Agent instruction files](agent-instruction-files.md).
 
 ## Goal
 
-Produce a maintainable instruction system that gives supported agents
-high-value guidance at the scope where it is true, routes deeper context on
-demand, and can be verified from realistic entry points.
+Produce a maintainable instruction system that gives supported agents high-value
+guidance at the scope where it is true, routes deeper context on demand, and can
+be verified from realistic entry points.
 
 ## Preconditions
 
@@ -43,8 +54,8 @@ demand, and can be verified from realistic entry points.
 
 ## 1. Resolve the effective instruction contract
 
-Do not begin from a universal assumption about hierarchical files. Establish
-the behavior of the consuming environment:
+Do not begin from a universal assumption about hierarchical files. Establish the
+behavior of the consuming environment:
 
 - Which instruction sources are recognized?
 - What scope does each source govern?
@@ -74,9 +85,9 @@ Select a small set of tasks that exercise the repository's meaningful scopes:
 - adjacent work that must not receive those local instructions.
 
 Include the working locations or target paths from which each task begins.
-Preserve a smaller or absent-guidance baseline where practical. These cases
-will drive placement, verify applicability, and test whether the surface is
-actually useful.
+Preserve a smaller or absent-guidance baseline where practical. These cases will
+drive placement, verify applicability, and test whether the surface is actually
+useful.
 
 ## 4. Inventory the current surface
 
@@ -86,19 +97,19 @@ tools, and checks. Mark duplication, stale commands, ambiguous conflicts,
 missing routes, and local detail that appears too broadly.
 
 When revising an existing surface, use the
-[audit finding classes](agent-instruction-files.md#audit-finding-classes)
-to keep findings consistent and evidence-backed.
+[audit finding classes](agent-instruction-files.md#audit-finding-classes) to
+keep findings consistent and evidence-backed.
 
 ## 5. Select instruction-worthy content
 
 Keep content that performs one of four jobs:
 
-| Job | Keep when |
-| --- | --- |
-| Invariant | A stable constraint must shape work throughout its scope |
-| Working command | A non-obvious command materially improves execution or validation |
-| Discovery route | A recognizable condition should load a deeper owner |
-| Environment fact | A stable, non-obvious fact changes the next action |
+| Job              | Keep when                                                         |
+| ---------------- | ----------------------------------------------------------------- |
+| Invariant        | A stable constraint must shape work throughout its scope          |
+| Working command  | A non-obvious command materially improves execution or validation |
+| Discovery route  | A recognizable condition should load a deeper owner               |
+| Environment fact | A stable, non-obvious fact changes the next action                |
 
 Exclude background essays, exhaustive reference, task backlogs, long reusable
 procedures, and facts the agent can cheaply and reliably discover from the
@@ -114,14 +125,14 @@ unnecessary use even when the task does not need it.
 ## 6. Choose the smallest truthful scope
 
 Place each instruction in the smallest scope that covers all work it governs
-without duplicating it across siblings. Keep broad guidance genuinely broad;
-put local differences near their owner. Introduce a narrower instruction file
-only when it expresses a real applicability boundary.
+without duplicating it across siblings. Keep broad guidance genuinely broad; put
+local differences near their owner. Introduce a narrower instruction file only
+when it expresses a real applicability boundary.
 
-If a local scope would repeat most of its parent, keep the shared content at
-the parent and retain only the difference locally. If the consuming harness
-does not support the intended scope, use an established conditional mechanism
-or keep the condition explicit in a broader source.
+If a local scope would repeat most of its parent, keep the shared content at the
+parent and retain only the difference locally. If the consuming harness does not
+support the intended scope, use an established conditional mechanism or keep the
+condition explicit in a broader source.
 
 ## 7. Express outcomes and necessary constraints
 
@@ -163,10 +174,10 @@ make useful depth undiscoverable.
 
 ## 9. Reconcile overlap and conflicts
 
-Give repeated guidance one authoritative owner. Remove parent-child
-duplication and reconcile instructions that can apply together. Use explicit
-overrides only when the active contract defines their behavior and the
-exception is easier to understand than a conflict-free formulation.
+Give repeated guidance one authoritative owner. Remove parent-child duplication
+and reconcile instructions that can apply together. Use explicit overrides only
+when the active contract defines their behavior and the exception is easier to
+understand than a conflict-free formulation.
 
 Re-read the complete effective surface rather than reviewing each file in
 isolation. Locally coherent files can still form a contradictory combined
@@ -210,8 +221,8 @@ not as demonstrated improvement. Follow
 
 Record who owns each instruction scope and what changes should trigger review,
 such as command changes, repository restructuring, harness changes, or moved
-canonical documentation. Prefer periodic evaluation against representative
-tasks over adding instructions after every isolated failure.
+canonical documentation. Prefer periodic evaluation against representative tasks
+over adding instructions after every isolated failure.
 
 ## Final check
 

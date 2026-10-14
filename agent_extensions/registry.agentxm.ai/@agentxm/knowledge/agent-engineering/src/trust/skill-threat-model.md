@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Agent Skill threat model
-description: Threats across authoring, acquisition, retrieval, selection, execution, and evolution.
+description:
+  Threats across authoring, acquisition, retrieval, selection, execution, and
+  evolution.
 tags: [agent-skills, security, threat-model, supply-chain]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }
@@ -22,14 +24,14 @@ treats third-party skills as software requiring review.[^anthropic-enterprise]
 
 ## Trust boundaries
 
-| Stage | Representative failure |
-| --- | --- |
-| Authoring | secrets, private examples, unsafe defaults, ambiguous authority |
-| Acquisition | substitution, typosquatting, untrusted publisher, missing integrity |
-| Discovery | misleading metadata, collision, prompt injection in descriptions |
-| Loading | hidden or oversized resources, path escape, hostile linked content |
-| Execution | command injection, exfiltration, destructive action, excess privilege |
-| Evolution | silent behavior drift, dependency compromise, no rollback |
+| Stage       | Representative failure                                                |
+| ----------- | --------------------------------------------------------------------- |
+| Authoring   | secrets, private examples, unsafe defaults, ambiguous authority       |
+| Acquisition | substitution, typosquatting, untrusted publisher, missing integrity   |
+| Discovery   | misleading metadata, collision, prompt injection in descriptions      |
+| Loading     | hidden or oversized resources, path escape, hostile linked content    |
+| Execution   | command injection, exfiltration, destructive action, excess privilege |
+| Evolution   | silent behavior drift, dependency compromise, no rollback             |
 
 Start audits statically. Treat instructions, examples, filenames, and generated
 output as untrusted data. Do not run code, follow external links, install

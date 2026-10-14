@@ -1,8 +1,17 @@
 ---
 type: Explanation
 title: Prompt trust boundaries
-description: How to separate instructions from untrusted content and recognize where prompt defenses end.
-tags: [prompt-injection, untrusted-content, least-privilege, output-validation, security]
+description:
+  How to separate instructions from untrusted content and recognize where prompt
+  defenses end.
+tags:
+  [
+    prompt-injection,
+    untrusted-content,
+    least-privilege,
+    output-validation,
+    security,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
 stale_after: 2027-02-14
@@ -20,7 +29,8 @@ sources:
 Models process instructions and data through the same probabilistic mechanism.
 Prompt structure can reduce confusion but cannot create a reliable privilege
 boundary. OWASP identifies both direct user injection and indirect instructions
-inside retrieved files, web pages, messages, and multimodal content.[^owasp-injection]
+inside retrieved files, web pages, messages, and multimodal
+content.[^owasp-injection]
 
 ## Prompt-level obligations
 
@@ -51,4 +61,5 @@ Evaluate prompt defenses as one layer. Never report the system secure merely
 because known injection strings were refused.
 
 [^owasp-injection]: OWASP — LLM Prompt Injection Prevention Cheat Sheet
+
 [^owasp-leakage]: OWASP — System Prompt Leakage

@@ -1,8 +1,11 @@
 ---
 type: Reference
 title: Observation, action, and tool-use policy
-description: Governs when and why capabilities are selected and how results affect the next decision.
-tags: [observations, actions, tools, tool-selection, feedback, capability-policy]
+description:
+  Governs when and why capabilities are selected and how results affect the next
+  decision.
+tags:
+  [observations, actions, tools, tool-selection, feedback, capability-policy]
 status: stable
 sources:
   - id: anthropic-tools
@@ -37,9 +40,9 @@ actual external effect, check identifiers and scope, and reconcile ambiguous
 timeouts or partial failures before retrying. Update the plan only from
 observations whose provenance and freshness are adequate.
 
-Tools should be distinct, well described, token-efficient, and return
-actionable errors; their evaluation should include realistic tasks rather than
-schema validity alone.[^anthropic-tools] Protocols such as MCP classify tools
+Tools should be distinct, well described, token-efficient, and return actionable
+errors; their evaluation should include realistic tasks rather than schema
+validity alone.[^anthropic-tools] Protocols such as MCP classify tools
 separately from prompts and resources and require implementations to preserve
 user consent and safety boundaries.[^mcp-spec]
 
@@ -48,4 +51,5 @@ Namespace collisions, huge outputs, hidden defaults, and tools that conflate
 read and write behavior increase both error and security risk.
 
 [^anthropic-tools]: Anthropic — Writing effective tools for agents
+
 [^mcp-spec]: Model Context Protocol specification

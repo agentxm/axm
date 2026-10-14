@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Context engineering
-description: How the informational environment is selected, structured, routed, used, refreshed, and retired.
+description:
+  How the informational environment is selected, structured, routed, used,
+  refreshed, and retired.
 tags: [context-engineering, retrieval, routing, memory, feedback, lifecycle]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T22:24:33Z }
@@ -12,7 +14,9 @@ sources:
     title: Anthropic — Effective context engineering for AI agents
   - id: context-files-evaluation
     resource: https://arxiv.org/abs/2602.11988
-    title: Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding Agents?
+    title:
+      Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for
+      Coding Agents?
 ---
 
 # Context engineering
@@ -40,41 +44,45 @@ if it is loaded for every task, arrives after the relevant decision, lacks
 provenance, or survives after its source changes.
 
 Anthropic frames context as a finite resource whose contents should remain
-high-signal through compact tools and just-in-time retrieval.[^anthropic-context]
+high-signal through compact tools and just-in-time
+retrieval.[^anthropic-context]
 
 ## Prompting is one context technique
 
 Prompt engineering designs intentional model-facing instructions and response
 contracts. Context engineering owns the wider inference state: task input,
 retrieved material, tool definitions and results, message history, working
-state, memory, and feedback. The prompt may be correct while the overall
-context remains stale, excessive, untrusted, or mistimed.
+state, memory, and feedback. The prompt may be correct while the overall context
+remains stale, excessive, untrusted, or mistimed.
 
 ## Feedforward and feedback
 
 - **Feedforward context** arrives before action: intent, constraints,
   procedures, examples, and known state.
-- **Feedback context** arrives after action: observations, errors, tests,
-  review findings, and changed environmental state.
+- **Feedback context** arrives after action: observations, errors, tests, review
+  findings, and changed environmental state.
 
 Strong context engineering makes both directions compact and actionable. A
 specific failing check can carry more decision value than another paragraph of
 advance admonition.
 
-Feedback becomes context when it is represented for a subsequent decision.
-The agent's behavioral policy owns whether that evidence causes reflection,
+Feedback becomes context when it is represented for a subsequent decision. The
+agent's behavioral policy owns whether that evidence causes reflection,
 replanning, retry, fallback, escalation, or termination.
 
 ## Context is not improved by accumulation alone
 
 A 2026 repository study found that additional context-file guidance increased
 exploration and cost without a significant task-success improvement, supporting
-minimal necessary requirements and representative evaluation rather than
-assumed value.[^context-files-evaluation]
+minimal necessary requirements and representative evaluation rather than assumed
+value.[^context-files-evaluation]
 
 Common failures include context dumping, missing routes, wrong scope, stale
 authority, history dependence, feedback flooding, untrusted injection, and
 compaction loss.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
-[^context-files-evaluation]: Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding Agents?
+
+[^context-files-evaluation]:
+    Evaluating AGENTS.md — Are Repository-Level Context Files Helpful for Coding
+    Agents?

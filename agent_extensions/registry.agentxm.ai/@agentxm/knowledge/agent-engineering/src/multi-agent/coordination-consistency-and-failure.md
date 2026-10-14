@@ -1,13 +1,26 @@
 ---
 type: Reference
 title: Coordination, consistency, and failure
-description: Controls duplicate work, conflicting state, cascades, deadlock, partial failure, and reconciliation.
-tags: [multi-agent, coordination, consistency, failure, reconciliation, cascades, deadlock]
+description:
+  Controls duplicate work, conflicting state, cascades, deadlock, partial
+  failure, and reconciliation.
+tags:
+  [
+    multi-agent,
+    coordination,
+    consistency,
+    failure,
+    reconciliation,
+    cascades,
+    deadlock,
+  ]
 status: stable
 sources:
   - id: multi-agent-survey
     resource: https://link.springer.com/article/10.1007/s44336-024-00009-2
-    title: Large Language Model based Multi-Agents — A Survey of Progress and Challenges
+    title:
+      Large Language Model based Multi-Agents — A Survey of Progress and
+      Challenges
   - id: owasp-agentic
     resource: https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/
     title: OWASP Top 10 for Agentic Applications for 2026
@@ -48,5 +61,8 @@ Evaluate the complete topology as well as each role. A collection of competent
 agents can still fail through poor decomposition, interaction, synthesis, or
 shared-state management.
 
-[^multi-agent-survey]: Large Language Model based Multi-Agents — A Survey of Progress and Challenges
+[^multi-agent-survey]:
+    Large Language Model based Multi-Agents — A Survey of Progress and
+    Challenges
+
 [^owasp-agentic]: OWASP Top 10 for Agentic Applications for 2026

@@ -1,8 +1,17 @@
 ---
 type: Explanation
 title: Capability and regression suites
-description: Separates hill-climbing evidence from reliable-behavior protection and manages graduation and saturation.
-tags: [capability-evals, regression-evals, saturation, quality-bar, continuous-evaluation]
+description:
+  Separates hill-climbing evidence from reliable-behavior protection and manages
+  graduation and saturation.
+tags:
+  [
+    capability-evals,
+    regression-evals,
+    saturation,
+    quality-bar,
+    continuous-evaluation,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T21:14:15Z }
 stale_after: 2027-02-14
@@ -14,10 +23,10 @@ sources:
 
 # Capability and regression suites
 
-| Suite | Question | Expected shape |
-| --- | --- | --- |
+| Suite      | Question                                                | Expected shape                                    |
+| ---------- | ------------------------------------------------------- | ------------------------------------------------- |
 | Capability | What valuable behavior can the system learn or improve? | Difficult representative tasks with room to climb |
-| Regression | Does accepted behavior remain reliable? | High expected pass rate and continuous execution |
+| Regression | Does accepted behavior remain reliable?                 | High expected pass rate and continuous execution  |
 
 Anthropic recommends operating both suite types: capability cases expose room
 for improvement, while regression cases protect behavior already achieved.

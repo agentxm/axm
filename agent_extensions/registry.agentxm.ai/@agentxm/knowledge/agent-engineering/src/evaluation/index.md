@@ -13,15 +13,11 @@ support of a decision.
 - [Evaluation systems and harnesses](evaluation-systems-and-harnesses.md) - The
   target, operational agent harness, evaluation harness, environment, evidence,
   and decision.
-- [Evaluation runner engineering](evaluation-runner-engineering.md) - Versioned
-  protocols, capability-aware adapters, isolation, enforced budgets,
-  recoverable lifecycle, and attributable evidence for reusable runners.
 
 ## Design
 
-- [Evaluation contracts](evaluation-contracts.md) - The identities,
-  assumptions, evidence, analysis, and decision fields an attributable
-  evaluation requires.
+- [Evaluation contracts](evaluation-contracts.md) - The identities, assumptions,
+  evidence, analysis, and decision fields an attributable evaluation requires.
 - [How to build a task distribution and case suite](task-distributions-and-case-suites.md) -
   Turning intended use, real failures, edges, and adversarial conditions into
   representative cases.
@@ -49,19 +45,6 @@ support of a decision.
 - [How to evaluate and improve a harness](evaluating-and-improving-harnesses.md) -
   Runtime identity, trace capture, environment fidelity, and responsible-surface
   attribution.
-- [Agent Skill evaluation model](skill-evaluation-model.md) - Independent
-  routing, activated execution, and coexistence evidence.
-- [How to evaluate an Agent Skill](evaluating-agent-skills.md) - Running
-  independent routing and activated-execution trials with meaningful baselines,
-  grading, attribution, and retention.
-- [Routing evaluations](skill-routing-evaluations.md) - Cases and metrics for
-  implicit selection, rejection, ambiguity, and catalog collisions.
-- [Execution evaluations](skill-execution-evaluations.md) - Cases and evidence
-  for instructions, resources, outcomes, recovery, and authority after
-  activation.
-- [Skill comparison surfaces](skill-comparison-surfaces.md) - Revisions,
-  ablations, hosts, catalogs, and active cohorts as attributable comparison
-  surfaces.
 
 ## Operate
 

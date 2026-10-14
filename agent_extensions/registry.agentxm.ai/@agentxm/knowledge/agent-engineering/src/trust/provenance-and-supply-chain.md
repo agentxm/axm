@@ -1,7 +1,9 @@
 ---
 type: Reference
 title: Provenance and supply chain
-description: How source, integrity, dependencies, licensing, review, and rollback support trust.
+description:
+  How source, integrity, dependencies, licensing, review, and rollback support
+  trust.
 tags: [agent-skills, provenance, integrity, dependencies, licensing]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }
@@ -28,4 +30,3 @@ manager's successful resolution.
 Licenses and attributions apply to instructions, code, examples, templates, and
 other embedded assets. Synthetic examples reduce both disclosure and ownership
 risk.
-

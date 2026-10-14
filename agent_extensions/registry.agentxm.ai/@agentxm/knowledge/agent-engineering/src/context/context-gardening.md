@@ -1,8 +1,19 @@
 ---
 type: How-to guide
 title: How to garden a context system
-description: How observed work drives authority repair, routing, pruning, promotion, and retirement.
-tags: [context-gardening, playbook, maintenance, pruning, freshness, discovery, authority]
+description:
+  How observed work drives authority repair, routing, pruning, promotion, and
+  retirement.
+tags:
+  [
+    context-gardening,
+    playbook,
+    maintenance,
+    pruning,
+    freshness,
+    discovery,
+    authority,
+  ]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-09T22:12:38Z }
 verified:
@@ -45,30 +56,30 @@ urgency of a durable intervention.
 
 ## Finding classes
 
-| Class | Meaning |
-| --- | --- |
-| Missing | Required context or route does not exist |
-| Hidden | Useful context exists but likely entry points cannot discover it |
-| Mis-scoped | Guidance loads more broadly or narrowly than its authority |
-| Duplicated | Several surfaces restate one claim without a canonical owner |
-| Stale | Plausible context no longer matches its source or environment |
-| Unowned | No one can decide whether to revise, retain, or retire it |
+| Class      | Meaning                                                                                     |
+| ---------- | ------------------------------------------------------------------------------------------- |
+| Missing    | Required context or route does not exist                                                    |
+| Hidden     | Useful context exists but likely entry points cannot discover it                            |
+| Mis-scoped | Guidance loads more broadly or narrowly than its authority                                  |
+| Duplicated | Several surfaces restate one claim without a canonical owner                                |
+| Stale      | Plausible context no longer matches its source or environment                               |
+| Unowned    | No one can decide whether to revise, retain, or retire it                                   |
 | Wrong form | A prompt, instruction, skill, document, tool, check, or task record owns the concern poorly |
-| Excessive | Context cost exceeds its demonstrated decision value |
-| Untrusted | Content carries more authority than its provenance warrants |
+| Excessive  | Context cost exceeds its demonstrated decision value                                        |
+| Untrusted  | Content carries more authority than its provenance warrants                                 |
 
 ## Cultivation moves
 
-| Move | Purpose |
-| --- | --- |
-| Add | Supply a missing invariant, route, observation, or recovery signal |
-| Clarify | Make scope, authority, provenance, freshness, or selection explicit |
-| Relocate | Move content to the nearest truthful owner |
-| Route | Add a compact trigger or index instead of copying depth |
-| Prune | Remove duplication, obsolete detail, and low-value context |
-| Promote | Replace recurring prose with a skill, tool, check, schema, or policy |
-| Retire | Mark superseded context and remove it from active selection |
-| Verify | Test discovery, use, cost, and outcome on representative work |
+| Move     | Purpose                                                              |
+| -------- | -------------------------------------------------------------------- |
+| Add      | Supply a missing invariant, route, observation, or recovery signal   |
+| Clarify  | Make scope, authority, provenance, freshness, or selection explicit  |
+| Relocate | Move content to the nearest truthful owner                           |
+| Route    | Add a compact trigger or index instead of copying depth              |
+| Prune    | Remove duplication, obsolete detail, and low-value context           |
+| Promote  | Replace recurring prose with a skill, tool, check, schema, or policy |
+| Retire   | Mark superseded context and remove it from active selection          |
+| Verify   | Test discovery, use, cost, and outcome on representative work        |
 
 Prefer subtraction and routing to accretion. Cursor similarly describes using
 observed failures to improve the responsible harness surface and then measure
@@ -81,4 +92,5 @@ discoverable at the right depth, its authority and freshness are legible, the
 context cost is proportionate, and verification or recovery remains available.
 
 [^anthropic-context]: Anthropic — Effective context engineering for AI agents
+
 [^cursor-improvement]: Cursor — Continually improving our agent harness

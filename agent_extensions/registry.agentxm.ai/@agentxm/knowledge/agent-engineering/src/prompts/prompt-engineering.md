@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Prompt engineering
-description: How intentional model-facing instructions become evaluated and maintained engineering artifacts.
+description:
+  How intentional model-facing instructions become evaluated and maintained
+  engineering artifacts.
 tags: [prompt-engineering, instructions, evaluation, lifecycle, model-behavior]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T20:43:46Z }
@@ -35,10 +37,10 @@ define behavior → run representative inputs → grade outputs → change one
 material prompt choice → compare → retain evidence
 ```
 
-The report catalogues many techniques but also finds substantial terminology
-and evaluation fragmentation.[^prompt-report] A durable practice therefore
-starts with simple, explicit contracts and adds a technique only for an
-observed failure.
+The report catalogues many techniques but also finds substantial terminology and
+evaluation fragmentation.[^prompt-report] A durable practice therefore starts
+with simple, explicit contracts and adds a technique only for an observed
+failure.
 
 ## Appropriate prompt interventions
 
@@ -62,8 +64,12 @@ observed failure.
   model, task, or system redesign.
 
 Prompt engineering is iterative. Google likewise presents its techniques as
-starting points to refine against observed responses, not universal recipes.[^google-prompting]
+starting points to refine against observed responses, not universal
+recipes.[^google-prompting]
 
 [^anthropic-overview]: Anthropic — Prompt engineering overview
-[^prompt-report]: The Prompt Report — A Systematic Survey of Prompting Techniques
+
+[^prompt-report]:
+    The Prompt Report — A Systematic Survey of Prompting Techniques
+
 [^google-prompting]: Google — Prompt design strategies

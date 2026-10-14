@@ -1,8 +1,19 @@
 ---
 type: Reference
 title: Identity, authority, and accountability
-description: Connects an agent's identity, delegated authority, consequential decisions, effects, and responsible human or organization.
-tags: [identity, authority, accountability, credentials, audit, delegation, provenance]
+description:
+  Connects an agent's identity, delegated authority, consequential decisions,
+  effects, and responsible human or organization.
+tags:
+  [
+    identity,
+    authority,
+    accountability,
+    credentials,
+    audit,
+    delegation,
+    provenance,
+  ]
 status: stable
 sources:
   - id: fipa-management
@@ -46,12 +57,14 @@ and lifecycle.[^fipa-management] NIST's current initiative highlights agent
 authentication, identity infrastructure, secure interoperability, and security
 evaluation as active standardization needs.[^nist-agent-standards]
 
-Accountability cannot be delegated to the model. Agents may supply evidence
-and explanations, but responsible institutions must provide correction,
-appeal, incident response, and retirement paths. Trustworthy-agent guidance
-similarly treats human control, alignment, secure interaction, transparency,
-and privacy as separate properties.[^anthropic-trust]
+Accountability cannot be delegated to the model. Agents may supply evidence and
+explanations, but responsible institutions must provide correction, appeal,
+incident response, and retirement paths. Trustworthy-agent guidance similarly
+treats human control, alignment, secure interaction, transparency, and privacy
+as separate properties.[^anthropic-trust]
 
 [^fipa-management]: FIPA Agent Management Specification
+
 [^nist-agent-standards]: NIST — AI Agent Standards Initiative
+
 [^anthropic-trust]: Anthropic — Building and evaluating trustworthy agents

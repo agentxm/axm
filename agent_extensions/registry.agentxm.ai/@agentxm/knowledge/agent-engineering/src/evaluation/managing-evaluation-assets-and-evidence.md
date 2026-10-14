@@ -1,24 +1,18 @@
 ---
 type: How-to guide
 title: How to manage evaluation assets and evidence
-description: How to separate versioned evaluation source, generated trial evidence, and deliberately promoted decision evidence while preserving provenance, portability, and safe retention.
-tags: [evaluation, artifacts, evidence, repositories, retention, provenance, ci, agent-skills]
+description:
+  How to separate versioned evaluation source, generated trial evidence, and
+  deliberately promoted decision evidence while preserving provenance,
+  portability, and safe retention.
+tags: [evaluation, artifacts, evidence, repositories, retention, provenance, ci]
 status: stable
-generated: { by: "claude-code/claude-opus-5", at: 2026-08-22T14:21:16Z }
+generated: { by: "claude-code/claude-opus-5.5", at: 2026-10-14T15:00:00Z }
 stale_after: 2027-02-22
 sources:
   - id: anthropic-agent-evals
     resource: https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents
     title: Anthropic — Demystifying evals for AI agents
-  - id: anthropic-skill-creator
-    resource: https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md
-    title: Anthropic — Skill Creator
-  - id: openai-skill-creator
-    resource: https://github.com/openai/skills/blob/main/skills/.system/skill-creator/SKILL.md
-    title: OpenAI — Skill Creator
-  - id: agent-skills-spec
-    resource: https://agentskills.io/specification
-    title: Agent Skills specification
   - id: github-workflow-artifacts
     resource: https://docs.github.com/en/actions/concepts/workflows-and-actions/workflow-artifacts
     title: GitHub — Workflow artifacts
@@ -32,9 +26,9 @@ bind, read [Evaluation contracts](evaluation-contracts.md). For ownership,
 freshness, and retirement, read
 [Evaluation lifecycle and governance](evaluation-lifecycle-and-governance.md).
 
-The layouts below are provisional repository recommendations, not requirements
-of the Agent Skills specification. Preserve their separation of responsibilities
-when a host, package manager, or repository uses different paths.
+The layouts below are provisional repository recommendations. Preserve their
+separation of responsibilities when a host, package manager, or repository uses
+different paths.
 
 ## Goal
 
@@ -53,65 +47,31 @@ which evidence was deliberately retained for a named decision.
 
 Assign each artifact one lifecycle class before deciding where it belongs:
 
-| Class | Examples | Normal authority | Normal storage |
-| --- | --- | --- | --- |
-| Evaluation source | Contract, cases, fixtures, graders, rubrics, harness code, schemas | Reviewed versioned source | Repository |
-| Run evidence | Transcripts, traces, outputs, external state, timing, tool calls, grades | Generated observation | Ignored workspace or CI artifact |
-| Aggregate analysis | Per-case statistics, slices, comparisons, cost and latency summaries | Reproducible derivation from trials | Run workspace or CI artifact |
-| Promoted decision evidence | Release, admission, rollback, or published-benchmark manifest | Deliberate attributable record | Durable repository path or evidence archive |
-| Governance decision | Approval, exception, rollout, rollback, or retirement decision | Named decision authority | Governance system |
+| Class                      | Examples                                                                 | Normal authority                    | Normal storage                              |
+| -------------------------- | ------------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------- |
+| Evaluation source          | Contract, cases, fixtures, graders, rubrics, harness code, schemas       | Reviewed versioned source           | Repository                                  |
+| Run evidence               | Transcripts, traces, outputs, external state, timing, tool calls, grades | Generated observation               | Ignored workspace or CI artifact            |
+| Aggregate analysis         | Per-case statistics, slices, comparisons, cost and latency summaries     | Reproducible derivation from trials | Run workspace or CI artifact                |
+| Promoted decision evidence | Release, admission, rollback, or published-benchmark manifest            | Deliberate attributable record      | Durable repository path or evidence archive |
+| Governance decision        | Approval, exception, rollout, rollback, or retirement decision           | Named decision authority            | Governance system                           |
 
 Tracking a generated file does not promote it. Promotion requires an explicit
 decision, complete identity, reviewable evidence, and a retention choice.
 
-## 2. Separate runtime payload from evaluation material
+## 2. Separate evaluation source from the runtime payload
 
-When the repository has an explicit package boundary, keep evaluation source
-beside but outside the installed payload:
+Bind the evaluated target's identity separately from the evaluation suite's
+content identity. Where the target is distributed, its distributed artifact,
+installation, and runtime projection are further identities; none substitutes
+for another.
 
-```text
-<package>/
-├── <runtime-payload>/
-├── evals/
-│   ├── evaluation-contract.json
-│   ├── evals.json
-│   ├── fixtures/
-│   ├── graders/
-│   ├── harness/
-│   └── releases/
-└── ...
-```
-
-Create `releases/` only when promoted evidence exists. Do not create empty
-directories or placeholder records.
-
-When the skill directory itself is shipped wholesale, keep evaluation source
-in a sibling repository tree so test procedures and historical evidence do not
-silently become runtime skill content:
-
-```text
-skills/
-└── <skill>/
-    ├── SKILL.md
-    ├── scripts/
-    ├── references/
-    └── assets/
-
-evals/
-└── <skill>/
-    ├── evaluation-contract.json
-    ├── evals.json
-    ├── fixtures/
-    ├── graders/
-    ├── harness/
-    └── releases/
-```
-
-The Agent Skills specification permits additional files but does not define an
-evaluation directory or evidence lifecycle.[^agent-skills-spec] OpenAI's Skill
-Creator keeps testing procedures out of the runtime skill contents, while
-Anthropic's Skill Creator stores case definitions with the skill and writes run
-outputs to a separate workspace.[^openai-skill-creator][^anthropic-skill-creator]
+Keep evaluation source beside but outside whatever the target ships or loads at
+runtime, so test procedures and historical evidence do not silently become
+runtime content. Inspect the effective distribution policy rather than inferring
+shipment from directory placement. Changing evaluation source changes the suite
+identity even when the source is excluded from distribution. If compact promoted
+evidence should ship, place it in a deliberate non-ignored root rather than
+inside an excluded subtree.
 
 ## 3. Version evaluation source
 
@@ -125,9 +85,9 @@ Track the smallest complete source needed to rerun and interpret the suite:
 - comparison rules and expected baseline identity.
 
 Keep expected answers away from the target during trials unless the task
-contract makes them legitimate input. Treat changes to cases, fixtures,
-graders, harnesses, and aggregation as evaluation changes rather than silently
-comparing their scores with earlier runs.
+contract makes them legitimate input. Treat changes to cases, fixtures, graders,
+harnesses, and aggregation as evaluation changes rather than silently comparing
+their scores with earlier runs.
 
 ## 4. Create one isolated run workspace
 
@@ -148,15 +108,14 @@ is:
 
 `run.json` should bind the clean target revision or content identity, suite,
 harness, host, model, configuration, active catalog, environment, authority
-policy, budgets, runner, runner-selection source, grader, start time, and end
-time. Give each independent trial fresh task-local state. Do not let previous
-outputs, repository history, caches, or shared conversations leak answers into
-later attempts.
+policy, budgets, runner, grader, start time, and end time. Give each independent
+trial fresh task-local state. Do not let previous outputs, repository history,
+caches, or shared conversations leak answers into later attempts.
 
 Record complete transcripts or traces when policy permits. A prose summary is
-analysis, not a replacement for the evidence it summarizes. Anthropic treats
-the transcript, outcome, grader, trial, and harness as separate evaluation
-objects and recommends inspecting transcripts to validate graders and
+analysis, not a replacement for the evidence it summarizes. Anthropic treats the
+transcript, outcome, grader, trial, and harness as separate evaluation objects
+and recommends inspecting transcripts to validate graders and
 failures.[^anthropic-agent-evals]
 
 Capture evidence that exists only at the moment it is produced — completion
@@ -168,8 +127,8 @@ belongs in the record as unknown rather than as a later estimate.
 Write started-run evidence incrementally and atomically. Keep lifecycle state
 separate from evaluation outcome, preserve infrastructure retries as distinct
 attempts, and resume only after verifying that target, suite, runner, adapter,
-and material environment identities still match. A preflight that creates no
-run should return a reserved disposition rather than an empty run directory.
+and material environment identities still match. A preflight that creates no run
+should return a reserved disposition rather than an empty run directory.
 
 ## 5. Grade and aggregate without erasing uncertainty
 
@@ -181,24 +140,24 @@ Preserve per-assertion evidence and distinguish:
 - grader disagreement or failure; and
 - unavailable or unobservable evidence.
 
-Use `unknown` or an equivalent state when evidence cannot decide. Aggregate
-only after per-trial outcomes, critical gates, unknowns, and failure classes
-remain recoverable. Never let an overall pass count conceal an untested stage
-or a critical failure.
+Use `unknown` or an equivalent state when evidence cannot decide. Aggregate only
+after per-trial outcomes, critical gates, unknowns, and failure classes remain
+recoverable. Never let an overall pass count conceal an untested stage or a
+critical failure.
 
 ## 6. Retain routine runs outside source control
 
-Store ordinary development and continuous-integration runs in ignored
-workspaces or workflow artifacts. GitHub identifies test results and logs as
+Store ordinary development and continuous-integration runs in ignored workspaces
+or workflow artifacts. GitHub identifies test results and logs as
 workflow-artifact use cases.[^github-workflow-artifacts] Treat artifact expiry,
-access, and deletion as part of the evidence contract; an expiring CI URL is
-not a durable release locator by itself.
+access, and deletion as part of the evidence contract; an expiring CI URL is not
+a durable release locator by itself.
 
-Apply the same security and public-suitability rules to untracked workspaces,
-CI logs, and artifacts that apply to committed files. Redact or avoid
-credentials, personal data, private paths, proprietary inputs, hidden system
-instructions, and unrestricted model traces according to policy. Never assume
-that “untracked” means private.
+Apply the same security and public-suitability rules to untracked workspaces, CI
+logs, and artifacts that apply to committed files. Redact or avoid credentials,
+personal data, private paths, proprietary inputs, hidden system instructions,
+and unrestricted model traces according to policy. Never assume that “untracked”
+means private.
 
 ## 7. Promote evidence deliberately
 
@@ -240,8 +199,8 @@ stronger one. Re-run under the required conditions.
 2. Classify each item by authority rather than by its current directory.
 3. Define the runtime payload, evaluation-source root, generated workspace, and
    promoted-evidence root.
-4. Move or remove routine generated artifacts without rewriting history unless
-   a separate security response requires it.
+4. Move or remove routine generated artifacts without rewriting history unless a
+   separate security response requires it.
 5. Add ignore rules and deterministic checks that prevent recurrence.
 6. Preserve legitimate promoted evidence and repair missing identities or
    locators; downgrade its claim when repair is impossible.
@@ -261,7 +220,5 @@ stronger one. Re-run under the required conditions.
   guide.
 
 [^anthropic-agent-evals]: Anthropic — Demystifying evals for AI agents
-[^anthropic-skill-creator]: Anthropic — Skill Creator
-[^openai-skill-creator]: OpenAI — Skill Creator
-[^agent-skills-spec]: Agent Skills specification
+
 [^github-workflow-artifacts]: GitHub — Workflow artifacts

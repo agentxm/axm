@@ -10,11 +10,11 @@ specifications.
   adaptation composes with coding-agent hosts to make a codebase legible,
   actionable, bounded, and verifiable.
 - [Repository context map](repository-context-map.md) - How instructions,
-  knowledge, code, tests, tools, runtime observations, and remote workers form
-  a discoverable context system.
-- [Agent instruction files](agent-instruction-files.md) - Why agent instruction files such as AGENTS.md and
-  CLAUDE.md form a scoped context system, and how scope, applicability,
-  composition, and precedence differ.
+  knowledge, code, tests, tools, runtime observations, and remote workers form a
+  discoverable context system.
+- [Agent instruction files](agent-instruction-files.md) - Why agent instruction
+  files such as AGENTS.md and CLAUDE.md form a scoped context system, and how
+  scope, applicability, composition, and precedence differ.
 - [How to author agent instruction files](authoring-agent-instruction-files.md) -
   How to create or revise a scoped agent instruction system such as AGENTS.md or
   CLAUDE.md without assuming one coding agent's loading or precedence behavior.

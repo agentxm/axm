@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Progressive disclosure for skills
-description: How to route from compact metadata to instructions and only then to conditional resources.
+description:
+  How to route from compact metadata to instructions and only then to
+  conditional resources.
 tags: [agent-skills, progressive-disclosure, context, routing, references]
 status: stable
 generated: { by: "codex/gpt-5.6", at: 2026-08-14T19:36:04Z }
@@ -22,11 +24,11 @@ name + description -> SKILL.md body -> conditional references or resources
 
 Each stage makes a different decision:
 
-| Stage | Decision |
-| --- | --- |
-| Metadata | Is this skill relevant enough to activate? |
-| Instructions | Which workflow, branch, and resource applies? |
-| Resource | What detailed fact, template, or deterministic operation is needed now? |
+| Stage        | Decision                                                                |
+| ------------ | ----------------------------------------------------------------------- |
+| Metadata     | Is this skill relevant enough to activate?                              |
+| Instructions | Which workflow, branch, and resource applies?                           |
+| Resource     | What detailed fact, template, or deterministic operation is needed now? |
 
 ## Design consequences
 

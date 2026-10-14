@@ -1,7 +1,9 @@
 ---
 type: Explanation
 title: Skill library governance model
-description: How automation, distributed ownership, independent review, and runtime enforcement govern a skill library without centralizing every decision.
+description:
+  How automation, distributed ownership, independent review, and runtime
+  enforcement govern a skill library without centralizing every decision.
 tags: [agent-skills, governance, automation, human-in-the-loop, authority]
 status: stable
 stale_after: 2027-02-14
@@ -39,14 +41,14 @@ proposal -> automated evidence -> responsible human decision -> bounded exposure
 
 ## Three authorities
 
-| Authority | Owns | Must not own |
-| --- | --- | --- |
-| Package source | Purpose, contracts, requested capabilities, dependencies, version | Its own approval or runtime entitlement |
-| Governance system | Admission state, risk tier, reviewers, exceptions, evaluated identity, evidence expiry | Rewriting the package invisibly |
-| Harness or host | Effective tools, data, identity, sandbox, approvals, logging | Redefining what the skill claims to do |
+| Authority         | Owns                                                                                   | Must not own                            |
+| ----------------- | -------------------------------------------------------------------------------------- | --------------------------------------- |
+| Package source    | Purpose, contracts, requested capabilities, dependencies, version                      | Its own approval or runtime entitlement |
+| Governance system | Admission state, risk tier, reviewers, exceptions, evaluated identity, evidence expiry | Rewriting the package invisibly         |
+| Harness or host   | Effective tools, data, identity, sandbox, approvals, logging                           | Redefining what the skill claims to do  |
 
-Keep these authorities distinct. A package cannot become approved by editing
-its own metadata, and a registry entry cannot prove runtime enforcement.
+Keep these authorities distinct. A package cannot become approved by editing its
+own metadata, and a registry entry cannot prove runtime enforcement.
 
 ## Automation with human authority
 
@@ -54,16 +56,19 @@ Automate facts and repeatable policy: structure, provenance, dependency and
 capability diffs, evaluation results, evidence freshness, ownership resolution,
 and catalog conflicts. Route consequential judgment to accountable people:
 whether a capability deserves to exist, who accepts stewardship, whether an
-overlap should merge, whether an exception is justified, and when consumers
-must migrate. Anthropic likewise recommends evaluation gates, separation of
-duties, and an internal registry rather than author self-approval.[^anthropic-enterprise]
+overlap should merge, whether an exception is justified, and when consumers must
+migrate. Anthropic likewise recommends evaluation gates, separation of duties,
+and an internal registry rather than author
+self-approval.[^anthropic-enterprise]
 
-Ownership should remain with the team closest to the workflow; a library
-steward owns policy, catalog health, and cross-team conflicts. This mirrors the
-catalog pattern in which metadata remains near source and responsible teams
-maintain it while central processors apply common policies.[^backstage-catalog]
+Ownership should remain with the team closest to the workflow; a library steward
+owns policy, catalog health, and cross-team conflicts. This mirrors the catalog
+pattern in which metadata remains near source and responsible teams maintain it
+while central processors apply common policies.[^backstage-catalog]
 
-[^skill-centric-harness]: Skills are new features — Building Skill-Centric Harness
+[^skill-centric-harness]:
+    Skills are new features — Building Skill-Centric Harness
+
 [^anthropic-enterprise]: Anthropic — Skills for enterprise
-[^backstage-catalog]: Backstage Software Catalog
 
+[^backstage-catalog]: Backstage Software Catalog

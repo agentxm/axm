@@ -1,8 +1,19 @@
 ---
 type: Reference
 title: Delegation, handoffs, and artifacts
-description: Defines responsibility transfer, authority, context, deliverables, acceptance, and return paths.
-tags: [delegation, handoffs, artifacts, responsibility, authority, acceptance, escalation]
+description:
+  Defines responsibility transfer, authority, context, deliverables, acceptance,
+  and return paths.
+tags:
+  [
+    delegation,
+    handoffs,
+    artifacts,
+    responsibility,
+    authority,
+    acceptance,
+    escalation,
+  ]
 status: stable
 sources:
   - id: fipa-management
@@ -32,16 +43,17 @@ Every delegation or handoff should identify:
 - whether the recipient may subdelegate.
 
 The sender validates that the task is delegable and the recipient is capable.
-The recipient acknowledges or rejects the responsibility. The accountable
-owner verifies the returned artifact or external effect before treating the
-delegation as complete.
+The recipient acknowledges or rejects the responsibility. The accountable owner
+verifies the returned artifact or external effect before treating the delegation
+as complete.
 
 Protocol standards help with identity and envelopes, not semantic correctness.
 FIPA's management model covers agent identity, registration, location,
 communication, and lifecycle.[^fipa-management] A2A models agent cards, tasks,
-messages, parts, artifacts, streaming, and authentication.[^a2a-concepts]
-Agent engineering must still define responsibility, trust, acceptance, and
-failure behavior for the application.
+messages, parts, artifacts, streaming, and authentication.[^a2a-concepts] Agent
+engineering must still define responsibility, trust, acceptance, and failure
+behavior for the application.
 
 [^fipa-management]: FIPA Agent Management Specification
+
 [^a2a-concepts]: Agent2Agent protocol — Key concepts

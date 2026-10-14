@@ -2,7 +2,7 @@
   "$schema": "https://axm.sh/schemas/knowledge.schema.json",
   "owner": "@agentxm",
   "name": "agent-engineering",
-  "version": "0.10.1",
+  "version": "0.11.0",
   "type": "knowledge",
   "format": {
     "name": "okf",
@@ -31,15 +31,8 @@
     "eval-engineering",
     "agent-evaluation"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/agentxm/agent-extensions",
-    "directory": "knowledge/agent-engineering"
-  },
-  "homepage": "https://github.com/agentxm/agent-extensions",
+  "homepage": "https://agentxm.ai",
   "license": "CC-BY-4.0",
-  "recommendedPacks": [
-    "@agentxm/packs/agent-engineering"
-  ],
+  "recommendedPacks": ["@agentxm/packs/agent-engineering"],
   "standalone": true
 }

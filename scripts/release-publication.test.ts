@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "@effect/vitest";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Deferred from "effect/Deferred";
@@ -735,6 +735,18 @@ describe("Homebrew formula identity", () => {
   });
   it("retains a newer formula", () => {
     expect(() => prepareFormula(formula("1.3.0"), "1.2.3", hashes)).toThrow(SupersededRelease);
+  });
+});
+
+describe("bootstrap prerelease propagation window", () => {
+  // The bootstrap publisher runs on import, so its readback bounds are pinned
+  // at the source: a preview must not fail a lag the stable publisher accepts.
+  it("observes every post-write readback within the stable npm propagation window", () => {
+    const publisher = readFileSync("scripts/publish-bootstrap-prerelease.ts", "utf8");
+    const readbackBounds = [...publisher.matchAll(/\btimeoutMs: ([^,\s}]+)/g)].map(
+      ([, bound]) => bound,
+    );
+    expect(readbackBounds).toEqual(["npmPropagationTimeoutMs", "npmPropagationTimeoutMs"]);
   });
 });
 

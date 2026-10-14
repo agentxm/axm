@@ -3,7 +3,7 @@
   "owner": "@craigsmitham",
   "type": "skill",
   "name": "docs",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Create, review, organize, audit, and remediate repository documentation using portable craft, principles, and reusable patterns",
   "keywords": [
     "docs",

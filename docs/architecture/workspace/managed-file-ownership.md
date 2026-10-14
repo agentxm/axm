@@ -87,7 +87,10 @@ block mutation before publication.
 
 Several agent aliases may address one physical file or directory. AXM groups
 them by physical location and ownership unit, preserving the configured
-consumers and potential readers as separate facts. A shared structured file
+consumers and potential readers as separate facts. A dangling link at a
+managed region's reader path reads that region when its link target addresses
+the region's file, which may not exist yet; otherwise it is an unrelated entry,
+not a failed observation. A shared structured file
 must satisfy every applicable reader's complete grammar and the affected
 unit's semantics before and after a write. An incompatible reader blocks the
 shared write. Reader recognition does not itself grant ownership or prove

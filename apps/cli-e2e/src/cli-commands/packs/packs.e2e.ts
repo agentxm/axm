@@ -1746,6 +1746,28 @@ describe("pack-contributed rules", () => {
         expect(await sync(["--preview"]), corruption).toBe("no-op");
       }
 
+      // A canonical file deleted beside its alias link is regenerated without
+      // touching the link, matching the recovery from deleting both.
+      const aliasPath = path.join(consumer.path, "CLAUDE.md");
+      const aliasTarget = fs.readlinkSync(aliasPath);
+      fs.rmSync(instructionsPath);
+      expect(await sync(["--preview"])).toBe("previewed");
+      expect(fs.existsSync(instructionsPath)).toBe(false);
+      expect(fs.readFileSync(lockPath, "utf-8")).toBe(acceptedLock);
+      expect(await sync([])).toBe("applied");
+      expect(readInstructions()).toBe(composed);
+      expect(fs.readFileSync(lockPath, "utf-8")).toBe(acceptedLock);
+      expect(fs.readlinkSync(aliasPath)).toBe(aliasTarget);
+      expect(await sync(["--preview"])).toBe("no-op");
+
+      // A foreign dangling link at another agent's reader path is left alone.
+      const foreignPath = path.join(consumer.path, "GEMINI.md");
+      fs.symlinkSync("does-not-exist.md", foreignPath);
+      expect(await sync(["--preview"])).toBe("no-op");
+      expect(await sync([])).toBe("no-op");
+      expect(fs.readlinkSync(foreignPath)).toBe("does-not-exist.md");
+      fs.rmSync(foreignPath);
+
       // Removing one pack withdraws only its contributions.
       const uninstalled = await runCli(
         ["packs", "uninstall", "@test/packs/second-pack", "--json", "--non-interactive"],

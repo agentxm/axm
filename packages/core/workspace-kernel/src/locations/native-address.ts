@@ -12,6 +12,7 @@ export class NativeLocationError extends Data.TaggedError("NativeLocationError")
   readonly target: string;
   readonly reason:
     | "unreadable"
+    | "dangling-leaf"
     | "dangling-ancestor"
     | "escape"
     | "workspace-conflict"
@@ -139,7 +140,10 @@ export const resolveNativeReferent = (
       // exists() follows the leaf and mistakes a dangling link for absence.
       const link = yield* fs.readLink(current).pipe(Effect.option);
       if (Option.isSome(link)) {
-        return yield* new NativeLocationError({ target, reason: "dangling-ancestor" });
+        return yield* new NativeLocationError({
+          target,
+          reason: suffix.length === 0 ? "dangling-leaf" : "dangling-ancestor",
+        });
       }
       const parent = path.dirname(current);
       if (parent === current) {
@@ -196,7 +200,14 @@ export const resolveNativeEntry = (
         }
       }
     }
-    const parent = yield* resolveNativeReferent(path.dirname(lexicalPath));
+    const parent = yield* resolveNativeReferent(path.dirname(lexicalPath)).pipe(
+      // The parent's own dangling leaf is this entry's dangling ancestor.
+      Effect.mapError((cause) =>
+        cause.reason === "dangling-leaf"
+          ? new NativeLocationError({ target, reason: "dangling-ancestor", cause })
+          : cause,
+      ),
+    );
     const entryPath = path.join(parent, path.basename(lexicalPath));
     const link = yield* fs.readLink(entryPath).pipe(Effect.option);
     let canonicalEntry = entryPath;
@@ -350,7 +361,7 @@ export const assertResolvedNativeMutationWithin = (args: {
     const { physicalRoot, physicalOwnerRoot, target, mutation, address } = args;
     const boundary = mutation === "content" ? address.referentPath : address.entryPath;
     if (boundary === undefined)
-      return yield* new NativeLocationError({ target, reason: "dangling-ancestor" });
+      return yield* new NativeLocationError({ target, reason: "dangling-leaf" });
     if (!contains(path, physicalRoot, boundary))
       return yield* new NativeLocationError({ target, reason: "escape" });
     if (mutation === "content" && address.kind !== "directory" && (address.links ?? 1) > 1) {

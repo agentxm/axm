@@ -100,7 +100,7 @@ export const captureNativeAuthorityRoots = (
       const address = yield* resolveNativeEntry(nativeRoot);
       const physicalRoot = address.referentPath;
       if (physicalRoot === undefined)
-        return yield* new NativeLocationError({ target: nativeRoot, reason: "dangling-ancestor" });
+        return yield* new NativeLocationError({ target: nativeRoot, reason: "dangling-leaf" });
       // Creation can introduce this exact root, never undeclared missing ancestors.
       const anchorPath = address.kind === "absent" ? path.dirname(physicalRoot) : physicalRoot;
       const anchor = yield* directoryIdentity(anchorPath);
@@ -157,7 +157,7 @@ export const assertNativeMutationWithinRoots = (
     const address = yield* resolveNativeEntry(target);
     const boundary = mutation === "content" ? address.referentPath : address.entryPath;
     if (boundary === undefined)
-      return yield* new NativeLocationError({ target, reason: "dangling-ancestor" });
+      return yield* new NativeLocationError({ target, reason: "dangling-leaf" });
     const candidates: Array<{
       readonly nativeRoot: string;
       readonly physicalRoot: string;

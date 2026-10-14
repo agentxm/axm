@@ -492,13 +492,27 @@ export const refreshNativeRegionReaders = (
       }),
     );
     const observed = yield* captureNativeLocationSet({
-      referents: [
+      entries: [
         ...locations
           .filter((location) => location.address.kind === "region")
           .flatMap((location) => location.aliases),
         ...readers.map((reader) => reader.path),
       ],
     });
+    // A dangling link is observed state, not a failed observation: it reads the
+    // region only when it addresses the region's path, which may not exist yet.
+    const regionRoute = (route: string) =>
+      observed
+        .entry(route)
+        .pipe(
+          Effect.map(
+            (entry) =>
+              entry.referentPath ??
+              (entry.linkTarget === undefined
+                ? undefined
+                : path.resolve(path.dirname(entry.entryPath), entry.linkTarget)),
+          ),
+        );
     return yield* Effect.forEach(locations, (location) =>
       Effect.gen(function* () {
         if (location.address.kind !== "region") return location;
@@ -506,14 +520,12 @@ export const refreshNativeRegionReaders = (
         const potentialReaders = new Set<string>();
         const aliases = new Set([location.address.path]);
         for (const alias of location.aliases) {
-          const physical = yield* observed.referent(alias);
-          if (physical === location.address.path) aliases.add(alias);
+          if ((yield* regionRoute(alias)) === location.address.path) aliases.add(alias);
         }
         const uncertainConditions = new Map<string, string>();
         for (const reader of readers) {
           if (reader.scope !== location.scope) continue;
-          const physical = yield* observed.referent(reader.path);
-          if (physical !== location.address.path) continue;
+          if ((yield* regionRoute(reader.path)) !== location.address.path) continue;
           aliases.add(reader.path);
           if (reader.declaration.applicability.kind === "conditional") {
             potentialReaders.add(reader.agentId);

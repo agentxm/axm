@@ -1155,7 +1155,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
-- Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose and how sync previews, repairs, and preserves it.
 - Source: [`packages/core/workspace-features/src/authoring/pack-membership/add-to-pack-records-member-as-pack-dependency.spec.ts`](../packages/core/workspace-features/src/authoring/pack-membership/add-to-pack-records-member-as-pack-dependency.spec.ts)
 
 ##### Pack add selects the requested members without confusing shared names
@@ -1185,7 +1185,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Methods: example
 - Derived from: `cli/packs/authored-packs-expand-membership`
 - Supersedes: `cli/packs/authored-packs-expand-membership`
-- Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe.
+- Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose and how sync previews, repairs, and preserves it.
 - Source: [`packages/core/workspace-features/src/authoring/create/packs/new-pack-records-workspace-authorship.spec.ts`](../packages/core/workspace-features/src/authoring/create/packs/new-pack-records-workspace-authorship.spec.ts)
 
 ##### Pack remove changes only the selected dependency declarations
@@ -5299,6 +5299,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Product goals: `actionable-diagnostics`, `machine-automation`, `workspace-intent-fidelity`
 - Boundary: memory; selection: per-change
 - Methods: decision-table, contract, example
+- Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose and how sync previews, repairs, and preserves it.
 - Source: [`packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
 
 ### Goal: agent-interoperability

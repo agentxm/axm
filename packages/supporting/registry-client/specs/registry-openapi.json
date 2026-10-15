@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "AgentXM Registry API",
-    "version": "0.3.0",
+    "version": "0.4.0",
     "description": "Public machine-client API for AgentXM auth, discovery, extension reads, publishing, and user-initiated lifecycle operations."
   },
   "paths": {
@@ -469,11 +469,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -569,11 +576,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -652,11 +666,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -762,11 +783,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -952,11 +980,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -1092,11 +1127,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -1203,7 +1245,7 @@
             "description": "DecodeErrorResponse"
           },
           "401": {
-            "description": "UnauthorizedError"
+            "description": "UnauthorizedError | TokenEndedError"
           },
           "404": {
             "description": "NotFoundError"
@@ -1556,11 +1598,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -1681,11 +1730,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -2042,11 +2098,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -2336,11 +2399,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -2722,11 +2792,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -2890,11 +2967,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3002,11 +3086,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3127,11 +3218,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3282,11 +3380,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3414,11 +3519,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3539,11 +3651,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3707,11 +3826,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -3942,11 +4068,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -4134,11 +4267,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -4309,11 +4449,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -4440,11 +4587,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -4568,11 +4722,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -4901,11 +5062,18 @@
             }
           },
           "401": {
-            "description": "UnauthorizedError",
+            "description": "UnauthorizedError | TokenEndedError",
             "content": {
               "application/problem+json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ProblemDetails"
+                    },
+                    {
+                      "$ref": "#/components/schemas/TokenEndedErrorEncoded"
+                    }
+                  ]
                 }
               }
             }
@@ -5647,6 +5815,8 @@
           "publish_empty_archive",
           "deprecation_invalid_guidance",
           "unauthorized",
+          "token_expired",
+          "token_revoked",
           "forbidden",
           "insufficient_scope",
           "resource_restriction",
@@ -5755,6 +5925,62 @@
         "title": "ISO Date-Time String",
         "description": "A date and time string (e.g. 2024-01-15T12:00:00.000Z).",
         "format": "date-time"
+      },
+      "TokenEndedErrorEncoded": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "TokenEndedError"
+            ]
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "instance": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "token_expired",
+              "token_revoked"
+            ]
+          },
+          "tokenId": {
+            "type": "string",
+            "description": "The presented token's ID, as its holder's settings show it."
+          },
+          "tokenPrefix": {
+            "type": "string",
+            "description": "The token's type prefix and first body characters; never the secret."
+          },
+          "endedAt": {
+            "$ref": "#/components/schemas/IsoDateTimeString"
+          }
+        },
+        "required": [
+          "kind",
+          "type",
+          "title",
+          "status",
+          "detail",
+          "code",
+          "tokenId",
+          "tokenPrefix",
+          "endedAt"
+        ],
+        "additionalProperties": false
       },
       "ExtensionFqn": {
         "type": "string",
@@ -6053,7 +6279,12 @@
             ]
           },
           "url": {
-            "type": "string"
+            "type": "string",
+            "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+            "examples": [
+              "https://registry.agentxm.ai",
+              "file:///srv/registry"
+            ]
           }
         },
         "required": [
@@ -9650,6 +9881,20 @@
               }
             ]
           },
+          "prefix": {
+            "anyOf": [
+              {
+                "type": "string",
+                "description": "The token's type prefix and first body characters, as its holder's settings show them; never the secret.",
+                "examples": [
+                  "axmt_7fQk"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "permissions": {
             "anyOf": [
               {
@@ -9710,6 +9955,7 @@
           "id",
           "type",
           "name",
+          "prefix",
           "permissions",
           "authority",
           "expiresAt",

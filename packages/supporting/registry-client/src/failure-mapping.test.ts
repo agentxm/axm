@@ -5,6 +5,7 @@ import * as HttpClientError from "effect/http/HttpClientError";
 import * as HttpClientRequest from "effect/http/HttpClientRequest";
 import * as HttpClientResponse from "effect/http/HttpClientResponse";
 
+import * as GeneratedRegistryClient from "./__generated__/registry-client.js";
 import { RegistryRequestFailed } from "./errors.js";
 import { captureRegistryErrorResponseBodies, mapRegistryFailure } from "./failure-mapping.js";
 
@@ -92,6 +93,41 @@ describe("mapRegistryFailure", () => {
       expect(error.category).toBe("internal");
       expect(error.metadata?.response).toEqual({ status: 502, body: expectedBody });
       expect(error.cause).toBe(cause);
+    }),
+  );
+
+  it.effect("retains schema failure evidence when the operation includes its response", () =>
+    Effect.gen(function* () {
+      const requestId = "55555555-5555-4555-8555-555555555555";
+      const wire = captureRegistryErrorResponseBodies(
+        HttpClient.make((request) =>
+          Effect.succeed(
+            HttpClientResponse.fromWeb(
+              request,
+              Response.json(
+                { unknown: "refusal" },
+                { status: 401, headers: { "x-request-id": requestId } },
+              ),
+            ),
+          ),
+        ),
+      );
+      const client = GeneratedRegistryClient.make(
+        wire.pipe(HttpClient.mapRequest(HttpClientRequest.prependUrl(context.baseUrl))),
+      );
+      const cause = yield* client
+        .AuthGetMe({ config: { includeResponse: true } })
+        .pipe(Effect.flip);
+      const error = mapRegistryFailure(cause, context);
+      expect(error).toMatchObject({ _tag: "RegistryRequestFailed", reason: "response-decode" });
+      expect(error.metadata?.response).toEqual({
+        status: 401,
+        requestId,
+        body: { unknown: "refusal" },
+      });
+      expect(error.cause).toMatchObject({
+        reason: { _tag: "DecodeError", cause: { _tag: "SchemaError" } },
+      });
     }),
   );
 

@@ -5,6 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as HttpClient from "effect/http/HttpClient";
+import * as HttpClientError from "effect/http/HttpClientError";
 import type * as HttpClientResponse from "effect/http/HttpClientResponse";
 
 const decodeUnknownJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
@@ -77,3 +78,22 @@ export const retainedRegistryResponseBody = (
     : fallback;
 
 export const recoverRegistryResponseBodyText = (text: string): unknown => recoverBodyText(text);
+
+/** Keep HTTP evidence when a generated response schema rejects a valid JSON body. */
+export const preserveRegistryResponse = <A, E, R>(
+  decoded: Effect.Effect<A, E, R>,
+  response: HttpClientResponse.HttpClientResponse,
+): Effect.Effect<A, E | HttpClientError.HttpClientError, R> =>
+  decoded.pipe(
+    Effect.mapError((cause) =>
+      Schema.isSchemaError(cause)
+        ? new HttpClientError.HttpClientError({
+            reason: new HttpClientError.DecodeError({
+              request: response.request,
+              response,
+              cause,
+            }),
+          })
+        : cause,
+    ),
+  );

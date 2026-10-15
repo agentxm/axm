@@ -37,7 +37,7 @@ import {
 } from "@agentxm/registry-client";
 import { decodeHttpRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import { authClientOver } from "./test-support/test-helpers.js";
-import { RegistryAccessFailed, type AuthError } from "./errors.js";
+import { isRejectedCredential, RegistryAccessFailed, type AuthError } from "./errors.js";
 
 const asRegistryFailure = (error: AuthError): RegistryClientFailure => {
   if (isRegistryClientFailure(error)) return error;
@@ -125,6 +125,7 @@ const makeMeResponse = (token?: Readonly<Record<string, unknown>>) => ({
     id: "tok_01h455vb4pexka56gq5w2r7cpc",
     type: "session",
     name: null,
+    prefix: null,
     permissions: null,
     authority: "account",
     expiresAt: new Date(Date.now() + 3600 * 1000).toISOString(),
@@ -465,7 +466,9 @@ describe("pollOnce", () => {
       expect(error.detail).toBe(
         "Token exchange failed: the Registry response does not match the expected contract.",
       );
-      expect(error.cause).toMatchObject({ _tag: "SchemaError" });
+      expect(error.cause).toMatchObject({
+        reason: { _tag: "DecodeError", cause: { _tag: "SchemaError" } },
+      });
     });
   });
 });
@@ -600,7 +603,9 @@ describe("AuthClient.pollDeviceToken", () => {
         yield* client.pollDeviceToken(ENDPOINT, "dev_123", 0).pipe(Effect.flip),
       );
       expect(error.category).toBe("internal");
-      expect(error.cause).toMatchObject({ _tag: "SchemaError" });
+      expect(error.cause).toMatchObject({
+        reason: { _tag: "DecodeError", cause: { _tag: "SchemaError" } },
+      });
       expect(callCount).toBe(1);
     }).pipe(Effect.provide(layer));
   });
@@ -1050,6 +1055,58 @@ describe("AuthClient.getMe", () => {
       expect(error.cause).toMatchObject({ _tag: "AuthGetMe401" });
     }).pipe(Effect.provide(layer));
   });
+
+  it.effect.each(["token_expired", "token_revoked"] as const)(
+    "decodes %s as a credential rejection",
+    (code) => {
+      const body = {
+        kind: "TokenEndedError",
+        type: `https://registry.agentxm.ai/problems/${code}`,
+        title: "Token ended",
+        status: 401,
+        detail: "The presented token has ended.",
+        code,
+        tokenId: "fixture-token",
+        tokenPrefix: "axmt_fixture",
+        endedAt: "2026-10-15T00:00:00.000Z",
+      };
+      return Effect.gen(function* () {
+        const client = yield* AuthClient;
+        const error = asRegistryFailure(yield* client.getMe(ENDPOINT).pipe(Effect.flip));
+        expect(error._tag).toBe("RegistryProblem");
+        expect(error.metadata?.response).toMatchObject({ status: 401, problemCode: code });
+        expect(error.cause).toMatchObject({ _tag: "AuthGetMe401" });
+        expect(isRejectedCredential(error)).toBe(true);
+      }).pipe(Effect.provide(makeTestLayer(() => Response.json(body, { status: 401 }))));
+    },
+  );
+
+  it.effect.each([200, 401, 503])(
+    "retains HTTP evidence for a schema-invalid %s response",
+    (status) => {
+      const requestId = "55555555-5555-4555-8555-555555555555";
+      return Effect.gen(function* () {
+        const client = yield* AuthClient;
+        const error = asRegistryFailure(yield* client.getMe(ENDPOINT).pipe(Effect.flip));
+        expect(error).toMatchObject({ _tag: "RegistryRequestFailed", reason: "response-decode" });
+        expect(error.metadata?.response).toMatchObject({ status, requestId });
+        expect(error.metadata?.request).toMatchObject({
+          method: "GET",
+          url: `${REGISTRY_URL}/v1/auth/me`,
+        });
+        expect(isRejectedCredential(error)).toBe(status === 401);
+      }).pipe(
+        Effect.provide(
+          makeTestLayer(() =>
+            Response.json(
+              { unknown: "response shape" },
+              { status, headers: { "x-request-id": requestId } },
+            ),
+          ),
+        ),
+      );
+    },
+  );
 
   it.effect("preserves a declared 400 validation response", () => {
     const layer = makeTestLayer(

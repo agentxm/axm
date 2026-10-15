@@ -177,6 +177,7 @@ export const antigravityAgent = {
           },
           remote: {
             typeField: { required: null, accepted: [null] },
+            implicitTransport: "http-or-sse",
             urlKey: {
               "streamable-http": "serverUrl",
               sse: "serverUrl",

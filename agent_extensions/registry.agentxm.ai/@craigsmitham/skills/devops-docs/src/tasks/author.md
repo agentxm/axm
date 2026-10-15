@@ -13,7 +13,7 @@ under `<repository-root>/devops/`, honoring an explicitly requested or declared
 root override. Implement accepted migrations into that structure; an existing
 layout alone is not an override. Identify migration outside the authorized scope
 as remaining work rather than silently moving unrelated records.
-Available `author-docs` and `author-okf`
+Available `docs` and `okf`
 skills can contribute craft and base validation; otherwise use the templates
 and manual checks without installing dependencies.
 

@@ -1,211 +1,113 @@
-# Authoring executable specifications
+# Specification contract
 
-Every `*.spec.ts` states one requirement in the shared contract from
-`@agentxm/specification-metadata`. A specification lives beside the source it
-specifies, inside the project that owns that source; requirement identity,
-statement, class, role, goals, and lineage carry the meaning, and the generated
-[catalog](../../specifications/catalog.md) organizes them by meaning rather than
-location. There is no central specification project and no application harness:
-a specification runs in its owner's own test target — `test` for a library or
-`apps/cli`, `e2e` for `apps/cli-e2e`.
+The [Testing skill](../../skills/testing/src/SKILL.md) owns testing philosophy.
+This reference owns AXM's local requirement acceptance, source conventions,
+and evidence tooling. The [task interface](../../docs/guides/repository-task-interface.md)
+owns commands, prerequisites, cache freshness, and verification gates.
 
-Use the
-[requirements-engineering guidance](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/solution/requirements/index.md)
-and
-[designing executable specifications](../../agent_extensions/registry.agentxm.ai/@craigsmitham/knowledge/product-engineering/src/engineering/designing-executable-specifications.md)
-for elicitation, review, impact analysis, and requirement changes. The
-acceptance policy for this repository is the one below: the maintainer is the
-acceptance authority, and a decision the maintainer records in the session or on
-the pull request is the acceptance.
+## Acceptance
 
-## Authority
+An accepted `*.spec.ts` is the sole local authority for its requirement. Merging
+it to `main` accepts it; a behavior change lands its specification change with
+it. Undecided obligations stay in a work item or `openQuestions`. A successor
+retires every identity it `supersedes` in the same change.
 
-- A specification on `main` is accepted authority.
-- Merging the change that adds, revises, or removes a specification is the
-  acceptance decision. A change to behavior lands its specification changes in
-  the same change, written as final.
-- An obligation not yet decided is not written. Record it as a work item or in
-  the `openQuestions` of the nearest specification; never park it as a
-  half-authoritative file.
-- A successor retires every identity it `supersedes` in the same change; the
-  conformance check rejects a successor whose predecessor is still present, so
-  one obligation is never normative in two places.
-- Execution produces evidence, never acceptance. A failing specification
-  identifies disagreement between required and realized behavior; ordinary
-  tests, prose, and implementation are witnesses.
-- Obligations shared with the AgentXM platform are allocated to one corpus.
-  Specify AXM's own conformance to a named contract version; never restate the
-  other side's obligations. Keep private context out of this repository.
+A specification earns that authority when it states a decided rule with standing
+outside its author, survives a rewrite of its implementation, and has no existing
+specification owner. Ordinary tests and observed implementation behavior do not
+establish acceptance. Shared obligations belong to one corpus; AXM specifies its
+own conformance to the named public contract without restating another owner's
+obligation.
 
-## Admission
+## Source and execution
 
-A test earns the `*.spec.ts` suffix only when all four hold. Protecting a public
-contract is necessary, not sufficient.
+Colocate specifications with the source they govern, within an authored
+project's source root. Discovery uses the Nx graph. The owning project runs its
+specifications and ordinary tests together through `test`; `apps/cli-e2e` owns
+process, binary, and installation evidence through `e2e`. No central
+specification project or shared application harness exists.
 
-1. **A rule, not a mechanism.** The behavior was decided, and a different
-   decision was available.
-2. **Standing outside the author.** A person, another team, a downstream
-   consumer, or an external protocol can contradict it.
-3. **It outlives the implementation.** It survives a rewrite of whatever
-   enforces it today.
-4. **No existing specification owns it.** Two accepted statements of one rule
-   is a duplicate authority, not a second opinion.
+| File             | Meaning                                                  |
+| ---------------- | -------------------------------------------------------- |
+| `*.spec.ts`      | One authoritative requirement, exporting `specification` |
+| `*.test.ts`      | Ordinary evidence; no specification metadata             |
+| `*.e2e.test.ts`  | Boundary execution in a project tagged `role:e2e`        |
+| `*.type-test.ts` | Compile-time assertions                                  |
+| `*.bench.ts`     | Diagnostic measurements                                  |
 
-When the text was written does not decide admission: a rule specified after the
-code is still a specification if someone with standing accepted it independently
-of the code. Expected outcomes inferred from observed behavior are a
-characterization test, not a specification.
+Specifications use native test-framework constructs. Import
+`defineSpecification`, `defineExecutionBinding`, and `defineBoundEvidence` from
+[`@agentxm/specification-metadata`](../../tools/specification-metadata/README.md).
+Its schemas own field forms and vocabularies; metadata is literal-only so the
+catalog can read it without executing tests.
 
-Everything that fails admission is an ordinary `*.test.ts` beside the source, or
-engineering policy enforced by adopted tooling. Structural and layout rules
-belong to the Nx project graph, the placement plugin, and the
-`@nx/enforce-module-boundaries` matrix in `eslint.config.mjs`, witnessed by
-repository tests under `scripts/` — not to a specification.
+- `requirement` is a stable identity with two or more kebab segments separated by
+  `/`. Preserve it when moving a file; never reuse a retired identity.
+- The title and decisive examples use domain language. `statement` is one
+  normative sentence using `shall` or `shall not`.
+- `goals` references the shared registry or `specifications/product-goals.ts`.
+  Do not redefine shared goals. Class, role, boundary, method, and selection
+  describe the obligation and its evidence independently.
+- Declare lineage, assumptions, open questions, and evidence limitations.
+  Manual or review-only evidence remains unverified until established.
+- Boundary execution and static checks bind to the same requirement identity;
+  they do not establish a second requirement.
 
-## Placement
+Within the owning project, import the subject through its public root or slice
+entry by relative path. Import other packages by package name and their declared
+entries; test support from another package uses its `./testing` or
+`./<slice>/testing` export. Owner-local fixtures stay unpublished. CLI adapter
+specifications use `axm.sh/runtime` for its automation contract.
 
-Colocate a specification beside the source that realizes it, under the owning
-project's source root:
+## Catalog, results, and changes
 
-| Rule about                                            | Home                                                    |
-| ----------------------------------------------------- | ------------------------------------------------------- |
-| A library obligation                                  | `packages/<domain>/<package>/src/<area>/<name>.spec.ts` |
-| CLI grammar, prompting, rendering, or exit behavior   | `apps/cli/src/...` beside the adapter it governs        |
-| A process, binary, or install-boundary obligation     | `apps/cli-e2e/src/...` beside its execution binding     |
-| An engineering-tool obligation with external standing | `tools/<library>/src/...`                               |
+`specifications/catalog.md` is generated from canonical sources and includes
+requirements without passing executions. The shared purpose setup labels files
+as specification, ordinary test, or E2E. Receipts preserve source revision,
+runtime mode, boundary, and execution state. Source-mode freshness binds to
+TypeScript sources; built-mode freshness also includes runtime artifacts.
+Missing, stale, skipped, filtered, partial, or incorrectly labelled evidence
+never counts as a pass.
 
-Discovery rejects a `*.spec.ts` outside an authored project's source root, in a
-project that ships no runtime or end-to-end code, or inside `__generated__/`.
+The verdict distinguishes contract changes, possible rule changes in decisive
+examples, evidence changes, moves, and implementation impact. Maintainer review
+accepts requirement changes; `**/*.spec.ts` is routed through CODEOWNERS.
+Implementation work alone does not authorize changing accepted requirements.
 
-## Binding
+Explain removals in `specifications/disposition-ledger.json` with `requirement`,
+`disposition`, and `basis`; `superseded-by` also names `successor`. Other
+supported dispositions are `engineering-policy`, `converted-to-test`, and
+`retired`. A successor's `supersedes` declaration also explains retirement.
+Unexplained removals remain visible in the verdict. Reports and pull requests
+include the rendered specification impact, including the computed
+`No requirement contract changes.` result when applicable.
 
-A specification binds to its subject through the owning package's published
-surface, never through private internals and never through a shared application
-harness:
+## Existing verification bindings
 
-- **Published entries.** Reach the package under test through the modules its
-  root or slice entries publish, imported by relative path from inside the
-  project. Inside a sliced package, a specification in one slice reaches a
-  sibling slice through that slice's `index.ts`, never a private module.
-  `@nx/enforce-module-boundaries` rejects a same-project import by package name,
-  and that import would load the package's built `dist`, which stays stale
-  until the package is rebuilt. Import other packages by package
-  name (`@agentxm/workspace-kernel/planning`, or
-  `@agentxm/workspace-kernel/operations` for plan vocabulary), never by a
-  relative path into their `src`.
-- **`./testing` port.** Test doubles, fixtures, and deterministic execution
-  stubs that a specification needs from a _different_ package come from that
-  package's `./testing` or `./<slice>/testing` subpath
-  (`@agentxm/workspace-kernel/workspace-state/testing`,
-  `@agentxm/workspace-kernel/planning/testing`). A package that owes a seam to its
-  consumers' specifications exports it there deliberately.
-- **Owner-local fixtures.** Fixtures for the owning package's own
-  specifications live beside them (`./testing.js`, `./test-helpers.js`) and stay
-  unpublished. Test support shared by several workspace features lives in
-  `workspace-features/src/testing/`, which is not exported and is importable
-  only from feature test files.
-- **CLI adapter specifications** use the application's published runtime entry
-  (`axm.sh/runtime`) when they need its automation contract; end-to-end
-  specifications use the existing execution bindings in `apps/cli-e2e`.
+The fast-specification budget currently caps the sum of Vitest file times at
+360 seconds across owner projects, enforced by `scripts/check-spec-budget-lib.ts`.
+This aggregate is not elapsed developer feedback time. The
+[colocation decision](../../docs/architecture/decisions/colocated-specifications.md)
+owns that existing binding and its revision.
 
-A specification that can only be written by reaching past these surfaces is
-describing a mechanism, not a rule — see [Admission](#admission).
+The install-source policy's `test:policy-coverage` target applies complete
+coverage thresholds only to the bounded source selection in
+`packages/core/workspace-features/vitest.policy.config.ts`. `test:policy` runs
+those cases without coverage; `test:policy-mutation` is an explicit diagnostic
+using the uncached target, with reports under `test-results/policy-quality/`.
+Surviving or equivalent mutants require review; runner failures do not prove a
+mutant was detected. These checks emit no specification receipts.
 
-## Metadata
+## Commands
 
-Import `defineSpecification` (and `defineBoundEvidence` when needed) from
-`@agentxm/specification-metadata`. Fields, in this order:
+Use the root instructions' Nx environment settings. Select only the targets
+relevant to the change; this is a command reference, not a required sequence.
 
-| Field            | Rule                                                                                                                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `requirement`    | Stable semantic identity: two or more kebab segments joined by `/`; independent of the file path and preserved when the file moves                                         |
-| `title`          | Product language; no camelCase tokens or implementation words                                                                                                              |
-| `statement`      | One normative sentence: subject, condition, required or prohibited outcome (`shall` / `shall not`)                                                                         |
-| `class`          | `functional`, `quality`, `constraint`, `external-conformance`, `human-factors`, or `process`                                                                               |
-| `characteristic` | Required for `quality` (for example `installability`, `compatibility`, `performance`, `security`); optional otherwise                                                      |
-| `role`           | `experience`, `interface`, or `supporting`                                                                                                                                 |
-| `goals`          | Shared identities from `sharedProductGoals` or local identities from `specifications/product-goals.ts`; never redefine a shared goal locally                               |
-| `boundary`       | Defaults to `memory`; any other value requires `boundaryRationale` naming the evidence that boundary supplies                                                              |
-| `methods`        | What the tests actually use (`example`, `property`, `contract`, `static`, `measurement`, …); `manual` or `review` for obligations that cannot run — reported as unverified |
-| `selection`      | Defaults to `per-change`                                                                                                                                                   |
-| `derivedFrom`    | Predecessor requirements, prior specification identities, witnessing tests, or surfaces; `[]` for an original                                                              |
-| `supersedes`     | Identities this specification retires in the same change                                                                                                                   |
-| `assumptions`    | Material presumptions the evidence does not establish, `[]` when none were found, or `"unknown"` when not assessed                                                         |
-| `openQuestions`  | Unresolved meaning or scope, `[]` when none remain, or `"unknown"` when not reviewed                                                                                       |
-| `limitations`    | Declared blind spots, each with a `retirementCondition`                                                                                                                    |
-
-Metadata is literal-only; the catalog reads it statically.
-
-## Requirement roles
-
-Give every requirement one primary role: `experience` for behavior meaningful to
-a person or agent completing an AXM task; `interface` for a public
-machine-consumable contract; `supporting` for a subordinate system or
-engineering obligation. Split independently promised experience and interface
-behavior into separate requirements. Keep non-normative implementation detail in
-ordinary `*.test.ts` tests beside the source.
-
-## Recurring invariant families
-
-Idempotency, preview purity, and preserved-unowned-state recur per command. Keep
-them beside each owning feature with the shared names (`preview-is-pure`,
-`*-is-idempotent`, `preserves-*`) and tag the matching product goal.
-Cross-cutting views come from goal metadata, never from directories.
-
-## Bound evidence
-
-A specification whose decisive verification is a static gate declares
-literal-only `boundEvidence` beside its `specification` constant. Bound evidence
-supports the owning specification and never replaces it.
-
-## Moves and identity
-
-The `requirement` identity is stable and semantic; it is not derived from the
-path. Moving a file preserves its identity and history: regenerate `catalog.md`
-in the same change, and the verdict shows the file as `moved` when metadata,
-decisive examples, and body are unchanged. Exactly one canonical `*.spec.ts`
-exists per identity across every project; a second file fails discovery,
-hygiene, and the catalog.
-
-## The disposition ledger
-
-Removing an identity is a requirements decision, and the verdict renders every
-removal. `specifications/disposition-ledger.json` is where a removal is
-explained: an array of entries, each naming the retired `requirement`, its
-`disposition`, and a `basis` sentence.
-
-| Disposition          | Meaning                                                           |
-| -------------------- | ----------------------------------------------------------------- |
-| `superseded-by`      | Another identity now states the rule; `successor` is required     |
-| `engineering-policy` | The rule became a lint rule, graph constraint, or repository test |
-| `converted-to-test`  | The text failed admission and is now an ordinary test             |
-| `retired`            | The obligation no longer exists                                   |
-
-An identity that disappears with no ledger entry still renders — as
-`unexplained removal` — so the ledger is how a deliberate retirement is told
-apart from an accident. Prefer `supersedes` in the successor's metadata when a
-successor exists in the same change; use the ledger when the obligation leaves
-the corpus. The ledger is append-only in practice: an entry is removed only when
-the identity returns.
-
-## Specification impact
-
-Every change report and pull request ends with the specification impact rendered
-by the verdict target: the added, removed, and revised requirement identities,
-or the rendered "no requirement contract changes" line. The verdict is computed
-against the merge base, so "none" is a result, not a claim.
-
-```bash
-pnpm exec nx run axm:specification-verdict -- --base "$(git merge-base main HEAD)"
-```
-
-## Validate
-
-```bash
-pnpm exec nx run axm:generate:specification-catalog   # discovery + conformance + catalog.md
-pnpm exec nx run <owner>:test                         # the owner's specifications and tests
-pnpm exec nx run cli-e2e:e2e                          # the process- and binary-boundary lane
-pnpm test:spec --requirement <id>                     # evidence for one requirement, in its owner
-pnpm exec nx run axm:verify-source-hygiene            # specification and test file rules
-pnpm exec nx run axm:specification-verdict            # per-change requirement diff
-```
+| Need                                             | Command                                               |
+| ------------------------------------------------ | ----------------------------------------------------- |
+| Regenerate discovery, conformance, and catalog   | `pnpm exec nx run axm:generate:specification-catalog` |
+| Run one owner's evidence                         | `pnpm exec nx run <owner>:test`                       |
+| Select one requirement                           | `pnpm test:spec --requirement <id>`                   |
+| Exercise process and binary boundaries           | `pnpm exec nx run cli-e2e:e2e`                        |
+| Validate specification and test file conventions | `pnpm exec nx run axm:verify-source-hygiene`          |
+| Render the requirement diff                      | `pnpm exec nx run axm:specification-verdict`          |

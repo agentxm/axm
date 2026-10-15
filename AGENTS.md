@@ -8,12 +8,15 @@ AGENTS.md, CLAUDE.md, and SKILL.md instructions stay brief and scoped.
   Behavior changes include their specification changes; undecided obligations
   remain open questions. Tests, implementation, and execution evidence do not
   establish acceptance. [Catalog](specifications/catalog.md) ·
-  [Specification policy](contributing/guides/executable-specifications.md).
+  [Specification contract](contributing/guides/executable-specifications.md).
 - Architecture changes remain coherent with the
   [accepted architecture](docs/architecture/index.md). Features own their code,
   types, and colocated tests; dependencies cross only declared public package
   entries. Package placement, exports, and dependency direction satisfy the
   repository's architecture checks.
+- Use the `testing` skill when choosing, writing, reviewing, removing, or
+  optimizing tests. The [specification contract](contributing/guides/executable-specifications.md)
+  owns local acceptance, source conventions, and execution bindings.
 - Types are validated or inferred, not asserted; compiler and ESLint diagnostics
   are resolved. The
   [dual TypeScript aliases](docs/architecture/decisions/typescript-dual-alias.md)

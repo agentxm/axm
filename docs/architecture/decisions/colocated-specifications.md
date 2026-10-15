@@ -6,7 +6,7 @@ depends-on:
   - ./executable-specifications-authority.md
   - ./shared-specification-contract.md
   - ./package-classification-and-dependency-policy.md
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
 ---
 
 # Colocated specifications

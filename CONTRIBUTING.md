@@ -65,7 +65,7 @@ required behavior, and code and tests show how the design is implemented.
 An executable specification is a `*.spec.ts` file beside the source it
 specifies, inside the project that owns that source, and it runs in that
 project's `test` target. Before adding, moving, or retiring one, read
-[Executable specifications](contributing/guides/executable-specifications.md).
+[Specification contract](contributing/guides/executable-specifications.md).
 
 Pull-request CI renders the specification verdict against the same affected
 base used by verification. It lists added, removed, and revised requirement
@@ -88,7 +88,8 @@ reviewer for maintainer-authored work.
    repository. In both cases, create a branch from current `main` before the
    first file edit.
 2. Make your changes.
-3. Add or update tests for any new or changed behavior.
+3. Use the [Testing skill](skills/testing/src/SKILL.md) to select evidence for the
+   change and reuse specifications that already protect its behavior.
 4. Run `pnpm run verify:affected` locally before merge. Use
    `pnpm run verify:pr` when reproducing a merge-queue failure.
 5. Open a pull request against `main`. After acceptance, enable auto-merge to
@@ -159,10 +160,6 @@ private coordination and private PR links in the internal system.
   `pnpm format:check` are the canonical commands. Nx format commands are
   affected-file conveniences only.
 - **ESLint** handles linting and runs in CI.
-- Co-locate tests with the code they test (`feature.ts` + `feature.test.ts` in the same directory).
-- Executable specifications colocate the same way (`feature.spec.ts`) and bind
-  to their subject through the owning package's root export or another
-  package's `./testing` subpath — never a path into another package's `src`.
 - Libraries live in `packages/<domain>/<name>` where `<domain>` is `core`,
   `supporting`, or `generic`. The directory is the authority: Nx infers the
   `domain:*` tag from it, and ESLint enforces dependency direction from the

@@ -6,7 +6,7 @@ depends-on:
   - ./executable-specifications-authority.md
   - ./colocated-specifications.md
   - ./package-classification-and-dependency-policy.md
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
 ---
 
 # Shared specification contract
@@ -64,7 +64,7 @@ specification project, with a per-characteristic class vocabulary, while the
 AgentXM platform repository governed its obligations in prose. Converging both on executable specifications required one contract,
 one lens, one goal identity space, and one conformance rule that both
 repositories could install as a published artifact. The
-[testing strategy](../system-wide/testing-strategy.md) defines the model this
+[Specification contract](../../../contributing/guides/executable-specifications.md) defines the model this
 contract makes executable; the
 [executable specifications authority decision](executable-specifications-authority.md)
 established that specifications own AXM requirements.

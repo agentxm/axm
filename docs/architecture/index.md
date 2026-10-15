@@ -49,6 +49,5 @@ Navigation for the accepted product and system architecture of AXM.
 - [Telemetry](system-wide/telemetry.md) — CLI observation, local control,
   privacy boundaries, bounded failure reports, preview, and separation from
   Registry request logging
-- [Testing strategy](system-wide/testing-strategy.md) — executable
-  specifications as the sole local requirements authority, with distinct
-  verification purposes, boundaries, execution, completeness, and reporting
+- [Specification contract](../../contributing/guides/executable-specifications.md) — local
+  acceptance, source conventions, catalog, evidence bindings, and commands

@@ -5,7 +5,7 @@ description: AXM human output is a typed document painted by one terminal owner,
 depends-on:
   - ../commands/output.md
   - ../package-architecture.md
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
 ---
 
 # CLI output view model and terminal ownership

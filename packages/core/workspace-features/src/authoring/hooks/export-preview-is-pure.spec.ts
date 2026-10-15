@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "A real temporary project records every byte before and after the production export preview.",
   methods: ["example"],

@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "A missing settings file is a real absence in a folder on disk; the lint feature over live workspace services decides whether the run completes and what it reports.",
   derivedFrom: ["apps/cli-e2e/src/cli-commands/lint/command.e2e.ts"],

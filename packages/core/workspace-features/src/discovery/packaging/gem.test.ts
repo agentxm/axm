@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { gemDetector, gemReader } from "./gem.js";
 
 const gemType = Schema.decodeUnknownSync(PackageTypeSchema)("gem");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write Gemfile and/or gemspec, run detector, clean up. */
 const detectInTempDir = (opts?: {
@@ -43,7 +40,7 @@ describe("gemDetector", () => {
 
   describe("Gemfile gem directives extracted", () => {
     it.effect("extracts gem directives from Gemfile", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = [
             "source 'https://rubygems.org'",
@@ -61,7 +58,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("parses double-quoted gem names", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = 'gem "sidekiq"';
           const result = yield* detectInTempDir({ gemfile });
@@ -74,7 +71,7 @@ describe("gemDetector", () => {
 
   describe("exact versions produce versioned purls", () => {
     it.effect("exact version pin includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'puma', '5.6.7'";
           const result = yield* detectInTempDir({ gemfile });
@@ -89,7 +86,7 @@ describe("gemDetector", () => {
 
   describe("ranges produce versionless purls", () => {
     it.effect("pessimistic constraint is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'rails', '~> 7.0'";
           const result = yield* detectInTempDir({ gemfile });
@@ -100,7 +97,7 @@ describe("gemDetector", () => {
     );
 
     it.effect(">= constraint is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'puma', '>= 5.0'";
           const result = yield* detectInTempDir({ gemfile });
@@ -111,7 +108,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("no version specified is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'sidekiq'";
           const result = yield* detectInTempDir({ gemfile });
@@ -124,7 +121,7 @@ describe("gemDetector", () => {
 
   describe("gemspec dependencies", () => {
     it.effect("add_dependency extracted", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemspec = [
             "Gem::Specification.new do |spec|",
@@ -141,7 +138,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("add_runtime_dependency extracted", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemspec = [
             "Gem::Specification.new do |spec|",
@@ -158,7 +155,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("add_development_dependency extracted", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemspec = [
             "Gem::Specification.new do |spec|",
@@ -177,7 +174,7 @@ describe("gemDetector", () => {
 
   describe("deduplication across Gemfile and gemspec", () => {
     it.effect("produces only one purl for duplicate gem", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'nokogiri'";
           const gemspec = [
@@ -198,7 +195,7 @@ describe("gemDetector", () => {
 
   describe("path and git dependencies skipped", () => {
     it.effect("path dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'my-lib', path: '../my-lib'";
           const result = yield* detectInTempDir({ gemfile });
@@ -208,7 +205,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("git dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'my-lib', git: 'https://github.com/org/my-lib'";
           const result = yield* detectInTempDir({ gemfile });
@@ -218,7 +215,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("github shorthand is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gemfile = "gem 'my-lib', github: 'org/my-lib'";
           const result = yield* detectInTempDir({ gemfile });
@@ -230,7 +227,7 @@ describe("gemDetector", () => {
 
   describe("missing files", () => {
     it.effect("returns empty array when Gemfile is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -239,7 +236,7 @@ describe("gemDetector", () => {
     );
 
     it.effect("returns empty array when no gemspec files exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -296,7 +293,7 @@ describe("gemReader", () => {
 
   describe("valid agentExtensions metadata in gemspec", () => {
     it.effect("extracts extensions from agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "rails", version: "7.1.0" });
           const gemspecContent = [
@@ -318,7 +315,7 @@ describe("gemReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "some-gem", version: "1.0.0" });
           const gemspecContent = [
@@ -341,7 +338,7 @@ describe("gemReader", () => {
 
   describe("missing agentExtensions metadata", () => {
     it.effect("returns Option.none when no agentExtensions key in gemspec", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "nokogiri", version: "1.15.0" });
           const gemspecContent = [
@@ -362,7 +359,7 @@ describe("gemReader", () => {
 
   describe("missing gemspec", () => {
     it.effect("returns Option.none when gemspec does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "nonexistent", version: "1.0.0" });
           const result = yield* readInTempGemDir(purl);
@@ -374,7 +371,7 @@ describe("gemReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none on unparseable agentExtensions metadata value", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "bad-gem", version: "1.0.0" });
           const gemspecContent = [
@@ -394,7 +391,7 @@ describe("gemReader", () => {
 
   describe("extra agentExtensions keys tolerated", () => {
     it.effect("ignores extra agentExtensions keys", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "some-gem", version: "1.0.0" });
           const gemspecContent = [
@@ -418,7 +415,7 @@ describe("gemReader", () => {
 
   describe("multiple recommended extensions", () => {
     it.effect("parses multiple extensions from metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "gem", name: "some-gem", version: "1.0.0" });
           const gemspecContent = [

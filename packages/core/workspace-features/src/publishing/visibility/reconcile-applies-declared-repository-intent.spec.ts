@@ -29,6 +29,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production visibility reads authored manifests and settings from native temporary directories; the HTTP service port records Registry requests without a live service.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: ["apps/cli/src/root/visibility/handler.ts", "AgentXM Registry API 0.1.0"],
   supersedes: [],

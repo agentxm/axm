@@ -29,7 +29,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Activation is carried on the conversion request and settled by the import use case: a real project directory shows the persisted declaration and the native configurations the conversion reconciled, without a built binary.",
   methods: ["example", "decision-table"],

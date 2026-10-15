@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The workspace is a real directory of files, directories and symbolic links, so the whole-tree snapshot before and after is the decisive evidence; nothing about the guarantee needs a separate process.",
   methods: ["example"],

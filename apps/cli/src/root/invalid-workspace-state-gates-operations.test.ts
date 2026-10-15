@@ -16,7 +16,7 @@ import * as path from "node:path";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { describe, expect, it } from "@effect/vitest";
-import { afterAll, afterEach } from "vitest";
+import { afterEach } from "vitest";
 
 import { LOCKFILE_VERSION } from "@agentxm/workspace-kernel/workspace-state";
 import { getAppError } from "../test-support/test-helpers.js";
@@ -27,18 +27,14 @@ import { handleList } from "./list/command.js";
 import { handleSync } from "./sync/handler.js";
 
 import { makeSpecWorkspace, writeLocalSkillPackage } from "../test-support/install-harness.js";
-import { pinSpecUserHome } from "../test-support/workspace-fixtures.js";
 import { snapshotTree } from "@agentxm/test-support";
-
-/**
- * The resolved user home is captured by the first workspace construction in
- * this process, so the pin must be module-scoped and stable for the file.
- */
-const userHome = pinSpecUserHome();
 
 type WorkspaceScope = "project" | "user";
 type SpecWorkspace = ReturnType<typeof makeSpecWorkspace>;
 type GateError = ReturnType<typeof getAppError>;
+
+const userSettingsPath = (workspace: SpecWorkspace): string =>
+  path.join(workspace.userHome, ".axm", "workspace", "axm.json");
 
 const projectSettingsPath = (workspace: SpecWorkspace): string =>
   path.join(workspace.root, "axm.json");
@@ -46,11 +42,11 @@ const projectSettingsPath = (workspace: SpecWorkspace): string =>
 const lockPathFor = (workspace: SpecWorkspace, scope: WorkspaceScope): string =>
   scope === "project"
     ? path.join(workspace.root, "axm-lock.yaml")
-    : path.join(userHome.home, ".axm", "workspace", "axm-lock.yaml");
+    : path.join(workspace.userHome, ".axm", "workspace", "axm-lock.yaml");
 
-const initializeUserSettings = (): void => {
-  fs.mkdirSync(path.dirname(userHome.settingsPath), { recursive: true });
-  fs.writeFileSync(userHome.settingsPath, `${JSON.stringify({ agents: ["claude-code"] })}\n`);
+const initializeUserSettings = (workspace: SpecWorkspace): void => {
+  fs.mkdirSync(path.dirname(userSettingsPath(workspace)), { recursive: true });
+  fs.writeFileSync(userSettingsPath(workspace), `${JSON.stringify({ agents: ["claude-code"] })}\n`);
 };
 
 const replaceFile = (target: string, write: (target: string) => void): string => {
@@ -112,7 +108,7 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
     scope: "project",
     arrange: (workspace) =>
       replaceFile(
-        owner === "project" ? projectSettingsPath(workspace) : userHome.settingsPath,
+        owner === "project" ? projectSettingsPath(workspace) : userSettingsPath(workspace),
         entry.write,
       ),
     expectDiagnosis: (error) => {
@@ -135,7 +131,7 @@ const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as cons
         code: "validation",
         scope,
         arrange: (workspace) => {
-          if (scope === "user") initializeUserSettings();
+          if (scope === "user") initializeUserSettings(workspace);
           return replaceFile(lockPathFor(workspace, scope), (lockPath) =>
             fs.writeFileSync(lockPath, `lockfileVersion: ${observedVersion}\nskills: {}\n`),
           );
@@ -228,7 +224,7 @@ const invokeOperation = (
           handleLint({
             selection: {
               workspaceRoot: workspace.root,
-              userHome: workspace.root,
+              userHome: workspace.userHome,
               scope,
               input: { view: "filesystem" },
               nativeView: { kind: "workspace" },
@@ -281,19 +277,15 @@ const decisionTable = faultRows.flatMap((row) =>
 
 const workspaceStates = (workspace: SpecWorkspace) => ({
   project: snapshotTree(workspace.root),
-  user: snapshotTree(userHome.home),
+  user: snapshotTree(workspace.userHome),
 });
 
 describe("Invalid workspace state gates operations", () => {
   const cleanups: Array<() => void> = [];
   afterEach(() => {
-    userHome.reset();
     for (const cleanup of cleanups.splice(0)) {
       cleanup();
     }
-  });
-  afterAll(() => {
-    userHome.cleanup();
   });
 
   it.effect.each(decisionTable)(
@@ -360,18 +352,18 @@ describe("Invalid workspace state gates operations", () => {
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
       cleanups.push(workspace.cleanup);
-      fs.mkdirSync(path.dirname(userHome.settingsPath), { recursive: true });
-      fs.writeFileSync(userHome.settingsPath, "{ not-json");
+      fs.mkdirSync(path.dirname(userSettingsPath(workspace)), { recursive: true });
+      fs.writeFileSync(userSettingsPath(workspace), "{ not-json");
 
       const sync = () => handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
 
       const failure = yield* sync().pipe(Effect.flip);
       const error = getAppError(failure);
       expect(error.code).toBe("validation");
-      expect(error.detail).toContain(userHome.settingsPath);
-      expect(fs.readFileSync(userHome.settingsPath, "utf8")).toBe("{ not-json");
+      expect(error.detail).toContain(userSettingsPath(workspace));
+      expect(fs.readFileSync(userSettingsPath(workspace), "utf8")).toBe("{ not-json");
 
-      fs.rmSync(userHome.settingsPath, { force: true });
+      fs.rmSync(userSettingsPath(workspace), { force: true });
       yield* sync();
 
       const [entry] = workspace.rendererState.results;
@@ -383,11 +375,11 @@ describe("Invalid workspace state gates operations", () => {
     Effect.gen(function* () {
       const workspace = makeSpecWorkspace({ machine: true, flags: { json: true } });
       cleanups.push(workspace.cleanup);
-      expect(fs.existsSync(userHome.settingsPath)).toBe(false);
+      expect(fs.existsSync(userSettingsPath(workspace))).toBe(false);
 
       yield* handleSync({ preview: false }).pipe(Effect.provide(workspace.layer));
 
-      expect(fs.existsSync(userHome.settingsPath)).toBe(false);
+      expect(fs.existsSync(userSettingsPath(workspace))).toBe(false);
     }),
   );
 });

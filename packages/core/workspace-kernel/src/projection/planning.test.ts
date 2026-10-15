@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as TestClock from "effect/testing/TestClock";
 import type { DesiredStateGraph } from "../workspace-state/index.js";
 import {
   applyProjectionPlans,
@@ -172,21 +174,21 @@ describe("shared projection planning", () => {
         contributor,
         adapter: {
           apply: () =>
-            Effect.promise(
-              () =>
-                new Promise<void>((resolve) => {
-                  const active = (activeByTarget.get(targetFile) ?? 0) + 1;
-                  activeByTarget.set(targetFile, active);
-                  maxByTarget.set(targetFile, Math.max(maxByTarget.get(targetFile) ?? 0, active));
-                  activeOverall += 1;
-                  maxOverall = Math.max(maxOverall, activeOverall);
-                  setTimeout(() => {
-                    activeByTarget.set(targetFile, active - 1);
+            Effect.gen(function* () {
+              const active = (activeByTarget.get(targetFile) ?? 0) + 1;
+              activeByTarget.set(targetFile, active);
+              maxByTarget.set(targetFile, Math.max(maxByTarget.get(targetFile) ?? 0, active));
+              activeOverall += 1;
+              maxOverall = Math.max(maxOverall, activeOverall);
+              yield* Effect.sleep("10 millis").pipe(
+                Effect.ensuring(
+                  Effect.sync(() => {
+                    activeByTarget.set(targetFile, (activeByTarget.get(targetFile) ?? 0) - 1);
                     activeOverall -= 1;
-                    resolve();
-                  }, 10);
-                }),
-            ),
+                  }),
+                ),
+              );
+            }),
           observe: () =>
             Effect.succeed({
               unitId: "mcp-server:native-config-entry",
@@ -200,13 +202,16 @@ describe("shared projection planning", () => {
       });
 
     return Effect.gen(function* () {
-      yield* applyProjectionPlans([
+      const applying = yield* applyProjectionPlans([
         plan("shared.json", "a"),
         plan("shared.json", "b"),
         plan("other.json", "c"),
-      ]);
+      ]).pipe(Effect.forkChild);
+      yield* TestClock.adjust("1 second");
+      yield* Fiber.join(applying);
       expect(maxByTarget.get("shared.json")).toBe(1);
       expect(maxOverall).toBeGreaterThan(1);
+      expect(activeOverall).toBe(0);
     });
   });
 
@@ -214,17 +219,17 @@ describe("shared projection planning", () => {
     let active = 0;
     let peak = 0;
     const probe = () =>
-      Effect.promise(
-        () =>
-          new Promise<void>((resolve) => {
-            active += 1;
-            peak = Math.max(peak, active);
-            setTimeout(() => {
+      Effect.gen(function* () {
+        active += 1;
+        peak = Math.max(peak, active);
+        yield* Effect.sleep("10 millis").pipe(
+          Effect.ensuring(
+            Effect.sync(() => {
               active -= 1;
-              resolve();
-            }, 10);
-          }),
-      );
+            }),
+          ),
+        );
+      });
     const plans = Array.from({ length: PROJECTION_IO_CONCURRENCY * 2 }, (_, index) => {
       const targetFile = `target-${index}.json`;
       return planSingletonProjection({
@@ -249,11 +254,15 @@ describe("shared projection planning", () => {
     });
 
     return Effect.gen(function* () {
-      yield* observeProjectionPlans(plans);
+      const observing = yield* observeProjectionPlans(plans).pipe(Effect.forkChild);
+      yield* TestClock.adjust("1 second");
+      yield* Fiber.join(observing);
       expect(peak).toBe(PROJECTION_IO_CONCURRENCY);
       expect(active).toBe(0);
       peak = 0;
-      yield* applyProjectionPlans(plans);
+      const applying = yield* applyProjectionPlans(plans).pipe(Effect.forkChild);
+      yield* TestClock.adjust("1 second");
+      yield* Fiber.join(applying);
       expect(peak).toBe(PROJECTION_IO_CONCURRENCY);
       expect(active).toBe(0);
     });

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { swiftDetector, swiftReader } from "./swift.js";
 
 const swiftType = Schema.decodeUnknownSync(PackageTypeSchema)("swift");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write Package.swift, run detector, clean up. */
 const detectInTempDir = (packageSwift?: string) =>
@@ -34,7 +31,7 @@ describe("swiftDetector", () => {
 
   describe("dependencies from Package.swift", () => {
     it.effect("extracts package url dependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 // swift-tools-version:5.9
@@ -59,7 +56,7 @@ let package = Package(
 
   describe("namespace derived from URL", () => {
     it.effect("GitHub URL produces namespace with host and org", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -81,7 +78,7 @@ let package = Package(
     );
 
     it.effect("GitHub URL without .git suffix", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -103,7 +100,7 @@ let package = Package(
     );
 
     it.effect("custom host URL", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -127,7 +124,7 @@ let package = Package(
 
   describe("exact versions produce versioned purls", () => {
     it.effect("exact version includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -151,30 +148,8 @@ let package = Package(
   });
 
   describe("version ranges produce versionless purls", () => {
-    it.effect("from range is versionless", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const packageSwift = `
-let package = Package(
-    dependencies: [
-        .package(url: "https://github.com/Alamofire/Alamofire.git", from: "5.6.0"),
-    ]
-)`;
-          const result = yield* detectInTempDir(packageSwift);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(
-            makePurl({
-              type: "swift",
-              namespace: "github.com/Alamofire",
-              name: "Alamofire",
-            }),
-          );
-        }),
-      ),
-    );
-
     it.effect("upToNextMajor range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -190,7 +165,7 @@ let package = Package(
     );
 
     it.effect("upToNextMinor range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 let package = Package(
@@ -208,7 +183,7 @@ let package = Package(
 
   describe("missing Package.swift", () => {
     it.effect("returns empty array when Package.swift is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -219,7 +194,7 @@ let package = Package(
 
   describe("no dependencies", () => {
     it.effect("returns empty array when no dependencies declared", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const packageSwift = `
 // swift-tools-version:5.9
@@ -280,7 +255,7 @@ describe("swiftReader", () => {
 
   describe("valid agent-extensions.json sidecar", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -304,7 +279,7 @@ describe("swiftReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -323,7 +298,7 @@ describe("swiftReader", () => {
 
   describe("missing agent-extensions.json sidecar", () => {
     it.effect("returns Option.none when agent-extensions.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -339,7 +314,7 @@ describe("swiftReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -355,7 +330,7 @@ describe("swiftReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -380,7 +355,7 @@ describe("swiftReader", () => {
 
   describe("missing checkouts directory", () => {
     it.effect("returns Option.none when .build/checkouts does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",
@@ -396,7 +371,7 @@ describe("swiftReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "swift",

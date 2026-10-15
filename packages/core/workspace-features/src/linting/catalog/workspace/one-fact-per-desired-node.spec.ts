@@ -46,7 +46,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The fact is judged from a real settings file, lockfile, installed Pack, and file Registry on disk, and lint and sync read that one workspace through the production layers.",
   methods: ["example"],

@@ -9,6 +9,9 @@ import { PlanInteractionFailed } from "@agentxm/workspace-kernel/operations";
  * @internal Test-only.
  */
 
+import { onTestFinished } from "vitest";
+import { makeNativeFileStore } from "@agentxm/test-support";
+
 import { WorkspaceBoundaryClaimsTest } from "@agentxm/workspace-kernel/settlement/testing";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -502,6 +505,7 @@ export const getErrorResult = (result: unknown): AppErrorResult => {
 };
 
 export const makeCliTestContext = (opts?: {
+  readonly boundaryClaimsDirectory?: string | undefined;
   readonly prompt?: TestPromptConfig | undefined;
   readonly flags?:
     | {
@@ -525,6 +529,16 @@ export const makeCliTestContext = (opts?: {
   /** Override filesystem operations before workspace services capture the platform. */
   readonly fileSystemLayer?: Layer.Layer<FileSystem.FileSystem, never, FileSystem.FileSystem>;
 }) => {
+  // Unrelated test contexts must not contend through the OS account's live
+  // admission table. Related fixtures explicitly borrow the same coordinator.
+  const boundaryClaimsDirectory =
+    opts?.boundaryClaimsDirectory ??
+    (() => {
+      const files = makeNativeFileStore();
+      const directory = files.makeTempDirectory("axm-handler-claims-");
+      onTestFinished(() => files.remove(directory));
+      return directory;
+    })();
   const renderer = opts?.machine ? TestMachineRenderer.make() : TestRenderer.make();
   const rendererLayer = opts?.screenLayer ?? renderer.layer;
   const rendererState = renderer.state;
@@ -575,13 +589,17 @@ export const makeCliTestContext = (opts?: {
     opts?.fileSystemLayer === undefined
       ? NodeServices.layer
       : Layer.provideMerge(opts.fileSystemLayer, NodeServices.layer);
-  const platformLayer =
+  const fileSystemServices =
     opts?.onFileSystemWrite === undefined
       ? fileSystemPlatformLayer
       : Layer.provideMerge(
           recordingFileSystemLayer(opts.onFileSystemWrite),
           fileSystemPlatformLayer,
         );
+  const platformLayer = Layer.merge(
+    fileSystemServices,
+    WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory),
+  );
   // Registry clients travel the test transport as it is: a fixture that
   // needs a credential on a request puts it there itself.
   const registryClientFactoryLayer = Layer.provide(
@@ -616,6 +634,7 @@ export const makeCliTestContext = (opts?: {
   );
 
   return {
+    boundaryClaimsDirectory,
     authLoginPresenterState: authLoginPresenterTest.state,
     baseLayer,
     logs: logsByTag(rendererState),
@@ -692,6 +711,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
     | undefined;
 }) => {
   const cliTestContext = makeCliTestContext(opts);
+  const boundaryClaimsDirectory = cliTestContext.boundaryClaimsDirectory;
   const projectRoot = decodeAbsolutePathSync(opts?.wsOptions?.projectRoot ?? process.cwd());
   const wsOptions = {
     scope: "project",
@@ -721,9 +741,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
       NativeWriteAuthorityLive,
     ),
     (opts?.workspaceLayer ?? coreWorkspaceLayer(wsOptions)).pipe(
-      opts?.boundaryClaimsDirectory === undefined
-        ? (layer) => layer
-        : Layer.provide(WorkspaceBoundaryClaimsTest(opts.boundaryClaimsDirectory)),
+      Layer.provide(WorkspaceBoundaryClaimsTest(boundaryClaimsDirectory)),
     ),
   ).pipe(Layer.provide(cliTestContext.baseLayer));
   const wsLayer = Layer.mergeAll(
@@ -762,6 +780,7 @@ export const makeWorkspaceHandlerTestContext = (opts?: {
 
   return {
     ...cliTestContext,
+    boundaryClaimsDirectory,
     ...(wsOptions.scope === "project" ? { projectRoot } : {}),
     wsLayer,
     fullLayer,

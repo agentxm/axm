@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Entry kinds (file, directory, symbolic link) and AXM staging names are observed from a real install root on disk.",
   derivedFrom: [],

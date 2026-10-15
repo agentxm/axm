@@ -73,13 +73,10 @@ describe("runLoopbackLogin", () => {
     const presenter = AuthLoginPresenterTest();
     const interaction = DeviceLoginInteractionTest({
       openBrowser: (authorizeUrl) =>
-        Effect.sync(() => {
-          const callback = callbackFromAuthorizeUrl(authorizeUrl);
-          setTimeout(() => {
-            void request(callback.href);
-          }, 10);
-          return false;
-        }),
+        Effect.promise(() => request(callbackFromAuthorizeUrl(authorizeUrl).href)).pipe(
+          Effect.forkChild,
+          Effect.as(false),
+        ),
     });
     const layer = Layer.mergeAll(
       presenter.layer,

@@ -33,6 +33,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "apps/cli/src/root/shared/extension-show.test.ts",

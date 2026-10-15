@@ -4,9 +4,34 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
 import { makeMemoryFileSystem } from "./memory-file-system.js";
+import { makeNativeFileStore } from "./native-file-store.js";
 
 for (const mode of ["disk", "memory"] as const) {
   describe(`filesystem contract (${mode})`, () => {
+    it.effect("observes directories and links without hiding invalid observation requests", () =>
+      Effect.gen(function* () {
+        const memory = makeMemoryFileSystem();
+        const fs =
+          mode === "memory"
+            ? memory.fileSystem
+            : yield* FileSystem.FileSystem.pipe(Effect.provide(NodeFileSystem.layer));
+        const files = mode === "memory" ? memory.files : makeNativeFileStore();
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "axm-store-contract-" });
+        yield* fs.makeDirectory(`${root}/directory`);
+        yield* fs.writeFileString(`${root}/file`, "content");
+        yield* fs.symlink("file", `${root}/link`);
+
+        expect((yield* fs.readDirectory(root)).sort()).toEqual(["directory", "file", "link"]);
+        expect((yield* fs.stat(`${root}/directory`)).type).toBe("Directory");
+        expect(files.type(`${root}/directory`)).toBe("directory");
+        expect(files.type(`${root}/file`)).toBe("file");
+        expect(files.type(`${root}/link`)).toBe("symlink");
+        expect(files.type(`${root}/absent`)).toBeUndefined();
+        expect(() => files.type("invalid\0path")).toThrow();
+        expect(memory.failures).toEqual([]);
+      }),
+    );
+
     it.effect("preserves byte, link, rename, deletion, and overwrite semantics", () =>
       Effect.gen(function* () {
         const memory = makeMemoryFileSystem();

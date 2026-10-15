@@ -5,12 +5,10 @@ import * as ConfigProvider from "effect/ConfigProvider";
  * @packageDocumentation
  */
 
-import * as NodeFileSystem from "@effect/platform-node/NodeFileSystem";
-import * as NodePath from "@effect/platform-node/NodePath";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
@@ -20,11 +18,6 @@ import { pypiDetector, pypiReader } from "./pypi.js";
 
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const encodePurl = Schema.encodeSync(PackageUrlSchema);
-
-const TestLayer = Layer.mergeAll(NodeFileSystem.layer, NodePath.layer);
-
-const withTestLayer = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(TestLayer));
 
 /** Create a temporary project directory with given files. */
 const withProjectDir = <A, E>(
@@ -54,7 +47,7 @@ describe("pypiDetector", () => {
   // --- pyproject.toml ---
 
   it.effect("parses pyproject.toml [project] dependencies", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "pyproject.toml": ["[project]", 'dependencies = ["django>=4.0", "requests"]'].join("\n"),
@@ -71,7 +64,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("parses pyproject.toml [project.optional-dependencies]", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "pyproject.toml": [
@@ -93,7 +86,7 @@ describe("pypiDetector", () => {
   // --- requirements.txt ---
 
   it.effect("parses requirements.txt one-per-line", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "flask>=2.0\nrequests==2.31.0\n",
@@ -113,7 +106,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("follows -r include directives in requirements.txt", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "-r requirements-dev.txt\nflask>=2.0\n",
@@ -131,7 +124,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("warns and continues when -r include target is missing", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "-r missing.txt\nflask>=2.0\n",
@@ -150,7 +143,7 @@ describe("pypiDetector", () => {
   // --- setup.cfg ---
 
   it.effect("parses setup.cfg [options] install_requires", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "setup.cfg": [
@@ -174,7 +167,7 @@ describe("pypiDetector", () => {
   // --- Pipfile ---
 
   it.effect("parses Pipfile [packages]", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           Pipfile: ["[packages]", 'django = ">=4.0"', 'requests = "*"'].join("\n"),
@@ -193,7 +186,7 @@ describe("pypiDetector", () => {
   // --- Name normalization ---
 
   it.effect("normalizes mixed case to lowercase", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "Flask\n",
@@ -213,7 +206,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("normalizes underscores to dashes", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "Flask_RESTful\n",
@@ -228,7 +221,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("normalizes dots to dashes", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "zope.interface\n",
@@ -245,7 +238,7 @@ describe("pypiDetector", () => {
   // --- Version handling ---
 
   it.effect("exact pin (==) produces versioned purl", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "requests==2.31.0\n",
@@ -260,7 +253,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("range (>=) produces versionless purl", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "django>=4.0,<5.0\n",
@@ -275,7 +268,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("compatible release (~=) produces versionless purl", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "flask~=2.0\n",
@@ -290,7 +283,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("wildcard pin (==1.24.*) produces versionless purl", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "numpy==1.24.*\n",
@@ -305,7 +298,7 @@ describe("pypiDetector", () => {
   );
 
   it.effect("no version specifier produces versionless purl", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "requests\n",
@@ -322,7 +315,7 @@ describe("pypiDetector", () => {
   // --- Deduplication ---
 
   it.effect("deduplicates across files", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "pyproject.toml": ["[project]", 'dependencies = ["requests>=2.0"]'].join("\n"),
@@ -342,7 +335,7 @@ describe("pypiDetector", () => {
   // --- Missing files ---
 
   it.effect("returns empty array when no Python files present", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir({}, (dir) =>
         Effect.gen(function* () {
           const result = yield* pypiDetector.detect(dir);
@@ -355,7 +348,7 @@ describe("pypiDetector", () => {
   // --- Malformed files ---
 
   it.effect("warns and skips malformed pyproject.toml", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "pyproject.toml": "this is not valid toml {{{",
@@ -372,7 +365,7 @@ describe("pypiDetector", () => {
   // --- Comments and blank lines ---
 
   it.effect("ignores comments and blank lines in requirements.txt", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": [
@@ -398,7 +391,7 @@ describe("pypiDetector", () => {
   // --- Extras stripped ---
 
   it.effect("strips extras from dependency specifiers", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir(
         {
           "requirements.txt": "requests[security]==2.31.0\n",
@@ -422,7 +415,7 @@ describe("pypiReader", () => {
   it.effect("has type pypi", () => Effect.succeed(expect(pypiReader.type).toBe(pypiType)));
 
   it.effect("returns Option.none when no .dist-info directory exists", () =>
-    withTestLayer(
+    withPackagingContext(
       withProjectDir({}, (_dir) =>
         Effect.gen(function* () {
           const pkg = {
@@ -448,7 +441,7 @@ describe("pypiReader", () => {
   );
 
   it.effect("reads agent-extensions.json via entry_points.txt [agentExtensions] group", () =>
-    withTestLayer(
+    withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
@@ -504,7 +497,7 @@ describe("pypiReader", () => {
   );
 
   it.effect("returns recommendations from .dist-info with [agentExtensions] entry point", () =>
-    withTestLayer(
+    withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
@@ -559,7 +552,7 @@ describe("pypiReader", () => {
   );
 
   it.effect("returns Option.none when entry_points.txt has no [agentExtensions] group", () =>
-    withTestLayer(
+    withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
@@ -598,7 +591,7 @@ describe("pypiReader", () => {
   );
 
   it.effect("returns Option.none when agent-extensions.json is malformed", () =>
-    withTestLayer(
+    withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
@@ -645,7 +638,7 @@ describe("pypiReader", () => {
   );
 
   it.effect("locates dist-info with normalized name matching", () =>
-    withTestLayer(
+    withPackagingContext(
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;

@@ -40,6 +40,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "safe-repetition", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "cli/workspace-lockfile-rejections-name-state-and-recovery",

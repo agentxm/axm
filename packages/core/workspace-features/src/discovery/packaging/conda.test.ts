@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -13,9 +13,6 @@ import { condaDetector, condaReader } from "./conda.js";
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");
 const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -38,7 +35,7 @@ describe("condaDetector", () => {
 
   describe("environment.yml dependencies", () => {
     it.effect("extracts dependencies from environment.yml", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = [
             "name: myenv",
@@ -58,7 +55,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("missing environment.yml returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({});
           expect(result).toEqual([]);
@@ -67,7 +64,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("no dependencies section returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["name: myenv", "channels:", "  - defaults"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -79,7 +76,7 @@ describe("condaDetector", () => {
 
   describe("meta.yaml dependencies", () => {
     it.effect("extracts from requirements host and run", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const metaYaml = [
             "package:",
@@ -105,7 +102,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("missing meta.yaml returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({});
           expect(result).toEqual([]);
@@ -116,7 +113,7 @@ describe("condaDetector", () => {
 
   describe("version parsing", () => {
     it.effect("name with version and build", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy=1.24.0=py311h54d7cd4_0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -129,7 +126,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("name with version only", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - pandas=2.0.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -142,7 +139,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("name only is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - scikit-learn"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -155,7 +152,7 @@ describe("condaDetector", () => {
 
   describe("exact versions produce versioned purls", () => {
     it.effect("exact version pin", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy=1.24.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -167,7 +164,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("version range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy >=1.24"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -178,7 +175,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("no version is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -190,7 +187,7 @@ describe("condaDetector", () => {
 
   describe("channel qualifier", () => {
     it.effect("channel prefix on dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - conda-forge::numpy=1.24.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -202,7 +199,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("no channel has no qualifier", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy=1.24.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -215,7 +212,7 @@ describe("condaDetector", () => {
 
   describe("pip sub-list mapped to pkg:pypi", () => {
     it.effect("pip dependencies produce pypi purls", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - numpy", "  - pip:", "    - requests==2.31.0"].join(
             "\n",
@@ -237,7 +234,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("pip dependency with range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - pip:", "    - flask>=2.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -250,7 +247,7 @@ describe("condaDetector", () => {
     );
 
     it.effect("pip exact version", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const envYml = ["dependencies:", "  - pip:", "    - requests==2.31.0"].join("\n");
           const result = yield* detectInTempDir({ "environment.yml": envYml });
@@ -329,7 +326,7 @@ describe("condaReader", () => {
 
   describe("valid agent-extensions.json in shared data", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -346,7 +343,7 @@ describe("condaReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "scipy" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -363,7 +360,7 @@ describe("condaReader", () => {
 
   describe("fallback to about.json", () => {
     it.effect("extracts metadata from package cache about.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "scikit-learn" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -385,7 +382,7 @@ describe("condaReader", () => {
     );
 
     it.effect("returns Option.none when no metadata in either location", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "matplotlib" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -400,7 +397,7 @@ describe("condaReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none and warns on malformed agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "some_pkg" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -414,7 +411,7 @@ describe("condaReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "some_pkg" });
           const result = yield* readInTempCondaPrefix(purl, {
@@ -434,7 +431,7 @@ describe("condaReader", () => {
 
   describe("CONDA_PREFIX not set", () => {
     it.effect("returns Option.none when CONDA_PREFIX is not set", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
 
@@ -455,7 +452,7 @@ describe("condaReader", () => {
 
   describe("missing shared data directory", () => {
     it.effect("falls back to package cache when shared data missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conda", name: "numpy" });
           // No agentExtensionsJsonContent → shared data doesn't exist, should fall through to about.json

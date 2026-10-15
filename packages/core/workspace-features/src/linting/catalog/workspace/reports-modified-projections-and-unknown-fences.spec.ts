@@ -18,7 +18,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Recorded rows are a real lockfile and the compared bytes are real files under a temporary workspace; production lint reads both without mutating either.",
   derivedFrom: [

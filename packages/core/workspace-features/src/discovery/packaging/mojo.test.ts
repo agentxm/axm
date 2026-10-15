@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { mojoDetector, mojoReader } from "./mojo.js";
 const mojoType = Schema.decodeUnknownSync(PackageTypeSchema)("mojo");
 const condaType = Schema.decodeUnknownSync(PackageTypeSchema)("conda");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write pixi.toml, run detector, clean up. */
 const detectInTempDir = (files?: { pixi?: string }) =>
@@ -35,7 +32,7 @@ describe("mojoDetector", () => {
 
   describe("dependencies extracted from pixi.toml", () => {
     it.effect("extracts mojo and conda dependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[project]
 name = "my-mojo-project"
@@ -63,7 +60,7 @@ numpy = ">=1.26"
 
   describe("mojo-specific vs conda packages", () => {
     it.effect("mojo-specific package produces pkg:mojo purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[dependencies]
 max = ">=24.6"
@@ -77,7 +74,7 @@ max = ">=24.6"
     );
 
     it.effect("conda package produces pkg:conda purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[dependencies]
 numpy = ">=1.26"
@@ -93,7 +90,7 @@ numpy = ">=1.26"
 
   describe("exact version produces versioned purl", () => {
     it.effect("exact version included", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[dependencies]
 max = "24.6.0"
@@ -110,7 +107,7 @@ max = "24.6.0"
 
   describe("version range produces versionless purl", () => {
     it.effect("range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[dependencies]
 max = ">=24.6"
@@ -125,7 +122,7 @@ max = ">=24.6"
 
   describe("missing dependency files", () => {
     it.effect("returns empty array when no files exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -136,7 +133,7 @@ max = ">=24.6"
 
   describe("malformed pixi.toml", () => {
     it.effect("returns empty array on malformed TOML", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir({
             pixi: "{{{{ not valid toml ????",
@@ -149,7 +146,7 @@ max = ">=24.6"
 
   describe("no dependencies section", () => {
     it.effect("returns empty array when no [dependencies]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pixi = `[project]
 name = "my-project"
@@ -170,13 +167,14 @@ name = "my-project"
 const readInTempPixiCache = (
   pkgPurl: Schema.Schema.Type<typeof PackageUrlPartsSchema>,
   agentExtensionsJsonContent?: string,
+  options: { readonly packagePresent?: boolean } = {},
 ) =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const tmpDir = yield* fs.makeTempDirectoryScoped();
 
-    if (agentExtensionsJsonContent !== undefined) {
+    if (options.packagePresent !== false) {
       // Set up pixi environment cache structure
       const condaMetaDir = path.join(
         tmpDir,
@@ -187,10 +185,12 @@ const readInTempPixiCache = (
         `${pkgPurl.name}-${pkgPurl.version ?? "24.6.0"}`,
       );
       yield* fs.makeDirectory(condaMetaDir, { recursive: true });
-      yield* fs.writeFileString(
-        path.join(condaMetaDir, "agent-extensions.json"),
-        agentExtensionsJsonContent,
-      );
+      if (agentExtensionsJsonContent !== undefined) {
+        yield* fs.writeFileString(
+          path.join(condaMetaDir, "agent-extensions.json"),
+          agentExtensionsJsonContent,
+        );
+      }
     }
 
     // Write a source manifest in the project dir
@@ -215,7 +215,7 @@ describe("mojoReader", () => {
 
   describe("valid agent-extensions.json in pixi environment", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",
@@ -239,7 +239,7 @@ describe("mojoReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when no agent-extensions.json exists", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",
@@ -254,7 +254,7 @@ describe("mojoReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",
@@ -273,7 +273,7 @@ describe("mojoReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",
@@ -298,13 +298,13 @@ describe("mojoReader", () => {
 
   describe("missing .pixi directory", () => {
     it.effect("returns Option.none when .pixi does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",
             name: "max",
           });
-          const result = yield* readInTempPixiCache(purl);
+          const result = yield* readInTempPixiCache(purl, undefined, { packagePresent: false });
           expect(Option.isNone(result)).toBe(true);
         }),
       ),
@@ -313,7 +313,7 @@ describe("mojoReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "mojo",

@@ -10,11 +10,7 @@ export function createTempDir(prefix = "axm-e2e-"): TempDirContext {
   return {
     path: tempPath,
     cleanup: () => {
-      try {
-        fs.rmSync(tempPath, { recursive: true, force: true });
-      } catch {
-        // Ignore cleanup errors in tests.
-      }
+      fs.rmSync(tempPath, { recursive: true, force: true });
     },
   };
 }

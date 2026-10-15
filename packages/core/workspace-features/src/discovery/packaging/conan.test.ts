@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { conanDetector, conanReader } from "./conan.js";
 
 const conanType = Schema.decodeUnknownSync(PackageTypeSchema)("conan");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write conan files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -37,7 +34,7 @@ describe("conanDetector", () => {
 
   describe("conanfile.txt [requires] section", () => {
     it.effect("extracts dependencies from [requires] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "[requires]",
@@ -60,7 +57,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("handles user/channel suffix", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = ["[requires]", "boost/1.82.0@user/stable"].join("\n");
           const result = yield* detectInTempDir({ "conanfile.txt": content });
@@ -73,7 +70,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("skips comments and empty lines", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = ["[requires]", "# This is a comment", "", "zlib/1.2.13"].join("\n");
           const result = yield* detectInTempDir({ "conanfile.txt": content });
@@ -84,7 +81,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("ignores other sections", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = ["[build_requires]", "cmake/3.22.6", "[requires]", "zlib/1.2.13"].join(
             "\n",
@@ -99,7 +96,7 @@ describe("conanDetector", () => {
 
   describe("conanfile.py requires attribute", () => {
     it.effect("extracts from class-level requires", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "from conan import ConanFile",
@@ -117,7 +114,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("extracts from self.requires()", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "from conan import ConanFile",
@@ -137,7 +134,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("extracts from parenthesized tuple requires", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "class MyConan(ConanFile):",
@@ -152,7 +149,7 @@ describe("conanDetector", () => {
 
   describe("deduplication across files", () => {
     it.effect("deduplicates packages found in both conanfile.txt and conanfile.py", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const txt = "[requires]\nzlib/1.2.13";
           const py = 'requires = "zlib/1.2.13"';
@@ -169,7 +166,7 @@ describe("conanDetector", () => {
 
   describe("missing files", () => {
     it.effect("returns empty array when no conan files exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -180,7 +177,7 @@ describe("conanDetector", () => {
 
   describe("malformed content", () => {
     it.effect("returns empty array for conanfile.txt without [requires]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "[generators]\nCMakeDeps\n";
           const result = yield* detectInTempDir({ "conanfile.txt": content });
@@ -190,7 +187,7 @@ describe("conanDetector", () => {
     );
 
     it.effect("returns empty array for conanfile.py without requires", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "class MyConan(ConanFile):\n    pass\n";
           const result = yield* detectInTempDir({ "conanfile.py": content });
@@ -251,7 +248,7 @@ describe("conanReader", () => {
 
   describe("valid agentExtensions metadata in conandata.yml", () => {
     it.effect("extracts extensions from agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const yml = [
@@ -270,7 +267,7 @@ describe("conanReader", () => {
 
   describe("missing conandata.yml", () => {
     it.effect("returns Option.none when conandata.yml does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const result = yield* readInTempCache(purl);
@@ -282,7 +279,7 @@ describe("conanReader", () => {
 
   describe("no agentExtensions field", () => {
     it.effect("returns Option.none when conandata.yml has no agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const yml = "patches:\n  1.2.13: []\n";
@@ -295,7 +292,7 @@ describe("conanReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none on malformed agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const yml = "agentExtensions: not-an-array\n";
@@ -308,7 +305,7 @@ describe("conanReader", () => {
 
   describe("malformed YAML", () => {
     it.effect("returns Option.none on invalid YAML", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "conan", name: "zlib", version: "1.2.13" });
           const result = yield* readInTempCache(purl, "{{{{ not valid yaml");

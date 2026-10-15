@@ -26,6 +26,9 @@ export const specification = defineSpecification({
   characteristic: "privacy",
   role: "interface",
   goals: ["privacy-and-consent"],
+  boundaryRationale:
+    "Separate reporter invocations persist and reuse installation identity in a native temporary home; a controlled HTTP port records the resulting anonymous events.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

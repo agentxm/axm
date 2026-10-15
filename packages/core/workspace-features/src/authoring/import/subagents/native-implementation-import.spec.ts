@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity", "safe-repetition"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Real temporary source and workspace files observe byte preservation, slot ownership, activation and stale preparation refusals through the authoring use case.",
   derivedFrom: ["cli/native-imports-preserve-content-and-source"],

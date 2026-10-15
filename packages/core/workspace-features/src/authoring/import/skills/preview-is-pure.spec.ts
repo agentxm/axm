@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Purity is a property of the import use case: a preview stages the converted package into a temporary directory and returns before the workspace transaction opens, so a real project directory observes both that nothing under the workspace moved and that the native document is byte-identical.",
   derivedFrom: ["apps/cli-e2e/src/fork-import.e2e.test.ts"],

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["agent-interoperability", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Recording membership belongs to the configuration feature and realizing installed extensions to the reconciliation feature, so the application layer that composes both is the lowest layer at which one operation does both; the workspace it writes is a real directory.",
   methods: ["example"],

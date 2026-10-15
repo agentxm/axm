@@ -23,7 +23,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["safe-repetition", "authoring-and-creation"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — settings, authored root, and agent MCP config — that could have happened.",
   derivedFrom: ["packages/core/workspace-features/src/authoring/create/scaffolds/mcp-server.ts"],

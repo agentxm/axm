@@ -21,6 +21,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production native-location observation resolves actual files and symbolic links, including dangling aliases and bounded copied-directory retirement.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -40,7 +40,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The CLI composes the recovery command and the registered parser decides whether it is admissible; both are reachable in process. The built-CLI replay of the emitted command is bound evidence at apps/cli-e2e/src/approval-required-recovery.e2e.test.ts.",
   methods: ["example", "contract"],

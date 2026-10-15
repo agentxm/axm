@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { cargoDetector, cargoReader } from "./cargo.js";
 
 const cargoType = Schema.decodeUnknownSync(PackageTypeSchema)("cargo");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write Cargo.toml, run detector, clean up. */
 const detectInTempDir = (cargoToml?: string) =>
@@ -35,7 +32,7 @@ describe("cargoDetector", () => {
 
   describe("dependencies from all sections", () => {
     it.effect("collects from dependencies, dev-dependencies, and build-dependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = [
             "[package]",
@@ -64,7 +61,7 @@ describe("cargoDetector", () => {
 
   describe("shorthand string version", () => {
     it.effect("shorthand string parsed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = "1.0.193"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -77,7 +74,7 @@ describe("cargoDetector", () => {
 
   describe("inline table with version", () => {
     it.effect("inline table parsed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = [
             "[dependencies]",
@@ -93,7 +90,7 @@ describe("cargoDetector", () => {
 
   describe("case-sensitive name preserved", () => {
     it.effect("preserves case of crate name", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'OpenSSL = "0.10"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -106,7 +103,7 @@ describe("cargoDetector", () => {
 
   describe("exact version produces versioned purl", () => {
     it.effect("exact version pin includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = "=1.0.193"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -121,7 +118,7 @@ describe("cargoDetector", () => {
 
   describe("ranges produce versionless purls", () => {
     it.effect("caret range (bare version) is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = "1.0"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -132,7 +129,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect("tilde range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = "~1.0.0"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -143,7 +140,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect("wildcard is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = "*"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -154,7 +151,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect(">= range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'serde = ">=1.0.0"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -167,7 +164,7 @@ describe("cargoDetector", () => {
 
   describe("renamed dependencies use real package name", () => {
     it.effect("renamed dependency uses package key", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = [
             "[dependencies]",
@@ -181,7 +178,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect("unrenamed dependency uses key name", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'tokio = { version = "1.0" }'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -194,7 +191,7 @@ describe("cargoDetector", () => {
 
   describe("path and git dependencies skipped", () => {
     it.effect("path dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[dependencies]", 'my-lib = { path = "../my-lib" }'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -204,7 +201,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect("git dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = [
             "[dependencies]",
@@ -217,7 +214,7 @@ describe("cargoDetector", () => {
     );
 
     it.effect("git dependency with version still skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = [
             "[dependencies]",
@@ -232,7 +229,7 @@ describe("cargoDetector", () => {
 
   describe("missing Cargo.toml", () => {
     it.effect("returns empty array when Cargo.toml is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -243,7 +240,7 @@ describe("cargoDetector", () => {
 
   describe("malformed Cargo.toml", () => {
     it.effect("returns empty array and warns on malformed content", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{{{{ not valid TOML content ????");
           expect(result).toEqual([]);
@@ -254,7 +251,7 @@ describe("cargoDetector", () => {
 
   describe("no dependency sections", () => {
     it.effect("returns empty array when no dependency sections exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cargoToml = ["[package]", 'name = "my-project"', 'version = "0.1.0"'].join("\n");
           const result = yield* detectInTempDir(cargoToml);
@@ -335,7 +332,7 @@ describe("cargoReader", () => {
 
   describe("valid [package.metadata] in Cargo.toml", () => {
     it.effect("extracts extensions from [package.metadata]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
           const result = yield* readInTempCargoHome(
@@ -358,7 +355,7 @@ describe("cargoReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
@@ -374,7 +371,7 @@ describe("cargoReader", () => {
     );
 
     it.effect("extracts extensions from cargo-normalized array-of-tables", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.193" });
           const result = yield* readInTempCargoHome(
@@ -404,7 +401,7 @@ describe("cargoReader", () => {
     );
 
     it.effect("stops parsing at the next section header", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
@@ -428,7 +425,7 @@ describe("cargoReader", () => {
 
   describe("missing [package.metadata]", () => {
     it.effect("returns Option.none when Cargo.toml has no agentExtensions section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "tokio", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
@@ -441,7 +438,7 @@ describe("cargoReader", () => {
     );
 
     it.effect("returns Option.none when Cargo.toml does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "tokio", version: "1.0.0" });
           const result = yield* readInTempCargoHome(purl);
@@ -453,7 +450,7 @@ describe("cargoReader", () => {
 
   describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none and warns on schema validation failure", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
@@ -468,7 +465,7 @@ describe("cargoReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores unknown keys in [package.metadata]", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "serde", version: "1.0.0" });
           const result = yield* readInTempCargoHome(
@@ -490,7 +487,7 @@ describe("cargoReader", () => {
 
   describe("missing registry cache", () => {
     it.effect("returns Option.none when registry cache does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "nonexistent", version: "1.0.0" });
           const result = yield* readInTempCargoHome(purl);
@@ -502,7 +499,7 @@ describe("cargoReader", () => {
 
   describe("CARGO_HOME defaults to ~/.cargo", () => {
     it.effect("uses ~/.cargo when CARGO_HOME is not set", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cargo", name: "nonexistent", version: "1.0.0" });
 

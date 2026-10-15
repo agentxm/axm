@@ -32,6 +32,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.",
+  boundary: "platform",
   methods: ["contract", "example"],
   derivedFrom: ["cli/machine-errors-use-the-stable-envelope"],
   supersedes: [],

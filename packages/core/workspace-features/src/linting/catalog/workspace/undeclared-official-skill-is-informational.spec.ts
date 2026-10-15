@@ -24,7 +24,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The rule reads a declaration and a canonical package off a real workspace directory; nothing about it needs a process.",
   methods: ["decision-table"],

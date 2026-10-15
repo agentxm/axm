@@ -20,6 +20,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
+  boundaryRationale:
+    "Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: [
     "apps/cli/src/root/publish/command.test.ts",

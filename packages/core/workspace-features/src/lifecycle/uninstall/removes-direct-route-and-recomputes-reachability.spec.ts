@@ -35,6 +35,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: ["cli/every-type-completes-the-shared-lifecycle"],
   supersedes: ["cli/every-type-completes-the-shared-lifecycle"],

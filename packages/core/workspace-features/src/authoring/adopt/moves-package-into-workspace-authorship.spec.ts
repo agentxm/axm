@@ -37,7 +37,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the acquired copy gone, the authored copy byte-identical, the declaration rewritten, and the retired lockfile row — none of which a double could stand in for.",
   derivedFrom: ["apps/cli/src/root/adopt/command.ts"],

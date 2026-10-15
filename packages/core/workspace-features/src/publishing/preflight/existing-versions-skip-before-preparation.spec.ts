@@ -31,6 +31,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "safe-repetition"],
+  boundaryRationale:
+    "Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: [
     "cli/publish/existing-versions-require-explicit-policy",

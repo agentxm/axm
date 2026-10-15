@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "A repair is a write to a real working tree, so the decisive evidence is the tree itself: the alias that appears, and the authored file that is still byte-identical afterwards.",
   methods: ["example"],

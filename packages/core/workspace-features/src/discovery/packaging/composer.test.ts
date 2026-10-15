@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { composerDetector, composerReader } from "./composer.js";
 
 const composerType = Schema.decodeUnknownSync(PackageTypeSchema)("composer");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write composer.json, run detector, clean up. */
 const detectInTempDir = (composerJson?: string) =>
@@ -34,7 +31,7 @@ describe("composerDetector", () => {
 
   describe("dependencies from require and require-dev", () => {
     it.effect("extracts from require and require-dev", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -53,7 +50,7 @@ describe("composerDetector", () => {
 
   describe("vendor namespace and name extraction", () => {
     it.effect("standard vendor/name package", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "laravel/framework": "^10.0" } }),
@@ -67,7 +64,7 @@ describe("composerDetector", () => {
     );
 
     it.effect("uppercase vendor normalized to lowercase", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "Monolog/Monolog": "^3.0" } }),
@@ -82,7 +79,7 @@ describe("composerDetector", () => {
 
   describe("exact versions produce versioned purls", () => {
     it.effect("exact version includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "guzzlehttp/guzzle": "7.5.0" } }),
@@ -103,7 +100,7 @@ describe("composerDetector", () => {
 
   describe("semver ranges produce versionless purls", () => {
     it.effect("caret range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "guzzlehttp/guzzle": "^7.5.0" } }),
@@ -117,7 +114,7 @@ describe("composerDetector", () => {
     );
 
     it.effect("tilde range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "monolog/monolog": "~3.0" } }),
@@ -131,7 +128,7 @@ describe("composerDetector", () => {
     );
 
     it.effect("wildcard range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "doctrine/dbal": "3.*" } }),
@@ -147,7 +144,7 @@ describe("composerDetector", () => {
 
   describe("platform requirements skipped", () => {
     it.effect("php requirement skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(JSON.stringify({ require: { php: ">=8.1" } }));
           expect(result).toEqual([]);
@@ -156,7 +153,7 @@ describe("composerDetector", () => {
     );
 
     it.effect("ext-* requirement skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ require: { "ext-mbstring": "*", "ext-json": "*" } }),
@@ -169,7 +166,7 @@ describe("composerDetector", () => {
 
   describe("missing composer.json", () => {
     it.effect("returns empty array when composer.json is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -180,7 +177,7 @@ describe("composerDetector", () => {
 
   describe("malformed JSON", () => {
     it.effect("returns empty array and warns on malformed JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{ not valid json }");
           expect(result).toEqual([]);
@@ -191,7 +188,7 @@ describe("composerDetector", () => {
 
   describe("no dependency sections", () => {
     it.effect("returns empty array when no dependency sections exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ name: "vendor/my-package", description: "A package" }),
@@ -243,7 +240,7 @@ describe("composerReader", () => {
 
   describe("valid agentExtensions metadata in extra field", () => {
     it.effect("extracts extensions from extra.agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "laravel", name: "framework" });
           const result = yield* readInTempDir(
@@ -266,7 +263,7 @@ describe("composerReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "phpstan", name: "phpstan" });
           const result = yield* readInTempDir(
@@ -287,7 +284,7 @@ describe("composerReader", () => {
 
   describe("missing extra.agentExtensions field", () => {
     it.effect("returns Option.none when no extra field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "monolog", name: "monolog" });
           const result = yield* readInTempDir(
@@ -300,7 +297,7 @@ describe("composerReader", () => {
     );
 
     it.effect("returns Option.none when extra exists but no agentExtensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "monolog", name: "monolog" });
           const result = yield* readInTempDir(
@@ -318,7 +315,7 @@ describe("composerReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none and warns on malformed agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "some", name: "lib" });
           const result = yield* readInTempDir(
@@ -336,7 +333,7 @@ describe("composerReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "some", name: "lib" });
           const result = yield* readInTempDir(
@@ -360,7 +357,7 @@ describe("composerReader", () => {
 
   describe("missing vendor directory", () => {
     it.effect("returns Option.none when vendor does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "composer", namespace: "laravel", name: "framework" });
           const result = yield* readInTempDir(purl);

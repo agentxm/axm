@@ -1376,7 +1376,7 @@ describe("root sync handler", () => {
     }),
   );
 
-  it.effect("disables declared MCP entries with the host flag or exact removal", () =>
+  it.effect("reports no-op for repeated declared MCP sync across configured agents", () =>
     Effect.gen(function* () {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
@@ -1412,6 +1412,38 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         message: "Workspace materialization is up to date",
       });
+    }),
+  );
+
+  it.effect("disables declared MCP entries with the host flag or exact removal", () =>
+    Effect.gen(function* () {
+      const { provide, rendererState } = makeLayers({ machine: true });
+      const axmDir = path.join(tempDir, ".axm");
+      writeWorkspaceFiles(axmDir, {
+        agents: ["claude-code", "cursor", "codex"],
+        mcps: {
+          browser: {
+            source: "workspace",
+            distribution: {
+              kind: "package",
+              registryType: "npm",
+              identifier: "@acme/browser-mcp",
+              transport: "stdio",
+            },
+          },
+        },
+      });
+      writeMcpServerExtension(tempDir, "browser");
+
+      yield* provide(handleSync({ preview: false }));
+
+      expect(fs.readFileSync(path.join(tempDir, ".mcp.json"), "utf8")).toContain('"browser"');
+      expect(fs.readFileSync(path.join(tempDir, ".cursor", "mcp.json"), "utf8")).toContain(
+        '"browser"',
+      );
+      expect(fs.readFileSync(path.join(tempDir, ".codex", "config.toml"), "utf8")).toContain(
+        "browser",
+      );
 
       rendererState.results.length = 0;
       writeWorkspaceFiles(axmDir, {

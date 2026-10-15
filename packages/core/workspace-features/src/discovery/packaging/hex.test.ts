@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { hexDetector, hexReader } from "./hex.js";
 
 const hexType = Schema.decodeUnknownSync(PackageTypeSchema)("hex");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write mix.exs and/or gleam.toml, run detector, clean up. */
 const detectInTempDir = (files?: { readonly mixExs?: string; readonly gleamToml?: string }) =>
@@ -37,7 +34,7 @@ describe("hexDetector", () => {
 
   describe("mix.exs dependencies", () => {
     it.effect("extracts dependencies from deps function", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defmodule MyApp.MixProject do
@@ -60,7 +57,7 @@ end`;
     );
 
     it.effect("exact version in mix.exs", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defp deps do
@@ -76,7 +73,7 @@ end`;
     );
 
     it.effect("approximate range in mix.exs is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defp deps do
@@ -90,7 +87,7 @@ end`;
     );
 
     it.effect("comparison range in mix.exs is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defp deps do
@@ -106,7 +103,7 @@ end`;
 
   describe("path and git dependencies skipped", () => {
     it.effect("path dependency skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defp deps do
@@ -119,7 +116,7 @@ end`;
     );
 
     it.effect("git dependency skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defp deps do
@@ -134,7 +131,7 @@ end`;
 
   describe("gleam.toml dependencies", () => {
     it.effect("extracts from [dependencies] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gleamToml = `
 name = "my_project"
@@ -154,7 +151,7 @@ gleam_json = "1.0.0"
     );
 
     it.effect("extracts from [dev-dependencies] section", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gleamToml = `
 name = "my_project"
@@ -170,7 +167,7 @@ gleeunit = ">= 1.0.0 and < 2.0.0"
     );
 
     it.effect("exact version in gleam.toml", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gleamToml = `
 [dependencies]
@@ -186,7 +183,7 @@ gleam_json = "1.0.0"
     );
 
     it.effect("range in gleam.toml is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const gleamToml = `
 [dependencies]
@@ -202,7 +199,7 @@ gleam_stdlib = ">= 0.34.0 and < 2.0.0"
 
   describe("missing files", () => {
     it.effect("returns empty array when no mix.exs or gleam.toml", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -213,7 +210,7 @@ gleam_stdlib = ">= 0.34.0 and < 2.0.0"
 
   describe("no deps function in mix.exs", () => {
     it.effect("returns empty array when mix.exs has no deps", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const mixExs = `
 defmodule MyApp.MixProject do
@@ -284,7 +281,7 @@ describe("hexReader", () => {
 
   describe("valid agent-extensions.json sidecar", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "phoenix" });
           const result = yield* readInTempDir(purl, {
@@ -305,7 +302,7 @@ describe("hexReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "plug" });
           const result = yield* readInTempDir(purl, {
@@ -322,7 +319,7 @@ describe("hexReader", () => {
 
   describe("fallback to hex_metadata.config", () => {
     it.effect("reads from hex_metadata.config extra field when no agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "jason" });
           const hexMeta = `{<<"name">>,<<"jason">>}.\n{<<"extra">>, [{<<"agentExtensions">>, <<"[{\\"ref\\":\\"@hex/skills/jason\\",\\"versionRange\\":\\"^1.0.0\\"}]">>}]}.`;
@@ -340,7 +337,7 @@ describe("hexReader", () => {
     it.effect(
       "returns Option.none when neither agent-extensions.json nor hex_metadata has axm",
       () =>
-        withNodeContext(
+        withPackagingContext(
           Effect.gen(function* () {
             const purl = makePurl({ type: "hex", name: "telemetry" });
             const hexMeta = `{<<"name">>,<<"telemetry">>}.`;
@@ -353,7 +350,7 @@ describe("hexReader", () => {
 
   describe("missing agent-extensions.json sidecar", () => {
     it.effect("returns Option.none when no agent-extensions.json and no hex_metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "ecto" });
           const result = yield* readInTempDir(purl);
@@ -365,7 +362,7 @@ describe("hexReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
@@ -379,7 +376,7 @@ describe("hexReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {
@@ -399,7 +396,7 @@ describe("hexReader", () => {
 
   describe("missing deps directory", () => {
     it.effect("returns Option.none when deps does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "phoenix" });
           const result = yield* readInTempDir(purl);
@@ -411,7 +408,7 @@ describe("hexReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "hex", name: "some_lib" });
           const result = yield* readInTempDir(purl, {

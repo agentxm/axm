@@ -14,6 +14,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production lint reads native temporary workspace files and links; filesystem snapshots observe findings, repairs and read-only behavior.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: ["workspace/skills/physical-locations-include-shared-policy"],
   supersedes: [],

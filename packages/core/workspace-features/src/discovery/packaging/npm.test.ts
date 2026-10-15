@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { npmDetector, npmReader } from "./npm.js";
 
 const npmType = Schema.decodeUnknownSync(PackageTypeSchema)("npm");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write package.json, run detector, clean up. */
 const detectInTempDir = (packageJson?: string) =>
@@ -34,7 +31,7 @@ describe("npmDetector", () => {
 
   describe("exact version produces versioned purl", () => {
     it.effect("exact version includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { react: "18.2.0" } }),
@@ -50,7 +47,7 @@ describe("npmDetector", () => {
 
   describe("semver ranges produce versionless purls", () => {
     it.effect("caret range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { react: "^18.2.0" } }),
@@ -62,7 +59,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("tilde range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { lodash: "~4.17.0" } }),
@@ -74,7 +71,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("star range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(JSON.stringify({ dependencies: { lodash: "*" } }));
           expect(result).toHaveLength(1);
@@ -84,7 +81,7 @@ describe("npmDetector", () => {
     );
 
     it.effect(">= range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { react: ">=17.0.0" } }),
@@ -98,7 +95,7 @@ describe("npmDetector", () => {
 
   describe("scoped packages", () => {
     it.effect("scoped package has namespace and name", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "@angular/core": "^17.0.0" } }),
@@ -112,7 +109,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("deeply scoped package", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -130,7 +127,7 @@ describe("npmDetector", () => {
 
   describe("npm aliases resolve to real package", () => {
     it.effect("aliased dependency resolves to real package name", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "lodash-es": "npm:lodash@^4.17.0" } }),
@@ -142,7 +139,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("aliased dependency with exact version", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "lodash-es": "npm:lodash@4.17.21" } }),
@@ -156,7 +153,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("aliased scoped dependency", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -174,7 +171,7 @@ describe("npmDetector", () => {
 
   describe("skipped specifiers", () => {
     it.effect("file: specifier is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "file:../my-lib" } }),
@@ -185,7 +182,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("workspace: specifier is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "workspace:*" } }),
@@ -196,7 +193,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("git: specifier is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -211,7 +208,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("URL specifier is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -226,7 +223,7 @@ describe("npmDetector", () => {
     );
 
     it.effect("link: specifier is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ dependencies: { "my-lib": "link:../my-lib" } }),
@@ -239,7 +236,7 @@ describe("npmDetector", () => {
 
   describe("peerDependencies included", () => {
     it.effect("detects peer dependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ peerDependencies: { react: ">=17.0.0" } }),
@@ -253,7 +250,7 @@ describe("npmDetector", () => {
 
   describe("dependencies from all sections", () => {
     it.effect("collects from dependencies, devDependencies, and peerDependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({
@@ -274,7 +271,7 @@ describe("npmDetector", () => {
 
   describe("missing package.json", () => {
     it.effect("returns empty array when package.json is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -285,7 +282,7 @@ describe("npmDetector", () => {
 
   describe("malformed JSON", () => {
     it.effect("returns empty array and warns on malformed JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{ not valid json }");
           expect(result).toEqual([]);
@@ -296,7 +293,7 @@ describe("npmDetector", () => {
 
   describe("no dependency sections", () => {
     it.effect("returns empty array when no dependency sections exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir(
             JSON.stringify({ name: "my-package", version: "1.0.0" }),
@@ -348,7 +345,7 @@ describe("npmReader", () => {
 
   describe("valid agentExtensions metadata", () => {
     it.effect("extracts extensions from agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "next" });
           const result = yield* readInTempDir(
@@ -369,7 +366,7 @@ describe("npmReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
           const result = yield* readInTempDir(
@@ -388,7 +385,7 @@ describe("npmReader", () => {
     );
 
     it.effect("keeps valid siblings when one recommendation is malformed", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "mixed-lib" });
           const result = yield* readInTempDir(
@@ -429,7 +426,7 @@ describe("npmReader", () => {
 
   describe("missing agentExtensions field", () => {
     it.effect("returns Option.none when no agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "react" });
           const result = yield* readInTempDir(
@@ -444,7 +441,7 @@ describe("npmReader", () => {
 
   describe("malformed metadata", () => {
     it.effect("returns Option.none and warns on malformed agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
           const result = yield* readInTempDir(
@@ -462,7 +459,7 @@ describe("npmReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "some-lib" });
           const result = yield* readInTempDir(
@@ -484,7 +481,7 @@ describe("npmReader", () => {
 
   describe("scoped package path from purl parts", () => {
     it.effect("reads from scoped package path in node_modules", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", namespace: "@angular", name: "core" });
           const result = yield* readInTempDir(
@@ -507,7 +504,7 @@ describe("npmReader", () => {
 
   describe("missing node_modules", () => {
     it.effect("returns Option.none when node_modules does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "npm", name: "react" });
           const result = yield* readInTempDir(purl);

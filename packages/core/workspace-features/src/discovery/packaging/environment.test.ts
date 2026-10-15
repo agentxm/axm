@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Effect from "effect/Effect";
@@ -90,7 +90,7 @@ describe("package recommendation configuration", () => {
         expect(failure._tag).toBe("ConfigError");
         expect(failure.cause).toBe(sourceError);
         expect(probes).toEqual([]);
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }).pipe(withPackagingContext),
   );
 
   it.effect("uses the injected package root", () =>
@@ -121,6 +121,6 @@ describe("package recommendation configuration", () => {
           ),
         );
       expect(probes).toEqual(["/injected/packages/example/1.0.0/agent-extensions.json"]);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }).pipe(withPackagingContext),
   );
 });

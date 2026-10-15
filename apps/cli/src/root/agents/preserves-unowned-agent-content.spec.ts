@@ -16,7 +16,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "agent-interoperability"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Ownership is proven by what a real agent directory entry is — a link into a canonical root, or a hand-authored file that is neither — so the evidence is the directory itself before and after the removal.",
   methods: ["example"],

@@ -15,7 +15,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["machine-automation", "actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The production machine screen over recording output streams is where progress suppression and diagnostic preservation are decided; the built-CLI rows over real result and diagnostic streams are bound evidence at apps/cli-e2e/src/quiet-machine-output.e2e.test.ts.",
   methods: ["decision-table", "example"],

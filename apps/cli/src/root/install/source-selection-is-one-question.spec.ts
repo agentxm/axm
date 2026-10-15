@@ -27,6 +27,9 @@ export const specification = defineSpecification({
   class: "human-factors",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "The install handler discovers native source packages and observes unchanged workspace state after cancellation; scripted questions do not establish terminal-emulator rendering.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "cli/install/selects-requested-source-extensions",

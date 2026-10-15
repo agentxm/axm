@@ -21,6 +21,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: ["cli/mcps/install/local-connection-names-share-source-resolution"],
   supersedes: [],

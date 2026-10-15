@@ -36,6 +36,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "agent-interoperability"],
+  boundaryRationale:
+    "Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: ["cli/sync/preserves-configuration-and-resolutions"],
   supersedes: [],

@@ -21,6 +21,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: [],
   supersedes: [],

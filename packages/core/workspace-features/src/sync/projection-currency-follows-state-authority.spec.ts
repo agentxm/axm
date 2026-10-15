@@ -38,7 +38,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity", "agent-interoperability"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Reconciliation is what judges currency; running it over a real workspace shows exactly which bytes it leaves alone and which it regenerates.",
   methods: ["decision-table", "example"],
@@ -628,7 +628,7 @@ describe("Generated document projection currency", () => {
   );
 
   it.effect(
-    "applies the same opaque-body contract to managed Subagent documents",
+    "preserves rewritten managed Subagent bodies while authoritative inputs stay current",
     () => {
       const workspace = makeSyncFixture({
         settings: {
@@ -673,6 +673,37 @@ describe("Generated document projection currency", () => {
 
             expectNothingToReconcile(yield* applySync());
             expect(workspace.readFile(projection)).toBe(rewritten);
+          }),
+        )
+        .pipe(Effect.provide(NodeServices.layer));
+    },
+    { timeout: FIXTURE_TIMEOUT },
+  );
+  it.effect(
+    "regenerates managed Subagent documents when authoritative inputs change",
+    () => {
+      const workspace = makeSyncFixture({
+        settings: {
+          owner: "@acme",
+          agents: ["claude-code"],
+          subagents: { [AUTHORED_SUBAGENT]: "workspace" },
+        },
+      });
+      cleanups.push(workspace.cleanup);
+      writeAuthoredSubagent(workspace.root, "First reviewer guidance.");
+      const projection = `.claude/agents/${AUTHORED_SUBAGENT}.md`;
+      return workspace
+        .provide(
+          Effect.gen(function* () {
+            yield* applySync();
+
+            const generated = workspace.readFile(projection);
+            const rewritten = generated.replace(
+              "First reviewer guidance.",
+              "Repository-formatted body.",
+            );
+            expect(rewritten).not.toBe(generated);
+            workspace.writeFile(projection, rewritten);
 
             writeAuthoredSubagent(workspace.root, "Second reviewer guidance.");
             yield* applySync();

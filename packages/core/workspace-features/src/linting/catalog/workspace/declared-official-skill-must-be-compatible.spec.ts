@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Each state is a declaration plus a canonical package on a real workspace directory, evaluated against a pinned CLI release; the built executable adjudicates nothing this rule decides.",
   methods: ["decision-table"],

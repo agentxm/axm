@@ -52,7 +52,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The CLI composes the recovery command and the registered parser decides whether it is admissible; both are reachable in process. The built-CLI replay of the emitted command is bound evidence at apps/cli-e2e/src/approval-required-recovery.e2e.test.ts.
 - Methods: example, contract
 - Derived from: `cli/lockfile-rejections-name-recovery-routes`, `cli/confirmation-flags-have-a-supported-purpose`, `apps/cli-e2e/src/approval-required-recovery.e2e.test.ts`
@@ -114,7 +114,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The two paths share only the kernel's rendering of the typed failure and diverge where the envelope is built, so each row compares their printed output in process: the direct column is the runtime's classification of a failure the workspace boundary addressed to its scope (exit code and machine error document); the plan column is an applied one-unit plan resolved by the plan pipeline over a temporary workspace and written by the plan-family renderer (exit code and plan result document).
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/app-error/conversions.test.ts`, `apps/cli/src/app-error/conversions/extension-materialization.test.ts`
@@ -175,7 +175,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A real workspace holds the source package and overlapping native agent directory; production lint observes its ownership and normal/strict outcomes without mutating it.
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
@@ -189,7 +189,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A repair is a write to a real working tree, so the decisive evidence is the tree itself: the alias that appears, and the authored file that is still byte-identical afterwards.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/run/fix-repairs-only-determined-state.spec.ts`](../packages/core/workspace-features/src/linting/run/fix-repairs-only-determined-state.spec.ts)
@@ -202,7 +202,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Severity resolution reads the workspace's own settings document and decides the reported finding and summary; no process boundary adjudicates it.
 - Methods: decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
@@ -216,7 +216,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The pass/fail verdict is the feature's own typed outcome; mapping it onto a process exit code is the CLI's separate rule.
 - Methods: decision-table
 - Derived from: `cli/lint/honors-configured-rule-severities`
@@ -247,7 +247,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `cli/lint/fix-repairs-only-determined-state`
 - Source: [`packages/core/workspace-features/src/linting/run/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/linting/run/preview-is-pure.spec.ts)
@@ -260,7 +261,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Agent content and missing settings are real files in a project folder on disk, decided against a separate user home; production lint observes them without creating settings.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-agent-content-without-settings.spec.ts)
@@ -273,7 +274,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/deprecated-installed.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/deprecated-installed.spec.ts)
 
@@ -285,7 +287,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The workspace is a real directory of files, directories and symbolic links, so the whole-tree snapshot before and after is the decisive evidence; nothing about the guarantee needs a separate process.
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
@@ -299,7 +301,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Leftovers are decided from a real install root, lockfile, and settings on disk; production lint observes them without mutating the workspace.
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -313,7 +315,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A missing settings file is a real absence in a folder on disk; the lint feature over live workspace services decides whether the run completes and what it reports.
 - Methods: example
 - Derived from: `apps/cli-e2e/src/cli-commands/lint/command.e2e.ts`
@@ -327,7 +329,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Recorded rows are a real lockfile and the compared bytes are real files under a temporary workspace; production lint reads both without mutating either.
 - Methods: example
 - Derived from: `workspace/projections/fences-are-name-only-and-top-level`, `workspace/lockfile/records-projection-currency`
@@ -341,7 +343,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A collision is decided from real agent directories under a project folder and a separate user home on disk; production lint observes both without mutating either.
 - Methods: example
 - Assumptions: Agents resolve user-scope skill and subagent directories relative to the selected user home.
@@ -356,7 +358,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Authored packages, their manifests, and settings are real files; production lint and lint --fix observe them and the settings document on disk.
 - Methods: example, decision-table
 - Derived from: `cli/lint/authored-skills-are-not-agent-output`
@@ -371,7 +373,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Entry kinds (file, directory, symbolic link) and AXM staging names are observed from a real install root on disk.
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -385,7 +387,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Ownership proof is a real symlink to the exact canonical source named by an accepted user-scope resolution and settings readability is a real file under a separate user home; production lint observes both without mutating either.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/reports-user-outputs-without-settings.spec.ts)
@@ -411,7 +413,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lint reads native temporary workspace files and links; filesystem snapshots observe findings, repairs and read-only behavior.
 - Methods: decision-table, example
 - Derived from: `workspace/skills/physical-locations-include-shared-policy`
 - Source: [`packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts`](../packages/core/workspace-features/src/linting/run/skills-follow-native-location-observations.spec.ts)
@@ -424,7 +427,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/workspace-lockfile-rejections-name-state-and-recovery`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Supersedes: `cli/workspace-lockfile-rejections-name-state-and-recovery`
@@ -554,7 +558,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts`](../packages/core/workspace-features/src/sync/invalid-selectors-name-the-fqn-shape.spec.ts)
 
@@ -633,7 +638,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: example
 - Source: [`apps/cli/src/withheld-releases-name-recovery-from-the-emitting-command.spec.ts`](../apps/cli/src/withheld-releases-name-recovery-from-the-emitting-command.spec.ts)
 
@@ -645,7 +651,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: experience
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The fact is judged from a real settings file, lockfile, installed Pack, and file Registry on disk, and lint and sync read that one workspace through the production layers.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/one-fact-per-desired-node.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/one-fact-per-desired-node.spec.ts)
@@ -783,7 +789,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Recording membership belongs to the configuration feature and realizing installed extensions to the reconciliation feature, so the application layer that composes both is the lowest layer at which one operation does both; the workspace it writes is a real directory.
 - Methods: example
 - Derived from: `cli/agents/membership-changes-realize-affected-outputs`
@@ -816,7 +822,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Retiring membership belongs to the configuration feature and cleaning up the departing agent's outputs to the reconciliation feature, so the application layer that composes both is the lowest layer at which one operation does both; the outputs it removes are entries in a real directory.
 - Methods: example
 - Derived from: `cli/agents/membership-changes-realize-affected-outputs`
@@ -847,7 +853,8 @@ Configured extensions realize correctly and completely for every configured codi
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
@@ -863,7 +870,8 @@ Configured extensions realize correctly and completely for every configured codi
 - Class: functional
 - Role: experience
 - Product goals: `agent-interoperability`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example, decision-table
 - Derived from: `cli/mcps/adopt/adoption-reaches-every-configured-agent`, `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/inline-authority-is-operation-coherent`, `cli/activation-follows-desired-state`
 - Assumptions: Claude Code and Cursor keep distinct project-scope MCP configuration files, so two native files observe two agents.; An unmanaged server declared in one agent's own configuration file is the only shape adoption records, so one such declaration stands for every adopted entry.; Amp has catalogued native MCP support without a verified AXM writer, while Hermes has no project-scope MCP support; these exercise different availability outcomes.; A Pack supplies a member's acquisition route while settings retain its selected distribution, so one such Pack stands for every Pack-supplied connection.
@@ -897,7 +905,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: In-place adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the authored bytes untouched, the declaration added, the lockfile without a row, and the agent projection realized — none of which a double could stand in for.
 - Methods: example, decision-table
 - Derived from: `cli/adopt/moves-package-into-workspace-authorship`, `apps/cli/src/root/adopt/command.ts`
@@ -911,7 +919,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Adoption is a decision of the authoring use case over real directories: a temporary project workspace shows the acquired copy gone, the authored copy byte-identical, the declaration rewritten, and the retired lockfile row — none of which a double could stand in for.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/adopt/command.ts`
@@ -940,7 +948,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The create-only refusal is settled by the creation use case before its transaction opens, so a real project directory shows the typed refusal for every type and a byte-identical tree.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/create-preflight.ts`, `packages/core/workspace-features/src/authoring/create/create-extension.ts`
@@ -954,7 +962,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Ownership is one decision the authoring feature makes over the selected scope's settings, so each row is observable in a real project directory: the owner the manifest carries, the owner the settings record, and the byte-identical tree a refusal leaves behind.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/create/authoring-owner.ts`
@@ -968,7 +976,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/demote/command.test.ts`
 - Assumptions: Pack and MCP transitions use registry sources and the other types use local sources; additional registry and Git acquisition behavior is verified by its owning source requirements.
@@ -982,7 +991,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Forking is a decision of the authoring use case: it reads a real package from a real directory and publishes a real canonical package, so a temporary project workspace observes every byte the operation copied, rewrote, and left alone.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
@@ -996,7 +1005,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Each refusal is a decision the fork use case settles before it stages anything, so a real project workspace shows both the typed refusal and that not one byte of the source or the destination moved.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/fork-package.test.ts`, `apps/cli/src/root/fork/command.ts`
@@ -1010,7 +1019,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The production exporter and native importer run on an isolated filesystem, observing source bytes, exported protocol fields, destination collisions and unchanged preview state.
 - Methods: example, decision-table
 - Assumptions: The exported commands run with the bundle root as their working directory; export does not activate them in a native host.
@@ -1024,7 +1033,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The production import use case runs against a temporary project directory; byte snapshots distinguish source preservation, pure preview, and create-only inactive authorship.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/authoring/import/hooks-preserve-native-source.spec.ts`](../packages/core/workspace-features/src/authoring/import/hooks-preserve-native-source.spec.ts)
@@ -1037,7 +1046,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The manifest, the entrypoint, the declaration, and the agent hook configuration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/hook.ts`
@@ -1052,7 +1061,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The manifest, the bundle index, and the declaration are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/knowledge.ts`
@@ -1080,7 +1089,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Reading the native definition, writing a schema-valid manifest under the supplied identity, and recording the workspace declaration are all decisions of the import use case; a real project directory observes each one without a built binary.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/mcps/import.ts`, `apps/cli-e2e/src/fork-import.e2e.test.ts`, `cli/creation-uses-configured-workspace-ownership`, `cli/authoring-uses-project-workspace`
@@ -1096,7 +1105,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Activation is carried on the conversion request and settled by the import use case: a real project directory shows the persisted declaration and the native configurations the conversion reconciled, without a built binary.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/mcps/import.ts`, `apps/cli-e2e/src/mcp-adoption-and-import-are-distinct.spec.ts`, `apps/cli-e2e/src/fork-import.e2e.test.ts`, `cli/mcps/projects-to-every-configured-agent`
@@ -1110,7 +1119,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The manifest, the declaration, and the connection's projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/mcp-server.ts`
@@ -1124,7 +1133,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Preservation and activation are decisions of the import use case over real files: a temporary project workspace shows the native source byte-identical, the converted package's instructions intact, and the projection present exactly when the import ends up enabled.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/import-native-package.test.ts`, `apps/cli/src/root/import/command.ts`
@@ -1138,7 +1147,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production authoring reads and changes a native temporary workspace; file snapshots observe source preservation, declarations and realized outputs.
 - Methods: decision-table
 - Source: [`packages/core/workspace-features/src/authoring/create/records-discovery-summary.spec.ts`](../packages/core/workspace-features/src/authoring/create/records-discovery-summary.spec.ts)
 
@@ -1150,7 +1160,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The version a dependency records is read from the workspace's own accepted resolution or authored manifest, and written into the pack manifest by the membership use case; a real project directory observes both sides.
 - Methods: example
 - Derived from: `cli/packs/authored-packs-expand-membership`
@@ -1166,7 +1176,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Selection is decided by the membership use case over the workspace's own desired state; a real project directory shows both which dependencies the manifest gained and that a refused selection left every byte alone.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/pack-membership/configured-pack-selector.ts`, `packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts`
@@ -1180,7 +1190,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Authorship is settings-authoritative: the declaration, the manifest, and the absence of an accepted resolution are all decided by the creation use case over the workspace-state services.
 - Methods: example
 - Derived from: `cli/packs/authored-packs-expand-membership`
@@ -1196,7 +1206,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The manifest edit and everything it must leave alone — acquired member content, settings, the lockfile — are all observable in a real project directory the membership use case writes through.
 - Methods: example, decision-table
 - Derived from: `packages/core/workspace-features/src/authoring/pack-membership/remove-from-pack.test.ts`, `packages/core/workspace-features/src/authoring/pack-membership/change-pack-membership.ts`
@@ -1210,7 +1220,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/unpack/unpack-promotes-members-without-overwriting-direct-intent.spec.ts`](../packages/core/workspace-features/src/lifecycle/unpack/unpack-promotes-members-without-overwriting-direct-intent.spec.ts)
 
@@ -1222,7 +1233,8 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/unpack/unpack-refuses-incomplete-membership.spec.ts`](../packages/core/workspace-features/src/lifecycle/unpack/unpack-refuses-incomplete-membership.spec.ts)
 
@@ -1234,7 +1246,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The manifest, the body, the declaration, and the instruction projection are all written by the creation use case over the workspace-state services; a real project directory observes each one.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/rule.ts`
@@ -1248,7 +1260,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the files an author would see without running the built CLI.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/create-extension.ts`, `apps/cli-e2e/src/cli-commands/skills/new/command.e2e.ts`
@@ -1263,7 +1275,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Real temporary source and workspace files observe byte preservation, slot ownership, activation and stale preparation refusals through the authoring use case.
 - Methods: example, decision-table
 - Derived from: `cli/native-imports-preserve-content-and-source`
@@ -1278,7 +1290,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `agent-interoperability`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Creation is decided and executed inside extension-authoring over the workspace-state services; a real project directory observes the renderings an author would see without running the built CLI.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/create-extension.ts`, `cli/skills/new/scaffolds-for-every-configured-agent`
@@ -1308,7 +1320,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The version write runs inside the workspace transaction the use case opens, so a real project directory shows which bytes moved: the one manifest field, and nothing else in the package, the settings, or the lockfile.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/version/command.ts`
@@ -1322,7 +1334,7 @@ Extension authors can create, evolve, and version workspace-authored extensions 
 - Class: functional
 - Role: experience
 - Product goals: `authoring-and-creation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Every one of these refusals is settled by the version use case before its transaction opens, so a real project workspace shows the typed refusal and a byte-identical tree.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/version/command.ts`
@@ -1342,7 +1354,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace-features/src/discovery/discover.ts`
 - Source: [`packages/core/workspace-features/src/discovery/discover/identifies-local-only-recommendations.spec.ts`](../packages/core/workspace-features/src/discovery/discover/identifies-local-only-recommendations.spec.ts)
@@ -1355,7 +1368,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/discover/handler.test.ts`, `packages/core/workspace-features/src/discovery/discover.test.ts`
 - Source: [`packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts`](../packages/core/workspace-features/src/discovery/discover/reports-companions-for-detected-dependencies.spec.ts)
@@ -1368,7 +1382,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/refuses-overlapping-package-addresses.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/refuses-overlapping-package-addresses.spec.ts)
@@ -1394,7 +1409,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: model
 - Derived from: `cli/install/reinstall-is-idempotent`
 - Supersedes: `cli/install/root-and-type-forms-express-same-intent`
@@ -1423,7 +1439,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production first-use and install handlers run over native temporary directories; settings, instruction links and installed content establish the accepted setup outcome. Scripted questions do not establish terminal-emulator rendering.
 - Methods: example
 - Derived from: `cli/install/first-install-establishes-minimal-state`, `cli/setup/first-use-plan-and-migration`
 - Open questions: Whether a first install should also offer the official AXM skill that setup seeds is undecided; it installs only what the person selected.; A Skills-manager handoff into an uninitialized scope sets the workspace up the same way, but no example here exercises that route.
@@ -1439,7 +1456,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `cli/install/apply-realizes-the-previewed-closure`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/installed-skills-follow-settlement.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/installed-skills-follow-settlement.spec.ts)
@@ -1452,7 +1470,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
@@ -1481,7 +1500,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table, example
 - Derived from: `packages/core/workspace-features/src/lifecycle/install/selection.ts`, `packages/core/workspace-features/src/lifecycle/install/install-extensions.ts`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Supersedes: `cli/skills/install/selects-requested-source-skills`
@@ -1514,7 +1534,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-connection-names-share-source-resolution.spec.ts)
 
@@ -1526,7 +1547,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/selected-plugin-connections-retain-package-authority.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/selected-plugin-connections-retain-package-authority.spec.ts)
@@ -1539,7 +1561,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/warns-when-deprecated.spec.ts)
 
@@ -1564,7 +1587,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `trustworthy-distribution`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, contract
 - Source: [`packages/core/workspace-features/src/publishing/existing-directory-publication.spec.ts`](../packages/core/workspace-features/src/publishing/existing-directory-publication.spec.ts)
 
@@ -1576,7 +1600,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/handoff-preserves-selected-ownership.spec.ts`](../packages/core/workspace-features/src/lifecycle/handoff-preserves-selected-ownership.spec.ts)
 
@@ -1588,7 +1613,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `trustworthy-distribution`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/install/skills/http-skills-retain-accepted-artifacts.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/http-skills-retain-accepted-artifacts.spec.ts)
 
@@ -1627,7 +1653,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `docs/architecture/extensions/source-compatible-distribution.md`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/skills/retains-plugin-package-context.spec.ts)
@@ -1640,7 +1667,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`
@@ -1657,7 +1685,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `workspace/desired-state/effective-constraint-has-one-owner`
 - Additional evidence: process via [`apps/cli-e2e/src/http-registry.e2e.test.ts`](../apps/cli-e2e/src/http-registry.e2e.test.ts) — Publishes, installs, and updates over a real HTTP registry transport — bearer-token auth headers, PUT uploads, immutable version and holdback semantics, no upload when the authoritative preview is blocked, and registry-form locator resolution with file:// parity — plus release-age-gated advancement, explicit bypass, unchanged settings, and second-run no-op exit codes that the in-memory file-registry harness cannot observe.
@@ -1672,7 +1701,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/install/installed-skills-follow-settlement`, `cli/update/reinstall-reacquires-accepted-content`
 - Source: [`packages/core/workspace-features/src/lifecycle/update/reinstalled-skills-follow-settlement.spec.ts`](../packages/core/workspace-features/src/lifecycle/update/reinstalled-skills-follow-settlement.spec.ts)
@@ -1685,7 +1715,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/view/view-extension.ts`, `packages/core/workspace-kernel/src/sources/resolve-identifier.ts`
 - Source: [`packages/core/workspace-features/src/inspection/view/explicit-type-selects-the-local-identity.spec.ts`](../packages/core/workspace-features/src/inspection/view/explicit-type-selects-the-local-identity.spec.ts)
@@ -1698,7 +1729,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/app.ts`, `packages/core/workspace-features/src/inspection/view/view-extension.ts`
 - Source: [`apps/cli/src/root/view/offers-the-type-install-command.spec.ts`](../apps/cli/src/root/view/offers-the-type-install-command.spec.ts)
@@ -1724,7 +1756,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-features/src/inspection/view/view-extension.ts`
 - Source: [`packages/core/workspace-features/src/inspection/view/reads-the-selected-registry.spec.ts`](../packages/core/workspace-features/src/inspection/view/reads-the-selected-registry.spec.ts)
@@ -1750,7 +1783,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/view/handler.test.ts`, `packages/core/workspace-features/src/inspection/view/view-extension.ts`
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-missing-targets-and-fields.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-missing-targets-and-fields.spec.ts)
@@ -1763,7 +1797,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: experience
 - Product goals: `extension-adoption`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts`](../packages/core/workspace-features/src/inspection/view/reports-published-native-hook-facts.spec.ts)
 
@@ -1777,7 +1812,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: human-factors
 - Role: experience
 - Product goals: `extension-adoption`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The install handler discovers native source packages and observes unchanged workspace state after cancellation; scripted questions do not establish terminal-emulator rendering.
 - Methods: example
 - Derived from: `cli/install/selects-requested-source-extensions`, `cli/interactions-retain-context-and-disposition`
 - Open questions: How should the question show an extension the workspace already desires, directly or through a Pack?
@@ -1852,7 +1888,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/knowledge-query/corpus/corpus-capabilities.ts`, `apps/cli/src/root/knowledge/json-output.test.ts`
 - Supersedes: `cli/knowledge/concepts/status/reports-current-corpus-health`
@@ -1867,7 +1904,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -1881,7 +1919,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -1895,7 +1934,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -1909,7 +1949,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`, `apps/cli/src/root/knowledge/concepts/query.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -1923,7 +1964,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -1937,7 +1979,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Supersedes: `cli/knowledge/concepts/search/matches-lexical-query`
@@ -1980,7 +2023,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example, decision-table
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-kernel/src/projection/knowledge/installed-bundles.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Limitation: This evidence observes the selection rule in a project workspace only. Which workspace a scope argument routes to, and that the unselected scope is neither read into the corpus nor written, are not observed here. Retires when: A user-scope Knowledge discovery example exists in apps/cli-e2e/src/knowledge.e2e.test.ts, or cli/installed-state-stays-in-selected-scope is revised to name Knowledge discovery reads.
@@ -1995,7 +2039,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/knowledge-query/knowledge-capture.test.ts`, `packages/core/workspace-features/src/knowledge-query/knowledge-revision.test.ts`, `packages/core/workspace-features/src/knowledge-query/corpus/installed-corpus.ts`
 - Source: [`packages/core/workspace-features/src/knowledge-query/corpus/refuses-changing-corpus.spec.ts`](../packages/core/workspace-features/src/knowledge-query/corpus/refuses-changing-corpus.spec.ts)
@@ -2008,7 +2053,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-graph.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -2022,7 +2068,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/knowledge/concepts/terminal-text.ts`, `apps/cli/src/root/knowledge/concepts/terminal-text.test.ts`
 - Source: [`apps/cli/src/root/knowledge/concepts/renders-authored-text-safely.spec.ts`](../apps/cli/src/root/knowledge/concepts/renders-authored-text-safely.spec.ts)
@@ -2035,7 +2082,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/src/root/knowledge/concepts/get.ts`, `apps/cli/src/root/knowledge/concepts/resolve.ts`, `apps/cli/src/root/knowledge/concepts/related.ts`
 - Source: [`packages/core/workspace-features/src/knowledge-query/index/reports-unavailable-exact-references.spec.ts`](../packages/core/workspace-features/src/knowledge-query/index/reports-unavailable-exact-references.spec.ts)
@@ -2048,7 +2096,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-graph.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -2062,7 +2111,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/knowledge-graph.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -2076,7 +2126,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/src/root/knowledge/json-output.test.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `cli/lint/catalog-is-complete`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -2090,7 +2141,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/knowledge/list-knowledge.ts`, `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-kernel/src/projection/knowledge/instruction-entry.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -2104,7 +2156,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: experience
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/knowledge/list-knowledge.ts`, `apps/cli-e2e/src/knowledge.e2e.test.ts`
 - Source: [`packages/core/workspace-features/src/inspection/knowledge/reports-bundle-inspection.spec.ts`](../packages/core/workspace-features/src/inspection/knowledge/reports-bundle-inspection.spec.ts)
@@ -2155,7 +2208,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: experience
 - Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production credential selection reads real token files under temporary directories; controlled environment, workload and saved-session ports establish precedence without host credentials.
 - Methods: example
 - Derived from: `packages/supporting/registry-access/src/credentials/token-resolution.ts`, `apps/cli/help/topics/environment.md`
 - Additional evidence: process via [`apps/cli-e2e/src/auth.e2e.test.ts`](../apps/cli-e2e/src/auth.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/auth/token/token.e2e.ts scenarios through real CLI processes. They observe raw/JSON token stdout and the Registry's browser-only token creation refusal. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
@@ -2515,7 +2569,8 @@ Observation of product use stays within the documented data boundary and under t
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table
 - Derived from: `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts`](../packages/core/workspace-features/src/publishing/lifecycle/registry-management-preserves-authentication-failures.spec.ts)
@@ -2543,7 +2598,8 @@ Observation of product use stays within the documented data boundary and under t
 - Class: functional
 - Role: experience
 - Product goals: `privacy-and-consent`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production invocation boundaries read native workspace configuration and settle faults over captured output and HTTP ports; temporary files establish configuration failure and unchanged state.
 - Methods: example
 - Derived from: `system/security/telemetry-consent-and-precedence`, `system/reliability/telemetry-failure-never-alters-outcomes`
 - Source: [`apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts`](../apps/cli/src/cli-runtime/telemetry-reports-terminal-failures-once.spec.ts)
@@ -2603,7 +2659,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the adoption use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — and every move — that could have happened.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/adopt/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/adopt/preview-is-pure.spec.ts)
@@ -2616,7 +2672,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/agents/membership-changes-realize-affected-outputs`
 - Supersedes: `cli/agents/membership-changes-realize-affected-outputs`
@@ -2630,7 +2687,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/agents/add/records-membership-and-realizes-outputs`
 - Source: [`packages/core/workspace-features/src/configuration/membership/add-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/membership/add-preview-is-pure.spec.ts)
@@ -2643,7 +2701,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/agents/remove/removes-membership-and-owned-outputs`
 - Source: [`packages/core/workspace-features/src/configuration/membership/remove-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/membership/remove-preview-is-pure.spec.ts)
@@ -2669,7 +2728,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production cache accounting and pruning observe real archive bytes, timestamps and sparse files in a native temporary cache, including active-entry preservation.
 - Methods: example, contract
 - Derived from: `packages/supporting/registry-client/src/archive-cache.ts`
 - Supersedes: `cli/cache/status/reports-usage-and-effective-limits`
@@ -2684,7 +2744,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production cache verification reads and removes actual archive bytes in a native temporary cache and preserves unrelated files.
 - Methods: example, contract
 - Derived from: `packages/supporting/registry-client/src/archive-cache.ts`
 - Source: [`packages/supporting/registry-client/src/archive-cache/removes-only-corrupt-archives.spec.ts`](../packages/supporting/registry-client/src/archive-cache/removes-only-corrupt-archives.spec.ts)
@@ -2710,7 +2771,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/demote/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/lifecycle/demote/preview-is-pure.spec.ts)
 
@@ -2749,7 +2811,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/activation-follows-desired-state`
 - Supersedes: `cli/hooks/disable/preview-is-pure`, `cli/knowledge/disable/preview-is-pure`, `cli/mcps/disable/preview-is-pure`, `cli/packs/disable/preview-is-pure`, `cli/rules/disable/preview-is-pure`, `cli/skills/disable/preview-is-pure`, `cli/subagents/disable/preview-is-pure`
@@ -2765,7 +2828,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/activation-follows-desired-state`
 - Supersedes: `cli/hooks/enable/preview-is-pure`, `cli/knowledge/enable/preview-is-pure`, `cli/mcps/enable/preview-is-pure`, `cli/packs/enable/preview-is-pure`, `cli/rules/enable/preview-is-pure`, `cli/skills/enable/preview-is-pure`, `cli/subagents/enable/preview-is-pure`
@@ -2781,7 +2845,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the fork use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/fork/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/fork/preview-is-pure.spec.ts)
@@ -2808,7 +2872,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A real temporary project records every byte before and after the production export preview.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/hooks/export-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/hooks/export-preview-is-pure.spec.ts)
@@ -2821,7 +2885,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: A real temporary project records every byte before and after the production import preview.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/import/hooks-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/import/hooks-preview-is-pure.spec.ts)
@@ -2834,7 +2898,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/hooks/new/creates-enabled-workspace-content`
@@ -2848,7 +2912,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/hooks/install/preview-is-pure`, `cli/knowledge/install/preview-is-pure`, `cli/mcps/install/preview-is-pure`, `cli/packs/install/preview-is-pure`, `cli/rules/install/preview-is-pure`, `cli/skills/install/preview-is-pure`, `cli/subagents/install/preview-is-pure`
 - Supersedes: `cli/hooks/install/preview-is-pure`, `cli/knowledge/install/preview-is-pure`, `cli/mcps/install/preview-is-pure`, `cli/packs/install/preview-is-pure`, `cli/rules/install/preview-is-pure`, `cli/skills/install/preview-is-pure`, `cli/subagents/install/preview-is-pure`
@@ -2862,7 +2927,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Open questions: Applying a satisfied install reports `no-op` while previewing the same request reports `previewed`, because the outcome follows planned units and only execution observes that a unit changes nothing. Should a preview that would change nothing report `no-op`, and if so must every planner decide the satisfied case before planning?
 - Source: [`packages/core/workspace-features/src/lifecycle/install/reinstall-is-idempotent.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/reinstall-is-idempotent.spec.ts)
@@ -2889,7 +2955,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/management-is-explicit`
 - Supersedes: `cli/instructions/management-is-explicit`
@@ -2903,7 +2970,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/disable/removes-only-owned-aliases`
 - Open questions: A preview whose request is already satisfied settles as a no-op here because the instructions use case detects 'already current' before planning, while install's satisfied preview reports 'previewed'. The plan-family decision at workspace-operations — whether every planner settles the satisfied case before planning — determines which outcome this example asserts; until then it records current behaviour.
@@ -2917,7 +2985,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/configuration/instructions/manage-instructions.ts`
 - Source: [`packages/core/workspace-features/src/configuration/instructions/enable-is-idempotent.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/enable-is-idempotent.spec.ts)
@@ -2930,7 +2999,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/enable/records-choice-and-reconciles-aliases`
 - Source: [`packages/core/workspace-features/src/configuration/instructions/enable-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/instructions/enable-preview-is-pure.spec.ts)
@@ -2959,7 +3029,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/knowledge/new/creates-enabled-workspace-content`
@@ -2987,7 +3057,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/mcps/add/records-and-realizes-inline-configuration`
 - Source: [`packages/core/workspace-features/src/configuration/inline-mcp/add-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/inline-mcp/add-preview-is-pure.spec.ts)
@@ -3000,7 +3071,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/mcps/adopt/adoption-reaches-every-configured-agent`, `cli/mcps/import/preview-is-pure`
 - Source: [`packages/core/workspace-features/src/configuration/mcp-adoption/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/mcp-adoption/preview-is-pure.spec.ts)
@@ -3013,7 +3085,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production authoring reads and changes a native temporary workspace; file snapshots observe source preservation, declarations and realized outputs.
 - Methods: example, decision-table
 - Derived from: `cli/mcps/import/creates-authored-package-from-native-server`
 - Source: [`packages/core/workspace-features/src/authoring/import/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/import/preview-is-pure.spec.ts)
@@ -3026,7 +3099,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: decision-table
 - Derived from: `cli/mcps/add/records-and-realizes-inline-configuration`, `cli/uninstall/is-idempotent`
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
@@ -3040,7 +3114,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write — settings, authored root, and agent MCP config — that could have happened.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/authoring/create/scaffolds/mcp-server.ts`
@@ -3054,7 +3128,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Closure execution, rollback, and settlement are decided by the plan pipeline over a real temporary workspace; the durable-file effects the rule is about are observable there without a process boundary.
 - Methods: decision-table, example
 - Derived from: `docs/architecture/workspace/execution.md`, `docs/architecture/decisions/closure-atomicity-and-recovery.md`
@@ -3070,7 +3144,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/projection-currency-follows-state-authority`
 - Assumptions: An inline connection and a Pack-supplied Registry connection are the two ways a structured MCP projection enters desired state, so one of each stands for every structured native projection.
@@ -3084,7 +3159,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
@@ -3098,7 +3173,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/new/records-workspace-authorship`
@@ -3112,7 +3187,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the membership use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/packs/add/records-member-as-pack-dependency`
@@ -3126,7 +3201,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
 - Source: [`packages/core/workspace-features/src/lifecycle/unpack/unpack-preview-is-pure.spec.ts`](../packages/core/workspace-features/src/lifecycle/unpack/unpack-preview-is-pure.spec.ts)
@@ -3154,7 +3230,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Reconciliation is what judges currency; running it over a real workspace shows exactly which bytes it leaves alone and which it regenerates.
 - Methods: decision-table, example
 - Derived from: `packages/core/workspace-features/src/configuration/instructions/instruction-copy-currency.test.ts`
@@ -3172,7 +3248,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example
 - Derived from: `cli/publish/preview-is-pure-and-gate-is-fixed`, `cli/publish/publication-gate-is-fixed`, `cli/hooks/publish/preview-is-pure`, `cli/knowledge/publish/preview-is-pure`, `cli/mcps/publish/preview-is-pure`, `cli/packs/publish/preview-is-pure`, `cli/rules/publish/preview-is-pure`, `cli/skills/publish/preview-is-pure`, `cli/subagents/publish/preview-is-pure`
 - Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`, `cli/hooks/publish/preview-is-pure`, `cli/knowledge/publish/preview-is-pure`, `cli/mcps/publish/preview-is-pure`, `cli/packs/publish/preview-is-pure`, `cli/rules/publish/preview-is-pure`, `cli/skills/publish/preview-is-pure`, `cli/subagents/publish/preview-is-pure`
@@ -3188,7 +3265,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/rules/new/creates-enabled-workspace-content`
@@ -3217,7 +3294,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: example
 - Derived from: `cli/setup/preview-resolves-inputs-without-prompts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/configuration/setup/preview-is-pure.spec.ts)
@@ -3244,7 +3322,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the import use case: a preview stages the converted package into a temporary directory and returns before the workspace transaction opens, so a real project directory observes both that nothing under the workspace moved and that the native document is byte-identical.
 - Methods: example
 - Derived from: `apps/cli-e2e/src/fork-import.e2e.test.ts`
@@ -3258,7 +3336,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/skills/new/scaffolds-for-every-configured-agent`
@@ -3272,7 +3350,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the import use case: a preview stages the converted package into a temporary directory and returns before the workspace transaction opens, so a real project directory observes both that nothing under the workspace moved and that the native document is byte-identical.
 - Methods: example
 - Derived from: `cli/skills/import/preview-is-pure`, `apps/cli-e2e/src/fork-import.e2e.test.ts`
@@ -3286,7 +3364,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the creation use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Derived from: `cli/subagents/new/scaffolds-for-every-configured-agent`
@@ -3300,7 +3378,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
 - Source: [`packages/core/workspace-features/src/sync/no-op-convergence-validates-current-observation.spec.ts`](../packages/core/workspace-features/src/sync/no-op-convergence-validates-current-observation.spec.ts)
@@ -3313,7 +3392,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
 - Source: [`packages/core/workspace-features/src/sync/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/sync/preview-is-pure.spec.ts)
@@ -3326,7 +3406,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/preserves-configuration-and-resolutions`
 - Source: [`packages/core/workspace-features/src/sync/realizes-desired-state.spec.ts`](../packages/core/workspace-features/src/sync/realizes-desired-state.spec.ts)
@@ -3365,7 +3446,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
@@ -3379,7 +3461,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: decision-table, example
 - Derived from: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
 - Supersedes: `cli/every-type-completes-the-shared-lifecycle`, `cli/mcps/uninstall/preserves-unowned-native-entries`
@@ -3396,7 +3479,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/uninstall/is-idempotent`, `cli/hooks/uninstall/preview-is-pure`, `cli/knowledge/uninstall/preview-is-pure`, `cli/mcps/uninstall/preview-is-pure`, `cli/packs/uninstall/preview-is-pure`, `cli/rules/uninstall/preview-is-pure`, `cli/skills/uninstall/preview-is-pure`, `cli/subagents/uninstall/preview-is-pure`
 - Supersedes: `cli/hooks/uninstall/preview-is-pure`, `cli/knowledge/uninstall/preview-is-pure`, `cli/mcps/uninstall/preview-is-pure`, `cli/packs/uninstall/preview-is-pure`, `cli/rules/uninstall/preview-is-pure`, `cli/skills/uninstall/preview-is-pure`, `cli/subagents/uninstall/preview-is-pure`
@@ -3425,7 +3509,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/update/advances-resolution-within-intent`, `cli/hooks/update/preview-is-pure`, `cli/knowledge/update/preview-is-pure`, `cli/mcps/update/preview-is-pure`, `cli/packs/update/preview-is-pure`, `cli/rules/update/preview-is-pure`, `cli/skills/update/preview-is-pure`, `cli/subagents/update/preview-is-pure`
 - Supersedes: `cli/hooks/update/preview-is-pure`, `cli/knowledge/update/preview-is-pure`, `cli/mcps/update/preview-is-pure`, `cli/packs/update/preview-is-pure`, `cli/rules/update/preview-is-pure`, `cli/skills/update/preview-is-pure`, `cli/subagents/update/preview-is-pure`
@@ -3464,7 +3549,7 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`, `authoring-and-creation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Purity is a property of the version use case: a preview resolves the same candidate an apply would and returns before the workspace transaction opens, so a real project directory observes every write that could have happened.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/authoring/version/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/authoring/version/preview-is-pure.spec.ts)
@@ -3477,7 +3562,8 @@ Every operation is safe to repeat and safe to interrupt: reruns are no-ops, fail
 - Class: functional
 - Role: experience
 - Product goals: `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production visibility reads authored manifests and settings from native temporary directories; the HTTP service port records Registry requests without a live service.
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/set-uses-explicit-intent-and-observed-revision.spec.ts)
@@ -3509,7 +3595,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, state-transition, invariant
 - Derived from: `cli/install/source-switches-are-previewed-and-atomic`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/pack-source-switches-are-member-diffed.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/pack-source-switches-are-member-diffed.spec.ts)
@@ -3522,7 +3609,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
@@ -3551,7 +3639,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, state-transition
 - Derived from: `cli/install/preview-is-pure`, `cli/publisher-changes-require-interactive-approval`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/source-switches-are-previewed-and-atomic.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/source-switches-are-previewed-and-atomic.spec.ts)
@@ -3564,7 +3653,7 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The publish use case resolves the target against the workspace's configured sources; real file Registries distinguish configured targets; an HTTP transport fixture observes direct URL publication.
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
@@ -3579,7 +3668,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts`](../packages/core/workspace-features/src/publishing/archive/archives-satisfy-distribution-contract.spec.ts)
@@ -3592,7 +3682,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table, example
 - Derived from: `cli/publish/existing-versions-require-explicit-policy`, `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
 - Supersedes: `cli/publish/existing-versions-require-explicit-policy`
@@ -3621,7 +3712,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/command.test.ts`
 - Source: [`packages/core/workspace-features/src/publishing/preflight/older-unpublished-versions-require-backfill.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/older-unpublished-versions-require-backfill.spec.ts)
@@ -3634,7 +3726,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `packages/core/workspace-features/src/publishing/settlement.test.ts`
 - Limitation: How the unresolved run reads to a person — the rendered lines that name each candidate's unknown settlement and never say a publication happened — and the exit status that run leaves are the application's mapping of this outcome, not the outcome itself, so they are not observed here. Retires when: The CLI owns evidence, beside its publish view and exit mapping, that an unsettled run renders every unresolved candidate without reporting a publication and exits with the reported-problems code.
@@ -3648,7 +3741,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example
 - Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
 - Assumptions: The Git comparison AXM performs reports added, deleted, and modified paths accurately relative to HEAD; the source-state scenario substitutes the comparison outcome rather than running Git.
@@ -3675,7 +3769,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/preserves-established-visibility.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/preserves-established-visibility.spec.ts)
@@ -3688,7 +3783,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table
 - Derived from: `cli/publish/preview-is-pure-and-gate-is-fixed`
 - Supersedes: `cli/publish/preview-is-pure-and-gate-is-fixed`
@@ -3702,7 +3798,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example
 - Derived from: `cli/publish/requires-explicit-acceptance-for-non-head-source`
 - Assumptions: The Git comparison reports its failure as a typed Git operation failure whose detail names the operation and Git's reason; every scenario substitutes that failure rather than running Git.
@@ -3716,7 +3813,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/preflight/reports-pack-resolution-differences.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/reports-pack-resolution-differences.spec.ts)
@@ -3729,7 +3827,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table, example
 - Source: [`packages/core/workspace-features/src/publishing/selection/requires-established-authorship.spec.ts`](../packages/core/workspace-features/src/publishing/selection/requires-established-authorship.spec.ts)
 
@@ -3741,7 +3840,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/preflight/requires-existing-publish-owners.spec.ts`](../packages/core/workspace-features/src/publishing/preflight/requires-existing-publish-owners.spec.ts)
@@ -3754,7 +3854,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table, example, contract
 - Derived from: `cli/publish/outcomes-report-source-state`
 - Supersedes: `cli/publish/outcomes-report-source-state`
@@ -3770,7 +3871,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/publish/command.test.ts`, `apps/cli/src/root/publish/command.ts`
 - Limitation: A member constrained by an acquired pack, whose authority is the Registry rather than this workspace, is not exercised; the statement was narrowed to the authored-pack repair the examples establish. Retires when: A row selects a member constrained by an acquired pack, states the repair that refusal offers, and the statement is widened back to every pack authority.
@@ -3784,7 +3886,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/update/preview-is-pure`, `cli/install/preview-is-pure`, `cli/skills/update/preview-is-pure`
 - Source: [`packages/core/workspace-features/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts`](../packages/core/workspace-features/src/lifecycle/publisher-changes-require-interactive-approval.spec.ts)
@@ -3863,7 +3966,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production script installation stages, replaces and restores actual files in a native temporary installation; the controlled subprocess port reports versions and does not establish binary viability.
 - Methods: example
 - Assumptions: The filesystem reports completed operations truthfully.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/reports-replacement-storage-failures.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/reports-replacement-storage-failures.spec.ts)
@@ -3888,7 +3992,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production script installation stages, replaces and restores actual files in a native temporary installation; the controlled subprocess port reports versions and does not establish binary viability.
 - Methods: example
 - Assumptions: Filesystem restoration remains available; operating-system or storage failures that also prevent rollback require separate recovery evidence.
 - Limitation: Restoration after an externally terminated replacement is witnessed in process, through the finalizer the interrupt runs, rather than at the process boundary: latest-release discovery and asset URLs are compiled constants with no environment override, so no installed-boundary run can serve a release fixture to the built executable. Retires when: The self-update capability accepts a release-origin override that a controlled run may point at a local fixture, and an installed-boundary example signals the running upgrade and observes the restored executable and exit status.
@@ -3902,7 +4007,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: experience
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production script installation stages, replaces and restores actual files in a native temporary installation; the controlled subprocess port reports versions and does not establish binary viability.
 - Methods: example
 - Assumptions: The controlled process port reports executable versions; native binary viability is established by installed-boundary evidence.
 - Source: [`packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-download-before-replacement.spec.ts`](../packages/supporting/cli-maintenance/src/self-update/adapters/native/upgrade/verifies-download-before-replacement.spec.ts)
@@ -3948,7 +4054,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/activation-lifecycle.e2e.test.ts`](../apps/cli-e2e/src/activation-lifecycle.e2e.test.ts) — Drives every catalog extension type — including the mcp-server and pack types that cannot be sourced from a local package in memory — through authored creation, update, disable, enable, and uninstall in the real CLI process, proving preview purity, apply idempotency, native agent files, and lint-clean workspace state between every transition.
 - Source: [`packages/core/workspace-features/src/lifecycle/activation/activation-follows-desired-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/activation/activation-follows-desired-state.spec.ts)
@@ -3976,7 +4083,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/configuration/membership/configure-agents.ts`
 - Open questions: The combination of --detected and --available has no separately established user-facing meaning; precedence is not specified here.
@@ -3990,7 +4098,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Ownership is proven by what a real agent directory entry is — a link into a canonical root, or a hand-authored file that is neither — so the evidence is the directory itself before and after the removal.
 - Methods: example
 - Derived from: `cli/agents/membership-changes-realize-affected-outputs`
@@ -4021,7 +4129,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: contract, example
 - Derived from: `cli/demote/preview-is-pure`, `cli/setup/unattended-apply-requires-explicit-intent`, `cli/login/preapproval-requests-new-sign-in`
 - Source: [`apps/cli/src/root/shared/confirmation-flags-have-a-supported-purpose.spec.ts`](../apps/cli/src/root/shared/confirmation-flags-have-a-supported-purpose.spec.ts)
@@ -4062,7 +4171,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: contract, decision-table
 - Source: [`apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts`](../apps/cli/src/cli-flags/force-bypasses-only-named-policies.spec.ts)
 
@@ -4101,7 +4211,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `cli/install/preview-is-pure`
 - Open questions: The install preview lists the closure's units and plan candidate but no artifact paths or target surfaces, while the apply lists both; whether a preview should describe target surfaces, as skill and subagent creation do, is unresolved, so this specification requires agreement on the plan candidate and unit set only.
@@ -4115,7 +4226,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: property
 - Open questions: Whether an unknown extension type in a registry name fails as usage guidance or as not found is undecided; the scenario accepts either outcome.
 - Source: [`packages/core/workspace-features/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/non-installable-sources-do-not-mutate.spec.ts)
@@ -4128,7 +4240,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/install/preserves-unrelated-and-unowned-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/preserves-unrelated-and-unowned-state.spec.ts)
 
@@ -4140,7 +4253,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Derived from: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
 - Supersedes: `cli/install/direct-intent-recorded-and-realized`, `cli/every-type-completes-the-shared-lifecycle`
@@ -4155,7 +4269,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table, example
 - Derived from: `cli/policy-overrides-reach-every-blocked-command`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/unversioned-sources-follow-release-age.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/unversioned-sources-follow-release-age.spec.ts)
@@ -4198,7 +4313,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/management-is-explicit`
 - Supersedes: `cli/instructions/management-is-explicit`
@@ -4213,7 +4329,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/management-is-explicit`, `cli/mutations-are-closure-atomic`, `cli/invalid-ownership-markers-block-reconciliation`
 - Supersedes: `cli/instructions/management-is-explicit`
@@ -4227,7 +4344,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/instructions/management-is-explicit`
 - Supersedes: `cli/instructions/management-is-explicit`
@@ -4241,7 +4359,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example, decision-table
 - Derived from: `cli/projection-currency-follows-state-authority`
 - Limitation: The statement does not carry the lint half of the rule — that a workspace lint run reports malformed fences as `workspace/projection-ownership-valid` and leaves the document untouched. A reconciliation specification cannot witness a peer feature's finding, and no ordinary test in `@agentxm/workspace-features/linting` exercises that rule against malformed fences yet; the rule's identity and severity are meanwhile owned by cli/lint/catalog-is-complete and lint's no-mutation obligation by cli/lint/reports-facts-without-mutation. Retires when: `@agentxm/workspace-features/linting` carries an ordinary test that runs the real workspace lint over a document with malformed region fences and asserts the `workspace/projection-ownership-valid` finding with the document unchanged.
@@ -4255,7 +4374,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The gate is the construction of the workspace records themselves: every operation reads them first, so the typed refusal and the untouched files on disk are the decisive evidence.
 - Methods: decision-table, example
 - Derived from: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`, `apps/cli/src/root/invalid-workspace-state-gates-operations.test.ts`
@@ -4273,7 +4392,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/skills/list.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`, `packages/core/workspace-features/src/inspection/type-list/type-lists.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
@@ -4287,7 +4407,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Each state is a declaration plus a canonical package on a real workspace directory, evaluated against a pinned CLI release; the built executable adjudicates nothing this rule decides.
 - Methods: decision-table
 - Derived from: `cli/lint/official-skill-findings-follow-declared-intent`, `apps/cli/help/topics/upgrade.md`, `apps/cli-e2e/src/lint/startup-check-does-not-hide-findings.e2e.test.ts`
@@ -4303,7 +4423,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The rule reads a declaration and a canonical package off a real workspace directory; nothing about it needs a process.
 - Methods: decision-table
 - Derived from: `cli/lint/official-skill-findings-follow-declared-intent`
@@ -4319,7 +4439,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Open questions: Should Git update assessment treat a changed commit with an unchanged extension tree as an available update? Current code compares both identities; Registry version eligibility is the accepted scope of this requirement.
@@ -4333,7 +4454,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`, `packages/core/workspace-kernel/src/workspace-state/observed/extensions/inventory.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/classifies-unexplained-content.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/classifies-unexplained-content.spec.ts)
@@ -4346,7 +4468,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/fails-when-registry-assessment-fails.spec.ts)
@@ -4359,7 +4482,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The production inventory handler reads native workspace state and emits human output through recording streams.
 - Methods: example
 - Derived from: `cli/list/ordinary-inventory-is-local`, `apps/cli/src/root/list/command.ts`
 - Supersedes: `cli/list/human-inventory-points-to-deprecation-guidance`
@@ -4373,7 +4497,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Supersedes: `cli/list/ordinary-inventory-identifies-deprecation`
@@ -4400,7 +4525,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/reports-deprecation-guidance.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/reports-deprecation-guidance.spec.ts)
@@ -4413,7 +4539,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/reports-incomplete-assessment.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/reports-incomplete-assessment.spec.ts)
@@ -4426,7 +4553,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Derived from: `apps/cli/src/root/list/command.test.ts`, `packages/core/workspace-features/src/inspection/extension-list/list-extensions.ts`
 - Source: [`packages/core/workspace-features/src/inspection/extension-list/reports-the-cross-type-inventory.spec.ts`](../packages/core/workspace-features/src/inspection/extension-list/reports-the-cross-type-inventory.spec.ts)
@@ -4439,7 +4567,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Reachability is decided where desired state is read: the settings entries and the accepted resolutions are both on disk, and the records built from them are what every command downstream consults.
 - Methods: decision-table, contract
 - Derived from: `packages/core/workspace-features/src/sync/lock-only-rows-are-never-acquired.test.ts`
@@ -4453,7 +4581,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: decision-table
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/projects-to-every-configured-agent`, `cli/mcps/inline-entries-are-authoritative-as-authored`, `packages/core/workspace-features/src/configuration/inline-mcp/add-inline-mcp-server.ts`, `apps/cli/help/topics/mcps.md`
 - Additional evidence: process via [`apps/cli-e2e/src/command.e2e.test.ts`](../apps/cli-e2e/src/command.e2e.test.ts) — Runs the built CLI to observe inline MCP lifecycle argv, exit codes, JSON envelopes, and native files, and invokes the built error runtime with a synthetic secret to establish redaction in human verbose, debug, and quiet-precedence modes.
@@ -4467,7 +4596,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production configuration and reconciliation share a native temporary workspace; settings, lockfile and projection observations include physical files and links.
 - Methods: example
 - Derived from: `cli/mcps/inline-lifecycle-is-idempotent`, `cli/mcps/projects-to-every-configured-agent`, `cli/sync/realizes-desired-state`, `packages/core/workspace-features/src/configuration/mcp-adoption/adopt-mcp-servers.ts`
 - Supersedes: `cli/mcps/import/adoption-reaches-every-configured-agent`
@@ -4511,7 +4641,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `cli/mcps/inline-authority-is-operation-coherent`, `cli/mcps/projects-to-every-configured-agent`
 - Supersedes: `cli/mcps/inline-authority-is-operation-coherent`
@@ -4525,7 +4656,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: example
 - Derived from: `cli/mcps/list/local-name-source-and-resolution-are-distinct`
 - Source: [`apps/cli/src/root/mcps/list/human-inventory-separates-local-name-and-source.spec.ts`](../apps/cli/src/root/mcps/list/human-inventory-separates-local-name-and-source.spec.ts)
@@ -4550,7 +4682,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/mcp-connections/removes-one-local-connection-at-a-time.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/mcp-connections/removes-one-local-connection-at-a-time.spec.ts)
 
@@ -4562,7 +4695,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/update/mcp-connections/shared-source-update-is-closure-wide.spec.ts`](../packages/core/workspace-features/src/lifecycle/update/mcp-connections/shared-source-update-is-closure-wide.spec.ts)
 
@@ -4574,7 +4708,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/migrate-deprecated.spec.ts`](../packages/core/workspace-features/src/lifecycle/migrate-deprecated.spec.ts)
 
@@ -4586,7 +4721,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/migrate/preview-is-pure.spec.ts`](../packages/core/workspace-features/src/lifecycle/migrate/preview-is-pure.spec.ts)
 
@@ -4598,7 +4734,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `extension-adoption`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `cli/activation-follows-desired-state`
 - Open questions: Whether a Pack transition that replaces a member identity under the same local name should refuse to carry the preference across, or move it; the current implementation keeps the preference bound to the local name.
@@ -4612,7 +4749,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/packs/show-pack.ts`
 - Source: [`packages/core/workspace-features/src/inspection/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts`](../packages/core/workspace-features/src/inspection/packs/show-rejects-mismatched-and-unavailable-packs.spec.ts)
@@ -4625,7 +4763,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/inspection/packs/show-pack.ts`, `apps/cli-e2e/src/scope-consistency.e2e.test.ts`
 - Source: [`packages/core/workspace-features/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts`](../packages/core/workspace-features/src/inspection/packs/show-reports-authored-membership-and-observed-state.spec.ts)
@@ -4638,7 +4777,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: contract, decision-table, static
 - Derived from: `cli/force-bypasses-only-named-policies`
 - Open questions: Whether enabling an already-installed extension should resolve from source at all, or should read only the accepted resolution and never reach the gate. Activation accepts the override today because the gate can block it today; deciding that question may remove activation from the gated inventory instead.
@@ -4653,7 +4793,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: contract, decision-table, static, example
 - Derived from: `cli/force-bypasses-only-named-policies`, `workspace/subagents/native-locations-respect-shape-and-proof`
 - Assumptions: Commands that reach projection writers only through a confirmation they do not own (authoring, forking, demotion, pack membership edits, migration) keep both policies and offer neither flag; their refusals name no flag.
@@ -4668,7 +4809,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Selection is decided by the publish use case over the workspace's authored records; running it against a real file Registry shows exactly which archives the selection distributed.
 - Methods: decision-table, example
 - Derived from: `cli/publish/selectors-and-filters-narrow-authored-candidates`, `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.ts`, `apps/cli/src/root/publish/per-type-command.ts`
@@ -4685,7 +4826,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.ts`
 - Source: [`packages/core/workspace-features/src/publishing/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts`](../packages/core/workspace-features/src/publishing/selection/dependency-inclusion-adds-only-authored-pack-members.spec.ts)
@@ -4712,7 +4854,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: decision-table, example
 - Derived from: `cli/activation-follows-desired-state`
 - Additional evidence: process via [`apps/cli-e2e/src/root-activation.e2e.test.ts`](../apps/cli-e2e/src/root-activation.e2e.test.ts) — Runs the built CLI to exercise root FQN activation for all seven extension types, inspect settings after apply, and prove preview and invalid-grammar refusal write nothing.
@@ -4726,7 +4869,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/configuration/setup/initialization.ts`
 - Source: [`packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts`](../packages/core/workspace-features/src/configuration/setup/agent-membership-is-a-set.spec.ts)
@@ -4752,7 +4896,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Creating the settings document and lockfile belongs to the configuration feature while the bundled official skill travels with the executable, so the application layer that composes both is the lowest layer at which one initialization produces all three; the artifacts it writes are files in a real directory.
 - Methods: example
 - Derived from: `cli/setup/unattended-apply-requires-explicit-intent`
@@ -4767,7 +4911,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: example
 - Derived from: `cli/setup/preview-is-pure`
 - Source: [`packages/core/workspace-features/src/configuration/setup/preview-resolves-inputs-without-prompts.spec.ts`](../packages/core/workspace-features/src/configuration/setup/preview-resolves-inputs-without-prompts.spec.ts)
@@ -4780,7 +4925,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: example
 - Derived from: `cli/setup/initializes-selected-workspace`
 - Additional evidence: process via [`apps/cli-e2e/src/init.e2e.test.ts`](../apps/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
@@ -4794,7 +4940,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production setup runs against native temporary project and user directories; persisted state and untouched scope are observed on disk.
 - Methods: decision-table
 - Derived from: `cli/machine-mode-never-prompts`
 - Additional evidence: process via [`apps/cli-e2e/src/init.e2e.test.ts`](../apps/cli-e2e/src/init.e2e.test.ts) — This Vitest entrypoint executes the imported cli-commands/setup/command.e2e.ts scenarios through real CLI processes. They observe selected-directory argv, bundled files, unattended setup prerequisites, and repeat setup preserving declared configuration. Imported source bytes remain part of the repository execution inputs; this binding attributes evidence to the selected entrypoint, not to an import alone.
@@ -4808,7 +4955,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`, `cli/lint/declared-official-skill-must-be-compatible`, `cli/lint/compatibility-result-names-reason-and-recovery`, `apps/cli-e2e/src/cli-commands/skills/install/command.e2e.ts`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
@@ -4822,7 +4970,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/skills/install/bundled-recovery-converges`
 - Supersedes: `cli/skills/install/bundled-recovery-converges`
@@ -4836,7 +4985,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `workspace/desired-state/effective-constraint-has-one-owner`
 - Source: [`packages/core/workspace-features/src/sync/preserves-configuration-and-resolutions.spec.ts`](../packages/core/workspace-features/src/sync/preserves-configuration-and-resolutions.spec.ts)
@@ -4849,7 +4999,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -4863,7 +5014,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/preserves-unowned-agent-content.spec.ts`](../packages/core/workspace-features/src/sync/preserves-unowned-agent-content.spec.ts)
 
@@ -4875,7 +5027,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/realizes-desired-state`, `cli/sync/preserves-unowned-agent-content`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -4889,7 +5042,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Derived from: `cli/sync/preserves-unowned-agent-content`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -4903,7 +5057,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: decision-table, example
 - Assumptions: A JSON MCP configuration whose root is an array is the smallest file that parses but is not the map the format requires, so it stands for every undecodable native MCP configuration.
 - Source: [`packages/core/workspace-features/src/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts`](../packages/core/workspace-features/src/sync/unreadable-agent-configuration-prevents-reconciliation.spec.ts)
@@ -4916,7 +5071,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/skills/list.test.ts`, `apps/cli/src/root/subagents/list/handler.test.ts`
 - Source: [`packages/core/workspace-features/src/inspection/type-list-agent-filters-match-any-selected-agent.spec.ts`](../packages/core/workspace-features/src/inspection/type-list-agent-filters-match-any-selected-agent.spec.ts)
@@ -4929,7 +5085,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: decision-table, example
 - Derived from: `cli/agent-selection-is-membership-or-filter`
 - Source: [`packages/core/workspace-features/src/inspection/type-shows-filter-agent-outcomes.spec.ts`](../packages/core/workspace-features/src/inspection/type-shows-filter-agent-outcomes.spec.ts)
@@ -4942,7 +5099,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `apps/cli/src/root/shared/extension-show.ts`
 - Source: [`apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts`](../apps/cli/src/root/shared/type-shows-report-missing-entries.spec.ts)
@@ -4955,7 +5113,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table
 - Derived from: `cli/uninstall/is-idempotent`, `cli/uninstall/reports-removed-and-retained-state`
 - Additional evidence: process via [`apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts`](../apps/cli-e2e/src/leftover-installed-packages.e2e.test.ts) — Runs the built CLI against a persisted workspace holding leftover installed packages, an undeclared authored package, an unrecognized install-root entry, and obsolete skill links, proving lint facts, the sync convergence exit status, uninstall refusal, and the files a real sync removes and keeps.
@@ -4969,7 +5128,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/reports-removed-and-retained-state.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/reports-removed-and-retained-state.spec.ts)
 
@@ -4981,7 +5141,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Additional evidence: process via [`apps/cli-e2e/src/root-uninstall.e2e.test.ts`](../apps/cli-e2e/src/root-uninstall.e2e.test.ts) — Runs the real CLI against a published file registry, proving root and type-specific uninstall parity across extension types and scopes, the machine result document, exit codes, and second-pass no-op state that in-memory execution cannot observe.
 - Source: [`packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts`](../packages/core/workspace-features/src/lifecycle/uninstall/retires-a-desired-pack-whose-package-is-unreadable.spec.ts)
@@ -4994,7 +5155,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The omission is decided while the instructions file is projected and is reported on the unit that projected it; running a real removal over a real workspace shows both the file that was written and the report that accompanied it.
 - Methods: example
 - Derived from: `packages/core/extension-kinds/src/knowledge/manager.ts`, `packages/core/workspace-kernel/src/projection/planning.ts`, `packages/core/workspace-features/src/sync/knowledge-exclusions-are-reported.test.ts`, `packages/core/workspace-features/src/linting/catalog/workspace/conformance/workspace-state/test-helpers.ts`
@@ -5022,7 +5183,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/update/machine-result-names-bundled-source-blocker`, `apps/cli/src/root/update/blocker-suggestions.test.ts`
 - Supersedes: `cli/update/machine-result-names-bundled-source-blocker`
@@ -5036,7 +5198,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example
 - Derived from: `cli/update/advances-resolution-within-intent`, `cli/mutations-are-closure-atomic`, `workspace/desired-state/effective-constraint-has-one-owner`
 - Open questions: Whether a blocked group should also report the newest Pack version it could have selected, which cli/update/explains-excluded-newer-versions owns separately.
@@ -5050,7 +5213,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production lifecycle and settlement services read and mutate a native temporary workspace; persisted desired state, package content and projections are observed on disk.
 - Methods: example
 - Derived from: `cli/update/advances-resolution-within-intent`
 - Source: [`packages/core/workspace-features/src/lifecycle/update/refuses-undesired-extensions.spec.ts`](../packages/core/workspace-features/src/lifecycle/update/refuses-undesired-extensions.spec.ts)
@@ -5063,7 +5227,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-features/src/lifecycle/update/reinstall-reacquires-accepted-content.spec.ts`](../packages/core/workspace-features/src/lifecycle/update/reinstall-reacquires-accepted-content.spec.ts)
 
@@ -5075,7 +5240,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production visibility reads authored manifests and settings from native temporary directories; the HTTP service port records Registry requests without a live service.
 - Methods: example, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `AgentXM Registry API 0.1.0`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/reconcile-applies-declared-repository-intent.spec.ts)
@@ -5100,7 +5266,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production release-age configuration reads real project and user settings through native workspace services; candidate time and Registry responses remain controlled.
 - Methods: decision-table, example
 - Assumptions: A held release is refused before anything is written: cli/mutations-are-closure-atomic owns that a refused closure leaves the workspace unchanged, and cli/withheld-releases-name-recovery-from-the-emitting-command owns the wording and recovery routes the refusal names.
 - Source: [`packages/core/workspace-kernel/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts`](../packages/core/workspace-kernel/src/resolution/release-age/minimum-release-age-withholds-unaged-releases.spec.ts)
@@ -5113,7 +5280,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition resolves physical source and destination paths in native temporary directories; alias overlap refusal and unchanged bytes are observed on disk.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts`](../packages/core/workspace-kernel/src/acquisition/refuses-copy-source-overlap.spec.ts)
 
@@ -5137,7 +5305,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production copy ownership captures native directory identity and creation receipts; edits, replacements and retirement are observed against actual filesystem entries.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/locations/copied-directory-ownership.spec.ts`](../packages/core/workspace-kernel/src/locations/copied-directory-ownership.spec.ts)
 
@@ -5149,7 +5318,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production native-location observation resolves actual files and symbolic links, including dangling aliases and bounded copied-directory retirement.
 - Methods: example
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose; how sync previews, repairs, and preserves it, including regenerating a deleted canonical file beside its alias link; and that a foreign dangling reader link leaves a current workspace unchanged.
 - Source: [`packages/core/workspace-kernel/src/projection/native-artifact-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/native-artifact-locations.spec.ts)
@@ -5174,7 +5344,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Skill materialization reads native source trees and observes containment, copied content and physical paths in temporary directories.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/materialization/skill-locations.spec.ts`](../packages/core/workspace-kernel/src/materialization/skill-locations.spec.ts)
 
@@ -5186,7 +5357,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production consumer observation resolves real native projection entries and their physical ownership in temporary directories; native runtime availability remains unverified.
 - Methods: example
 - Source: [`packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts`](../packages/core/workspace-kernel/src/projection/native-skill-consumers.spec.ts)
 
@@ -5198,7 +5370,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Subagent location observation reads native files and aliases in temporary directories; it does not establish native agent runtime availability.
 - Methods: example
 - Additional evidence: platform via [`apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts`](../apps/cli-e2e/src/windows/workspace-mutation.windows.e2e.test.ts) — Exercises workspace mutation semantics on a real Windows filesystem, where path, symlink, and lock behavior differ from POSIX.
 - Source: [`packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts`](../packages/core/workspace-kernel/src/projection/subagents/native-subagent-locations.spec.ts)
@@ -5227,7 +5400,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: constraint
 - Role: experience
 - Product goals: `workspace-intent-fidelity`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/sync/skill-content-is-agent-independent.spec.ts`](../packages/core/workspace-features/src/sync/skill-content-is-agent-independent.spec.ts)
 
@@ -5272,7 +5446,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Ownership is decided from the link a real agent directory entry carries into a canonical root, so a real workspace directory is the whole evidence this rule needs.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/linting/catalog/workspace/distinguishes-owned-residue-from-undeclared-agents.spec.ts`](../packages/core/workspace-features/src/linting/catalog/workspace/distinguishes-owned-residue-from-undeclared-agents.spec.ts)
@@ -5285,7 +5459,7 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The finding's fact fields are fields of the feature's own machine document; the envelope that carries it to a consumer is the CLI's concern, not this rule's.
 - Methods: contract
 - Additional evidence: process via [`apps/cli-e2e/src/lint.e2e.test.ts`](../apps/cli-e2e/src/lint.e2e.test.ts) — Runs the real lint process against built workspaces and Git repositories, proving exit codes, human and machine channel output, git-index views, and untouched on-disk and staged state that the in-memory entry cannot observe.
@@ -5299,7 +5473,8 @@ People and agents can understand invalid workspace state and recover it through 
 - Class: functional
 - Role: interface
 - Product goals: `actionable-diagnostics`, `machine-automation`, `workspace-intent-fidelity`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: decision-table, contract, example
 - Additional evidence: process via [`apps/cli-e2e/src/packs.e2e.test.ts`](../apps/cli-e2e/src/packs.e2e.test.ts) — Runs pack authoring, membership editing, publish, install, unpack, and uninstall through the real CLI process against a file Registry, proving argv parsing, confirmation flows, exit codes, and on-disk manifest and workspace state that in-memory execution cannot observe, including the exact Rules region two packs compose; how sync previews, repairs, and preserves it, including regenerating a deleted canonical file beside its alias link; and that a foreign dangling reader link leaves a current workspace unchanged.
 - Source: [`packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts`](../packages/core/workspace-features/src/sync/reports-aggregate-projection-drift-at-unit-precision.spec.ts)
@@ -5346,7 +5521,7 @@ Configured extensions realize correctly and completely for every configured codi
 - Class: functional
 - Role: interface
 - Product goals: `agent-interoperability`, `actionable-diagnostics`, `machine-automation`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The query runs with real canonical files and workspace services; complete before/after snapshots observe read-only behavior without process or network effects.
 - Methods: example, decision-table
 - Derived from: `cli/type-shows-report-source-and-version`
@@ -5522,7 +5697,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: decision-table, example
 - Derived from: `apps/cli/src/root/view/handler.ts`, `cli/view/reports-missing-targets-and-fields`
 - Source: [`apps/cli/src/root/view/returns-the-selected-field.spec.ts`](../apps/cli/src/root/view/returns-the-selected-field.spec.ts)
@@ -5549,7 +5725,8 @@ People and agents can find, install, update, and remove reusable extensions acro
 - Class: functional
 - Role: interface
 - Product goals: `extension-adoption`, `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production source discovery traverses native temporary workspace directories; real cache and authored roots distinguish which content is visited.
 - Methods: example
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Source: [`packages/core/workspace-kernel/src/sources/broad-discovery-skips-tool-caches.spec.ts`](../packages/core/workspace-kernel/src/sources/broad-discovery-skips-tool-caches.spec.ts)
@@ -5787,7 +5964,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `packages/core/workspace-features/src/knowledge-query/knowledge-capabilities.ts`, `apps/cli/help/topics/knowledge.md`
 - Supersedes: `cli/knowledge/concepts/status/publishes-discovery-capabilities`
@@ -5802,7 +5980,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: decision-table, example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `packages/core/workspace-features/src/knowledge-query/query/request.ts`
 - Source: [`packages/core/workspace-features/src/knowledge-query/query/enforces-published-result-limits.spec.ts`](../packages/core/workspace-features/src/knowledge-query/query/enforces-published-result-limits.spec.ts)
@@ -5815,7 +5994,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.
 - Methods: example
 - Derived from: `apps/cli/help/topics/knowledge.md`, `apps/cli-e2e/src/knowledge.e2e.test.ts`, `packages/core/workspace-features/src/knowledge-query/knowledge-index.test.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/knowledge.e2e.test.ts`](../apps/cli-e2e/src/knowledge.e2e.test.ts) — Exercises Knowledge argument parsing, source capture, versioned result documents, cursor continuation, conditional retrieval, and lifecycle visibility across real CLI processes.
@@ -5869,7 +6049,8 @@ People and agents can discover concepts, commands, and contracts from the surfac
 - Class: functional
 - Role: interface
 - Product goals: `knowledge-access`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: repository; selection: per-change
+- Boundary rationale: The default execution reads committed generated reference and schema artifacts and compares them with the registered command tree and production generator.
 - Methods: contract, example
 - Derived from: `cli/command-help-is-complete`
 - Source: [`apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts`](../apps/cli/src/cli-reference-asset-reflects-command-tree.spec.ts)
@@ -5903,7 +6084,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The startup wrapper reads and writes the real update cache under an isolated native home while controlled HTTP and reporting ports observe requests and notifications.
 - Methods: decision-table, example
 - Open questions: Must agent sessions always skip startup checks when AXM_NO_UPDATE_CHECK is neither 1 nor true? Earlier environment help said they skip, but the current runtime and its internal test permit agent checks even without a TTY.; Does suppression also prohibit reading an existing update cache, beyond the absence of requests and notifications promised here?
 - Limitation: The primary decision table uses a populated fresh cache and a controlled HTTP port; it establishes notification suppression and command-network independence, but does not by itself establish the absence of a background refresh when a cache is missing or stale. Retires when: Add a scheduler-coordinated missing/stale-cache control that observes the live startup wrapper's detached request and completion without wall-clock sleeps or leaked fibers.
@@ -5930,7 +6112,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `knowledge-access`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: model, example
 - Source: [`apps/cli/src/cli-runtime/exit-codes-match-published-reference.spec.ts`](../apps/cli/src/cli-runtime/exit-codes-match-published-reference.spec.ts)
 
@@ -5980,7 +6163,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: contract
 - Additional evidence: process via [`apps/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts`](../apps/cli-e2e/src/cli-commands/skills/install/output-ux.e2e.test.ts) — Observes the real process stdout document and stderr diagnostics of the shipped CLI, which the in-memory renderer capture cannot prove.
 - Source: [`apps/cli/src/root/install/machine-result-is-schema-backed.spec.ts`](../apps/cli/src/root/install/machine-result-is-schema-backed.spec.ts)
@@ -6007,7 +6191,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The compatibility block is a field of the feature's own machine document, decided from the workspace's declaration and canonical package; the envelope that carries it is the CLI's concern, not this rule's.
 - Methods: decision-table
 - Derived from: `cli/lint/official-skill-findings-follow-declared-intent`, `cli/lint/declared-official-skill-must-be-compatible`
@@ -6023,7 +6207,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: Machine output mode and its channels are adapter concepts, so the lint adapter over a captured Screen is the lowest layer that exercises both clauses; no process is needed to observe what it emitted.
 - Methods: contract
 - Derived from: `cli/lint/findings-name-the-violated-invariant`
@@ -6066,7 +6250,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: contract, decision-table
 - Derived from: `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`](../apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts) — Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.
@@ -6082,7 +6267,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: example
 - Limitation: The skill-selection prompt has no in-memory interaction port, so the evidence that the same request prompts and honors the answer when machine output is off is carried by the setup command only. Retires when: An in-memory interaction port for the skill-selection prompt lets the harness record that prompt and its answer for install.
 - Source: [`apps/cli/src/cli-runtime/machine-mode-never-prompts.spec.ts`](../apps/cli/src/cli-runtime/machine-mode-never-prompts.spec.ts)
@@ -6107,7 +6293,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: contract, example
 - Derived from: `cli/machine-errors-use-the-stable-envelope`
 - Source: [`apps/cli/src/screen/machine-progress-events-follow-the-lifecycle-schema.spec.ts`](../apps/cli/src/screen/machine-progress-events-follow-the-lifecycle-schema.spec.ts)
@@ -6120,7 +6307,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: example
 - Open questions: When a stream is a capable terminal, should CI prohibit styling even when FORCE_COLOR explicitly requests it? Earlier environment help described unconditional plain CI output, while the resolver permits that terminal override; this requirement governs pipes and does not decide terminal precedence.
 - Source: [`apps/cli/src/screen/non-tty-output-is-plain-and-unpadded.spec.ts`](../apps/cli/src/screen/non-tty-output-is-plain-and-unpadded.spec.ts)
@@ -6171,7 +6359,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The production machine screen over recording output streams is where progress suppression and diagnostic preservation are decided; the built-CLI rows over real result and diagnostic streams are bound evidence at apps/cli-e2e/src/quiet-machine-output.e2e.test.ts.
 - Methods: decision-table, example
 - Derived from: `cli/machine-progress-events-follow-the-lifecycle-schema`, `apps/cli/help/topics/machine-output.md`, `apps/cli/src/screen/screen-machine.test.ts`, `apps/cli-e2e/src/quiet-machine-output.e2e.test.ts`
@@ -6201,7 +6389,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production Registry mutation handlers share native temporary workspace settlement and recorded service ports; persisted state and transition outcomes are observed together.
 - Methods: contract, decision-table
 - Derived from: `apps/cli/src/machine-output-contracts.ts`
 - Source: [`apps/cli/src/root/lifecycle/registry-mutations-share-transition-contract.spec.ts`](../apps/cli/src/root/lifecycle/registry-mutations-share-transition-contract.spec.ts)
@@ -6229,7 +6418,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `extension-adoption`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
 - Boundary rationale: The composition root reads real project and user settings through the production document loaders; built-CLI authentication, non-Registry commands, and publish rows are bound evidence for the process boundary.
 - Methods: example, decision-table
 - Derived from: `apps/cli/help/topics/settings.md`, `apps/cli/src/runtime.ts`, `packages/core/workspace-kernel/src/workspace-state/workspace/registry-selection.ts`, `extension-identity/registry-endpoints-have-one-meaning`
@@ -6336,7 +6525,8 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: The in-process CLI handler composes production workspace services over native temporary project and user directories; recorded output is observed alongside persisted state.
 - Methods: example, decision-table
 - Derived from: `apps/cli/src/root/version/command.ts`, `packages/core/workspace-features/src/authoring/version/change-authored-version.ts`
 - Open questions: Whether the version machine result stays a plan-result document once the authoring use case returns a version-specific typed outcome is undecided; if it is replaced, the units and counts assertions here must be re-accepted.
@@ -6494,7 +6684,8 @@ Observation of product use stays within the documented data boundary and under t
 - Class: quality (privacy)
 - Role: interface
 - Product goals: `privacy-and-consent`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Separate reporter invocations persist and reuse installation identity in a native temporary home; a controlled HTTP port records the resulting anonymous events.
 - Methods: example
 - Source: [`apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts`](../apps/cli/src/telemetry/telemetry-uses-anonymous-installation-identity.spec.ts)
 
@@ -6530,7 +6721,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production publishing reads authored packages from a native temporary workspace and prepares actual archive bytes; controlled Registry ports isolate remote behavior.
 - Methods: example, contract
 - Derived from: `apps/cli/help/topics/publish.md`, `apps/cli/src/root/publish/command.test.ts`
 - Source: [`packages/core/workspace-features/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts`](../packages/core/workspace-features/src/publishing/archive/archive-inventory-matches-published-bytes.spec.ts)
@@ -6543,7 +6735,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/publishing/publish/use-case.ts`
 - Source: [`packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts`](../packages/core/workspace-features/src/publishing/upload/reports-lifecycle-refusal-reason.spec.ts)
@@ -6568,7 +6761,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: functional
 - Role: interface
 - Product goals: `trustworthy-distribution`, `extension-adoption`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production source discovery reads authored packages from native temporary workspace roots and observes their selected paths.
 - Methods: example, decision-table
 - Derived from: `extension-discovery/all-manifest-kinds-from-git-and-path`
 - Assumptions: A source root carries workspace settings when `axm.json` sits directly in it, and keeps the packages it acquired beneath `agent_extensions/` directly in it.
@@ -6648,7 +6842,8 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Class: external-conformance
 - Role: interface
 - Product goals: `trustworthy-distribution`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example, contract
 - Derived from: `AgentXM Registry API 0.1.0`, `apps/cli/src/root/publish/command.test.ts`
 - Supersedes: `cli/publish/uploads-the-reviewed-publication-set`
@@ -6686,7 +6881,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: decision-table, contract
 - Source: [`packages/core/workspace-features/src/inspection/inventories-use-one-item-and-envelope-contract.spec.ts`](../packages/core/workspace-features/src/inspection/inventories-use-one-item-and-envelope-contract.spec.ts)
 
@@ -6751,7 +6947,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example
 - Source: [`packages/core/workspace-features/src/inspection/show/inspection-does-not-execute-or-claim-runtime-health.spec.ts`](../packages/core/workspace-features/src/inspection/show/inspection-does-not-execute-or-claim-runtime-health.spec.ts)
 
@@ -6763,7 +6960,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production acquisition, state capture and settlement share a native temporary workspace and file Registry; accepted resolutions and realized output bytes are observed on disk.
 - Methods: decision-table, example
 - Derived from: `cli/mcps/install/local-connection-names-share-source-resolution`
 - Source: [`packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-name-requests-are-validated-before-any-change.spec.ts`](../packages/core/workspace-features/src/lifecycle/install/mcp-connections/local-name-requests-are-validated-before-any-change.spec.ts)
@@ -6776,7 +6974,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`, `agent-interoperability`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.
 - Methods: example, contract
 - Derived from: `packages/core/workspace-features/src/inspection/type-list/mcp-servers.ts`, `cli/mcps/projects-to-every-configured-agent`
 - Source: [`packages/core/workspace-features/src/inspection/mcps/local-name-source-and-resolution-are-distinct.spec.ts`](../packages/core/workspace-features/src/inspection/mcps/local-name-source-and-resolution-are-distinct.spec.ts)
@@ -6827,7 +7026,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/skills/list.test.ts`, `cli/list/reports-the-cross-type-inventory`, `packages/core/workspace-features/src/inspection/type-list/type-lists.ts`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
@@ -6841,7 +7041,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: example
 - Derived from: `apps/cli/src/root/shared/extension-show.test.ts`, `packages/core/workspace-features/src/inspection/show/show-extension.ts`
 - Source: [`packages/core/workspace-features/src/inspection/type-shows-report-source-and-version.spec.ts`](../packages/core/workspace-features/src/inspection/type-shows-report-source-and-version.spec.ts)
@@ -6854,7 +7055,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.
 - Methods: decision-table, contract
 - Source: [`packages/core/workspace-features/src/inspection/typed-shows-use-shared-agent-outcomes.spec.ts`](../packages/core/workspace-features/src/inspection/typed-shows-use-shared-agent-outcomes.spec.ts)
 
@@ -6879,7 +7081,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `machine-automation`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production visibility reads authored manifests and settings from native temporary directories; the HTTP service port records Registry requests without a live service.
 - Methods: decision-table, contract
 - Derived from: `apps/cli/src/root/visibility/handler.ts`, `packages/core/registry-protocol/src/unstable/publish/visibility.ts`
 - Source: [`packages/core/workspace-features/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts`](../packages/core/workspace-features/src/publishing/visibility/status-reports-repository-intent-and-registry-evaluation.spec.ts)
@@ -6943,7 +7146,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `safe-repetition`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production settings persistence reads and rewrites a native settings document; exact authored bytes establish formatting and unrelated-content preservation.
 - Methods: golden-output, example
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/settings/saving-settings-preserves-authored-formatting.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/settings/saving-settings-preserves-authored-formatting.spec.ts)
 
@@ -6967,7 +7171,8 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Class: functional
 - Role: interface
 - Product goals: `workspace-intent-fidelity`, `actionable-diagnostics`
-- Boundary: memory; selection: per-change
+- Boundary: platform; selection: per-change
+- Boundary rationale: Production reconciliation reads native workspace state and realizes files and links; snapshots and generation records observe preservation, refusal and convergence.
 - Methods: example, decision-table
 - Derived from: `cli/sync/removes-leftover-installed-packages`, `cli/lint/reports-installed-but-not-configured`, `cli/lock-state-never-creates-reachability`
 - Source: [`packages/core/workspace-features/src/sync/leftover-follows-desired-state-reachability.spec.ts`](../packages/core/workspace-features/src/sync/leftover-follows-desired-state-reachability.spec.ts)

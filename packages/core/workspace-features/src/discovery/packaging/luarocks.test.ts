@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -11,9 +11,6 @@ import { luarocksDetector, luarocksReader } from "./luarocks.js";
 
 const luarocksType = Schema.decodeUnknownSync(PackageTypeSchema)("luarocks");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write rockspec files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -36,7 +33,7 @@ describe("luarocksDetector", () => {
 
   describe("dependencies from dependencies table", () => {
     it.effect("extracts dependencies from rockspec", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = [
             'package = "mylib"',
@@ -58,7 +55,7 @@ describe("luarocksDetector", () => {
 
   describe("skip Lua runtime", () => {
     it.effect("lua runtime excluded", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = [
             'package = "mylib"',
@@ -75,7 +72,7 @@ describe("luarocksDetector", () => {
     );
 
     it.effect("only lua in dependencies returns empty", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = ['package = "mylib"', "dependencies = {", '  "lua >= 5.1"', "}"].join(
             "\n",
@@ -89,7 +86,7 @@ describe("luarocksDetector", () => {
 
   describe("exact version produces versioned purl", () => {
     it.effect("== produces versioned purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = [
             'package = "mylib"',
@@ -109,7 +106,7 @@ describe("luarocksDetector", () => {
 
   describe("version range produces versionless purl", () => {
     it.effect(">= produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = [
             'package = "mylib"',
@@ -127,7 +124,7 @@ describe("luarocksDetector", () => {
 
   describe("no version produces versionless purl", () => {
     it.effect("bare name produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = ['package = "mylib"', "dependencies = {", '  "luafilesystem"', "}"].join(
             "\n",
@@ -142,7 +139,7 @@ describe("luarocksDetector", () => {
 
   describe("multiple rockspec files deduplicated", () => {
     it.effect("deduplicates across rockspec files", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec1 = ['package = "mylib"', 'dependencies = { "luasocket" }'].join("\n");
           const rockspec2 = ['package = "mylib"', 'dependencies = { "luasocket", "cjson" }'].join(
@@ -163,7 +160,7 @@ describe("luarocksDetector", () => {
 
   describe("missing rockspec files", () => {
     it.effect("returns empty array when no rockspec files", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -174,7 +171,7 @@ describe("luarocksDetector", () => {
 
   describe("no dependencies table", () => {
     it.effect("returns empty array when no dependencies table", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const rockspec = [
             'package = "mylib"',
@@ -260,7 +257,7 @@ describe("luarocksReader", () => {
 
   describe("valid agent-extensions.json sidecar", () => {
     it.effect("extracts extensions from agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
           const result = yield* readInTempLuarocks(
@@ -280,7 +277,7 @@ describe("luarocksReader", () => {
     );
 
     it.effect("does not read the former axm/axm.json sidecar", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
           const result = yield* readInTempLuarocks(
@@ -296,7 +293,7 @@ describe("luarocksReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(purl, JSON.stringify({ agentExtensions: [] }));
@@ -311,7 +308,7 @@ describe("luarocksReader", () => {
 
   describe("missing agent-extensions.json", () => {
     it.effect("returns Option.none when agent-extensions.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "luasocket", version: "3.1.0" });
           const result = yield* readInTempLuarocks(purl);
@@ -323,7 +320,7 @@ describe("luarocksReader", () => {
 
   describe("malformed agent-extensions.json", () => {
     it.effect("returns Option.none on invalid metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(purl, JSON.stringify({ agentExtensions: 42 }));
@@ -335,7 +332,7 @@ describe("luarocksReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agent-extensions.json", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(
@@ -356,7 +353,7 @@ describe("luarocksReader", () => {
 
   describe("malformed JSON in agent-extensions.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "luarocks", name: "somelib", version: "1.0.0" });
           const result = yield* readInTempLuarocks(purl, "{ not valid json }");

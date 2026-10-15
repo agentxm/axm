@@ -19,6 +19,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production consumer observation resolves real native projection entries and their physical ownership in temporary directories; native runtime availability remains unverified.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -22,7 +22,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Agent content and missing settings are real files in a project folder on disk, decided against a separate user home; production lint observes them without creating settings.",
   derivedFrom: [],

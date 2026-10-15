@@ -25,7 +25,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "actionable-diagnostics", "machine-automation"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The gate is the construction of the workspace records themselves: every operation reads them first, so the typed refusal and the untouched files on disk are the decisive evidence.",
   methods: ["decision-table", "example"],

@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Severity resolution reads the workspace's own settings document and decides the reported finding and summary; no process boundary adjudicates it.",
   methods: ["decision-table"],

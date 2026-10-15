@@ -15,6 +15,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "The production first-use and install handlers run over native temporary directories; settings, instruction links and installed content establish the accepted setup outcome. Scripted questions do not establish terminal-emulator rendering.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "cli/install/first-install-establishes-minimal-state",

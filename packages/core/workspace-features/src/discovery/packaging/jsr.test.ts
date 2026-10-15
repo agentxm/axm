@@ -1,22 +1,17 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import type { Scope } from "effect/Scope";
 import { PackageTypeSchema } from "@agentxm/extension-model/unstable/packaging/package-type";
 import { PackageUrlPartsSchema } from "@agentxm/extension-model/unstable/packaging/package-url";
 import { jsrDetector, denoReader } from "./jsr.js";
 
 const jsrType = Schema.decodeUnknownSync(PackageTypeSchema)("jsr");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope>,
-) => effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write deno.json or deno.jsonc, run detector, clean up. */
 const detectInTempDir = (denoJson?: string, filename = "deno.json") =>
@@ -37,7 +32,7 @@ describe("jsrDetector", () => {
 
   describe("JSR imports extracted from deno.json", () => {
     it.effect("extracts jsr: imports", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({
             imports: {
@@ -57,7 +52,7 @@ describe("jsrDetector", () => {
 
   describe("npm imports skipped", () => {
     it.effect("skips npm: prefixed imports", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({
             imports: {
@@ -75,7 +70,7 @@ describe("jsrDetector", () => {
 
   describe("exact version produces versioned purl", () => {
     it.effect("exact version included in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({
             imports: {
@@ -99,7 +94,7 @@ describe("jsrDetector", () => {
 
   describe("semver range produces versionless purl", () => {
     it.effect("caret range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({
             imports: {
@@ -122,7 +117,7 @@ describe("jsrDetector", () => {
 
   describe("scoped JSR packages use percent-encoded namespace", () => {
     it.effect("scope is percent-encoded in purl namespace", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({
             imports: {
@@ -140,7 +135,7 @@ describe("jsrDetector", () => {
 
   describe("missing deno.json and deno.jsonc", () => {
     it.effect("returns empty array when neither file exists", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -151,7 +146,7 @@ describe("jsrDetector", () => {
 
   describe("malformed deno.json", () => {
     it.effect("returns empty array on malformed JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{ not valid json }");
           expect(result).toEqual([]);
@@ -162,7 +157,7 @@ describe("jsrDetector", () => {
 
   describe("no imports map", () => {
     it.effect("returns empty array when no imports field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJson = JSON.stringify({ compilerOptions: { strict: true } });
           const result = yield* detectInTempDir(denoJson);
@@ -174,7 +169,7 @@ describe("jsrDetector", () => {
 
   describe("deno.jsonc with comments", () => {
     it.effect("parses deno.jsonc with single-line comments", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJsonc = `{
   // This is a comment
@@ -190,7 +185,7 @@ describe("jsrDetector", () => {
     );
 
     it.effect("parses deno.jsonc with multi-line comments", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const denoJsonc = `{
   /* Multi-line
@@ -270,7 +265,7 @@ describe("denoReader", () => {
 
   describe("valid agentExtensions metadata in cache", () => {
     it.effect("extracts extensions from agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",
@@ -296,7 +291,7 @@ describe("denoReader", () => {
 
   describe("missing agentExtensions field", () => {
     it.effect("returns Option.none when no agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",
@@ -316,7 +311,7 @@ describe("denoReader", () => {
 
   describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",
@@ -339,7 +334,7 @@ describe("denoReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",
@@ -366,7 +361,7 @@ describe("denoReader", () => {
 
   describe("missing Deno cache", () => {
     it.effect("returns Option.none when Deno cache does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",
@@ -382,7 +377,7 @@ describe("denoReader", () => {
 
   describe("non-jsr namespace", () => {
     it.effect("returns Option.none for non-jsr namespace", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({
             type: "jsr",

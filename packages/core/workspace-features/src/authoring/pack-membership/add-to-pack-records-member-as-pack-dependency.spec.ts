@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity"],
   methods: ["example"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The version a dependency records is read from the workspace's own accepted resolution or authored manifest, and written into the pack manifest by the membership use case; a real project directory observes both sides.",
   derivedFrom: ["cli/packs/authored-packs-expand-membership"],

@@ -41,6 +41,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production Subagent location observation reads native files and aliases in temporary directories; it does not establish native agent runtime availability.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

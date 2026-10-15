@@ -106,7 +106,7 @@ describe("Settings-selected default Registry over the built CLI", () => {
         try {
           await withEnvironmentRegistry(
             () => ({ body: JSON.stringify({ value: "fixture-id-token" }) }),
-            async (origin, requests) => {
+            async (origin, requests, observations) => {
               fixture.writeProjectSettings(
                 typeof settings.value === "function" ? settings.value(origin) : settings.value,
               );
@@ -115,10 +115,27 @@ describe("Settings-selected default Registry over the built CLI", () => {
                 ...githubActionsAt(origin),
               });
               expect(result.exitCode, result.stdout + result.stderr).not.toBe(0);
+              const document: unknown = JSON.parse(result.stdout);
+              expect(document).toMatchObject({
+                ok: false,
+                ...(typeof settings.value === "function"
+                  ? {
+                      detail: expect.stringContaining(
+                        `Invalid workspace settings at ${path.join(fixture.invoking, "axm.json")}`,
+                      ),
+                    }
+                  : {
+                      problem: {
+                        code: "registry-source-unknown",
+                        name: "missing",
+                        scope: "project",
+                      },
+                    }),
+              });
               // A token file that cannot be read would have been reported; the
               // selection failed before any credential source was consulted.
               expect(result.stdout + result.stderr).not.toContain("AXM_TOKEN_FILE");
-              expect(requests).toEqual([]);
+              expect(requests, JSON.stringify(observations)).toEqual([]);
             },
           );
         } finally {

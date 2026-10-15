@@ -1,5 +1,5 @@
 import * as ConfigProvider from "effect/ConfigProvider";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { cpanDetector, cpanReader } from "./cpan.js";
 
 const cpanType = Schema.decodeUnknownSync(PackageTypeSchema)("cpan");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write cpan files, run detector, clean up. */
 const detectInTempDir = (files?: Record<string, string>) =>
@@ -37,7 +34,7 @@ describe("cpanDetector", () => {
 
   describe("cpanfile parsing", () => {
     it.effect("extracts requires from cpanfile", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "requires 'Moose', '2.2014';",
@@ -55,7 +52,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("converts :: to - in module names", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "requires 'Moose::Util::TypeConstraints';";
           const result = yield* detectInTempDir({ cpanfile: content });
@@ -66,7 +63,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("exact version included in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "requires 'Moose', '2.2014';";
           const result = yield* detectInTempDir({ cpanfile: content });
@@ -79,7 +76,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("versionless requires produces versionless purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "requires 'DBI';";
           const result = yield* detectInTempDir({ cpanfile: content });
@@ -90,7 +87,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("handles double-quoted strings", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = 'requires "Moose", "2.2014";';
           const result = yield* detectInTempDir({ cpanfile: content });
@@ -103,7 +100,7 @@ describe("cpanDetector", () => {
 
   describe("Makefile.PL PREREQ_PM", () => {
     it.effect("extracts dependencies from PREREQ_PM", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "use ExtUtils::MakeMaker;",
@@ -125,7 +122,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("version 0 treated as versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "WriteMakefile(",
@@ -143,7 +140,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("converts :: to - in Makefile.PL module names", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = [
             "WriteMakefile(",
@@ -162,7 +159,7 @@ describe("cpanDetector", () => {
 
   describe("deduplication across files", () => {
     it.effect("deduplicates packages found in both cpanfile and Makefile.PL", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const cpanfile = "requires 'Moose', '2.2014';";
           const makefile = [
@@ -185,7 +182,7 @@ describe("cpanDetector", () => {
 
   describe("missing files", () => {
     it.effect("returns empty array when no cpan files exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -196,7 +193,7 @@ describe("cpanDetector", () => {
 
   describe("malformed content", () => {
     it.effect("returns empty array for cpanfile without requires", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "# just a comment\n";
           const result = yield* detectInTempDir({ cpanfile: content });
@@ -206,7 +203,7 @@ describe("cpanDetector", () => {
     );
 
     it.effect("returns empty array for Makefile.PL without PREREQ_PM", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const content = "use ExtUtils::MakeMaker;\nWriteMakefile(NAME => 'My::Module');\n";
           const result = yield* detectInTempDir({ "Makefile.PL": content });
@@ -269,7 +266,7 @@ describe("cpanReader", () => {
 
   describe("valid x_agent_extensions in MYMETA.json", () => {
     it.effect("extracts extensions from x_agent_extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
@@ -287,7 +284,7 @@ describe("cpanReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "DBI", version: "1.643" });
           const mymeta = JSON.stringify({
@@ -306,7 +303,7 @@ describe("cpanReader", () => {
 
   describe("missing x_agent_extensions field", () => {
     it.effect("returns Option.none when no x_agent_extensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({ name: "Moose", version: "2.2014" });
@@ -319,7 +316,7 @@ describe("cpanReader", () => {
 
   describe("missing MYMETA.json", () => {
     it.effect("returns Option.none when MYMETA.json does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const result = yield* readInTempLib(purl);
@@ -331,7 +328,7 @@ describe("cpanReader", () => {
 
   describe("malformed MYMETA.json", () => {
     it.effect("returns Option.none on invalid JSON", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const result = yield* readInTempLib(purl, "{ not valid json }");
@@ -343,7 +340,7 @@ describe("cpanReader", () => {
 
   describe("invalid x_agent_extensions metadata", () => {
     it.effect("returns Option.none when x_agent_extensions fails schema validation", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({
@@ -359,7 +356,7 @@ describe("cpanReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in x_agent_extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "cpan", name: "Moose", version: "2.2014" });
           const mymeta = JSON.stringify({

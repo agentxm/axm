@@ -21,7 +21,7 @@ export const specification = defineSpecification({
   role: "experience",
   goals: ["actionable-diagnostics", "workspace-intent-fidelity"],
   methods: ["example", "decision-table"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Leftovers are decided from a real install root, lockfile, and settings on disk; production lint observes them without mutating the workspace.",
   derivedFrom: [],

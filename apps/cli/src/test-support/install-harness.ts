@@ -1,8 +1,8 @@
 /**
- * In-memory workspace harness for CLI specifications.
+ * Native workspace harness for CLI specifications.
  *
- * Composes the production workspace program layers over an isolated memory or
- * disk world with controlled ports: captured rendering, canned interaction,
+ * Composes the production workspace program layers over an isolated native
+ * workspace with controlled ports: captured rendering, canned interaction,
  * test credentials, and no live network. Specifications drive the real command
  * handlers in-process and assert product-observable postconditions — settings,
  * lockfile, canonical content, agent projections, and rendered results.
@@ -16,14 +16,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type * as HttpClient from "effect/http/HttpClient";
 
-import { decodeAbsolutePathSync } from "@agentxm/extension-model/unstable/path-types";
-import {
-  makeMemoryFileSystem,
-  makeNativeFileStore,
-  snapshotTree,
-  type FileStore,
-  withoutNativeIo,
-} from "@agentxm/test-support";
+import { makeNativeFileStore, snapshotTree, type FileStore } from "@agentxm/test-support";
 
 import {
   humanScreenLayer,
@@ -46,17 +39,10 @@ import {
   ReleaseAgePosture,
   type ReleaseAgePostureValue,
 } from "@agentxm/workspace-kernel/resolution";
-import { makeMemoryTransitionLockWorld } from "@agentxm/workspace-kernel/settlement/testing";
-import {
-  MemoryWorkspaceTransactionScope,
-  withTestRegistryDefault,
-} from "@agentxm/workspace-kernel/workspace-state/testing";
-import { WorkspaceStateLive } from "@agentxm/workspace-kernel/workspace-state/live";
+import { withTestRegistryDefault } from "@agentxm/workspace-kernel/workspace-state/testing";
 export interface SpecWorkspaceOptions {
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
   readonly boundaryClaimsDirectory?: string | undefined;
-  /** Persistent-state implementation. Memory worlds never touch the host filesystem. */
-  readonly storage?: "disk" | "memory";
   /** Workspace scope composed for command handlers. Defaults to project. */
   readonly scope?: "project" | "user";
   /** Render through the machine (JSON) renderer instead of the human one. */
@@ -142,23 +128,16 @@ const initializeWorkspace = (
 };
 
 export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
-  const storage = options.storage ?? "disk";
-  const memory = storage === "memory" ? makeMemoryFileSystem() : undefined;
-  const files = memory?.files ?? makeNativeFileStore();
+  const files = makeNativeFileStore();
   const root = files.makeTempDirectory("axm-spec-");
   const boundaryClaimsDirectory =
-    storage === "memory"
-      ? undefined
-      : (options.boundaryClaimsDirectory ?? files.makeTempDirectory("axm-spec-claims-"));
+    options.boundaryClaimsDirectory ?? files.makeTempDirectory("axm-spec-claims-");
   initializeWorkspace(files, root, options.settings ?? {});
 
   // A hermetic user home, so user-scope settings are this workspace's and the
   // machine's real home is never read or written.
-  const userHome =
-    options.userSettings === undefined && storage === "disk"
-      ? undefined
-      : files.makeTempDirectory("axm-spec-home-");
-  if (userHome !== undefined && options.userSettings !== undefined) {
+  const userHome = files.makeTempDirectory("axm-spec-home-");
+  if (options.userSettings !== undefined) {
     initializeWorkspace(files, path.join(userHome, ".axm"), {
       ...options.userSettings,
       scope: "user",
@@ -185,33 +164,13 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
         : humanScreenLayer(streams);
 
   const writes: Array<FileSystemWriteEvent> = [];
-  const transitionWorld = storage === "memory" ? makeMemoryTransitionLockWorld() : undefined;
-  const fileSystemLayer =
-    memory === undefined
-      ? options.fileSystemLayer
-      : Layer.succeed(FileSystem.FileSystem, memory.fileSystem);
-  // A memory world admits transitions without a lock file: the state
-  // services compose beside a memory transaction scope instead of the
-  // production one.
-  const workspaceLayer =
-    transitionWorld === undefined
-      ? undefined
-      : Layer.provideMerge(
-          MemoryWorkspaceTransactionScope(transitionWorld.invocation()),
-          WorkspaceStateLive({
-            projectRoot: decodeAbsolutePathSync(root),
-            scope: options.scope ?? "project",
-            builtInSources: cliTestBuiltInSources(options.registryUrl),
-          }),
-        );
   const context = makeWorkspaceLifecycleTestContext({
     boundaryClaimsDirectory,
     ...(options.machine !== undefined ? { machine: options.machine } : {}),
     ...(options.httpClient === undefined ? {} : { httpClient: options.httpClient }),
     ...(screenLayer === undefined ? {} : { screenLayer }),
     ...(options.prompt !== undefined ? { prompt: options.prompt } : {}),
-    ...(fileSystemLayer === undefined ? {} : { fileSystemLayer }),
-    ...(workspaceLayer === undefined ? {} : { workspaceLayer }),
+    ...(options.fileSystemLayer === undefined ? {} : { fileSystemLayer: options.fileSystemLayer }),
     ...(options.recordWrites === true
       ? { onFileSystemWrite: (event: FileSystemWriteEvent) => void writes.push(event) }
       : {}),
@@ -237,33 +196,20 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
   // The user home is read through configuration, whose provider snapshots the
   // environment; relocating it therefore means supplying the provider, not
   // mutating `process.env` after the fact.
-  const layer =
-    userHome === undefined
-      ? composed
-      : Layer.provide(
-          composed,
-          ConfigProvider.layer(
-            ConfigProvider.fromEnv({
-              env: Object.fromEntries([
-                ...Object.entries(process.env).flatMap(([key, value]) =>
-                  value === undefined ? [] : [[key, value] as const],
-                ),
-                ["AXM_USER_HOME", userHome] as const,
-              ]),
-            }),
-          ),
-        );
+  const layer = Layer.provide(
+    composed,
+    ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: userHome } })),
+  );
 
   return {
     boundaryClaimsDirectory,
+    /** Fixture-owned configuration home, including deliberately invalid user state. */
+    userHome,
     /** Absolute project root of the temporary workspace. */
     root,
     files,
     layer,
-    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => {
-      const provided = effect.pipe(Effect.provide(layer));
-      return storage === "memory" ? withoutNativeIo(provided) : provided;
-    },
+    provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => effect.pipe(Effect.provide(layer)),
     rendererState: context.rendererState,
     /** Every mutating file-system call recorded when `recordWrites` was requested. */
     writes,
@@ -322,12 +268,10 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
     },
     snapshotContent: (relativePath: string): Readonly<Record<string, string>> =>
       snapshotTree(path.join(root, relativePath), files),
-    transitionCounts: transitionWorld?.counts,
     cleanup: (): void => {
       files.remove(root);
-      if (userHome !== undefined) files.remove(userHome);
-      if (boundaryClaimsDirectory !== undefined && options.boundaryClaimsDirectory === undefined)
-        files.remove(boundaryClaimsDirectory);
+      files.remove(userHome);
+      if (options.boundaryClaimsDirectory === undefined) files.remove(boundaryClaimsDirectory);
     },
   };
 };

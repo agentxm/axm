@@ -37,7 +37,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "trustworthy-distribution"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Reachability is decided where desired state is read: the settings entries and the accepted resolutions are both on disk, and the records built from them are what every command downstream consults.",
   methods: ["decision-table", "contract"],

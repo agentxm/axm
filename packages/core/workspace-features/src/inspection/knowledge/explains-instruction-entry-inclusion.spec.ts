@@ -14,6 +14,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["knowledge-access", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "packages/core/workspace-features/src/inspection/knowledge/list-knowledge.ts",

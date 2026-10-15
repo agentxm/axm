@@ -20,7 +20,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["actionable-diagnostics", "machine-automation"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The pass/fail verdict is the feature's own typed outcome; mapping it onto a process exit code is the CLI's separate rule.",
   methods: ["decision-table"],

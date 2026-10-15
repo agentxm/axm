@@ -16,6 +16,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition"],
+  boundaryRationale:
+    "Production cache verification reads and removes actual archive bytes in a native temporary cache and preserves unrelated files.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: ["packages/supporting/registry-client/src/archive-cache.ts"],
   supersedes: [],

@@ -1,4 +1,4 @@
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
@@ -12,13 +12,9 @@ const pypiType = Schema.decodeUnknownSync(PackageTypeSchema)("pypi");
 
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
 
-const withNodeContext = <A, E>(
-  effect: Effect.Effect<A, E, import("effect/FileSystem").FileSystem | import("effect/Path").Path>,
-) => effect.pipe(Effect.provide(NodeServices.layer));
-
 describe("detectPackages", () => {
   it.effect("returns empty array when no detectors provided", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const result = yield* detectPackages("/tmp/project", []);
         expect(result).toEqual([]);
@@ -27,7 +23,7 @@ describe("detectPackages", () => {
   );
 
   it.effect("runs multiple detectors and flattens results", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const npmPkg: DetectedPackage = {
           purl: makePurl({ type: "npm", name: "lodash", version: "4.17.21" }),
@@ -60,7 +56,7 @@ describe("detectPackages", () => {
   );
 
   it.effect("deduplicates by purl equivalence", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const purl = makePurl({ type: "npm", name: "lodash", version: "4.17.21" });
 
@@ -93,7 +89,7 @@ describe("detectPackages", () => {
   );
 
   it.effect("keeps packages with different purls from same detector", () =>
-    withNodeContext(
+    withPackagingContext(
       Effect.gen(function* () {
         const pkg1: DetectedPackage = {
           purl: makePurl({ type: "npm", name: "lodash" }),

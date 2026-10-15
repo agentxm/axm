@@ -27,7 +27,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The publish use case resolves the target against the workspace's configured sources; real file Registries distinguish configured targets; an HTTP transport fixture observes direct URL publication.",
   methods: ["decision-table", "example"],

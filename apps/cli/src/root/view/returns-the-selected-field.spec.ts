@@ -17,6 +17,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["decision-table", "example"],
   derivedFrom: ["apps/cli/src/root/view/handler.ts", "cli/view/reports-missing-targets-and-fields"],
   supersedes: [],

@@ -28,6 +28,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution", "machine-automation", "safe-repetition"],
+  boundaryRationale:
+    "Production workspace services execute over native temporary files and directories; the default examples observe their state and outcomes without a separate CLI process.",
+  boundary: "platform",
   methods: ["example", "contract"],
   derivedFrom: [
     "apps/cli/src/root/publish/command.test.ts",

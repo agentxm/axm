@@ -1,5 +1,5 @@
 import { fileURLToPath, pathToFileURL } from "node:url";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { withPackagingContext } from "./test-support/context.js";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -12,9 +12,6 @@ import { pubDetector, pubReader } from "./pub.js";
 
 const pubType = Schema.decodeUnknownSync(PackageTypeSchema)("pub");
 const makePurl = Schema.decodeUnknownSync(PackageUrlPartsSchema);
-
-const withNodeContext = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
-  effect.pipe(Effect.provide(NodeServices.layer));
 
 /** Create a temp dir, write pubspec.yaml, run detector, clean up. */
 const detectInTempDir = (pubspecYaml?: string) =>
@@ -35,7 +32,7 @@ describe("pubDetector", () => {
 
   describe("dependencies from both sections", () => {
     it.effect("extracts from dependencies and dev_dependencies", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = [
             "name: my_app",
@@ -61,7 +58,7 @@ describe("pubDetector", () => {
 
   describe("missing pubspec.yaml", () => {
     it.effect("returns empty array when pubspec.yaml is missing", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir();
           expect(result).toEqual([]);
@@ -72,7 +69,7 @@ describe("pubDetector", () => {
 
   describe("malformed pubspec.yaml", () => {
     it.effect("returns empty array on malformed content", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const result = yield* detectInTempDir("{{{ not valid yaml }}}");
           expect(result).toEqual([]);
@@ -83,7 +80,7 @@ describe("pubDetector", () => {
 
   describe("no dependency sections", () => {
     it.effect("returns empty array when no dependency sections exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["name: my_app", "version: 1.0.0", "description: A sample app"].join(
             "\n",
@@ -97,7 +94,7 @@ describe("pubDetector", () => {
 
   describe("simple version string", () => {
     it.effect("extracts hosted dependency with version range", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  http: ^1.0.0"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -110,7 +107,7 @@ describe("pubDetector", () => {
 
   describe("map with version key", () => {
     it.effect("extracts hosted dependency with version in map form", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  http:", "      version: ^1.0.0"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -123,7 +120,7 @@ describe("pubDetector", () => {
 
   describe("non-hosted dependencies skipped", () => {
     it.effect("path dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  my_lib:", "      path: ../my_lib"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -133,7 +130,7 @@ describe("pubDetector", () => {
     );
 
     it.effect("git dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = [
             "dependencies:",
@@ -147,7 +144,7 @@ describe("pubDetector", () => {
     );
 
     it.effect("sdk dependency is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  flutter:", "      sdk: flutter"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -159,7 +156,7 @@ describe("pubDetector", () => {
 
   describe("exact versions produce versioned purls", () => {
     it.effect("exact version includes version in purl", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  http: 1.2.0"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -171,19 +168,8 @@ describe("pubDetector", () => {
       ),
     );
 
-    it.effect("caret range is versionless", () =>
-      withNodeContext(
-        Effect.gen(function* () {
-          const pubspec = ["dependencies:", "  http: ^1.0.0"].join("\n");
-          const result = yield* detectInTempDir(pubspec);
-          expect(result).toHaveLength(1);
-          expect(result[0]?.purl).toEqual(makePurl({ type: "pub", name: "http" }));
-        }),
-      ),
-    );
-
     it.effect("any is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  http: any"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -194,7 +180,7 @@ describe("pubDetector", () => {
     );
 
     it.effect("comparison range is versionless", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", '  http: ">=1.0.0 <2.0.0"'].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -207,7 +193,7 @@ describe("pubDetector", () => {
 
   describe("invalid package names skipped", () => {
     it.effect("uppercase name is skipped", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const pubspec = ["dependencies:", "  InvalidName: ^1.0.0"].join("\n");
           const result = yield* detectInTempDir(pubspec);
@@ -285,7 +271,7 @@ describe("pubReader", () => {
 
   describe("valid agentExtensions metadata", () => {
     it.effect("extracts extensions from agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "riverpod" });
           const packageConfig = JSON.stringify({
@@ -317,7 +303,7 @@ describe("pubReader", () => {
     );
 
     it.effect("returns empty array from empty extensions", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "some_lib" });
           const packageConfig = JSON.stringify({
@@ -340,7 +326,7 @@ describe("pubReader", () => {
 
   describe("file:// rootUri", () => {
     it.effect("resolves an absolute file:// rootUri written by `dart pub get`", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const path = yield* Path.Path;
           const purl = makePurl({ type: "pub", name: "riverpod" });
@@ -376,7 +362,7 @@ describe("pubReader", () => {
     );
 
     it.effect("returns Option.none for a non-file rootUri scheme", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "riverpod" });
           const packageConfig = JSON.stringify({
@@ -393,7 +379,7 @@ describe("pubReader", () => {
 
   describe("missing agentExtensions field", () => {
     it.effect("returns Option.none when no agentExtensions field", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "http" });
           const packageConfig = JSON.stringify({
@@ -411,7 +397,7 @@ describe("pubReader", () => {
 
   describe("malformed agentExtensions metadata", () => {
     it.effect("returns Option.none and warns on malformed metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "bad_lib" });
           const packageConfig = JSON.stringify({
@@ -429,7 +415,7 @@ describe("pubReader", () => {
 
   describe("missing .dart_tool directory", () => {
     it.effect("returns Option.none when .dart_tool does not exist", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "http" });
           const result = yield* readInTempDir(purl);
@@ -441,7 +427,7 @@ describe("pubReader", () => {
 
   describe("package not found in package_config.json", () => {
     it.effect("returns Option.none when package not in config", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "missing_pkg" });
           const packageConfig = JSON.stringify({
@@ -460,7 +446,7 @@ describe("pubReader", () => {
 
   describe("extra fields tolerated", () => {
     it.effect("ignores extra fields in agentExtensions metadata", () =>
-      withNodeContext(
+      withPackagingContext(
         Effect.gen(function* () {
           const purl = makePurl({ type: "pub", name: "some_lib" });
           const packageConfig = JSON.stringify({

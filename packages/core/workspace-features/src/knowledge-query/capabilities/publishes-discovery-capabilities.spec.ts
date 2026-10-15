@@ -17,6 +17,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "interface",
   goals: ["knowledge-access", "machine-automation"],
+  boundaryRationale:
+    "Production Knowledge queries discover and read authored documents from a native temporary workspace, including filesystem containment and unchanged content.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "packages/core/workspace-features/src/knowledge-query/knowledge-capabilities.ts",

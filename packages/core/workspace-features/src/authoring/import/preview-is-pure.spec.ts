@@ -21,6 +21,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
+  boundaryRationale:
+    "Production authoring reads and changes a native temporary workspace; file snapshots observe source preservation, declarations and realized outputs.",
+  boundary: "platform",
   methods: ["example", "decision-table"],
   derivedFrom: ["cli/mcps/import/creates-authored-package-from-native-server"],
   supersedes: [],

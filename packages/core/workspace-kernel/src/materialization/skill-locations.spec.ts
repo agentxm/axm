@@ -14,6 +14,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["workspace-intent-fidelity", "safe-repetition"],
+  boundaryRationale:
+    "Production Skill materialization reads native source trees and observes containment, copied content and physical paths in temporary directories.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

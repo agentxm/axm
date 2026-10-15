@@ -28,6 +28,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["trustworthy-distribution"],
+  boundaryRationale:
+    "Production script installation stages, replaces and restores actual files in a native temporary installation; the controlled subprocess port reports versions and does not establish binary viability.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [],
   supersedes: [],

@@ -19,7 +19,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["authoring-and-creation", "workspace-intent-fidelity", "safe-repetition"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "The production import use case runs against a temporary project directory; byte snapshots distinguish source preservation, pure preview, and create-only inactive authorship.",
   methods: ["example", "decision-table"],

@@ -46,7 +46,7 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["safe-repetition", "workspace-intent-fidelity"],
-  boundary: "memory",
+  boundary: "platform",
   boundaryRationale:
     "Closure execution, rollback, and settlement are decided by the plan pipeline over a real temporary workspace; the durable-file effects the rule is about are observable there without a process boundary.",
   methods: ["decision-table", "example"],

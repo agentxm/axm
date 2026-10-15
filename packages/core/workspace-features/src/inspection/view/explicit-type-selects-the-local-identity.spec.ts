@@ -19,6 +19,9 @@ export const specification = defineSpecification({
   class: "functional",
   role: "experience",
   goals: ["extension-adoption", "machine-automation", "actionable-diagnostics"],
+  boundaryRationale:
+    "Production inspection reads a native temporary workspace; real files, links and whole-tree snapshots establish inventory and read-only behavior.",
+  boundary: "platform",
   methods: ["example"],
   derivedFrom: [
     "packages/core/workspace-features/src/inspection/view/view-extension.ts",

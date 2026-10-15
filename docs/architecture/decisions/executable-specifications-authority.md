@@ -3,7 +3,7 @@ type: Decision
 status: stable
 description: Executable specifications are the sole local authority for accepted AXM requirements; documentation retains explanation without owning obligations.
 depends-on:
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
   - ./colocated-specifications.md
 ---
 
@@ -30,7 +30,7 @@ deviations.
 
 Before this decision, requirements authority was split among prose records,
 architecture documentation, and behavior tests. The
-[testing strategy](../system-wide/testing-strategy.md) defines the model this
+[Specification contract](../../../contributing/guides/executable-specifications.md) defines the model this
 decision ratifies. Maintainer acceptance of the specification corpus is the
 authority for this record.
 

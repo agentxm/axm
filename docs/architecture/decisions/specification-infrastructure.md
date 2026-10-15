@@ -4,7 +4,7 @@ status: deprecated
 description: Superseded by Colocated specifications — the pilot-era decisions that tied requirement identity to a path under specifications/, owned every specification in one central project, and adapted results through that project's setup file.
 depends-on:
   - ./executable-specifications-authority.md
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
 ---
 
 # Specification infrastructure decisions

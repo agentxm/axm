@@ -6,7 +6,7 @@ depends-on:
   - ./cli-output-view-model-and-terminal-ownership.md
   - ../commands/output.md
   - ../commands/terminal-design.md
-  - ../system-wide/testing-strategy.md
+  - ../../../contributing/guides/executable-specifications.md
 ---
 
 # CLI live-event contract

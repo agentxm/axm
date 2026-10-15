@@ -5,9 +5,8 @@ commands or executable sources.
 
 ## Requirements
 
-- [Executable specifications](executable-specifications.md) — where a
-  specification lives, what it binds to, what earns the suffix, and how a
-  retired identity is explained
+- [Specification contract](executable-specifications.md) — local acceptance,
+  source conventions, catalog, evidence bindings, and commands
 
 ## Runtime
 

@@ -1,110 +1,79 @@
 ---
 name: testing
 description: >-
-  Selects, writes, reviews, consolidates, and optimizes software tests for fast,
-  trustworthy feedback. Use when choosing test coverage, distinguishing
-  specifications from ordinary tests, limiting integration or E2E scope,
-  removing duplicate or trivial tests, diagnosing test failures, or improving
-  local and CI test speed. Not for product incident response or release and
-  deployment execution.
+  Authors, reviews, refactors, and maintains software tests for fast,
+  trustworthy feedback about consequential behavior. Use when deciding what
+  evidence a change needs, writing or changing tests, adapting coverage during
+  production refactoring, investigating unreliable or slow suites, changing
+  test runner configuration, task graphs, or verification gates, or deciding
+  what coverage to retain, consolidate, replace, or remove. Includes executable
+  specifications, fixtures, test doubles, and execution-boundary choices. Not
+  for product incident response or release and deployment execution.
 license: FSL-1.1-MIT
 ---
 
 # Testing
 
-Optimize the suite for fast, trustworthy decisions about consequential behavior.
-Repository contracts own specification acceptance, file conventions, commands,
-and required verification gates.
+Maintain the smallest clear, trustworthy body of evidence that gives sufficient
+confidence in consequential behavior. Tests should support rapid development,
+survive behavior-preserving refactoring, and remain useful as the product evolves.
 
-## Workflow
-
-1. Identify the changed behavior or suite problem, accepted specifications,
-   existing assertions, and the owning test commands. For speed work, inspect
-   available timings before attributing cost to a test level.
-2. Apply the principles below to choose the smallest sufficient evidence and
-   identify redundant coverage. Use test names and assertions to make the
-   protected behavior clear; no separate record is required for every test.
-3. Perform the requested work within its scope. A review or strategy discussion
-   produces findings or proposals; an implementation request may change tests
-   and their fixtures. Diagnose failed checks before changing expectations.
-4. Run the relevant checks for changes made. Report what protection changed,
-   what evidence passed or remains missing, and measured timing differences
-   when available. Do not claim a speedup from fewer tests alone.
+These principles apply when authoring tests, changing production code,
+refactoring test suites, and maintaining their fixtures and execution machinery.
+Repository contracts own requirement acceptance, specification conventions,
+commands, and verification gates.
 
 ## Principles
 
-1. **Make feedback fast.** Keep routine behavior checks deterministic and
-   preferably in memory, using real application code with controlled external
-   dependencies. A fast test may exercise several real collaborating components;
-   isolation means independence from other tests, not mocking every collaborator.
-   Control time and identifiers; avoid sleeps. Measure elapsed local and CI
-   feedback, including discovery, setup, builds, and reporting. Use separate
-   budgets for focused development feedback and the full CI gate; investigate
-   overruns before increasing them. During iteration, run the narrow relevant
-   selection; run required broader checks once the change stabilizes, then rerun
-   only what subsequent changes affect.
+1. **Fast, dependable feedback.** Routine behavioral evidence is deterministic
+   and inexpensive. Real application components can collaborate within a fast
+   test. Time, identifiers, external dependencies, and shared state are controlled
+   where they affect repeatability. Feedback cost includes discovery, setup,
+   builds, execution, and reporting.
 
-2. **Use specifications as primary evidence for accepted behavior.** An accepted
-   executable specification states a requirement in domain language, with
-   examples or properties that distinguish correct behavior from plausible
-   failures. Its authority comes from the repository's acceptance process.
-   Specification-based testing is a technique for deriving cases from intended
-   behavior; ordinary tests can use it to express supporting component contracts
-   without establishing accepted requirements. Acceptance and execution boundary
-   are independent: a spec can run in memory or need a real boundary. Keep
-   specifications distinguishable in discovery and results. Change accepted
-   intent deliberately, never merely to accommodate the implementation.
+2. **Specifications express accepted intent.** Accepted specifications are
+   primary evidence for the behavior they govern. A specification states one
+   rule that can change independently of its neighbors. Its examples distinguish
+   intended behavior from plausible failures. Supporting tests add evidence
+   without creating competing requirements. Acceptance authority and execution
+   boundary remain separate.
 
-3. **Require additional value from every test.** Before adding or retaining a
-   test, identify the consequential failure it detects and check existing
-   coverage. A meaningful spec already counts as a test. Do not add a unit test
-   for each helper, wrapper, branch, or changed file. Consolidate assertions that
-   prove the same behavior at the same boundary. Before removing a test, identify
-   any unique input case, assertion, boundary, or useful diagnostic it contributes
-   and preserve needed protection in the retained coverage. Overlap earns its
-   place through a distinct failure mode, a separately promised reusable
-   contract, or a material diagnostic benefit. Executing the same lines is
-   insufficient evidence of duplication.
+3. **Every test contributes useful protection.** Coverage earns its place through
+   a distinct consequential case, failure mode, boundary, reusable contract, or
+   diagnostic benefit. Overlap is justified by that contribution and is
+   established by comparing cases and assertions, not by shared code paths. When
+   two cases protect the same rule, the stronger case survives, placed where the
+   requirement is discoverable and executes cheapest. Consolidation preserves
+   needed protection; obsolete behavior and incidental implementation assertions
+   need not survive, unless an implementation assertion is the stated diagnostic
+   for a rule.
 
-4. **Pay for real boundaries only when the claim needs them.** Use the cheapest
-   environment that can expose the failure. Detailed business-rule combinations
-   usually belong in memory; focused integration tests establish database,
-   filesystem, protocol, or runtime semantics. Back in-memory substitutes with
-   real adapter tests for those semantics. Use real browsers for browser behavior,
-   with the smallest sufficient component or application scope. Keep E2E scenarios
-   where exercising the assembled system or shipped artifact adds meaningful
-   confidence about a consequential journey. Make that additional risk clear;
-   cover detailed behavioral combinations at a cheaper boundary and review E2E
-   scenarios for duplication and continued relevance.
+4. **Execution boundaries match the claims.** Detailed behavioral combinations
+   usually have inexpensive evidence. Real database, filesystem, protocol,
+   runtime, browser, and assembled-system checks establish properties that
+   cheaper substitutes cannot. Substitutes stand in at a declared seam such as a
+   service, port, or protocol boundary, and the test states what the substitute
+   cannot establish. Replacing modules by import path couples evidence to
+   structure rather than behavior.
 
-5. **Cover important failures, not a percentage.** First derive cases from
-   intended behavior: meaningful input groups, boundaries between outcomes,
-   state transitions, invariants, and failure conditions. Include authorization,
-   isolation, interruption, recovery, concurrency, and known regressions where
-   they matter. Then inspect uncovered code for missed behavior; add tests where
-   this reveals a consequential gap. Assert observable outcomes against intended
-   behavior. Line and branch coverage guide review; percentages and test counts
-   do not prove adequacy or define universal targets. Scale analysis to consequence,
-   likelihood, and uncertainty. Use targeted properties, mutations, or a known
-   defect reproduction to answer a specific uncertainty, including whether
-   retained coverage detects a defect after consolidation. Do not require a
-   worksheet, mutation run, or justification document for every test. Types,
-   schemas, lint, and builds own mechanically decidable conventions; behavioral
-   tests need not repeat those declarations.
+5. **Confidence comes from meaningful failure detection.** Cases reflect intended
+   outcomes, important boundaries, invariants, and relevant failure conditions.
+   Expected results can expose incorrect implementations rather than reproduce
+   their calculations. Presence of text in source or configuration is evidence
+   of that text, not of the behavior it names. Coverage percentages and test
+   counts inform investigation without establishing adequacy. The depth of
+   evidence follows consequence and uncertainty.
 
-6. **Keep evidence trustworthy and affordable to maintain.** Exercise behavior
-   through stable interfaces. Preserve test validity through behavior-preserving
-   refactoring; assert internal calls, ordering, or structure only when those
-   details are part of the contract being tested. When tests require extensive
-   setup, many mocks, or infrastructure unrelated to their claim, inspect the
-   production boundaries and fixture design. Prefer a simpler design over
-   increasingly elaborate test machinery. Keep fixtures focused on the scenario
-   so shared setup does not perform unrelated work.
+6. **Evidence remains trustworthy and affordable to maintain.** Tests observe
+   stable behavior and tolerate valid implementation changes. Fixtures make
+   relevant conditions clear without unrelated setup. State isolation, resource
+   cleanup, and useful failures support diagnosis. Skips, retries, pending cases,
+   and stale results do not establish a clean pass. Evidence delegated to another
+   location is linked so its presence and outcome can be checked; otherwise the
+   obligation reads as unverified. Simpler production boundaries are preferable
+   to increasingly elaborate test machinery.
 
-   Tests must isolate state, release resources, and fail with useful diagnostics.
-   Substitute through production seams without replacing the boundary being
-   proved; check shared contracts when substitute fidelity matters. A regression
-   test must detect the defect. Skips, flakes, and retries do not establish a clean
-   pass. Delete redundant or obsolete tests and their unused fixtures; preserve
-   distinct needed protection when replacing expensive evidence. Optimize the
-   suite as a whole, including execution, diagnosis, and maintenance cost.
+Claims about protection, reliability, and performance remain proportionate to the
+evidence available; uncertainty stays explicit. Timing claims are attributed to
+the command, revision, and host that produced them; summed file times are not
+elapsed feedback.

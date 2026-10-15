@@ -7,7 +7,7 @@ depends-on:
   - ./principles.md
   - ./commands/overview.md
   - ./workspace/overview.md
-  - ./system-wide/testing-strategy.md
+  - ../../contributing/guides/executable-specifications.md
   - ./decisions/package-classification-and-dependency-policy.md
   - ./decisions/typescript-dual-alias.md
   - ./decisions/executable-specifications-authority.md

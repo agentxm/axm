@@ -3,8 +3,8 @@
   "owner": "@agentxm",
   "type": "skill",
   "name": "testing",
-  "version": "0.1.0",
-  "description": "Fast tests, authoritative specifications, distinct boundary evidence, and coverage of consequential failures.",
+  "version": "0.3.0",
+  "description": "Principles for authoring, refactoring, and maintaining tests that provide fast, trustworthy evidence of consequential behavior.",
   "keywords": ["testing", "specifications", "coverage", "e2e", "feedback"],
   "repository": {
     "type": "git",

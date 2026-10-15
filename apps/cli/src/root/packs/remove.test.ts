@@ -1,5 +1,9 @@
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 /**
  * Unit tests for the packs remove handler.
@@ -14,7 +18,6 @@ import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as semver from "semver";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
@@ -65,9 +68,9 @@ const createPackManifest = (
     dependencies: manifest["dependencies"] ?? {},
   };
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
-  const lockfilePath = path.join(tempDir, "axm-lock.yaml");
+  const lockfilePath = path.join(tempDir, "axm.lock");
   const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-    YAML.parse(fs.readFileSync(lockfilePath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockfilePath, "utf8")),
   );
   const skills = expectRecord(lockfile["skills"] ?? {});
   const updatedSkills: Record<string, unknown> = { ...skills };
@@ -93,7 +96,7 @@ const createPackManifest = (
   }
   fs.writeFileSync(
     lockfilePath,
-    YAML.stringify(storedLockfileFixture({ ...lockfile, skills: updatedSkills })),
+    emitLockfileToml(storedLockfileFixture({ ...lockfile, skills: updatedSkills })),
   );
   return packDir;
 };

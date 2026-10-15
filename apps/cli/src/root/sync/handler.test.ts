@@ -1,6 +1,10 @@
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { startedUnits } from "../../test-support/presenter-test.js";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -243,17 +247,15 @@ const writeRenderedSubagent = (
   fs.mkdirSync(path.dirname(filePath), { recursive: true });
   fs.writeFileSync(filePath, bytes);
   if (!recorded) return;
-  const lockPath = path.join(baseDir, "axm-lock.yaml");
-  const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+  const lockPath = path.join(baseDir, "axm.lock");
+  const lockfile: unknown = parseLockfileToml(fs.readFileSync(lockPath, "utf8"));
   const document = typeof lockfile === "object" && lockfile !== null ? lockfile : {};
   const output = projectionOutputDigest(bytes);
-  fs.writeFileSync(
-    lockPath,
-    YAML.stringify({
-      ...document,
-      projections: { subagents: { contract: 1, units: { [relative]: { output } } } },
-    }),
-  );
+  const withProjection = Schema.decodeUnknownSync(LockfileSchema)({
+    ...document,
+    projections: { subagents: { contract: 1, units: { [relative]: { output } } } },
+  });
+  fs.writeFileSync(lockPath, emitLockfileToml(Schema.encodeSync(LockfileSchema)(withProjection)));
 };
 
 const writePackPackage = (root: string, manifest: Readonly<Record<string, unknown>>): void => {
@@ -465,7 +467,7 @@ const makePackRollbackFixture = (
       divergent: divergentPackManifest,
     },
     paths: {
-      lockfile: path.join(baseDir, "axm-lock.yaml"),
+      lockfile: path.join(baseDir, "axm.lock"),
       settings: path.join(baseDir, "axm.json"),
       canonicalPack,
       canonicalSkillManifest: path.join(canonicalSkill, "skill.json"),
@@ -496,8 +498,8 @@ const expectPackRollbackPreimages = (
 ): void => {
   const lockfile = fs.readFileSync(paths.lockfile, "utf8");
   expect(lockfile).toBe(before.lockfile);
-  expect(YAML.parse(lockfile)).toEqual(YAML.parse(before.lockfile));
-  expect(Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(lockfile))).toMatchObject({
+  expect(parseLockfileToml(lockfile)).toEqual(parseLockfileToml(before.lockfile));
+  expect(Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockfile))).toMatchObject({
     packs: { toolkit: { resolved: { version: "1.0.0" } } },
     skills: { review: { resolved: { version: "1.0.0" } } },
   });
@@ -640,7 +642,7 @@ const makeConstraintMismatchFixture = (
     lookupCalls,
     sources,
     paths: {
-      lockfile: path.join(baseDir, "axm-lock.yaml"),
+      lockfile: path.join(baseDir, "axm.lock"),
       settings: path.join(baseDir, "axm.json"),
       canonicalSkill: path.join(
         canonicalRegistryPath(baseDir, registrySource, "skills", "review"),
@@ -871,11 +873,11 @@ describe("root sync handler", () => {
       const { provide } = makeLayers();
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, { agents: [] });
-      fs.rmSync(path.join(tempDir, "axm-lock.yaml"), { force: true });
+      fs.rmSync(path.join(tempDir, "axm.lock"), { force: true });
 
       yield* provide(handleSync({ preview: false }));
 
-      expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);
+      expect(fs.existsSync(path.join(tempDir, "axm.lock"))).toBe(false);
     }),
   );
 
@@ -884,7 +886,7 @@ describe("root sync handler", () => {
       const { provide, rendererState } = makeLayers({ machine: true });
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, { agents: [] });
-      fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: 4\nskills: []\n");
+      fs.writeFileSync(path.join(tempDir, "axm.lock"), "lockfileVersion: 4\nskills: []\n");
 
       const error = yield* provide(handleSync({ preview: false })).pipe(
         Effect.flip,
@@ -893,7 +895,7 @@ describe("root sync handler", () => {
 
       expect(getAppError(error).code).toBe("validation");
       expect(rendererState.results).toEqual([]);
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
+      expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(
         "lockfileVersion: 4\nskills: []\n",
       );
     }),
@@ -905,14 +907,14 @@ describe("root sync handler", () => {
       const axmDir = path.join(tempDir, ".axm");
       writeWorkspaceFiles(axmDir, { agents: [] });
       const corrupt = "lockfileVersion: 4\nskills: []\n";
-      fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), corrupt);
+      fs.writeFileSync(path.join(tempDir, "axm.lock"), corrupt);
 
       const error = yield* provide(handleSync({ preview: true, failOnChange: true })).pipe(
         Effect.flip,
       );
 
       expect(getAppError(error).code).toBe("validation");
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(corrupt);
+      expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(corrupt);
     }),
   );
 
@@ -1077,7 +1079,7 @@ describe("root sync handler", () => {
         expect(property(planResultUnits(applied)[0], "label")).toBe(previewLabel);
         expect(
           Schema.decodeUnknownSync(LockfileSchema)(
-            YAML.parse(fs.readFileSync(fixture.paths.lockfile, "utf8")),
+            parseLockfileToml(fs.readFileSync(fixture.paths.lockfile, "utf8")),
           ),
         ).toMatchObject({
           packs: { toolkit: { resolved: { version: "1.0.0" } } },
@@ -1951,8 +1953,10 @@ describe("root sync handler", () => {
         planName: "Sync workspace",
         totalSteps: 2,
       });
-      const lockfile = YAML.parse(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8"));
-      expect(lockfile.skills.review).toBeUndefined();
+      const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+        parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")),
+      );
+      expect(lockfile.skills["review"]).toBeUndefined();
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
         true,
       );
@@ -2224,7 +2228,7 @@ describe("root sync handler", () => {
             },
           });
           const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-          const lockfileBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+          const lockfileBefore = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8");
 
           if (configuredSource === "./newer-source") {
             const failure = yield* provide(handleSync({ preview: false })).pipe(
@@ -2238,9 +2242,7 @@ describe("root sync handler", () => {
               ),
             ).toBe(false);
             expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-            expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(
-              lockfileBefore,
-            );
+            expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(lockfileBefore);
             return;
           }
           yield* provide(handleSync({ preview: false }));
@@ -2272,7 +2274,7 @@ describe("root sync handler", () => {
             ),
           ).toBe(false);
           expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-          expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockfileBefore);
+          expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(lockfileBefore);
         }),
     );
   }

@@ -14,7 +14,7 @@ describe("WorkspaceLayout", () => {
       const layout = yield* resolveProjectWorkspaceLayout(projectRoot, {});
 
       expect(layout.settingsPath).toBe(path.join(projectRoot, "axm.json"));
-      expect(layout.lockPath).toBe(path.join(projectRoot, "axm-lock.yaml"));
+      expect(layout.lockPath).toBe(path.join(projectRoot, "axm.lock"));
       expect(layout.runtimeDir).toBe(path.join(projectRoot, ".axm"));
       expect(layout.acquiredRoot).toBe(path.join(projectRoot, "agent_extensions"));
       expect(layout.authoredRoot("skill")).toBe(path.join(projectRoot, "skills"));
@@ -44,7 +44,7 @@ describe("WorkspaceLayout", () => {
       expect(layout.axmHome).toBe("/tmp/user/.axm");
       expect(layout.workspaceRoot).toBe("/tmp/user/.axm/workspace");
       expect(layout.settingsPath).toBe("/tmp/user/.axm/workspace/axm.json");
-      expect(layout.lockPath).toBe("/tmp/user/.axm/workspace/axm-lock.yaml");
+      expect(layout.lockPath).toBe("/tmp/user/.axm/workspace/axm.lock");
       expect(layout.runtimeDir).toBe("/tmp/user/.axm/workspace/.axm");
       expect(layout.acquiredRoot).toBe("/tmp/user/.axm/workspace/agent_extensions");
     }).pipe(Effect.provide(NodeServices.layer)),

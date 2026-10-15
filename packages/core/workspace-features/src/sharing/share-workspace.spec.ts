@@ -76,10 +76,7 @@ const makeWorkspace = (withOrigin: boolean) => {
       },
     })}\n`,
   );
-  fs.writeFileSync(
-    path.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 12, packages: {}, skills: {} }),
-  );
+  fs.writeFileSync(path.join(root, "axm.lock"), "version = 1\n");
   writeSkill(root, "skills/shared", "shared");
   writeSkill(root, "skills/private", "private");
   writeSkill(root, "skills/undeclared", "undeclared");
@@ -154,7 +151,7 @@ describe("Share workspace", () => {
       const root = makeWorkspace(true);
       roots.push(root);
       fs.rmSync(path.join(root, "axm.json"));
-      fs.rmSync(path.join(root, "axm-lock.yaml"));
+      fs.rmSync(path.join(root, "axm.lock"));
       fs.rmSync(path.join(root, "skills"), { recursive: true });
       fs.rmSync(path.join(root, "agent_extensions"), { recursive: true });
       for (const directory of [".agents/skills/review", "nested/skills/review"]) {

@@ -201,7 +201,7 @@ describe("Shared package updates", () => {
           yield* world.workspace.provide(
             applyActivation({ type: "skill", name: "second", enabled: false }),
           );
-        const lockPath = path.join(world.workspace.root, "axm-lock.yaml");
+        const lockPath = path.join(world.workspace.root, "axm.lock");
         const before = fs.readFileSync(lockPath, "utf8");
         fs.writeFileSync(path.join(source, "skills/first/SKILL.md"), "# Updated first\n");
         if (scenario !== "missing-component")
@@ -322,9 +322,7 @@ describe("Retained Git snapshot additions", () => {
       );
       expect(lock.skills["first"]).toMatchObject({ resolved: { commit } });
       expect(lock.skills["second"]).toMatchObject({ resolved: { commit } });
-      expect(
-        world.workspace.readFile("axm-lock.yaml").match(new RegExp(commit, "gu")),
-      ).toHaveLength(1);
+      expect(world.workspace.readFile("axm.lock").match(new RegExp(commit, "gu"))).toHaveLength(1);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });
@@ -558,13 +556,13 @@ describe("Marketplace package installation", () => {
             expect(fs.existsSync(path.join(world.workspace.root, ".claude/skills/other"))).toBe(
               false,
             );
-            const lockBefore = world.workspace.readFile("axm-lock.yaml");
+            const lockBefore = world.workspace.readFile("axm.lock");
             if (journey === "restore") {
               fs.rmSync(packageRoot, { recursive: true });
               yield* world.workspace.provide(
                 applySync({ target: Option.none(), types: ["skill"] }),
               );
-              expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+              expect(world.workspace.readFile("axm.lock")).toBe(lockBefore);
             } else {
               fs.writeFileSync(
                 path.join(source, "packages/reviews/assets/run"),
@@ -779,7 +777,7 @@ describe("Shared package failure atomicity", () => {
                 failure === "canonical"
                   ? from === `${to}.axm-staging` && to.endsWith("/shared-failure")
                   : failure === "lock" &&
-                    to === path.join(world.workspace.workspaceRoot, "axm-lock.yaml");
+                    to === path.join(world.workspace.workspaceRoot, "axm.lock");
               if ((yield* Ref.get(armed)) && selected && !(yield* Ref.get(injected))) {
                 yield* Ref.set(injected, true);
                 return yield* PlatformError.systemError({
@@ -822,7 +820,7 @@ describe("Shared package failure atomicity", () => {
               expect(world.workspace.snapshot()).toEqual(before);
               if (failure === "stale") {
                 fs.appendFileSync(
-                  path.join(world.workspace.workspaceRoot, "axm-lock.yaml"),
+                  path.join(world.workspace.workspaceRoot, "axm.lock"),
                   "# Intervening acceptance edit\n",
                 );
                 const changed = world.workspace.snapshot();

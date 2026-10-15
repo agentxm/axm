@@ -34,6 +34,7 @@ import { makeDiagnostics, type Diagnostics, type Warning } from "./diagnostics.j
 import {
   WorkspaceRootEscape,
   type LockfileIoError,
+  type LockfileVersionUnsupported,
   type SettingsIoError,
   type SettingsReadError,
 } from "./errors.js";
@@ -80,7 +81,10 @@ export interface ScopedStateApi {
   readonly lockfile: ScopedStateLoaders["lockfile"];
   readonly raw: (
     source: "settings" | "lockfile",
-  ) => Effect.Effect<Option.Option<RawSourceBytes>, SettingsIoError | LockfileIoError>;
+  ) => Effect.Effect<
+    Option.Option<RawSourceBytes>,
+    SettingsIoError | LockfileIoError | LockfileVersionUnsupported
+  >;
 }
 
 /** Scoped source-host views over the cached settings loader. */

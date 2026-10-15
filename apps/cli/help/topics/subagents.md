@@ -110,7 +110,7 @@ immutable content: run `axm fork <ref>` to create a workspace-authored copy, the
 edit the fork.
 
 A projected file carries no AXM text. AXM owns a declared Subagent's file at its
-planned native path, and records in `axm-lock.yaml` the generation of the inputs
+planned native path, and records in `axm.lock` the generation of the inputs
 it rendered from and a digest of the bytes it wrote. Unchanged inputs leave a
 formatted or hand-edited file as it is; a changed selected implementation
 rewrites it. Editing an unused runtime implementation does not rewrite another

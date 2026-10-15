@@ -1,7 +1,7 @@
 Fixing  in this project
 
      Finding                       Location                 Fix
- ~   Lockfile is stale             axm-lock.yaml            fixed
+ ~   Lockfile is stale             axm.lock                 fixed
  ✖   Description is missing        skills/triage/SKILL.md
      skill/description-present — Agents choose skills by description
  ▲   Member version floats         packs/review-kit

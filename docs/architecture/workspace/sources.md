@@ -31,7 +31,8 @@ settings, then falls back to the immutable built-in `agentxm` Registry at
 or another reserved built-in source name.
 
 The configured name is input shorthand, not locator or lock identity. Once AXM
-accepts a Registry result, its lock row records the resolved Registry URL.
+accepts a Registry result, its lock record's `source` holds the resolved
+Registry URL.
 Changing a configured name's URL does not rewrite that accepted locator; lint
 and sync block until an explicit lifecycle operation accepts the change.
 
@@ -51,7 +52,10 @@ resolution remains stable until durable intent requires a different result or
 `update` expresses intent to advance it.
 
 Every accepted external result records locator, declared package identity,
-family-specific immutable resolution, and family-independent tree integrity:
+family-specific immutable resolution, and family-independent tree integrity.
+The lock record holds the locator, resolution, and tree once per retained
+package; each binding to it holds the declared identity and, for Git, the
+revision selector the source asked for:
 
 - Registry resolution binds version, extension-archive integrity, and publisher;
 - Git resolution binds commit and tree identity;

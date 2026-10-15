@@ -7,9 +7,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
+import { readLockfile } from "../../../test-support/lockfile.js";
 
 describe("axm skills disable", () => {
   it("disables a skill: removes symlinks, preserves canonical files and settings with enabled: false, retains lockfile", async () => {
@@ -55,9 +55,9 @@ describe("axm skills disable", () => {
       expect(entry.source).toBeDefined();
 
       // Verify lockfile entry retained
-      const lockPath = path.join(temp.path, "axm-lock.yaml");
-      const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-      expect(lock.skills["my-skill"]).toBeDefined();
+      const lockPath = path.join(temp.path, "axm.lock");
+      const lock = readLockfile(lockPath);
+      expect(lock.skills?.["my-skill"]).toBeDefined();
     } finally {
       temp.cleanup();
     }

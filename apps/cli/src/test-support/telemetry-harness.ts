@@ -238,7 +238,7 @@ export const makeTelemetryOperation = () => {
         },
         docs: JSON.stringify(workspace.rendererState.docs),
         settings: workspace.readFile("axm.json"),
-        lock: workspace.exists("axm-lock.yaml") ? workspace.readFile("axm-lock.yaml") : null,
+        lock: workspace.exists("axm.lock") ? workspace.readFile("axm.lock") : null,
         native: workspace.exists(".claude/skills/review/SKILL.md")
           ? workspace.readFile(".claude/skills/review/SKILL.md")
           : null,

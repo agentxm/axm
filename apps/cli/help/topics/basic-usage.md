@@ -51,7 +51,7 @@ _Extensions_ are agent extensions managed by AXM: skills, MCP servers, subagents
 
 After running `axm setup`, AXM configures project desired state in
 [`axm.json`](https://axm.sh/schemas/settings.schema.json) and accepted external
-resolutions in `axm-lock.yaml`. Installed extensions are listed in `axm.json`,
+resolutions in `axm.lock`. Installed extensions are listed in `axm.json`,
 sometimes with extended metadata. Management operations apply to every coding
 agent configured in `$.agents`.
 
@@ -69,7 +69,7 @@ under `agent_extensions/` using their actual source host and package path, or
 names do not replace the source address. Multiple selected components or native
 kinds at one package root share one complete retained snapshot.
 `axm.json` and authored pack manifests declare
-intent; `axm-lock.yaml` records accepted immutable resolutions and the
+intent; `axm.lock` records accepted immutable resolutions and the
 exact materialized-tree integrity of desired external extensions. See
 `axm help workspace-state` for the supported lockfile format and recovery.
 Project-authored packages live directly under type roots such as
@@ -77,7 +77,7 @@ Project-authored packages live directly under type roots such as
 its corresponding `*Config.dir` setting. `.axm/` is ignored project runtime
 state. Agent-specific paths and render state are observed or derived; they are
 not authority. User scope mirrors the same installed-state contract beneath
-`~/.axm/workspace/`: `axm.json`, `axm-lock.yaml`, `agent_extensions/`, and an
+`~/.axm/workspace/`: `axm.json`, `axm.lock`, `agent_extensions/`, and an
 inner `.axm/` runtime directory. Agent-native user projections remain in each
 agent's native user root.
 

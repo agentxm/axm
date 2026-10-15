@@ -70,7 +70,7 @@ const settings = {
 };
 
 const lockfile = {
-  lockfileVersion: 12,
+  lockfileVersion: 1,
   skills: {
     "bad-skill": {
       source: { type: "registry", url: "https://registry.agentxm.ai" },

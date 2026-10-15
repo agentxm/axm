@@ -77,11 +77,11 @@ describe("workspace read-model per-source error families", () => {
     it("instantiates with path and cause and exposes the LockfileIoError tag", () => {
       const cause = new Error("EACCES");
       const err = new LockfileIoError({
-        path: "/ws/axm-lock.yaml",
+        path: "/ws/axm.lock",
         cause,
       });
       expect(err._tag).toBe("LockfileIoError");
-      expect(err.path).toBe("/ws/axm-lock.yaml");
+      expect(err.path).toBe("/ws/axm.lock");
       expect(err.cause).toBe(cause);
     });
   });
@@ -90,12 +90,12 @@ describe("workspace read-model per-source error families", () => {
     it("instantiates with path, raw text, and cause and exposes the LockfileParseError tag", () => {
       const cause = new Error("YAMLException: bad indentation");
       const err = new LockfileParseError({
-        path: "/ws/axm-lock.yaml",
+        path: "/ws/axm.lock",
         raw: "skills:\n  - bad\n - indentation",
         cause,
       });
       expect(err._tag).toBe("LockfileParseError");
-      expect(err.path).toBe("/ws/axm-lock.yaml");
+      expect(err.path).toBe("/ws/axm.lock");
       expect(err.raw).toBe("skills:\n  - bad\n - indentation");
       expect(err.cause).toBe(cause);
     });
@@ -106,12 +106,12 @@ describe("workspace read-model per-source error families", () => {
       const issues = ["expected `version`, got undefined"] as const;
       const raw = { skills: [] };
       const err = new LockfileDecodeError({
-        path: "/ws/axm-lock.yaml",
+        path: "/ws/axm.lock",
         issues,
         raw,
       });
       expect(err._tag).toBe("LockfileDecodeError");
-      expect(err.path).toBe("/ws/axm-lock.yaml");
+      expect(err.path).toBe("/ws/axm.lock");
       expect(err.issues).toEqual(issues);
       expect(err.raw).toBe(raw);
     });
@@ -120,13 +120,13 @@ describe("workspace read-model per-source error families", () => {
   describe("LockfileVersionUnsupported", () => {
     it("instantiates with the observed and supported versions", () => {
       const err = new LockfileVersionUnsupported({
-        path: "/ws/axm-lock.yaml",
+        path: "/ws/axm.lock",
         observedVersion: 8,
         supportedVersion: 12,
       });
       expect(err).toMatchObject({
         _tag: "LockfileVersionUnsupported",
-        path: "/ws/axm-lock.yaml",
+        path: "/ws/axm.lock",
         observedVersion: 8,
         supportedVersion: 12,
       });

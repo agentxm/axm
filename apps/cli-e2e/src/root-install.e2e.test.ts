@@ -3,7 +3,6 @@ import { execSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import {
   EXTENSION_TYPE_MATRIX,
   type ExtensionTypeMatrixRow,
@@ -11,6 +10,12 @@ import {
 } from "./__generated__/extension-type-matrix.js";
 import { createTempDir, normalizeWorkspacePaths, runCli } from "./e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "./e2e/workspace-pack-state.js";
+import {
+  lockPackage,
+  lockfilePath,
+  readLockfile,
+  type LockDocument,
+} from "./test-support/lockfile.js";
 
 const OWNER = "@test";
 const PUBLISH_ENV = { AXM_TOKEN: "e2e-test-token" };
@@ -342,26 +347,19 @@ const publishScaffoldedToRegistry =
 const readSettings = (workspacePath: string) =>
   JSON.parse(fs.readFileSync(path.join(workspacePath, "axm.json"), "utf-8"));
 
-const readLockfile = (workspacePath: string) =>
-  YAML.parse(fs.readFileSync(path.join(workspacePath, "axm-lock.yaml"), "utf-8"));
-
+/** The surface's binding (an `[[mcp]]` row for MCPs) together with the record it accepts. */
 const lockEntryForSurface = (
-  lockfile: Record<string, Record<string, unknown> | undefined>,
+  lockfile: LockDocument,
   surface: InstallSurface,
   name: string,
 ): unknown => {
-  const section = lockfile[settingsKeyForSurface(surface)] ?? {};
-  if (surface !== "mcps") return section[name];
-  return Object.values(section).find(
-    (entry) =>
-      typeof entry === "object" &&
-      entry !== null &&
-      "identity" in entry &&
-      typeof entry.identity === "object" &&
-      entry.identity !== null &&
-      "name" in entry.identity &&
-      entry.identity.name === name,
-  );
+  const binding =
+    surface === "mcps"
+      ? lockfile.mcp?.find((entry) => entry.name === name || entry.name.endsWith(`/mcps/${name}`))
+      : lockfile[surface]?.[name];
+  return binding === undefined
+    ? undefined
+    : { binding, record: lockPackage(lockfile, binding.package) };
 };
 
 const normalizeLockEntry = (value: unknown) => {
@@ -452,7 +450,7 @@ const expectConfiguredEntriesInstalled = (
 ) => {
   const settingsKey = settingsKeyForSurface(surface);
   const settings = readSettings(workspacePath);
-  const lockfile = readLockfile(workspacePath);
+  const lockfile = readLockfile(lockfilePath(workspacePath));
   const settingsSection = settings[settingsKey] ?? {};
 
   for (const name of names) {
@@ -774,7 +772,7 @@ describe("axm install", () => {
           (entry) => `${entry.change} ${entry.path}`,
         );
         expect(rootFootprint).toContain("modified axm.json");
-        expect(rootFootprint).toContain("modified axm-lock.yaml");
+        expect(rootFootprint).toContain("modified axm.lock");
         expect(rootFootprint).toContain(
           `created ${path
             .relative(rootWorkspace.path, extensionDirForSurface(rootWorkspace.path, surface, name))
@@ -787,8 +785,8 @@ describe("axm install", () => {
         const surfaceSettings = readSettings(surfaceWorkspace.path);
         expect(rootSettings[settingsKey][name]).toEqual(surfaceSettings[settingsKey][name]);
 
-        const rootLockfile = readLockfile(rootWorkspace.path);
-        const surfaceLockfile = readLockfile(surfaceWorkspace.path);
+        const rootLockfile = readLockfile(lockfilePath(rootWorkspace.path));
+        const surfaceLockfile = readLockfile(lockfilePath(surfaceWorkspace.path));
         expect(normalizeLockEntry(lockEntryForSurface(rootLockfile, surface, name))).toEqual(
           normalizeLockEntry(lockEntryForSurface(surfaceLockfile, surface, name)),
         );
@@ -870,11 +868,11 @@ describe("axm install", () => {
       );
 
       const settingsBefore = fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8");
-      const lockBefore = fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf8");
       const preview = await runJsonCommand(workspace.path, ["migrate"], [source, "--preview"]);
       expect(preview.stdout.result.outcome).toBe("previewed");
       expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(settingsBefore);
-      expect(fs.readFileSync(path.join(workspace.path, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      expect(fs.readFileSync(path.join(workspace.path, "axm.lock"), "utf8")).toBe(lockBefore);
 
       const migrated = await runJsonCommand(workspace.path, ["migrate"], [source]);
       expect(migrated.stdout.result.outcome).toBe("applied");
@@ -955,7 +953,7 @@ describe("axm install", () => {
       expect(result.exitCode).toBe(2);
       expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "usage" });
       expect(fs.readFileSync(path.join(workspace.path, "axm.json"), "utf8")).toBe(before);
-      expect(fs.existsSync(path.join(workspace.path, "axm-lock.yaml"))).toBe(false);
+      expect(fs.existsSync(path.join(workspace.path, "axm.lock"))).toBe(false);
     } finally {
       workspace.cleanup();
     }

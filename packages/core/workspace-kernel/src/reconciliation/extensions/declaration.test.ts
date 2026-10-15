@@ -98,7 +98,7 @@ const declareFromPrimary = (range: string) => {
           WorkspaceTransactionScopeTest({
             workspaceDir: root,
             settingsPath: nodePath.join(root, "axm.json"),
-            lockPath: nodePath.join(root, "axm-lock.yaml"),
+            lockPath: nodePath.join(root, "axm.lock"),
           }),
         ).pipe(Layer.provideMerge(NodeServices.layer)),
       ),

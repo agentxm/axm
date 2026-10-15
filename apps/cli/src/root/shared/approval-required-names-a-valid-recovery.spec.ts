@@ -216,7 +216,7 @@ describe("Approval-required recovery", () => {
         expect(argv).not.toContain("--json");
         expect(argv).not.toContain("--non-interactive");
         yield* admitRecoveryArgv(argv, ["skills", "update"]);
-        expect(workspace.readLockfileText()).toContain("publisherBindingId: hbnd_test");
+        expect(workspace.readLockfileText()).toContain('publisher = "hbnd_test"');
       }),
   );
 
@@ -272,7 +272,7 @@ describe("Approval-required recovery", () => {
         expect(yield* admitRecoveryArgv(argv, ["update"])).toMatchObject({
           source: Option.some(FQN),
         });
-        expect(workspace.readLockfileText()).toContain("publisherBindingId: hbnd_test");
+        expect(workspace.readLockfileText()).toContain('publisher = "hbnd_test"');
       }),
   );
 

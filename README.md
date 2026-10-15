@@ -73,7 +73,7 @@ npm install -g axm.sh
 
 Initialize AXM in your project. AXM detects your installed agents and creates
 root `axm.json`; acquired packages and accepted external resolutions are kept
-in `agent_extensions/` and `axm-lock.yaml`, while `.axm/` is runtime scratch.
+in `agent_extensions/` and `axm.lock`, while `.axm/` is runtime scratch.
 AXM leaves Git attributes and formatter policy to the repository; exclude
 `agent_extensions/` from tools that rewrite files.
 
@@ -191,7 +191,7 @@ version the Registry does not have yet. A version the Registry already has,
 yanked included, is skipped as already published without being rebuilt or
 validated, so bump the version (`axm version <fqn> patch`) to ship local edits.
 Installed external packages represent the source identity recorded
-in `axm-lock.yaml`. `axm lint` checks their current contents against that accepted
+in `axm.lock`. `axm lint` checks their current contents against that accepted
 identity. Publication reads workspace-authored packages.
 
 `axm lint` checks the same rules the registry enforces — see

@@ -60,7 +60,7 @@ describe("Unpack refusal", () => {
             );
           }
           if (fault === "missing-resolution") {
-            fs.rmSync(nodePath.join(root, "axm-lock.yaml"));
+            fs.rmSync(nodePath.join(root, "axm.lock"));
           }
           if (fault === "unreadable-pack") {
             world.workspace.writeFile(`packs/${PACK}/pack.json`, "{ invalid");

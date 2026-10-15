@@ -118,7 +118,7 @@ const workspaceStep = {
     change: "created",
     targets: [
       { path: "axm.json", change: "created" },
-      { path: "axm-lock.yaml", change: "created" },
+      { path: "axm.lock", change: "created" },
       { path: ".gitignore", change: "updated" },
     ],
   },

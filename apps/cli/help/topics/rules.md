@@ -31,7 +31,7 @@ axm rules uninstall <name>
 ```
 
 Rules are tracked in `axm.json` under `rules` and in
-`axm-lock.yaml` under `rules`. The rule name is always required for
+`axm.lock` under `[rules]`. The rule name is always required for
 activation. Bare `rules enable` and `rules disable` commands are usage errors.
 
 Every Rule install, update, activation, deactivation, uninstall, and sync
@@ -72,7 +72,7 @@ settings or files. Use `axm lint` for diagnostics and `axm sync --preview` to
 inspect reconciliation.
 
 A fence carries only the region name. Currency comes from the generation
-recorded in `axm-lock.yaml`, so formatting-only prose wrapping and table padding
+recorded in `axm.lock`, so formatting-only prose wrapping and table padding
 do not create drift, and AXM writes no formatter directives.
 
 ## Self-containment and Packs

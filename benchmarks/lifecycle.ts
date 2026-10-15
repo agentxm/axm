@@ -448,7 +448,7 @@ const runSourceScenarios = (
             "fresh",
             yield* invoke(fixture.workspace, fixture.userHome, ["sync"]),
           );
-          const accepted = fs.readFileSync(path.join(fixture.workspace, "axm-lock.yaml"), "utf8");
+          const accepted = fs.readFileSync(path.join(fixture.workspace, "axm.lock"), "utf8");
           const canonical = path.join(
             fixture.workspace,
             "agent_extensions",
@@ -469,7 +469,7 @@ const runSourceScenarios = (
           );
           if (
             fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8").includes("New Git") ||
-            fs.readFileSync(path.join(fixture.workspace, "axm-lock.yaml"), "utf8") !== accepted
+            fs.readFileSync(path.join(fixture.workspace, "axm.lock"), "utf8") !== accepted
           ) {
             throw new LifecycleBenchmarkError("Git restore changed the accepted identity.");
           }

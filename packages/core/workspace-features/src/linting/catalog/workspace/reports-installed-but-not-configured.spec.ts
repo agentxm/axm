@@ -11,6 +11,7 @@ import {
 
 import { lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-installed-but-not-configured",
@@ -61,9 +62,9 @@ describe("Installed but not configured", () => {
           ...installed("kept"),
           ...installed("stale"),
           ...installed("orphan"),
-          "axm-lock.yaml": JSON.stringify(
+          "axm.lock": emitLockfileToml(
             storedLockfileFixture({
-              lockfileVersion: 12,
+              lockfileVersion: 1,
               skills: { kept: lockRow("kept"), stale: lockRow("stale") },
             }),
           ),
@@ -110,8 +111,8 @@ describe("Installed but not configured", () => {
       },
       files: {
         ...installed("kept"),
-        "axm-lock.yaml": JSON.stringify(
-          storedLockfileFixture({ lockfileVersion: 12, skills: { kept: lockRow("kept") } }),
+        "axm.lock": emitLockfileToml(
+          storedLockfileFixture({ lockfileVersion: 1, skills: { kept: lockRow("kept") } }),
         ),
       },
     });

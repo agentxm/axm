@@ -8,6 +8,7 @@ import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state
 
 import { lintProject, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-modified-projections-and-unknown-fences",
@@ -39,7 +40,7 @@ const UNKNOWN_BLOCK = "\n<!-- axm:future -->\nKept by hand.\n<!-- /axm:future --
 const gitignore = (extra: string) =>
   `node_modules\n# axm:instruction-aliases\nCLAUDE.md\n# /axm:instruction-aliases\n${extra}`;
 
-const lockfile = JSON.stringify(
+const lockfile = emitLockfileToml(
   storedLockfileFixture({
     projections: {
       rules: {
@@ -70,7 +71,7 @@ describe("Modified projections and unknown fences", () => {
         lint: { rules: { ...isolatedLintRules(MODIFIED, undefined), [UNKNOWN]: "info" } },
       },
       files: {
-        "axm-lock.yaml": lockfile,
+        "axm.lock": lockfile,
         "AGENTS.md": agentsMd("Edited rule.", UNKNOWN_BLOCK),
         "CLAUDE.md": "# Copy\n",
         ".gitignore": gitignore("# axm:legacy-notes\n"),

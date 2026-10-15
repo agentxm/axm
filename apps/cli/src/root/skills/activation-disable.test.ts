@@ -9,9 +9,13 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
+import * as Schema from "effect/Schema";
 import { afterEach, beforeEach } from "vitest";
-import { computeSourceHash } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  computeSourceHash,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { writeWorkspaceFiles } from "../../test-support/test-stubs.js";
 import {
   expectNoOpPlanResult,
@@ -191,8 +195,8 @@ describe("disable.handler", () => {
           expect(fs.existsSync(agentSkillDir)).toBe(true);
 
           // Lockfile should be unchanged
-          const lockContent = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf-8");
-          const lockfile = YAML.parse(lockContent);
+          const lockContent = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf-8");
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockContent));
           expect(lockfile.skills["my-skill"]).toBeDefined();
 
           // Preview outcome should be displayed

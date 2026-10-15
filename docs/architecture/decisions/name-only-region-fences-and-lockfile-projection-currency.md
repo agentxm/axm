@@ -40,6 +40,12 @@ version and one row per unit keyed by scope-relative path:
 
 The lockfile version moves from 11 to 12.
 
+The YAML layout of this section is superseded by the
+[TOML lockfile decision](toml-lockfile-with-labeled-records.md): `axm.lock`
+version 1 stores the same `contract`, `gen`, and `output` values in
+`[projections.<kind>]` and `[projections.<kind>.units]` tables. The fence and
+currency decisions in this record stand.
+
 ### Fence recognition
 
 A Markdown fence is a whole line that, after a trailing carriage return is

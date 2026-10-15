@@ -88,7 +88,7 @@ describe("inspection read phase", () => {
               expect(result.document.count).toBe(size);
               expect(result.document.items.every((item) => item.version === "1.0.0")).toBe(true);
               expect(reads.get(`${fixture.root}/axm.json`)).toBe(1);
-              expect(reads.get(`${fixture.root}/axm-lock.yaml`)).toBe(1);
+              expect(reads.get(`${fixture.root}/axm.lock`)).toBe(1);
               expect(fixture.requests).toEqual([]);
             }),
           )
@@ -114,7 +114,7 @@ describe("inspection read phase", () => {
         };
         const assertDocumentReads = () => {
           expect(reads.get(`${fixture.root}/axm.json`)).toBe(1);
-          expect(reads.get(`${fixture.root}/axm-lock.yaml`)).toBe(1);
+          expect(reads.get(`${fixture.root}/axm.lock`)).toBe(1);
         };
         yield* fixture
           .provide(

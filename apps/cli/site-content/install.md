@@ -184,7 +184,7 @@ from the project and which came only from the workstation. Each scope outcome
 is `supported`, `project-only`, `unsupported`, or `refused` and includes a
 stable `reasonCode`. Never reinterpret a user-scope `project-only` or `refused`
 outcome as permission to write project scope. Tell the user that applying the
-candidate will create root `axm.json`, `axm-lock.yaml`, `agent_extensions/`,
+candidate will create root `axm.json`, `axm.lock`, `agent_extensions/`,
 and ignored `.axm/` runtime state; install default extensions
 (including `@agentxm/skills/axm`), and register the listed agent artifacts.
 In a Git-managed project, setup may also add AXM runtime and package-transaction
@@ -215,7 +215,7 @@ any other AXM work in this session:
 
 - **`getting-started`** — first-time workspace setup; explains what `axm
 setup` just produced.
-- **`basic-usage`** — the key workspace files (`axm.json`, `axm-lock.yaml`,
+- **`basic-usage`** — the key workspace files (`axm.json`, `axm.lock`,
   `agent_extensions/`), the commit policy (those paths are committed while
   `.axm/` is ignored), and how to act safely
   in an existing workspace.

@@ -21,6 +21,7 @@ import { handle } from "../testing.js";
 import { observeInstallRoot } from "./install-root.js";
 import { resolveProjectWorkspaceLayout } from "./layout.js";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "../desired/lockfile/schema.js";
+import { emitLockfileToml } from "../desired/lockfile/toml.js";
 import { readLockfileCell } from "./state-cells.js";
 import { makeRegistrySkillLockEntry } from "./test-stubs.js";
 
@@ -101,15 +102,12 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         const path = yield* Path.Path;
         const projectRoot = makeAbsolutePath(path, root);
         const runtimeDir = path.join(root, ".axm");
-        const lockPath = path.join(root, "axm-lock.yaml");
+        const lockPath = path.join(root, "axm.lock");
         const authoredRoot = path.join(root, "skills");
         write("axm.json", "{}");
         write("skills/authored/SKILL.md", "# Authored");
         write("agent_extensions/registry.agentxm.ai/@acme/skills/review/skill.json", "{}");
-        write(
-          "axm-lock.yaml",
-          JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, packages: {}, skills: {} }),
-        );
+        write("axm.lock", `version = ${LOCKFILE_VERSION}\n`);
         const layout = yield* resolveProjectWorkspaceLayout(projectRoot, {});
         const counts = yield* Ref.make({ documents: 0, authoredDirectories: 0 });
         const countedFs: FileSystem.FileSystem = {
@@ -147,8 +145,8 @@ layer(NodeServices.layer, { excludeTestServices: true })("install-root inventory
         expect(yield* Ref.get(counts)).toEqual({ documents: 1, authoredDirectories: 0 });
 
         write(
-          "axm-lock.yaml",
-          JSON.stringify(
+          "axm.lock",
+          emitLockfileToml(
             Schema.encodeSync(LockfileSchema)({
               lockfileVersion: LOCKFILE_VERSION,
               skills: {

@@ -539,12 +539,12 @@ describe("Selected lint filesystem view", () => {
       );
       if (stagedFinding === undefined) throw new Error("Expected the staged missing-Skill finding");
       expect(stagedFinding).toMatchObject({
-        authority: "axm-lock.yaml",
-        location: { file: "axm-lock.yaml" },
+        authority: "axm.lock",
+        location: { file: "axm.lock" },
       });
       // Displayed locations are workspace-relative; every one must resolve to
       // the selected workspace, never to its temporary index copy.
-      const lockPath = nodePath.join(workspace.root, "axm-lock.yaml");
+      const lockPath = nodePath.join(workspace.root, "axm.lock");
       const displayedRoot = nodePath.resolve(workspace.root, stagedFinding.displayRoot);
       expect(displayedRoot).toBe(workspace.root);
       expect(nodePath.resolve(displayedRoot, stagedFinding.path)).toBe(lockPath);

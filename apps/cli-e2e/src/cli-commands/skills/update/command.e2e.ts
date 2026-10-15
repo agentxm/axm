@@ -7,9 +7,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
+import { boundPackage, readLockfile } from "../../../test-support/lockfile.js";
 
 const setupWorkspaceWithoutBundledSkill = async (cwd: string): Promise<void> => {
   const setup = await runCli(
@@ -67,8 +67,8 @@ describe("axm skills update", () => {
         });
 
         // Record lockfile state before update
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, "axm.lock");
+        const lockBefore = readLockfile(lockPath);
         const settingsPath = path.join(temp.path, "axm.json");
         const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
@@ -81,14 +81,17 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
 
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.packages[lockAfter.skills["my-skill"].package]).toMatchObject({
-          source: lockBefore.packages[lockBefore.skills["my-skill"].package].source,
+        const lockAfter = readLockfile(lockPath);
+        expect(boundPackage(lockAfter, "skills", "my-skill")).toMatchObject({
+          source: boundPackage(lockBefore, "skills", "my-skill").source,
         });
-        expect(lockAfter.packages[lockAfter.skills["my-skill"].package].resolved.tree).not.toBe(
-          lockBefore.packages[lockBefore.skills["my-skill"].package].resolved.tree,
+        expect(boundPackage(lockAfter, "skills", "my-skill").tree).not.toBe(
+          boundPackage(lockBefore, "skills", "my-skill").tree,
         );
-        expect(lockAfter.skills["another-skill"]).toMatchObject(lockBefore.skills["another-skill"]);
+        expect(lockAfter.skills?.["another-skill"]).toEqual(lockBefore.skills?.["another-skill"]);
+        expect(boundPackage(lockAfter, "skills", "another-skill")).toEqual(
+          boundPackage(lockBefore, "skills", "another-skill"),
+        );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
 
         // Verify skill files still exist
@@ -122,7 +125,7 @@ describe("axm skills update", () => {
         });
 
         // Record lockfile state before preview
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm.lock");
         const lockBefore = fs.readFileSync(lockPath, "utf-8");
 
         // Run update with --preview --non-interactive (no prompts, no apply)
@@ -167,8 +170,8 @@ describe("axm skills update", () => {
         });
 
         // Record lockfile state before update
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, "axm.lock");
+        const lockBefore = readLockfile(lockPath);
         const settingsPath = path.join(temp.path, "axm.json");
         const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
@@ -182,11 +185,14 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
 
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.skills["my-skill"]).toEqual(lockBefore.skills["my-skill"]);
-        expect(
-          lockAfter.packages[lockAfter.skills["another-skill"].package].resolved.tree,
-        ).not.toBe(lockBefore.packages[lockBefore.skills["another-skill"].package].resolved.tree);
+        const lockAfter = readLockfile(lockPath);
+        expect(lockAfter.skills?.["my-skill"]).toEqual(lockBefore.skills?.["my-skill"]);
+        expect(boundPackage(lockAfter, "skills", "my-skill")).toEqual(
+          boundPackage(lockBefore, "skills", "my-skill"),
+        );
+        expect(boundPackage(lockAfter, "skills", "another-skill").tree).not.toBe(
+          boundPackage(lockBefore, "skills", "another-skill").tree,
+        );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(fs.readFileSync(disabledSkillContentPath, "utf-8")).not.toContain(
           "Source update for E2E.",
@@ -213,8 +219,8 @@ describe("axm skills update", () => {
         });
 
         // Record lockfile state before update
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
-        const lockBefore = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, "axm.lock");
+        const lockBefore = readLockfile(lockPath);
         const settingsPath = path.join(temp.path, "axm.json");
         const settingsBefore = fs.readFileSync(settingsPath, "utf-8");
 
@@ -228,11 +234,14 @@ describe("axm skills update", () => {
 
         expect(result.exitCode).toBe(0);
 
-        const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-        expect(lockAfter.packages[lockAfter.skills["my-skill"].package].resolved.tree).not.toBe(
-          lockBefore.packages[lockBefore.skills["my-skill"].package].resolved.tree,
+        const lockAfter = readLockfile(lockPath);
+        expect(boundPackage(lockAfter, "skills", "my-skill").tree).not.toBe(
+          boundPackage(lockBefore, "skills", "my-skill").tree,
         );
-        expect(lockAfter.skills["another-skill"]).toEqual(lockBefore.skills["another-skill"]);
+        expect(lockAfter.skills?.["another-skill"]).toEqual(lockBefore.skills?.["another-skill"]);
+        expect(boundPackage(lockAfter, "skills", "another-skill")).toEqual(
+          boundPackage(lockBefore, "skills", "another-skill"),
+        );
         expect(fs.readFileSync(settingsPath, "utf-8")).toBe(settingsBefore);
         expect(installedSkillContent(temp.path, "my-skill")).toContain("Source update for E2E.");
         expect(installedSkillContent(temp.path, "another-skill")).not.toContain(

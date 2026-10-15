@@ -208,7 +208,7 @@ describe("Choosing what to install from a source", () => {
       expect(settings()["packs"]).toMatchObject({ kit: expect.anything() });
       // The Pack brought its member; nobody picked it in its own right.
       expect(settings()["skills"]).toBeUndefined();
-      expect(fs.readFileSync("axm-lock.yaml", "utf8")).toContain("review");
+      expect(fs.readFileSync("axm.lock", "utf8")).toContain("review");
     }),
   );
 
@@ -222,7 +222,7 @@ describe("Choosing what to install from a source", () => {
 
       expect(failure).toMatchObject({ _tag: "InstallSelectionCancelled" });
       expect(fs.readFileSync("axm.json", "utf8")).toBe(before);
-      expect(fs.existsSync("axm-lock.yaml")).toBe(false);
+      expect(fs.existsSync("axm.lock")).toBe(false);
       expect(fs.existsSync("agent_extensions")).toBe(false);
     }),
   );

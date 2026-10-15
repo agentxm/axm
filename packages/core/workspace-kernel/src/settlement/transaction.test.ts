@@ -38,7 +38,7 @@ const scopeFor = (workspaceDir: string, lock?: WorkspaceTransitionLock) =>
       {
         workspaceDir,
         settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
-        lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
+        lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.lock"),
       },
       lock,
     ),
@@ -129,7 +129,7 @@ describe("runWorkspaceTransaction", () => {
   );
 
   it.effect("restores every authoritative state family after an injected write failure", () => {
-    const lockfilePath = nodePath.join(tempDir, "axm-lock.yaml");
+    const lockfilePath = nodePath.join(tempDir, "axm.lock");
     const canonicalFile = nodePath.join(canonicalPath, "content.txt");
     const projectionPath = nodePath.join(tempDir, ".claude", "skills", "demo", "SKILL.md");
     nodeFs.mkdirSync(nodePath.dirname(projectionPath), { recursive: true });

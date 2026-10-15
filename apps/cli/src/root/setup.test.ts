@@ -8,7 +8,11 @@ import {
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type Settings, LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  LockfileSchema,
+  parseLockfileToml,
+  type Settings,
+} from "@agentxm/workspace-kernel/workspace-state";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import * as ConfigProvider from "effect/ConfigProvider";
@@ -18,7 +22,6 @@ import { AppError } from "../app-error/index.js";
 import { ScopedRoutesLive } from "./shared/scoped-command.js";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
-import * as YAML from "yaml";
 import * as FetchHttpClient from "effect/http/FetchHttpClient";
 import { RegistryClientFactoryTest } from "@agentxm/registry-client/testing";
 import { afterEach, beforeEach } from "vitest";
@@ -42,7 +45,7 @@ import { handleSetup as handleSetupLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 const readLockfile = (filePath: string) =>
-  Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(fs.readFileSync(filePath, "utf-8")));
+  Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(fs.readFileSync(filePath, "utf-8")));
 const telemetrySuggestion = {
   description:
     "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0",
@@ -194,7 +197,7 @@ describe("setup.handler", () => {
           const axmDir = path.join(tempDir, ".axm");
           expect(fs.existsSync(axmDir)).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(true);
-          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(true);
+          expect(fs.existsSync(path.join(tempDir, "axm.lock"))).toBe(true);
 
           const settings = readJson(path.join(tempDir, "axm.json"));
           expect(settings.skills?.["axm"]).toEqual({
@@ -242,7 +245,7 @@ describe("setup.handler", () => {
         Effect.gen(function* () {
           yield* handleSetup({ scope: "project", agents: ["claude-code"] });
           const settingsPath = path.join(tempDir, "axm.json");
-          const lockfilePath = path.join(tempDir, "axm-lock.yaml");
+          const lockfilePath = path.join(tempDir, "axm.lock");
           const settingsBefore = fs.readFileSync(settingsPath);
           const lockfileBefore = fs.readFileSync(lockfilePath);
           const settingsMtimeBefore = fs.statSync(settingsPath).mtimeMs;
@@ -540,7 +543,7 @@ describe("setup.handler", () => {
           }
           expect(fs.existsSync(agentSkillPath)).toBe(true);
 
-          const lockfile = readLockfile(path.join(tempDir, "axm-lock.yaml"));
+          const lockfile = readLockfile(path.join(tempDir, "axm.lock"));
           expect(lockfile.skills["axm"]).toBeUndefined();
         }),
       );
@@ -561,10 +564,7 @@ describe("setup.handler", () => {
               owner: normalizeHandle("@myorg"),
             }),
           );
-          fs.writeFileSync(
-            path.join(tempDir, "axm-lock.yaml"),
-            "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-          );
+          fs.writeFileSync(path.join(tempDir, "axm.lock"), "version = 1\n");
 
           yield* handleSetup({ scope: "project" });
 
@@ -1692,7 +1692,7 @@ describe("setup.handler", () => {
             expect(error.detail).toContain("Failed to read AXM workspace ignore file");
           }
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
-          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm.lock"))).toBe(false);
         }),
       );
     });
@@ -1726,7 +1726,7 @@ describe("setup.handler", () => {
           expect(settled._tag).toBe("Failure");
           expect(fs.existsSync(path.join(tempDir, ".axm"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "axm.json"))).toBe(false);
-          expect(fs.existsSync(path.join(tempDir, "axm-lock.yaml"))).toBe(false);
+          expect(fs.existsSync(path.join(tempDir, "axm.lock"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "AGENTS.md"))).toBe(false);
           expect(fs.existsSync(path.join(tempDir, "CLAUDE.md"))).toBe(false);
         }),
@@ -1739,10 +1739,7 @@ describe("setup.handler", () => {
       return provide(
         Effect.gen(function* () {
           fs.writeFileSync(path.join(tempDir, "axm.json"), "not valid json {{{");
-          fs.writeFileSync(
-            path.join(tempDir, "axm-lock.yaml"),
-            "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-          );
+          fs.writeFileSync(path.join(tempDir, "axm.lock"), "version = 1\n");
 
           const error = yield* handleSetup({ scope: "project" }).pipe(Effect.flip);
           expect(error).toBeInstanceOf(AppError);

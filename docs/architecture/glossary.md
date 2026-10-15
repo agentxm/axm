@@ -56,8 +56,8 @@ accepted resolution alone does not create a desired root.
 
 ## Authoritative lockfile
 
-The generated, committed `axm-lock.yaml` project state (or user-scope
-`axm-lock.yaml`) that records accepted external resolutions, package-tree
+The generated, committed `axm.lock` project state (or user-scope
+`axm.lock`) that records accepted external resolutions, package-tree
 integrity, provenance, complete acquired-Pack dependency declarations, and the
 generation currency and last-written digests of projections. Configured Packs
 use matching accepted declarations to derive member routes; settings still

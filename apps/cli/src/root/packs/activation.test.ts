@@ -1,5 +1,9 @@
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -9,7 +13,6 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
-import YAML from "yaml";
 import { afterEach, beforeEach } from "vitest";
 
 import { WorkspaceInvariantFactsLive } from "@agentxm/workspace-kernel/projection/live";
@@ -60,7 +63,7 @@ const initializePack = (root: string) => {
       dependencies: {},
     }),
   );
-  const lockPath = path.join(root, "axm-lock.yaml");
+  const lockPath = path.join(root, "axm.lock");
   return { axmDir, packDir, lockPath };
 };
 
@@ -99,11 +102,11 @@ const initializePackWithSkill = (root: string) => {
   );
 
   const lock = Schema.decodeUnknownSync(LockfileSchema)(
-    YAML.parse(fs.readFileSync(lockPath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
   );
   fs.writeFileSync(
     lockPath,
-    YAML.stringify(
+    emitLockfileToml(
       storedLockfileFixture({
         ...lock,
         skills: {
@@ -313,7 +316,7 @@ describe("packs activation", () => {
       expect(fs.existsSync(renderedSkill)).toBe(false);
       expect(fs.existsSync(skillDir)).toBe(false);
       const lock = Schema.decodeUnknownSync(LockfileSchema)(
-        YAML.parse(fs.readFileSync(lockPath, "utf8")),
+        parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
       );
       expect(lock["skills"]).not.toHaveProperty("review");
       expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);

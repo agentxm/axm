@@ -27,6 +27,7 @@ import {
   LockfileIoError,
   LockfileParseError,
   LockfileVersionUnsupported,
+  lockfileRequiresNewerAxm,
   SettingsDecodeError,
   SettingsIoError,
   SettingsParseError,
@@ -340,7 +341,8 @@ describe("makeScopedStateApi.settings", () => {
 // Lockfile cell
 // ---------------------------------------------------------------------------
 
-const validLockfileYaml = ["lockfileVersion: 12", "packages: {}", "skills: {}", ""].join("\n");
+const validLockfileToml = "version = 1\n";
+const LEGACY_LOCKFILE_PATH = `${WORKSPACE_ROOT}/axm-lock.yaml`;
 
 describe("makeScopedStateApi.lockfile", () => {
   it.effect("returns Option.none() when lockfile is absent in project scope", () =>
@@ -362,7 +364,7 @@ describe("makeScopedStateApi.lockfile", () => {
       const counters = yield* makeCounters;
       const fs = buildFs(
         {
-          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileYaml) },
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileToml) },
           missing: new Set(),
           existsFails: new Set(),
         },
@@ -372,7 +374,7 @@ describe("makeScopedStateApi.lockfile", () => {
 
       const result = yield* api.lockfile;
       expect(Option.isSome(result)).toBe(true);
-      expect(Option.getOrThrow(result).lockfileVersion).toBe(12);
+      expect(Option.getOrThrow(result).lockfileVersion).toBe(1);
     }),
   );
 
@@ -417,13 +419,11 @@ describe("makeScopedStateApi.lockfile", () => {
     }),
   );
 
-  it.effect("fails with LockfileParseError when lockfile is not valid YAML", () =>
+  it.effect("fails with LockfileParseError when lockfile is not valid TOML", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
-      // YAML mid-document break the parser deterministically rejects (an
-      // unterminated flow sequence inside a mapping). Same shape used in
-      // `scenarios/lint-axm454-closure.test.ts`.
-      const raw = "lockfileVersion: [oh: no\nbroken: !! tags";
+      // An unterminated array the TOML parser deterministically rejects.
+      const raw = "version = [oh\nbroken";
       const fs = buildFs(
         {
           readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
@@ -440,12 +440,11 @@ describe("makeScopedStateApi.lockfile", () => {
     }),
   );
 
-  it.effect("fails with LockfileDecodeError when lockfile YAML does not match the schema", () =>
+  it.effect("fails with LockfileDecodeError when lockfile TOML does not match the schema", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
-      // Parses as valid YAML but the resulting object lacks required fields
-      // (`lockfileVersion`, `skills`).
-      const raw = "unrelated: value\n";
+      // Parses as valid TOML but the resulting object lacks `version`.
+      const raw = 'unrelated = "value"\n';
       const fs = buildFs(
         {
           readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
@@ -468,7 +467,7 @@ describe("makeScopedStateApi.lockfile", () => {
   it.effect("fails with LockfileDecodeError for an unrecognised lockfile key", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
-      const raw = "lockfileVersion: 12\npackages: {}\nskills: {}\nextra: 1\n";
+      const raw = "version = 1\nextra = 1\n";
       const fs = buildFs(
         {
           readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
@@ -489,17 +488,14 @@ describe("makeScopedStateApi.lockfile", () => {
   );
 
   it.effect.each([
-    { observedVersion: 5, direction: "older" },
-    { observedVersion: 8, direction: "older" },
-    { observedVersion: 9, direction: "older" },
-    { observedVersion: 11, direction: "older" },
+    { observedVersion: 2, direction: "newer" },
     { observedVersion: 13, direction: "newer" },
   ])(
     "fails with LockfileVersionUnsupported for an $direction positive integer version",
     ({ observedVersion }) =>
       Effect.gen(function* () {
         const counters = yield* makeCounters;
-        const raw = `lockfileVersion: ${observedVersion}\nskills: {}\n`;
+        const raw = `version = ${observedVersion}\n`;
         const fs = buildFs(
           {
             readers: { [LOCKFILE_PATH]: () => Effect.succeed(raw) },
@@ -516,17 +512,18 @@ describe("makeScopedStateApi.lockfile", () => {
           expect(err).toMatchObject({
             path: LOCKFILE_PATH,
             observedVersion,
-            supportedVersion: 12,
+            supportedVersion: 1,
           });
         }
       }),
   );
 
   it.effect.each([
-    { label: "missing", source: "skills: {}\n" },
-    { label: "string", source: 'lockfileVersion: "5"\nskills: {}\n' },
-    { label: "fractional", source: "lockfileVersion: 5.5\nskills: {}\n" },
-    { label: "negative", source: "lockfileVersion: -1\nskills: {}\n" },
+    { label: "missing", source: "[skills]\n" },
+    { label: "string", source: 'version = "5"\n' },
+    { label: "fractional", source: "version = 5.5\n" },
+    { label: "negative", source: "version = -1\n" },
+    { label: "zero", source: "version = 0\n" },
   ])("keeps a $label version in LockfileDecodeError", ({ source }) =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
@@ -545,12 +542,46 @@ describe("makeScopedStateApi.lockfile", () => {
     }),
   );
 
+  it.effect.each([
+    { label: "declared", bytes: "lockfileVersion: 12\npackages: {}\nskills: {}\n", observed: 12 },
+    { label: "undeclared", bytes: "skills: {}\n", observed: 0 },
+  ])(
+    "refuses a legacy YAML lockfile with a $label version beside the lockfile",
+    ({ bytes, observed }) =>
+      Effect.gen(function* () {
+        const counters = yield* makeCounters;
+        const fs = buildFs(
+          {
+            readers: {
+              [LEGACY_LOCKFILE_PATH]: () => Effect.succeed(bytes),
+              [LOCKFILE_PATH]: () => Effect.succeed(validLockfileToml),
+            },
+            missing: new Set(),
+            existsFails: new Set(),
+          },
+          counters,
+        );
+        const api = yield* makeApi("project", fs);
+
+        const err = yield* Effect.flip(api.lockfile);
+        expect(err).toBeInstanceOf(LockfileVersionUnsupported);
+        expect(err).toMatchObject({
+          path: LEGACY_LOCKFILE_PATH,
+          observedVersion: observed,
+          supportedVersion: 1,
+        });
+        // A legacy lockfile is older whatever number it declares.
+        if (err instanceof LockfileVersionUnsupported)
+          expect(lockfileRequiresNewerAxm(err)).toBe(false);
+      }),
+  );
+
   it.effect("Effect.cached: two yield*-s share one execution and one IO call", () =>
     Effect.gen(function* () {
       const counters = yield* makeCounters;
       const fs = buildFs(
         {
-          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileYaml) },
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileToml) },
           missing: new Set(),
           existsFails: new Set(),
         },
@@ -565,7 +596,8 @@ describe("makeScopedStateApi.lockfile", () => {
       expect(Option.isSome(second)).toBe(true);
 
       expect(yield* Ref.get(counters.read)).toBe(1);
-      expect(yield* Ref.get(counters.exists)).toBe(1);
+      // One probe for a legacy lockfile, one for the lockfile itself.
+      expect(yield* Ref.get(counters.exists)).toBe(2);
     }),
   );
 
@@ -576,7 +608,7 @@ describe("makeScopedStateApi.lockfile", () => {
       // SHALL NOT touch the filesystem.
       const fs = buildFs(
         {
-          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileYaml) },
+          readers: { [LOCKFILE_PATH]: () => Effect.succeed(validLockfileToml) },
           missing: new Set(),
           existsFails: new Set(),
         },

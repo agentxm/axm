@@ -138,7 +138,7 @@ const rows: ReadonlyArray<UninstallRow> = [
     type: "knowledge",
     source: ({ workspace }) => writeLocalKnowledgePackage(workspace.root, { name: NAME }),
     selector: NAME,
-    retained: ["axm-lock.yaml"],
+    retained: ["axm.lock"],
     absent: { selector: "absent-bundle", reports: "nothing-at-all" },
   },
   {

@@ -18,8 +18,8 @@ export const writeMalformedWorkspaceState = (projectRoot: string, userHome: stri
       `{"agents":["claude-code"],"skills":{"retained":"workspace"},"unfinished":`,
     );
     fs.writeFileSync(
-      path.join(root, "axm-lock.yaml"),
-      "lockfileVersion: 12\npackages: {}\nskills: [unterminated\n",
+      path.join(root, "axm.lock"),
+      'version = 1\n\n[skills]\nretained = { package = "unterminated\n',
     );
   }
   for (const [label, root] of [

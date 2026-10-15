@@ -92,13 +92,13 @@ describe("axm skills list", () => {
         path.join(temp.path, "axm.json"),
         `${JSON.stringify({ agents: [] }, null, 2)}\n`,
       );
-      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), "lockfileVersion: invalid\n");
+      fs.writeFileSync(path.join(temp.path, "axm.lock"), 'version = "invalid"\n');
 
       const result = await runCli(["skills", "list", "--json"], { cwd: temp.path });
 
       expect(result.exitCode).toBe(9);
       expect(result.stderr).toContain(
-        `Invalid workspace lockfile at ${fs.realpathSync(path.join(temp.path, "axm-lock.yaml"))}`,
+        `Invalid workspace lockfile at ${fs.realpathSync(path.join(temp.path, "axm.lock"))}`,
       );
     } finally {
       temp.cleanup();

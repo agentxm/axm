@@ -47,6 +47,7 @@ import { WorkspaceCatalogLive } from "@agentxm/workspace-kernel/sources/live";
 import { ProjectRegistryContextTest } from "../testing/workspace-world.js";
 
 import { decodeRegistryEndpointSync } from "@agentxm/extension-model/unstable/extensions/registry-endpoint";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 export const inspectionRegistryUrl = "https://inspection-registry.example.test";
 
 export interface ObservedRegistryRequest {
@@ -140,10 +141,9 @@ export const makeInspectionFixture = (options: InspectionFixtureOptions = {}) =>
       nodePath.join(workspaceRoot, "axm.json"),
       JSON.stringify({ agents: [], ...withTestRegistryDefault(options.settings) }, null, 2),
     );
-    // JSON is valid YAML, so the lockfile fixture needs no emitter.
     fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify(storedLockfileFixture(options.lockfile ?? {})),
+      nodePath.join(workspaceRoot, "axm.lock"),
+      emitLockfileToml(storedLockfileFixture(options.lockfile ?? {})),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {}))

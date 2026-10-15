@@ -7,7 +7,7 @@ import { snapshotPath } from "./tree-snapshot.js";
 /** Persistent paths a workspace-changing preview must leave untouched. */
 export const WORKSPACE_PROTECTED_STATE: ReadonlyArray<string> = [
   "axm.json",
-  "axm-lock.yaml",
+  "axm.lock",
   "agent_extensions",
   "skills",
   "subagents",

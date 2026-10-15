@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
 import * as Effect from "effect/Effect";
-import YAML from "yaml";
+import * as Schema from "effect/Schema";
 import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
@@ -14,7 +14,11 @@ import { defineSpecification } from "@agentxm/specification-metadata";
 
 import { contentUnder, localLifecycleRows } from "../install/test-helpers.js";
 import { applyInstall, installRequest, makeInstallWorld } from "../../testing/install-world.js";
-import { DesiredStateReader, WorkspaceRecords } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  DesiredStateReader,
+  parseLockfileToml,
+  WorkspaceRecords,
+} from "@agentxm/workspace-kernel/workspace-state";
 import { SourceHostProviders } from "@agentxm/workspace-kernel/sources";
 import { makeLifecycleFixture, type LifecycleFixture } from "../testing.js";
 import { writeAgentSkillDirectory } from "../../testing/local-packages.js";
@@ -42,12 +46,17 @@ export const specification = defineSpecification({
   openQuestions: [],
 });
 
+const decodeLockfileDocument = Schema.decodeUnknownSync(
+  Schema.Record(Schema.String, Schema.Unknown),
+);
+
 /** The lockfile's accepted resolutions: everything but its projection generation records. */
-const acceptedResolutions = (lockfile: string): string => {
-  const document = YAML.parseDocument(lockfile);
-  document.delete("projections");
-  return document.toString();
-};
+const acceptedResolutions = (lockfile: string): string =>
+  JSON.stringify(
+    Object.entries(decodeLockfileDocument(parseLockfileToml(lockfile))).filter(
+      ([key]) => key !== "projections",
+    ),
+  );
 
 describe("Activation follows desired state", () => {
   const cleanups: Array<() => void> = [];
@@ -128,7 +137,7 @@ describe("Activation follows desired state", () => {
           const pack = fileRegistryPackagePath(world.registry, "packs", "toolkit");
           fs.rmSync(nodePath.join(world.workspace.root, pack), { recursive: true });
           const before = world.workspace.snapshot();
-          const accepted = world.workspace.readFile("axm-lock.yaml");
+          const accepted = world.workspace.readFile("axm.lock");
           const sources = yield* SourceHostProviders;
           const unexpected = () =>
             Effect.die("Unrelated activation must not fetch an acquired Pack graph");
@@ -148,7 +157,7 @@ describe("Activation follows desired state", () => {
               acquireForTransition: unexpected,
             }),
           );
-          expect(acceptedResolutions(world.workspace.readFile("axm-lock.yaml"))).toBe(
+          expect(acceptedResolutions(world.workspace.readFile("axm.lock"))).toBe(
             acceptedResolutions(accepted),
           );
           expect(world.workspace.exists(pack)).toBe(false);
@@ -178,7 +187,7 @@ describe("Activation follows desired state", () => {
               installRequest({ type: row.type, subject: { kind: "source", source } }),
             );
             yield* applyActivation({ type: row.type, name, enabled: false });
-            const accepted = workspace.readFile("axm-lock.yaml");
+            const accepted = workspace.readFile("axm.lock");
             const canonical = `agent_extensions/_local/project/vendor/${name}/${row.canonicalFile(name)}`;
             const content = workspace.readFile(canonical);
             workspace.writeFile(
@@ -187,7 +196,7 @@ describe("Activation follows desired state", () => {
             );
             const enabled = yield* applyActivation({ type: row.type, name, enabled: true });
             expect(enabled._tag === "Resolved" ? enabled.outcome : enabled._tag).toBe("applied");
-            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+            expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
               acceptedResolutions(accepted),
             );
             expect(workspace.readFile(canonical)).toBe(content);
@@ -238,13 +247,13 @@ describe("Activation follows desired state", () => {
                 subject: { kind: "source", source: "@acme/packs/reviews" },
               }),
             );
-            const accepted = workspace.readFile("axm-lock.yaml");
+            const accepted = workspace.readFile("axm.lock");
             yield* applyActivation({ type, name, enabled: false });
             const graph = yield* (yield* DesiredStateReader).graph();
             expect(
               graph.nodes.find((node) => node.type === type && node.name === name)?.enabled,
             ).toBe(false);
-            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+            expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
               acceptedResolutions(accepted),
             );
           }),
@@ -423,7 +432,7 @@ describe("Activation follows desired state", () => {
               }),
             );
             const settings = workspace.readFile("axm.json");
-            const accepted = workspace.readFile("axm-lock.yaml");
+            const accepted = workspace.readFile("axm.lock");
             const content = contentUnder(workspace, "agent_extensions");
             const result = yield* applyActivation({
               type: "pack",
@@ -434,7 +443,7 @@ describe("Activation follows desired state", () => {
             if (Result.isFailure(result))
               expect(JSON.stringify(result.failure)).toContain("accepted-resolution-incompatible");
             expect(workspace.readFile("axm.json")).toBe(settings);
-            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+            expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
               acceptedResolutions(accepted),
             );
             expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
@@ -475,7 +484,7 @@ describe("Activation follows desired state", () => {
             }),
           );
           const settings = workspace.readFile("axm.json");
-          const accepted = workspace.readFile("axm-lock.yaml");
+          const accepted = workspace.readFile("axm.lock");
           const content = contentUnder(workspace, "agent_extensions");
 
           const result = yield* applyActivation({
@@ -494,7 +503,7 @@ describe("Activation follows desired state", () => {
             expect(JSON.stringify(result.failure)).toContain("2.0.0");
           }
           expect(workspace.readFile("axm.json")).toBe(settings);
-          expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+          expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
             acceptedResolutions(accepted),
           );
           expect(contentUnder(workspace, "agent_extensions")).toEqual(content);
@@ -521,7 +530,7 @@ describe("Activation follows desired state", () => {
             yield* applyActivation({ type: "skill", name: "code-review", enabled: true });
             expect(fixture.exists(".claude/skills/code-review")).toBe(true);
             const contentBefore = authoredContent(fixture, "skills/code-review");
-            const lockBefore = fixture.readFile("axm-lock.yaml");
+            const lockBefore = fixture.readFile("axm.lock");
 
             const settled = yield* applyActivation({
               type: "skill",
@@ -534,7 +543,7 @@ describe("Activation follows desired state", () => {
             // Content and the accepted resolution are untouched: disabling
             // suspends a projection, it does not give back what was acquired.
             expect(authoredContent(fixture, "skills/code-review")).toBe(contentBefore);
-            expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(fixture.readFile("axm.lock")).toBe(lockBefore);
             expect(JSON.parse(fixture.readFile("axm.json"))).toMatchObject({
               skills: { "code-review": { enabled: false } },
             });
@@ -554,14 +563,14 @@ describe("Activation follows desired state", () => {
           yield* applyActivation({ type: "skill", name: "code-review", enabled: true });
           const projectedBefore = fixture.readFile(".claude/skills/code-review/SKILL.md");
           const contentBefore = authoredContent(fixture, "skills/code-review");
-          const lockBefore = fixture.readFile("axm-lock.yaml");
+          const lockBefore = fixture.readFile("axm.lock");
 
           yield* applyActivation({ type: "skill", name: "code-review", enabled: false });
           yield* applyActivation({ type: "skill", name: "code-review", enabled: true });
 
           expect(fixture.readFile(".claude/skills/code-review/SKILL.md")).toBe(projectedBefore);
           expect(authoredContent(fixture, "skills/code-review")).toBe(contentBefore);
-          expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+          expect(fixture.readFile("axm.lock")).toBe(lockBefore);
           expect(JSON.parse(fixture.readFile("axm.json"))).not.toMatchObject({
             skills: { "code-review": { enabled: false } },
           });
@@ -589,11 +598,11 @@ describe("Activation follows desired state", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          const lockBefore = fixture.readFile("axm-lock.yaml");
+          const lockBefore = fixture.readFile("axm.lock");
 
           yield* applyActivation({ type: "mcp-server", name: "context", enabled: true });
           expect(fixture.readFile(".mcp.json")).toContain('"context"');
-          expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+          expect(fixture.readFile("axm.lock")).toBe(lockBefore);
 
           yield* applyActivation({ type: "mcp-server", name: "context", enabled: false });
           expect(fixture.readFile(".mcp.json")).not.toContain('"context"');
@@ -602,7 +611,7 @@ describe("Activation follows desired state", () => {
           });
           // The lockfile never moved: an inline server has no acquired package
           // and therefore no accepted resolution to change.
-          expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+          expect(fixture.readFile("axm.lock")).toBe(lockBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -682,14 +691,14 @@ describe("Activation follows desired state", () => {
               yield* applyActivation({ type: "skill", name: FORMAT_NAME, enabled: false });
             }
             const contentBefore = contentUnder(fixture, contentRoot);
-            const lockBefore = fixture.readFile("axm-lock.yaml");
+            const lockBefore = fixture.readFile("axm.lock");
 
             yield* applyActivation({ type: "skill", name: FORMAT_NAME, enabled: true });
 
             expect(fixture.readFile(`.claude/skills/${FORMAT_NAME}/SKILL.md`)).toBe(instructions);
             expect(fixture.readFile(`.agents/skills/${FORMAT_NAME}/SKILL.md`)).toBe(instructions);
             expect(contentUnder(fixture, contentRoot)).toEqual(contentBefore);
-            expect(fixture.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(fixture.readFile("axm.lock")).toBe(lockBefore);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -719,7 +728,7 @@ describe("Activation follows desired state", () => {
               }),
             );
             expect(workspace.exists(surface)).toBe(true);
-            const accepted = workspace.readFile("axm-lock.yaml");
+            const accepted = workspace.readFile("axm.lock");
             const records = yield* WorkspaceRecords;
 
             const disabled = yield* applyActivation({ type, name, enabled: false });
@@ -743,7 +752,7 @@ describe("Activation follows desired state", () => {
               enabled: true,
             });
             expect(workspace.exists(surface)).toBe(true);
-            expect(acceptedResolutions(workspace.readFile("axm-lock.yaml"))).toBe(
+            expect(acceptedResolutions(workspace.readFile("axm.lock"))).toBe(
               acceptedResolutions(accepted),
             );
           }),

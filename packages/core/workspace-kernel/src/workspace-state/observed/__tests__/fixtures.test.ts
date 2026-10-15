@@ -16,9 +16,9 @@
  *
  * - `_tag: "absent"` produces no file at the target path.
  * - `_tag: "valid"` produces the expected serialized bytes (JSON for
- *   settings, YAML for the lockfile).
+ *   settings, TOML for the lockfile).
  * - `_tag: "byteCorrupt"` produces a file with the exact literal bytes.
- * - `_tag: "schemaInvalid"` produces a file with valid JSON/YAML
+ * - `_tag: "schemaInvalid"` produces a file with valid JSON/TOML
  *   serialization of a structurally-invalid object so a parser accepts it
  *   but a Schema decoder rejects it.
  * - Path-escape attempts (`..`-laden names, absolute paths outside the
@@ -38,8 +38,8 @@ import type * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import YAML from "yaml";
 import { LockfileSchema } from "../../desired/lockfile/schema.js";
+import { parseLockfileToml } from "../../desired/lockfile/toml.js";
 import { SettingsSchema } from "../../desired/settings/schema.js";
 import {
   absentAll,
@@ -70,7 +70,7 @@ const WORKSPACE_ROOT = "/test/workspace";
 const USER_HOME = "/test/home";
 
 const PROJECT_SETTINGS_PATH = "/test/workspace/axm.json";
-const PROJECT_LOCKFILE_PATH = "/test/workspace/axm-lock.yaml";
+const PROJECT_LOCKFILE_PATH = "/test/workspace/axm.lock";
 const USER_SETTINGS_PATH = "/test/home/.axm/workspace/axm.json";
 
 // ---------------------------------------------------------------------------
@@ -175,7 +175,7 @@ describe("buildFixture: lockfile cell variants", () => {
     }),
   );
 
-  it.effect("valid lockfile → YAML parses and decodes", () =>
+  it.effect("valid lockfile → TOML parses and decodes", () =>
     Effect.gen(function* () {
       const spec: FixtureSpec = {
         workspaceRoot: WORKSPACE_ROOT,
@@ -183,17 +183,17 @@ describe("buildFixture: lockfile cell variants", () => {
         project: {
           lockfile: {
             _tag: "valid",
-            contents: { lockfileVersion: 12, skills: {} },
+            contents: { lockfileVersion: 1, skills: {} },
           },
         },
       };
       const deps = yield* buildFixture(spec);
 
       const raw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
-      const parsed = YAML.parse(raw);
+      const parsed = parseLockfileToml(raw);
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
-      expect(decoded.lockfileVersion).toBe(12);
+      expect(decoded.lockfileVersion).toBe(1);
     }),
   );
 
@@ -210,7 +210,7 @@ describe("buildFixture: lockfile cell variants", () => {
     }),
   );
 
-  it.effect("schemaInvalid lockfile → YAML parses but Schema rejects", () =>
+  it.effect("schemaInvalid lockfile → TOML parses but Schema rejects", () =>
     Effect.gen(function* () {
       const spec: FixtureSpec = {
         workspaceRoot: WORKSPACE_ROOT,
@@ -222,7 +222,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const deps = yield* buildFixture(spec);
       const raw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
 
-      const parsed = YAML.parse(raw);
+      const parsed = parseLockfileToml(raw);
       const decoded = yield* Effect.result(Schema.decodeUnknownEffect(LockfileSchema)(parsed));
       expect(decoded._tag).toBe("Failure");
     }),
@@ -399,7 +399,7 @@ describe("named scenario constructors", () => {
       const settingsRaw = yield* readBytes(deps, PROJECT_SETTINGS_PATH);
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
       yield* Schema.decodeUnknownEffect(SettingsSchema)(JSON.parse(settingsRaw));
-      yield* Schema.decodeUnknownEffect(LockfileSchema)(YAML.parse(lockRaw));
+      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw));
     }),
   );
 
@@ -412,7 +412,7 @@ describe("named scenario constructors", () => {
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
       const lockResult = yield* Effect.result(
         Effect.try({
-          try: (): unknown => YAML.parse(lockRaw),
+          try: (): unknown => parseLockfileToml(lockRaw),
           catch: (cause): { readonly cause: unknown } => ({ cause }),
         }).pipe(Effect.flatMap((parsed) => Schema.decodeUnknownEffect(LockfileSchema)(parsed))),
       );
@@ -424,7 +424,7 @@ describe("named scenario constructors", () => {
     Effect.gen(function* () {
       const deps = yield* buildFixture(settingsInvalidOnly(WORKSPACE_ROOT, USER_HOME));
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
-      yield* Schema.decodeUnknownEffect(LockfileSchema)(YAML.parse(lockRaw));
+      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw));
 
       const settingsRaw = yield* readBytes(deps, PROJECT_SETTINGS_PATH);
       const settingsResult = yield* Effect.result(
@@ -577,7 +577,7 @@ describe("buildFixture: serialize round trip", () => {
         userHome: USER_HOME,
         project: {
           settings: { _tag: "valid", contents: { owner: "@team" } },
-          lockfile: { _tag: "valid", contents: { lockfileVersion: 12, skills: {} } },
+          lockfile: { _tag: "valid", contents: { lockfileVersion: 1, skills: {} } },
           axmExtensions: {
             "github.com/owner/tools/legacy/SKILL.md": "# acquired\n",
           },

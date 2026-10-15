@@ -202,7 +202,8 @@ code. Projection capability and actual host connection state are separate checks
 ## Settings and lockfile
 
 Installed servers are tracked in `axm.json` under `mcpServers`, with
-shared resolution state in `axm-lock.yaml` under `mcpServers`. The lockfile
+shared resolution state in `axm.lock` as `[[mcp]]` rows identified by package
+and declared name. Local connection names stay in `axm.json`, and the lockfile
 does not persist which agents received materialized configuration. Each entry
 declares a `source` with a persisted `distribution`, or an inline `connection`:
 

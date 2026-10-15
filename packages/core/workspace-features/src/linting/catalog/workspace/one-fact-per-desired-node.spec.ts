@@ -1,7 +1,11 @@
 import { fileRegistryPackagePath } from "../../../testing/install-world.js";
 import type { FileRegistry } from "@agentxm/registry-client/testing";
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -11,7 +15,6 @@ import * as Result from "effect/Result";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -86,9 +89,9 @@ const lint = (workspace: SyncFixture) =>
 
 /** Remove one member's accepted resolution, canonical content, and projections. */
 const forgetMember = (workspace: SyncFixture, registry: FileRegistry): void => {
-  const lockPath = nodePath.join(workspace.root, "axm-lock.yaml");
+  const lockPath = nodePath.join(workspace.root, "axm.lock");
   const lock = Schema.decodeUnknownSync(LockfileSchema)(
-    YAML.parse(fs.readFileSync(lockPath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
   );
   if (typeof lock !== "object" || lock === null || !("skills" in lock)) {
     throw new Error("Expected a lockfile with a skills map");
@@ -99,7 +102,7 @@ const forgetMember = (workspace: SyncFixture, registry: FileRegistry): void => {
   }
   fs.writeFileSync(
     lockPath,
-    YAML.stringify(
+    emitLockfileToml(
       Schema.encodeSync(LockfileSchema)({
         ...lock,
         skills: Object.fromEntries(Object.entries(skills).filter(([name]) => name !== MEMBER)),

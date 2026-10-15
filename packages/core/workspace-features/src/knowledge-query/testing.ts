@@ -118,11 +118,7 @@ export const makeKnowledgeFixtureWorkspace = (
       2,
     ),
   );
-  // JSON is valid YAML, so the lockfile fixture needs no emitter.
-  fs.writeFileSync(
-    nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 12, packages: {}, skills: {} }),
-  );
+  fs.writeFileSync(nodePath.join(root, "axm.lock"), "version = 1\n");
 
   for (const bundle of bundles) {
     const bundlePath = nodePath.join(root, "knowledge", bundle.name);
@@ -157,7 +153,7 @@ export const makeKnowledgeFixtureWorkspace = (
     writeDocument,
     readFile,
     readSettings: () => readFile("axm.json"),
-    readLockfileText: () => readFile("axm-lock.yaml"),
+    readLockfileText: () => readFile("axm.lock"),
     snapshot,
     provide: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.provide(effect, layer),
     cleanup: () => {

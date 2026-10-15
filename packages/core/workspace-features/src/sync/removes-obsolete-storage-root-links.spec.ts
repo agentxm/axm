@@ -19,6 +19,7 @@ import {
   writeLocalSkillPackage,
   type SyncFixture,
 } from "../testing/sync-fixture.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "cli/sync/removes-obsolete-storage-root-links",
@@ -44,10 +45,10 @@ const acceptedSource = (name: string) =>
 
 const recordAcceptedSource = (workspace: SyncFixture, name: string): void =>
   workspace.writeFile(
-    "axm-lock.yaml",
-    JSON.stringify(
+    "axm.lock",
+    emitLockfileToml(
       storedLockfileFixture({
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: {
           [name]: makeRegistrySkillLockEntry({
             owner: decodeHandleSync("@acme"),

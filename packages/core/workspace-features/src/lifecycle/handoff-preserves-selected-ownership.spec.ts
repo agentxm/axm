@@ -96,7 +96,7 @@ describe("Skills management handoff", () => {
           const readState = (name: string) =>
             fs.readFileSync(path.join(workspace.workspaceRoot, name), "utf8");
           const settingsBefore = readState("axm.json");
-          const acceptedBefore = readState("axm-lock.yaml");
+          const acceptedBefore = readState("axm.lock");
           const filesystem = yield* FileSystem.FileSystem;
           const prepare = HandoffSkills.prepare({ lockPath, skills: ["review"], all: false }).pipe(
             Effect.provideService(
@@ -163,7 +163,7 @@ describe("Skills management handoff", () => {
             }
           }
           expect(readState("axm.json")).toBe(settingsBefore);
-          expect(readState("axm-lock.yaml")).toBe(acceptedBefore);
+          expect(readState("axm.lock")).toBe(acceptedBefore);
           expect(fs.readFileSync(lockPath, "utf8")).toBe(JSON.stringify(oldLock));
           expect(fs.lstatSync(projection).isSymbolicLink()).toBe(true);
         }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

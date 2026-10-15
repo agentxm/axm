@@ -197,7 +197,7 @@ describe("Update reacquisition", () => {
               expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("no-op");
               expect(yield* Ref.get(acquired)).toContain(`${type}/${name}`);
               if (type === "pack") expect(yield* Ref.get(acquired)).toContain("skill/member");
-              expect(world.workspace.readFile("axm-lock.yaml")).not.toContain("version: 1.1.0");
+              expect(world.workspace.readFile("axm.lock")).not.toContain('version = "1.1.0"');
               expect(world.workspace.snapshot()).toEqual(before);
             }),
           )

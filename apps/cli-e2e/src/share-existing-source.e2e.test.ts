@@ -41,7 +41,7 @@ describe("Sharing an existing source", () => {
         path.join(fixture.applicationHome, ".axm/workspace"),
       ]) {
         expect(fs.existsSync(path.join(root, "axm.json"))).toBe(false);
-        expect(fs.existsSync(path.join(root, "axm-lock.yaml"))).toBe(false);
+        expect(fs.existsSync(path.join(root, "axm.lock"))).toBe(false);
       }
       const installed = await fixture.run([
         "install",
@@ -61,7 +61,7 @@ describe("Sharing an existing source", () => {
         ),
       ).toBe(payload);
       expect(fs.existsSync(path.join(source, "axm.json"))).toBe(false);
-      expect(fs.existsSync(path.join(source, "axm-lock.yaml"))).toBe(false);
+      expect(fs.existsSync(path.join(source, "axm.lock"))).toBe(false);
       expect(fs.readFileSync(path.join(skill, "SKILL.md"), "utf8")).toBe(payload);
     } finally {
       fixture.cleanup();

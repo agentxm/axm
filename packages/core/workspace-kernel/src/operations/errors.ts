@@ -105,10 +105,21 @@ const LockfileVersionNumberSchema = Schema.Int.pipe(
   ),
 );
 
+/** A legacy lockfile that declares no version is observed at version `0`. */
+const ObservedLockfileVersionNumberSchema = Schema.Int.pipe(
+  Schema.check(
+    Schema.makeFilter((value) =>
+      Number.isSafeInteger(value) && value >= 0
+        ? undefined
+        : "observed lockfile versions must be non-negative safe integers",
+    ),
+  ),
+);
+
 const WorkspaceLockfileVersionUnsupportedProblemSchema = Schema.Struct({
   code: Schema.Literal("workspace-lockfile-version-unsupported"),
   path: Schema.String,
-  observedVersion: LockfileVersionNumberSchema,
+  observedVersion: ObservedLockfileVersionNumberSchema,
   supportedVersion: LockfileVersionNumberSchema,
   direction: Schema.Literals(["older", "newer"] as const),
 }).annotate({

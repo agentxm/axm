@@ -1,8 +1,7 @@
 Linting  in this project
 
      Finding        Location     Fix
- ✖   Lockfi…stale   axm-lock.y   fixable
-                    aml
+ ✖   Lockfi…stale   axm.lock     fixable
      workspace/lockfile-valid — 2
      entries do not match axm.json
  ✖   Descri…ssing   skills/

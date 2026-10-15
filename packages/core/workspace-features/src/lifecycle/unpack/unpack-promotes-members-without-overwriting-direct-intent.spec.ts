@@ -77,9 +77,9 @@ describe("Unpacking a pack", () => {
             expect(snapshotTree(nodePath.join(world.workspace.root, MEMBER_CANONICAL))).toEqual(
               membersBefore,
             );
-            const lock = world.workspace.readFile("axm-lock.yaml");
-            expect(lock).toContain("review:");
-            expect(lock).toContain("test-helper:");
+            const lock = world.workspace.readFile("axm.lock");
+            expect(lock).toMatch(/^review = /mu);
+            expect(lock).toMatch(/^test-helper = /mu);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

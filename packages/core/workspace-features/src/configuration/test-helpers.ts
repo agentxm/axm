@@ -55,8 +55,5 @@ export const writeMinimalWorkspace = (root: string, agents: ReadonlyArray<string
     path.join(root, "axm.json"),
     JSON.stringify({ agents: [...agents], owner: "@acme" }),
   );
-  fs.writeFileSync(
-    path.join(root, "axm-lock.yaml"),
-    "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-  );
+  fs.writeFileSync(path.join(root, "axm.lock"), "version = 1\n");
 };

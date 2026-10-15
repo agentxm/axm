@@ -128,7 +128,7 @@ const skillLockContext = (accepted: boolean) =>
     lockfile: {
       _tag: "valid",
       contents: {
-        lockfileVersion: 12,
+        lockfileVersion: 1,
         skills: accepted
           ? {
               reviewer: {
@@ -172,7 +172,7 @@ export const skillsLockfileAlignedConformance: WorkspaceRuleConformanceCase = {
   expectedFindings: [
     {
       message: "skill '@acme/skills/reviewer' has no accepted resolution.",
-      location: { file: "axm-lock.yaml" },
+      location: { file: "axm.lock" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
@@ -213,7 +213,7 @@ export const skillsIntegrityValidConformance: WorkspaceRuleConformanceCase = {
     {
       message:
         "Skill 'reviewer' has an accepted resolution, but its installed source directory is missing.",
-      location: { file: "axm-lock.yaml" },
+      location: { file: "axm.lock" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),
@@ -359,7 +359,7 @@ export const packsDependenciesResolvedConformance: WorkspaceRuleConformanceCase 
   expectedFindings: [
     {
       message: "Pack-declared skill '@acme/skills/reviewer' has no accepted resolution.",
-      location: { file: "axm-lock.yaml" },
+      location: { file: "axm.lock" },
     },
   ],
   inapplicable: () => contextFor({ settings: validSettings(), lockfile: validLockfile }),

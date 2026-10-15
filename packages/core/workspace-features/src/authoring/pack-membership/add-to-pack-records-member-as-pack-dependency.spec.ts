@@ -77,7 +77,7 @@ describe("Adding a member to a workspace-authored pack", () => {
         cleanups.push(created.cleanup);
         yield* seed;
         const lockBefore = created.lockfileText();
-        expect(lockBefore).not.toContain("authored-member:");
+        expect(lockBefore).not.toMatch(/^authored-member = /mu);
 
         yield* addToPack(created, "@acme/skills/authored-member");
 

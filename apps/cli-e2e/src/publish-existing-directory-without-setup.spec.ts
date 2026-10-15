@@ -90,7 +90,7 @@ describe("Publishing an existing directory", () => {
         creator.invoking,
         path.join(creator.applicationHome, ".axm", "workspace"),
       ]) {
-        for (const name of ["axm.json", "axm-lock.yaml", "skill.json", "AGENTS.md", "CLAUDE.md"])
+        for (const name of ["axm.json", "axm.lock", "skill.json", "AGENTS.md", "CLAUDE.md"])
           expect(fs.existsSync(path.join(root, name))).toBe(false);
       }
       expect(fs.readdirSync(creator.invoking).sort()).toEqual([

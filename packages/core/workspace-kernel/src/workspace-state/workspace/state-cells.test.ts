@@ -20,16 +20,13 @@ it.effect("reads fresh scoped documents without inspecting unrelated directories
     yield* fs.makeDirectory(path.join(projectRoot, "skills"));
     yield* fs.makeDirectory(userWorkspace, { recursive: true });
     const projectSettings = path.join(projectRoot, "axm.json");
-    const projectLock = path.join(projectRoot, "axm-lock.yaml");
+    const projectLock = path.join(projectRoot, "axm.lock");
     yield* fs.writeFileString(projectSettings, JSON.stringify({ agents: ["codex"] }));
     yield* fs.writeFileString(
       path.join(userWorkspace, "axm.json"),
       JSON.stringify({ agents: ["claude-code"] }),
     );
-    yield* fs.writeFileString(
-      projectLock,
-      JSON.stringify({ lockfileVersion: LOCKFILE_VERSION, packages: {}, skills: {} }),
-    );
+    yield* fs.writeFileString(projectLock, `version = ${LOCKFILE_VERSION}\n`);
     const cells = {
       scope: "project",
       nativeDirectoryInputs: { skillsDirectoryOverrides: {} },
@@ -56,15 +53,12 @@ it.effect("reads fresh scoped documents without inspecting unrelated directories
     expect((yield* lock).lockfileVersion).toBe(LOCKFILE_VERSION);
 
     yield* fs.writeFileString(projectSettings, JSON.stringify({ agents: [] }));
-    yield* fs.writeFileString(
-      projectLock,
-      JSON.stringify({ lockfileVersion: LOCKFILE_VERSION - 1, skills: {} }),
-    );
+    yield* fs.writeFileString(projectLock, `version = ${LOCKFILE_VERSION + 1}\n`);
     expect(Option.getOrThrow(yield* project).agents).toEqual([]);
     expect(Option.getOrThrow(yield* user).agents).toEqual(["claude-code"]);
     expect(yield* Effect.flip(lock)).toMatchObject({
       _tag: "LockfileVersionUnsupported",
-      observedVersion: LOCKFILE_VERSION - 1,
+      observedVersion: LOCKFILE_VERSION + 1,
     });
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );

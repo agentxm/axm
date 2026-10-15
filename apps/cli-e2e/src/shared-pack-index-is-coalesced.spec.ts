@@ -185,7 +185,7 @@ describe("Shared configured Pack member", () => {
         );
 
         if (command === "sync") {
-          const lockPath = path.join(consumer.path, "axm-lock.yaml");
+          const lockPath = path.join(consumer.path, "axm.lock");
           const acceptedLock = fs.readFileSync(lockPath, "utf8");
           const acceptedSettings = fs.readFileSync(settingsPath, "utf8");
           const acquiredRoot = path.join(consumer.path, registryFixturePath(registry.url, OWNER));

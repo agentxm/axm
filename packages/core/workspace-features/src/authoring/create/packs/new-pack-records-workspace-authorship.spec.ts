@@ -64,7 +64,7 @@ describe("Creating a workspace-authored pack", () => {
       });
       // Workspace authorship is settings-authoritative: no accepted external
       // resolution exists for the authored pack.
-      expect(created.read("axm-lock.yaml") ?? "").not.toContain("toolkit");
+      expect(created.read("axm.lock") ?? "").not.toContain("toolkit");
     }),
   );
 });

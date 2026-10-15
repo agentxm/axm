@@ -189,7 +189,7 @@ describe("Uncertainty never proves absence", () => {
           settings,
           documents: { toolkit: manifest },
           lockfile: {
-            lockfileVersion: 12,
+            lockfileVersion: 1,
             skills: {},
             packs: {
               toolkit: makeRegistryPackLockEntry({
@@ -211,7 +211,7 @@ describe("Uncertainty never proves absence", () => {
             settings,
             documents: { toolkit: observation },
             lockfile: {
-              lockfileVersion: 12,
+              lockfileVersion: 1,
               skills: {},
               packs: {
                 toolkit: makeRegistryPackLockEntry({

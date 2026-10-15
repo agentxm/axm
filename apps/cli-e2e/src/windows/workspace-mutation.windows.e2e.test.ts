@@ -6,6 +6,7 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { createTempDir, runCli as runBaseCli, SKILLS_REPO_FIXTURE } from "../utils.js";
+import { boundPackage, parseLockfile, readLockfile } from "../test-support/lockfile.js";
 
 /**
  * Binds this file's evidence to the requirement identities it executes. The
@@ -251,9 +252,9 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.existsSync(codexSkill)).toBe(true);
       expect(fs.existsSync(codeartsSkill)).toBe(true);
 
-      const lockPath = path.join(workspace.path, "axm-lock.yaml");
+      const lockPath = path.join(workspace.path, "axm.lock");
       const lockBytesBefore = fs.readFileSync(lockPath, "utf8");
-      const lockBefore = YAML.parse(lockBytesBefore);
+      const lockBefore = parseLockfile(lockBytesBefore);
       const canonicalBytesBefore = fs.readFileSync(canonicalSkillMd, "utf8");
       fs.appendFileSync(path.join(source, "my-skill", "src", "SKILL.md"), "\nWindows refresh.\n");
 
@@ -277,9 +278,9 @@ describe("Windows workspace mutation contract", () => {
           env,
         }),
       );
-      const lockAfter = YAML.parse(fs.readFileSync(lockPath, "utf8"));
-      expect(lockAfter.packages[lockAfter.skills["my-skill"].package].treeIntegrity).not.toBe(
-        lockBefore.packages[lockBefore.skills["my-skill"].package].treeIntegrity,
+      const lockAfter = readLockfile(lockPath);
+      expect(boundPackage(lockAfter, "skills", "my-skill").tree).not.toBe(
+        boundPackage(lockBefore, "skills", "my-skill").tree,
       );
       expect(fs.readFileSync(canonicalSkillMd, "utf8")).toContain("Windows refresh.");
 
@@ -372,7 +373,7 @@ describe("Windows workspace mutation contract", () => {
       expect(fs.existsSync(claudeSkill)).toBe(false);
       expect(fs.existsSync(codexSkill)).toBe(false);
       expect(fs.existsSync(codeartsSkill)).toBe(false);
-      expect(YAML.parse(fs.readFileSync(lockPath, "utf8")).skills?.["my-skill"]).toBeUndefined();
+      expect(readLockfile(lockPath).skills?.["my-skill"]).toBeUndefined();
 
       const converged = expectSuccess(
         await runCli(["sync", "--preview", "--fail-on-change", "--json", "--non-interactive"], {

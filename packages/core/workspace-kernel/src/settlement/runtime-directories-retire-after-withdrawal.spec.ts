@@ -74,7 +74,7 @@ const fixture = Effect.gen(function* () {
       const scope = yield* makeWorkspaceTransactionScope({
         workspaceDir,
         settingsPath: path.join(root, "axm.json"),
-        lockPath: path.join(root, "axm-lock.yaml"),
+        lockPath: path.join(root, "axm.lock"),
       });
       return yield* scope.run({
         claimDefaultTargets: false,
@@ -105,7 +105,7 @@ describe("runtime receipt handoff", () => {
         const scope = yield* makeWorkspaceTransactionScope({
           workspaceDir: path.join(ownerRoot, ".axm"),
           settingsPath: path.join(ownerRoot, "axm.json"),
-          lockPath: path.join(ownerRoot, "axm-lock.yaml"),
+          lockPath: path.join(ownerRoot, "axm.lock"),
           nativeRoot: home,
         });
         yield* scope.run({

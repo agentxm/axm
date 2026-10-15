@@ -2,7 +2,7 @@
  * Lockfile feature module.
  *
  * Provides lockfile schema definitions and I/O functions for managing
- * the selected scope's `axm-lock.yaml` file that records accepted external
+ * the selected scope's `axm.lock` file that records accepted external
  * extension resolutions.
  *
  * @experimental This API is unstable and may change without notice.
@@ -16,6 +16,7 @@ export type {
   KnowledgeLockEntry,
   KnowledgeLockMap,
   Lockfile,
+  LockfileToolTables,
   McpServerLockEntry,
   McpServersLockMap,
   PackLockEntry,
@@ -27,6 +28,7 @@ export type {
   SkillLockEntry,
   SkillsLockMap,
   SubagentLockEntry,
+  StoredLockfileDocument,
   SubagentsLockMap,
 } from "./schema.js";
 export {
@@ -37,6 +39,7 @@ export {
   LOCKFILE_VERSION,
   makeRegistryPackLockEntry,
   LockfileSchema,
+  LockfileToolTablesSchema,
   McpServerLockEntrySchema,
   McpServersLockMapSchema,
   PackLockEntrySchema,
@@ -46,6 +49,7 @@ export {
   RulesLockMapSchema,
   SkillLockEntrySchema,
   SkillsLockMapSchema,
+  StoredLockfileSchema,
   SubagentLockEntrySchema,
   SubagentsLockMapSchema,
 } from "./schema.js";
@@ -70,6 +74,7 @@ export {
   recordedProjectionRows,
   stageProjectionChanges,
 } from "./projections.js";
+export { emitLockfileToml, parseLockfileToml } from "./toml.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
 export {

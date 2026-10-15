@@ -66,7 +66,7 @@ describe("Bundled official-skill recovery over an authored official skill", () =
     );
     const before = {
       settings: workspace.readFile("axm.json"),
-      lock: workspace.readFile("axm-lock.yaml"),
+      lock: workspace.readFile("axm.lock"),
       authored: fs.readFileSync(authoredPath, "utf8"),
       stale: fs.readFileSync(stalePath, "utf8"),
     };
@@ -91,7 +91,7 @@ describe("Bundled official-skill recovery over an authored official skill", () =
           expectBlocked(yield* applyInstall(bundledRequest()));
 
           expect(workspace.readFile("axm.json")).toBe(before.settings);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(before.lock);
+          expect(workspace.readFile("axm.lock")).toBe(before.lock);
           expect(fs.readFileSync(authoredPath, "utf8")).toBe(before.authored);
           expect(fs.readFileSync(stalePath, "utf8")).toBe(before.stale);
           expect(workspace.exists("agent_extensions/registry.agentxm.ai/@agentxm/skills/axm")).toBe(

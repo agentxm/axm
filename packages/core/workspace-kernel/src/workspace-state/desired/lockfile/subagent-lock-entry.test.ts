@@ -49,7 +49,7 @@ describe("Subagent accepted resolutions", () => {
     expect(
       Schema.decodeUnknownSync(LockfileSchema)(
         storedLockfileFixture({
-          lockfileVersion: 12,
+          lockfileVersion: 1,
           skills: {},
           subagents: {
             planner: localEntry,

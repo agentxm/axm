@@ -42,7 +42,7 @@ export const projectionErrorToStepFailure = (error: ProjectionFamilyFailure): St
     case "ContributorTreeMismatch":
       return makeStepFailure({
         category: "conflict",
-        detail: `Installed package files differ from axm-lock.yaml: ${error.packageRoot}`,
+        detail: `Installed package files differ from axm.lock: ${error.packageRoot}`,
         suggestions: [
           {
             description:

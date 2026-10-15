@@ -117,7 +117,7 @@ describe("Adopting existing packages", () => {
                   : { source: "workspace", enabled: false },
               },
             });
-            expect(created.lockfileText()).not.toContain("review:");
+            expect(created.lockfileText()).not.toMatch(/^review = /mu);
           }),
       );
 
@@ -167,11 +167,11 @@ describe("Adopting existing packages", () => {
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
             expect(created.snapshot(`${row.plural}/review`)).toEqual(before);
-            expect(created.lockfileText()).not.toContain("review:");
+            expect(created.lockfileText()).not.toMatch(/^review = /mu);
             // Only the adopted package's resolution is retired; the unrelated
             // one keeps every field it was accepted with.
-            expect(created.lockfileText()).toContain("test-helper:");
-            expect(helperLock).toContain("test-helper:");
+            expect(created.lockfileText()).toMatch(/^test-helper = /mu);
+            expect(helperLock).toMatch(/^test-helper = /mu);
             expect(created.settings()).toMatchObject({
               [row.settingsKey]: {
                 review: enabled

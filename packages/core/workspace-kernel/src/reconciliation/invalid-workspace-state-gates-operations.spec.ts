@@ -56,6 +56,8 @@ interface FaultRow {
   readonly file: "project-settings" | "user-settings" | "project-lockfile" | "user-lockfile";
   /** Writes the fault into the selected file. */
   readonly write: (target: string) => void;
+  /** The file the refusal names, when it is not the selected file itself. */
+  readonly named?: (target: string) => string;
   /** The tagged failure the reader must raise. */
   readonly tag: string;
   readonly recovery: Recovery;
@@ -95,15 +97,26 @@ const settingsRows: ReadonlyArray<FaultRow> = (["project", "user"] as const).fla
   })),
 );
 
+/** The superseded YAML lockfile beside the selected lockfile. */
+const legacyLockfileBeside = (target: string): string =>
+  nodePath.join(nodePath.dirname(target), "axm-lock.yaml");
+
 const lockfileVersionRows: ReadonlyArray<FaultRow> = (["older", "newer"] as const).flatMap(
   (direction) =>
     (["project", "user"] as const).map((scope): FaultRow => {
-      const observedVersion = direction === "older" ? LOCKFILE_VERSION - 1 : LOCKFILE_VERSION + 1;
+      // An older lockfile is the superseded YAML format, whatever number it declares.
+      const observedVersion = direction === "older" ? 12 : LOCKFILE_VERSION + 1;
       return {
         fault: `an ${direction} ${scope} lockfile version`,
         file: scope === "project" ? "project-lockfile" : "user-lockfile",
         write: (target) =>
-          fs.writeFileSync(target, `lockfileVersion: ${observedVersion}\nskills: {}\n`),
+          direction === "older"
+            ? fs.writeFileSync(
+                legacyLockfileBeside(target),
+                `lockfileVersion: ${observedVersion}\nskills: {}\n`,
+              )
+            : fs.writeFileSync(target, `version = ${observedVersion}\n`),
+        ...(direction === "older" ? { named: legacyLockfileBeside } : {}),
         tag: "LockfileVersionUnsupported",
         // An older lockfile is re-accepted by reconciling desired state; a
         // newer one needs a newer product, never a rewrite of the file.
@@ -124,19 +137,19 @@ const lockfileContentRows: ReadonlyArray<FaultRow> = [
     tag: "LockfileIoError",
   },
   {
-    fault: "a project lockfile that is not valid YAML",
-    write: (target: string) => fs.writeFileSync(target, "lockfileVersion: [\n"),
+    fault: "a project lockfile that is not valid TOML",
+    write: (target: string) => fs.writeFileSync(target, "version = [\n"),
     tag: "LockfileParseError",
   },
   {
     fault: "a schema-invalid project lockfile",
-    write: (target: string) => fs.writeFileSync(target, 'lockfileVersion: "six"\nskills: {}\n'),
+    write: (target: string) => fs.writeFileSync(target, 'version = "six"\n'),
     tag: "LockfileDecodeError",
   },
   {
     fault: "a project lockfile with an unrecognised key",
     write: (target: string) =>
-      fs.writeFileSync(target, `lockfileVersion: ${LOCKFILE_VERSION}\nskills: {}\nextra: 1\n`),
+      fs.writeFileSync(target, `version = ${LOCKFILE_VERSION}\nextra = 1\n`),
     tag: "LockfileDecodeError",
   },
 ].map((entry): FaultRow => ({
@@ -166,7 +179,9 @@ const recoveryFor = (tag: string, failure: Readonly<Record<string, unknown>>): R
   if (typeof observed !== "number" || typeof supported !== "number") {
     throw new Error("An unsupported lockfile version must report both versions");
   }
-  return observed < supported ? "resync" : "upgrade";
+  const path = failure["path"];
+  const legacy = typeof path === "string" && nodePath.basename(path) === "axm-lock.yaml";
+  return legacy || observed < supported ? "resync" : "upgrade";
 };
 
 const failureRecord = (failure: unknown): Readonly<Record<string, unknown>> => {
@@ -183,19 +198,19 @@ const makeWorkspace = () => {
   fs.mkdirSync(nodePath.join(root, ".axm"), { recursive: true });
   fs.mkdirSync(userWorkspace, { recursive: true });
   const settings = `${JSON.stringify({ owner: "@acme", agents: ["claude-code"] }, null, 2)}\n`;
-  const lockfile = "lockfileVersion: 12\npackages: {}\nskills: {}\n";
+  const lockfile = "version = 1\n";
   fs.writeFileSync(nodePath.join(root, "axm.json"), settings);
-  fs.writeFileSync(nodePath.join(root, "axm-lock.yaml"), lockfile);
+  fs.writeFileSync(nodePath.join(root, "axm.lock"), lockfile);
   fs.writeFileSync(nodePath.join(userWorkspace, "axm.json"), settings);
-  fs.writeFileSync(nodePath.join(userWorkspace, "axm-lock.yaml"), lockfile);
+  fs.writeFileSync(nodePath.join(userWorkspace, "axm.lock"), lockfile);
   const pathFor = (file: FaultRow["file"]): string =>
     file === "project-settings"
       ? nodePath.join(root, "axm.json")
       : file === "project-lockfile"
-        ? nodePath.join(root, "axm-lock.yaml")
+        ? nodePath.join(root, "axm.lock")
         : file === "user-settings"
           ? nodePath.join(userWorkspace, "axm.json")
-          : nodePath.join(userWorkspace, "axm-lock.yaml");
+          : nodePath.join(userWorkspace, "axm.lock");
   const snapshotUnder = (base: string): ReadonlyArray<readonly [string, string]> => {
     const entries: Array<readonly [string, string]> = [];
     const walk = (directory: string): void => {
@@ -263,7 +278,7 @@ describe("Invalid workspace state gates operations", () => {
         const record = failureRecord(failure);
         expect(record["_tag"]).toBe(row.tag);
         expect(kernelFailureToStepFailure(failure).category).toBe(row.category);
-        expect(record["path"]).toBe(faultPath);
+        expect(record["path"]).toBe(row.named?.(faultPath) ?? faultPath);
         expect(recoveryFor(row.tag, record)).toBe(row.recovery);
         row.expect?.(record);
         // The refusal precedes every workspace write: both scopes are exactly

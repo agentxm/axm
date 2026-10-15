@@ -127,8 +127,8 @@ describe("Pack-member configuration does not create acquisition intent", () => {
           );
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          const accepted = workspace.readFile("axm-lock.yaml");
-          expect(accepted).toContain("version: 2.0.0");
+          const accepted = workspace.readFile("axm.lock");
+          expect(accepted).toContain('version = "2.0.0"');
           // The preference survives the member's advance and still decides it.
           expect(ruleEntry(workspace)).toEqual({ enabled: true });
           const graph = yield* (yield* DesiredStateReader).graph();
@@ -162,7 +162,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
               subject: { kind: "source", source: `${RULE_FQN}@^1.0.0` },
             }),
           );
-          const acceptedBefore = workspace.readFile("axm-lock.yaml");
+          const acceptedBefore = workspace.readFile("axm.lock");
 
           publishTwoPackMajors(registry);
           const resolution = expectResolved(
@@ -170,7 +170,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
           );
 
           expect(deriveOperationOutcome(resolution)).not.toBe("applied");
-          expect(workspace.readFile("axm-lock.yaml")).toBe(acceptedBefore);
+          expect(workspace.readFile("axm.lock")).toBe(acceptedBefore);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));
@@ -357,7 +357,7 @@ describe("Pack-member configuration does not create acquisition intent", () => {
           // The advance is free to happen, and the preference still decides
           // the member: the graph settles it, and nothing recomputes it.
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+          expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
           expect(ruleEntry(workspace)).toEqual({ enabled: false });
           const graph = yield* (yield* DesiredStateReader).graph();
           expect(

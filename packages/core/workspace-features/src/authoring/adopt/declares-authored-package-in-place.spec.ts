@@ -75,7 +75,7 @@ describe("Adopting an authored package in place", () => {
             review: row.type === "mcp-server" ? { source: "workspace" } : "workspace",
           },
         });
-        expect(created.lockfileText()).not.toContain("review:");
+        expect(created.lockfileText()).not.toMatch(/^review = /mu);
         expect(created.exists("agent_extensions")).toBe(false);
       }),
     );

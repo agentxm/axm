@@ -167,7 +167,7 @@ describe("Aggregate projection drift diagnostics", () => {
             expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
 
             writeAuthoredRule(workspace.root, "alpha", "Changed alpha guidance.");
-            const lockfileBefore = workspace.readFile("axm-lock.yaml");
+            const lockfileBefore = workspace.readFile("axm.lock");
             const agentsBefore = workspace.readFile("AGENTS.md");
             const preview = expectResolved(yield* previewSync());
             const unit = requireUnit(preview.units, "instruction:reconcile");
@@ -183,7 +183,7 @@ describe("Aggregate projection drift diagnostics", () => {
               { path: "AGENTS.md", change: "updated", lastWrite: "modified" },
             ]);
             // The preview is pure: neither the lockfile nor the region changes.
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockfileBefore);
             expect(workspace.readFile("AGENTS.md")).toBe(agentsBefore);
 
             yield* applySync();

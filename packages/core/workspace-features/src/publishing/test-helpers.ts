@@ -234,11 +234,7 @@ export const makePublishWorld = (options: PublishWorldOptions = {}) => {
     return Object.fromEntries(Object.entries(parsed));
   };
   writeSettings({ owner: "@acme", agents: [], ...options.settings });
-  // JSON is valid YAML, so the lockfile fixture needs no emitter.
-  fs.writeFileSync(
-    nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify({ lockfileVersion: 12, packages: {}, skills: {} }),
-  );
+  fs.writeFileSync(nodePath.join(root, "axm.lock"), "version = 1\n");
 
   const writes: Array<FileSystemWriteEvent> = [];
   const transport =

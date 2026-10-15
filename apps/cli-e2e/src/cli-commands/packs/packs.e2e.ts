@@ -10,10 +10,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { configuredRegistryFixturePath } from "../../test-support/retained-paths.js";
 import { createTempDir, runCli } from "../../e2e/utils.js";
 import { refreshAuthoredWorkspacePackState } from "../../e2e/workspace-pack-state.js";
+import { boundPackage, readLockfile, withdrawLockBinding } from "../../test-support/lockfile.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -30,10 +30,10 @@ function setupWorkspaceWithRegistry() {
   const registryDir = createTempDir("axm-registry-");
 
   const settingsPath = path.join(temp.path, "axm.json");
-  const lockPath = path.join(temp.path, "axm-lock.yaml");
+  const lockPath = path.join(temp.path, "axm.lock");
 
   const readSettings = () => JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-  const readLock = () => YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+  const readLock = () => readLockfile(lockPath);
 
   const cleanup = () => {
     temp.cleanup();
@@ -163,9 +163,7 @@ function detachWorkspacePack(
   delete settings.packs?.[packName];
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
 
-  const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
-  if (lock.packs) delete lock.packs[packName];
-  fs.writeFileSync(lockPath, YAML.stringify(lock));
+  withdrawLockBinding(lockPath, "packs", packName);
   fs.rmSync(path.join(workspaceRoot, "packs", packName), {
     recursive: true,
     force: true,
@@ -355,13 +353,11 @@ describe("axm packs add/remove", () => {
       const lock = readLock();
       expect(lock.packs?.["mixed-pack"]).toBeUndefined();
       expect(lock.skills?.["workspace-member"]).toBeUndefined();
-      expect(lock.packages[lock.skills?.["registry-member"].package]).toMatchObject({
-        source: { type: "registry" },
-        resolved: {
-          version: "0.0.1",
-          publisherBindingId: expect.stringMatching(/^hbnd_/),
-          integrity: expect.stringMatching(/^sha512-/),
-        },
+      expect(boundPackage(lock, "skills", "registry-member")).toMatchObject({
+        source: { registry: expect.any(String) },
+        version: "0.0.1",
+        publisher: expect.stringMatching(/^hbnd_/),
+        archive: expect.stringMatching(/^sha512-/),
       });
 
       const unrelated = await runCli(["packs", "new", "drifted-pack"], {
@@ -597,9 +593,9 @@ describe("axm packs install", () => {
       });
       expect(readSettings().skills?.[skillName]).toBe("workspace");
       expect(readLock().skills?.[skillName]).toBeUndefined();
-      expect(readLock().packages[readLock().packs?.[packName].package]).toMatchObject({
-        source: { type: "registry" },
-        resolved: { version: "0.0.1" },
+      expect(boundPackage(readLock(), "packs", packName)).toMatchObject({
+        source: { registry: expect.any(String) },
+        version: "0.0.1",
       });
       expect(fs.readFileSync(path.join(canonical, "skill.json"), "utf8")).toBe(beforeManifest);
       expect(fs.readFileSync(path.join(canonical, "src", "SKILL.md"), "utf8")).toBe(beforeSkill);
@@ -809,11 +805,11 @@ describe("axm packs install", () => {
       for (const skill of [directSkill, firstMember, secondMember]) {
         expect(lock.skills?.[skill]).toBeDefined();
       }
-      expect(lock.packages[lock.packs?.[firstPack].package]).toMatchObject({
-        source: { type: "registry" },
+      expect(boundPackage(lock, "packs", firstPack)).toMatchObject({
+        source: { registry: expect.any(String) },
       });
-      expect(lock.packages[lock.packs?.[secondPack].package]).toMatchObject({
-        source: { type: "registry" },
+      expect(boundPackage(lock, "packs", secondPack)).toMatchObject({
+        source: { registry: expect.any(String) },
       });
 
       for (const skill of [directSkill, firstMember, secondMember]) {
@@ -886,11 +882,10 @@ describe("axm packs install", () => {
       // Verify lockfile updated
       const lock = readLock();
       expect(lock.packs).toBeDefined();
-      expect(lock.packs["installable-pack"]).toBeDefined();
-      const lockEntry = lock.packs["installable-pack"];
-      expect(lock.packages[lockEntry.package].source.type).toBe("registry");
-      expect(lockEntry.identity.owner).toBe("@test");
-      expect(lockEntry.identity.name).toBe("installable-pack");
+      expect(lock.packs?.["installable-pack"]).toBeDefined();
+      const lockEntry = lock.packs?.["installable-pack"];
+      expect(boundPackage(lock, "packs", "installable-pack").source).toHaveProperty("registry");
+      expect(lockEntry?.name).toBe("@test/packs/installable-pack");
 
       // Verify pack directory exists on disk
       const packDir = configuredRegistryFixturePath(
@@ -955,11 +950,11 @@ describe("axm packs install", () => {
           counts: expect.objectContaining({ committed: 1, failed: 0, blocked: 0 }),
         },
       });
-      expect(readLock().packages[readLock().packs?.["recoverable-pack"].package]).toMatchObject({
-        source: { type: "registry" },
+      expect(boundPackage(readLock(), "packs", "recoverable-pack")).toMatchObject({
+        source: { registry: expect.any(String) },
       });
-      expect(readLock().packages[readLock().skills?.["recoverable-member"].package]).toMatchObject({
-        source: { type: "registry" },
+      expect(boundPackage(readLock(), "skills", "recoverable-member")).toMatchObject({
+        source: { registry: expect.any(String) },
       });
       expect(
         fs.existsSync(
@@ -1102,9 +1097,7 @@ describe("axm packs install", () => {
       delete settingsBefore.packs?.["deps-pack"];
       fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
 
-      const lockBefore = readLock();
-      if (lockBefore.packs) delete lockBefore.packs["deps-pack"];
-      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
+      withdrawLockBinding(path.join(temp.path, "axm.lock"), "packs", "deps-pack");
 
       fs.rmSync(path.join(temp.path, "packs", "deps-pack"), {
         recursive: true,
@@ -1120,20 +1113,17 @@ describe("axm packs install", () => {
       // Verify the Pack and its external dependency have independent rows.
       const lock = readLock();
       expect(lock.packs).toBeDefined();
-      expect(lock.packs["deps-pack"]).toBeDefined();
-      const packEntry = lock.packs["deps-pack"];
-      expect(lock.packages[packEntry.package].source.type).toBe("registry");
-      expect(lock.packages[packEntry.package].resolved.version).toMatch(
-        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/,
-      );
-      expect(lock.packages[packEntry.package].resolved.version.startsWith("^")).toBe(false);
-      expect(lock.packages[packEntry.package].resolved.version.startsWith("~")).toBe(false);
+      expect(lock.packs?.["deps-pack"]).toBeDefined();
+      const packEntry = lock.packs?.["deps-pack"];
+      const packRecord = boundPackage(lock, "packs", "deps-pack");
+      expect(packRecord.source).toHaveProperty("registry");
+      expect(packRecord.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(packRecord.version?.startsWith("^")).toBe(false);
+      expect(packRecord.version?.startsWith("~")).toBe(false);
       expect(packEntry).not.toHaveProperty("resolvedSkills");
-      const resolvedSkill = lock.skills["dep-skill"];
-      expect(lock.packages[resolvedSkill.package].resolved.version).toMatch(
-        /^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/,
-      );
-      expect(lock.packages[resolvedSkill.package].resolved.publisherBindingId).toMatch(/^hbnd_/);
+      const resolvedSkill = boundPackage(lock, "skills", "dep-skill");
+      expect(resolvedSkill.version).toMatch(/^\d+\.\d+\.\d+(?:-[0-9A-Za-z-.]+)?$/);
+      expect(resolvedSkill.publisher).toMatch(/^hbnd_/);
 
       // Verify pack in settings
       const settings = readSettings();
@@ -1188,9 +1178,7 @@ describe("axm packs install", () => {
       delete settingsBefore.packs?.["subagent-pack"];
       fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
 
-      const lockBefore = readLock();
-      if (lockBefore.packs) delete lockBefore.packs["subagent-pack"];
-      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
+      withdrawLockBinding(path.join(temp.path, "axm.lock"), "packs", "subagent-pack");
 
       fs.rmSync(path.join(temp.path, "packs", "subagent-pack"), {
         recursive: true,
@@ -1203,15 +1191,13 @@ describe("axm packs install", () => {
       expect(installResult.exitCode).toBe(0);
 
       const lock = readLock();
-      const packEntry = lock.packs["subagent-pack"];
+      const packEntry = lock.packs?.["subagent-pack"];
       expect(packEntry).not.toHaveProperty("resolvedSubagents");
-      expect(lock.packages[lock.subagents["dep-subagent"].package]).toMatchObject({
-        source: { type: "registry" },
-        resolved: {
-          version: "1.0.0",
-          publisherBindingId: expect.stringMatching(/^hbnd_/),
-          integrity: expect.stringMatching(/^sha512-/),
-        },
+      expect(boundPackage(lock, "subagents", "dep-subagent")).toMatchObject({
+        source: { registry: expect.any(String) },
+        version: "1.0.0",
+        publisher: expect.stringMatching(/^hbnd_/),
+        archive: expect.stringMatching(/^sha512-/),
       });
 
       const settings = readSettings();
@@ -1234,8 +1220,8 @@ describe("axm packs install", () => {
 
     const authorSettingsPath = path.join(author.path, "axm.json");
     const consumerSettingsPath = path.join(consumer.path, "axm.json");
-    const consumerLockPath = path.join(consumer.path, "axm-lock.yaml");
-    const readConsumerLock = () => YAML.parse(fs.readFileSync(consumerLockPath, "utf-8"));
+    const consumerLockPath = path.join(consumer.path, "axm.lock");
+    const readConsumerLock = () => readLockfile(consumerLockPath);
 
     try {
       for (const workspace of [author, consumer]) {
@@ -1269,11 +1255,9 @@ describe("axm packs install", () => {
         },
       );
       expect(installed.exitCode, installed.stdout + installed.stderr).toBe(0);
-      expect(
-        readConsumerLock().packages[readConsumerLock().packs?.["reconciled-pack"].package],
-      ).toMatchObject({
-        source: { type: "registry" },
-        resolved: { version: "0.0.1" },
+      expect(boundPackage(readConsumerLock(), "packs", "reconciled-pack")).toMatchObject({
+        source: { registry: expect.any(String) },
+        version: "0.0.1",
       });
       const memberProjection = path.join(consumer.path, ".claude", "skills", "reconciled-member");
       expect(fs.lstatSync(memberProjection).isSymbolicLink()).toBe(true);
@@ -1305,10 +1289,7 @@ describe("axm packs install", () => {
       expect(fs.lstatSync(memberProjection).isSymbolicLink()).toBe(true);
       expect(fs.readFileSync(consumerSettingsPath, "utf-8")).toBe(settingsBefore);
       expect(fs.readFileSync(consumerLockPath, "utf-8")).toBe(lockBefore);
-      expect(
-        readConsumerLock().packages[readConsumerLock().packs["reconciled-pack"].package].resolved
-          .version,
-      ).toBe("0.0.1");
+      expect(boundPackage(readConsumerLock(), "packs", "reconciled-pack").version).toBe("0.0.1");
 
       const second = await runCli(["sync", "--json"], { cwd: consumer.path });
       expect(second.exitCode, second.stdout + second.stderr).toBe(0);
@@ -1324,7 +1305,7 @@ describe("axm packs install", () => {
   });
 
   it("--preview shows plan without applying changes", async () => {
-    const { temp, registryDir, settingsPath, lockPath, readSettings, readLock, cleanup } =
+    const { temp, registryDir, settingsPath, lockPath, readSettings, cleanup } =
       setupWorkspaceWithRegistry();
     try {
       await runCli(["setup", "--yes", "--scope", "project", "--agent", "claude-code"], {
@@ -1352,9 +1333,7 @@ describe("axm packs install", () => {
       delete settingsBefore.packs?.["preview-pack"];
       fs.writeFileSync(settingsPath, JSON.stringify(settingsBefore, null, 2));
 
-      const lockBefore = readLock();
-      if (lockBefore.packs) delete lockBefore.packs["preview-pack"];
-      fs.writeFileSync(path.join(temp.path, "axm-lock.yaml"), YAML.stringify(lockBefore));
+      withdrawLockBinding(lockPath, "packs", "preview-pack");
 
       fs.rmSync(path.join(temp.path, "packs", "preview-pack"), {
         recursive: true,
@@ -1410,7 +1389,7 @@ describe("axm packs uninstall", () => {
       const temp = await createWorkspacePack("workspace-pack");
       try {
         const settingsPath = path.join(temp.path, "axm.json");
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm.lock");
         const packageDir = path.join(temp.path, "packs", "workspace-pack");
         const before = {
           settings: fs.readFileSync(settingsPath, "utf8"),
@@ -1451,9 +1430,7 @@ describe("axm packs uninstall", () => {
         expect(JSON.parse(fs.readFileSync(settingsPath, "utf8")).packs?.["workspace-pack"]).toBe(
           undefined,
         );
-        expect(YAML.parse(fs.readFileSync(lockPath, "utf8")).packs?.["workspace-pack"]).toBe(
-          undefined,
-        );
+        expect(readLockfile(lockPath).packs?.["workspace-pack"]).toBe(undefined);
         expect(fs.readFileSync(path.join(packageDir, "pack.json"), "utf8")).toBe(before.manifest);
       } finally {
         temp.cleanup();
@@ -1599,7 +1576,7 @@ describe("axm packs list", () => {
       detachWorkspacePack(
         temp.path,
         settingsPath,
-        path.join(temp.path, "axm-lock.yaml"),
+        path.join(temp.path, "axm.lock"),
         "listable-pack",
       );
 
@@ -1641,7 +1618,7 @@ describe("pack-contributed rules", () => {
     const registryDir = createTempDir("axm-registry-");
     const registryUrl = `file://${registryDir.path}`;
     const instructionsPath = path.join(consumer.path, "AGENTS.md");
-    const lockPath = path.join(consumer.path, "axm-lock.yaml");
+    const lockPath = path.join(consumer.path, "axm.lock");
     const readInstructions = () => fs.readFileSync(instructionsPath, "utf-8");
 
     const sync = async (args: ReadonlyArray<string>) => {
@@ -1726,8 +1703,8 @@ describe("pack-contributed rules", () => {
         "stale recorded generation": () => {
           fs.writeFileSync(instructionsPath, edited);
           const stale = acceptedLock.replace(
-            /gen: sha256:[0-9a-f]{64}/u,
-            `gen: sha256:${"0".repeat(64)}`,
+            /gen = "sha256:[0-9a-f]{64}"/u,
+            `gen = "sha256:${"0".repeat(64)}"`,
           );
           expect(stale).not.toBe(acceptedLock);
           fs.writeFileSync(lockPath, stale);

@@ -15,7 +15,7 @@ describe("extension path helpers", () => {
     workspaceRoot,
     projectRoot: workspaceRoot,
     settingsPath: decodeAbsolutePathSync("/workspace/axm.json"),
-    lockPath: decodeAbsolutePathSync("/workspace/axm-lock.yaml"),
+    lockPath: decodeAbsolutePathSync("/workspace/axm.lock"),
     runtimeDir: decodeAbsolutePathSync("/workspace/.axm"),
     acquiredRoot: decodeAbsolutePathSync("/workspace/agent_extensions"),
     authoredRoot: (type) => decodeAbsolutePathSync(`/workspace/${type}s`),

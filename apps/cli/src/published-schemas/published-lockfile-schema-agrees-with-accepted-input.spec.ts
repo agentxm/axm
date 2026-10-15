@@ -34,6 +34,9 @@ const requireFromSpec = createRequire(import.meta.url);
 const decodeJsonRecord = Schema.decodeUnknownSync(Schema.Record(Schema.String, Schema.Unknown));
 const decodeNumberArray = Schema.decodeUnknownSync(Schema.Array(Schema.Number));
 const decodeStringArray = Schema.decodeUnknownSync(Schema.Array(Schema.String));
+const decodeRecordArray = Schema.decodeUnknownSync(
+  Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
+);
 
 // Bind to the generated source document that release packaging publishes.
 const publishedLockfileSchema = (): Record<string, unknown> => {
@@ -57,9 +60,7 @@ const lockfileDefinition = (document: Record<string, unknown>): Record<string, u
 };
 
 const admittedVersions = (document: Record<string, unknown>): ReadonlyArray<number> =>
-  decodeNumberArray(
-    child(child(lockfileDefinition(document), "properties"), "lockfileVersion")["enum"],
-  );
+  decodeNumberArray(child(child(lockfileDefinition(document), "properties"), "version")["enum"]);
 
 const requiredFields = (document: Record<string, unknown>): ReadonlyArray<string> =>
   decodeStringArray(lockfileDefinition(document)["required"]);
@@ -67,11 +68,8 @@ const requiredFields = (document: Record<string, unknown>): ReadonlyArray<string
 /** A value the product accepts for each field the published document may require. */
 const minimalValueFor = (field: string, version: number): unknown => {
   switch (field) {
-    case "lockfileVersion":
+    case "version":
       return version;
-    case "packages":
-    case "skills":
-      return {};
     default:
       throw new Error(
         `The published schema requires \`${field}\`, which this specification cannot supply.`,
@@ -93,23 +91,22 @@ describe("Published lockfile schema", () => {
   it.effect("every acquired Pack requires its accepted dependency declaration", () =>
     Effect.gen(function* () {
       const document = publishedLockfileSchema();
-      const packMap = child(child(lockfileDefinition(document), "properties"), "packs");
-      const variants = Schema.decodeUnknownSync(
-        Schema.Array(Schema.Record(Schema.String, Schema.Unknown)),
-      )(packMap["anyOf"]);
-      const map = variants.find((variant) => variant["type"] === "object");
-      if (map === undefined) throw new Error("Expected Pack binding map");
-      const binding = child(map, "additionalProperties");
-      expect(decodeStringArray(binding["required"])).toEqual(
-        expect.arrayContaining([
-          "package",
-          "identity",
-          "dependencies",
-          "manifestVersion",
-          "manifestContentIdentity",
-        ]),
+      const properties = child(lockfileDefinition(document), "properties");
+      const records = decodeRecordArray(child(child(properties, "package"), "items")["anyOf"]);
+      const packCapable = records.filter((record) =>
+        Object.hasOwn(child(record, "properties"), "manifest-version"),
       );
-      expect(child(binding, "properties")).not.toHaveProperty("members");
+      expect(packCapable.length).toBeGreaterThan(0);
+      for (const record of packCapable) {
+        expect(Object.keys(child(record, "properties"))).toEqual(
+          expect.arrayContaining(["dependencies", "manifest-version", "manifest-identity"]),
+        );
+      }
+      const binding = child(child(properties, "packs"), "additionalProperties");
+      expect(decodeStringArray(binding["required"])).toEqual(["package", "name"]);
+      for (const field of ["dependencies", "manifest-version", "members"]) {
+        expect(child(binding, "properties")).not.toHaveProperty(field);
+      }
       const manifest = {
         owner: "@acme",
         type: "pack",
@@ -146,13 +143,15 @@ describe("Published lockfile schema", () => {
         const row = { ...common, ...resolution };
         const stored = storedLockfileFixture({ packs: { tools: row } });
         yield* decodeLockfile(stored);
-        const binding = stored.packs?.["tools"];
-        if (binding === undefined) throw new Error("Expected Pack binding");
-        for (const field of ["dependencies", "manifestVersion", "manifestContentIdentity"]) {
+        const packageId = stored.packs?.["tools"]?.package;
+        const record = stored.package?.find((candidate) => candidate.id === packageId);
+        if (record === undefined) throw new Error("Expected the Pack's package record");
+        for (const field of ["dependencies", "manifest-version", "manifest-identity"]) {
+          expect(record).toHaveProperty(field);
           const missing = Object.fromEntries(
-            Object.entries(binding).filter(([key]) => key !== field),
+            Object.entries(record).filter(([key]) => key !== field),
           );
-          yield* decodeLockfile({ ...stored, packs: { tools: missing } }).pipe(Effect.flip);
+          yield* decodeLockfile({ ...stored, package: [missing] }).pipe(Effect.flip);
         }
       }
     }),
@@ -183,7 +182,7 @@ describe("Published lockfile schema", () => {
       for (const other of [version - 1, version + 1]) {
         yield* decodeLockfile({
           ...minimalLockfile(document, version),
-          lockfileVersion: other,
+          version: other,
         }).pipe(Effect.flip);
       }
     }),

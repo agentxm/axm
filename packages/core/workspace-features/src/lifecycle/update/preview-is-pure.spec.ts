@@ -100,14 +100,14 @@ const rows: ReadonlyArray<PreviewRow> = [
       Effect.gen(function* () {
         registry.writeSkill(REVIEW, [{ version: "1.0.0", body: "First guidance." }]);
         yield* installFrom(`@acme/skills/${REVIEW}`, "skill");
-        expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+        expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
         registry.writeSkill(REVIEW, [
           { version: "2.0.0", body: "Second guidance." },
           { version: "1.0.0", body: "First guidance." },
         ]);
       }),
     expectUnadvanced: (workspace) => {
-      expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+      expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
       expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain("First guidance.");
     },
   },
@@ -128,7 +128,7 @@ const rows: ReadonlyArray<PreviewRow> = [
         ]);
       }),
     expectUnadvanced: (workspace) => {
-      expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+      expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
       expect(workspace.readFile(`.claude/agents/${RESEARCHER}.md`)).toContain(
         "Research carefully.",
       );
@@ -185,16 +185,16 @@ const rows: ReadonlyArray<PreviewRow> = [
       Effect.gen(function* () {
         registry.writeKnowledge(PLATFORM, [{ version: "1.0.0", body: "First guidance." }]);
         yield* installFrom(`@acme/knowledge/${PLATFORM}`, "knowledge");
-        expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+        expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
         registry.writeKnowledge(PLATFORM, [
           { version: "1.0.0", body: "First guidance." },
           { version: "2.0.0", body: "Second guidance." },
         ]);
       }),
     expectUnadvanced: (workspace) => {
-      const lock = workspace.readFile("axm-lock.yaml");
-      expect(lock).toContain("version: 1.0.0");
-      expect(lock).not.toContain("version: 2.0.0");
+      const lock = workspace.readFile("axm.lock");
+      expect(lock).toContain('version = "1.0.0"');
+      expect(lock).not.toContain('version = "2.0.0"');
     },
   },
   {
@@ -208,8 +208,8 @@ const rows: ReadonlyArray<PreviewRow> = [
         registry.writeMcp(CONTEXT, [{ version: "1.0.0" }, { version: "2.0.0" }]);
       }),
     expectUnadvanced: (workspace) => {
-      const lock = workspace.readFile("axm-lock.yaml");
-      expect(lock).toContain("version: 1.0.0");
+      const lock = workspace.readFile("axm.lock");
+      expect(lock).toContain('version = "1.0.0"');
       expect(lock).not.toContain("2.0.0");
     },
   },
@@ -221,7 +221,7 @@ const rows: ReadonlyArray<PreviewRow> = [
     // applying update would resolve, accept, and realize the whole closure.
     seed: () => Effect.void,
     expectUnadvanced: (workspace) => {
-      expect(workspace.readFile("axm-lock.yaml")).not.toContain(TOOLKIT);
+      expect(workspace.readFile("axm.lock")).not.toContain(TOOLKIT);
       expect(workspace.exists("agent_extensions")).toBe(false);
     },
   },
@@ -358,7 +358,7 @@ describe("Update preview purity", () => {
             ]);
             expect(countUnitStates(resolution.units).committed).toBe(0);
             expect(workspace.snapshot()).toEqual(before);
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain(TOOLKIT);
+            expect(workspace.readFile("axm.lock")).not.toContain(TOOLKIT);
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
           }),
         )
@@ -388,7 +388,7 @@ describe("Update preview purity", () => {
             expect(deriveOperationOutcome(previewed)).toBe("previewed");
             expect(countUnitStates(previewed.units)).toMatchObject({ total: 1, committed: 0 });
             expect(workspace.snapshot()).toEqual(before);
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
             expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
 
             const applied = expectResolved(
@@ -396,7 +396,7 @@ describe("Update preview purity", () => {
             );
 
             expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.1.0"');
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "Second guidance.",
             );
@@ -443,7 +443,7 @@ describe("Update preview purity", () => {
             );
 
             expect(deriveOperationOutcome(applied)).toBe("applied");
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
             expect(workspace.readFile(projection)).toContain(advanced);
           }),
         )

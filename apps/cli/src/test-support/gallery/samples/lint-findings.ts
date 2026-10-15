@@ -27,7 +27,7 @@ export const staleLockfile = finding(
   "error",
   "workspace/lockfile-valid",
   "Lockfile is stale",
-  "axm-lock.yaml",
+  "axm.lock",
   { details: ["2 entries do not match axm.json."], fixable: true },
 );
 

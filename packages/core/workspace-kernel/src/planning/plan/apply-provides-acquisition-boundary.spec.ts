@@ -76,9 +76,7 @@ describe("Acquisition boundary during apply", () => {
       expect(result.units[0]?.state).toBe("committed");
       expect(guarded).toBe(true);
       expect(yield* fs.readFileString(workspace.settingsPath)).toBe('{\n  "skills": {}\n}\n');
-      expect(yield* fs.readFileString(workspace.lockPath)).toBe(
-        "lockfileVersion: 12\npackages: {}\nskills: {}\n",
-      );
+      expect(yield* fs.readFileString(workspace.lockPath)).toBe("version = 1\n");
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
   );
 });

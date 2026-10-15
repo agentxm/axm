@@ -27,6 +27,10 @@ import { planZipArchive } from "../archive.js";
 import { publishArchiveOptions } from "../publish-selection.js";
 
 import { formatFqn } from "@agentxm/extension-model/unstable/extensions";
+import {
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "@agentxm/extension-model/unstable/workspace-files";
 import type { SuggestedAction } from "@agentxm/registry-protocol/unstable/suggested-action";
 import {
   PreviewPublicationSetResponseSchema,
@@ -801,8 +805,8 @@ export const previewOrApply = Effect.fn("PublishExtensions.previewOrApply")(func
         const scope = yield* scopes.forWorkspace({
           workspaceDir: path.join(root, ".axm"),
           nativeRoot: root,
-          settingsPath: path.join(root, "axm.json"),
-          lockPath: path.join(root, "axm-lock.yaml"),
+          settingsPath: path.join(root, SETTINGS_FILENAME),
+          lockPath: path.join(root, LOCKFILE_NAME),
         });
         return yield* resolution.pipe(Effect.provideService(WorkspaceTransactionScope, scope));
       }),

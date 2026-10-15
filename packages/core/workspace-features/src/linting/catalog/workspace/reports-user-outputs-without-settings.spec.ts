@@ -11,6 +11,7 @@ import {
 
 import { lintProjectWithHome, lintServices } from "../../test-helpers.js";
 import { isolatedLintRules, makeLintWorkspace } from "../../testing.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export const specification = defineSpecification({
   requirement: "cli/lint/reports-user-outputs-without-settings",
@@ -56,9 +57,9 @@ describe("User outputs without settings", () => {
     const home = makeLintWorkspace({
       files: {
         [`${CANONICAL}/SKILL.md`]: skill("review"),
-        ".axm/workspace/axm-lock.yaml": JSON.stringify(
+        ".axm/workspace/axm.lock": emitLockfileToml(
           storedLockfileFixture({
-            lockfileVersion: 12,
+            lockfileVersion: 1,
             skills: {
               review: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@acme"),
@@ -107,7 +108,7 @@ describe("User outputs without settings", () => {
       });
       const home = makeLintWorkspace({
         files: {
-          ".axm/workspace/axm-lock.yaml": JSON.stringify(
+          ".axm/workspace/axm.lock": emitLockfileToml(
             storedLockfileFixture({ subagents: { reviewer: subagentEntry("reviewer") } }),
           ),
           ".claude/agents/reviewer.md": subagent("reviewer"),

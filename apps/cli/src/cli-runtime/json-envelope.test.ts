@@ -145,7 +145,7 @@ describe("JsonEnvelopeSchema", () => {
         detail: "The workspace requires a newer AXM.",
         problem: {
           code: "workspace-lockfile-version-unsupported",
-          path: "/workspace/axm-lock.yaml",
+          path: "/workspace/axm.lock",
           observedVersion: 7,
           supportedVersion: 7,
           direction: "newer",
@@ -167,7 +167,7 @@ describe("JsonEnvelopeSchema", () => {
       detail: "The workspace requires a newer AXM.",
       problem: {
         code: "workspace-lockfile-version-unsupported",
-        path: "/workspace/axm-lock.yaml",
+        path: "/workspace/axm.lock",
         observedVersion: 7,
         supportedVersion: 7,
         direction: "newer",

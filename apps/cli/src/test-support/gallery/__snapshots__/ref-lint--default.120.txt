@@ -1,7 +1,7 @@
 Linting  in this project
 
      Finding                       Location                 Fix
- ✖   Lockfile is stale             axm-lock.yaml            fixable
+ ✖   Lockfile is stale             axm.lock                 fixable
      workspace/lockfile-valid — 2 entries do not match axm.json
  ✖   Description is missing        skills/triage/SKILL.md
      skill/description-present — Agents choose skills by description

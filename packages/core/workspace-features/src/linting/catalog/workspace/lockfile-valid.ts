@@ -6,7 +6,10 @@ import * as Result from "effect/Result";
 import { isWorkspaceSourceLocator } from "@agentxm/extension-model/unstable/sources/workspace";
 import type { WorkspaceRuleContext } from "../../workspace-context.js";
 import type { AdvisoryFinding, AdvisoryRule } from "@agentxm/extension-content/lint";
-import { lockfileDisplayPath } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  lockfileDisplayPath,
+  workspaceFileDisplayPath,
+} from "@agentxm/workspace-kernel/workspace-state";
 
 const RULE_ID = "workspace/lockfile-valid";
 
@@ -38,6 +41,17 @@ export const lockfileValidRule: AdvisoryRule<WorkspaceRuleContext> = {
               lockfilePath,
             ),
           );
+        }
+        if (lockfileResult.failure._tag === "LockfileVersionUnsupported") {
+          // The refused file may be a legacy lockfile beside the expected one.
+          const { path, observedVersion, supportedVersion } = lockfileResult.failure;
+          const file = path.slice(Math.max(path.lastIndexOf("/"), path.lastIndexOf("\\")) + 1);
+          return [
+            finding(
+              `The accepted external-resolution lockfile uses version ${observedVersion}, but this AXM supports version ${supportedVersion}.`,
+              workspaceFileDisplayPath(context.subject.scope, file),
+            ),
+          ];
         }
         return [
           finding(

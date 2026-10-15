@@ -1,7 +1,11 @@
 import { storedLockfileFixture } from "@agentxm/workspace-kernel/workspace-state/testing";
 import { gitPackagePath, fileRegistryPackagePath } from "../testing/install-world.js";
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 
@@ -9,7 +13,6 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { WorkspaceSyncFailed } from "@agentxm/workspace-kernel/reconciliation";
@@ -99,7 +102,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
         .provide(
           Effect.gen(function* () {
             yield* applySync();
-            const lock = workspace.readFile("axm-lock.yaml");
+            const lock = workspace.readFile("axm.lock");
             const settings = workspace.readFile("axm.json");
             workspace.remove(fileRegistryPackagePath(published, "packs", "toolkit"));
             published.writePack("toolkit", [
@@ -112,7 +115,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
                 `${fileRegistryPackagePath(published, "packs", "toolkit")}/pack.json`,
               ),
             ).toContain(SKILL);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lock);
+            expect(workspace.readFile("axm.lock")).toBe(lock);
             expect(workspace.readFile("axm.json")).toBe(settings);
             expect((yield* applySync())._tag).toBe("AlreadyReconciled");
           }),
@@ -186,7 +189,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             // Both Packs accept the newest member version they admit, then the
             // person pins the member directly, in the form install records.
             yield* applySync();
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.2.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.2.0"');
             workspace.writeSettings({
               owner: "@acme",
               ...configured,
@@ -236,7 +239,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
             expect(workspace.readFile(`${canonical}/src/SKILL.md`)).toContain("Accepted guidance.");
             const settingsBefore = workspace.readFile("axm.json");
-            const lockBefore = workspace.readFile("axm-lock.yaml");
+            const lockBefore = workspace.readFile("axm.lock");
             expect(lockBefore).toContain(remote.acceptedCommit);
 
             workspace.remove(canonical);
@@ -251,7 +254,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             expect(workspace.readFile(`${canonical}/src/SKILL.md`)).toContain("Accepted guidance.");
             expect(workspace.readFile(`${canonical}/src/SKILL.md`)).not.toContain("New guidance.");
             expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockBefore);
             expect((yield* applySync())._tag).toBe("AlreadyReconciled");
           }),
         );
@@ -279,7 +282,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           fs.utimesSync(canonicalFile, retainedTime, retainedTime);
           const before = fs.statSync(canonicalFile).mtimeMs;
           const settings = workspace.readFile("axm.json");
-          const lock = workspace.readFile("axm-lock.yaml");
+          const lock = workspace.readFile("axm.lock");
 
           workspace.remove(CLAUDE_PROJECTION);
           remote.replaceHistory();
@@ -289,7 +292,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           );
           expect(fs.statSync(canonicalFile).mtimeMs).toBe(before);
           expect(workspace.readFile("axm.json")).toBe(settings);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lock);
+          expect(workspace.readFile("axm.lock")).toBe(lock);
           expect((yield* applySync())._tag).toBe("AlreadyReconciled");
         }),
       );
@@ -337,7 +340,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           Effect.gen(function* () {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
             const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-              YAML.parse(workspace.readFile("axm-lock.yaml")),
+              parseLockfileToml(workspace.readFile("axm.lock")),
             );
             if (!isRecord(lock) || !isRecord(lock["skills"])) {
               throw new Error("Expected skill lock entry");
@@ -351,7 +354,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             } else {
               entry["resolved"]["tree"] = "0".repeat(40);
             }
-            workspace.writeFile("axm-lock.yaml", YAML.stringify(storedLockfileFixture(lock)));
+            workspace.writeFile("axm.lock", emitLockfileToml(storedLockfileFixture(lock)));
             workspace.remove(gitPackagePath(remote.url, `vendor/${SKILL}`));
             const before = workspace.snapshot();
             const refusal = yield* applySync().pipe(Effect.flip);
@@ -404,7 +407,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           // Both Packs admit 1.2.0, but the direct pin is a contributor too:
           // recovery and the direct entry settle on the one version all admit.
           const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-            YAML.parse(workspace.readFile("axm-lock.yaml")),
+            parseLockfileToml(workspace.readFile("axm.lock")),
           );
           if (!isRecord(lock) || !isRecord(lock["skills"])) {
             throw new Error("Expected skill lock entries");
@@ -436,20 +439,19 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           yield* applySync();
 
           // The repository re-serializes both documents equivalently: four
-          // spaces, and a comment the owner added to the lockfile.
+          // spaces in the settings, and compact key/value pairs and a comment
+          // the owner added to the lockfile.
           const settingsBefore = `${JSON.stringify(workspace.readSettings(), null, 4)}\n`;
           workspace.writeFile("axm.json", settingsBefore);
-          const decodedLockfile: unknown = YAML.parse(workspace.readFile("axm-lock.yaml"));
-          const lockfileBefore = `# Repository-owned YAML serialization\n${YAML.stringify(
-            decodedLockfile,
-            { indent: 4 },
-          )}`;
-          workspace.writeFile("axm-lock.yaml", lockfileBefore);
+          const canonicalLockfile = workspace.readFile("axm.lock");
+          const lockfileBefore = `# Repository-owned TOML serialization\n${canonicalLockfile.replaceAll(" = ", "=")}`;
+          expect(parseLockfileToml(lockfileBefore)).toEqual(parseLockfileToml(canonicalLockfile));
+          workspace.writeFile("axm.lock", lockfileBefore);
 
           const outcome = yield* applySync();
 
           expect(workspace.readFile("axm.json")).toBe(settingsBefore);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+          expect(workspace.readFile("axm.lock")).toBe(lockfileBefore);
           expect(outcome._tag).toBe("AlreadyReconciled");
         }),
       )
@@ -479,7 +481,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
               { version: "1.0.0", body: "First guidance." },
             ]);
             const settingsBefore = JSON.stringify(workspace.readSettings());
-            const lockfileBefore = workspace.readFile("axm-lock.yaml");
+            const lockfileBefore = workspace.readFile("axm.lock");
             workspace.remove(CLAUDE_PROJECTION);
 
             yield* applySync();
@@ -487,7 +489,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
             expect(workspace.readFile(`${CLAUDE_PROJECTION}/SKILL.md`)).toContain(
               "First guidance.",
             );
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockfileBefore);
             expect(JSON.stringify(workspace.readSettings())).toBe(settingsBefore);
           }),
         )

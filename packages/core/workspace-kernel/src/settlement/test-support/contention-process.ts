@@ -66,7 +66,7 @@ await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
 })).pipe(Effect.provide(WorkspaceTransactionScopeLive({
   workspaceDir: path.join(root, ".axm"),
   settingsPath: path.join(root, "axm.json"),
-  lockPath: path.join(root, "axm-lock.yaml"),
+  lockPath: path.join(root, "axm.lock"),
 })), Effect.provide(NodeServices.layer)));
 send("released");
 process.disconnect?.();

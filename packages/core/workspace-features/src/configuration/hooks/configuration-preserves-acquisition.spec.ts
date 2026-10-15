@@ -99,7 +99,7 @@ describe("Configuring installed hook extensions", () => {
                 );
                 expect(deriveOperationOutcome(installed)).toBe("applied");
               }
-              const lock = world.workspace.readFile("axm-lock.yaml");
+              const lock = world.workspace.readFile("axm.lock");
               const content = world.workspace.readFile(
                 `${fileRegistryPackagePath(world.registry, "hooks", "audit")}/hook.json`,
               );
@@ -113,7 +113,7 @@ describe("Configuring installed hook extensions", () => {
               expect(native).not.toContain("original");
               expect(native).toContain("echo foreign");
               expect(native.match(/replacement/g)).toHaveLength(1);
-              expect(world.workspace.readFile("axm-lock.yaml")).toBe(lock);
+              expect(world.workspace.readFile("axm.lock")).toBe(lock);
               expect(
                 world.workspace.readFile(
                   `${fileRegistryPackagePath(world.registry, "hooks", "audit")}/hook.json`,

@@ -4,11 +4,14 @@ import * as Option from "effect/Option";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions";
-import { acceptedCanonicalObservation } from "@agentxm/workspace-kernel/workspace-state";
+import {
+  acceptedCanonicalObservation,
+  emitLockfileToml,
+  parseLockfileToml,
+} from "@agentxm/workspace-kernel/workspace-state";
 import {
   storedLockfileFixture,
   makeRegistrySkillLockEntry,
@@ -101,10 +104,10 @@ describe("Bundled official-skill recovery", () => {
       cleanups.push(world.cleanup);
       world.registry.writeSkill("review-helper", [{ version: "1.0.0", body: "Review guidance." }]);
       world.workspace.writeFile(
-        "axm-lock.yaml",
-        JSON.stringify(
+        "axm.lock",
+        emitLockfileToml(
           storedLockfileFixture({
-            lockfileVersion: 12,
+            lockfileVersion: 1,
             skills: {
               axm: makeRegistrySkillLockEntry({
                 owner: decodeHandleSync("@agentxm"),
@@ -126,7 +129,7 @@ describe("Bundled official-skill recovery", () => {
         .pipe(Effect.provide(NodeServices.layer));
 
       world.workspace.writeFile(STALE_COPY, STALE_MANIFEST);
-      const lockBefore: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+      const lockBefore: unknown = parseLockfileToml(world.workspace.readFile("axm.lock"));
       expect(lockBefore).toHaveProperty("skills.axm");
       expect(lockBefore).toHaveProperty("skills.review-helper");
       return world;
@@ -143,7 +146,7 @@ describe("Bundled official-skill recovery", () => {
         expect(readSettings(world.workspace)).toMatchObject({
           skills: { axm: { source: "workspace", origin: "bundled" } },
         });
-        const lockAfter: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+        const lockAfter: unknown = parseLockfileToml(world.workspace.readFile("axm.lock"));
         expect(lockAfter).not.toHaveProperty("skills.axm");
         expect(lockAfter).toHaveProperty("skills.review-helper");
         expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
@@ -216,7 +219,7 @@ describe("Bundled official-skill recovery", () => {
       expect(readSettings(world.workspace)).toMatchObject({
         skills: { axm: { source: "workspace", origin: "bundled" } },
       });
-      const lockAfter: unknown = YAML.parse(world.workspace.readFile("axm-lock.yaml"));
+      const lockAfter: unknown = parseLockfileToml(world.workspace.readFile("axm.lock"));
       expect(lockAfter).not.toHaveProperty("skills.axm");
       expect(world.workspace.exists(CANONICAL_SKILL)).toBe(true);
     }),

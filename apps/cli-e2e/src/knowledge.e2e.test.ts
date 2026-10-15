@@ -2,6 +2,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import { lockfilePath, readLockfile } from "./test-support/lockfile.js";
 
 export const executionBinding = {
   requirements: [
@@ -749,7 +750,9 @@ describe("axm knowledge lifecycle", () => {
       );
       expect(fs.existsSync(path.join(canonical, "src", "architecture.md"))).toBe(true);
       expect(fs.existsSync(path.join(temp.path, ".agents", "knowledge"))).toBe(false);
-      expect(fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf8")).toContain("platform:");
+      expect(readLockfile(lockfilePath(temp.path)).knowledge?.["platform"]).toMatchObject({
+        package: expect.any(String),
+      });
       const installedInstructions = fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8");
       expect(installedInstructions).toContain("## Knowledge Bundles");
       expect(installedInstructions).toContain(
@@ -776,7 +779,9 @@ describe("axm knowledge lifecycle", () => {
       expect(fs.readFileSync(path.join(canonical, "src", "architecture.md"), "utf8")).toContain(
         "Updated architecture",
       );
-      expect(fs.readFileSync(path.join(temp.path, "axm-lock.yaml"), "utf8")).toContain("platform:");
+      expect(readLockfile(lockfilePath(temp.path)).knowledge?.["platform"]).toMatchObject({
+        package: expect.any(String),
+      });
       expect(fs.readFileSync(path.join(temp.path, "AGENTS.md"), "utf8")).toContain(
         "Updated platform guidance.",
       );

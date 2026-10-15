@@ -124,7 +124,7 @@ const initializeWorkspace = (
   const contents = makeWorkspaceFileContents(withTestRegistryDefault(options ?? {}));
   files.makeDirectory(path.join(workspaceRoot, ".axm"));
   files.writeFile(path.join(workspaceRoot, "axm.json"), contents.settings);
-  files.writeFile(path.join(workspaceRoot, "axm-lock.yaml"), contents.lockfile);
+  files.writeFile(path.join(workspaceRoot, "axm.lock"), contents.lockfile);
 };
 
 export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
@@ -234,7 +234,7 @@ export const makeSpecWorkspace = (options: SpecWorkspaceOptions = {}) => {
       files.writeFile(path.join(root, "axm.json"), `${JSON.stringify(normalized, null, 2)}\n`);
     },
     readLockfileText: (): string => {
-      const lockPath = path.join(root, "axm-lock.yaml");
+      const lockPath = path.join(root, "axm.lock");
       return files.exists(lockPath) ? files.readFileString(lockPath) : "";
     },
     exists: (relativePath: string): boolean => files.exists(path.join(root, relativePath)),

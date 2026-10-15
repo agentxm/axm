@@ -48,7 +48,7 @@ describe("Local inventory before setup", () => {
           const result = yield* ListExtensions.query({ filter: "all" });
           expect(result.document).toMatchObject({ items: [], count: 0, totalCount: 0 });
           expect(fixture.exists("axm.json")).toBe(false);
-          expect(fixture.exists("axm-lock.yaml")).toBe(false);
+          expect(fixture.exists("axm.lock")).toBe(false);
         }),
       )
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));
@@ -76,7 +76,7 @@ describe("Local inventory before setup", () => {
             ],
           });
           expect(fixture.exists("axm.json")).toBe(false);
-          expect(fixture.exists("axm-lock.yaml")).toBe(false);
+          expect(fixture.exists("axm.lock")).toBe(false);
           expect(fixture.readFile(".agents/skills/native-only/SKILL.md")).toContain("# Native");
         }),
       )
@@ -101,7 +101,7 @@ describe("Local inventory before setup", () => {
             const { inventory } = yield* row.read();
             expect(inventory).toMatchObject({ items: [], count: 0 });
             expect(fixture.exists("axm.json")).toBe(false);
-            expect(fixture.exists("axm-lock.yaml")).toBe(false);
+            expect(fixture.exists("axm.lock")).toBe(false);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(fixture.cleanup)));

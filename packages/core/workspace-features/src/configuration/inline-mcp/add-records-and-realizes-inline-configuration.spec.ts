@@ -140,7 +140,7 @@ describe("Add an inline MCP server", () => {
             ).toBe(1);
             // Inline configuration is authoritative — `cli/mcps/inline-entries-are-
             // authoritative-as-authored` owns that rule; this is its consequence here.
-            expect(fixture.readFile("axm-lock.yaml")).not.toContain("demo");
+            expect(fixture.readFile("axm.lock")).not.toContain("demo");
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));

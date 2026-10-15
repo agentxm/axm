@@ -3,17 +3,23 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 
 import { startHttpRegistry, type HttpRegistry } from "./e2e/http-registry-server.js";
 import { createTempDir, runCli } from "./e2e/utils.js";
+import {
+  LEGACY_LOCKFILE_NAME,
+  LOCKFILE_NAME,
+  LOCKFILE_VERSION,
+  boundPackage,
+  readLockfile,
+} from "./test-support/lockfile.js";
 import { initWorkspace } from "./test-support/published-registry.js";
 
 export const executionBinding = {
   requirements: ["cli/lockfile-rejections-name-recovery-routes"],
   boundary: "process",
   rationale:
-    "Runs the four steps the shipped rejection suggests verbatim through the real CLI process against an HTTP Registry — back up and remove the older lockfile, axm sync --preview, axm sync — and proves the workspace converges: a current-version lockfile accepts the shared Pack member at the direct pin every Pack admits, records the disabled MCP connection, and lint reports no findings.",
+    "Runs the four steps the shipped rejection of a legacy axm-lock.yaml suggests verbatim through the real CLI process against an HTTP Registry — back up and remove the legacy lockfile, axm sync --preview, axm sync — and proves the workspace converges: a current-version axm.lock accepts the shared Pack member at the direct pin every Pack admits, records the disabled MCP connection, and lint reports no findings.",
 } as const;
 
 const OWNER = "@test";
@@ -126,8 +132,11 @@ describe("rejected lockfile recovery", () => {
         packs: Object.fromEntries(PACKS.map((pack) => [pack.name, `${OWNER}/packs/${pack.name}`])),
         mcpServers: { [DISABLED_MCP.name]: { source: DISABLED_MCP.fqn, enabled: false } },
       });
-      const lockPath = path.join(workspace.path, "axm-lock.yaml");
-      fs.writeFileSync(lockPath, "lockfileVersion: 9\nskills: {}\n");
+      const lockPath = path.join(workspace.path, LOCKFILE_NAME);
+      const legacyPath = path.join(workspace.path, LEGACY_LOCKFILE_NAME);
+      // A workspace that predates the TOML lockfile holds only the legacy file.
+      fs.rmSync(lockPath, { force: true });
+      fs.writeFileSync(legacyPath, "lockfileVersion: 9\nskills: {}\n");
 
       const rejected = await run(["list", "--json"]);
       expect(rejected.exitCode, rejected.stdout + rejected.stderr).toBe(9);
@@ -136,8 +145,9 @@ describe("rejected lockfile recovery", () => {
         ok: false,
         problem: {
           code: "workspace-lockfile-version-unsupported",
+          path: fs.realpathSync(legacyPath),
           observedVersion: 9,
-          supportedVersion: 12,
+          supportedVersion: 1,
           direction: "older",
         },
       });
@@ -148,38 +158,29 @@ describe("rejected lockfile recovery", () => {
       ).toEqual(["axm sync --preview", "axm sync"]);
 
       // Back up the incompatible lockfile outside the workspace, then remove it.
-      const backupPath = path.join(backup.path, "axm-lock.yaml");
-      fs.copyFileSync(lockPath, backupPath);
-      fs.rmSync(lockPath);
+      const backupPath = path.join(backup.path, LEGACY_LOCKFILE_NAME);
+      fs.copyFileSync(legacyPath, backupPath);
+      fs.rmSync(legacyPath);
 
       expectSuccess(await run(["sync", "--preview", "--json"]));
       expect(fs.existsSync(lockPath)).toBe(false);
+      expect(fs.existsSync(legacyPath)).toBe(false);
       expectSuccess(await run(["sync", "--json"]));
+      expect(fs.existsSync(lockPath)).toBe(true);
+      expect(fs.existsSync(legacyPath)).toBe(false);
 
-      const lockfile: unknown = YAML.parse(fs.readFileSync(lockPath, "utf8"));
+      const lockfile = readLockfile(lockPath);
       expect(lockfile).toMatchObject({
-        lockfileVersion: 12,
+        version: LOCKFILE_VERSION,
         skills: { [MEMBER.name]: { package: expect.any(String) } },
       });
-      if (!isRecord(lockfile) || !isRecord(lockfile["packages"]) || !isRecord(lockfile["skills"]))
-        throw new Error("Expected normalized lockfile");
-      const member = lockfile["skills"][MEMBER.name];
-      if (!isRecord(member) || typeof member["package"] !== "string")
-        throw new Error("Expected member binding");
-      expect(lockfile["packages"][member["package"]]).toMatchObject({
-        resolved: { version: MEMBER_PIN },
+      expect(boundPackage(lockfile, "skills", MEMBER.name)).toMatchObject({
+        version: MEMBER_PIN,
       });
-      // The disabled connection is still accepted: its row is keyed by the
-      // Registry-qualified identity, so it is found by its identity fields.
-      expect(
-        isRecord(lockfile) && isRecord(lockfile["mcpServers"])
-          ? Object.values(lockfile["mcpServers"])
-          : [],
-      ).toContainEqual(
-        expect.objectContaining({
-          identity: { owner: OWNER, name: DISABLED_MCP.name },
-          package: expect.any(String),
-        }),
+      // The disabled connection is still accepted: its row names the
+      // Registry-qualified identity it was declared with.
+      expect(lockfile.mcp ?? []).toContainEqual(
+        expect.objectContaining({ name: DISABLED_MCP.fqn, package: expect.any(String) }),
       );
       expect(fs.readFileSync(backupPath, "utf8")).toContain("lockfileVersion: 9");
 

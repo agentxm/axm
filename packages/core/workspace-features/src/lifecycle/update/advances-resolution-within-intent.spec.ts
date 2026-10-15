@@ -1,6 +1,6 @@
 import { applySync } from "../../testing/sync-fixture.js";
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import { fileRegistryPackagePath } from "../../testing/install-world.js";
 import * as DateTime from "effect/DateTime";
 import * as fs from "node:fs";
@@ -9,7 +9,6 @@ import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { countUnitStates, deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
 import { defineSpecification } from "@agentxm/specification-metadata";
@@ -50,7 +49,7 @@ import {
 import { UpdateExtensions } from "./update-extensions.js";
 
 const lockSkill = (raw: string, name: string): unknown => {
-  const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(YAML.parse(raw));
+  const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(raw));
   if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) return undefined;
   if (typeof parsed.skills !== "object" || parsed.skills === null) return undefined;
   return Object.entries(parsed.skills).find(([key]) => key === name)?.[1];
@@ -115,7 +114,7 @@ it.effect("updates a member within a missing acquired Pack's accepted constraint
           expect(workspace.snapshot()).toEqual(before);
           const applied = expectResolved(yield* applyUpdate(request));
           expect(deriveOperationOutcome(applied), JSON.stringify(applied)).toBe("applied");
-          expect(lockSkill(workspace.readFile("axm-lock.yaml"), REVIEW)).toMatchObject({
+          expect(lockSkill(workspace.readFile("axm.lock"), REVIEW)).toMatchObject({
             resolved: { version: "1.1.0" },
           });
           expect(workspace.readFile(canonicalSkillDocument(registry))).toContain(
@@ -202,7 +201,7 @@ it.effect(
           ]);
           const resolution = expectResolved(yield* typeGroupSubagentUpdate(name));
           expect(deriveOperationOutcome(resolution), JSON.stringify(resolution)).toBe("applied");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
+          expect(workspace.readFile("axm.lock")).toContain('version = "1.1.0"');
           expect(workspace.readFile(`.claude/agents/${name}.md`)).toContain("Compatible reviewer.");
           expect(workspace.readFile("axm.json")).toBe(before);
         }),
@@ -300,7 +299,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
 
   const lockedVersion = (workspace: LifecycleFixture): unknown => {
     const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-      YAML.parse(workspace.readFile("axm-lock.yaml")),
+      parseLockfileToml(workspace.readFile("axm.lock")),
     );
     if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
     const locked = parsed.subagents;
@@ -337,7 +336,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
     () =>
       Effect.gen(function* () {
         const workspace = yield* acceptedThenRedeclared(SHARED_MEMBER_PIN.outside);
-        const lockBefore = workspace.readFile("axm-lock.yaml");
+        const lockBefore = workspace.readFile("axm.lock");
 
         const resolution = expectResolved(
           yield* workspace.provide(typeGroupSubagentUpdate(SHARED_SUBAGENT.name)),
@@ -352,7 +351,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
         for (const pack of SHARED_SUBAGENT_PACKS) {
           expect(refusal).toContain(`${pack.fqn} range=${pack.range}`);
         }
-        expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+        expect(workspace.readFile("axm.lock")).toBe(lockBefore);
       }).pipe(Effect.provide(NodeServices.layer)),
   );
 
@@ -403,7 +402,7 @@ it.effect.each(omittedActivationRows)(
         Effect.gen(function* () {
           publish(registry, [firstVersion]);
           yield* applySync();
-          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+          expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
           publish(registry, [firstVersion, { version: "2.0.0", body: "Second guidance." }]);
 
           // An omitted `enabled` is an enabled declaration, not a disabled one.
@@ -412,7 +411,7 @@ it.effect.each(omittedActivationRows)(
           );
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+          expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
         }),
       )
       .pipe(Effect.provide(NodeServices.layer), Effect.ensuring(Effect.sync(cleanup)));
@@ -479,11 +478,11 @@ describe.each(["targeted", "type-group"] as const)(
           .provide(
             Effect.gen(function* () {
               yield* acceptedThenPublished(registry, workspace);
-              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+              expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
 
               const resolution = expectResolved(yield* update());
 
-              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+              expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
               expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
                 "Second guidance.",
               );
@@ -514,7 +513,7 @@ describe.each(["targeted", "type-group"] as const)(
 
             const resolution = expectResolved(yield* update());
 
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.1.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.1.0"');
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "Compatible guidance.",
             );
@@ -548,7 +547,7 @@ describe.each(["targeted", "type-group"] as const)(
             const resolution = expectResolved(yield* update());
 
             expect(deriveOperationOutcome(resolution)).toBe("applied");
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.5.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.5.0"');
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "Fifth guidance.",
             );
@@ -570,8 +569,8 @@ describe.each(["targeted", "type-group"] as const)(
               });
 
               const held = expectResolved(yield* update());
-              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
-              expect(workspace.readFile("axm-lock.yaml")).not.toContain("version: 2.0.0");
+              expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
+              expect(workspace.readFile("axm.lock")).not.toContain('version = "2.0.0"');
               expect(held.releaseAge?.holdbacks).toEqual([
                 expect.objectContaining({ target: FQN, candidateVersion: "2.0.0" }),
               ]);
@@ -581,7 +580,7 @@ describe.each(["targeted", "type-group"] as const)(
                 yield* update().pipe(Effect.provideService(ReleaseAgePosture, "ignore")),
               );
               expect(deriveOperationOutcome(taken)).toBe("applied");
-              expect(workspace.readFile("axm-lock.yaml")).toContain("version: 2.0.0");
+              expect(workspace.readFile("axm.lock")).toContain('version = "2.0.0"');
               expect(taken.releaseAge?.bypasses).toEqual([
                 expect.objectContaining({
                   target: FQN,
@@ -616,7 +615,7 @@ describe.each(["targeted", "type-group"] as const)(
             expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).toContain(
               "First guidance.",
             );
-            expect(workspace.readFile("axm-lock.yaml")).toContain("version: 1.0.0");
+            expect(workspace.readFile("axm.lock")).toContain('version = "1.0.0"');
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -630,7 +629,7 @@ describe.each(["targeted", "type-group"] as const)(
             yield* acceptedThenPublished(registry, workspace);
             const settingsBefore = JSON.stringify(readSettings(workspace));
             const unrelatedProjection = workspace.readFile(`.claude/skills/${UNRELATED}/SKILL.md`);
-            const unrelatedAccepted = lockSkill(workspace.readFile("axm-lock.yaml"), UNRELATED);
+            const unrelatedAccepted = lockSkill(workspace.readFile("axm.lock"), UNRELATED);
             expect(unrelatedAccepted).toBeDefined();
 
             yield* update();
@@ -639,9 +638,7 @@ describe.each(["targeted", "type-group"] as const)(
             expect(workspace.readFile(`.claude/skills/${UNRELATED}/SKILL.md`)).toBe(
               unrelatedProjection,
             );
-            expect(lockSkill(workspace.readFile("axm-lock.yaml"), UNRELATED)).toEqual(
-              unrelatedAccepted,
-            );
+            expect(lockSkill(workspace.readFile("axm.lock"), UNRELATED)).toEqual(unrelatedAccepted);
             expect(
               workspace.readFile(
                 `agent_extensions/_local/project/vendor/${UNRELATED}/src/SKILL.md`,
@@ -659,12 +656,12 @@ describe.each(["targeted", "type-group"] as const)(
           Effect.gen(function* () {
             yield* acceptedThenPublished(registry, workspace);
             yield* update();
-            const lockfileAfterFirst = workspace.readFile("axm-lock.yaml");
+            const lockfileAfterFirst = workspace.readFile("axm.lock");
 
             const resolution = expectResolved(yield* update());
 
             expect(deriveOperationOutcome(resolution)).toBe("no-op");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileAfterFirst);
+            expect(workspace.readFile("axm.lock")).toBe(lockfileAfterFirst);
           }),
         )
         .pipe(Effect.provide(NodeServices.layer));
@@ -699,7 +696,7 @@ describe.each(["root", "type-group"] as const)(
             installRequest({ subject: { kind: "source", source: `${remote.url}#v1.0.0` } }),
           ),
         );
-        const lockBefore = workspace.readFile("axm-lock.yaml");
+        const lockBefore = workspace.readFile("axm.lock");
         expect(lockBefore).toContain(remote.acceptedCommit);
         remote.advance();
         remote.tag("v2.0.0");
@@ -710,7 +707,7 @@ describe.each(["root", "type-group"] as const)(
         expect(resolution.units.map((unit) => unit.message)).toEqual([
           `${REVIEW} is pinned to Git tag v1.0.0; newer tag v2.0.0 is available`,
         ]);
-        expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+        expect(workspace.readFile("axm.lock")).toBe(lockBefore);
         expect(workspace.readFile(`.claude/skills/${REVIEW}/SKILL.md`)).not.toContain(
           "New guidance.",
         );
@@ -782,7 +779,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
           const resolution = expectResolved(yield* workspace.provide(update()));
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          expect(lockSkill(workspace.readFile("axm-lock.yaml"), SHARED_MEMBER.name)).toMatchObject({
+          expect(lockSkill(workspace.readFile("axm.lock"), SHARED_MEMBER.name)).toMatchObject({
             resolved: { version: SHARED_MEMBER_PIN.inside },
           });
           expect(workspace.readFile(`.claude/skills/${SHARED_MEMBER.name}/SKILL.md`)).toContain(
@@ -817,7 +814,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
               );
             const pinned = `${SHARED_MEMBER.fqn}@${SHARED_MEMBER_PIN.inside}`;
             writeSettings(pinned);
-            const lockBefore = workspace.readFile("axm-lock.yaml");
+            const lockBefore = workspace.readFile("axm.lock");
 
             const resolution = yield* workspace.provide(
               Effect.gen(function* () {
@@ -838,7 +835,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
 
             expect(countUnitStates(resolution.units).committed).toBe(0);
             expect(resolution.blocking?.class).toBe("stale-candidate");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockBefore);
           }).pipe(Effect.provide(NodeServices.layer)),
       );
     }
@@ -855,7 +852,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
             const mirror = makeFileRegistry();
             cleanups.push(mirror.cleanup);
             const settings = readSettings(workspace);
-            const lockBefore = workspace.readFile("axm-lock.yaml");
+            const lockBefore = workspace.readFile("axm.lock");
 
             const resolution = yield* workspace.provide(
               Effect.gen(function* () {
@@ -894,7 +891,7 @@ describe.each(["configured", "targeted", "type-group"] as const)(
 
             expect(countUnitStates(resolution.units).committed).toBe(0);
             expect(resolution.blocking?.class).toBe("stale-candidate");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockBefore);
           }).pipe(Effect.provide(NodeServices.layer)),
       );
     }
@@ -1010,7 +1007,7 @@ describe("an accepted prerelease an unconstrained declaration does not admit", (
                 }),
               }),
             ]);
-            expect(lockSkill(workspace.readFile("axm-lock.yaml"), REVIEW)).toMatchObject({
+            expect(lockSkill(workspace.readFile("axm.lock"), REVIEW)).toMatchObject({
               resolved: { version: "1.9.0" },
             });
             expect(workspace.readFile("axm.json")).toBe(settings);

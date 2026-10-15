@@ -61,6 +61,7 @@ import {
   WorkspaceFileWriteLocksLive,
   WorkspaceTransactionScopesLive,
 } from "@agentxm/workspace-kernel/settlement/live";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export interface WorkspaceDirectoriesOptions {
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
@@ -116,8 +117,8 @@ export const makeWorkspaceDirectories = (options: WorkspaceDirectoriesOptions) =
   if (options.settings !== undefined) {
     writeSettings(options.settings);
     fs.writeFileSync(
-      nodePath.join(workspaceRoot, "axm-lock.yaml"),
-      JSON.stringify(storedLockfileFixture(options.lockfile ?? {})),
+      nodePath.join(workspaceRoot, "axm.lock"),
+      emitLockfileToml(storedLockfileFixture(options.lockfile ?? {})),
     );
   }
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {

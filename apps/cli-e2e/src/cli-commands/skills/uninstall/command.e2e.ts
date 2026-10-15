@@ -7,9 +7,9 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
-import YAML from "yaml";
 import { createTempDir, runCli, SKILLS_REPO_FIXTURE } from "../../../e2e/utils.js";
 import { getOutput } from "../../../test-helpers.js";
+import { readLockfile } from "../../../test-support/lockfile.js";
 
 const installedCanonicalSkillDir = (workspacePath: string, name: string): string =>
   path.dirname(fs.realpathSync(path.join(workspacePath, ".claude", "skills", name)));
@@ -51,8 +51,8 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(agentSkillDir)).toBe(false);
 
         // Verify skill is removed from lockfile
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
-        const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, "axm.lock");
+        const lock = readLockfile(lockPath);
         expect(lock.skills?.["my-skill"]).toBeUndefined();
 
         // Verify skill is removed from settings
@@ -196,7 +196,7 @@ describe("axm skills uninstall", () => {
         });
 
         // Get original file contents
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
+        const lockPath = path.join(temp.path, "axm.lock");
         const settingsPath = path.join(temp.path, "axm.json");
         const originalLock = fs.readFileSync(lockPath, "utf-8");
         const originalSettings = fs.readFileSync(settingsPath, "utf-8");
@@ -382,8 +382,8 @@ describe("axm skills uninstall", () => {
         expect(fs.existsSync(anotherSkillDir)).toBe(true);
 
         // Lockfile should only have another-skill
-        const lockPath = path.join(temp.path, "axm-lock.yaml");
-        const lock = YAML.parse(fs.readFileSync(lockPath, "utf-8"));
+        const lockPath = path.join(temp.path, "axm.lock");
+        const lock = readLockfile(lockPath);
         expect(lock.skills?.["my-skill"]).toBeUndefined();
         expect(lock.skills?.["another-skill"]).toBeDefined();
       } finally {

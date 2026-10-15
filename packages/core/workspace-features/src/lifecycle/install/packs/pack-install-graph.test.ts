@@ -144,7 +144,7 @@ describe("pack install graph", () => {
               `${fileRegistryPackagePath(registry, "skills", "official")}/src/SKILL.md`,
             ),
           ).toBe(true);
-          const lockfile = workspace.readFile("axm-lock.yaml");
+          const lockfile = workspace.readFile("axm.lock");
           expect(lockfile).toContain("mixed-pack");
           expect(lockfile).toContain("official");
           expect(lockfile).toContain("1.2.0");
@@ -350,7 +350,7 @@ describe("pack install graph", () => {
           const resolution = yield* applyInstall(packRequest("@acme/packs/toolkit"));
 
           expect(deriveOperationOutcome(resolution)).toBe("applied");
-          const lockfile = workspace.readFile("axm-lock.yaml");
+          const lockfile = workspace.readFile("axm.lock");
           expect(lockfile).toContain("review");
           expect(lockfile).toContain("guard");
           expect(lockfile).toContain("context");
@@ -375,11 +375,11 @@ describe("pack install graph", () => {
       .provide(
         Effect.gen(function* () {
           yield* applyInstall(packRequest("@acme/packs/toolkit@1.0.0"));
-          expect(workspace.readFile("axm-lock.yaml")).toContain("alpha");
+          expect(workspace.readFile("axm.lock")).toContain("alpha");
 
           yield* applyInstall(packRequest("@acme/packs/toolkit@2.0.0"));
 
-          const lockfile = workspace.readFile("axm-lock.yaml");
+          const lockfile = workspace.readFile("axm.lock");
           expect(lockfile).not.toContain("alpha");
           expect(lockfile).toContain("beta");
         }),
@@ -411,7 +411,7 @@ describe("pack install graph", () => {
           // The direct route still reaches alpha, so the pack's newer version
           // withdraws only its own claim on it.
           expect(JSON.stringify(readSettings(workspace))).toContain("alpha");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("alpha");
+          expect(workspace.readFile("axm.lock")).toContain("alpha");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

@@ -119,7 +119,7 @@ describe("Disabling instruction-file management", () => {
                 fileName: "AGENTS.md",
                 gitignoreAliases: false,
               });
-              expect(fixture.readFile("axm-lock.yaml")).toContain("CLAUDE.md");
+              expect(fixture.readFile("axm.lock")).toContain("CLAUDE.md");
               fixture.writeFile("CLAUDE.md", "Authored instructions.\n\nLocal note.\n");
 
               const outcome = yield* applyInstructionsRequest({ action: "disable" }).pipe(
@@ -130,7 +130,7 @@ describe("Disabling instruction-file management", () => {
               expect(readSettings(fixture)).toMatchObject({ instructionFiles: false });
               expect(fixture.exists("CLAUDE.md")).toBe(!discardModified);
               if (!discardModified) expect(fixture.readFile("CLAUDE.md")).toContain("Local note.");
-              expect(fixture.readFile("axm-lock.yaml")).not.toContain("CLAUDE.md");
+              expect(fixture.readFile("axm.lock")).not.toContain("CLAUDE.md");
             }),
           )
           .pipe(Effect.provide(platform.layer));

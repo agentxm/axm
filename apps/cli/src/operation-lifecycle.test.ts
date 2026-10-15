@@ -177,7 +177,7 @@ describe("withOperationLifecycle", () => {
             WorkspaceTransactionScopeLive({
               workspaceDir,
               settingsPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.json"),
-              lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm-lock.yaml"),
+              lockPath: nodePath.join(nodePath.dirname(workspaceDir), "axm.lock"),
             }),
           ).pipe(Layer.provideMerge(NodeServices.layer)),
         ),

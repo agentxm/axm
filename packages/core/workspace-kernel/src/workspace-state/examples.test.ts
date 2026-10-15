@@ -9,8 +9,12 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as Schema from "effect/Schema";
 import { describe, expect, it } from "vitest";
-import * as YAML from "yaml";
-import { LockfileSchema } from "./desired/lockfile/index.js";
+import {
+  emitLockfileToml,
+  LockfileSchema,
+  parseLockfileToml,
+  StoredLockfileSchema,
+} from "./desired/lockfile/index.js";
 import { SettingsSchema } from "./desired/settings/index.js";
 
 const SRC = import.meta.dirname;
@@ -20,18 +24,21 @@ function readJsonFile(filePath: string): unknown {
   return JSON.parse(content);
 }
 
-function readYamlFile(filePath: string): unknown {
-  const content = fs.readFileSync(filePath, "utf-8");
-  return YAML.parse(content);
-}
-
 describe("example files", () => {
-  it("axm-lock.example.yaml conforms to LockfileSchema", () => {
-    const example = readYamlFile(path.join(SRC, "desired/lockfile/axm-lock.example.yaml"));
-    const result = Schema.decodeUnknownSync(LockfileSchema)(example);
-    expect(result).toBeDefined();
-    expect(result.lockfileVersion).toBe(12);
+  it("axm.lock.example.toml conforms to LockfileSchema and is canonical", () => {
+    const bytes = fs.readFileSync(
+      path.join(SRC, "desired/lockfile/axm.lock.example.toml"),
+      "utf-8",
+    );
+    const example = parseLockfileToml(bytes);
+    const result = Schema.decodeUnknownSync(LockfileSchema)(example, { onExcessProperty: "error" });
+    expect(result.lockfileVersion).toBe(1);
     expect(result.skills["code-review"]).toBeDefined();
+    expect(Object.keys(result.mcpServers ?? {})).toHaveLength(1);
+    const stored = Schema.decodeUnknownSync(StoredLockfileSchema)(example, {
+      onExcessProperty: "error",
+    });
+    expect(emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(stored))).toBe(bytes);
   });
 
   it("settings.example.json conforms to SettingsSchema", () => {

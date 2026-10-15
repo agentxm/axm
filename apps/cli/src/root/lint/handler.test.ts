@@ -86,10 +86,7 @@ describe("axm lint handler", () => {
 
   const writeEmptyLockfile = () => {
     fs.mkdirSync(path.join(tempDir, ".axm"), { recursive: true });
-    fs.writeFileSync(
-      path.join(tempDir, "axm-lock.yaml"),
-      "lockfileVersion: 12\npackages: {}\nskills: {}\nmcpServers: {}\n",
-    );
+    fs.writeFileSync(path.join(tempDir, "axm.lock"), "version = 1\n");
   };
 
   const writeSubagentExtension = (name: string) => {
@@ -345,7 +342,7 @@ describe("axm lint handler", () => {
         // The skill's missing resolution is one fact; its absent agent
         // artifacts are not reported again.
         expect(stdout).not.toContain("workspace/skills-artifacts-correct");
-        expect(stdout).toContain("./axm-lock.yaml");
+        expect(stdout).toContain("./axm.lock");
         expect(stdout).toContain("./axm.json");
         expect(stdout).toContain("exit 1");
         // No finding here has a determined repair, so nothing points at --fix.
@@ -419,7 +416,7 @@ describe("axm lint handler", () => {
       agents: ["claude-code"],
       skills: { demo: sourceDir },
     });
-    fs.writeFileSync(path.join(tempDir, "axm-lock.yaml"), "lockfileVersion: [broken\n");
+    fs.writeFileSync(path.join(tempDir, "axm.lock"), "lockfileVersion: [broken\n");
     const installedDir = path.join(
       tempDir,
       "agent_extensions",

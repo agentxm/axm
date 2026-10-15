@@ -166,7 +166,7 @@ describe("KnowledgeManager graph-derived discovery projection", () => {
                 : {}),
               ...(args.instructionFiles === false ? {} : { instructionFiles: {} }),
             },
-            lockfile: { lockfileVersion: 12, skills: {}, knowledge: args.locked },
+            lockfile: { lockfileVersion: 1, skills: {}, knowledge: args.locked },
             graph: args.graph,
           }),
           Layer.mock(SettingsWriter, {}),

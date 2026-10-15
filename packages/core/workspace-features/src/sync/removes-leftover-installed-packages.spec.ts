@@ -293,7 +293,7 @@ describe("Sync removes leftover installed packages", () => {
             workspace.writeSettings(settings);
             const resolution = expectResolved(yield* applySync());
             expect(unitIds(resolution).some((id) => id.startsWith("leftover:"))).toBe(false);
-            expect(workspace.readFile("axm-lock.yaml")).not.toContain("workspaceName: review");
+            expect(workspace.readFile("axm.lock")).not.toMatch(/^review = /mu);
             expect((yield* applySync())._tag).toBe("AlreadyReconciled");
           }),
         )

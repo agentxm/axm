@@ -164,7 +164,7 @@ describe("Typed local-name lookup", () => {
     return fixture
       .provide(
         Effect.gen(function* () {
-          expect(fixture.readFile("axm-lock.yaml")).toContain("@stale");
+          expect(fixture.readFile("axm.lock")).toContain("@stale");
           const targetRegistry = yield* resolveViewRegistry(Option.none());
           const parts = yield* resolveViewHandle({
             handle: "review",

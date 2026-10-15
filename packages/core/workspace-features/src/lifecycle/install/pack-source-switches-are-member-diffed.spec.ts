@@ -290,8 +290,8 @@ describe("Pack source switches", () => {
             });
             const applied = yield* resolveInstall(request);
             expect(applied.units.every((unit) => unit.state === "committed")).toBe(true);
-            const lockfile = workspace.readFile("axm-lock.yaml");
-            expect(lockfile).toContain("type: registry");
+            const lockfile = workspace.readFile("axm.lock");
+            expect(lockfile).toContain("{ registry = ");
             expect(lockfile).toContain("added");
             expect(lockfile).toContain("retained");
             expect(lockfile).not.toContain("removed");

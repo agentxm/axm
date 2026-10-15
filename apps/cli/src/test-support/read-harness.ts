@@ -122,8 +122,7 @@ export const makeUninitializedReadSpecContext = () => {
     machine: true,
     wsOptions: { projectRoot: root, scope: "project", allowUninitialized: true },
   });
-  for (const file of ["axm.json", "axm-lock.yaml"])
-    fs.rmSync(path.join(root, file), { force: true });
+  for (const file of ["axm.json", "axm.lock"]) fs.rmSync(path.join(root, file), { force: true });
   const layer = Layer.provide(
     context.fullLayer,
     ConfigProvider.layer(ConfigProvider.fromEnv({ env: { AXM_USER_HOME: home } })),

@@ -356,21 +356,17 @@ const representatives: Representatives = {
   SettingsDecodeError: [
     new SettingsDecodeError({ path: "/w/axm.json", issues: ["agents must be an array"], raw: {} }),
   ],
-  LockfileIoError: [new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause })],
-  LockfileParseError: [
-    new LockfileParseError({ path: "/w/axm-lock.yaml", raw: ":", cause: ioCause }),
-  ],
-  LockfileDecodeError: [
-    new LockfileDecodeError({ path: "/w/axm-lock.yaml", issues: ["bad"], raw: {} }),
-  ],
+  LockfileIoError: [new LockfileIoError({ path: "/w/axm.lock", cause: ioCause })],
+  LockfileParseError: [new LockfileParseError({ path: "/w/axm.lock", raw: ":", cause: ioCause })],
+  LockfileDecodeError: [new LockfileDecodeError({ path: "/w/axm.lock", issues: ["bad"], raw: {} })],
   LockfileVersionUnsupported: [
     new LockfileVersionUnsupported({
-      path: "/w/axm-lock.yaml",
+      path: "/w/axm.lock",
       observedVersion: 5,
       supportedVersion: 7,
     }),
     new LockfileVersionUnsupported({
-      path: "/w/axm-lock.yaml",
+      path: "/w/axm.lock",
       observedVersion: 8,
       supportedVersion: 7,
     }),
@@ -389,11 +385,11 @@ const representatives: Representatives = {
     new SettingsWriteError({ path: "/w/axm.json", step: "encode", cause: new Error("bad") }),
   ],
   LockfileWriteError: [
-    new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "encode", cause: ioCause }),
-    new LockfileWriteError({ path: "/w/axm-lock.yaml", step: "rename", cause: ioCause }),
+    new LockfileWriteError({ path: "/w/axm.lock", step: "encode", cause: ioCause }),
+    new LockfileWriteError({ path: "/w/axm.lock", step: "rename", cause: ioCause }),
   ],
   LockfileValidationError: [
-    new LockfileValidationError({ path: "/w/axm-lock.yaml", step: "probe", cause: ioCause }),
+    new LockfileValidationError({ path: "/w/axm.lock", step: "probe", cause: ioCause }),
   ],
   LockfileResolvedVersionInvalid: [
     new LockfileResolvedVersionInvalid({ field: "version", value: "^1.2.3", cause: ioCause }),
@@ -667,9 +663,9 @@ const representatives: Representatives = {
   WorkspaceCatalogUnavailable: [
     new WorkspaceCatalogUnavailable({
       category: "validation",
-      detail: "Workspace lockfile at /w/axm-lock.yaml declares version 8.",
+      detail: "Workspace lockfile at /w/axm.lock declares version 8.",
       cause: new LockfileVersionUnsupported({
-        path: "/w/axm-lock.yaml",
+        path: "/w/axm.lock",
         observedVersion: 8,
         supportedVersion: 7,
       }),
@@ -1173,7 +1169,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
     Effect.gen(function* () {
       const lockfile = (observedVersion: number) =>
         new LockfileVersionUnsupported({
-          path: "/w/axm-lock.yaml",
+          path: "/w/axm.lock",
           observedVersion,
           supportedVersion: 7,
         });
@@ -1271,7 +1267,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
             "Repair the settings file permissions or restore the file, then re-run.",
           ],
           [
-            new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
+            new LockfileIoError({ path: "/w/axm.lock", cause: ioCause }),
             "Workspace lockfile unreadable",
             "Repair the lockfile permissions or restore a known-good copy, then re-run.",
           ],
@@ -1296,7 +1292,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
       const failures = [
         new McpSharedTargetConflict({ reason: "members disagree on the shared target" }),
         new LockfileVersionUnsupported({
-          path: "/w/axm-lock.yaml",
+          path: "/w/axm.lock",
           observedVersion: 8,
           supportedVersion: 7,
         }),
@@ -1328,7 +1324,7 @@ describe("A failure reads the same on the direct and plan paths", () => {
           constraint: "^1.0.0",
           workspaceVersion: "2.0.0",
         }),
-        new LockfileIoError({ path: "/w/axm-lock.yaml", cause: ioCause }),
+        new LockfileIoError({ path: "/w/axm.lock", cause: ioCause }),
       ];
       for (const failure of failures) {
         expect(rendered(viaPlanStep(conversion.toStepFailure(failure)))).toEqual(

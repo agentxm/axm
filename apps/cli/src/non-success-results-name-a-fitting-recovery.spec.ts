@@ -178,7 +178,7 @@ describe("A non-success result names a fitting recovery", () => {
     // usually change; the producer knows this one cannot be, and its verdict
     // is the one the recovery follows on every path.
     const error = workspaceFailureToStepFailure(
-      new LockfileIoError({ path: "/w/axm-lock.yaml", cause: new Error("EACCES") }),
+      new LockfileIoError({ path: "/w/axm.lock", cause: new Error("EACCES") }),
     );
     expect(error.category).toBe("unavailable");
     expect(stepFailureRetryCanHelp(error)).toBe(false);
@@ -247,7 +247,7 @@ describe("A non-success result names a fitting recovery", () => {
   it("names the recovery a typed failure states when it settles a plan step", () => {
     const error = workspaceFailureToStepFailure(
       new LockfileVersionUnsupported({
-        path: "/w/axm-lock.yaml",
+        path: "/w/axm.lock",
         observedVersion: 11,
         supportedVersion: 10,
       }),

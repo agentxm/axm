@@ -41,7 +41,7 @@ describe("install argument grammar", () => {
   it.effect("refuses a missing source before mutation", () => {
     const { provide } = makeWorkspaceLifecycleTestContext({ wsOptions: { projectRoot: tempDir } });
     const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-    const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+    const lockBefore = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8");
 
     return provide(
       Effect.gen(function* () {
@@ -59,7 +59,7 @@ describe("install argument grammar", () => {
 
         expect(getAppError(failure).detail).toContain("An install source is required");
         expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-        expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+        expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(lockBefore);
       }),
     );
   });

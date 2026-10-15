@@ -36,7 +36,11 @@ import type {
 import type { ConfiguredAgentOutcomesUnavailable } from "./workspace/configured-agent-outcomes-provider.js";
 import type { WorkspaceStateReadFailure } from "./workspace/contracts.js";
 import type { MaterializedTreeInvalid } from "./workspace/materialized-tree.js";
-import type { SkillDiscoveryRootInvalid, SubagentScanFailed } from "./observed/errors.js";
+import {
+  lockfileRequiresNewerAxm,
+  type SkillDiscoveryRootInvalid,
+  type SubagentScanFailed,
+} from "./observed/errors.js";
 import type {
   LockfileResolvedVersionInvalid,
   LockfileValidationError,
@@ -128,10 +132,10 @@ export const workspaceStateReadFailureToStepFailure = (
     case "LockfileParseError":
       return makeStepFailure({
         category: "validation",
-        detail: `Workspace lockfile at ${error.path} is not valid YAML`,
+        detail: `Workspace lockfile at ${error.path} is not valid TOML`,
         suggestions: [
           {
-            description: "Fix the YAML syntax or restore a known-good lockfile, then re-run.",
+            description: "Fix the TOML syntax or restore a known-good lockfile, then re-run.",
           },
         ],
         cause: error,
@@ -149,8 +153,7 @@ export const workspaceStateReadFailureToStepFailure = (
         cause: error,
       });
     case "LockfileVersionUnsupported": {
-      const direction: "older" | "newer" =
-        error.observedVersion < error.supportedVersion ? "older" : "newer";
+      const direction: "older" | "newer" = lockfileRequiresNewerAxm(error) ? "newer" : "older";
       return makeStepFailure({
         category: "validation",
         title: "Unsupported workspace lockfile version",
@@ -270,7 +273,7 @@ const lockfileWriteFailure = (error: LockfileWriteError): StepFailure => {
     case "serialize":
       return makeStepFailure({
         category: "internal",
-        detail: "Failed to serialize lockfile to YAML",
+        detail: "Failed to serialize lockfile to TOML",
         cause: error.cause,
       });
     case "check-target":
@@ -360,7 +363,7 @@ export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure)
     case "LockedSkillMissing":
       return makeStepFailure({
         category: "conflict",
-        detail: `Skill "${error.name}" has no entry in axm-lock.yaml`,
+        detail: `Skill "${error.name}" has no entry in axm.lock`,
         suggestions: [
           { description: "Install the skill first.", cmd: "axm skills install <source>" },
         ],
@@ -412,12 +415,12 @@ export const workspaceStateFailureToStepFailure = (error: WorkspaceStateFailure)
     case "LockEntryEndpointConflict":
       return makeStepFailure({
         category: "conflict",
-        detail: `axm-lock.yaml records ${error.acceptedEndpoint} for ${error.sourceKind} source "${error.sourceName}", but axm.json resolves it to ${error.resolvedEndpoint}`,
+        detail: `axm.lock records ${error.acceptedEndpoint} for ${error.sourceKind} source "${error.sourceName}", but axm.json resolves it to ${error.resolvedEndpoint}`,
       });
     case "AcceptedResolutionMissing":
       return makeStepFailure({
         category: "validation",
-        detail: `axm-lock.yaml has no ${error.label} entry for ${error.name}`,
+        detail: `axm.lock has no ${error.label} entry for ${error.name}`,
       });
     case "InlineExtensionSourceMissing":
       return makeStepFailure({

@@ -21,6 +21,7 @@
  */
 
 import * as SchemaIssue from "effect/SchemaIssue";
+import { LOCKFILE_NAME } from "@agentxm/extension-model/unstable/workspace-files";
 import { describeSchemaDocument } from "./describe-document.js";
 import type { AdvisoryFinding, Severity } from "./rule.js";
 
@@ -200,4 +201,4 @@ const basename = (file: string): string => {
   return parts[parts.length - 1] ?? normalized;
 };
 
-const isLockfile = (file: string): boolean => basename(file) === "axm-lock.yaml";
+const isLockfile = (file: string): boolean => basename(file) === LOCKFILE_NAME;

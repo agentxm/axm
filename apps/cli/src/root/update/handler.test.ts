@@ -324,13 +324,13 @@ describe("root update handler", () => {
         packs: { one: "@acme/packs/one", two: "@acme/packs/two" },
       });
       const settingsBefore = fs.readFileSync(path.join(tempDir, "axm.json"), "utf8");
-      const lockBefore = fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8");
+      const lockBefore = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8");
 
       yield* provide(update(rootUpdate, "ignore"));
 
       expect(fetches).toBe(0);
       expect(fs.readFileSync(path.join(tempDir, "axm.json"), "utf8")).toBe(settingsBefore);
-      expect(fs.readFileSync(path.join(tempDir, "axm-lock.yaml"), "utf8")).toBe(lockBefore);
+      expect(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).toBe(lockBefore);
       expect(rendererState.results[0]?.data).toMatchObject({
         result: {
           outcome: "blocked",

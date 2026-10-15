@@ -101,7 +101,7 @@ A plan step's `artifact.targets[]` and `artifact.managedRegions[]` carry an
 optional `lastWrite` when a planned rewrite or removal replaces existing bytes:
 `matches` (unchanged since AXM last wrote them), `modified` (edited since), or
 `unrecorded` (AXM has no record of writing them). It compares against the
-`output` digest recorded in `axm-lock.yaml`, is informational, and never
+`output` digest recorded in `axm.lock`, is informational, and never
 decides currency. Human output marks a `modified` target "(modified since last
 write)".
 
@@ -258,12 +258,12 @@ requiring message parsing:
   "ok": false,
   "code": "validation",
   "title": "Unsupported workspace lockfile version",
-  "detail": "Workspace lockfile at /workspace/axm-lock.yaml declares version 13, but this AXM supports version 12. This workspace requires a newer AXM.",
+  "detail": "Workspace lockfile at /workspace/axm.lock declares version 2, but this AXM supports version 1. This workspace requires a newer AXM.",
   "problem": {
     "code": "workspace-lockfile-version-unsupported",
-    "path": "/workspace/axm-lock.yaml",
-    "observedVersion": 13,
-    "supportedVersion": 12,
+    "path": "/workspace/axm.lock",
+    "observedVersion": 2,
+    "supportedVersion": 1,
     "direction": "newer"
   },
   "suggestions": [

@@ -215,7 +215,7 @@ export const WorkspaceReadTest = (
         workspaceRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
         projectRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir)),
         settingsPath: decodeAbsolutePathSync(path.resolve(facts.baseDir, "axm.json")),
-        lockPath: decodeAbsolutePathSync(path.resolve(facts.baseDir, "axm-lock.yaml")),
+        lockPath: decodeAbsolutePathSync(path.resolve(facts.baseDir, "axm.lock")),
         runtimeDir: decodeAbsolutePathSync(path.resolve(runtimeDir)),
         acquiredRoot: decodeAbsolutePathSync(path.resolve(facts.baseDir, "agent_extensions")),
         authoredRoot: (type) =>

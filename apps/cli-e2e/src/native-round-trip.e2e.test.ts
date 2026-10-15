@@ -4,6 +4,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { snapshotTree } from "@agentxm/test-support";
 import YAML from "yaml";
 import { makeDirectoryFixture } from "./test-support/directory-harness.js";
+import { EMPTY_LOCKFILE } from "./test-support/lockfile.js";
 import { writeLocalSkillPackage } from "./test-support/spec-file-store.js";
 
 export const executionBinding = {
@@ -52,10 +53,8 @@ describe("new intent and precise withdrawal across CLI processes", () => {
         if (preexistingContainers) {
           fs.mkdirSync(path.join(fixture.selected, ".claude", "skills"), { recursive: true });
           fs.mkdirSync(path.join(fixture.selected, ".axm"));
-          write(
-            path.join(fixture.selected, "axm-lock.yaml"),
-            "# Authored baseline\r\nlockfileVersion: 12\r\npackages: {}\r\nskills: {}\r\n",
-          );
+          // A lockfile is generated, so the baseline is one AXM itself wrote.
+          write(path.join(fixture.selected, "axm.lock"), EMPTY_LOCKFILE);
         }
         const before = snapshotTree(fixture.selected);
         await execute(fixture, ["install", source, "--skill", "review"]);
@@ -351,7 +350,7 @@ describe("new intent and precise withdrawal across CLI processes", () => {
           "utf8",
         ),
       ).toContain("review");
-      const installedLock = fs.readFileSync(path.join(fixture.selected, "axm-lock.yaml"), "utf8");
+      const installedLock = fs.readFileSync(path.join(fixture.selected, "axm.lock"), "utf8");
       const removal = await execute(fixture, ["packs", "uninstall", "workflow"]);
       expect(
         snapshotTree(fixture.selected),

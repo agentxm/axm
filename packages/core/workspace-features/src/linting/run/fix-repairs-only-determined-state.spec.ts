@@ -106,8 +106,8 @@ describe("Lint determined repairs", () => {
       yield* fixProject(workspace);
 
       expect(workspace.readFile(".gitignore")).toContain("# axm:instruction-aliases");
-      const lockfile = workspace.readFile("axm-lock.yaml");
-      expect(lockfile).toContain("projections:");
+      const lockfile = workspace.readFile("axm.lock");
+      expect(lockfile).toContain("[projections.");
       expect(lockfile).toContain(".gitignore");
     }).pipe(Effect.provide(lintServices(workspace)));
   });
@@ -118,10 +118,7 @@ describe("Lint determined repairs", () => {
       files: { "AGENTS.md": "# Workspace\n" },
     });
     cleanups.push(workspace.cleanup);
-    workspace.writeFile(
-      "axm-lock.yaml",
-      `lockfileVersion: ${LOCKFILE_VERSION + 1}\npackages: {}\nskills: {}\n`,
-    );
+    workspace.writeFile("axm.lock", `version = ${LOCKFILE_VERSION + 1}\n`);
     const treeBefore = workspace.snapshot();
 
     return Effect.gen(function* () {

@@ -31,15 +31,24 @@ describe("retained package lock codec", () => {
       skills: { first: skill("first"), second: skill("second") },
     } satisfies Lockfile;
     const stored = encode(view);
-    expect(Object.keys(stored.packages)).toHaveLength(1);
-    expect(stored.skills["first"]?.package).toBe(stored.skills["second"]?.package);
-    expect(stored.skills["first"]).not.toHaveProperty("resolved");
-    expect(stored.skills["first"]).not.toHaveProperty("source");
-    expect(stored.skills["first"]).not.toHaveProperty("treeIntegrity");
+    expect(stored.package).toHaveLength(1);
+    expect(stored.package?.[0]?.id).toBe("github.com/acme/plugins/plugins/review");
+    expect(stored.skills?.["first"]?.package).toBe(stored.skills?.["second"]?.package);
+    expect(stored.skills?.["first"]).toEqual({
+      package: "github.com/acme/plugins/plugins/review",
+      name: "first",
+      spec: "main",
+      component: {
+        format: "claude",
+        root: "plugins/review",
+        path: "skills/first",
+        manifest: ".claude-plugin/plugin.json",
+      },
+    });
     expect(decode(stored, { onExcessProperty: "error" })).toEqual(view);
   });
 
-  it("keeps package keys stable across updates but refuses conflicting shared snapshots", () => {
+  it("keeps package ids stable across updates but refuses conflicting shared snapshots", () => {
     const original = encode({
       lockfileVersion: LOCKFILE_VERSION,
       skills: { first: skill("first") },
@@ -48,7 +57,9 @@ describe("retained package lock codec", () => {
       lockfileVersion: LOCKFILE_VERSION,
       skills: { first: skill("first", "next-commit") },
     });
-    expect(Object.keys(updated.packages)).toEqual(Object.keys(original.packages));
+    expect(updated.package?.map((record) => record.id)).toEqual(
+      original.package?.map((record) => record.id),
+    );
     expect(() =>
       encode({
         lockfileVersion: LOCKFILE_VERSION,
@@ -57,33 +68,39 @@ describe("retained package lock codec", () => {
     ).toThrow("conflicting accepted snapshots");
   });
 
-  it("rejects missing packages, forged keys, and mismatched component boundaries", () => {
+  it("rejects missing packages, forged ids, and mismatched component boundaries", () => {
     const stored = encode({ lockfileVersion: LOCKFILE_VERSION, skills: { first: skill("first") } });
-    const first = stored.skills["first"];
+    const first = stored.skills?.["first"];
+    const record = stored.package?.[0];
     expect(first).toBeDefined();
-    if (first === undefined) return;
-    expect(() => decode({ ...stored, packages: {} })).toThrow("absent retained package");
+    expect(record).toBeDefined();
+    if (first === undefined || record === undefined) return;
+    expect(() => decode({ ...stored, package: [] })).toThrow("absent retained package");
     expect(() =>
       decode({
         ...stored,
-        packages: { forged: stored.packages[first.package] },
-        skills: { first: { ...first, package: "forged" } },
+        package: [{ ...record, id: "github.com/acme/forged" }],
+        skills: { first: { ...first, package: "github.com/acme/forged" } },
       }),
-    ).toThrow("key does not match");
+    ).toThrow("does not match its source address");
     expect(() =>
       decode({
         ...stored,
         skills: {
-          first: { ...first, component: { ...first.component, packageRoot: "another-package" } },
+          first: { ...first, component: { ...first.component, root: "another-package" } },
         },
       }),
     ).toThrow("package root does not match");
+    expect(() =>
+      decode({ ...stored, skills: { first: { ...first, name: "@acme/rules/first" } } }),
+    ).toThrow("does not name one of the skills");
   });
 
-  it("refuses older locks instead of inventing package acceptance", () => {
-    expect(() => decode({ lockfileVersion: 10, skills: {} })).toThrow();
-    expect(() => decode({ lockfileVersion: LOCKFILE_VERSION, skills: {} })).toThrow();
-    expect(decode({ lockfileVersion: LOCKFILE_VERSION, packages: {}, skills: {} })).toEqual({
+  it("refuses unbound packages and other lockfile versions instead of inventing acceptance", () => {
+    const stored = encode({ lockfileVersion: LOCKFILE_VERSION, skills: { first: skill("first") } });
+    expect(() => decode({ ...stored, skills: {} })).toThrow("unbound retained package");
+    expect(() => decode({ version: 12, skills: {} })).toThrow();
+    expect(decode({ version: LOCKFILE_VERSION })).toEqual({
       lockfileVersion: LOCKFILE_VERSION,
       skills: {},
     });

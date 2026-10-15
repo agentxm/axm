@@ -25,11 +25,9 @@ import {
 import * as Option from "effect/Option";
 import * as Result from "effect/Result";
 import {
-  encodeSourcePath,
-  localSourceCoordinates,
-  fileSourceCoordinates,
-  sourceUrlCoordinates,
-  SourceAddressInvalid,
+  retainedPackageId,
+  type RetainedPackageLocation,
+  type SourceAddressInvalid,
 } from "./source-address.js";
 import type { WorkspaceLayout } from "./layout.js";
 
@@ -75,82 +73,60 @@ export interface ExtensionDirPaths {
   readonly extensionSrcPath: AbsolutePath;
 }
 
-const boundarySegments = (boundary: string): ReadonlyArray<string> =>
-  boundary === "." || boundary === "" ? [] : boundary.split("/");
+/** The package location an acquired extension path source names. */
+export const retainedPackageLocation = (
+  source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
+  type: ExtensionTypePlural,
+  name: string,
+): RetainedPackageLocation => {
+  switch (source.refType) {
+    case "local": {
+      const selected = source.sourcePath ?? source.source.path;
+      const component = source.distribution?.componentPath;
+      const suffix = component === undefined || component === "." ? "" : `/${component}`;
+      const packageRoot =
+        selected === component
+          ? "."
+          : suffix !== "" && selected.endsWith(suffix)
+            ? selected.slice(0, -suffix.length) || "."
+            : selected;
+      return { type: "path", path: packageRoot };
+    }
+    case "registry":
+      return {
+        type: "registry",
+        url: source.source.location,
+        owner: source.owner,
+        extensionType: type,
+        name,
+      };
+    case "git-hosted":
+      return {
+        type: "git",
+        url: source.source.url,
+        path:
+          source.distribution?.packageRoot ??
+          source.sourcePath ??
+          Option.getOrElse(source.source.subPath, () => "."),
+      };
+    case "http":
+      return {
+        type: "http",
+        url: source.source.url,
+        kind: source.source.kind,
+        entry: source.source.entry,
+        path: source.distribution?.packageRoot ?? source.sourcePath,
+      };
+  }
+};
 
 /** Derive placement from source coordinates and the complete payload boundary. */
 export const acquiredPackageRelativePath = (
   source: Exclude<ExtensionPathSource, { readonly refType: "workspace" }>,
   type: ExtensionTypePlural,
   name: string,
-): Result.Result<string, SourceAddressInvalid> => {
-  if (source.refType === "local") {
-    const selected = source.sourcePath ?? source.source.path;
-    const component = source.distribution?.componentPath;
-    const suffix = component === undefined || component === "." ? "" : `/${component}`;
-    const packageRoot =
-      selected === component
-        ? "."
-        : suffix !== "" && selected.endsWith(suffix)
-          ? selected.slice(0, -suffix.length)
-          : selected;
-    return Result.flatMap(localSourceCoordinates(packageRoot), (coordinates) =>
-      Result.map(encodeSourcePath(coordinates), (path) => `_local/${path}`),
-    );
-  }
-  const url =
-    source.refType === "registry" ? new URL(source.source.location.href) : source.source.url;
-  if (
-    (source.refType === "registry" || source.refType === "git-hosted") &&
-    url.protocol === "file:"
-  ) {
-    const boundary =
-      source.refType === "registry"
-        ? [source.owner, type, name]
-        : boundarySegments(
-            source.distribution?.packageRoot ??
-              source.sourcePath ??
-              Option.getOrElse(source.source.subPath, () => "."),
-          );
-    return Result.flatMap(fileSourceCoordinates(url), (coordinates) =>
-      Result.map(encodeSourcePath([...coordinates, ...boundary]), (path) => `_local/${path}`),
-    );
-  }
-  const address = sourceUrlCoordinates(url);
-  if (Result.isFailure(address)) return Result.fail(address.failure);
-  const segments = [...address.success];
-  switch (source.refType) {
-    case "registry":
-      return encodeSourcePath([...segments, source.owner, type, name]);
-    case "git-hosted": {
-      if (segments.length < 2)
-        return Result.fail(
-          new SourceAddressInvalid({ detail: "Git source address requires a repository path" }),
-        );
-      const last = segments.length - 1;
-      const repository = segments[last];
-      if (repository?.endsWith(".git")) segments[last] = repository.slice(0, -4);
-      const boundary =
-        source.distribution?.packageRoot ??
-        source.sourcePath ??
-        Option.getOrElse(source.source.subPath, () => ".");
-      return encodeSourcePath([...segments, ...boundarySegments(boundary)]);
-    }
-    case "http": {
-      if (source.source.kind === "skill-md" && segments[segments.length - 1] === "SKILL.md")
-        segments.pop();
-      const entry =
-        source.source.kind === "index" && source.source.entry !== undefined
-          ? boundarySegments(source.source.entry)
-          : [];
-      const boundary =
-        source.source.kind === "skill-md"
-          ? []
-          : boundarySegments(source.distribution?.packageRoot ?? source.sourcePath);
-      return encodeSourcePath([...segments, ...entry, ...boundary]);
-    }
-  }
-};
+): Result.Result<string, SourceAddressInvalid> =>
+  retainedPackageId(retainedPackageLocation(source, type, name));
 
 /** Render a portable display path for an acquired extension package. */
 export const acquiredExtensionDisplayPath = (

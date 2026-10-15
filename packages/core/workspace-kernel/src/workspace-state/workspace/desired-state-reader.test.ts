@@ -131,23 +131,23 @@ describe("desired-state collection", () => {
           baseDir: "/workspace",
           settings: settings({ packs: { alpha: "@acme/packs/alpha" } }),
           registryEndpoints: { agentxm: decodeRegistryEndpointSync("https://registry.agentxm.ai") },
-          acceptedResolutions: { lockfileVersion: 12, skills: {}, packs: { alpha: accepted } },
-          readSet: [{ path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" }],
+          acceptedResolutions: { lockfileVersion: 1, skills: {}, packs: { alpha: accepted } },
+          readSet: [{ path: "/workspace/axm.lock", role: "accepted-resolutions" }],
         });
         const graph = evaluateDesiredState(inputs);
         expect(reads).toEqual([]);
         expect(inputs.readSet).toEqual([
-          { path: "/workspace/axm-lock.yaml", role: "accepted-resolutions" },
+          { path: "/workspace/axm.lock", role: "accepted-resolutions" },
         ]);
         expect(inputs.packDocuments[0]?.provenance).toEqual({
           kind: "accepted-lock",
-          lockPath: "/workspace/axm-lock.yaml",
+          lockPath: "/workspace/axm.lock",
           settingsName: "alpha",
         });
         expect(graph.problems).toEqual([]);
         expect(graph.nodes.find((node) => node.type === "rule")?.origins).toEqual([
           expect.objectContaining({
-            manifestPath: 'axm-lock.yaml#packs.alpha.dependencies["@acme/rules/guard"]',
+            manifestPath: 'axm.lock#packs.alpha.dependencies["@acme/rules/guard"]',
             sourceAuthority: {
               authority: "registry",
               endpoint: decodeRegistryEndpointSync("https://other.example"),

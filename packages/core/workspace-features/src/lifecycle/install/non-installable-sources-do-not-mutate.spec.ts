@@ -45,7 +45,7 @@ describe("Non-installable install sources", () => {
       const { workspace, cleanup } = makeInstallWorld();
       cleanups.push(cleanup);
       const settingsBefore = JSON.stringify(readSettings(workspace));
-      const lockBefore = workspace.readFile("axm-lock.yaml");
+      const lockBefore = workspace.readFile("axm.lock");
       // eslint-disable-next-line no-restricted-syntax -- The fast-check Vitest adapter requires a Promise-returning property callback.
       return Effect.runPromise(
         workspace
@@ -60,7 +60,7 @@ describe("Non-installable install sources", () => {
                 expect(failure.category).toBe("usage");
               }
               expect(JSON.stringify(readSettings(workspace))).toBe(settingsBefore);
-              expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+              expect(workspace.readFile("axm.lock")).toBe(lockBefore);
               expect(workspace.exists("agent_extensions")).toBe(false);
             }),
           )

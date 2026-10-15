@@ -53,9 +53,9 @@ export const makeSpecWorkspace = (prefix: string) =>
     const workspaceDir = path.join(root, ".axm");
     yield* fs.makeDirectory(workspaceDir, { recursive: true });
     const settingsPath = path.join(root, "axm.json");
-    const lockPath = path.join(root, "axm-lock.yaml");
+    const lockPath = path.join(root, "axm.lock");
     yield* fs.writeFileString(settingsPath, '{\n  "skills": {}\n}\n');
-    yield* fs.writeFileString(lockPath, "lockfileVersion: 12\npackages: {}\nskills: {}\n");
+    yield* fs.writeFileString(lockPath, "version = 1\n");
     return { root, workspaceDir, settingsPath, lockPath };
   });
 
@@ -91,7 +91,7 @@ export const makeSpecContext = (
           WorkspaceTransactionScopeLive({
             workspaceDir,
             settingsPath: path.join(path.dirname(workspaceDir), "axm.json"),
-            lockPath: path.join(path.dirname(workspaceDir), "axm-lock.yaml"),
+            lockPath: path.join(path.dirname(workspaceDir), "axm.lock"),
           }),
         ),
       ),

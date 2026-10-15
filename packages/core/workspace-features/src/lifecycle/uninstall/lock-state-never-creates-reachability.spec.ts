@@ -20,8 +20,9 @@ import {
   acceptedRowReachability,
   computePackManifestContentIdentity,
   desiredReachesAcceptedRow,
-  LockfileReader,
   DesiredStateReader,
+  emitLockfileToml,
+  LockfileReader,
   WorkspaceRecords,
 } from "@agentxm/workspace-kernel/workspace-state";
 import { deriveOperationOutcome } from "@agentxm/workspace-kernel/operations";
@@ -107,10 +108,9 @@ const makeWorkspace = (
     nodePath.join(root, "axm.json"),
     `${JSON.stringify({ owner: "@acme", agents: [], ...settings }, null, 2)}\n`,
   );
-  // JSON is valid YAML, so the lockfile fixture needs no emitter.
   fs.writeFileSync(
-    nodePath.join(root, "axm-lock.yaml"),
-    JSON.stringify(storedLockfileFixture(lockfile)),
+    nodePath.join(root, "axm.lock"),
+    emitLockfileToml(storedLockfileFixture(lockfile)),
   );
   return {
     root,
@@ -263,7 +263,7 @@ describe("Lock state and desired-state reachability", () => {
         lockfile: { knowledge: { "phantom-notes": acceptedRegistryRow("phantom-notes", "skill") } },
       });
       cleanups.push(workspace.cleanup);
-      const lockBefore = workspace.readFile("axm-lock.yaml");
+      const lockBefore = workspace.readFile("axm.lock");
 
       const resolution = yield* workspace.provide(
         applyUninstall(uninstallRequest({ type: "knowledge", selector: "phantom-notes" })),
@@ -272,7 +272,7 @@ describe("Lock state and desired-state reachability", () => {
       // Nothing desires or holds the bundle, so there is nothing to remove;
       // the stale row is sync's leftover to retire, not a removal's authority.
       expect(deriveOperationOutcome(resolution)).toBe("no-op");
-      expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+      expect(workspace.readFile("axm.lock")).toBe(lockBefore);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 

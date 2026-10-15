@@ -89,7 +89,7 @@ describe("Pack unpack preview purity", () => {
           );
           expect(world.workspace.snapshot()).toEqual(before);
           expect(JSON.stringify(readSettings(world.workspace))).toBe(settingsBefore);
-          expect(world.workspace.readFile("axm-lock.yaml")).toContain(PACK);
+          expect(world.workspace.readFile("axm.lock")).toContain(PACK);
           expect(world.workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
         }),
       )

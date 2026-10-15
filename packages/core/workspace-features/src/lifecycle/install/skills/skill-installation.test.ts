@@ -319,7 +319,7 @@ describe("skill installation application", () => {
                         "Uncommitted policy.",
                       );
                       return yield* new LockfileWriteError({
-                        path: path.join(workspace.root, "axm-lock.yaml"),
+                        path: path.join(workspace.root, "axm.lock"),
                         step: "write-temp",
                         cause: "injected accepted-resolution failure",
                       });
@@ -356,9 +356,9 @@ describe("skill installation application", () => {
             );
             expect(result.version).toBe("1.2.3");
             expect(workspace.readFile("axm.json")).toContain(`@acme/skills/${NAME}${suffix}`);
-            const lock = workspace.readFile("axm-lock.yaml");
-            expect(lock).toContain("version: 1.2.3");
-            expect(lock).toContain("publisherBindingId:");
+            const lock = workspace.readFile("axm.lock");
+            expect(lock).toContain('version = "1.2.3"');
+            expect(lock).toContain("publisher = ");
             expect(
               workspace.readFile(
                 `${fileRegistryPackagePath(registry, "skills", NAME)}/src/SKILL.md`,

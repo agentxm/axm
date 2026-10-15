@@ -182,7 +182,7 @@ describe("HTTP skill lifecycle", () => {
                   digest: httpArtifactDigest(original),
                 },
           );
-          const lockBytes = workspace.readFile("axm-lock.yaml");
+          const lockBytes = workspace.readFile("axm.lock");
           const canonical = fs.realpathSync(active);
           writeIndex(newerArtifact, next);
           const acceptedUrl = distribution === "index-v01" ? legacyArtifact : artifact;
@@ -212,12 +212,12 @@ describe("HTTP skill lifecycle", () => {
             });
             yield* workspace.provide(sync);
             expectPayload("Original");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBytes);
+            expect(workspace.readFile("axm.lock")).toBe(lockBytes);
             expect(requests).not.toContain(index);
             responses.set(acceptedUrl, next);
             fs.rmSync(canonical, { recursive: true });
             yield* workspace.provide(sync).pipe(Effect.flip);
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBytes);
+            expect(workspace.readFile("axm.lock")).toBe(lockBytes);
             expect(fs.existsSync(canonical)).toBe(false);
           } else {
             responses.set(acceptedUrl, next);

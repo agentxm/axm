@@ -152,7 +152,7 @@ describe("Selected plugin MCP connections", () => {
             expect(
               yield* acceptedLockedCanonicalPath({ type: "mcp-server", name: "personal-context" }),
             ).toEqual(canonical);
-            const lockBefore = world.workspace.readFile("axm-lock.yaml");
+            const lockBefore = world.workspace.readFile("axm.lock");
             const accepted = yield* (yield* LockfileReader).acceptedEntry(
               "mcp-server",
               "work-context",
@@ -182,7 +182,7 @@ describe("Selected plugin MCP connections", () => {
                 expect(
                   syncResult.resolution.units.filter((unit) => unit.state === "failed"),
                 ).toEqual([]);
-              expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+              expect(world.workspace.readFile("axm.lock")).toBe(lockBefore);
               expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(mcp);
             } else if (journey === "reinstall" || journey === "selected-reinstall") {
               const reinstalled = yield* applyUpdate(
@@ -198,7 +198,7 @@ describe("Selected plugin MCP connections", () => {
               expect(
                 reinstalled.resolution.units.filter((unit) => unit.state === "failed"),
               ).toEqual([]);
-              expect(world.workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+              expect(world.workspace.readFile("axm.lock")).toBe(lockBefore);
               expect(yield* fs.readFileString(path.join(canonical.value, "mcp.json"))).toBe(mcp);
             } else {
               const updated = mcp.replaceAll("example.test", "updated.test");

@@ -2,12 +2,11 @@ import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as nodePath from "node:path";
 import * as Schema from "effect/Schema";
-import { LockfileSchema } from "@agentxm/workspace-kernel/workspace-state";
+import { LockfileSchema, parseLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 import * as Effect from "effect/Effect";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it } from "@effect/vitest";
 import { afterEach } from "vitest";
-import YAML from "yaml";
 
 import { defineSpecification } from "@agentxm/specification-metadata";
 
@@ -78,9 +77,9 @@ describe("Install locally named MCP connections", () => {
             },
           });
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            YAML.parse(workspace.readFile("axm-lock.yaml")),
+            parseLockfileToml(workspace.readFile("axm.lock")),
           );
-          expect(lockfile).toMatchObject({ lockfileVersion: 12 });
+          expect(lockfile).toMatchObject({ lockfileVersion: 1 });
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
           }
@@ -112,7 +111,7 @@ describe("Install locally named MCP connections", () => {
             mcpServers: { "personal-context": { source: "test:@acme/mcps/context" } },
           });
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            YAML.parse(workspace.readFile("axm-lock.yaml")),
+            parseLockfileToml(workspace.readFile("axm.lock")),
           );
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
@@ -206,13 +205,13 @@ describe("Install locally named MCP connections", () => {
             const resolutions = (): ReadonlyArray<string> =>
               Object.keys(
                 Schema.decodeUnknownSync(LockfileSchema)(
-                  YAML.parse(workspace.readFile("axm-lock.yaml")),
+                  parseLockfileToml(workspace.readFile("axm.lock")),
                 ).mcpServers ?? {},
               );
             expect(resolutions()).toEqual([
               expect.stringMatching(new RegExp(`^${transport}:.*:@acme/mcps/context$`, "u")),
             ]);
-            const lockBefore = workspace.readFile("axm-lock.yaml");
+            const lockBefore = workspace.readFile("axm.lock");
 
             // The reinstall matches the connection's own accepted source.
             const reinstalled = expectResolved(
@@ -229,7 +228,7 @@ describe("Install locally named MCP connections", () => {
               JSON.stringify(reinstalled),
             ).toEqual([]);
             expect(deriveOperationOutcome(reinstalled)).not.toBe("blocked");
-            expect(workspace.readFile("axm-lock.yaml")).toBe(lockBefore);
+            expect(workspace.readFile("axm.lock")).toBe(lockBefore);
           }),
         );
       }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),

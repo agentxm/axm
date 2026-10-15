@@ -47,20 +47,20 @@ describe("record-only instruction changes", () => {
     return workspace
       .provide(
         Effect.gen(function* () {
-          const lockfileBefore = workspace.exists("axm-lock.yaml")
-            ? workspace.readFile("axm-lock.yaml")
+          const lockfileBefore = workspace.exists("axm.lock")
+            ? workspace.readFile("axm.lock")
             : undefined;
           const preview = expectResolved(yield* previewSync());
           expect(instructionUnit(preview.units).artifact?.targets).toEqual([
-            { path: "axm-lock.yaml", change: "updated" },
+            { path: "axm.lock", change: "updated" },
           ]);
-          expect(
-            workspace.exists("axm-lock.yaml") ? workspace.readFile("axm-lock.yaml") : undefined,
-          ).toBe(lockfileBefore);
+          expect(workspace.exists("axm.lock") ? workspace.readFile("axm.lock") : undefined).toBe(
+            lockfileBefore,
+          );
 
           yield* applySync();
           expect(workspace.readFile("CLAUDE.md")).toBe("# Workspace\n");
-          expect(workspace.readFile("axm-lock.yaml")).toContain("CLAUDE.md");
+          expect(workspace.readFile("axm.lock")).toContain("CLAUDE.md");
           expect((yield* previewSync())._tag).toBe("AlreadyReconciled");
         }),
       )
@@ -79,17 +79,17 @@ describe("record-only instruction changes", () => {
             instructionFiles: { fileName: "AGENTS.md", gitignoreAliases: false },
           });
           workspace.writeFile("CLAUDE.md", "# Edited by hand\n");
-          const lockfileBefore = workspace.readFile("axm-lock.yaml");
+          const lockfileBefore = workspace.readFile("axm.lock");
 
           const preview = expectResolved(yield* previewSync());
           expect(instructionUnit(preview.units).artifact?.targets).toEqual([
-            { path: "axm-lock.yaml", change: "updated" },
+            { path: "axm.lock", change: "updated" },
           ]);
-          expect(workspace.readFile("axm-lock.yaml")).toBe(lockfileBefore);
+          expect(workspace.readFile("axm.lock")).toBe(lockfileBefore);
 
           yield* applySync();
           expect(workspace.readFile("CLAUDE.md")).toBe("# Edited by hand\n");
-          expect(workspace.readFile("axm-lock.yaml")).not.toContain("CLAUDE.md");
+          expect(workspace.readFile("axm.lock")).not.toContain("CLAUDE.md");
         }),
       )
       .pipe(Effect.provide(NodeServices.layer));

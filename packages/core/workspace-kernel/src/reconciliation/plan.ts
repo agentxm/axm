@@ -12,6 +12,10 @@
  * @experimental This API is unstable and may change without notice.
  */
 
+import {
+  LOCKFILE_NAME,
+  SETTINGS_FILENAME,
+} from "@agentxm/extension-model/unstable/workspace-files";
 import * as Effect from "effect/Effect";
 import type * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -1028,7 +1032,8 @@ export const makeSyncPlan = <R>({
         ...(step.artifact?.managedRegions ?? []),
       ]) {
         const file = nativePath(target.path);
-        if (!file.endsWith("axm.json") && !file.endsWith("axm-lock.yaml")) keys.add(`path:${file}`);
+        if (!file.endsWith(SETTINGS_FILENAME) && !file.endsWith(LOCKFILE_NAME))
+          keys.add(`path:${file}`);
       }
       const touching = components.filter((component) =>
         [...keys].some((key) => component.keys.has(key)),

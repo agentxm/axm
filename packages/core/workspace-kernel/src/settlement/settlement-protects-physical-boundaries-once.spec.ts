@@ -73,7 +73,7 @@ describe("physical restoration boundaries", () => {
             WorkspaceTransactionScopeTest({
               workspaceDir: path.join(root, ".axm"),
               settingsPath: path.join(root, "axm.json"),
-              lockPath: path.join(root, "axm-lock.yaml"),
+              lockPath: path.join(root, "axm.lock"),
             }),
           ),
           Effect.result,
@@ -121,7 +121,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,
@@ -165,7 +165,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,
@@ -218,7 +218,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,
@@ -259,7 +259,7 @@ describe("physical restoration boundaries", () => {
             WorkspaceTransactionScopeTest({
               workspaceDir: path.join(root, ".axm"),
               settingsPath: path.join(root, "axm.json"),
-              lockPath: path.join(root, "axm-lock.yaml"),
+              lockPath: path.join(root, "axm.lock"),
             }),
           ),
           Effect.result,
@@ -294,7 +294,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,
@@ -343,7 +343,7 @@ describe("physical restoration boundaries", () => {
             WorkspaceTransactionScopeTest({
               workspaceDir: path.join(root, ".axm"),
               settingsPath: path.join(root, "axm.json"),
-              lockPath: path.join(root, "axm-lock.yaml"),
+              lockPath: path.join(root, "axm.lock"),
             }),
           ),
           Effect.result,
@@ -393,7 +393,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,
@@ -439,7 +439,7 @@ describe("physical restoration boundaries", () => {
               WorkspaceTransactionScopeTest({
                 workspaceDir: path.join(root, ".axm"),
                 settingsPath: path.join(root, "axm.json"),
-                lockPath: path.join(root, "axm-lock.yaml"),
+                lockPath: path.join(root, "axm.lock"),
               }),
             ),
             Effect.result,
@@ -482,7 +482,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
       );
@@ -516,7 +516,7 @@ describe("physical restoration boundaries", () => {
           WorkspaceTransactionScopeTest({
             workspaceDir: path.join(root, ".axm"),
             settingsPath: path.join(root, "axm.json"),
-            lockPath: path.join(root, "axm-lock.yaml"),
+            lockPath: path.join(root, "axm.lock"),
           }),
         ),
         Effect.result,

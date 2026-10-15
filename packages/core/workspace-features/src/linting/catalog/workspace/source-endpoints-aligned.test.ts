@@ -30,7 +30,7 @@ const member = (endpoint: string, sourceName: string | undefined): DesiredExtens
     {
       type: "pack",
       pack: { authority: "registry", fqn: "@acme/packs/toolkit" },
-      manifestPath: "axm-lock.yaml#packs.toolkit",
+      manifestPath: "axm.lock#packs.toolkit",
       source: "@acme/skills/review",
       constraint: "^1.0.0",
       enabled: true,
@@ -72,7 +72,7 @@ const check = (node: DesiredExtensionNode) =>
           lockfile: {
             _tag: "valid",
             contents: {
-              lockfileVersion: 12,
+              lockfileVersion: 1,
               skills: {
                 review: {
                   source: { type: "registry", url: "https://registry.example" },

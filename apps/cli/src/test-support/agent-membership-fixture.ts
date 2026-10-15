@@ -28,13 +28,14 @@ import { ReleaseAgePosture } from "@agentxm/workspace-kernel/resolution";
 import { makeAxmSkillCompatibilityPolicyLayer } from "@agentxm/cli-maintenance/official-skill/composition";
 
 import { makeWorkspaceLifecycleTestContext } from "./test-helpers.js";
+import { emitLockfileToml } from "@agentxm/workspace-kernel/workspace-state";
 
 export interface AgentMembershipFixtureOptions {
   /** Borrow one coordinator for related workspaces; the supplying fixture owns cleanup. */
   readonly boundaryClaimsDirectory?: string | undefined;
   /** Settings document written to `axm.json`; `agents` defaults to empty. */
   readonly settings?: Readonly<Record<string, unknown>>;
-  /** Lockfile document written to `axm-lock.yaml`. */
+  /** Lockfile document written to `axm.lock`. */
   readonly lockfile?: Readonly<Record<string, unknown>>;
   /** Files written into the project root, keyed by workspace-relative path. */
   readonly files?: Readonly<Record<string, string>>;
@@ -72,11 +73,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
 
   fs.mkdirSync(absolute(".axm"), { recursive: true });
   writeFile("axm.json", `${JSON.stringify({ agents: [], ...options.settings }, null, 2)}\n`);
-  // JSON is valid YAML, so the lockfile fixture needs no emitter.
-  writeFile(
-    "axm-lock.yaml",
-    `${JSON.stringify(storedLockfileFixture(options.lockfile ?? {}), null, 2)}\n`,
-  );
+  writeFile("axm.lock", emitLockfileToml(storedLockfileFixture(options.lockfile ?? {})));
   for (const [relativePath, contents] of Object.entries(options.files ?? {})) {
     writeFile(relativePath, contents);
   }
@@ -130,7 +127,7 @@ export const makeAgentMembershipFixture = (options: AgentMembershipFixtureOption
       }
       return Object.fromEntries(Object.entries(parsed));
     },
-    readLockfileText: (): string => fs.readFileSync(absolute("axm-lock.yaml"), "utf8"),
+    readLockfileText: (): string => fs.readFileSync(absolute("axm.lock"), "utf8"),
     /** Every entry under the project root. */
     snapshot: () => snapshotTree(root),
     /** Every entry under one workspace-relative directory. */

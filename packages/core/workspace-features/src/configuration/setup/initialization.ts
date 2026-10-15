@@ -1026,7 +1026,7 @@ const workspaceInitializationState = (
 });
 
 /**
- * Ensure the user workspace has axm.json and axm-lock.yaml.
+ * Ensure the user workspace has axm.json and axm.lock.
  *
  * Creates missing files with empty defaults.
  *

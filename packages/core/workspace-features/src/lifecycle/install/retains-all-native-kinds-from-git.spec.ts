@@ -142,9 +142,7 @@ describe("Native Git package retention", () => {
               const stored = Schema.encodeSync(LockfileSchema)(
                 yield* (yield* LockfileReader).lockfile,
               );
-              expect(Object.keys(stored.packages)).toHaveLength(
-                layout === "shared" ? 1 : index + 1,
-              );
+              expect(stored.package ?? []).toHaveLength(layout === "shared" ? 1 : index + 1);
               if (layout === "shared") {
                 const inode = fs.statSync(retained(type)).ino;
                 if (sharedInode === undefined) sharedInode = inode;

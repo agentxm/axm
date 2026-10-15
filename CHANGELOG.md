@@ -1,3 +1,13 @@
+## 0.47.1 (2026-10-15)
+
+### 🩹 Fixes
+
+- Recognize Antigravity remote MCP autodetection so workspace reconciliation accepts its generated serverUrl entries. ([788daa167](https://github.com/agentxm/axm/commit/788daa167))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.47.0 (2026-10-15)
 
 ### ⚠️ Breaking Changes

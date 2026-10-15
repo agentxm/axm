@@ -1,3 +1,14 @@
+## 0.47.0 (2026-10-15)
+
+### ⚠️ Breaking Changes
+
+- Bind every Registry operation to one validated endpoint. A Registry `location` and `--registry` URL must be an http(s) origin or a `file:` URL without credentials, a query, a fragment, or (for http(s)) a path; equivalent spellings name one Registry and share its saved session. A default or named source that no settings configure, or settings that cannot be read, now fails with a typed `registry-source-unknown` problem or the settings diagnostic instead of falling back to the AgentXM Registry, and commands that never use a Registry no longer read the selection. `AXM_TOKEN`, `AXM_TOKEN_FILE`, and a GitHub Actions identity are presented only to the settings-selected default Registry: a pipeline that publishes to another Registry with `--registry` must make it the `defaultRegistry` or use a saved session. AXM refuses Registry and GitHub ID-token redirects, keeps credentials within their Registry origin, and refuses authentication, deprecation, yank, and archive against a file Registry with a `registry-operation-unsupported` problem before any request or change. Equal names from different Registries stay distinct, Pack show reports each member's declaration, source identity, and resolution status, and an absent Registry constraint admits exactly what `*` admits: a workspace holding an unconstrained prerelease is refused by sync until `axm update` selects an admitted version. ([db207c7dd](https://github.com/agentxm/axm/commit/db207c7dd))
+- Store the workspace lockfile as TOML in `axm.lock` (lockfile version 1) instead of YAML in `axm-lock.yaml` (version 12), in project and user scope. Each retained package is one `[[package]]` record whose `id` is its directory under `agent_extensions/`, each selected extension is one binding line with its declared `name`, MCP selections are `[[mcp]]` rows, projection currency moves to `[projections.<kind>]` tables, and other tools may keep data under `[tool.<name>]`, which AXM preserves and never reads. AXM rewrites the whole file canonically, so the same state produces the same bytes on every machine, and comments or hand edits do not survive the next write. Nothing is migrated: a workspace that still has `axm-lock.yaml` is refused as an older lockfile, even beside an `axm.lock`, until you back the file up outside the workspace, remove it, review `axm sync --preview`, and run `axm sync`. External resolutions may advance, and because the old projection records are not read, replacing a differing whole file needs `--replace-unrecorded` once. Lockfile syntax errors now name TOML. ([83c98c47b](https://github.com/agentxm/axm/commit/83c98c47b))
+
+### ❤️ Thank You
+
+- Craig Smitham
+
 ## 0.46.0 (2026-10-14)
 
 ### ⚠️ Breaking Changes

@@ -168,7 +168,24 @@ const rejectUnmappedDateTimeSchemas = (source: string): string => {
   return source;
 };
 
-const source = header + rejectUnmappedDateTimeSchemas(swapDateTimeSchema(result.stdout));
+// openapigen lets schema failures escape without the response. Preserve it at
+// the shared decoding boundary for both ordinary and includeResponse calls.
+const preserveResponseEvidence = (source: string): string => {
+  const calls = source.match(/f\(response\)/g);
+  if (calls?.length !== 2) {
+    throw new Error(
+      "Generated response decoding anchors changed; update preserveResponseEvidence.",
+    );
+  }
+  return `import { preserveRegistryResponse } from "../response-body.js";\n${source.replaceAll(
+    "f(response)",
+    "preserveRegistryResponse(f(response), response)",
+  )}`;
+};
+
+const source =
+  header +
+  preserveResponseEvidence(rejectUnmappedDateTimeSchemas(swapDateTimeSchema(result.stdout)));
 
 const formatted = await Effect.runPromise(
   Effect.tryPromise({

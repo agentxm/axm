@@ -7,6 +7,7 @@
 // @effect-diagnostics anyUnknownInErrorContext:off — generated OpenAPI transport errors are translated by the registry adapter
 /* eslint-disable */
 
+import { preserveRegistryResponse } from "../response-body.js";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import type { SchemaError } from "effect/Schema";
@@ -122,6 +123,8 @@ export type RegistryProblemCode =
   | "publish_empty_archive"
   | "deprecation_invalid_guidance"
   | "unauthorized"
+  | "token_expired"
+  | "token_revoked"
   | "forbidden"
   | "insufficient_scope"
   | "resource_restriction"
@@ -203,6 +206,8 @@ export const RegistryProblemCode = Schema.Literals([
   "publish_empty_archive",
   "deprecation_invalid_guidance",
   "unauthorized",
+  "token_expired",
+  "token_revoked",
   "forbidden",
   "insufficient_scope",
   "resource_restriction",
@@ -1109,7 +1114,11 @@ export const VersRangeEncoded = Schema.String.annotate({
 export type PackMemberRegistrySource = { readonly type: "registry"; readonly url: string };
 export const PackMemberRegistrySource = Schema.Struct({
   type: Schema.Literal("registry"),
-  url: Schema.String,
+  url: Schema.String.annotate({
+    description:
+      "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+    examples: ["https://registry.agentxm.ai", "file:///srv/registry"],
+  }),
 }).annotate({
   description: "A self-describing Registry locator for one Pack member.",
   identifier: "PackMemberRegistrySource",
@@ -1247,6 +1256,34 @@ export const TokenResponse = Schema.Struct({
     "OAuth 2.0 token response: a session's access and refresh token pair, or a workload token exchanged for a CI identity token. Keys are protocol-defined snake_case (RFC 6749, RFC 8693) and exempt from the Registry's camelCase rule; `expires_at` is a Registry extension member kept in the message's casing.",
   identifier: "TokenResponse",
 });
+export type TokenEndedErrorEncoded = {
+  readonly kind: "TokenEndedError";
+  readonly type: string;
+  readonly title: string;
+  readonly status: number;
+  readonly detail: string;
+  readonly instance?: string;
+  readonly code: "token_expired" | "token_revoked";
+  readonly tokenId: string;
+  readonly tokenPrefix: string;
+  readonly endedAt: IsoDateTimeString;
+};
+export const TokenEndedErrorEncoded = Schema.Struct({
+  kind: Schema.Literal("TokenEndedError"),
+  type: Schema.String,
+  title: Schema.String,
+  status: Schema.Number.check(Schema.isInt().annotate({ expected: "an integer" })),
+  detail: Schema.String,
+  instance: Schema.optionalKey(Schema.String),
+  code: Schema.Literals(["token_expired", "token_revoked"]),
+  tokenId: Schema.String.annotate({
+    description: "The presented token's ID, as its holder's settings show it.",
+  }),
+  tokenPrefix: Schema.String.annotate({
+    description: "The token's type prefix and first body characters; never the secret.",
+  }),
+  endedAt: IsoDateTimeString,
+}).annotate({ identifier: "TokenEndedErrorEncoded" });
 export type ExtensionNameHeldErrorEncoded = {
   readonly kind: "ExtensionNameHeldError";
   readonly type: string;
@@ -1755,6 +1792,7 @@ export type AuthMeToken = {
   readonly id: string;
   readonly type: "session" | "pat" | "oidc";
   readonly name: string | null;
+  readonly prefix: string | null;
   readonly permissions: TokenPermissions | null;
   readonly authority: "account" | "limited";
   readonly resourceRestrictions?: ResourceRestrictions;
@@ -1772,6 +1810,14 @@ export const AuthMeToken = Schema.Struct({
   }),
   name: Schema.Union([
     Schema.String.annotate({ description: "Human-readable name of the token, if assigned." }),
+    Schema.Null,
+  ]),
+  prefix: Schema.Union([
+    Schema.String.annotate({
+      description:
+        "The token's type prefix and first body characters, as its holder's settings show them; never the secret.",
+      examples: ["axmt_7fQk"],
+    }),
     Schema.Null,
   ]),
   permissions: Schema.Union([TokenPermissions, Schema.Null]).annotate({
@@ -2701,8 +2747,8 @@ export type AuthGetMe200 = AuthMeResponse;
 export const AuthGetMe200 = AuthMeResponse;
 export type AuthGetMe400 = DecodeErrorResponse;
 export const AuthGetMe400 = DecodeErrorResponse;
-export type AuthGetMe401 = ProblemDetails;
-export const AuthGetMe401 = ProblemDetails;
+export type AuthGetMe401 = ProblemDetails | TokenEndedErrorEncoded;
+export const AuthGetMe401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type AuthGetMe500 = ProblemDetails;
 export const AuthGetMe500 = ProblemDetails;
 export type AuthGetMe503 = ProblemDetails;
@@ -2728,8 +2774,8 @@ export type TokensList200 = TokenListResponse;
 export const TokensList200 = TokenListResponse;
 export type TokensList400 = DecodeErrorResponse;
 export const TokensList400 = DecodeErrorResponse;
-export type TokensList401 = ProblemDetails;
-export const TokensList401 = ProblemDetails;
+export type TokensList401 = ProblemDetails | TokenEndedErrorEncoded;
+export const TokensList401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type TokensList403 = ForbiddenErrorEncoded;
 export const TokensList403 = ForbiddenErrorEncoded;
 export type TokensList500 = ProblemDetails;
@@ -2742,8 +2788,8 @@ export type TokensCreate201 = CreateTokenResponse;
 export const TokensCreate201 = CreateTokenResponse;
 export type TokensCreate400 = ProblemDetails | DecodeErrorResponse;
 export const TokensCreate400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type TokensCreate401 = ProblemDetails;
-export const TokensCreate401 = ProblemDetails;
+export type TokensCreate401 = ProblemDetails | TokenEndedErrorEncoded;
+export const TokensCreate401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type TokensCreate403 = ForbiddenErrorEncoded;
 export const TokensCreate403 = ForbiddenErrorEncoded;
 export type TokensCreate404 = ProblemDetails;
@@ -2756,8 +2802,8 @@ export type TokensCreate503 = ProblemDetails;
 export const TokensCreate503 = ProblemDetails;
 export type TokensDelete400 = DecodeErrorResponse;
 export const TokensDelete400 = DecodeErrorResponse;
-export type TokensDelete401 = ProblemDetails;
-export const TokensDelete401 = ProblemDetails;
+export type TokensDelete401 = ProblemDetails | TokenEndedErrorEncoded;
+export const TokensDelete401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type TokensDelete403 = ForbiddenErrorEncoded;
 export const TokensDelete403 = ForbiddenErrorEncoded;
 export type TokensDelete500 = ProblemDetails;
@@ -2796,8 +2842,8 @@ export type ExtensionsListByOwner200 = ExtensionSummaryPage;
 export const ExtensionsListByOwner200 = ExtensionSummaryPage;
 export type ExtensionsListByOwner400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsListByOwner400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsListByOwner401 = ProblemDetails;
-export const ExtensionsListByOwner401 = ProblemDetails;
+export type ExtensionsListByOwner401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsListByOwner401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsListByOwner500 = ProblemDetails;
 export const ExtensionsListByOwner500 = ProblemDetails;
 export type ExtensionsListByOwner503 = ProblemDetails;
@@ -2828,8 +2874,8 @@ export type ExtensionsListByType200 = ExtensionSummaryPage;
 export const ExtensionsListByType200 = ExtensionSummaryPage;
 export type ExtensionsListByType400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsListByType400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsListByType401 = ProblemDetails;
-export const ExtensionsListByType401 = ProblemDetails;
+export type ExtensionsListByType401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsListByType401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsListByType500 = ProblemDetails;
 export const ExtensionsListByType500 = ProblemDetails;
 export type ExtensionsListByType503 = ProblemDetails;
@@ -2902,8 +2948,8 @@ export const ExtensionsGet200 = Schema.Struct({
 });
 export type ExtensionsGet400 = DecodeErrorResponse;
 export const ExtensionsGet400 = DecodeErrorResponse;
-export type ExtensionsGet401 = ProblemDetails;
-export const ExtensionsGet401 = ProblemDetails;
+export type ExtensionsGet401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsGet401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsGet404 = ProblemDetails;
 export const ExtensionsGet404 = ProblemDetails;
 export type ExtensionsGet409 = LifecycleBlockedErrorEncoded;
@@ -2920,8 +2966,8 @@ export type ExtensionsUpdateVisibility200 = VisibilityMutationResult;
 export const ExtensionsUpdateVisibility200 = VisibilityMutationResult;
 export type ExtensionsUpdateVisibility400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsUpdateVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsUpdateVisibility401 = ProblemDetails;
-export const ExtensionsUpdateVisibility401 = ProblemDetails;
+export type ExtensionsUpdateVisibility401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsUpdateVisibility401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export const ExtensionsUpdateVisibility403 = ForbiddenErrorEncoded;
 export type ExtensionsUpdateVisibility404 = ProblemDetails;
@@ -2992,8 +3038,8 @@ export const ExtensionsGetVersion200 = Schema.Struct({
 });
 export type ExtensionsGetVersion400 = DecodeErrorResponse;
 export const ExtensionsGetVersion400 = DecodeErrorResponse;
-export type ExtensionsGetVersion401 = ProblemDetails;
-export const ExtensionsGetVersion401 = ProblemDetails;
+export type ExtensionsGetVersion401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsGetVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsGetVersion404 = ProblemDetails;
 export const ExtensionsGetVersion404 = ProblemDetails;
 export type ExtensionsGetVersion409 = LifecycleBlockedErrorEncoded;
@@ -3068,8 +3114,8 @@ export const ExtensionsPublishVersion201 = Schema.Struct({
 });
 export type ExtensionsPublishVersion400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsPublishVersion400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPublishVersion401 = ProblemDetails;
-export const ExtensionsPublishVersion401 = ProblemDetails;
+export type ExtensionsPublishVersion401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsPublishVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsPublishVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsPublishVersion404 = ProblemDetails;
@@ -3100,8 +3146,8 @@ export type ExtensionsPublishVersion503 = ProblemDetails;
 export const ExtensionsPublishVersion503 = ProblemDetails;
 export type ExtensionsDownloadArchive400 = DecodeErrorResponse;
 export const ExtensionsDownloadArchive400 = DecodeErrorResponse;
-export type ExtensionsDownloadArchive401 = ProblemDetails;
-export const ExtensionsDownloadArchive401 = ProblemDetails;
+export type ExtensionsDownloadArchive401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsDownloadArchive401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsDownloadArchive404 = ProblemDetails;
 export const ExtensionsDownloadArchive404 = ProblemDetails;
 export type ExtensionsDownloadArchive409 = LifecycleBlockedErrorEncoded;
@@ -3126,8 +3172,8 @@ export type ExtensionsGetVisibility200 = VisibilityEvaluation;
 export const ExtensionsGetVisibility200 = VisibilityEvaluation;
 export type ExtensionsGetVisibility400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsGetVisibility400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsGetVisibility401 = ProblemDetails;
-export const ExtensionsGetVisibility401 = ProblemDetails;
+export type ExtensionsGetVisibility401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsGetVisibility401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
 export const ExtensionsGetVisibility403 = ForbiddenErrorEncoded;
 export type ExtensionsGetVisibility404 = ProblemDetails;
@@ -3140,8 +3186,8 @@ export type ExtensionsGetArchival200 = ArchivalManagementView;
 export const ExtensionsGetArchival200 = ArchivalManagementView;
 export type ExtensionsGetArchival400 = DecodeErrorResponse;
 export const ExtensionsGetArchival400 = DecodeErrorResponse;
-export type ExtensionsGetArchival401 = ProblemDetails;
-export const ExtensionsGetArchival401 = ProblemDetails;
+export type ExtensionsGetArchival401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsGetArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsGetArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsGetArchival403 = ForbiddenErrorEncoded;
 export type ExtensionsGetArchival404 = ProblemDetails;
@@ -3158,8 +3204,8 @@ export type ExtensionsPutArchival200 = ArchivalTransition;
 export const ExtensionsPutArchival200 = ArchivalTransition;
 export type ExtensionsPutArchival400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsPutArchival400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPutArchival401 = ProblemDetails;
-export const ExtensionsPutArchival401 = ProblemDetails;
+export type ExtensionsPutArchival401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsPutArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsPutArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsPutArchival403 = ForbiddenErrorEncoded;
 export type ExtensionsPutArchival404 = ProblemDetails;
@@ -3178,8 +3224,8 @@ export type ExtensionsDeleteArchival200 = ArchivalTransition;
 export const ExtensionsDeleteArchival200 = ArchivalTransition;
 export type ExtensionsDeleteArchival400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsDeleteArchival400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsDeleteArchival401 = ProblemDetails;
-export const ExtensionsDeleteArchival401 = ProblemDetails;
+export type ExtensionsDeleteArchival401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsDeleteArchival401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteArchival403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteArchival404 = ProblemDetails;
@@ -3196,8 +3242,8 @@ export type ExtensionsGetDeprecation200 = DeprecationManagementView;
 export const ExtensionsGetDeprecation200 = DeprecationManagementView;
 export type ExtensionsGetDeprecation400 = DecodeErrorResponse;
 export const ExtensionsGetDeprecation400 = DecodeErrorResponse;
-export type ExtensionsGetDeprecation401 = ProblemDetails;
-export const ExtensionsGetDeprecation401 = ProblemDetails;
+export type ExtensionsGetDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsGetDeprecation401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsGetDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsGetDeprecation404 = ProblemDetails;
@@ -3214,8 +3260,8 @@ export type ExtensionsPutDeprecation200 = DeprecationTransition;
 export const ExtensionsPutDeprecation200 = DeprecationTransition;
 export type ExtensionsPutDeprecation400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsPutDeprecation400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsPutDeprecation401 = ProblemDetails;
-export const ExtensionsPutDeprecation401 = ProblemDetails;
+export type ExtensionsPutDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsPutDeprecation401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsPutDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsPutDeprecation404 = ProblemDetails;
@@ -3237,8 +3283,11 @@ export type ExtensionsDeleteDeprecation200 = DeprecationTransition;
 export const ExtensionsDeleteDeprecation200 = DeprecationTransition;
 export type ExtensionsDeleteDeprecation400 = ProblemDetails | DecodeErrorResponse;
 export const ExtensionsDeleteDeprecation400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type ExtensionsDeleteDeprecation401 = ProblemDetails;
-export const ExtensionsDeleteDeprecation401 = ProblemDetails;
+export type ExtensionsDeleteDeprecation401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsDeleteDeprecation401 = Schema.Union([
+  ProblemDetails,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export const ExtensionsDeleteDeprecation403 = ForbiddenErrorEncoded;
 export type ExtensionsDeleteDeprecation404 = ProblemDetails;
@@ -3294,8 +3343,8 @@ export const ExtensionsYankVersion200 = Schema.Struct({
 });
 export type ExtensionsYankVersion400 = DecodeErrorResponse;
 export const ExtensionsYankVersion400 = DecodeErrorResponse;
-export type ExtensionsYankVersion401 = ProblemDetails;
-export const ExtensionsYankVersion401 = ProblemDetails;
+export type ExtensionsYankVersion401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsYankVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsYankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsYankVersion404 = ProblemDetails;
@@ -3336,8 +3385,8 @@ export const ExtensionsUnyankVersion200 = Schema.Struct({
 });
 export type ExtensionsUnyankVersion400 = DecodeErrorResponse;
 export const ExtensionsUnyankVersion400 = DecodeErrorResponse;
-export type ExtensionsUnyankVersion401 = ProblemDetails;
-export const ExtensionsUnyankVersion401 = ProblemDetails;
+export type ExtensionsUnyankVersion401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsUnyankVersion401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export const ExtensionsUnyankVersion403 = ForbiddenErrorEncoded;
 export type ExtensionsUnyankVersion404 = ProblemDetails;
@@ -3372,8 +3421,11 @@ export const ExtensionsYankAvailableVersions200 = Schema.Struct({
 });
 export type ExtensionsYankAvailableVersions400 = DecodeErrorResponse;
 export const ExtensionsYankAvailableVersions400 = DecodeErrorResponse;
-export type ExtensionsYankAvailableVersions401 = ProblemDetails;
-export const ExtensionsYankAvailableVersions401 = ProblemDetails;
+export type ExtensionsYankAvailableVersions401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ExtensionsYankAvailableVersions401 = Schema.Union([
+  ProblemDetails,
+  TokenEndedErrorEncoded,
+]);
 export type ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export const ExtensionsYankAvailableVersions403 = ForbiddenErrorEncoded;
 export type ExtensionsYankAvailableVersions404 = ProblemDetails;
@@ -3406,8 +3458,8 @@ export const ResolutionsPostMetadata400 = Schema.Union([
   }),
   DecodeErrorResponse,
 ]);
-export type ResolutionsPostMetadata401 = ProblemDetails;
-export const ResolutionsPostMetadata401 = ProblemDetails;
+export type ResolutionsPostMetadata401 = ProblemDetails | TokenEndedErrorEncoded;
+export const ResolutionsPostMetadata401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type ResolutionsPostMetadata413 = {
   readonly code: "request-too-large" | "response-too-large";
   readonly detail: string;
@@ -3435,8 +3487,11 @@ export const PublishPreviewsPreviewExtensionPublishes400 = Schema.Union([
   ProblemDetails,
   DecodeErrorResponse,
 ]);
-export type PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails;
-export const PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails;
+export type PublishPreviewsPreviewExtensionPublishes401 = ProblemDetails | TokenEndedErrorEncoded;
+export const PublishPreviewsPreviewExtensionPublishes401 = Schema.Union([
+  ProblemDetails,
+  TokenEndedErrorEncoded,
+]);
 export type PublishPreviewsPreviewExtensionPublishes413 =
   PublishPreviewBatchTooLargeHttpErrorEncoded;
 export const PublishPreviewsPreviewExtensionPublishes413 =
@@ -3583,8 +3638,8 @@ export const DiscoveryPostDiscovery200 = Schema.Struct({
 });
 export type DiscoveryPostDiscovery400 = ProblemDetails | DecodeErrorResponse;
 export const DiscoveryPostDiscovery400 = Schema.Union([ProblemDetails, DecodeErrorResponse]);
-export type DiscoveryPostDiscovery401 = ProblemDetails;
-export const DiscoveryPostDiscovery401 = ProblemDetails;
+export type DiscoveryPostDiscovery401 = ProblemDetails | TokenEndedErrorEncoded;
+export const DiscoveryPostDiscovery401 = Schema.Union([ProblemDetails, TokenEndedErrorEncoded]);
 export type DiscoveryPostDiscovery500 = ProblemDetails;
 export const DiscoveryPostDiscovery500 = ProblemDetails;
 export type HealthGetShallowHealth200 = { readonly status: "pass" | "warn" | "fail" };
@@ -3746,8 +3801,9 @@ export const make = (
       const withOptionalResponse = (
         config?.includeResponse
           ? (response: HttpClientResponse.HttpClientResponse) =>
-              Effect.map(f(response), (a) => [a, response])
-          : (response: HttpClientResponse.HttpClientResponse) => f(response)
+              Effect.map(preserveRegistryResponse(f(response), response), (a) => [a, response])
+          : (response: HttpClientResponse.HttpClientResponse) =>
+              preserveRegistryResponse(f(response), response)
       ) as any;
       return options?.transformClient
         ? (request) =>

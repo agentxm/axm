@@ -71,6 +71,7 @@ const startDeviceAuthServer = async (initialOutcome: DeviceOutcome = "pending") 
           id: "tok_01h455vb4pexka56gq5w2r7cpc",
           type: "session",
           name: null,
+          prefix: null,
           permissions: null,
           authority: "account",
           expiresAt: new Date(Date.now() + 3_600_000).toISOString(),

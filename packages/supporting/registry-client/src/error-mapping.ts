@@ -97,6 +97,8 @@ export const isTransientRegistryError = (e: unknown): boolean => {
   if (isAnyRegistryClientError(e)) return e.response.status >= 500;
   if (!HttpClientError.isHttpClientError(e)) return false;
   if (e.reason._tag === "TransportError") return isTransientTransportError(e);
+  // Retaining HTTP evidence must not make a deterministic schema mismatch retryable.
+  if (e.reason._tag === "DecodeError" && isSchemaError(e.reason.cause)) return false;
   // A 5xx the client could not decode is still a 5xx: the failure is the
   // server's, whatever shape its body arrived in.
   return (e.response?.status ?? 0) >= 500;

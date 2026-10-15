@@ -364,7 +364,7 @@ describe("Sync realizes desired workspace state", () => {
             // longer serve it, so its closure cannot resolve this run. It is
             // still desired: the Pack still declares it.
             const lock = Schema.decodeUnknownSync(LockfileSchema)(
-              parseLockfileToml(workspace.readFile("axm.lock")),
+              parseLockfileToml(workspace.readFile("axm.lock")).document,
             );
             if (typeof lock !== "object" || lock === null || !("mcpServers" in lock)) {
               throw new Error("Expected the lockfile to hold the accepted MCP row");

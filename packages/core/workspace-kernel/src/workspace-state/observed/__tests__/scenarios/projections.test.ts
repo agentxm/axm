@@ -96,7 +96,10 @@ const lockfileWithSkill = (skillName: string): object => ({
         revision: "main",
       },
       identity: { owner: "@owner", name: skillName },
-      resolved: { commit: "commit-main", tree: "tree-main" },
+      resolved: {
+        commit: "37bca993969bec160a998e0ef41a944fd3a1478b",
+        tree: "4f3d5a031d7df587ecfbcbaed27d1c4265ff9247",
+      },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     },
   },
@@ -408,7 +411,8 @@ describe("projection: packs are not installed as pack members", () => {
                   identity: { owner: "@team", name: "nested-pack" },
                   resolved: {
                     version: "1.0.0",
-                    integrity: "sha256-nested",
+                    integrity:
+                      "sha512-hvmPzIBtGaPj8+948fp+Hqh7fhYs+ZQ62lC5F8X3zJxTFeD9ndWmhikUd4egxhfX+Ii3qzdUpBEH0uzBnzwuxQ==",
                     publisherBindingId: "hbnd_test",
                   },
                   manifestVersion: "1.0.0",

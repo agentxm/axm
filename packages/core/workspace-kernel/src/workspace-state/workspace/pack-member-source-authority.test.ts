@@ -45,7 +45,7 @@ describe("packMemberSourceAuthority", () => {
         kind: "accepted",
         entry: acceptedLock({
           source: { type: "git", url: url.href, path: "vendor/packs/toolkit", revision: "main" },
-          resolved: { commit: "c".repeat(40), tree: "t".repeat(40) },
+          resolved: { commit: "c".repeat(40), tree: "b".repeat(40) },
           sourceRoot: "vendor",
         }),
       });
@@ -70,7 +70,7 @@ describe("packMemberSourceAuthority", () => {
           kind: "accepted",
           entry: acceptedLock({
             source: { type: "git", url: url.href, path: "packs/toolkit" },
-            resolved: { commit: "c".repeat(40), tree: "t".repeat(40) },
+            resolved: { commit: "c".repeat(40), tree: "b".repeat(40) },
           }),
         }),
       ).toBe("git:https://github.com/acme/toolkit.git#HEAD");
@@ -131,7 +131,12 @@ describe("packMemberSourceAuthority", () => {
           kind: "accepted",
           entry: acceptedLock({
             source: { type: "registry", url: location.href },
-            resolved: { version: "1.0.0", integrity: "sha512-x", publisherBindingId: "binding" },
+            resolved: {
+              version: "1.0.0",
+              integrity:
+                "sha512-/kM0ybUJWQxadX9vPgffAKyAHmJVx5++n7zMWP5ilPA15ljmwW5KDxz5ecvy2hCpMvPHta3JUsG5pKZjjvDSeA==",
+              publisherBindingId: "binding",
+            },
           }),
         }),
       ).toBe(`registry:${location.href}`);

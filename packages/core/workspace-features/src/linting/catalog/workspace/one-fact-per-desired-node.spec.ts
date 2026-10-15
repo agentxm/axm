@@ -91,7 +91,7 @@ const lint = (workspace: SyncFixture) =>
 const forgetMember = (workspace: SyncFixture, registry: FileRegistry): void => {
   const lockPath = nodePath.join(workspace.root, "axm.lock");
   const lock = Schema.decodeUnknownSync(LockfileSchema)(
-    parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document,
   );
   if (typeof lock !== "object" || lock === null || !("skills" in lock)) {
     throw new Error("Expected a lockfile with a skills map");

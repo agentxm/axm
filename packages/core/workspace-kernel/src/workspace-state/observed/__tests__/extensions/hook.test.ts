@@ -37,7 +37,8 @@ const lockfileWithHooks = (names: ReadonlyArray<string>): Effect.Effect<Lockfile
           identity: { owner: "@acme", name },
           resolved: {
             version: "1.0.0",
-            integrity: "sha512-abc",
+            integrity:
+              "sha512-SN55YiR73V8aqIMqMmU217YyEBjufhLHz7Ygrd0X3eJhfaHmlFHogW6WdYPsYZamZdOmTMdmQk1E6XBiDG9iZA==",
             publisherBindingId: "hbnd_test",
           },
           treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,

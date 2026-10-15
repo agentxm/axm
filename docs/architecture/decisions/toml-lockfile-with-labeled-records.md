@@ -1,7 +1,7 @@
 ---
 type: Decision
 status: stable
-description: AXM stores accepted resolution in a TOML `axm.lock` at version 1, with one labeled record per retained package whose id is its directory, one-line bindings, projection tables with their own contract, a preserved tool namespace, and one canonical whole-file writer; the YAML lockfile is refused, not migrated.
+description: AXM stores accepted resolution in a TOML `axm.lock` at version 1, with labeled package records, compact simple bindings, expanded component bindings, projection tables, a lossless tool namespace, and one canonical whole-file writer; the YAML lockfile is refused, not migrated.
 depends-on:
   - ../workspace/lockfile.md
   - ../workspace/managed-file-ownership.md
@@ -49,11 +49,12 @@ name = "@community/mcps/sentry"
 [projections.rules]
 contract = 1
 
-[projections.rules.units]
-"AGENTS.md" = { gen = "sha256:…", output = "sha256:…" }
+[projections.rules.units."AGENTS.md"]
+gen = "sha256:…"
+output = "sha256:…"
 
 [tool.example]
-anything = "preserved verbatim, never read"
+anything = "value preserved, formatting may change"
 ```
 
 - **Records.** Each retained package is one `[[package]]` record with an `id`,
@@ -66,29 +67,36 @@ anything = "preserved verbatim, never read"
   from `source` and refuses a mismatch.
 - **Bindings.** `[skills]`, `[subagents]`, `[rules]`, `[hooks]`, `[knowledge]`,
   and `[packs]` are keyed by the local name in settings. Each value is one
-  inline table: `package` (a record id), `name` (the declared identity as
+  binding: `package` (a record id), `name` (the declared identity as
   `@owner/<type>/<name>`, or a bare name without an owner), `spec` (the Git
   revision the source asked for, when present), and `component` (paths within a
-  distribution package). Empty tables are omitted.
+  distribution package). Simple bindings stay inline. Component-bearing bindings
+  use a standard binding table and component subtable, after the simple bindings.
+  Empty tables are omitted.
 - **MCP rows.** MCP selections are `[[mcp]]` rows identified by `package` and
-  `name`. The in-memory key is computed from the row on read and not stored.
+  `name`. A component is emitted as `[mcp.component]` before the next row.
+  The in-memory key is computed from the row on read and not stored.
 - **Projections.** `[projections.<kind>]` tables come after every binding, each
   with its own `contract` and a `units` table of `gen` and `output` digests keyed
   by scope-relative path. Their meaning is unchanged from the
   [name-only fences decision](name-only-region-fences-and-lockfile-projection-currency.md).
 - **Tool namespace.** `[tool.<name>]` tables belong to other tools. AXM carries
   them forward on every write and never reads them for installation. Their
-  values are opaque: any TOML value, dates and floats included, is rewritten
-  from its parsed value with keys in code-point order, so formatting and
-  comments inside them do not survive.
+  values are opaque to resolution. A typed TOML carrier preserves integer and
+  float kinds, negative zero, signed 64-bit integers, and temporal kinds,
+  fractional precision, and offsets. Keys use code-point order; formatting and
+  comments may change. A failed read never becomes an empty tool namespace.
 - **Canonical writer.** AXM encodes the view and emits the whole file through
   one small emitter: fixed table order, basic strings only, inline tables for
-  bindings and sources, multi-line arrays for dependency and artifact lists, and
+  simple bindings and sources, standard tables for complex bindings and
+  projection units, multi-line arrays for dependency and artifact lists, and
   keys and rows sorted by code point, never by locale. Identical state yields
   identical bytes on every machine. There is no in-place editing.
 - **Schema header.** Line 1 is a `#:schema` directive naming the published JSON
   Schema, which describes the parsed TOML data model, so TOML-aware editors can
-  validate the file. Line 2 says the file is generated.
+  validate representable structural and lexical rules. CLI checks additionally
+  validate cross-record relationships, domain-parser semantics, and TOML types.
+  Line 2 says the file is generated.
 - **Legacy file.** A legacy `axm-lock.yaml` beside the expected `axm.lock` is
   refused in either scope as an older lockfile, whether or not `axm.lock`
   exists. Its declared version (or 0) is the observed version, and the existing
@@ -118,7 +126,8 @@ twelve versions had accumulated before public launch, the last of them to add
 projection currency.
 
 Accepted resolution is reviewed in pull requests and resolved in merge
-conflicts. A record per package and one line per binding make both readable.
+conflicts. A record per package, compact simple bindings, and expanded component
+bindings make both readable.
 
 ## Alternatives
 
@@ -167,13 +176,14 @@ conflicts. A record per package and one line per binding make both readable.
   because the old file is not read, and its projection rows are lost, so the
   first sync refuses differing whole files until `--replace-unrecorded` is
   given once.
-- A reviewer reads one record per package and one line per binding, and a
+- A reviewer reads one record per package and compact or expanded bindings, and a
   record's `id` is the path a reviewer finds on disk.
 - Hand edits and comments do not survive the next write. Byte-exact
   restoration after a withdrawn introduction holds for bytes AXM wrote.
 - Projection kinds change rendering through their own `contract` without a
-  lockfile version. Record and binding layout changes still require one,
-  because decoding stays strict.
+  lockfile version. Stored data-model changes require a lockfile version;
+  equivalent TOML presentation changes do not. The expanded table layout keeps
+  version 1 and the existing projection contracts.
 - The published schema keeps its filename and URL; it now describes the TOML
   data model.
 

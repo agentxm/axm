@@ -77,7 +77,7 @@ const lockfile = {
       identity: { owner: "@acme", name: "bad-skill" },
       resolved: {
         version: "1.0.0",
-        integrity: "sha256-test",
+        integrity: `sha512-${"A".repeat(86)}==`,
         publisherBindingId: "hbnd_test",
       },
       treeIntegrity,
@@ -89,7 +89,7 @@ const lockfile = {
       identity: { owner: "@acme", name: "bad-mcp" },
       resolved: {
         version: "1.0.0",
-        integrity: "sha256-test",
+        integrity: `sha512-${"A".repeat(86)}==`,
         publisherBindingId: "hbnd_test",
       },
       treeIntegrity,

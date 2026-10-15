@@ -56,7 +56,8 @@ const validPackLockfile = (packName: string): Effect.Effect<Lockfile, never> =>
         identity: { owner: "@team", name: packName },
         resolved: {
           version: "1.0.0",
-          integrity: "sha256-abc",
+          integrity:
+            "sha512-cXXgA8uxZoZ1YvFr4QA4ILzGJ9UU6EolC4va8HH0srfUPnxWGuxYGzGHab+JZxbFzWYClfvO2FHzcxhZ7HhXTA==",
           publisherBindingId: "hbnd_test",
         },
         manifestVersion: "1.0.0",

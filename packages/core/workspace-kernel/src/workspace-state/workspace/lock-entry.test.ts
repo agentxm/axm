@@ -27,7 +27,10 @@ const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
     revision: "main",
   },
   identity: { name: "react-router" },
-  resolved: { commit: "commit", tree: "tree" },
+  resolved: {
+    commit: "4015b57a143aec5156fd1444a017a32137a3fd0f",
+    tree: "80655da8d80aaaf92ce5357e7828dc09adb00993",
+  },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
 });
 
@@ -36,7 +39,8 @@ const registryEntry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
   identity: { owner: "@acme", name: "review" },
   resolved: {
     version: "1.0.0",
-    integrity: "sha512-review",
+    integrity:
+      "sha512-W6hmaNcCrEx5sOAbpgd9XOw+u68VBl+mKXJFoIxt5kihKN1+FVD/jdm1bqL40gSWuROKd0lEc0d45/aL2aNWqg==",
     publisherBindingId: "hbnd_review",
   },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
@@ -156,7 +160,12 @@ describe("lock entry source authority", () => {
       const sources = [
         {
           source: { type: "registry", url: "https://registry.example/" },
-          resolved: { version: "1.0.0", integrity: "sha512-test", publisherBindingId: "binding" },
+          resolved: {
+            version: "1.0.0",
+            integrity:
+              "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
+            publisherBindingId: "binding",
+          },
         },
         {
           source: {
@@ -164,7 +173,10 @@ describe("lock entry source authority", () => {
             url: "https://github.com/acme/tools.git",
             path: "catalog/packs/toolkit",
           },
-          resolved: { commit: "commit", tree: "tree" },
+          resolved: {
+            commit: "4015b57a143aec5156fd1444a017a32137a3fd0f",
+            tree: "80655da8d80aaaf92ce5357e7828dc09adb00993",
+          },
           sourceRoot: "catalog",
         },
         {
@@ -237,7 +249,10 @@ describe("lock entry printers", () => {
           path: "skills/review",
         },
         identity: { owner: handle("@acme"), name: extensionName("review") },
-        resolved: { commit: "commit-1", tree: "tree-1" },
+        resolved: {
+          commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+          tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+        },
         treeIntegrity,
       }),
     ).toEqual({
@@ -267,7 +282,10 @@ describe("lock entry printers", () => {
             path: "skills/review",
           },
           identity: { owner: handle("@acme"), name: extensionName("review") },
-          resolved: { commit: "commit-1", tree: "tree-1" },
+          resolved: {
+            commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+            tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+          },
           treeIntegrity,
         },
         "github:acme/extensions//skills/review@main",
@@ -291,7 +309,10 @@ describe("lock entry printers", () => {
             path: "skills/review",
           },
           identity: { owner: handle("@acme"), name: extensionName("review") },
-          resolved: { commit: "commit-1", tree: "tree-1" },
+          resolved: {
+            commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+            tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+          },
           treeIntegrity,
         },
         locator,
@@ -310,7 +331,10 @@ describe("lock entry printers", () => {
             path: "skills/review",
           },
           identity: { owner: handle("@acme"), name: extensionName("review") },
-          resolved: { commit: "commit-1", tree: "tree-1" },
+          resolved: {
+            commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+            tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+          },
           treeIntegrity,
         },
         "acme/extensions//skills/review@main",
@@ -334,7 +358,10 @@ describe("lock entry printers", () => {
         revision: "main",
       },
       identity: { name: "review" },
-      resolved: { commit: "commit-1", tree: "tree-1" },
+      resolved: {
+        commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+        tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+      },
       treeIntegrity,
     });
     expect(lockEntryMatchesSourceLocator(accepted, locator)).toBe(matches);
@@ -351,7 +378,10 @@ describe("lock entry printers", () => {
             path: "skills/review",
           },
           identity: { owner: handle("@acme"), name: extensionName("review") },
-          resolved: { commit: "commit-1", tree: "tree-1" },
+          resolved: {
+            commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+            tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+          },
           treeIntegrity,
         },
         "azurerepos:acme/platform/widgets//skills/review@main",

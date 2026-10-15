@@ -2,7 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 import { LOCKFILE_VERSION, type Lockfile, LockfileSchema, SkillLockEntrySchema } from "./schema.js";
 
-const skill = (name: string, commit = "accepted-commit") =>
+const skill = (name: string, commit = "f1b30f20676a73292d09bee40ee8d20f05de1c64") =>
   Schema.decodeUnknownSync(SkillLockEntrySchema)({
     source: {
       type: "git",
@@ -17,7 +17,7 @@ const skill = (name: string, commit = "accepted-commit") =>
       },
     },
     identity: { name },
-    resolved: { commit, tree: "accepted-package-tree" },
+    resolved: { commit, tree: "917cb8dec8de04b4f32ef3176c531ad91d0c9a99" },
     treeIntegrity: `sha256-tree-v2:${"a".repeat(64)}`,
   });
 
@@ -55,7 +55,7 @@ describe("retained package lock codec", () => {
     });
     const updated = encode({
       lockfileVersion: LOCKFILE_VERSION,
-      skills: { first: skill("first", "next-commit") },
+      skills: { first: skill("first", "2b068df2dae3d50592eff20b1d7d1a470466eb18") },
     });
     expect(updated.package?.map((record) => record.id)).toEqual(
       original.package?.map((record) => record.id),
@@ -63,7 +63,10 @@ describe("retained package lock codec", () => {
     expect(() =>
       encode({
         lockfileVersion: LOCKFILE_VERSION,
-        skills: { first: skill("first"), second: skill("second", "next-commit") },
+        skills: {
+          first: skill("first"),
+          second: skill("second", "2b068df2dae3d50592eff20b1d7d1a470466eb18"),
+        },
       }),
     ).toThrow("conflicting accepted snapshots");
   });

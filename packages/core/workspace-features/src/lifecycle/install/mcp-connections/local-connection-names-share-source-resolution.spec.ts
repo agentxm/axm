@@ -77,7 +77,7 @@ describe("Install locally named MCP connections", () => {
             },
           });
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(workspace.readFile("axm.lock")),
+            parseLockfileToml(workspace.readFile("axm.lock")).document,
           );
           expect(lockfile).toMatchObject({ lockfileVersion: 1 });
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
@@ -111,7 +111,7 @@ describe("Install locally named MCP connections", () => {
             mcpServers: { "personal-context": { source: "test:@acme/mcps/context" } },
           });
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(workspace.readFile("axm.lock")),
+            parseLockfileToml(workspace.readFile("axm.lock")).document,
           );
           if (typeof lockfile !== "object" || lockfile === null || !("mcpServers" in lockfile)) {
             throw new Error("Expected an MCP resolution map");
@@ -205,7 +205,7 @@ describe("Install locally named MCP connections", () => {
             const resolutions = (): ReadonlyArray<string> =>
               Object.keys(
                 Schema.decodeUnknownSync(LockfileSchema)(
-                  parseLockfileToml(workspace.readFile("axm.lock")),
+                  parseLockfileToml(workspace.readFile("axm.lock")).document,
                 ).mcpServers ?? {},
               );
             expect(resolutions()).toEqual([

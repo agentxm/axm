@@ -45,7 +45,9 @@ import { handleSetup as handleSetupLive } from "./setup.js";
 
 const readJson = (filePath: string): Settings => JSON.parse(fs.readFileSync(filePath, "utf-8"));
 const readLockfile = (filePath: string) =>
-  Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(fs.readFileSync(filePath, "utf-8")));
+  Schema.decodeUnknownSync(LockfileSchema)(
+    parseLockfileToml(fs.readFileSync(filePath, "utf-8")).document,
+  );
 const telemetrySuggestion = {
   description:
     "AXM collects usage, public skill installs, and errors by default; disable with AXM_TELEMETRY=0",

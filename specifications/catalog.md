@@ -4380,7 +4380,7 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Derived from: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`, `apps/cli/src/root/invalid-workspace-state-gates-operations.test.ts`
 - Supersedes: `cli/settings-validity-gates-operations`, `cli/workspace-lockfile-rejections-name-state-and-recovery`, `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`apps/cli-e2e/src/skills.e2e.test.ts`](../apps/cli-e2e/src/skills.e2e.test.ts) — Runs real skills update and publish commands, proving local-source advancement plus Git HEAD source review, explicit warning acceptance, process exit codes, machine output, and Registry effects; its imported cli-commands/skills/list/command.e2e.ts scenarios additionally observe inventory before setup, user-scope discovery, malformed settings and lockfiles, and install/uninstall/read journeys. Execution is attributed to this Vitest entrypoint, with imported source bytes included in the repository execution inputs.
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
 - Additional evidence: process via [`apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts`](../apps/cli-e2e/src/workspace-settings-validity.e2e.test.ts) — Proves at the real process boundary what the in-memory harness cannot: the shipped command wiring routes every sampled command family through the settings gate, machine stdout stays a valid document separated from stderr diagnostics, exit codes are nonzero, and version and help remain outside the gate.
 - Source: [`packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts`](../packages/core/workspace-kernel/src/reconciliation/invalid-workspace-state-gates-operations.spec.ts)
 
@@ -6256,7 +6256,7 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Derived from: `cli/lockfile-version-errors-expose-structured-problem`
 - Additional evidence: process via [`apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts`](../apps/cli-e2e/src/diagnostic-controls-select-the-requested-detail.e2e.test.ts) — Only a real process shows the selected detail reaching rendered stderr: the built CLI parses the global flags itself, reads the environment it was given, and renders cause and stack through the production error screen.
 - Additional evidence: process via [`apps/cli-e2e/src/smoke.e2e.test.ts`](../apps/cli-e2e/src/smoke.e2e.test.ts) — Observes the shipped process streams under --json: exactly one stdout document per invocation, NDJSON diagnostics on stderr, and the redacted error envelope for failing and defect invocations — channel separation the in-memory renderer capture cannot prove.
-- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
 - Source: [`apps/cli/src/cli-runtime/machine-errors-use-the-stable-envelope.spec.ts`](../apps/cli/src/cli-runtime/machine-errors-use-the-stable-envelope.spec.ts)
 
 ##### Machine output reports missing input or approval without prompting
@@ -6532,16 +6532,16 @@ Machine consumers can drive AgentXM surfaces non-interactively with complete, sc
 - Open questions: Whether the version machine result stays a plan-result document once the authoring use case returns a version-specific typed outcome is undecided; if it is replaced, the units and counts assertions here must be re-accepted.
 - Source: [`apps/cli/src/root/version/machine-result-identifies-manifest-change.spec.ts`](../apps/cli/src/root/version/machine-result-identifies-manifest-change.spec.ts)
 
-##### The published lockfile schema describes what the product accepts
+##### The published lockfile schema describes representable accepted-input constraints
 
 - Requirement: `settings-contract/published-lockfile-schema-agrees-with-accepted-input`
 - Owner: `cli`
-- Statement: The published lockfile schema shall admit exactly the lockfile version and required fields the product accepts, and a lockfile at any other version or missing a required field shall be refused.
+- Statement: The published lockfile JSON Schema shall agree with the CLI on supported version, required and forbidden fields, source-family structures, canonical identifier and digest patterns, binding names, and representable path constraints. Its descriptions shall distinguish CLI-only graph, domain-parser, and TOML-type validation; schema success alone shall not assert a valid accepted-resolution graph.
 - Class: functional
 - Role: interface
 - Product goals: `machine-automation`, `trustworthy-distribution`
 - Boundary: memory; selection: per-change
-- Methods: contract, example
+- Methods: contract, example, decision-table
 - Derived from: `settings-contract/published-schemas-agree-with-accepted-input`
 - Supersedes: `settings-contract/published-schemas-agree-with-accepted-input`
 - Assumptions: The schema documents shipped as package site content are the same documents published at the public schema URLs that editors and automation fetch.
@@ -7756,6 +7756,18 @@ Publishing and acquiring extensions preserves integrity, provenance, and immutab
 - Assumptions: The object store enforces conditional writes and returns strongly consistent object reads; exact CI artifacts pass the canonical release asset validator before distribution.
 - Source: [`scripts/release-distribution.spec.ts`](../scripts/release-distribution.spec.ts)
 
+##### Lockfile snapshots name immutable objects and canonical archive digests
+
+- Requirement: `workspace/lockfile/requires-immutable-identifiers`
+- Owner: `workspace-kernel`
+- Statement: AXM shall accept Git snapshot identifiers only as full lowercase SHA-1 or SHA-256 object IDs of matching widths and Registry archive integrity only as one canonical SHA-512 SRI token encoding 64 bytes. These constraints shall apply to reading and writing accepted resolutions; mutable Git intent remains a separate binding spec.
+- Class: functional
+- Role: supporting
+- Product goals: `trustworthy-distribution`, `safe-repetition`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/requires-immutable-identifiers.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/requires-immutable-identifiers.spec.ts)
+
 #### Quality
 
 ##### Acquired package copies preserve contained links and supporting content
@@ -8103,6 +8115,20 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts`](../packages/core/workspace-kernel/src/reconciliation/withdraws-native-artifact-parents.spec.ts)
 
+##### Lockfile writes preserve tool-owned TOML values and their kinds
+
+- Requirement: `workspace/lockfile/preserves-tool-values`
+- Owner: `workspace-kernel`
+- Statement: Every successful AXM lockfile write shall preserve the latest tool namespaces, scalar kinds, signed 64-bit integer values, binary64 float values including negative zero, temporal kinds and fractional precision, keys, empty containers, and array order. Invalid or unrepresentable prior tool values shall fail before replacement, never authorize dropping tool data. Tool values shall not influence accepted resolution.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `safe-repetition`
+- Boundary: platform; selection: per-change
+- Boundary rationale: Actual locked filesystem writes establish preservation and refusal without replacement.
+- Methods: example, decision-table
+- Additional evidence: process via [`apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts`](../apps/cli-e2e/src/workspace-lockfile-rejections.e2e.test.ts) — Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/preserves-tool-values.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/preserves-tool-values.spec.ts)
+
 ##### The lockfile records projection generation currency per unit
 
 - Requirement: `workspace/lockfile/records-projection-currency`
@@ -8115,6 +8141,18 @@ Workspace state always reflects explicitly expressed intent, authority, and owne
 - Boundary rationale: Row staging, snapshot merging and exact restoration are observable only through lockfile bytes and the accepted-resolution writer.
 - Methods: example, decision-table
 - Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/records-projection-currency.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/records-projection-currency.spec.ts)
+
+##### Accepted lockfile declarations cannot disappear through key collisions
+
+- Requirement: `workspace/lockfile/refuses-ambiguous-declarations`
+- Owner: `workspace-kernel`
+- Statement: AXM shall reject duplicate dependency names within a retained Pack and invalid local binding names before normalization. Every accepted binding and projection unit shall remain an own entry through decoding and encoding, including valid names that coincide with JavaScript prototype properties.
+- Class: functional
+- Role: supporting
+- Product goals: `workspace-intent-fidelity`, `trustworthy-distribution`
+- Boundary: memory; selection: per-change
+- Methods: example, decision-table
+- Source: [`packages/core/workspace-kernel/src/workspace-state/desired/lockfile/refuses-ambiguous-declarations.spec.ts`](../packages/core/workspace-kernel/src/workspace-state/desired/lockfile/refuses-ambiguous-declarations.spec.ts)
 
 ##### Withdrawing a newly reachable resolution restores its original lockfile bytes
 

@@ -205,7 +205,7 @@ describe("skill installation application", () => {
               identity: { owner: handle("@agentxm"), name: extensionName("axm") },
               resolved: {
                 version: exactVersion("1.0.0"),
-                integrity: "sha512-fixture",
+                integrity: `sha512-${"A".repeat(86)}==`,
                 publisherBindingId: "hbnd_test",
               },
               treeIntegrity,

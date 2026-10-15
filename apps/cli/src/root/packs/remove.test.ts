@@ -70,7 +70,7 @@ const createPackManifest = (
   fs.writeFileSync(path.join(packDir, "pack.json"), JSON.stringify(normalizedManifest, null, 2));
   const lockfilePath = path.join(tempDir, "axm.lock");
   const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-    parseLockfileToml(fs.readFileSync(lockfilePath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockfilePath, "utf8")).document,
   );
   const skills = expectRecord(lockfile["skills"] ?? {});
   const updatedSkills: Record<string, unknown> = { ...skills };
@@ -88,7 +88,7 @@ const createPackManifest = (
       identity: { owner, name: skillName },
       resolved: {
         version,
-        integrity: `sha512-${skillName}`,
+        integrity: `sha512-${"A".repeat(86)}==`,
         publisherBindingId: `hbnd_${skillName}`,
       },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,

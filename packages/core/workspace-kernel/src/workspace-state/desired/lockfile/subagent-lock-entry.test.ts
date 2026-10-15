@@ -26,10 +26,18 @@ describe("Subagent accepted resolutions", () => {
           path: "planner",
         },
         identity: { owner: "@acme", name: "planner" },
-        resolved: { commit: "commit-1", tree: "tree-1" },
+        resolved: {
+          commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+          tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+        },
         treeIntegrity,
       }),
-    ).toMatchObject({ resolved: { commit: "commit-1", tree: "tree-1" } });
+    ).toMatchObject({
+      resolved: {
+        commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+        tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+      },
+    });
   });
 
   it("rejects agent projections and receipt history", () => {

@@ -30,7 +30,8 @@ import {
   type Projections,
 } from "./projections.js";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "./schema.js";
-import { emitLockfileToml, parseLockfileToml } from "./toml.js";
+import { emitLockfileToml } from "./toml.js";
+import { parseLockfileToml } from "./toml-values.js";
 
 export const specification = defineSpecification({
   requirement: "workspace/lockfile/records-projection-currency",
@@ -67,6 +68,24 @@ const rulesState = (contract: number): ProjectionKindState => ({
 });
 
 describe("projection rows in the lockfile", () => {
+  it("updates and withdraws prototype-named paths without losing peer rows", () => {
+    const original: ProjectionKindState = {
+      contract: 1,
+      units: {
+        [unit("__proto__")]: { output: digest("a") },
+        [unit("constructor")]: { output: digest("b") },
+      },
+    };
+    const changed = applyKindChanges(original, 1, [
+      { path: unit("__proto__"), row: { output: digest("c") } },
+      { path: unit("constructor"), row: undefined },
+    ]);
+    expect(changed?.units).toEqual({ [unit("__proto__")]: { output: digest("c") } });
+    const patched = patchProjections({ rules: original }, { rules: original }, { rules: changed });
+    expect(patched?.rules?.units).toEqual(changed?.units);
+    expect(Object.hasOwn(patched?.rules?.units ?? {}, "__proto__")).toBe(true);
+  });
+
   it("encodes kinds with sorted unit keys and drops empty kinds", () => {
     const projections: Projections = {
       instructions: {
@@ -101,7 +120,7 @@ describe("projection rows in the lockfile", () => {
 
   it("round-trips rows through the stored document", () => {
     const lockfile: Lockfile = { ...empty, projections: { rules: rulesState(1) } };
-    const decoded = decode(parseLockfileToml(encodeToml(lockfile)));
+    const decoded = decode(parseLockfileToml(encodeToml(lockfile)).document);
     expect(Exit.isSuccess(decoded) ? decoded.value.projections : undefined).toEqual({
       rules: rulesState(1),
     });
@@ -356,7 +375,10 @@ describe("staging projection rows", () => {
 describe("restoring projection rows", () => {
   for (const before of [
     undefined,
-    emitLockfileToml({ version: LOCKFILE_VERSION, tool: { example: { kept: true } } }),
+    emitLockfileToml(
+      { version: LOCKFILE_VERSION },
+      parseLockfileToml("[tool.example]\nkept = true\n").tool,
+    ),
   ]) {
     it.effect(
       `restores the prior bytes after a row is introduced and withdrawn (${before === undefined ? "absent" : "present"})`,
@@ -388,7 +410,7 @@ describe("restoring projection rows", () => {
           };
           yield* writeLockfileAtPath(target, introduced, context);
           const written = yield* fs.readFileString(target);
-          expect(written).toContain('".claude/agents/researcher.md" = {');
+          expect(written).toContain('[projections.subagents.units.".claude/agents/researcher.md"]');
           yield* writeLockfileAtPath(target, empty, { ...context, eligible: false });
           if (before === undefined) expect(yield* fs.exists(target)).toBe(false);
           else expect(yield* fs.readFileString(target)).toBe(before);
@@ -425,7 +447,7 @@ describe("restoring projection rows", () => {
           true,
         );
         const rows = Schema.decodeUnknownSync(LockfileSchema)(
-          parseLockfileToml(written),
+          parseLockfileToml(written).document,
         ).projections;
         expect(Object.keys(rows?.rules?.units ?? {})).toEqual([
           "AGENTS.md",

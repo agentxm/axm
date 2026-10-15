@@ -59,7 +59,7 @@ const acceptedRegistryRow = (
   identity: { owner: "@acme", name },
   resolved: {
     version: "1.0.0",
-    integrity: "sha512-AAAA==",
+    integrity: `sha512-${"A".repeat(86)}==`,
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,

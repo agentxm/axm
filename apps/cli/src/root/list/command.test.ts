@@ -148,7 +148,7 @@ describe("root list", () => {
           owner: "@acme",
           name: "review",
           resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
+          integrity: `sha512-${"A".repeat(86)}==`,
           sourceName: "company",
           publisherBindingId: "hbnd_test",
           treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
@@ -173,12 +173,12 @@ describe("root list", () => {
             {
               version: "1.1.0",
               published: "2026-02-01T00:00:00.000Z",
-              integrity: "sha512-BBBB==",
+              integrity: `sha512-${"B".repeat(85)}A==`,
             },
             {
               version: "1.0.0",
               published: "2026-01-01T00:00:00.000Z",
-              integrity: "sha512-AAAA==",
+              integrity: `sha512-${"A".repeat(86)}==`,
             },
           ],
           ...registryIndex,

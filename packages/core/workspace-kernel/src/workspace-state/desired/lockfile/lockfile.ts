@@ -14,7 +14,6 @@ import * as Path from "effect/Path";
 import { sweepStaleAtomicWriteTemps, writeFileAtomic } from "@agentxm/host-primitives";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
-import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
 import {
@@ -25,19 +24,14 @@ import {
   type WorkspaceSnapshotError,
 } from "../../../settlement/index.js";
 import { LockfileWriteError } from "./errors.js";
-import {
-  LOCKFILE_VERSION,
-  type Lockfile,
-  LockfileSchema,
-  LockfileToolTablesSchema,
-  type LockfileToolTables,
-} from "./schema.js";
+import { LOCKFILE_VERSION, type Lockfile, LockfileSchema } from "./schema.js";
 import { patchProjections } from "./projections.js";
 import { decodeLockfileBytes, readLockfileBytes } from "../../observed/state.js";
 import type { LockfileReadError } from "../../observed/errors.js";
 import type { DocumentRoundTripContext } from "../document-round-trip.js";
 import { prepareLockfileRoundTrip } from "./round-trip.js";
-import { emitLockfileToml, parseLockfileToml } from "./toml.js";
+import { emitLockfileToml } from "./toml.js";
+import { parseLockfileToml, type ToolTables } from "./toml-values.js";
 
 /**
  * Pure lockfile transformation used to batch multiple lockfile updates before
@@ -66,39 +60,26 @@ const ensureLockfileParent = (lockfilePath: string) =>
       );
   });
 
-const decodeToolTables = Schema.decodeUnknownResult(LockfileToolTablesSchema);
-
-/**
- * The `[tool.*]` tables of the lockfile being replaced. They are preserved on
- * every write and never read for installation; unreadable prior text carries
- * none.
- */
-const priorToolTables = (prior: string | undefined): LockfileToolTables | undefined => {
-  if (prior === undefined) return undefined;
-  let parsed: unknown;
-  try {
-    parsed = parseLockfileToml(prior);
-  } catch {
-    return undefined;
-  }
-  if (typeof parsed !== "object" || parsed === null || !("tool" in parsed)) return undefined;
-  const tool = decodeToolTables(parsed.tool);
-  return Result.isSuccess(tool) && Object.keys(tool.success).length > 0 ? tool.success : undefined;
-};
+/** A preservation failure is a write failure, never permission to discard prior tool data. */
+const priorToolTables = (path: string, prior: string | undefined) =>
+  Effect.try({
+    try: () => (prior === undefined ? undefined : parseLockfileToml(prior).tool),
+    catch: (cause) => new LockfileWriteError({ path, step: "read-target", cause }),
+  });
 
 /** Encode the view and emit the whole canonical file, carrying tool tables forward. */
 const encodeLockfileToml = (
   lockfilePath: string,
   lockfile: Lockfile,
-  tool: LockfileToolTables | undefined,
+  tool: ToolTables | undefined,
 ) =>
   Effect.gen(function* () {
     const encoded = yield* Effect.try({
-      try: () => Schema.encodeSync(LockfileSchema)(lockfile),
+      try: () => Schema.encodeSync(LockfileSchema)(lockfile, { onExcessProperty: "error" }),
       catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "encode", cause }),
     });
     return yield* Effect.try({
-      try: () => emitLockfileToml(tool === undefined ? encoded : { ...encoded, tool }),
+      try: () => emitLockfileToml(encoded, tool),
       catch: (cause) => new LockfileWriteError({ path: lockfilePath, step: "serialize", cause }),
     });
   });
@@ -111,16 +92,16 @@ const patchOptionalMap = <T>(
   if (base === undefined && next === undefined)
     return fresh === undefined ? undefined : { ...fresh };
 
-  const patched: Record<string, T> = { ...(fresh ?? {}) };
+  const patched = new Map(Object.entries(fresh ?? {}));
   for (const key of Object.keys(base ?? {})) {
     if (!Object.hasOwn(next ?? {}, key)) {
-      delete patched[key];
+      patched.delete(key);
     }
   }
   for (const [key, value] of Object.entries(next ?? {})) {
-    patched[key] = value;
+    patched.set(key, value);
   }
-  return Object.keys(patched).length === 0 ? undefined : patched;
+  return patched.size === 0 ? undefined : Object.fromEntries(patched);
 };
 
 const patchRequiredMap = <T>(
@@ -128,16 +109,16 @@ const patchRequiredMap = <T>(
   base: Readonly<Record<string, T>>,
   next: Readonly<Record<string, T>>,
 ): Record<string, T> => {
-  const patched: Record<string, T> = { ...fresh };
+  const patched = new Map(Object.entries(fresh));
   for (const key of Object.keys(base)) {
     if (!Object.hasOwn(next, key)) {
-      delete patched[key];
+      patched.delete(key);
     }
   }
   for (const [key, value] of Object.entries(next)) {
-    patched[key] = value;
+    patched.set(key, value);
   }
-  return patched;
+  return Object.fromEntries(patched);
 };
 
 const applyLockfileSnapshotPatch = (fresh: Lockfile, base: Lockfile, next: Lockfile): Lockfile => {
@@ -213,7 +194,8 @@ const writeLockfileUnlocked = (
             ),
           )
       : undefined;
-    let content = yield* encodeLockfileToml(lockfilePath, lockfile, priorToolTables(prior));
+    const tool = yield* priorToolTables(lockfilePath, prior);
+    let content = yield* encodeLockfileToml(lockfilePath, lockfile, tool);
     const restoration =
       roundTrip === undefined || prior === content
         ? undefined

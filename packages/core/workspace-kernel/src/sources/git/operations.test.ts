@@ -16,6 +16,7 @@ import {
   getCommitSha,
   getTreeSha,
   listRemoteRefs,
+  shallowClone,
   shallowFetchCommit,
 } from "./operations.js";
 import { GitOperationFailed } from "../errors.js";
@@ -38,11 +39,11 @@ describe("git", () => {
   /**
    * Helper to create a local git repository for testing
    */
-  const createLocalRepo = async (repoPath: string): Promise<void> => {
+  const createLocalRepo = async (repoPath: string, objectFormat = "sha1"): Promise<void> => {
     fs.mkdirSync(repoPath, { recursive: true });
     const { execSync } = await import("node:child_process");
     const gitOptions = { cwd: repoPath, env: isolatedGitEnv(process.env), stdio: "pipe" } as const;
-    execSync("git init", gitOptions);
+    execSync(`git init --object-format=${objectFormat}`, gitOptions);
     execSync("git config user.email 'test@test.com'", gitOptions);
     execSync("git config user.name 'Test'", gitOptions);
     fs.writeFileSync(path.join(repoPath, "README.md"), "# Test Repo");
@@ -291,91 +292,112 @@ if (failure.operation !== "list-remote-refs" || !failure.detail.includes("deadli
   });
 
   describe("immutable commit acquisition", () => {
-    it.effect("fetches a recorded reachable commit after the branch advances", () =>
-      Effect.gen(function* () {
-        const source = path.join(tempDir, "source");
-        const remote = path.join(tempDir, "remote.git");
-        const checkout = path.join(tempDir, "checkout");
-        yield* Effect.promise(() => createLocalRepo(source));
-        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = {
-          cwd: source,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        } as const;
-        const recorded = execSync("git rev-parse HEAD", {
-          ...gitOptions,
-          encoding: "utf8",
-        }).trim();
-        fs.writeFileSync(path.join(source, "README.md"), "# Advanced");
-        execSync("git add .", gitOptions);
-        execSync("git commit -m 'Advance branch'", gitOptions);
-        execSync(`git clone --bare "${source}" "${remote}"`, {
-          cwd: tempDir,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        });
-        fs.mkdirSync(checkout);
-
-        yield* shallowFetchCommit(remote, checkout, recorded).pipe(
-          Effect.provide(NodeServices.layer),
-        );
-
-        expect(yield* getCommitSha(checkout)).toBe(recorded);
-        expect(fs.readFileSync(path.join(checkout, "README.md"), "utf8")).toBe("# Test Repo");
-      }),
+    it.effect.each(["sha1", "sha256"])(
+      "refuses a %s tree object supplied as the recorded commit",
+      (objectFormat) =>
+        Effect.gen(function* () {
+          const source = path.join(tempDir, "source");
+          const checkout = path.join(tempDir, "checkout");
+          yield* Effect.promise(() => createLocalRepo(source, objectFormat));
+          const tree = yield* getTreeSha(source);
+          fs.mkdirSync(checkout);
+          const failure = yield* shallowClone(source, checkout, tree).pipe(
+            Effect.provide(NodeServices.layer),
+            Effect.flip,
+          );
+          expect(failure._tag).toBe("GitOperationFailed");
+          expect(failure.detail).toContain(tree);
+          expect(fs.existsSync(path.join(checkout, "README.md"))).toBe(false);
+        }),
     );
 
-    it.effect("names the locator and commit when the recorded object is unreachable", () =>
-      Effect.gen(function* () {
-        const source = path.join(tempDir, "source");
-        const remote = path.join(tempDir, "remote.git");
-        const checkout = path.join(tempDir, "checkout");
-        yield* Effect.promise(() => createLocalRepo(source));
-        const { execSync } = yield* Effect.promise(() => import("node:child_process"));
-        const gitOptions = {
-          cwd: source,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        } as const;
-        execSync("git checkout -b temporary", gitOptions);
-        fs.writeFileSync(path.join(source, "temporary.md"), "temporary\n");
-        execSync("git add .", gitOptions);
-        execSync("git commit -m 'Temporary commit'", gitOptions);
-        const recorded = execSync("git rev-parse HEAD", {
-          ...gitOptions,
-          encoding: "utf8",
-        }).trim();
-        execSync(`git clone --bare "${source}" "${remote}"`, {
-          cwd: tempDir,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        });
-        execSync("git update-ref -d refs/heads/temporary", {
-          cwd: remote,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        });
-        execSync("git reflog expire --expire=now --all", {
-          cwd: remote,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        });
-        execSync("git gc --prune=now", {
-          cwd: remote,
-          env: isolatedGitEnv(process.env),
-          stdio: "pipe",
-        });
-        fs.mkdirSync(checkout);
+    it.effect.each(["sha1", "sha256"])(
+      "fetches a recorded %s commit after the branch advances",
+      (objectFormat) =>
+        Effect.gen(function* () {
+          const source = path.join(tempDir, "source");
+          const remote = path.join(tempDir, "remote.git");
+          const checkout = path.join(tempDir, "checkout");
+          yield* Effect.promise(() => createLocalRepo(source, objectFormat));
+          const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+          const gitOptions = {
+            cwd: source,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          } as const;
+          const recorded = execSync("git rev-parse HEAD", {
+            ...gitOptions,
+            encoding: "utf8",
+          }).trim();
+          fs.writeFileSync(path.join(source, "README.md"), "# Advanced");
+          execSync("git add .", gitOptions);
+          execSync("git commit -m 'Advance branch'", gitOptions);
+          execSync(`git clone --bare "${source}" "${remote}"`, {
+            cwd: tempDir,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          });
+          fs.mkdirSync(checkout);
 
-        const failure = yield* shallowFetchCommit(remote, checkout, recorded).pipe(
-          Effect.provide(NodeServices.layer),
-          Effect.flip,
-        );
+          yield* shallowClone(remote, checkout, recorded).pipe(Effect.provide(NodeServices.layer));
 
-        expect(failure.detail).toContain(remote);
-        expect(failure.detail).toContain(recorded);
-      }),
+          expect(yield* getCommitSha(checkout)).toBe(recorded);
+          expect(fs.readFileSync(path.join(checkout, "README.md"), "utf8")).toBe("# Test Repo");
+        }),
+    );
+
+    it.effect.each(["sha1", "sha256"])(
+      "names the locator and commit when the recorded %s object is unreachable",
+      (objectFormat) =>
+        Effect.gen(function* () {
+          const source = path.join(tempDir, "source");
+          const remote = path.join(tempDir, "remote.git");
+          const checkout = path.join(tempDir, "checkout");
+          yield* Effect.promise(() => createLocalRepo(source, objectFormat));
+          const { execSync } = yield* Effect.promise(() => import("node:child_process"));
+          const gitOptions = {
+            cwd: source,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          } as const;
+          execSync("git checkout -b temporary", gitOptions);
+          fs.writeFileSync(path.join(source, "temporary.md"), "temporary\n");
+          execSync("git add .", gitOptions);
+          execSync("git commit -m 'Temporary commit'", gitOptions);
+          const recorded = execSync("git rev-parse HEAD", {
+            ...gitOptions,
+            encoding: "utf8",
+          }).trim();
+          execSync(`git clone --bare "${source}" "${remote}"`, {
+            cwd: tempDir,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          });
+          execSync("git update-ref -d refs/heads/temporary", {
+            cwd: remote,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          });
+          execSync("git reflog expire --expire=now --all", {
+            cwd: remote,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          });
+          execSync("git gc --prune=now", {
+            cwd: remote,
+            env: isolatedGitEnv(process.env),
+            stdio: "pipe",
+          });
+          fs.mkdirSync(checkout);
+
+          const failure = yield* shallowFetchCommit(remote, checkout, recorded).pipe(
+            Effect.provide(NodeServices.layer),
+            Effect.flip,
+          );
+
+          expect(failure.detail).toContain(remote);
+          expect(failure.detail).toContain(recorded);
+        }),
     );
 
     it.effect("lists advertised branches and tags", () =>

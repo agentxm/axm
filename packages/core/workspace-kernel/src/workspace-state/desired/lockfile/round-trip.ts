@@ -1,9 +1,10 @@
 import * as Equal from "effect/Equal";
+import { emitToolTables } from "./toml.js";
 import { prepareDocumentRoundTrip, type DocumentRoundTripContext } from "../document-round-trip.js";
 import { LOCKFILE_VERSION } from "./schema.js";
 import { PROJECTION_KINDS } from "./projections.js";
 import { LockfileWriteError } from "./errors.js";
-import { parseLockfileToml } from "./toml.js";
+import { parseLockfileToml, type ParsedLockfileToml } from "./toml-values.js";
 
 /** Binding tables keyed by local alias. */
 const tables = ["skills", "subagents", "rules", "hooks", "knowledge", "packs"];
@@ -12,10 +13,9 @@ const arrays = ["package", "mcp"];
 
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-const parse = (raw: string): Record<string, unknown> | undefined => {
+const parse = (raw: string): ParsedLockfileToml | undefined => {
   try {
-    const value = parseLockfileToml(raw);
-    return record(value) ? value : undefined;
+    return parseLockfileToml(raw);
   } catch {
     return undefined;
   }
@@ -60,14 +60,17 @@ export const prepareLockfileRoundTrip = (args: {
   readonly before: string | undefined;
   readonly after: string;
 }) => {
-  const before = args.before === undefined ? { version: LOCKFILE_VERSION } : parse(args.before);
+  const before =
+    args.before === undefined
+      ? { document: { version: LOCKFILE_VERSION }, tool: undefined }
+      : parse(args.before);
   const after = parse(args.after);
   const insertions: string[] = [];
   const withdrawals: string[] = [];
   // Package records are derived from bindings; eligibility belongs to the selected units.
   if (before !== undefined && after !== undefined) {
-    const prior = bindingUnits(before);
-    const next = bindingUnits(after);
+    const prior = bindingUnits(before.document);
+    const next = bindingUnits(after.document);
     for (const unit of next) if (!prior.has(unit)) insertions.push(unit);
     for (const unit of prior) if (!next.has(unit)) withdrawals.push(unit);
   }
@@ -84,8 +87,8 @@ export const prepareLockfileRoundTrip = (args: {
     withdrawals.length === 0
   )
     for (const kind of PROJECTION_KINDS) {
-      const prior = projectionUnits(before, kind);
-      const next = projectionUnits(after, kind);
+      const prior = projectionUnits(before.document, kind);
+      const next = projectionUnits(after.document, kind);
       for (const path of Object.keys(next))
         if (!Object.hasOwn(prior, path))
           insertions.push(JSON.stringify(["lockfile", "projections", kind, path]));
@@ -99,13 +102,16 @@ export const prepareLockfileRoundTrip = (args: {
     insertions,
     withdrawals,
     acceptAbsent:
-      after !== undefined && Equal.equals(normalize(after), { version: LOCKFILE_VERSION }),
+      after !== undefined &&
+      after.tool === undefined &&
+      Equal.equals(normalize(after.document), { version: LOCKFILE_VERSION }),
     acceptRestored: (raw) => {
       const restored = parse(raw);
       return (
         restored !== undefined &&
         after !== undefined &&
-        Equal.equals(normalize(restored), normalize(after))
+        Equal.equals(normalize(restored.document), normalize(after.document)) &&
+        Equal.equals(emitToolTables(restored.tool), emitToolTables(after.tool))
       );
     },
     mapFailure: (target, cause) =>

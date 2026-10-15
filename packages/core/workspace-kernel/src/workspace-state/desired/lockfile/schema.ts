@@ -50,6 +50,8 @@ import {
   VersionSchema,
 } from "@agentxm/extension-model/unstable/version-constraints";
 import {
+  GitSha1ObjectIdSchema,
+  GitSha256ObjectIdSchema,
   SourceRefSchema,
   SourceSubPathSchema,
 } from "@agentxm/extension-model/unstable/sources/types";
@@ -91,14 +93,20 @@ const PathSourceLocatorSchema = Schema.Struct({
 const makeExtensionIdentitySchema = <TOwner extends Schema.Top>(owner: TOwner) =>
   Schema.Struct({ owner, name: ExtensionNameSchema });
 
-const GitAcceptedResolutionSchema = Schema.Struct({
-  commit: Schema.NonEmptyString,
-  tree: Schema.NonEmptyString,
-});
+const GitAcceptedResolutionSchema = Schema.Union([
+  Schema.Struct({ commit: GitSha1ObjectIdSchema, tree: GitSha1ObjectIdSchema }),
+  Schema.Struct({ commit: GitSha256ObjectIdSchema, tree: GitSha256ObjectIdSchema }),
+]);
+
+const ArchiveIntegritySchema = Schema.String.check(
+  Schema.isPattern(/^sha512-[A-Za-z0-9+/]{85}[AQgw]==(?![\s\S])/u, {
+    message: "Expected one canonical SHA-512 archive integrity token",
+  }),
+).annotate({ identifier: "ArchiveIntegrity" });
 
 const RegistryAcceptedResolutionSchema = Schema.Struct({
   version: VersionSchema,
-  integrity: Schema.String.annotate({
+  integrity: ArchiveIntegritySchema.annotate({
     description:
       "SRI sha512 of the published archive, verified against downloaded bytes before " +
       "extraction. The supply-chain guarantee for registry installs; never compared " +
@@ -199,7 +207,10 @@ export type SkillLockEntry = Schema.Schema.Type<typeof SkillLockEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SkillsLockMapSchema = Schema.Record(Schema.String, SkillLockEntrySchema);
+export const SkillsLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  SkillLockEntrySchema,
+);
 
 /**
  * Inferred type for SkillsLockMap schema.
@@ -241,7 +252,10 @@ export type SubagentLockEntry = Schema.Schema.Type<typeof SubagentLockEntrySchem
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const SubagentsLockMapSchema = Schema.Record(Schema.String, SubagentLockEntrySchema);
+export const SubagentsLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  SubagentLockEntrySchema,
+);
 
 /**
  * Inferred type for SubagentsLockMap schema.
@@ -317,7 +331,10 @@ export type RuleLockEntry = Schema.Schema.Type<typeof RuleLockEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const RulesLockMapSchema = Schema.Record(Schema.String, RuleLockEntrySchema);
+export const RulesLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  RuleLockEntrySchema,
+);
 
 /** @experimental */
 export type RulesLockMap = Schema.Schema.Type<typeof RulesLockMapSchema>;
@@ -343,7 +360,10 @@ export type HookLockEntry = Schema.Schema.Type<typeof HookLockEntrySchema>;
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const HooksLockMapSchema = Schema.Record(Schema.String, HookLockEntrySchema);
+export const HooksLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  HookLockEntrySchema,
+);
 
 /** @experimental */
 export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
@@ -362,7 +382,10 @@ export type HooksLockMap = Schema.Schema.Type<typeof HooksLockMapSchema>;
 export const KnowledgeLockEntrySchema = makeSourceLockUnion(HandleSchema, {});
 
 export type KnowledgeLockEntry = Schema.Schema.Type<typeof KnowledgeLockEntrySchema>;
-export const KnowledgeLockMapSchema = Schema.Record(Schema.String, KnowledgeLockEntrySchema);
+export const KnowledgeLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  KnowledgeLockEntrySchema,
+);
 export type KnowledgeLockMap = Schema.Schema.Type<typeof KnowledgeLockMapSchema>;
 
 // =============================================================================
@@ -495,7 +518,10 @@ export const makeRegistryPackLockEntry = (args: RegistryPackLockEntryArgs): Regi
  *
  * @experimental This API is unstable and may change without notice.
  */
-export const PacksLockMapSchema = Schema.Record(Schema.String, PackLockEntrySchema);
+export const PacksLockMapSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  PackLockEntrySchema,
+);
 
 /**
  * Inferred type for PacksLockMap schema.
@@ -614,6 +640,23 @@ const StoredPackDependencySchema = Schema.Union([
   Schema.Struct({ name: NonPackExtensionFqnSchema, range: VersionRangeSchema }),
 ]);
 
+const StoredPackDependenciesSchema = Schema.Array(StoredPackDependencySchema).check(
+  Schema.makeFilter((dependencies) => {
+    const first = new Map<string, number>();
+    const issues: Array<{ path: [number, string]; issue: string }> = [];
+    dependencies.forEach((dependency, index) => {
+      const previous = first.get(dependency.name);
+      if (previous === undefined) first.set(dependency.name, index);
+      else
+        issues.push({
+          path: [index, "name"],
+          issue: `Duplicate dependency "${dependency.name}"; first declared at dependencies[${previous}].name`,
+        });
+    });
+    return issues;
+  }),
+);
+
 const storedPackDeclarationFields = {
   "manifest-version": Schema.optionalKey(VersionSchema),
   "manifest-identity": Schema.optionalKey(
@@ -622,28 +665,38 @@ const storedPackDeclarationFields = {
         "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature.",
     }),
   ),
-  dependencies: Schema.optionalKey(Schema.Array(StoredPackDependencySchema)),
+  dependencies: Schema.optionalKey(StoredPackDependenciesSchema),
 } satisfies Schema.Struct.Fields;
 
 const StoredRegistryPackageSchema = Schema.Struct({
   id: Schema.NonEmptyString,
   source: StoredRegistrySourceSchema,
   version: VersionSchema,
-  archive: Schema.String,
+  archive: ArchiveIntegritySchema,
   publisher: Schema.NonEmptyString,
   tree: TreeIntegritySchema,
   ...storedPackDeclarationFields,
 });
 
-const StoredGitPackageSchema = Schema.Struct({
+const storedGitPackageFields = {
   id: Schema.NonEmptyString,
   source: StoredGitSourceSchema,
-  commit: Schema.NonEmptyString,
-  "git-tree": Schema.NonEmptyString,
   tree: TreeIntegritySchema,
   ...storedPackDeclarationFields,
   "source-root": Schema.optionalKey(Schema.String),
-});
+};
+const StoredGitPackageSchema = Schema.Union([
+  Schema.Struct({
+    ...storedGitPackageFields,
+    commit: GitSha1ObjectIdSchema,
+    "git-tree": GitSha1ObjectIdSchema,
+  }),
+  Schema.Struct({
+    ...storedGitPackageFields,
+    commit: GitSha256ObjectIdSchema,
+    "git-tree": GitSha256ObjectIdSchema,
+  }),
+]);
 
 const StoredHttpPackageSchema = Schema.Struct({
   id: Schema.NonEmptyString,
@@ -685,7 +738,10 @@ const StoredBindingSchema = Schema.Struct({
   component: Schema.optionalKey(StoredComponentSchema),
 });
 type StoredBinding = typeof StoredBindingSchema.Type;
-const StoredBindingsSchema = Schema.Record(Schema.String, StoredBindingSchema);
+const StoredBindingsSchema = Schema.Record(
+  Schema.toEncoded(ExtensionNameSchema),
+  StoredBindingSchema,
+);
 
 /**
  * Tool-owned tables, preserved on write and never read for installation. Their
@@ -827,14 +883,10 @@ export const packageSourceForEntry = (
 
 const invalidStoredLock = (message: string) => new SchemaIssue.InvalidValue({ message });
 
-const sortedRecord = <T>(record: Readonly<Record<string, T>>): Record<string, T> => {
-  const sorted: Record<string, T> = {};
-  for (const key of Object.keys(record).sort(compareCodePoints)) {
-    const value = record[key];
-    if (value !== undefined) sorted[key] = value;
-  }
-  return sorted;
-};
+const sortedRecord = <T>(record: Readonly<Record<string, T>>): Record<string, T> =>
+  Object.fromEntries(
+    Object.entries(record).sort(([left], [right]) => compareCodePoints(left, right)),
+  );
 
 /** `@owner/<plural>/<name>` for an owned identity; the bare name otherwise. */
 const bindingName = (
@@ -949,7 +1001,7 @@ const normalizeLockfile = (view: Lockfile) =>
     const tables: Record<string, Record<string, unknown>> = {};
     const mcp: Array<Record<string, unknown>> = [];
     for (const table of BINDING_TABLES) {
-      const bindings: Record<string, unknown> = {};
+      const bindings = new Map<string, unknown>();
       for (const [alias, entry] of viewEntriesOf(view, table)) {
         const source = packageSourceForEntry(table.plural, entry);
         const id = retainedPackageId(source);
@@ -986,10 +1038,10 @@ const normalizeLockfile = (view: Lockfile) =>
         else if (pack !== undefined) previous.pack = pack;
         const binding = storedBindingOf(id.success, table.plural, entry);
         if (table.view === "mcpServers") mcp.push(binding);
-        else bindings[alias] = binding;
+        else bindings.set(alias, binding);
       }
-      if (table.view !== "mcpServers" && Object.keys(bindings).length > 0)
-        tables[table.view] = sortedRecord(bindings);
+      if (table.view !== "mcpServers" && bindings.size > 0)
+        tables[table.view] = sortedRecord(Object.fromEntries(bindings));
     }
     const packages = [...records.entries()]
       .sort(([left], [right]) => compareCodePoints(left, right))
@@ -1217,7 +1269,7 @@ const expandLockfile = (stored: StoredLockfile) =>
     const referenced = new Set<string>();
     const packBound = new Set<string>();
     for (const table of BINDING_TABLES) {
-      const entries: Record<string, unknown> = {};
+      const entries = new Map<string, unknown>();
       for (const [alias, binding] of storedBindingsOf(stored, table)) {
         const record = records.get(binding.package);
         if (record === undefined)
@@ -1229,13 +1281,14 @@ const expandLockfile = (stored: StoredLockfile) =>
         const expanded = yield* expandBinding(table, binding, record);
         const key = expanded.mcpKey ?? alias;
         if (key === undefined) continue;
-        if (Object.hasOwn(entries, key))
+        if (entries.has(key))
           return yield* Effect.fail(
             invalidStoredLock("Two accepted MCP resolutions select one package component"),
           );
-        entries[key] = expanded.entry;
+        entries.set(key, expanded.entry);
       }
-      if (Object.keys(entries).length > 0 || table.view === "skills") maps[table.view] = entries;
+      if (entries.size > 0 || table.view === "skills")
+        maps[table.view] = Object.fromEntries(entries);
     }
     for (const record of records.values()) {
       if (!referenced.has(record.id))
@@ -1269,5 +1322,5 @@ export const LockfileSchema = StoredLockfileSchema.pipe(
   identifier: "Lockfile",
   title: "AXM Lockfile",
   description:
-    "Accepted retained packages, selected component bindings, and projection generation currency. Desired state and projection ownership are authoritative elsewhere.",
+    "Accepted retained packages, selected component bindings, and projection generation currency. JSON Schema describes structural and lexical constraints; the CLI additionally validates cross-record references, dependency-name uniqueness, accepted Pack declarations, source and component consistency, semver ranges, and URL/locator semantics. TOML syntax, scalar kinds, and tool-value fidelity belong to the TOML reader. Desired state and projection ownership are authoritative elsewhere.",
 });

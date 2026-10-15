@@ -202,7 +202,7 @@ const registryLockEntry = (name: string, version: string) => ({
   owner: "@acme",
   name,
   resolvedVersion: version,
-  integrity: "sha512-AAAA==",
+  integrity: `sha512-${"A".repeat(86)}==`,
   sourceName: "test",
   publisherBindingId: "hbnd_test",
   installedAt: "2025-01-01T00:00:00.000Z",

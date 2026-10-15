@@ -49,7 +49,7 @@ import {
 import { UpdateExtensions } from "./update-extensions.js";
 
 const lockSkill = (raw: string, name: string): unknown => {
-  const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(raw));
+  const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(raw).document);
   if (typeof parsed !== "object" || parsed === null || !("skills" in parsed)) return undefined;
   if (typeof parsed.skills !== "object" || parsed.skills === null) return undefined;
   return Object.entries(parsed.skills).find(([key]) => key === name)?.[1];
@@ -299,7 +299,7 @@ describe("type-group subagent update of a member a direct pin and Packs share", 
 
   const lockedVersion = (workspace: LifecycleFixture): unknown => {
     const parsed: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-      parseLockfileToml(workspace.readFile("axm.lock")),
+      parseLockfileToml(workspace.readFile("axm.lock")).document,
     );
     if (typeof parsed !== "object" || parsed === null || !("subagents" in parsed)) return undefined;
     const locked = parsed.subagents;

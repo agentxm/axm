@@ -471,7 +471,9 @@ describe("Publisher changes through typed Subagent update", () => {
       expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
       expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
       expectSubagentContent(registry, workspace, UNRELATED_SUBAGENT, UNRELATED);
-      const lockBefore = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
+      const lockBefore = yield* decodeLockfile(
+        parseLockfileToml(workspace.readFile("axm.lock")).document,
+      );
       expect(lockBefore.subagents?.[SUBAGENT]).toMatchObject({
         source: { type: "registry" },
         identity: { owner: "@acme", name: SUBAGENT },
@@ -492,7 +494,7 @@ describe("Publisher changes through typed Subagent update", () => {
       pending.run = () => {
         expectSubagentContent(registry, workspace, SUBAGENT, FIRST);
         const currentLock = Schema.decodeUnknownSync(LockfileSchema)(
-          parseLockfileToml(workspace.readFile("axm.lock")),
+          parseLockfileToml(workspace.readFile("axm.lock")).document,
         );
         expect(currentLock).toMatchObject({
           subagents: { [SUBAGENT]: { resolved: { publisherBindingId: ACCEPTED_BINDING } } },
@@ -516,9 +518,9 @@ describe("Publisher changes through typed Subagent update", () => {
         const resolution = yield* updateSubagent(workspace);
 
         expect(workspace.snapshot()).toEqual(before);
-        expect(yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")))).toEqual(
-          lockBefore,
-        );
+        expect(
+          yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")).document),
+        ).toEqual(lockBefore);
         expect(workspace.interactionState().confirmApplyChangesCalls).toEqual([]);
         expect(deriveOperationOutcome(resolution)).toBe("blocked");
         expect(countUnitStates(resolution.units).committed).toBe(0);
@@ -545,7 +547,9 @@ describe("Publisher changes through typed Subagent update", () => {
 
         expect(workspace.interactionState().confirmApplyChangesCalls).toHaveLength(1);
         expect(deriveOperationOutcome(resolution)).toBe("applied");
-        const lockAfter = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
+        const lockAfter = yield* decodeLockfile(
+          parseLockfileToml(workspace.readFile("axm.lock")).document,
+        );
         expect(lockAfter.subagents?.[SUBAGENT]).toMatchObject({
           source: { type: "registry" },
           identity: { owner: "@acme", name: SUBAGENT },

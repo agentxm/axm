@@ -3,11 +3,9 @@ import * as Schema from "effect/Schema";
 /** Digest of the exact downloaded artifact bytes, independent of the unpacked tree. */
 export const ArtifactDigestSchema = Schema.String.pipe(
   Schema.check(
-    Schema.makeFilter((value: string) =>
-      /^sha256:[0-9a-f]{64}$/u.test(value)
-        ? undefined
-        : "Expected SHA-256 artifact digest in sha256:<hex> form",
-    ),
+    Schema.isPattern(/^sha256:[0-9a-f]{64}(?![\s\S])/u, {
+      message: "Expected SHA-256 artifact digest in sha256:<hex> form",
+    }),
   ),
   Schema.brand("ArtifactDigest"),
 );
@@ -16,14 +14,11 @@ export type ArtifactDigest = typeof ArtifactDigestSchema.Type;
 /** A relative file in a downloaded package, never a filesystem escape. */
 export const ArtifactPathSchema = Schema.NonEmptyString.pipe(
   Schema.check(
-    Schema.makeFilter((value: string) =>
-      value.includes("\\") ||
-      value.includes("\0") ||
-      value.startsWith("/") ||
-      /^[A-Za-z]:/u.test(value) ||
-      value.split("/").some((part) => part === ".." || part === "." || part.length === 0)
-        ? "Expected a contained artifact file path"
-        : undefined,
+    Schema.isPattern(
+      /^(?![A-Za-z]:)(?!\.{1,2}(?:\/|(?![\s\S])))[^/\\\0]+(?:\/(?!\.{1,2}(?:\/|(?![\s\S])))[^/\\\0]+)*(?![\s\S])/u,
+      {
+        message: "Expected a contained artifact file path",
+      },
     ),
   ),
 );

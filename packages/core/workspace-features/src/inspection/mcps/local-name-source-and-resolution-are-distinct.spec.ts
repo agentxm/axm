@@ -73,7 +73,7 @@ describe("List locally named MCP connections as a machine document", () => {
             expect(item.resolution).toMatchObject({
               kind: "registry",
               version: "1.0.0",
-              integrity: "sha512-AAAA==",
+              integrity: `sha512-${"A".repeat(86)}==`,
             });
           }
         }),

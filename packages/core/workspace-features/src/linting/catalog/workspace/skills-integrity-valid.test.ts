@@ -67,7 +67,8 @@ const resolution = {
   identity: { owner: "@examples", name: "my-skill" },
   resolved: {
     version: "1.0.0",
-    integrity: "sha512-stub",
+    integrity:
+      "sha512-HGv77902uHQzAecUTqf+Ly3EsqGd/XHbn2G7lW6D960PpL+umkRIN9/U2JaDQKuTqeBw0fy+JIHYRwGJ7GP6qw==",
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity,

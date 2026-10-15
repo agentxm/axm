@@ -136,7 +136,8 @@ const skillLockContext = (accepted: boolean) =>
                 identity: { owner: "@acme", name: "reviewer" },
                 resolved: {
                   version: "1.2.0",
-                  integrity: "sha512-stub",
+                  integrity:
+                    "sha512-HGv77902uHQzAecUTqf+Ly3EsqGd/XHbn2G7lW6D960PpL+umkRIN9/U2JaDQKuTqeBw0fy+JIHYRwGJ7GP6qw==",
                   publisherBindingId: "hbnd_test",
                 },
                 treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,

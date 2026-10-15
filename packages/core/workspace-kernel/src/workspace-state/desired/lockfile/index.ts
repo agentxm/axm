@@ -74,7 +74,8 @@ export {
   recordedProjectionRows,
   stageProjectionChanges,
 } from "./projections.js";
-export { emitLockfileToml, parseLockfileToml } from "./toml.js";
+export { emitLockfileToml } from "./toml.js";
+export { parseLockfileToml } from "./toml-values.js";
 export type { LockfileUpdate } from "./lockfile.js";
 
 export {

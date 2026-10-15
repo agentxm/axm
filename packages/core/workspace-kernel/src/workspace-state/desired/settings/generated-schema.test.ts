@@ -288,7 +288,9 @@ describe("generated schemas", () => {
     for (const name of ["SkillsMap", "McpServersMap", "SubagentsMap", "PacksMap"]) {
       const mapSchema = getDefinition(settingsSchema, name);
       const propertyNames = getPropertyNamesSchema(mapSchema, settingsSchema);
-      expect(getStringPattern(propertyNames)).toBe("^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$");
+      expect(getStringPattern(propertyNames)).toBe(
+        "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+      );
     }
   });
 

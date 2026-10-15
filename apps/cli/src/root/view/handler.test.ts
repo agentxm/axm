@@ -50,12 +50,14 @@ const writeIndex = (registryRoot: string, deprecation: unknown = null) => {
         {
           version: "1.2.3",
           published: "2026-01-01T00:00:00.000Z",
-          integrity: "sha512-test",
+          integrity:
+            "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
         },
         {
           version: "1.2.2",
           published: "2025-12-01T00:00:00.000Z",
-          integrity: "sha512-test-2",
+          integrity:
+            "sha512-c85yLwjZlJMa3ncr05Sp5L/QdLJvhvAyvSkEyETbEwGYDond9aHB9oaVEWNufhK7H8ISy+QNgDVlMOPmuHaZHg==",
         },
       ],
     }),
@@ -156,7 +158,8 @@ describe("view handler", () => {
                   {
                     version: "1.2.3",
                     published: "2026-01-01T00:00:00.000Z",
-                    integrity: "sha512-test",
+                    integrity:
+                      "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
                   },
                 ],
               }),

@@ -120,7 +120,10 @@ describe("authoritative external-resolution lockfile", () => {
             revision: "release",
           },
           identity: { owner: "@acme", name: "review" },
-          resolved: { commit: "commit-id", tree: "tree-id" },
+          resolved: {
+            commit: "f4ec1cf234ecdc6f98beeaea1274fe5c7f90347c",
+            tree: "6fc698e5e201b958601a6885c56abe3b7abc5693",
+          },
           treeIntegrity,
         },
         registry: {
@@ -128,7 +131,8 @@ describe("authoritative external-resolution lockfile", () => {
           identity: { owner: "@acme", name: "published" },
           resolved: {
             version: "1.2.3",
-            integrity: "sha512-archive",
+            integrity:
+              "sha512-sRU36Ok1DOcSWqYvA3z8E7szGJ0jPd3ewR+Oo3NRdlDSb053ZXua6gAZX/g3UdaiFCZ0yyF+PzssiRO+IXhDRA==",
             publisherBindingId: "hbnd_acme",
           },
           treeIntegrity,
@@ -152,7 +156,8 @@ describe("authoritative external-resolution lockfile", () => {
       identity: { owner: "@acme", name: "review" },
       resolved: {
         version: "1.2.3",
-        integrity: "sha512-archive",
+        integrity:
+          "sha512-sRU36Ok1DOcSWqYvA3z8E7szGJ0jPd3ewR+Oo3NRdlDSb053ZXua6gAZX/g3UdaiFCZ0yyF+PzssiRO+IXhDRA==",
         publisherBindingId: "hbnd_acme",
       },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
@@ -185,7 +190,8 @@ describe("authoritative external-resolution lockfile", () => {
       identity: { owner: "@acme", name: "toolkit" },
       resolved: {
         version: "2.0.0",
-        integrity: "sha512-pack-archive",
+        integrity:
+          "sha512-OhNjo51UcYwJWqql34b2DJXARZlVAoOMpyTbYFyPiW4wNc96DqzYa07m2hLjyveJeITiT9jUvBPNiJV+WabyTg==",
         publisherBindingId: "hbnd_acme",
       },
       manifestVersion: "2.0.0",

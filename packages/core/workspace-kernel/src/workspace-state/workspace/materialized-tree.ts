@@ -11,11 +11,9 @@ const TREE_INTEGRITY_PREFIX = "sha256-tree-v2:";
 
 export const TreeIntegritySchema = Schema.String.pipe(
   Schema.check(
-    Schema.makeFilter((value: string) =>
-      /^sha256-tree-v2:[0-9a-f]{64}$/u.test(value)
-        ? undefined
-        : "Expected a sha256-tree-v2 materialized-tree digest",
-    ),
+    Schema.isPattern(/^sha256-tree-v2:[0-9a-f]{64}(?![\s\S])/u, {
+      message: "Expected a sha256-tree-v2 materialized-tree digest",
+    }),
   ),
   Schema.brand("TreeIntegrity"),
 ).annotate({

@@ -34,7 +34,8 @@ const sourceEndpointContext = (configuredEndpoint: string) =>
             identity: { owner: "@remix-run", name: "react-router" },
             resolved: {
               version: "1.0.0",
-              integrity: "sha512-review",
+              integrity:
+                "sha512-W6hmaNcCrEx5sOAbpgd9XOw+u68VBl+mKXJFoIxt5kihKN1+FVD/jdm1bqL40gSWuROKd0lEc0d45/aL2aNWqg==",
               publisherBindingId: "hbnd_review",
             },
             treeIntegrity,

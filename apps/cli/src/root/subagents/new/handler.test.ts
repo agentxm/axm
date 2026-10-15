@@ -132,7 +132,7 @@ describe("subagents-new.handler", () => {
           // Authored workspace content is desired authority and has no lock row.
           const lockfilePath = path.join(tempDir, "axm.lock");
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(fs.readFileSync(lockfilePath, "utf-8")),
+            parseLockfileToml(fs.readFileSync(lockfilePath, "utf-8")).document,
           );
           expect(lockfile.subagents?.["my-subagent"]).toBeUndefined();
 

@@ -340,7 +340,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           Effect.gen(function* () {
             expect(deriveOperationOutcome(expectResolved(yield* applySync()))).toBe("applied");
             const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-              parseLockfileToml(workspace.readFile("axm.lock")),
+              parseLockfileToml(workspace.readFile("axm.lock")).document,
             );
             if (!isRecord(lock) || !isRecord(lock["skills"])) {
               throw new Error("Expected skill lock entry");
@@ -407,7 +407,7 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           // Both Packs admit 1.2.0, but the direct pin is a contributor too:
           // recovery and the direct entry settle on the one version all admit.
           const lock: unknown = Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(workspace.readFile("axm.lock")),
+            parseLockfileToml(workspace.readFile("axm.lock")).document,
           );
           if (!isRecord(lock) || !isRecord(lock["skills"])) {
             throw new Error("Expected skill lock entries");
@@ -445,7 +445,9 @@ describe("Sync preserves configuration and accepted resolutions", () => {
           workspace.writeFile("axm.json", settingsBefore);
           const canonicalLockfile = workspace.readFile("axm.lock");
           const lockfileBefore = `# Repository-owned TOML serialization\n${canonicalLockfile.replaceAll(" = ", "=")}`;
-          expect(parseLockfileToml(lockfileBefore)).toEqual(parseLockfileToml(canonicalLockfile));
+          expect(parseLockfileToml(lockfileBefore).document).toEqual(
+            parseLockfileToml(canonicalLockfile).document,
+          );
           workspace.writeFile("axm.lock", lockfileBefore);
 
           const outcome = yield* applySync();

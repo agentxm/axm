@@ -674,7 +674,10 @@ describe("Removing a coding agent", () => {
   /** Strip the departing file's projection row, as if AXM never recorded writing it. */
   const forgetDeparting = (fixture: AgentMembershipFixture): void => {
     const lockfile = fixture.readLockfileText();
-    const row = new RegExp(`^"${DEPARTING.replaceAll(".", "\\.")}" = \\{[^}]*\\}\\n`, "mu");
+    const row = new RegExp(
+      String.raw`^\[projections\.subagents\.units\."${DEPARTING.replaceAll(".", "\\.")}"\]\n(?:gen = "[^"]*"\n)?output = "[^"]*"\n`,
+      "mu",
+    );
     expect(lockfile).toMatch(row);
     fixture.writeFile("axm.lock", lockfile.replace(row, ""));
   };

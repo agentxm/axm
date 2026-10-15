@@ -63,7 +63,10 @@ describe("extension list assessment", () => {
           path: "skills/review",
         },
         identity: { owner: handle("@acme"), name: decodeExtensionNameSync("review") },
-        resolved: { commit: "commit-1", tree: "tree-1" },
+        resolved: {
+          commit: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+          tree: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
+        },
         treeIntegrity,
       };
       const layer = workspaceWithCatalogLayer({
@@ -90,8 +93,8 @@ describe("extension list assessment", () => {
         },
         location: "file:///tmp/review",
         sourcePath: "skills/review",
-        gitCommitSha: "commit-1",
-        gitTreeSha: "tree-1",
+        gitCommitSha: "705f74ba5bd5309ca9e6a3de50df9ea722fb280c",
+        gitTreeSha: "ed6943172cbca1a76031511bef0b5d3c6ba9bdca",
       };
       const providers: SourceHostProvidersService = {
         resolveNamedRegistry: () => Effect.die("not used"),

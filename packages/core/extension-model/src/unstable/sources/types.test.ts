@@ -96,4 +96,18 @@ describe("source types", () => {
     expect(() => Schema.decodeUnknownSync(SourceNamespaceSchema)("group/../repo")).toThrow();
     expect(() => Schema.decodeUnknownSync(SourceSubPathSchema)("skills/../secret")).toThrow();
   });
+
+  it.each([".", "a/./b", "a\\b", "a\nb", "a\n", "...", "a/.../b"])(
+    "retains the source-subpath grammar for %j",
+    (value) => {
+      expect(Schema.decodeUnknownSync(SourceSubPathSchema)(value)).toBe(value);
+    },
+  );
+
+  it.each(["", "..", "a/..", "../a", "/a", "a/", "a//b", "a/../b", "a\n/.."])(
+    "rejects empty or traversal segments in %j",
+    (value) => {
+      expect(() => Schema.decodeUnknownSync(SourceSubPathSchema)(value)).toThrow();
+    },
+  );
 });

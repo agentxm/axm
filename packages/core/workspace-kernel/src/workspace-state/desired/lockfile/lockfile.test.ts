@@ -18,7 +18,7 @@ import { TreeIntegritySchema } from "../../workspace/materialized-tree.js";
 import { decodeExtensionNameSync } from "@agentxm/extension-model/unstable/extensions/common";
 import { decodeHandleSync } from "@agentxm/extension-model/unstable/extensions/handle";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile, type SkillLockEntry } from "./schema.js";
-import { parseLockfileToml } from "./toml.js";
+import { parseLockfileToml } from "./toml-values.js";
 import { LockfileDecodeError, LockfileVersionUnsupported } from "../../observed/errors.js";
 import {
   applyLockfileUpdates,
@@ -26,6 +26,7 @@ import {
   commitLockfileSnapshotUpdateAtPath,
   commitLockfileUpdates,
   writeLockfile,
+  writeLockfileAtPath,
 } from "./lockfile.js";
 
 const treeIntegrity = Schema.decodeUnknownSync(TreeIntegritySchema)(
@@ -59,6 +60,22 @@ describe("lockfile", () => {
       Effect.provide(Layer.provideMerge(WorkspaceFileWriteLocksLive, NodeServices.layer)),
     );
 
+  it.effect("refuses invalid programmatic aliases before replacing the file", () =>
+    run(
+      Effect.gen(function* () {
+        const target = path.join(root, "axm.lock");
+        const prior = "version = 1\n";
+        fs.writeFileSync(target, prior);
+        const failure = yield* writeLockfileAtPath(target, {
+          lockfileVersion: LOCKFILE_VERSION,
+          skills: Object.fromEntries([["__proto__", localEntry("/sources/review")]]),
+        }).pipe(Effect.flip);
+        expect(failure._tag).toBe("LockfileWriteError");
+        expect(fs.readFileSync(target, "utf8")).toBe(prior);
+      }),
+    ),
+  );
+
   it.effect("writes only current accepted-resolution state", () =>
     run(
       Effect.gen(function* () {
@@ -70,7 +87,7 @@ describe("lockfile", () => {
 
         const parsed: unknown = parseLockfileToml(
           fs.readFileSync(path.join(axmDir, "axm.lock"), "utf8"),
-        );
+        ).document;
         expect(Schema.decodeUnknownSync(LockfileSchema)(parsed)).toEqual(lockfile);
         expect(fs.existsSync(path.join(axmDir, "axm.lock.lock"))).toBe(false);
       }),
@@ -142,6 +159,16 @@ describe("lockfile", () => {
       error: LockfileDecodeError,
     },
     {
+      fault: "a float in the integer version field",
+      raw: "version = 1.0\n",
+      error: LockfileDecodeError,
+    },
+    {
+      fault: "an overflowing tool value",
+      raw: "version = 1\n[tool.other]\nvalue = 1e999\n",
+      error: LockfileDecodeError,
+    },
+    {
       fault: "an unsupported version",
       raw: "version = 2\n",
       error: LockfileVersionUnsupported,
@@ -198,7 +225,9 @@ describe("lockfile", () => {
           written.endsWith('\n[tool.example]\nanything = "kept"\nnested = { a = [1, 2], b = 2 }\n'),
         ).toBe(true);
         expect(
-          Object.keys(Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(written)).skills),
+          Object.keys(
+            Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(written).document).skills,
+          ),
         ).toEqual(["review"]);
       }),
     ),
@@ -238,7 +267,7 @@ describe("lockfile", () => {
         const target = Context.get(first, WorkspaceLocation).lockPath;
         expect((yield* Ref.get(calls)).filter((call) => call === target)).toEqual([target, target]);
         const written = Schema.decodeUnknownSync(LockfileSchema)(
-          parseLockfileToml(fs.readFileSync(target, "utf8")),
+          parseLockfileToml(fs.readFileSync(target, "utf8")).document,
         );
         expect(Object.keys(written.skills).sort()).toEqual(["first", "second"]);
       }).pipe(Effect.scoped),

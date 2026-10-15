@@ -9,7 +9,15 @@
       "description": "A semver version like 1.0.0. Ranges are not allowed here.",
       "examples": ["1.0.0", "2.3.1", "0.1.0-beta.1"]
     },
-    "TreeIntegrity": { "type": "string" },
+    "ArchiveIntegrity": {
+      "type": "string",
+      "pattern": "^sha512-[A-Za-z0-9+/]{85}[AQgw]==(?![\\s\\S])"
+    },
+    "TreeIntegrity": {
+      "type": "string",
+      "pattern": "^sha256-tree-v2:[0-9a-f]{64}(?![\\s\\S])",
+      "description": "Strict SHA-256 integrity of paths, entry kinds, file bytes, executable bits, and contained link targets using AXM materialized-tree framing v2."
+    },
     "NonPackExtensionFqn": {
       "type": "string",
       "pattern": "^(@[a-z0-9_](?:[a-z0-9_-]*[a-z0-9_])?)\\/(skills|mcps|subagents|rules|hooks|knowledge)\\/([a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?)$",
@@ -25,7 +33,23 @@
       "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
       "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
     },
-    "SourceSubPath": { "type": "string", "minLength": 1 },
+    "SourceSubPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\.\\.(?:\\/|(?![\\s\\S])))[^/]+(?:\\/(?!\\.\\.(?:\\/|(?![\\s\\S])))[^/]+)*(?![\\s\\S])",
+      "title": "Source Subpath",
+      "description": "A non-empty repository subpath without empty or '..' traversal segments."
+    },
+    "GitSha1ObjectId": { "type": "string", "pattern": "^[0-9a-f]{40}(?![\\s\\S])" },
+    "GitSha256ObjectId": { "type": "string", "pattern": "^[0-9a-f]{64}(?![\\s\\S])" },
+    "ExtensionName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])",
+      "title": "Extension Name",
+      "description": "The name of an extension — lowercase letters, numbers, and hyphens (e.g. my-skill).",
+      "examples": ["my-skill", "code-review", "prettier"]
+    },
     "LockfileEncoded": {
       "type": "object",
       "properties": {
@@ -56,7 +80,7 @@
                     "additionalProperties": false
                   },
                   "version": { "$ref": "#/definitions/Version" },
-                  "archive": { "type": "string" },
+                  "archive": { "$ref": "#/definitions/ArchiveIntegrity" },
                   "publisher": { "type": "string", "minLength": 1 },
                   "tree": { "$ref": "#/definitions/TreeIntegrity" },
                   "manifest-version": { "$ref": "#/definitions/Version" },
@@ -99,64 +123,134 @@
                 "additionalProperties": false
               },
               {
-                "type": "object",
-                "properties": {
-                  "id": { "type": "string", "minLength": 1 },
-                  "source": {
+                "anyOf": [
+                  {
                     "type": "object",
                     "properties": {
-                      "git": { "type": "string" },
-                      "path": { "$ref": "#/definitions/SourceSubPath" },
-                      "format": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "git": { "type": "string" },
+                          "path": { "$ref": "#/definitions/SourceSubPath" },
+                          "format": {
+                            "type": "string",
+                            "enum": ["native", "agent-plugins", "claude", "codex", "cursor"]
+                          }
+                        },
+                        "required": ["git", "path", "format"],
+                        "additionalProperties": false
+                      },
+                      "tree": { "$ref": "#/definitions/TreeIntegrity" },
+                      "manifest-version": { "$ref": "#/definitions/Version" },
+                      "manifest-identity": {
                         "type": "string",
-                        "enum": ["native", "agent-plugins", "claude", "codex", "cursor"]
-                      }
+                        "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
+                      },
+                      "dependencies": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                                "range": { "$ref": "#/definitions/VersionRange" },
+                                "registry": {
+                                  "type": "string",
+                                  "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+                                  "examples": [
+                                    "https://registry.agentxm.ai",
+                                    "file:///srv/registry"
+                                  ]
+                                }
+                              },
+                              "required": ["name", "range", "registry"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                                "range": { "$ref": "#/definitions/VersionRange" }
+                              },
+                              "required": ["name", "range"],
+                              "additionalProperties": false
+                            }
+                          ]
+                        }
+                      },
+                      "source-root": { "type": "string" },
+                      "commit": { "$ref": "#/definitions/GitSha1ObjectId" },
+                      "git-tree": { "$ref": "#/definitions/GitSha1ObjectId" }
                     },
-                    "required": ["git", "path", "format"],
+                    "required": ["id", "source", "tree", "commit", "git-tree"],
                     "additionalProperties": false
                   },
-                  "commit": { "type": "string", "minLength": 1 },
-                  "git-tree": { "type": "string", "minLength": 1 },
-                  "tree": { "$ref": "#/definitions/TreeIntegrity" },
-                  "manifest-version": { "$ref": "#/definitions/Version" },
-                  "manifest-identity": {
-                    "type": "string",
-                    "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
-                  },
-                  "dependencies": {
-                    "type": "array",
-                    "items": {
-                      "anyOf": [
-                        {
-                          "type": "object",
-                          "properties": {
-                            "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
-                            "range": { "$ref": "#/definitions/VersionRange" },
-                            "registry": {
-                              "type": "string",
-                              "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
-                              "examples": ["https://registry.agentxm.ai", "file:///srv/registry"]
-                            }
-                          },
-                          "required": ["name", "range", "registry"],
-                          "additionalProperties": false
+                  {
+                    "type": "object",
+                    "properties": {
+                      "id": { "type": "string", "minLength": 1 },
+                      "source": {
+                        "type": "object",
+                        "properties": {
+                          "git": { "type": "string" },
+                          "path": { "$ref": "#/definitions/SourceSubPath" },
+                          "format": {
+                            "type": "string",
+                            "enum": ["native", "agent-plugins", "claude", "codex", "cursor"]
+                          }
                         },
-                        {
-                          "type": "object",
-                          "properties": {
-                            "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
-                            "range": { "$ref": "#/definitions/VersionRange" }
-                          },
-                          "required": ["name", "range"],
-                          "additionalProperties": false
+                        "required": ["git", "path", "format"],
+                        "additionalProperties": false
+                      },
+                      "tree": { "$ref": "#/definitions/TreeIntegrity" },
+                      "manifest-version": { "$ref": "#/definitions/Version" },
+                      "manifest-identity": {
+                        "type": "string",
+                        "description": "Semantic consistency digest over the accepted Pack identity, manifest version, and dependency declarations. It is not an authenticity signature."
+                      },
+                      "dependencies": {
+                        "type": "array",
+                        "items": {
+                          "anyOf": [
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                                "range": { "$ref": "#/definitions/VersionRange" },
+                                "registry": {
+                                  "type": "string",
+                                  "description": "Registry location: an http(s) origin or a file URL, without credentials, query, or fragment; a trailing slash is not significant.",
+                                  "examples": [
+                                    "https://registry.agentxm.ai",
+                                    "file:///srv/registry"
+                                  ]
+                                }
+                              },
+                              "required": ["name", "range", "registry"],
+                              "additionalProperties": false
+                            },
+                            {
+                              "type": "object",
+                              "properties": {
+                                "name": { "$ref": "#/definitions/NonPackExtensionFqn" },
+                                "range": { "$ref": "#/definitions/VersionRange" }
+                              },
+                              "required": ["name", "range"],
+                              "additionalProperties": false
+                            }
+                          ]
                         }
-                      ]
-                    }
-                  },
-                  "source-root": { "type": "string" }
-                },
-                "required": ["id", "source", "commit", "git-tree", "tree"],
-                "additionalProperties": false
+                      },
+                      "source-root": { "type": "string" },
+                      "commit": { "$ref": "#/definitions/GitSha256ObjectId" },
+                      "git-tree": { "$ref": "#/definitions/GitSha256ObjectId" }
+                    },
+                    "required": ["id", "source", "tree", "commit", "git-tree"],
+                    "additionalProperties": false
+                  }
+                ]
               },
               {
                 "type": "object",
@@ -188,7 +282,10 @@
                             "enum": ["skill-md", "zip", "tar", "tar.gz"]
                           },
                           "url": { "type": "string" },
-                          "digest": { "type": "string" }
+                          "digest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                          }
                         },
                         "required": ["format", "url", "digest"],
                         "additionalProperties": false
@@ -203,9 +300,16 @@
                             "items": {
                               "type": "object",
                               "properties": {
-                                "path": { "type": "string", "minLength": 1 },
+                                "path": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "pattern": "^(?![A-Za-z]:)(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\\\0]+(?:\\/(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\\\0]+)*(?![\\s\\S])"
+                                },
                                 "url": { "type": "string" },
-                                "digest": { "type": "string" }
+                                "digest": {
+                                  "type": "string",
+                                  "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                                }
                               },
                               "required": ["path", "url", "digest"],
                               "additionalProperties": false
@@ -284,6 +388,7 @@
         },
         "skills": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -350,6 +455,7 @@
         },
         "subagents": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -383,6 +489,7 @@
         },
         "rules": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -416,6 +523,7 @@
         },
         "hooks": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -449,6 +557,7 @@
         },
         "knowledge": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -482,6 +591,7 @@
         },
         "packs": {
           "type": "object",
+          "propertyNames": { "$ref": "#/definitions/ExtensionName" },
           "additionalProperties": {
             "type": "object",
             "properties": {
@@ -524,21 +634,26 @@
                     "contract": { "type": "integer", "minimum": 1 },
                     "units": {
                       "type": "object",
-                      "propertyNames": { "type": "string" },
-                      "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                          "gen": {
-                            "anyOf": [
-                              { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-                              { "type": "null" }
-                            ]
+                      "patternProperties": {
+                        "^(?![A-Za-z]:)(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+(?:\\/(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+)*(?![\\s\\S])": {
+                          "type": "object",
+                          "properties": {
+                            "gen": {
+                              "anyOf": [
+                                { "type": "string", "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])" },
+                                { "type": "null" }
+                              ]
+                            },
+                            "output": {
+                              "type": "string",
+                              "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                            }
                           },
-                          "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-                        },
-                        "required": ["output"],
-                        "additionalProperties": false
-                      }
+                          "required": ["output"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "required": ["contract", "units"],
@@ -555,21 +670,26 @@
                     "contract": { "type": "integer", "minimum": 1 },
                     "units": {
                       "type": "object",
-                      "propertyNames": { "type": "string" },
-                      "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                          "gen": {
-                            "anyOf": [
-                              { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-                              { "type": "null" }
-                            ]
+                      "patternProperties": {
+                        "^(?![A-Za-z]:)(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+(?:\\/(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+)*(?![\\s\\S])": {
+                          "type": "object",
+                          "properties": {
+                            "gen": {
+                              "anyOf": [
+                                { "type": "string", "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])" },
+                                { "type": "null" }
+                              ]
+                            },
+                            "output": {
+                              "type": "string",
+                              "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                            }
                           },
-                          "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-                        },
-                        "required": ["output"],
-                        "additionalProperties": false
-                      }
+                          "required": ["output"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "required": ["contract", "units"],
@@ -586,21 +706,26 @@
                     "contract": { "type": "integer", "minimum": 1 },
                     "units": {
                       "type": "object",
-                      "propertyNames": { "type": "string" },
-                      "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                          "gen": {
-                            "anyOf": [
-                              { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-                              { "type": "null" }
-                            ]
+                      "patternProperties": {
+                        "^(?![A-Za-z]:)(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+(?:\\/(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+)*(?![\\s\\S])": {
+                          "type": "object",
+                          "properties": {
+                            "gen": {
+                              "anyOf": [
+                                { "type": "string", "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])" },
+                                { "type": "null" }
+                              ]
+                            },
+                            "output": {
+                              "type": "string",
+                              "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                            }
                           },
-                          "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-                        },
-                        "required": ["output"],
-                        "additionalProperties": false
-                      }
+                          "required": ["output"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "required": ["contract", "units"],
@@ -617,21 +742,26 @@
                     "contract": { "type": "integer", "minimum": 1 },
                     "units": {
                       "type": "object",
-                      "propertyNames": { "type": "string" },
-                      "additionalProperties": {
-                        "type": "object",
-                        "properties": {
-                          "gen": {
-                            "anyOf": [
-                              { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-                              { "type": "null" }
-                            ]
+                      "patternProperties": {
+                        "^(?![A-Za-z]:)(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+(?:\\/(?!\\.{1,2}(?:\\/|(?![\\s\\S])))[^/\\\\]+)*(?![\\s\\S])": {
+                          "type": "object",
+                          "properties": {
+                            "gen": {
+                              "anyOf": [
+                                { "type": "string", "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])" },
+                                { "type": "null" }
+                              ]
+                            },
+                            "output": {
+                              "type": "string",
+                              "pattern": "^sha256:[0-9a-f]{64}(?![\\s\\S])"
+                            }
                           },
-                          "output": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-                        },
-                        "required": ["output"],
-                        "additionalProperties": false
-                      }
+                          "required": ["output"],
+                          "additionalProperties": false
+                        }
+                      },
+                      "additionalProperties": false
                     }
                   },
                   "required": ["contract", "units"],

@@ -363,7 +363,7 @@ export const makeRegistrySkillLockEntry = (opts: {
   identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
   resolved: {
     version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    integrity: opts.integrity ?? "sha512-AAAA==",
+    integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   },
   treeIntegrity: TEST_TREE_INTEGRITY,
@@ -387,7 +387,7 @@ export const makeRegistryMcpServerLockEntry = (opts: {
   identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
   resolved: {
     version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-    integrity: opts.integrity ?? "sha512-AAAA==",
+    integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
     publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
   },
   treeIntegrity: TEST_TREE_INTEGRITY,
@@ -417,7 +417,7 @@ export const makeRegistryPackLockEntry = (opts: {
     identity: { owner: opts.owner, name: decodeExtensionNameSync(opts.name) },
     resolved: {
       version: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),
-      integrity: opts.integrity ?? "sha512-AAAA==",
+      integrity: opts.integrity ?? `sha512-${"A".repeat(86)}==`,
       publisherBindingId: opts.publisherBindingId ?? "hbnd_test",
     },
     manifestVersion: opts.resolvedVersion ?? decodeVersionSync("1.0.0"),

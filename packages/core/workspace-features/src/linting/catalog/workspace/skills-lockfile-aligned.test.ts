@@ -94,7 +94,8 @@ const registryResolution = (resolvedVersion: string) => ({
   identity: { owner: "@acme", name: "reviewer" },
   resolved: {
     version: resolvedVersion,
-    integrity: "sha512-stub",
+    integrity:
+      "sha512-HGv77902uHQzAecUTqf+Ly3EsqGd/XHbn2G7lW6D960PpL+umkRIN9/U2JaDQKuTqeBw0fy+JIHYRwGJ7GP6qw==",
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity,
@@ -116,7 +117,10 @@ describe("workspace/skills-lockfile-aligned", () => {
               revision: "v1",
             },
             identity: { owner: "@acme", name: "review" },
-            resolved: { commit: "commit-v1", tree: "tree-v1" },
+            resolved: {
+              commit: "01cb732dabce4eb10d6977b1abdd848729645781",
+              tree: "a89ea1bfb86c4b6f6d4d0af623fcfb1d6ea8e132",
+            },
             treeIntegrity,
           },
         },

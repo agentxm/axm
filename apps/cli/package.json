@@ -92,6 +92,7 @@
     "@types/semver": "catalog:",
     "@typescript/native": "catalog:",
     "@xterm/headless": "6.0.0",
+    "ajv": "8.20.0",
     "fflate": "catalog:",
     "semver": "catalog:",
     "string-argv": "0.3.2",

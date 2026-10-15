@@ -10,6 +10,8 @@ import * as FileSystem from "effect/FileSystem";
 import * as Array from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
+import * as Schema from "effect/Schema";
+import { GitObjectIdSchema } from "@agentxm/extension-model/unstable/sources/types";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import { simpleGit, type SimpleGit, type SimpleGitOptions } from "simple-git";
@@ -212,7 +214,7 @@ export interface GitDirectoryComparisonResult {
  */
 export const shallowClone = (url: string, destination: string, ref?: string) =>
   Effect.gen(function* () {
-    if (ref !== undefined && /^[a-f0-9]{40}$/iu.test(ref)) {
+    if (ref !== undefined && Schema.is(GitObjectIdSchema)(ref)) {
       return yield* shallowFetchCommit(url, destination, ref);
     }
     const path = yield* Path.Path;
@@ -238,10 +240,11 @@ export const shallowFetchCommit = (url: string, destination: string, commit: str
       "fetch-commit",
       `Failed to fetch recorded commit ${commit} from ${url}`,
     );
+    yield* Schema.decodeUnknownEffect(GitObjectIdSchema)(commit).pipe(Effect.mapError(mapError));
     yield* Effect.tryPromise({
       try: async (signal) => {
         const git = createGit(destination, signal);
-        await git.init();
+        await git.raw(["init", `--object-format=${commit.length === 40 ? "sha1" : "sha256"}`]);
         await git.addRemote("origin", url);
       },
       catch: mapError,

@@ -61,7 +61,9 @@ describe("Install records the accepted resolution", () => {
             installRequest({ type: "skill", subject: { kind: "source", source } }),
           );
 
-          const lockfile = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
+          const lockfile = yield* decodeLockfile(
+            parseLockfileToml(workspace.readFile("axm.lock")).document,
+          );
           expect(lockfile.skills["code-review"]).toMatchObject({
             source: { type: "path" },
             identity: { name: "code-review" },
@@ -87,7 +89,9 @@ describe("Install records the accepted resolution", () => {
           yield* workspace.provide(
             applyInstall(installRequest({ type, subject: { kind: "source", source } })),
           );
-          const lockfile = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
+          const lockfile = yield* decodeLockfile(
+            parseLockfileToml(workspace.readFile("axm.lock")).document,
+          );
           const entry = lockfile[settingsKey]?.[name];
           if (entry === undefined || entry.source.type !== "path" || !("tree" in entry.resolved)) {
             throw new Error("Expected the accepted local resolution");
@@ -121,7 +125,7 @@ describe("Install records the accepted resolution", () => {
             yield* applyInstall(installRequest({ type, subject: { kind: "source", source } }));
 
             const lockfile = yield* decodeLockfile(
-              parseLockfileToml(workspace.readFile("axm.lock")),
+              parseLockfileToml(workspace.readFile("axm.lock")).document,
             );
             expect(lockfile[settingsKey]?.[name]).toMatchObject({
               source: { type: "path" },
@@ -158,7 +162,7 @@ describe("Install records the accepted resolution", () => {
             );
 
             const lockfile = yield* decodeLockfile(
-              parseLockfileToml(workspace.readFile("axm.lock")),
+              parseLockfileToml(workspace.readFile("axm.lock")).document,
             );
             const entry = lockfile.skills["registry-review"];
             if (entry === undefined || entry.source.type !== "registry") {
@@ -199,7 +203,7 @@ describe("Install records the accepted resolution", () => {
         });
         yield* control.workspace.provide(applyInstall(request));
         const controlLock = yield* decodeLockfile(
-          parseLockfileToml(control.workspace.readFile("axm.lock")),
+          parseLockfileToml(control.workspace.readFile("axm.lock")).document,
         );
         expect(controlLock.skills["registry-review"]?.source.type).toBe("registry");
 
@@ -223,7 +227,9 @@ describe("Install records the accepted resolution", () => {
           expect(JSON.stringify(outcome.success)).toMatch(/integrity/i);
         }
         expect(workspace.readFile("axm.lock")).toBe(lockBefore);
-        const refused = yield* decodeLockfile(parseLockfileToml(workspace.readFile("axm.lock")));
+        const refused = yield* decodeLockfile(
+          parseLockfileToml(workspace.readFile("axm.lock")).document,
+        );
         expect(refused.skills["registry-review"]).toBeUndefined();
         // Registry integrity is defined by LockfileSchema as verified against
         // archive bytes before extraction. No global rollback, public error

@@ -7,7 +7,7 @@ import * as Option from "effect/Option";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { LOCKFILE_VERSION, LockfileSchema, type Lockfile } from "../desired/lockfile/schema.js";
-import { parseLockfileToml } from "../desired/lockfile/toml.js";
+import { parseLockfileToml, LockfileTomlValueError } from "../desired/lockfile/toml-values.js";
 import { LEGACY_LOCK_FILENAME } from "../workspace/constants.js";
 import { formatSchemaIssuesToLines } from "@agentxm/extension-model/unstable/schema-issues";
 import { SettingsSchema, type Settings } from "../desired/settings/schema.js";
@@ -184,8 +184,15 @@ const loadSettings = (
 export const decodeLockfileBytes = Effect.fn("workspace.read-model.state.lockfile.decode")(
   function* (path: string, bytes: string) {
     const parsed = yield* Effect.try({
-      try: (): unknown => parseLockfileToml(bytes),
-      catch: (cause): LockfileParseError => new LockfileParseError({ path, raw: bytes, cause }),
+      try: (): unknown => parseLockfileToml(bytes).document,
+      catch: (cause) =>
+        cause instanceof LockfileTomlValueError
+          ? new LockfileDecodeError({
+              path,
+              issues: [cause.detail],
+              raw: "[Lockfile input withheld]",
+            })
+          : new LockfileParseError({ path, raw: bytes, cause }),
     });
     if (
       typeof parsed === "object" &&

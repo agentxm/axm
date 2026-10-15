@@ -102,7 +102,7 @@ const initializePackWithSkill = (root: string) => {
   );
 
   const lock = Schema.decodeUnknownSync(LockfileSchema)(
-    parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
+    parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document,
   );
   fs.writeFileSync(
     lockPath,
@@ -115,7 +115,7 @@ const initializePackWithSkill = (root: string) => {
             identity: { owner: "@acme", name: "review" },
             resolved: {
               version: "1.0.0",
-              integrity: "sha512-AAAA==",
+              integrity: `sha512-${"A".repeat(86)}==`,
               publisherBindingId: "hbnd_test",
             },
             treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
@@ -316,7 +316,7 @@ describe("packs activation", () => {
       expect(fs.existsSync(renderedSkill)).toBe(false);
       expect(fs.existsSync(skillDir)).toBe(false);
       const lock = Schema.decodeUnknownSync(LockfileSchema)(
-        parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
+        parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document,
       );
       expect(lock["skills"]).not.toHaveProperty("review");
       expect(fs.existsSync(path.join(root, "packs", "toolkit", "pack.json"))).toBe(true);

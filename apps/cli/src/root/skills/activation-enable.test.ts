@@ -220,7 +220,7 @@ describe("enable.handler", () => {
             owner: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             sourceHash: computePackageContentHashSync(path.dirname(skillDir)),

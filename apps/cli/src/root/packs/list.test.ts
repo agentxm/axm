@@ -60,7 +60,7 @@ const makePackLockEntry = (overrides: Partial<Record<string, unknown>> = {}) => 
   owner: "@acme",
   name: "starter-pack",
   resolvedVersion: "1.0.0",
-  integrity: "sha512-AAAA==",
+  integrity: `sha512-${"A".repeat(86)}==`,
   sourceName: "test",
   publisherBindingId: "hbnd_test",
   ...overrides,

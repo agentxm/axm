@@ -123,7 +123,7 @@ describe("packs-new.handler", () => {
           expect(settings.packs["frontend-tools"]).toBe("workspace");
 
           const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf-8")),
+            parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf-8")).document,
           );
           expect(lockfile.packs?.["frontend-tools"]).toBeUndefined();
 

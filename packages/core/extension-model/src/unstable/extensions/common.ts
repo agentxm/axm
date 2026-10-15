@@ -569,7 +569,10 @@ const PACK_SPEC_PATTERN = new RegExp(
 /**
  * Canonical extension short name regex.
  */
-export const EXTENSION_NAME_PATTERN = new RegExp(`^${EXTENSION_NAME_PATTERN_SOURCE}$`, "u");
+export const EXTENSION_NAME_PATTERN = new RegExp(
+  `^${EXTENSION_NAME_PATTERN_SOURCE}(?![\\s\\S])`,
+  "u",
+);
 
 /**
  * Canonical extension short name schema shared by generic extension surfaces.

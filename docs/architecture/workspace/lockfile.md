@@ -49,10 +49,15 @@ AXM writes the whole file in one canonical layout: a `#:schema` header,
 `version`, the records sorted by `id`, the `[skills]` table, the MCP rows, the
 remaining binding tables, the projection tables, and any `[tool.<name>]`
 tables, with keys and rows in code-point order. Identical accepted state yields
-identical bytes on every machine, and hand edits or comments do not survive the
-next write. `[tool.<name>]` tables belong to other tools; AXM never reads them
-and rewrites them from their parsed values on every write, so any TOML value a
-tool stores there survives while its formatting and comments do not.
+identical bytes on every machine. Simple bindings remain inline; bindings with
+components use standard binding and component subtables. MCP components attach
+to their own array row. Formatting and comments may change on the next write.
+
+`[tool.<name>]` tables belong to other tools and never influence installation.
+The TOML 1.0 parser carries them separately from AXM's resolution model, retaining
+scalar kinds, signed 64-bit integers, binary64 floats including negative zero,
+and temporal precision and offsets. Writers read the latest tool data under the
+write lock and refuse replacement if they cannot preserve it faithfully.
 
 The retained directory follows the actual source address, as described in
 [canonical extension content](overview.md#canonical-extension-content).
@@ -83,8 +88,9 @@ rematerialization where the source can still reproduce it.
 
 The optional projection tables record, per projection kind (`rules`,
 `knowledge`, `instructions`, `subagents`), a `contract` version in
-`[projections.<kind>]` and one row per unit in `[projections.<kind>.units]`,
-keyed by its scope-relative path: `gen`, the input-only generation digest, and
+`[projections.<kind>]` and one table per unit at
+`[projections.<kind>.units."<path>"]`, keyed by its scope-relative path:
+optional `gen`, the input-only generation digest, and
 `output`, the digest of the bytes AXM last wrote. Keys are sorted by code point;
 absolute or escaping paths are rejected on read. A changed `contract` strips `gen` from
 that kind's rows and keeps `output`, so the units are stale but their deletion
@@ -185,6 +191,12 @@ workspace construction, before command-specific reads, planning, Registry
 access, or mutation. `--force` does not bypass this authority gate. IO, TOML
 parse, schema decode, and unsupported-version failures remain distinct so the
 diagnosis names the path and a recovery appropriate to the observed state.
+
+The generated JSON Schema exposes structural and lexical constraints to editors,
+including immutable identifier formats and binding names. It does not validate
+the accepted-resolution graph, Pack declaration consistency, domain-parser
+semantics, or TOML scalar fidelity. CLI validation owns these checks and rejects
+duplicate dependency names before constructing a Pack's dependency map.
 
 An unsupported positive-integer `version` reports the observed and
 supported versions and whether the lockfile is older or newer than the running

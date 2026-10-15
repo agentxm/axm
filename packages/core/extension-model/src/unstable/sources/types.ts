@@ -81,6 +81,15 @@ export type RefType = Schema.Schema.Type<typeof RefTypeSchema>;
 
 const noTraversalSegmentMessage = "Expected subpath without '..' traversal segments";
 
+/** Full immutable Git object IDs; width identifies the repository object format. */
+export const GitSha1ObjectIdSchema = Schema.String.check(
+  Schema.isPattern(/^[0-9a-f]{40}(?![\s\S])/u),
+).annotate({ identifier: "GitSha1ObjectId" });
+export const GitSha256ObjectIdSchema = Schema.String.check(
+  Schema.isPattern(/^[0-9a-f]{64}(?![\s\S])/u),
+).annotate({ identifier: "GitSha256ObjectId" });
+export const GitObjectIdSchema = Schema.Union([GitSha1ObjectIdSchema, GitSha256ObjectIdSchema]);
+
 export const SourceRefSchema = Schema.NonEmptyString;
 
 export const SourceNamespaceSchema = Schema.NonEmptyString.pipe(
@@ -100,10 +109,11 @@ export const SourceNamespaceSchema = Schema.NonEmptyString.pipe(
 
 export const SourceSubPathSchema = Schema.NonEmptyString.pipe(
   Schema.check(
-    Schema.makeFilter((value: string) =>
-      value.split("/").some((segment) => segment.length === 0 || segment === "..")
-        ? noTraversalSegmentMessage
-        : undefined,
+    Schema.isPattern(
+      /^(?!\.\.(?:\/|(?![\s\S])))[^/]+(?:\/(?!\.\.(?:\/|(?![\s\S])))[^/]+)*(?![\s\S])/u,
+      {
+        message: noTraversalSegmentMessage,
+      },
     ),
   ),
 ).annotate({

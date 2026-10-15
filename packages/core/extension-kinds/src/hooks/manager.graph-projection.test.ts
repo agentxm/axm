@@ -70,7 +70,7 @@ const registryLock = (baseDir: string, name: string) => ({
   identity: { owner: OWNER, name },
   resolved: {
     version: "1.0.0",
-    integrity: "sha512-stub",
+    integrity: `sha512-${"A".repeat(86)}==`,
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity: treeIntegrityOfSync(

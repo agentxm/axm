@@ -11,10 +11,11 @@ export const executionBinding = {
   requirements: [
     "cli/invalid-workspace-state-gates-operations",
     "cli/machine-errors-use-the-stable-envelope",
+    "workspace/lockfile/preserves-tool-values",
   ],
   boundary: "process",
   rationale:
-    "Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, and uses the shared schema diagnosis for a Knowledge command.",
+    "Proves the shipped command wiring emits exit 9 and one structured error document, refuses a newer axm.lock with upgrade guidance and a legacy axm-lock.yaml with re-acceptance recovery, preserves project and user bytes, keeps global upgrade guidance unscoped, honors the forward-version precedence over uninitialized state, uses the shared schema diagnosis for a Knowledge command, and preserves typed tool values through install and withdrawal while rejecting unrepresentable values without overwriting prior bytes.",
 } as const;
 
 const snapshotTree = (root: string): Readonly<Record<string, string>> => {
@@ -57,6 +58,102 @@ const setupScope = async (
 };
 
 describe("workspace lockfile rejection diagnostics", () => {
+  it("preserves typed tool values through install and withdrawal in the shipped runtime", async () => {
+    const workspace = createTempDir("axm-tool-preservation-workspace-");
+    const userHome = createTempDir("axm-tool-preservation-home-");
+    const source = createTempDir("axm-tool-preservation-source-");
+    const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
+    const values = [
+      "integer = 2",
+      "float = 2.0",
+      "zero = -0.0",
+      "large = 9223372036854775807",
+      "minimum = -9223372036854775808",
+      "fraction = 0.1",
+      "nothing = nan",
+      "positive = inf",
+      "negative = -inf",
+      "offset = 2026-10-15T06:30:00.123456789123456789+02:30",
+      "local = 2026-10-15T06:30:00.123456",
+      "date = 2026-10-15",
+      "time = 06:30:00.123456789",
+      "leap = 2016-12-31T23:59:60Z",
+      'text = "2026-10-15"',
+      "flag = true",
+      'mixed = [2, 2.0, -0.0, "two", true, []]',
+      'tag = { _tag = "integer", value = "0" }',
+      "empty = {}",
+      "__proto__ = 7",
+    ];
+    try {
+      await setupScope("project", workspace.path, env);
+      fs.writeFileSync(
+        path.join(source.path, "skill.json"),
+        JSON.stringify({
+          owner: "@acme",
+          type: "skill",
+          name: "review",
+          version: "1.0.0",
+          description: "Tool preservation fixture",
+        }),
+      );
+      fs.mkdirSync(path.join(source.path, "src"));
+      fs.writeFileSync(
+        path.join(source.path, "src", "SKILL.md"),
+        "---\nname: review\ndescription: Review changes.\n---\n\nReview the change.\n",
+      );
+      const lockPath = path.join(workspace.path, LOCKFILE_NAME);
+      fs.writeFileSync(lockPath, `version = 1\n[tool.audit]\n${values.join("\n")}\n`);
+      for (const args of [
+        ["install", source.path, "--skill", "review"],
+        ["skills", "uninstall", "review"],
+      ]) {
+        const result = await runCli([...args, "--non-interactive", "--json"], {
+          cwd: workspace.path,
+          env,
+        });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+        const written = fs.readFileSync(lockPath, "utf8");
+        for (const value of values) expect(written).toContain(`${value}\n`);
+      }
+    } finally {
+      workspace.cleanup();
+      userHome.cleanup();
+      source.cleanup();
+    }
+  });
+
+  it.each([
+    "9223372036854775808",
+    "-9223372036854775809",
+    "1e999",
+    "1e-999",
+    "2026-02-30",
+    "24:00:00",
+  ])(
+    "reports an unrepresentable tool value %s without corrupting machine output or prior bytes",
+    async (value) => {
+      const workspace = createTempDir("axm-tool-value-workspace-");
+      const userHome = createTempDir("axm-tool-value-home-");
+      const env = { HOME: userHome.path, AXM_USER_HOME: userHome.path };
+      try {
+        await setupScope("project", workspace.path, env);
+        const lockPath = path.join(workspace.path, LOCKFILE_NAME);
+        const raw = `version = 1\n[tool.audit]\nlarge = 9223372036854775807\nvalue = ${value}\n`;
+        fs.writeFileSync(lockPath, raw);
+        const result = await runCli(["sync", "--json"], { cwd: workspace.path, env });
+        expect(result.exitCode, result.stdout + result.stderr).toBe(9);
+        expect(JSON.parse(result.stdout)).toMatchObject({ ok: false, code: "validation" });
+        expect(result.stdout).toContain("axm.lock");
+        expectMachineStream(result.stderr);
+        expect(fs.readFileSync(lockPath, "utf8")).toBe(raw);
+      } finally {
+        workspace.cleanup();
+        userHome.cleanup();
+      }
+    },
+  );
+
   it("reports a newer project lockfile with an upgrade and no mutation", async () => {
     const workspace = createTempDir("axm-new-project-lock-workspace-");
     const userHome = createTempDir("axm-new-project-lock-home-");

@@ -93,7 +93,7 @@ const writeAuthoredSubagent = (workspaceRoot: string, body: string): void => {
 /** The lockfile with its whole `projections` section removed. */
 const withoutProjectionRows = (lockfile: string): string => {
   const { projections, ...accepted } = Schema.decodeUnknownSync(LockfileSchema)(
-    parseLockfileToml(lockfile),
+    parseLockfileToml(lockfile).document,
   );
   if (projections === undefined) throw new Error("Expected recorded projection rows");
   return emitLockfileToml(Schema.encodeSync(LockfileSchema)(accepted));
@@ -654,7 +654,7 @@ describe("Generated document projection currency", () => {
             const generated = workspace.readFile(projection);
             // The file carries no AXM text; its currency is the lockfile row.
             expect(generated).not.toContain("axm:");
-            expect(parseLockfileToml(workspace.readFile("axm.lock"))).toMatchObject({
+            expect(parseLockfileToml(workspace.readFile("axm.lock")).document).toMatchObject({
               projections: {
                 subagents: {
                   contract: 1,

@@ -39,7 +39,7 @@ import * as Layer from "effect/Layer";
 import type * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import { LockfileSchema } from "../../desired/lockfile/schema.js";
-import { parseLockfileToml } from "../../desired/lockfile/toml.js";
+import { parseLockfileToml } from "../../desired/lockfile/toml-values.js";
 import { SettingsSchema } from "../../desired/settings/schema.js";
 import {
   absentAll,
@@ -190,7 +190,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const deps = yield* buildFixture(spec);
 
       const raw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
-      const parsed = parseLockfileToml(raw);
+      const parsed = parseLockfileToml(raw).document;
       const decoded = yield* Schema.decodeUnknownEffect(LockfileSchema)(parsed);
 
       expect(decoded.lockfileVersion).toBe(1);
@@ -222,7 +222,7 @@ describe("buildFixture: lockfile cell variants", () => {
       const deps = yield* buildFixture(spec);
       const raw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
 
-      const parsed = parseLockfileToml(raw);
+      const parsed = parseLockfileToml(raw).document;
       const decoded = yield* Effect.result(Schema.decodeUnknownEffect(LockfileSchema)(parsed));
       expect(decoded._tag).toBe("Failure");
     }),
@@ -399,7 +399,7 @@ describe("named scenario constructors", () => {
       const settingsRaw = yield* readBytes(deps, PROJECT_SETTINGS_PATH);
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
       yield* Schema.decodeUnknownEffect(SettingsSchema)(JSON.parse(settingsRaw));
-      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw));
+      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw).document);
     }),
   );
 
@@ -412,7 +412,7 @@ describe("named scenario constructors", () => {
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
       const lockResult = yield* Effect.result(
         Effect.try({
-          try: (): unknown => parseLockfileToml(lockRaw),
+          try: (): unknown => parseLockfileToml(lockRaw).document,
           catch: (cause): { readonly cause: unknown } => ({ cause }),
         }).pipe(Effect.flatMap((parsed) => Schema.decodeUnknownEffect(LockfileSchema)(parsed))),
       );
@@ -424,7 +424,7 @@ describe("named scenario constructors", () => {
     Effect.gen(function* () {
       const deps = yield* buildFixture(settingsInvalidOnly(WORKSPACE_ROOT, USER_HOME));
       const lockRaw = yield* readBytes(deps, PROJECT_LOCKFILE_PATH);
-      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw));
+      yield* Schema.decodeUnknownEffect(LockfileSchema)(parseLockfileToml(lockRaw).document);
 
       const settingsRaw = yield* readBytes(deps, PROJECT_SETTINGS_PATH);
       const settingsResult = yield* Effect.result(

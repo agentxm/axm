@@ -209,7 +209,10 @@
     "SkillsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SkillEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "SkillsConfig": {
       "type": "object",
@@ -266,7 +269,10 @@
     "RulesMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/RuleEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "RulesConfig": {
       "type": "object",
@@ -351,7 +357,10 @@
     "HooksMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/HookEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "HooksConfig": {
       "type": "object",
@@ -413,7 +422,10 @@
     "KnowledgeMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/KnowledgeEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "KnowledgeConfig": {
       "type": "object",
@@ -476,7 +488,10 @@
     "SubagentsMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/SubagentEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "SubagentsConfig": {
       "type": "object",
@@ -535,7 +550,10 @@
     "PacksMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/PackEntry" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "PacksConfig": {
       "type": "object",
@@ -944,7 +962,10 @@
     "McpServersMap": {
       "type": "object",
       "additionalProperties": { "$ref": "#/definitions/McpServerEntryObject" },
-      "propertyNames": { "type": "string", "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$" }
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?(?![\\s\\S])"
+      }
     },
     "McpServersConfig": {
       "type": "object",

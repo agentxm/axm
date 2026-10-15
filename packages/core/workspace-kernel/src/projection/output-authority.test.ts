@@ -22,7 +22,12 @@ describe("selected skill output authority", () => {
           review: {
             source: { type: "registry", url: "https://registry.example/" },
             identity: { owner: "@acme", name: "review" },
-            resolved: { version: "1.0.0", integrity: "sha512-test", publisherBindingId: "binding" },
+            resolved: {
+              version: "1.0.0",
+              integrity:
+                "sha512-oZPmBsKw4V9MmWEKXqWEicPWv2+uPp/vwK7PoVdrq0iQ2XzkkpSMgnhftoI6Kp2WYonyyTJ4xp5WMU79ISoiiA==",
+              publisherBindingId: "binding",
+            },
             treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
           },
         },

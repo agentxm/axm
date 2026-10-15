@@ -81,7 +81,7 @@ export const seedAcceptedRegistryResolution = Effect.fn("seedAcceptedRegistryRes
       identity: { owner, name },
       resolved: {
         version: decodeVersionSync(resolution.version),
-        integrity: `sha512-${resolution.name}`,
+        integrity: `sha512-${"A".repeat(86)}==`,
         publisherBindingId: "spec-publisher-binding",
       },
       treeIntegrity,

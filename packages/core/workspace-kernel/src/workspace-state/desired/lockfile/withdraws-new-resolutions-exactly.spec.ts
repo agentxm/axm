@@ -46,6 +46,46 @@ const entry = Schema.decodeUnknownSync(SkillLockEntrySchema)({
 });
 
 describe("accepted resolution round trips", () => {
+  for (const [beforeValue, changedValue] of [
+    ["2", "2.0"],
+    ["-0.0", "0.0"],
+    ["2026-10-15T06:30:00.123456Z", "2026-10-15T06:30:00.123457Z"],
+  ]) {
+    it.effect(
+      `preserves intervening tool value changes from ${beforeValue} to ${changedValue}`,
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const root = yield* fs.makeTempDirectoryScoped();
+          const runtimeDir = path.join(root, ".axm");
+          const target = path.join(root, "axm.lock");
+          yield* fs.makeDirectory(runtimeDir);
+          yield* fs.writeFileString(
+            target,
+            `# original\nversion = 1\n[tool.audit]\nvalue = ${beforeValue}\n`,
+          );
+          const original = { lockfileVersion: LOCKFILE_VERSION, skills: {} } satisfies Lockfile;
+          const context = {
+            nativeRoot: root,
+            runtimeDir,
+            eligible: true,
+            locks: yield* WorkspaceFileWriteLocks,
+          };
+          yield* writeLockfileAtPath(target, { ...original, skills: { review: entry } }, context);
+          const introduced = yield* fs.readFileString(target);
+          yield* fs.writeFileString(
+            target,
+            introduced.replace(`value = ${beforeValue}`, `value = ${changedValue}`),
+          );
+          yield* writeLockfileAtPath(target, original, { ...context, eligible: false });
+          const withdrawn = yield* fs.readFileString(target);
+          expect(withdrawn).toContain(`value = ${changedValue}\n`);
+          expect(parseLockfileToml(withdrawn).document).toEqual({ version: 1 });
+        }).pipe(Effect.scoped, Effect.provide(platform)),
+    );
+  }
+
   for (const before of [undefined, "# prior\r\nversion = 1\r\n"]) {
     it.effect(
       `restores a precisely withdrawn multi-entry graph from ${before === undefined ? "absence" : "authored bytes"}`,
@@ -166,7 +206,10 @@ describe("accepted resolution round trips", () => {
     "version = 1\n",
     "version = 1\n\n",
     emitLockfileToml({ version: LOCKFILE_VERSION }),
-    emitLockfileToml({ version: LOCKFILE_VERSION, tool: { example: { kept: true } } }),
+    emitLockfileToml(
+      { version: LOCKFILE_VERSION },
+      parseLockfileToml("[tool.example]\nkept = true\n").tool,
+    ),
   ]) {
     it.effect(`restores ${JSON.stringify(before)}`, () =>
       Effect.gen(function* () {
@@ -178,7 +221,7 @@ describe("accepted resolution round trips", () => {
         yield* fs.makeDirectory(runtimeDir);
         yield* fs.writeFileString(target, before);
         const original = yield* Schema.decodeUnknownEffect(LockfileSchema)(
-          parseLockfileToml(before),
+          parseLockfileToml(before).document,
         );
         const context = {
           nativeRoot: root,

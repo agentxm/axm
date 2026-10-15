@@ -105,7 +105,7 @@ const snapshotDirectory = (root: string): Readonly<Record<string, string>> => {
 };
 
 const acceptedSkillResolutions = (world: InstallWorld): Readonly<Record<string, unknown>> => {
-  const lockfile: unknown = parseLockfileToml(world.workspace.readFile("axm.lock"));
+  const lockfile: unknown = parseLockfileToml(world.workspace.readFile("axm.lock")).document;
   if (typeof lockfile !== "object" || lockfile === null || !("skills" in lockfile))
     throw new Error("Expected a skill resolution map");
   const skills = lockfile.skills;

@@ -35,7 +35,7 @@ const REGISTRY_LOCK_ENTRY = {
   identity: { owner: "@acme", name: "example" },
   resolved: {
     version: "1.0.0",
-    integrity: "sha512-abc123",
+    integrity: `sha512-${"A".repeat(86)}==`,
     publisherBindingId: "hbnd_test",
   },
   treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
@@ -65,7 +65,7 @@ const CHECKS: Record<ObligationIdForTier<typeof TIER>, (type: CatalogExtensionTy
         revision: "main",
       },
       identity: { owner: "@acme", name: "example" },
-      resolved: { commit: "commit-1", tree: "tree-1" },
+      resolved: { commit: "a".repeat(40), tree: "b".repeat(40) },
       treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,
     }),
 };

@@ -35,7 +35,7 @@ const accepted = (source: unknown): McpServerLockEntry =>
     resolved: {
       tree: `sha256-tree-v2:${"0".repeat(64)}`,
       ...(typeof source === "object" && source !== null && "type" in source && source.type === "git"
-        ? { commit: "commit" }
+        ? { commit: "4015b57a143aec5156fd1444a017a32137a3fd0f", tree: "b".repeat(40) }
         : {}),
     },
     treeIntegrity: `sha256-tree-v2:${"0".repeat(64)}`,

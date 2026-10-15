@@ -28,7 +28,13 @@
       "description": "A semver version range like ^1.0.0, ~2.3.0, >=1.0.0 <3.0.0, or an exact version 1.2.3. Use \"*\" to always resolve to the latest available version.",
       "examples": ["^1.0.0", "~2.4", ">=1 <3", "1.2.3", "*"]
     },
-    "SourceSubPath": { "type": "string", "minLength": 1 },
+    "SourceSubPath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\.\\.(?:\\/|(?![\\s\\S])))[^/]+(?:\\/(?!\\.\\.(?:\\/|(?![\\s\\S])))[^/]+)*(?![\\s\\S])",
+      "title": "Source Subpath",
+      "description": "A non-empty repository subpath without empty or '..' traversal segments."
+    },
     "AgentExtensionGitSource": {
       "type": "object",
       "properties": {

@@ -108,7 +108,7 @@ const acceptedCanonicalTrees = (
             decodeHandleSync(owner),
             decodeExtensionNameSync(name),
             decodeVersionSync("1.0.0"),
-            "sha512-stub",
+            `sha512-${"A".repeat(86)}==`,
             "hbnd_test",
             treeIntegrity,
           ),
@@ -670,7 +670,7 @@ describe("installMcpServer", () => {
 
         const result = yield* installMcpServer(
           makeOp({
-            ref: makeRegistryRef({ integrity: "" }),
+            ref: makeRegistryRef({ integrity: `sha512-${"A".repeat(86)}==` }),
             inherited: true,
           }),
         ).pipe(Effect.provide(withServices(axmDir, { setAcceptedMcpServerFn: setMcpServerFn })));

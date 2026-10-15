@@ -15,6 +15,13 @@ git-tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 tree = "sha256-tree-v2:9d2e4f6a8b0c1d3e5f7a9b1c3d5e7f9a0b2c4d6e8f0a1b3c5d7e9f1a2b4c6d8e"
 
 [[package]]
+id = "github.com/acme/plugins/plugins/review"
+source = { git = "https://github.com/acme/plugins.git", path = "plugins/review", format = "claude" }
+commit = "0123456789abcdef0123456789abcdef01234567"
+git-tree = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+tree = "sha256-tree-v2:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+[[package]]
 id = "registry.agentxm.ai/@acme/packs/docs"
 source = { registry = "https://registry.agentxm.ai" }
 version = "0.7.0"
@@ -57,6 +64,18 @@ code-review = { package = "github.com/acme/code-review", name = "@acme/skills/co
 local-skill = { package = "_local/project/skills/my-skill", name = "@acme/skills/local-skill" }
 published-skill = { package = "registry.agentxm.ai/@acme/skills/published-skill", name = "@acme/skills/published-skill" }
 
+[skills.plugin-review]
+package = "github.com/acme/plugins/plugins/review"
+name = "review"
+spec = "v1.0.0"
+
+[skills.plugin-review.component]
+format = "claude"
+root = "plugins/review"
+path = "skills/review"
+manifest = ".claude-plugin/plugin.json"
+marketplace = { path = ".claude-plugin/marketplace.json", name = "acme" }
+
 [[mcp]]
 package = "registry.agentxm.ai/@community/mcps/sentry"
 name = "@community/mcps/sentry"
@@ -70,15 +89,23 @@ docs = { package = "registry.agentxm.ai/@acme/packs/docs", name = "@acme/packs/d
 [projections.rules]
 contract = 1
 
-[projections.rules.units]
-"AGENTS.md" = { gen = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", output = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+[projections.rules.units."AGENTS.md"]
+gen = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+output = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
 [projections.instructions]
 contract = 1
 
-[projections.instructions.units]
-".gitignore" = { gen = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", output = "sha256:0000000000000000000000000000000000000000000000000000000000000000" }
-"CLAUDE.md" = { gen = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", output = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+[projections.instructions.units.".gitignore"]
+gen = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+output = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+[projections.instructions.units."CLAUDE.md"]
+gen = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+output = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 [tool.example]
-anything = "preserved verbatim, never read"
+anything = "value preserved, formatting may change"
+large = 9223372036854775807
+weight = 2.0
+zero = -0.0

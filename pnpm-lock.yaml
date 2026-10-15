@@ -394,6 +394,9 @@ importers:
       '@xterm/headless':
         specifier: 6.0.0
         version: 6.0.0
+      ajv:
+        specifier: 8.20.0
+        version: 8.20.0
       fflate:
         specifier: 'catalog:'
         version: 0.8.3

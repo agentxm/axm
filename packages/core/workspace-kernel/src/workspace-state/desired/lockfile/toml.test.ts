@@ -11,7 +11,8 @@ import {
   StoredLockfileSchema,
   type Lockfile,
 } from "./schema.js";
-import { emitLockfileToml, parseLockfileToml } from "./toml.js";
+import { emitLockfileToml } from "./toml.js";
+import { parseLockfileToml } from "./toml-values.js";
 
 const tree = (character: string) => `sha256-tree-v2:${character.repeat(64)}`;
 const digest = (character: string) => `sha256:${character.repeat(64)}`;
@@ -28,13 +29,21 @@ const mcpEntries = [
   {
     source: { type: "registry", url: "https://registry.agentxm.ai" },
     identity: { owner: "@community", name: "sentry" },
-    resolved: { version: "2.1.0", integrity: "sha512-sentry", publisherBindingId: "hbnd_sentry" },
+    resolved: {
+      version: "2.1.0",
+      integrity:
+        "sha512-9Wts3FBo3Uo/hMSsR5eSGahQBC/zwbkSIRSsOwA2KnHsMD1LOpcDGXWRha+FcjFsUBARcQAxBfStD9PZiJhRjw==",
+      publisherBindingId: "hbnd_sentry",
+    },
     treeIntegrity: tree("4"),
   },
   {
     source: { type: "git", url: "https://github.com/acme/tools.git", path: "mcps/search" },
     identity: { name: "search" },
-    resolved: { commit: "c0ffee", tree: "search-tree" },
+    resolved: {
+      commit: "238ae8e25d90fefb6a01644334c30cb1f5232efc",
+      tree: "13ab38e6293145d89ff12a8478c55b32c408d262",
+    },
     treeIntegrity: tree("5"),
   },
 ].map((entry) => Schema.decodeUnknownSync(McpServerLockEntrySchema)(entry));
@@ -46,7 +55,12 @@ const fixture: Lockfile = Schema.decodeUnknownSync(LockfileViewSchema)({
     "published-skill": {
       source: { type: "registry", url: "https://registry.agentxm.ai" },
       identity: { owner: "@acme", name: "published-skill" },
-      resolved: { version: "1.0.0", integrity: "sha512-example", publisherBindingId: "hbnd_acme" },
+      resolved: {
+        version: "1.0.0",
+        integrity:
+          "sha512-O7Eu2jwpjbXeJVl/VNkk8uF+eKJq2JU+2CGO5oLwu76QIeLzAJ0VLJEb8fJexoOpAnFBZnZ6+9jlvQ+wEk7Lig==",
+        publisherBindingId: "hbnd_acme",
+      },
       treeIntegrity: tree("0"),
     },
     "plugin-review": {
@@ -64,7 +78,10 @@ const fixture: Lockfile = Schema.decodeUnknownSync(LockfileViewSchema)({
         },
       },
       identity: { name: "review" },
-      resolved: { commit: "0123456789abcdef0123456789abcdef01234567", tree: "abc123def456" },
+      resolved: {
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        tree: "90bd1b48e958257948487b90bee080ba5ed00caa",
+      },
       treeIntegrity: tree("1"),
     },
     "local-skill": {
@@ -123,7 +140,8 @@ const fixture: Lockfile = Schema.decodeUnknownSync(LockfileViewSchema)({
       identity: { owner: "@acme", name: "researcher" },
       resolved: {
         version: "0.3.0",
-        integrity: "sha512-researcher",
+        integrity:
+          "sha512-PikWkvvGjDDmtg897iD/vhH2uZVbxq2K8tn/CB9QHYSt4zgLTYFTGzMVxpMjpJDCyqDplb3fOkrDOOWVAxAZdg==",
         publisherBindingId: "hbnd_acme",
       },
       treeIntegrity: tree("8"),
@@ -133,7 +151,12 @@ const fixture: Lockfile = Schema.decodeUnknownSync(LockfileViewSchema)({
     docs: {
       source: { type: "registry", url: "https://registry.agentxm.ai" },
       identity: { owner: "@acme", name: "docs" },
-      resolved: { version: "0.7.0", integrity: "sha512-docs", publisherBindingId: "hbnd_acme" },
+      resolved: {
+        version: "0.7.0",
+        integrity:
+          "sha512-iJXdUHP75dmGt0Y5cqwMavC+/vtsV24JulL0BDheDdWOLEmBV+Rt+6x2z122uJN0J1xH44nhG7RO5Ps7LECRsg==",
+        publisherBindingId: "hbnd_acme",
+      },
       treeIntegrity: tree("9"),
       manifestVersion: "0.7.0",
       manifestContentIdentity: computePackManifestContentIdentity({
@@ -173,26 +196,88 @@ const view: Lockfile = {
   ),
 };
 
-const tool = {
-  example: { anything: "preserved verbatim, never read", nested: { z: [1, 2], a: true } },
-};
+const tool = parseLockfileToml(`[tool.example]
+anything = "preserved verbatim, never read"
+nested = { z = [1, 2], a = true }
+`).tool;
 
 const encode = Schema.encodeSync(LockfileSchema);
 const decode = Schema.decodeUnknownSync(LockfileSchema);
-const emit = (lockfile: Lockfile) => emitLockfileToml({ ...encode(lockfile), tool });
+const emit = (lockfile: Lockfile) => emitLockfileToml(encode(lockfile), tool);
 
 describe("canonical lockfile TOML", () => {
+  it("keeps mixed binding and MCP component tables attached to their own records", () => {
+    const component = (path: string) => ({
+      format: "claude",
+      root: "plugins/review",
+      path,
+      manifest: ".claude-plugin/plugin.json",
+      marketplace: { path: ".claude-plugin/marketplace.json", name: "acme" },
+    });
+    const binding = { package: "github.com/acme/toolbox", name: "review", spec: "main" };
+    const document = Schema.decodeUnknownSync(StoredLockfileSchema)({
+      version: 1,
+      skills: {
+        zebra: binding,
+        alpha: { ...binding, component: component("skills/alpha") },
+        beta: binding,
+        omega: { ...binding, component: component("skills/omega") },
+      },
+      mcp: [
+        { ...binding, name: "alpha", component: component("mcps/alpha") },
+        { ...binding, name: "beta", component: component("mcps/beta") },
+      ],
+      projections: {
+        rules: {
+          contract: 1,
+          units: { 'docs/"review".md': { gen: digest("a"), output: digest("b") } },
+        },
+        instructions: { contract: 1, units: { "hook with spaces.json": { output: digest("c") } } },
+      },
+    });
+    const bytes = emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(document));
+    const parsed = parseLockfileToml(bytes).document;
+    expect(parsed).toEqual(document);
+    expect(
+      emitLockfileToml(
+        Schema.encodeSync(StoredLockfileSchema)(
+          Schema.decodeUnknownSync(StoredLockfileSchema)(parsed),
+        ),
+      ),
+    ).toBe(bytes);
+    expect(bytes.indexOf("beta = {")).toBeLessThan(bytes.indexOf("zebra = {"));
+    expect(bytes.indexOf("zebra = {")).toBeLessThan(bytes.indexOf("[skills.alpha]"));
+    expect(bytes.indexOf("[skills.alpha]")).toBeLessThan(bytes.indexOf("[skills.omega]"));
+    expect(bytes).toContain(
+      '[mcp.component]\nformat = "claude"\nroot = "plugins/review"\npath = "mcps/alpha"',
+    );
+    expect(bytes).toContain(
+      'marketplace = { path = ".claude-plugin/marketplace.json", name = "acme" }',
+    );
+    expect(bytes).toContain(
+      `[projections.instructions.units."hook with spaces.json"]\noutput = "${digest("c")}"`,
+    );
+  });
+
   it("round-trips the view through bytes", () => {
     const bytes = emit(view);
-    expect(decode(parseLockfileToml(bytes), { onExcessProperty: "error" })).toEqual(view);
+    expect(decode(parseLockfileToml(bytes).document, { onExcessProperty: "error" })).toEqual(view);
   });
 
   it("re-emits parsed bytes byte for byte, tool tables included", () => {
     const bytes = emit(view);
-    const stored = Schema.decodeUnknownSync(StoredLockfileSchema)(parseLockfileToml(bytes), {
-      onExcessProperty: "error",
-    });
-    expect(emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(stored))).toBe(bytes);
+    const stored = Schema.decodeUnknownSync(StoredLockfileSchema)(
+      parseLockfileToml(bytes).document,
+      {
+        onExcessProperty: "error",
+      },
+    );
+    expect(
+      emitLockfileToml(
+        Schema.encodeSync(StoredLockfileSchema)(stored),
+        parseLockfileToml(bytes).tool,
+      ),
+    ).toBe(bytes);
   });
 
   it("emits identical bytes for identical content in any insertion order", () => {
@@ -236,21 +321,21 @@ describe("canonical lockfile TOML", () => {
       id = "github.com/acme/plugins/plugins/review"
       source = { git = "https://github.com/acme/plugins.git", path = "plugins/review", format = "claude" }
       commit = "0123456789abcdef0123456789abcdef01234567"
-      git-tree = "abc123def456"
+      git-tree = "90bd1b48e958257948487b90bee080ba5ed00caa"
       tree = "sha256-tree-v2:1111111111111111111111111111111111111111111111111111111111111111"
 
       [[package]]
       id = "github.com/acme/tools/mcps/search"
       source = { git = "https://github.com/acme/tools.git", path = "mcps/search", format = "native" }
-      commit = "c0ffee"
-      git-tree = "search-tree"
+      commit = "238ae8e25d90fefb6a01644334c30cb1f5232efc"
+      git-tree = "13ab38e6293145d89ff12a8478c55b32c408d262"
       tree = "sha256-tree-v2:5555555555555555555555555555555555555555555555555555555555555555"
 
       [[package]]
       id = "registry.agentxm.ai/@acme/packs/docs"
       source = { registry = "https://registry.agentxm.ai" }
       version = "0.7.0"
-      archive = "sha512-docs"
+      archive = "sha512-iJXdUHP75dmGt0Y5cqwMavC+/vtsV24JulL0BDheDdWOLEmBV+Rt+6x2z122uJN0J1xH44nhG7RO5Ps7LECRsg=="
       publisher = "hbnd_acme"
       tree = "sha256-tree-v2:9999999999999999999999999999999999999999999999999999999999999999"
       manifest-version = "0.7.0"
@@ -264,7 +349,7 @@ describe("canonical lockfile TOML", () => {
       id = "registry.agentxm.ai/@acme/skills/published-skill"
       source = { registry = "https://registry.agentxm.ai" }
       version = "1.0.0"
-      archive = "sha512-example"
+      archive = "sha512-O7Eu2jwpjbXeJVl/VNkk8uF+eKJq2JU+2CGO5oLwu76QIeLzAJ0VLJEb8fJexoOpAnFBZnZ6+9jlvQ+wEk7Lig=="
       publisher = "hbnd_acme"
       tree = "sha256-tree-v2:0000000000000000000000000000000000000000000000000000000000000000"
 
@@ -272,7 +357,7 @@ describe("canonical lockfile TOML", () => {
       id = "registry.agentxm.ai/@acme/subagents/researcher"
       source = { registry = "https://registry.agentxm.ai" }
       version = "0.3.0"
-      archive = "sha512-researcher"
+      archive = "sha512-PikWkvvGjDDmtg897iD/vhH2uZVbxq2K8tn/CB9QHYSt4zgLTYFTGzMVxpMjpJDCyqDplb3fOkrDOOWVAxAZdg=="
       publisher = "hbnd_acme"
       tree = "sha256-tree-v2:8888888888888888888888888888888888888888888888888888888888888888"
 
@@ -280,7 +365,7 @@ describe("canonical lockfile TOML", () => {
       id = "registry.agentxm.ai/@community/mcps/sentry"
       source = { registry = "https://registry.agentxm.ai" }
       version = "2.1.0"
-      archive = "sha512-sentry"
+      archive = "sha512-9Wts3FBo3Uo/hMSsR5eSGahQBC/zwbkSIRSsOwA2KnHsMD1LOpcDGXWRha+FcjFsUBARcQAxBfStD9PZiJhRjw=="
       publisher = "hbnd_sentry"
       tree = "sha256-tree-v2:4444444444444444444444444444444444444444444444444444444444444444"
 
@@ -288,8 +373,19 @@ describe("canonical lockfile TOML", () => {
       archived = { package = "example.com/releases/review.tar.gz", name = "archived" }
       indexed = { package = "example.com/.well-known/agent-skills/index.json/indexed", name = "indexed" }
       local-skill = { package = "_local/project/skills/my-skill", name = "@acme/skills/local-skill" }
-      plugin-review = { package = "github.com/acme/plugins/plugins/review", name = "review", spec = "v1.0.0", component = { format = "claude", root = "plugins/review", path = "skills/review", manifest = ".claude-plugin/plugin.json", marketplace = { path = ".claude-plugin/marketplace.json", name = "acme" } } }
       published-skill = { package = "registry.agentxm.ai/@acme/skills/published-skill", name = "@acme/skills/published-skill" }
+
+      [skills.plugin-review]
+      package = "github.com/acme/plugins/plugins/review"
+      name = "review"
+      spec = "v1.0.0"
+
+      [skills.plugin-review.component]
+      format = "claude"
+      root = "plugins/review"
+      path = "skills/review"
+      manifest = ".claude-plugin/plugin.json"
+      marketplace = { path = ".claude-plugin/marketplace.json", name = "acme" }
 
       [[mcp]]
       package = "github.com/acme/tools/mcps/search"
@@ -308,15 +404,19 @@ describe("canonical lockfile TOML", () => {
       [projections.rules]
       contract = 1
 
-      [projections.rules.units]
-      "AGENTS.md" = { gen = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", output = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }
+      [projections.rules.units."AGENTS.md"]
+      gen = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      output = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 
       [projections.instructions]
       contract = 1
 
-      [projections.instructions.units]
-      ".gitignore" = { output = "sha256:0000000000000000000000000000000000000000000000000000000000000000" }
-      "CLAUDE.md" = { gen = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", output = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }
+      [projections.instructions.units.".gitignore"]
+      output = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+
+      [projections.instructions.units."CLAUDE.md"]
+      gen = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      output = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
       [tool.example]
       anything = "preserved verbatim, never read"
@@ -326,16 +426,14 @@ describe("canonical lockfile TOML", () => {
   });
 
   it("writes only basic strings and quotes keys that are not bare", () => {
-    const bytes = emitLockfileToml({
-      version: LOCKFILE_VERSION,
-      tool: {
-        "my tool": {
-          'quote"and\\slash': "tab\tline\nfeed\u0001bell\u007f",
-          list: [],
-          table: {},
-        },
-      },
-    });
+    const toolText = [
+      '[tool."my tool"]',
+      String.raw`"quote\"and\\slash" = "tab\tline\nfeed\u0001bell\u007f"`,
+      "list = []",
+      "table = {}",
+    ].join("\n");
+    const parsed = parseLockfileToml(toolText);
+    const bytes = emitLockfileToml({ version: LOCKFILE_VERSION }, parsed.tool);
     expect(bytes.split("\n").slice(3).join("\n")).toBe(
       [
         "",
@@ -346,16 +444,7 @@ describe("canonical lockfile TOML", () => {
         "",
       ].join("\n"),
     );
-    expect(parseLockfileToml(bytes)).toEqual({
-      version: 1,
-      tool: {
-        "my tool": {
-          'quote"and\\slash': "tab\tline\nfeed\u0001bell\u007f",
-          list: [],
-          table: {},
-        },
-      },
-    });
+    expect(parseLockfileToml(bytes).tool).toEqual(parsed.tool);
   });
 
   it("carries every TOML value kind under tool tables through a rewrite", () => {
@@ -375,7 +464,7 @@ describe("canonical lockfile TOML", () => {
       "clock = 06:30:00.000",
       "",
     ].join("\n");
-    const parsed = parseLockfileToml(stored);
+    const { document: parsed, tool: preserved } = parseLockfileToml(stored);
     const decoded = Schema.decodeUnknownSync(StoredLockfileSchema)(parsed, {
       onExcessProperty: "error",
     });
@@ -383,7 +472,7 @@ describe("canonical lockfile TOML", () => {
       lockfileVersion: LOCKFILE_VERSION,
       skills: {},
     });
-    const rewritten = emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(decoded));
+    const rewritten = emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(decoded), preserved);
     expect(rewritten.split("\n").slice(3).join("\n")).toBe(
       [
         "",
@@ -397,16 +486,18 @@ describe("canonical lockfile TOML", () => {
         "nothing = nan",
         "ratio = 1.5",
         "shifted = 2026-10-15T06:30:00.000+02:00",
-        "whole = 2",
+        "whole = 2.0",
         "",
       ].join("\n"),
     );
-    expect(emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(decoded))).toBe(rewritten);
+    expect(emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(decoded), preserved)).toBe(
+      rewritten,
+    );
   });
 
   it("refuses a date in a field AXM owns", () => {
     expect(() =>
-      decode(parseLockfileToml("version = 2026-10-15\n"), { onExcessProperty: "error" }),
+      decode(parseLockfileToml("version = 2026-10-15\n").document, { onExcessProperty: "error" }),
     ).toThrow();
   });
 
@@ -417,8 +508,8 @@ describe("canonical lockfile TOML", () => {
       "[[package]]",
       'id = "github.com/acme/tools/mcps/search"',
       'source = { git = "https://github.com/acme/tools.git", path = "mcps/search", format = "native" }',
-      'commit = "c0ffee"',
-      'git-tree = "search-tree"',
+      'commit = "238ae8e25d90fefb6a01644334c30cb1f5232efc"',
+      'git-tree = "13ab38e6293145d89ff12a8478c55b32c408d262"',
       `tree = "${tree("5")}"`,
       'source-root = "docs"',
       "",
@@ -426,7 +517,7 @@ describe("canonical lockfile TOML", () => {
       'search = { package = "github.com/acme/tools/mcps/search", name = "search" }',
       "",
     ].join("\n");
-    expect(() => decode(parseLockfileToml(stored), { onExcessProperty: "error" })).toThrow(
+    expect(() => decode(parseLockfileToml(stored).document, { onExcessProperty: "error" })).toThrow(
       /Only a Pack's retained package may carry a Pack declaration/u,
     );
   });

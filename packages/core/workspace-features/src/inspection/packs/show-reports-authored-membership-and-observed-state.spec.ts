@@ -230,7 +230,7 @@ describe("Pack state inspection", () => {
               `${fixture.root}/agent_extensions/${new URL(inspectionRegistryUrl).hostname}/@acme/mcps/context`,
             );
             const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-              parseLockfileToml(fixture.readFile("axm.lock")),
+              parseLockfileToml(fixture.readFile("axm.lock")).document,
             );
             const accepted = lockfile.mcpServers?.[resolutionKey];
             if (accepted === undefined) throw new Error("Expected accepted MCP");

@@ -160,8 +160,9 @@ review = { package = "registry.agentxm.ai/@acme/skills/review", name = "@acme/sk
 [projections.rules]
 contract = 1
 
-[projections.rules.units]
-"AGENTS.md" = { gen = "sha256:…", output = "sha256:…" }
+[projections.rules.units."AGENTS.md"]
+gen = "sha256:…"
+output = "sha256:…"
 ```
 
 Each `[[package]]` record describes one retained package once: its `id`, its
@@ -206,7 +207,17 @@ AXM writes the whole file on every change, in one canonical layout: records
 sorted by `id`, bindings and units by key, in code-point order, so the same
 state produces the same bytes on every machine. Comments and hand formatting do
 not survive the next write. `[tool.<name>]` tables are reserved for other
-tools; AXM keeps their values on every write and never reads them.
+tools; AXM preserves their scalar types and values on every write, including
+large integers, negative-zero floats, and timestamp precision and offsets. It
+does not use them for installation. Unreadable tool data prevents replacement.
+
+Simple bindings remain inline; bindings with components use a binding table and
+a component subtable. Each projection unit has its own table, with optional
+`gen` and required `output` on separate lines.
+
+The schema header supports editor checks for field shapes, names, and immutable
+identifiers. The CLI additionally validates package references, Pack declaration
+consistency and uniqueness, domain semantics, and TOML value fidelity.
 
 ### Git acquisition and revision behavior
 

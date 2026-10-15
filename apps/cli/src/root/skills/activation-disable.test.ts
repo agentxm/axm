@@ -196,7 +196,9 @@ describe("disable.handler", () => {
 
           // Lockfile should be unchanged
           const lockContent = fs.readFileSync(path.join(tempDir, "axm.lock"), "utf-8");
-          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockContent));
+          const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
+            parseLockfileToml(lockContent).document,
+          );
           expect(lockfile.skills["my-skill"]).toBeDefined();
 
           // Preview outcome should be displayed
@@ -249,7 +251,7 @@ describe("disable.handler", () => {
             owner: "@acme",
             name: "code-review",
             resolvedVersion: "1.2.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             sourceHash: computeSourceHash("SKILL.md\n# code-review"),

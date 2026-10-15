@@ -152,7 +152,7 @@ describe("Pack and MCP shared source resolution", () => {
             const resolutions = (): ReadonlyArray<string> =>
               Object.keys(
                 Schema.decodeUnknownSync(LockfileSchema)(
-                  parseLockfileToml(created.workspace.readFile("axm.lock")),
+                  parseLockfileToml(created.workspace.readFile("axm.lock")).document,
                 ).mcpServers ?? {},
               );
             const accepted = `registry:${encodeURIComponent(created.registry.endpoint.href)}:@acme/mcps/context`;

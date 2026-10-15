@@ -74,7 +74,7 @@ describe("Local human inventories", () => {
           owner: "@acme",
           name: "review",
           resolvedVersion: "1.0.0",
-          integrity: "sha512-AAAA==",
+          integrity: `sha512-${"A".repeat(86)}==`,
           packageFormat: "agentxm",
           publisherBindingId: "hbnd_test",
           treeIntegrity: computeMaterializedTreeIntegritySync(skillDir),
@@ -97,7 +97,11 @@ describe("Local human inventories", () => {
           message: "Use the replacement skill.",
         },
         versions: [
-          { version: "1.0.0", published: "2026-01-01T00:00:00.000Z", integrity: "sha512-AAAA==" },
+          {
+            version: "1.0.0",
+            published: "2026-01-01T00:00:00.000Z",
+            integrity: `sha512-${"A".repeat(86)}==`,
+          },
         ],
       }),
     );

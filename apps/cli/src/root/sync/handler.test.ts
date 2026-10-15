@@ -113,12 +113,12 @@ const writeRegistrySkillIndex = (registryRoot: string, name: string) => {
       {
         version: "2.0.0",
         published: "2099-01-01T00:00:00Z",
-        integrity: "sha512-BBBB==",
+        integrity: `sha512-${"B".repeat(85)}A==`,
       },
       {
         version: "1.0.0",
         published: "1960-01-01T00:00:00Z",
-        integrity: "sha512-AAAA==",
+        integrity: `sha512-${"A".repeat(86)}==`,
       },
     ],
   });
@@ -248,7 +248,7 @@ const writeRenderedSubagent = (
   fs.writeFileSync(filePath, bytes);
   if (!recorded) return;
   const lockPath = path.join(baseDir, "axm.lock");
-  const lockfile: unknown = parseLockfileToml(fs.readFileSync(lockPath, "utf8"));
+  const lockfile: unknown = parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document;
   const document = typeof lockfile === "object" && lockfile !== null ? lockfile : {};
   const output = projectionOutputDigest(bytes);
   const withProjection = Schema.decodeUnknownSync(LockfileSchema)({
@@ -419,7 +419,7 @@ const makePackRollbackFixture = (
         owner: "@acme",
         name: "toolkit",
         resolvedVersion: "1.0.0",
-        integrity: "",
+        integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(acceptedPackManifest),
@@ -433,7 +433,7 @@ const makePackRollbackFixture = (
         owner: "@acme",
         name: "review",
         resolvedVersion: "1.0.0",
-        integrity: "",
+        integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         treeIntegrity: computeMaterializedTreeIntegritySync(acceptedSkillSource),
@@ -498,8 +498,10 @@ const expectPackRollbackPreimages = (
 ): void => {
   const lockfile = fs.readFileSync(paths.lockfile, "utf8");
   expect(lockfile).toBe(before.lockfile);
-  expect(parseLockfileToml(lockfile)).toEqual(parseLockfileToml(before.lockfile));
-  expect(Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockfile))).toMatchObject({
+  expect(parseLockfileToml(lockfile).document).toEqual(parseLockfileToml(before.lockfile).document);
+  expect(
+    Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockfile).document),
+  ).toMatchObject({
     packs: { toolkit: { resolved: { version: "1.0.0" } } },
     skills: { review: { resolved: { version: "1.0.0" } } },
   });
@@ -596,7 +598,7 @@ const makeConstraintMismatchFixture = (
         owner: "@acme",
         name: "alpha",
         resolvedVersion: "1.0.0",
-        integrity: "",
+        integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[0]),
@@ -607,7 +609,7 @@ const makeConstraintMismatchFixture = (
         owner: "@acme",
         name: "beta",
         resolvedVersion: "1.0.0",
-        integrity: "",
+        integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
         manifestContentIdentity: computePackManifestContentIdentity(manifests[1]),
@@ -620,7 +622,7 @@ const makeConstraintMismatchFixture = (
         owner: "@acme",
         name: "review",
         resolvedVersion: "1.0.0",
-        integrity: "",
+        integrity: `sha512-${"A".repeat(86)}==`,
         sourceName: "test",
         publisherBindingId: "hbnd_test",
       },
@@ -830,7 +832,7 @@ describe("root sync handler", () => {
             owner: "@acme",
             name: "review",
             resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
@@ -855,7 +857,7 @@ describe("root sync handler", () => {
             owner: "@acme",
             name: "review",
             resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
@@ -1079,7 +1081,7 @@ describe("root sync handler", () => {
         expect(property(planResultUnits(applied)[0], "label")).toBe(previewLabel);
         expect(
           Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(fs.readFileSync(fixture.paths.lockfile, "utf8")),
+            parseLockfileToml(fs.readFileSync(fixture.paths.lockfile, "utf8")).document,
           ),
         ).toMatchObject({
           packs: { toolkit: { resolved: { version: "1.0.0" } } },
@@ -1925,7 +1927,7 @@ describe("root sync handler", () => {
             owner: "@legacy",
             name: "review",
             resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test-registry",
             publisherBindingId: "hbnd_test",
             installedAt: "2025-01-01T00:00:00.000Z",
@@ -1954,7 +1956,7 @@ describe("root sync handler", () => {
         totalSteps: 2,
       });
       const lockfile = Schema.decodeUnknownSync(LockfileSchema)(
-        parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")),
+        parseLockfileToml(fs.readFileSync(path.join(tempDir, "axm.lock"), "utf8")).document,
       );
       expect(lockfile.skills["review"]).toBeUndefined();
       expect(fs.existsSync(path.join(tempDir, ".claude", "skills", "review", "SKILL.md"))).toBe(
@@ -2000,7 +2002,7 @@ describe("root sync handler", () => {
             owner: "@acme",
             name: "review",
             resolvedVersion: "1.0.0",
-            integrity: "sha512-AAAA==",
+            integrity: `sha512-${"A".repeat(86)}==`,
             sourceName: "test",
             publisherBindingId: "hbnd_test",
             installedAt: "2026-08-01T00:00:00.000Z",

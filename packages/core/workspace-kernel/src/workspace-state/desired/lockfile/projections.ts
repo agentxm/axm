@@ -26,26 +26,21 @@ export const PROJECTION_CONTRACTS = {
 } as const satisfies Record<ProjectionKind, number>;
 
 export const ProjectionDigestSchema = Schema.String.check(
-  Schema.isPattern(/^sha256:[0-9a-f]{64}$/u, {
+  Schema.isPattern(/^sha256:[0-9a-f]{64}(?![\s\S])/u, {
     message: "Expected a projection digest of the form sha256:<64 lowercase hex>",
   }),
 ).pipe(Schema.brand("ProjectionDigest"));
 export type ProjectionDigest = typeof ProjectionDigestSchema.Type;
 
-/** Why a scope-relative unit path is unusable, or `undefined` when it is valid. */
-const projectionUnitPathProblem = (value: string): string | undefined => {
-  if (value.length === 0) return "Projection unit path must not be empty";
-  if (value.includes("\\")) return "Projection unit path must use '/' separators";
-  if (value.startsWith("/") || /^[A-Za-z]:/u.test(value))
-    return "Projection unit path must be relative to its scope root";
-  if (value.split("/").some((segment) => segment === "" || segment === "." || segment === ".."))
-    return "Projection unit path must not contain empty, '.' or '..' segments";
-  return undefined;
-};
-
-/** Scope-relative POSIX path: not absolute, no `..`, no `\`, no empty or `.` segments. */
+/** Scope-relative POSIX path, preserving the projection path grammar. */
 export const ProjectionUnitPathSchema = Schema.String.check(
-  Schema.makeFilter(projectionUnitPathProblem),
+  Schema.isPattern(
+    /^(?![A-Za-z]:)(?!\.{1,2}(?:\/|(?![\s\S])))[^/\\]+(?:\/(?!\.{1,2}(?:\/|(?![\s\S])))[^/\\]+)*(?![\s\S])/u,
+    {
+      message:
+        "Expected a relative projection unit path without empty, '.', '..', or backslash segments",
+    },
+  ),
 ).pipe(Schema.brand("ProjectionUnitPath"));
 export type ProjectionUnitPath = typeof ProjectionUnitPathSchema.Type;
 
@@ -85,15 +80,9 @@ export interface ProjectionRowChange {
 const sortedUnits = (
   units: Readonly<Record<ProjectionUnitPath, ProjectionRow>>,
 ): Record<ProjectionUnitPath, ProjectionRow> => {
-  const sorted: Record<ProjectionUnitPath, ProjectionRow> = {};
-  const keys = Object.keys(units)
-    .map((key) => ProjectionUnitPathSchema.make(key))
-    .sort(compareCodePoints);
-  for (const key of keys) {
-    const row = units[key];
-    if (row !== undefined) sorted[key] = row;
-  }
-  return sorted;
+  return Object.fromEntries(
+    Object.entries(units).sort(([left], [right]) => compareCodePoints(left, right)),
+  );
 };
 
 /**
@@ -113,17 +102,17 @@ export const applyKindChanges = (
     readonly row: ProjectionRow | undefined;
   }>,
 ): ProjectionKindState | undefined => {
-  const units: Record<ProjectionUnitPath, ProjectionRow> = {};
+  const units = new Map<ProjectionUnitPath, ProjectionRow>();
   const contractChanged = state !== undefined && state.contract !== contract;
   for (const [key, row] of Object.entries(state?.units ?? {})) {
     const path = ProjectionUnitPathSchema.make(key);
-    units[path] = contractChanged ? { output: row.output } : row;
+    units.set(path, contractChanged ? { output: row.output } : row);
   }
   for (const change of changes) {
-    if (change.row === undefined) delete units[change.path];
-    else units[change.path] = change.row;
+    if (change.row === undefined) units.delete(change.path);
+    else units.set(change.path, change.row);
   }
-  return Object.keys(units).length === 0 ? undefined : { contract, units: sortedUnits(units) };
+  return units.size === 0 ? undefined : { contract, units: sortedUnits(Object.fromEntries(units)) };
 };
 
 /** Drop empty kinds and sort unit keys; `undefined` for an empty section. */
@@ -172,11 +161,17 @@ export const patchProjections = (
     const changes: Array<{ path: ProjectionUnitPath; row: ProjectionRow | undefined }> = [];
     for (const key of Object.keys(before?.units ?? {})) {
       const path = ProjectionUnitPathSchema.make(key);
-      if (after?.units[path] === undefined) changes.push({ path, row: undefined });
+      if (!Object.hasOwn(after?.units ?? {}, path)) changes.push({ path, row: undefined });
     }
     for (const [key, row] of Object.entries(after?.units ?? {})) {
       const path = ProjectionUnitPathSchema.make(key);
-      if (!Equal.equals(before?.units[path], row)) changes.push({ path, row });
+      if (
+        !Equal.equals(
+          Object.hasOwn(before?.units ?? {}, path) ? before?.units[path] : undefined,
+          row,
+        )
+      )
+        changes.push({ path, row });
     }
     const contractChanged = after !== undefined && after.contract !== before?.contract;
     if (changes.length === 0 && !contractChanged) continue;

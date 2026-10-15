@@ -53,7 +53,7 @@ const decodeLockfileDocument = Schema.decodeUnknownSync(
 /** The lockfile's accepted resolutions: everything but its projection generation records. */
 const acceptedResolutions = (lockfile: string): string =>
   JSON.stringify(
-    Object.entries(decodeLockfileDocument(parseLockfileToml(lockfile))).filter(
+    Object.entries(decodeLockfileDocument(parseLockfileToml(lockfile).document)).filter(
       ([key]) => key !== "projections",
     ),
   );

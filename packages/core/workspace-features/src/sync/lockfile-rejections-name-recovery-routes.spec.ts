@@ -225,7 +225,9 @@ describe("Lockfile rejection recovery routes", () => {
       const lockfile = fs.readFileSync(lockPath, "utf8");
       expect(lockfile).toContain(`version = ${LOCKFILE_VERSION}`);
       // Both Packs admit 1.2.0; the direct pin is a contributor too.
-      expect(Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockfile))).toMatchObject({
+      expect(
+        Schema.decodeUnknownSync(LockfileSchema)(parseLockfileToml(lockfile).document),
+      ).toMatchObject({
         skills: { [SHARED_MEMBER.name]: { resolved: { version: SHARED_MEMBER_PIN.inside } } },
       });
     });
@@ -282,7 +284,7 @@ describe("Lockfile rejection recovery routes", () => {
         expect(applied.units).toEqual([...blockedUnits, connection("committed")]);
         expect(
           Schema.decodeUnknownSync(LockfileSchema)(
-            parseLockfileToml(fs.readFileSync(lockPath, "utf8")),
+            parseLockfileToml(fs.readFileSync(lockPath, "utf8")).document,
           ),
         ).toMatchObject({ lockfileVersion: LOCKFILE_VERSION, skills: {} });
         const connectionRoot = fileRegistryPackagePath(

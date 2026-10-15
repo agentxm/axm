@@ -30,7 +30,7 @@ describe("example files", () => {
       path.join(SRC, "desired/lockfile/axm.lock.example.toml"),
       "utf-8",
     );
-    const example = parseLockfileToml(bytes);
+    const example = parseLockfileToml(bytes).document;
     const result = Schema.decodeUnknownSync(LockfileSchema)(example, { onExcessProperty: "error" });
     expect(result.lockfileVersion).toBe(1);
     expect(result.skills["code-review"]).toBeDefined();
@@ -38,7 +38,12 @@ describe("example files", () => {
     const stored = Schema.decodeUnknownSync(StoredLockfileSchema)(example, {
       onExcessProperty: "error",
     });
-    expect(emitLockfileToml(Schema.encodeSync(StoredLockfileSchema)(stored))).toBe(bytes);
+    expect(
+      emitLockfileToml(
+        Schema.encodeSync(StoredLockfileSchema)(stored),
+        parseLockfileToml(bytes).tool,
+      ),
+    ).toBe(bytes);
   });
 
   it("settings.example.json conforms to SettingsSchema", () => {

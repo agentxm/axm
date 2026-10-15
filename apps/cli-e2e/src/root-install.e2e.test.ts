@@ -1,5 +1,6 @@
 import { configuredRegistryFixturePath } from "./test-support/retained-paths.js";
 import { execSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -205,29 +206,6 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
   try {
     fs.mkdirSync(extensionDir, { recursive: true });
     fs.writeFileSync(
-      path.join(extensionDir, "index.json"),
-      JSON.stringify(
-        {
-          owner: OWNER,
-          name,
-          type: "mcp-server",
-          publisherBindingId: "hbnd_test",
-          archival: null,
-          deprecation: null,
-          versions: [
-            {
-              version,
-              published: new Date("2026-01-01T00:00:00.000Z").toISOString(),
-              integrity: "",
-            },
-          ],
-        },
-        null,
-        2,
-      ),
-    );
-
-    fs.writeFileSync(
       path.join(archiveWorkspace.path, "mcp.json"),
       JSON.stringify(
         {
@@ -260,6 +238,30 @@ const publishMcpServerToRegistry = async (registryPath: string, name: string) =>
 
     execSync(
       `cd "${archiveWorkspace.path}" && zip -rq "${path.join(extensionDir, `${version}.zip`)}" .`,
+    );
+    fs.writeFileSync(
+      path.join(extensionDir, "index.json"),
+      JSON.stringify(
+        {
+          owner: OWNER,
+          name,
+          type: "mcp-server",
+          publisherBindingId: "hbnd_test",
+          archival: null,
+          deprecation: null,
+          versions: [
+            {
+              version,
+              published: new Date("2026-01-01T00:00:00.000Z").toISOString(),
+              integrity: `sha512-${createHash("sha512")
+                .update(fs.readFileSync(path.join(extensionDir, `${version}.zip`)))
+                .digest("base64")}`,
+            },
+          ],
+        },
+        null,
+        2,
+      ),
     );
   } finally {
     archiveWorkspace.cleanup();
